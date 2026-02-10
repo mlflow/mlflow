@@ -1,25 +1,19 @@
 # ruff: noqa: T201
+"""
+Verify a fs2db migration by comparing MLflow public API results from source
+(FileStore) and target (DB) backends.
+"""
+
 from pathlib import Path
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Connection
 
-from mlflow.entities import RunStatus
 from mlflow.store.fs2db import _resolve_mlruns
-from mlflow.store.fs2db._helpers import (
-    META_YAML,
-    for_each_experiment,
-    list_subdirs,
-    read_tag_files,
-    safe_read_yaml,
-)
-from mlflow.utils.file_utils import read_file_lines
+from mlflow.tracking import MlflowClient
 
 GREEN = "\033[32m"
 RED = "\033[31m"
 RESET = "\033[0m"
-
-RESERVED_FOLDERS = {"tags", "datasets", "traces", "models", ".trash"}
 
 
 def _pass(msg: str) -> None:
@@ -30,233 +24,301 @@ def _fail(msg: str) -> None:
     print(f"  {RED}FAIL{RESET} {msg}")
 
 
-def _check_counts(conn: Connection, mlruns: Path) -> bool:
+def _check_experiments(src: MlflowClient, dst: MlflowClient) -> bool:
     ok = True
-    tables = [
-        "experiments",
-        "runs",
-        "trace_info",
-        "assessments",
-        "logged_models",
-        "registered_models",
-        "model_versions",
-    ]
-    src = _count_source(mlruns)
-    for table in tables:
-        expected = src[table]
-        try:
-            actual = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
-        except Exception:
-            _fail(f"{table}: table not found")
-            ok = False
-            continue
-        if actual >= expected:
-            _pass(f"{table}: {actual} rows (source: {expected})")
-        else:
-            _fail(f"{table}: {actual} < {expected} (source)")
-            ok = False
-    return ok
+    src_exps = src.search_experiments(view_type=3)  # ALL
+    dst_exps = dst.search_experiments(view_type=3)
+    src_by_id = {e.experiment_id: e for e in src_exps}
+    dst_by_id = {e.experiment_id: e for e in dst_exps}
 
+    if len(dst_by_id) < len(src_by_id):
+        _fail(f"experiments: {len(dst_by_id)} < {len(src_by_id)}")
+        ok = False
+    else:
+        _pass(f"experiments: {len(dst_by_id)} (source: {len(src_by_id)})")
 
-def _count_source(mlruns: Path) -> dict[str, int]:
-    n = {
-        "experiments": 0,
-        "runs": 0,
-        "trace_info": 0,
-        "assessments": 0,
-        "logged_models": 0,
-        "registered_models": 0,
-        "model_versions": 0,
-    }
-    for exp_dir, _exp_id in for_each_experiment(mlruns):
-        if not (exp_dir / META_YAML).is_file():
-            continue
-        n["experiments"] += 1
-        for name in list_subdirs(exp_dir):
-            if name not in RESERVED_FOLDERS and (exp_dir / name / META_YAML).is_file():
-                n["runs"] += 1
-        traces_dir = exp_dir / "traces"
-        if traces_dir.is_dir():
-            for td in list_subdirs(traces_dir):
-                if (traces_dir / td / "trace_info.yaml").is_file():
-                    n["trace_info"] += 1
-                    adir = traces_dir / td / "assessments"
-                    if adir.is_dir():
-                        n["assessments"] += sum(1 for f in adir.iterdir() if f.suffix == ".yaml")
-        models_dir = exp_dir / "models"
-        if models_dir.is_dir():
-            for md in list_subdirs(models_dir):
-                if (models_dir / md / META_YAML).is_file():
-                    n["logged_models"] += 1
-    registry_dir = mlruns / "models"
-    if registry_dir.is_dir():
-        for mn in list_subdirs(registry_dir):
-            if (registry_dir / mn / META_YAML).is_file():
-                n["registered_models"] += 1
-                for vd in list_subdirs(registry_dir / mn):
-                    if vd.startswith("version-"):
-                        n["model_versions"] += 1
-    return n
-
-
-def _check_experiments(conn: Connection, mlruns: Path) -> bool:
-    ok = True
-    for exp_dir, exp_id in for_each_experiment(mlruns):
-        meta = safe_read_yaml(exp_dir, META_YAML)
-        if meta is None:
-            continue
-        row = conn.execute(
-            text("SELECT name, lifecycle_stage FROM experiments WHERE experiment_id = :id"),
-            {"id": int(exp_id)},
-        ).first()
-        if row is None:
+    for exp_id, src_exp in src_by_id.items():
+        dst_exp = dst_by_id.get(exp_id)
+        if dst_exp is None:
             _fail(f"experiment {exp_id}: missing from DB")
             ok = False
             continue
-        if row[0] != meta.get("name"):
-            _fail(f"experiment {exp_id}: name {row[0]!r} != {meta.get('name')!r}")
+        if src_exp.name != dst_exp.name:
+            _fail(f"experiment {exp_id}: name {dst_exp.name!r} != {src_exp.name!r}")
             ok = False
-        elif row[1] != meta.get("lifecycle_stage", "active"):
-            expected = meta.get("lifecycle_stage")
-            _fail(f"experiment {exp_id}: lifecycle_stage {row[1]!r} != {expected!r}")
+        elif src_exp.lifecycle_stage != dst_exp.lifecycle_stage:
+            _fail(
+                f"experiment {exp_id}: lifecycle_stage"
+                f" {dst_exp.lifecycle_stage!r} != {src_exp.lifecycle_stage!r}"
+            )
             ok = False
-        else:
-            _pass(f"experiment {exp_id} ({row[0]})")
-        break  # spot-check first only
+        break  # spot-check first
     return ok
 
 
-def _check_runs(conn: Connection, mlruns: Path) -> bool:
-    ok = True
-    for exp_dir, _exp_id in for_each_experiment(mlruns):
-        for name in list_subdirs(exp_dir):
-            if name in RESERVED_FOLDERS:
-                continue
-            meta = safe_read_yaml(exp_dir / name, META_YAML)
-            if meta is None:
-                continue
-            run_uuid = meta.get("run_uuid") or meta.get("run_id")
-            if not run_uuid:
-                continue
-            row = conn.execute(
-                text("SELECT status, lifecycle_stage, artifact_uri FROM runs WHERE run_uuid = :id"),
-                {"id": run_uuid},
-            ).first()
-            if row is None:
-                _fail(f"run {run_uuid}: missing from DB")
-                ok = False
-                continue
-            status_raw = meta.get("status", RunStatus.RUNNING)
-            expected_status = (
-                RunStatus.to_string(status_raw) if isinstance(status_raw, int) else str(status_raw)
+def _find_rich_run_id(target_uri: str) -> str | None:
+    """Find a run with the most params+metrics for a meaningful comparison."""
+    engine = create_engine(target_uri)
+    with engine.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT r.run_uuid,"
+                " (SELECT COUNT(*) FROM params p WHERE p.run_uuid = r.run_uuid)"
+                " + (SELECT COUNT(*) FROM metrics m WHERE m.run_uuid = r.run_uuid) AS richness"
+                " FROM runs r ORDER BY richness DESC LIMIT 1"
             )
-            if row[0] != expected_status:
-                _fail(f"run {run_uuid}: status {row[0]!r} != {expected_status!r}")
-                ok = False
-            elif row[1] != meta.get("lifecycle_stage", "active"):
-                _fail(f"run {run_uuid}: lifecycle_stage {row[1]!r}")
+        ).first()
+        return row[0] if row else None
+
+
+def _check_runs(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
+    ok = True
+    run_id = _find_rich_run_id(target_uri)
+    if not run_id:
+        _pass("runs: no runs to check")
+        return ok
+
+    src_run = src.get_run(run_id)
+    dst_run = dst.get_run(run_id)
+
+    checks = [
+        ("status", src_run.info.status, dst_run.info.status),
+        ("lifecycle_stage", src_run.info.lifecycle_stage, dst_run.info.lifecycle_stage),
+    ]
+    for field, expected, actual in checks:
+        if expected != actual:
+            _fail(f"run {run_id}: {field} {actual!r} != {expected!r}")
+            return False
+
+    # Compare params
+    for key, expected_val in src_run.data.params.items():
+        actual_val = dst_run.data.params.get(key)
+        if actual_val != expected_val:
+            _fail(f"run {run_id}: param {key} {actual_val!r} != {expected_val!r}")
+            return False
+
+    # Compare metric keys
+    src_metric_keys = set(src_run.data.metrics.keys())
+    dst_metric_keys = set(dst_run.data.metrics.keys())
+    if src_metric_keys != dst_metric_keys:
+        _fail(f"run {run_id}: metric keys {dst_metric_keys} != {src_metric_keys}")
+        return False
+
+    # Compare tags (skip internal mlflow.* tags that may differ between backends)
+    src_tags = {k: v for k, v in src_run.data.tags.items() if not k.startswith("mlflow.")}
+    dst_tags = {k: v for k, v in dst_run.data.tags.items() if not k.startswith("mlflow.")}
+    if missing_tags := set(src_tags) - set(dst_tags):
+        _fail(f"run {run_id}: missing tags {missing_tags}")
+        return False
+
+    # Compare dataset inputs
+    src_ds = src_run.inputs.dataset_inputs if src_run.inputs else []
+    dst_ds = dst_run.inputs.dataset_inputs if dst_run.inputs else []
+    if len(src_ds) != len(dst_ds):
+        _fail(f"run {run_id}: dataset_inputs {len(dst_ds)} != {len(src_ds)}")
+        ok = False
+    elif src_ds:
+        src_ds_names = sorted(d.dataset.name for d in src_ds)
+        dst_ds_names = sorted(d.dataset.name for d in dst_ds)
+        if src_ds_names != dst_ds_names:
+            _fail(f"run {run_id}: dataset names {dst_ds_names} != {src_ds_names}")
+            ok = False
+
+    _pass(
+        f"run {run_id}"
+        f" (status={dst_run.info.status},"
+        f" params={len(dst_run.data.params)},"
+        f" metrics={len(dst_metric_keys)},"
+        f" tags={len(dst_tags)},"
+        f" datasets={len(dst_ds)})"
+    )
+    return ok
+
+
+def _check_traces(src: MlflowClient, dst: MlflowClient) -> bool:
+    ok = True
+    src_exps = src.search_experiments(view_type=3)
+    for exp in src_exps:
+        src_traces = src.search_traces(experiment_ids=[exp.experiment_id], max_results=1)
+        if not src_traces:
+            continue
+
+        src_trace = src_traces[0]
+        dst_traces = dst.search_traces(experiment_ids=[exp.experiment_id], max_results=5000)
+        dst_by_id = {t.info.request_id: t for t in dst_traces}
+        dst_trace = dst_by_id.get(src_trace.info.request_id)
+
+        if dst_trace is None:
+            _fail(f"trace {src_trace.info.request_id}: missing from DB")
+            return False
+
+        if src_trace.info.status != dst_trace.info.status:
+            _fail(
+                f"trace {src_trace.info.request_id}:"
+                f" status {dst_trace.info.status!r} != {src_trace.info.status!r}"
+            )
+            ok = False
+        else:
+            src_tags = src_trace.info.tags
+            dst_tags = dst_trace.info.tags
+            if missing := set(src_tags) - set(dst_tags):
+                _fail(f"trace {src_trace.info.request_id}: missing tags {missing}")
                 ok = False
             else:
-                _pass(f"run {run_uuid} (status={row[0]}, artifacts={'yes' if row[2] else 'no'})")
-            return ok  # spot-check first run
-    return ok
-
-
-def _check_metrics(conn: Connection, mlruns: Path) -> bool:
-    ok = True
-    for exp_dir, _exp_id in for_each_experiment(mlruns):
-        for name in list_subdirs(exp_dir):
-            if name in RESERVED_FOLDERS:
-                continue
-            metrics_dir = exp_dir / name / "metrics"
-            if not metrics_dir.is_dir():
-                continue
-            for metric_file in metrics_dir.iterdir():
-                if not metric_file.is_file():
-                    continue
-                key = metric_file.name
-                lines = read_file_lines(str(metrics_dir), key)
-                file_count = len(lines)
-                run_uuid = name
-                db_count = conn.execute(
-                    text("SELECT COUNT(*) FROM metrics WHERE run_uuid = :id AND key = :key"),
-                    {"id": run_uuid, "key": key},
-                ).scalar()
-                if db_count != file_count:
-                    _fail(f"metrics {run_uuid}/{key}: DB has {db_count}, file has {file_count}")
-                    ok = False
-                else:
-                    _pass(f"metrics {run_uuid}/{key}: {db_count} values")
-                return ok  # spot-check first metric
-    return ok
-
-
-def _check_params(conn: Connection, mlruns: Path) -> bool:
-    ok = True
-    for exp_dir, _exp_id in for_each_experiment(mlruns):
-        for name in list_subdirs(exp_dir):
-            if name in RESERVED_FOLDERS:
-                continue
-            params = read_tag_files(exp_dir / name / "params")
-            if not params:
-                continue
-            run_uuid = name
-            for key, file_val in params.items():
-                row = conn.execute(
-                    text("SELECT value FROM params WHERE run_uuid = :id AND key = :key"),
-                    {"id": run_uuid, "key": key},
-                ).first()
-                if row is None:
-                    _fail(f"param {run_uuid}/{key}: missing from DB")
-                    ok = False
-                elif row[0] != file_val:
-                    _fail(f"param {run_uuid}/{key}: {row[0]!r} != {file_val!r}")
-                    ok = False
-                else:
-                    _pass(f"param {run_uuid}/{key} = {row[0]!r}")
-                return ok  # spot-check first param
-    return ok
-
-
-def _check_registered_models(conn: Connection, mlruns: Path) -> bool:
-    ok = True
-    registry_dir = mlruns / "models"
-    if not registry_dir.is_dir():
+                _pass(
+                    f"trace {src_trace.info.request_id}"
+                    f" (status={dst_trace.info.status}, tags={len(dst_tags)})"
+                )
         return ok
-    for model_name in list_subdirs(registry_dir):
-        meta = safe_read_yaml(registry_dir / model_name, META_YAML)
-        if meta is None:
+    _pass("traces: none found")
+    return ok
+
+
+def _check_assessments(src: MlflowClient, dst: MlflowClient) -> bool:
+    src_exps = src.search_experiments(view_type=3)
+    for exp in src_exps:
+        src_traces = src.search_traces(experiment_ids=[exp.experiment_id], max_results=1)
+        if not src_traces:
             continue
-        name = meta.get("name", model_name)
-        row = conn.execute(
-            text("SELECT description FROM registered_models WHERE name = :name"),
-            {"name": name},
-        ).first()
-        if row is None:
+
+        src_trace = src_traces[0]
+        src_assessments = src_trace.search_assessments(all=True)
+        if not src_assessments:
+            continue
+
+        dst_traces = dst.search_traces(experiment_ids=[exp.experiment_id], max_results=5000)
+        dst_trace = next(
+            (t for t in dst_traces if t.info.request_id == src_trace.info.request_id), None
+        )
+        if dst_trace is None:
+            _fail(f"assessments: trace {src_trace.info.request_id} missing from DB")
+            return False
+
+        dst_assessments = dst_trace.search_assessments(all=True)
+
+        # Compare by name
+        src_by_name = {}
+        for a in src_assessments:
+            src_by_name.setdefault(a.name, []).append(a)
+        dst_by_name = {}
+        for a in dst_assessments:
+            dst_by_name.setdefault(a.name, []).append(a)
+
+        if missing := set(src_by_name) - set(dst_by_name):
+            _fail(f"assessments on trace {src_trace.info.request_id}: missing names {missing}")
+            return False
+
+        _pass(
+            f"assessments on trace {src_trace.info.request_id}"
+            f" ({len(dst_assessments)} assessments, names={sorted(dst_by_name.keys())})"
+        )
+        return True
+
+    _pass("assessments: none found")
+    return True
+
+
+def _check_logged_models(src: MlflowClient, dst: MlflowClient) -> bool:
+    src_exps = src.search_experiments(view_type=3)
+    exp_ids = [e.experiment_id for e in src_exps]
+    if not exp_ids:
+        _pass("logged_models: no experiments")
+        return True
+
+    src_models = src.search_logged_models(experiment_ids=exp_ids)
+    dst_models = dst.search_logged_models(experiment_ids=exp_ids)
+
+    if len(dst_models) < len(src_models):
+        _fail(f"logged_models: {len(dst_models)} < {len(src_models)}")
+        return False
+
+    if not src_models:
+        _pass("logged_models: none found")
+        return True
+
+    # Spot-check first model
+    src_by_id = {m.model_id: m for m in src_models}
+    dst_by_id = {m.model_id: m for m in dst_models}
+
+    for model_id, src_model in src_by_id.items():
+        dst_model = dst_by_id.get(model_id)
+        if dst_model is None:
+            _fail(f"logged_model {model_id}: missing from DB")
+            return False
+
+        if src_model.name != dst_model.name:
+            _fail(f"logged_model {model_id}: name {dst_model.name!r} != {src_model.name!r}")
+            return False
+
+        # Compare tags
+        if missing_tags := set(src_model.tags) - set(dst_model.tags):
+            _fail(f"logged_model {model_id}: missing tags {missing_tags}")
+            return False
+
+        _pass(
+            f"logged_models: {len(dst_models)} (source: {len(src_models)}),"
+            f" spot-check {model_id} (name={dst_model.name}, tags={len(dst_model.tags)})"
+        )
+        return True
+
+    _pass(f"logged_models: {len(dst_models)} (source: {len(src_models)})")
+    return True
+
+
+def _check_registered_models(src: MlflowClient, dst: MlflowClient) -> bool:
+    ok = True
+    src_models = src.search_registered_models()
+    dst_models = dst.search_registered_models()
+    src_by_name = {m.name: m for m in src_models}
+    dst_by_name = {m.name: m for m in dst_models}
+
+    if len(dst_by_name) < len(src_by_name):
+        _fail(f"registered_models: {len(dst_by_name)} < {len(src_by_name)}")
+        ok = False
+    else:
+        _pass(f"registered_models: {len(dst_by_name)} (source: {len(src_by_name)})")
+
+    for name, src_model in src_by_name.items():
+        dst_model = dst_by_name.get(name)
+        if dst_model is None:
             _fail(f"registered_model {name}: missing from DB")
             ok = False
+            continue
+        if src_model.description != dst_model.description:
+            _fail(
+                f"registered_model {name}:"
+                f" description {dst_model.description!r} != {src_model.description!r}"
+            )
+            ok = False
         else:
-            _pass(f"registered_model {name} (description={row[0]!r})")
-        return ok  # spot-check first model
+            # Check version count
+            src_versions = src.search_model_versions(f"name='{name}'")
+            dst_versions = dst.search_model_versions(f"name='{name}'")
+            if len(dst_versions) < len(src_versions):
+                _fail(
+                    f"registered_model {name}: {len(dst_versions)} versions < {len(src_versions)}"
+                )
+                ok = False
+            else:
+                _pass(f"registered_model {name} (versions={len(dst_versions)})")
+        break  # spot-check first
     return ok
 
 
 def verify_migration(source: Path, target_uri: str) -> None:
     mlruns = _resolve_mlruns(source)
-    engine = create_engine(target_uri)
+    src = MlflowClient(tracking_uri=str(mlruns))
+    dst = MlflowClient(tracking_uri=target_uri)
 
     print()
     print("Verification:")
     ok = True
-    with engine.connect() as conn:
-        print("  -- Row counts --")
-        ok &= _check_counts(conn, mlruns)
-        print("  -- Spot checks --")
-        ok &= _check_experiments(conn, mlruns)
-        ok &= _check_runs(conn, mlruns)
-        ok &= _check_params(conn, mlruns)
-        ok &= _check_metrics(conn, mlruns)
-        ok &= _check_registered_models(conn, mlruns)
+    ok &= _check_experiments(src, dst)
+    ok &= _check_runs(src, dst, target_uri)
+    ok &= _check_traces(src, dst)
+    ok &= _check_assessments(src, dst)
+    ok &= _check_logged_models(src, dst)
+    ok &= _check_registered_models(src, dst)
 
     print()
     if ok:

@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from mlflow.store.fs2db._helpers import (
     META_YAML,
-    bump,
+    MigrationStats,
     list_files,
     list_subdirs,
     read_tag_files,
@@ -32,10 +32,9 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelAlias,
     SqlRegisteredModelTag,
 )
-from mlflow.utils.file_utils import read_file
 
 
-def migrate_model_registry(session: Session, mlruns: Path) -> None:
+def migrate_model_registry(session: Session, mlruns: Path, stats: MigrationStats) -> None:
     models_dir = mlruns / "models"
     if not models_dir.is_dir():
         return
@@ -54,7 +53,7 @@ def migrate_model_registry(session: Session, mlruns: Path) -> None:
                 description=meta.get("description"),
             )
         )
-        bump("registered_models")
+        stats.registered_models += 1
 
         # Registered model tags
         for key, value in read_tag_files(model_dir / "tags").items():
@@ -65,19 +64,19 @@ def migrate_model_registry(session: Session, mlruns: Path) -> None:
                     value=value,
                 )
             )
-            bump("registered_model_tags")
+            stats.registered_model_tags += 1
 
         # Model versions
         for version_dir_name in list_subdirs(model_dir):
             if not version_dir_name.startswith("version-"):
                 continue
             version_dir = model_dir / version_dir_name
-            _migrate_model_version(session, version_dir, meta.get("name", model_name))
+            _migrate_model_version(session, version_dir, meta.get("name", model_name), stats)
 
         # Aliases
         aliases_dir = model_dir / "aliases"
         for alias_name in list_files(aliases_dir):
-            version_str = read_file(str(aliases_dir), alias_name).strip()
+            version_str = (aliases_dir / alias_name).read_text().strip()
             try:
                 version_int = int(version_str)
             except ValueError:
@@ -89,10 +88,12 @@ def migrate_model_registry(session: Session, mlruns: Path) -> None:
                     version=version_int,
                 )
             )
-            bump("registered_model_aliases")
+            stats.registered_model_aliases += 1
 
 
-def _migrate_model_version(session: Session, version_dir: Path, model_name: str) -> None:
+def _migrate_model_version(
+    session: Session, version_dir: Path, model_name: str, stats: MigrationStats
+) -> None:
     meta = safe_read_yaml(version_dir, META_YAML)
     if meta is None:
         return
@@ -121,7 +122,7 @@ def _migrate_model_version(session: Session, version_dir: Path, model_name: str)
             status_message=meta.get("status_message"),
         )
     )
-    bump("model_versions")
+    stats.model_versions += 1
 
     # Model version tags
     for key, value in read_tag_files(version_dir / "tags").items():
@@ -133,4 +134,4 @@ def _migrate_model_version(session: Session, version_dir: Path, model_name: str)
                 value=value,
             )
         )
-        bump("model_version_tags")
+        stats.model_version_tags += 1

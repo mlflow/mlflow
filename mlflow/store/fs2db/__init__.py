@@ -39,7 +39,7 @@ def migrate(source: Path, target_uri: str) -> None:
     from sqlalchemy.orm import Session
 
     from mlflow.store.db.utils import _initialize_tables
-    from mlflow.store.fs2db._helpers import list_experiment_ids, summary
+    from mlflow.store.fs2db._helpers import MigrationStats, list_experiment_ids
     from mlflow.store.fs2db._registry import migrate_model_registry
     from mlflow.store.fs2db._tracking import (
         migrate_assessments,
@@ -50,7 +50,7 @@ def migrate(source: Path, target_uri: str) -> None:
         migrate_traces,
     )
 
-    summary.clear()
+    stats = MigrationStats()
     mlruns = _resolve_mlruns(source)
 
     print(f"Source: {mlruns}")
@@ -67,12 +67,12 @@ def migrate(source: Path, target_uri: str) -> None:
         try:
             # Phase 1
             print("[1/7] Migrating experiments + tags...")
-            migrate_experiments(session, mlruns)
+            migrate_experiments(session, mlruns, stats)
             session.flush()
 
             # Phase 2
             print("[2/7] Migrating runs + params + tags + metrics...")
-            migrate_runs(session, mlruns)
+            migrate_runs(session, mlruns, stats)
             session.flush()
 
             # Phase 3
@@ -81,7 +81,7 @@ def migrate(source: Path, target_uri: str) -> None:
             )
             if has_datasets:
                 print("[3/7] Migrating datasets + inputs...")
-                migrate_datasets(session, mlruns)
+                migrate_datasets(session, mlruns, stats)
                 session.flush()
             else:
                 print("[3/7] Skipping datasets (not found)")
@@ -90,12 +90,12 @@ def migrate(source: Path, target_uri: str) -> None:
             has_traces = any((mlruns / d / "traces").is_dir() for d in list_experiment_ids(mlruns))
             if has_traces:
                 print("[4/7] Migrating traces + tags + metadata...")
-                migrate_traces(session, mlruns)
+                migrate_traces(session, mlruns, stats)
                 session.flush()
 
                 # Phase 5
                 print("[5/7] Migrating assessments...")
-                migrate_assessments(session, mlruns)
+                migrate_assessments(session, mlruns, stats)
                 session.flush()
             else:
                 print("[4/7] Skipping traces (not found)")
@@ -105,7 +105,7 @@ def migrate(source: Path, target_uri: str) -> None:
             has_models = any((mlruns / d / "models").is_dir() for d in list_experiment_ids(mlruns))
             if has_models:
                 print("[6/7] Migrating logged models...")
-                migrate_logged_models(session, mlruns)
+                migrate_logged_models(session, mlruns, stats)
                 session.flush()
             else:
                 print("[6/7] Skipping logged models (not found)")
@@ -113,7 +113,7 @@ def migrate(source: Path, target_uri: str) -> None:
             # Phase 7
             if (mlruns / "models").is_dir():
                 print("[7/7] Migrating model registry...")
-                migrate_model_registry(session, mlruns)
+                migrate_model_registry(session, mlruns, stats)
             else:
                 print("[7/7] Skipping model registry (not found)")
 
@@ -131,6 +131,6 @@ def migrate(source: Path, target_uri: str) -> None:
     print("=" * 50)
     print("Migration summary:")
     print("=" * 50)
-    for key, count in sorted(summary.items()):
+    for key, count in stats.items():
         print(f"  {key}: {count}")
     print("=" * 50)

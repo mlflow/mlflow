@@ -38,7 +38,7 @@ from sqlalchemy.orm import Session
 from mlflow.entities import RunStatus
 from mlflow.store.fs2db._helpers import (
     META_YAML,
-    bump,
+    MigrationStats,
     for_each_experiment,
     list_files,
     list_subdirs,
@@ -68,12 +68,14 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 
 
-def migrate_experiments(session: Session, mlruns: Path) -> None:
+def migrate_experiments(session: Session, mlruns: Path, stats: MigrationStats) -> None:
     for exp_dir, exp_id in for_each_experiment(mlruns):
-        _migrate_one_experiment(session, exp_dir, exp_id)
+        _migrate_one_experiment(session, exp_dir, exp_id, stats)
 
 
-def _migrate_one_experiment(session: Session, exp_dir: Path, exp_id: str) -> None:
+def _migrate_one_experiment(
+    session: Session, exp_dir: Path, exp_id: str, stats: MigrationStats
+) -> None:
     meta = safe_read_yaml(exp_dir, META_YAML)
     if meta is None:
         return
@@ -90,7 +92,7 @@ def _migrate_one_experiment(session: Session, exp_dir: Path, exp_id: str) -> Non
             last_update_time=meta.get("last_update_time"),
         )
     )
-    bump("experiments")
+    stats.experiments += 1
 
     for key, value in read_tag_files(exp_dir / "tags").items():
         session.add(
@@ -100,28 +102,30 @@ def _migrate_one_experiment(session: Session, exp_dir: Path, exp_id: str) -> Non
                 experiment_id=db_exp_id,
             )
         )
-        bump("experiment_tags")
+        stats.experiment_tags += 1
 
 
 RESERVED_FOLDERS = {"tags", "datasets", "traces", "models", ".trash"}
 
 
-def migrate_runs(session: Session, mlruns: Path) -> None:
+def migrate_runs(session: Session, mlruns: Path, stats: MigrationStats) -> None:
     for exp_dir, exp_id in for_each_experiment(mlruns):
-        _migrate_runs_in_dir(session, exp_dir, int(exp_id))
+        _migrate_runs_in_dir(session, exp_dir, int(exp_id), stats)
 
 
-def _migrate_runs_in_dir(session: Session, exp_dir: Path, exp_id: int) -> None:
+def _migrate_runs_in_dir(
+    session: Session, exp_dir: Path, exp_id: int, stats: MigrationStats
+) -> None:
     for name in list_subdirs(exp_dir):
         if name in RESERVED_FOLDERS:
             continue
         run_dir = exp_dir / name
         if not (run_dir / META_YAML).is_file():
             continue
-        _migrate_one_run(session, run_dir, exp_id)
+        _migrate_one_run(session, run_dir, exp_id, stats)
 
 
-def _migrate_one_run(session: Session, run_dir: Path, exp_id: int) -> None:
+def _migrate_one_run(session: Session, run_dir: Path, exp_id: int, stats: MigrationStats) -> None:
     meta = safe_read_yaml(run_dir, META_YAML)
     if meta is None:
         return
@@ -155,7 +159,7 @@ def _migrate_one_run(session: Session, run_dir: Path, exp_id: int) -> None:
             experiment_id=exp_id,
         )
     )
-    bump("runs")
+    stats.runs += 1
 
     # Params
     for key, value in read_tag_files(run_dir / "params").items():
@@ -166,7 +170,7 @@ def _migrate_one_run(session: Session, run_dir: Path, exp_id: int) -> None:
                 run_uuid=run_uuid,
             )
         )
-        bump("params")
+        stats.params += 1
 
     # Tags
     for key, value in read_tag_files(run_dir / "tags").items():
@@ -177,10 +181,10 @@ def _migrate_one_run(session: Session, run_dir: Path, exp_id: int) -> None:
                 run_uuid=run_uuid,
             )
         )
-        bump("tags")
+        stats.tags += 1
 
     # Metrics + LatestMetrics
-    _migrate_run_metrics(session, run_dir / "metrics", run_uuid)
+    _migrate_run_metrics(session, run_dir / "metrics", run_uuid, stats)
 
 
 def _sanitize_metric_value(val: float) -> tuple[bool, float]:
@@ -200,7 +204,9 @@ def _parse_metric_line(metric_line: str) -> tuple[int, float, int]:
     return ts, val, step
 
 
-def _migrate_run_metrics(session: Session, metrics_dir: Path, run_uuid: str) -> None:
+def _migrate_run_metrics(
+    session: Session, metrics_dir: Path, run_uuid: str, stats: MigrationStats
+) -> None:
     all_metrics = read_metric_lines(metrics_dir)
 
     for key, lines in all_metrics.items():
@@ -222,7 +228,7 @@ def _migrate_run_metrics(session: Session, metrics_dir: Path, run_uuid: str) -> 
                     run_uuid=run_uuid,
                 )
             )
-            bump("metrics")
+            stats.metrics += 1
 
             # For latest_metrics: NaN comparison uses 0 as proxy value
             cmp_val = 0.0 if is_nan else db_val
@@ -243,15 +249,17 @@ def _migrate_run_metrics(session: Session, metrics_dir: Path, run_uuid: str) -> 
                     run_uuid=run_uuid,
                 )
             )
-            bump("latest_metrics")
+            stats.latest_metrics += 1
 
 
-def migrate_datasets(session: Session, mlruns: Path) -> None:
+def migrate_datasets(session: Session, mlruns: Path, stats: MigrationStats) -> None:
     for exp_dir, exp_id in for_each_experiment(mlruns):
-        _migrate_datasets_for_experiment(session, exp_dir, int(exp_id))
+        _migrate_datasets_for_experiment(session, exp_dir, int(exp_id), stats)
 
 
-def _migrate_datasets_for_experiment(session: Session, exp_dir: Path, exp_id: int) -> None:
+def _migrate_datasets_for_experiment(
+    session: Session, exp_dir: Path, exp_id: int, stats: MigrationStats
+) -> None:
     datasets_dir = exp_dir / "datasets"
     if not datasets_dir.is_dir():
         return
@@ -278,7 +286,7 @@ def _migrate_datasets_for_experiment(session: Session, exp_dir: Path, exp_id: in
                 dataset_profile=meta.get("profile"),
             )
         )
-        bump("datasets")
+        stats.datasets += 1
 
     # Scan runs in this experiment for inputs (run dirs are named by run UUID)
     for run_uuid in list_subdirs(exp_dir):
@@ -310,7 +318,7 @@ def _migrate_datasets_for_experiment(session: Session, exp_dir: Path, exp_id: in
                     destination_id=run_uuid,
                 )
             )
-            bump("inputs")
+            stats.inputs += 1
 
             input_tags = input_meta.get("tags", {})
             for tag_name, tag_value in input_tags.items():
@@ -321,12 +329,12 @@ def _migrate_datasets_for_experiment(session: Session, exp_dir: Path, exp_id: in
                         value=str(tag_value),
                     )
                 )
-                bump("input_tags")
+                stats.input_tags += 1
 
 
-def migrate_traces(session: Session, mlruns: Path) -> None:
+def migrate_traces(session: Session, mlruns: Path, stats: MigrationStats) -> None:
     for exp_dir, exp_id in for_each_experiment(mlruns):
-        _migrate_traces_for_experiment(session, exp_dir, int(exp_id))
+        _migrate_traces_for_experiment(session, exp_dir, int(exp_id), stats)
 
 
 def _parse_timestamp_ms(request_time: str) -> int:
@@ -340,7 +348,9 @@ def _parse_timestamp_ms(request_time: str) -> int:
         return 0
 
 
-def _migrate_traces_for_experiment(session: Session, exp_dir: Path, exp_id: int) -> None:
+def _migrate_traces_for_experiment(
+    session: Session, exp_dir: Path, exp_id: int, stats: MigrationStats
+) -> None:
     traces_dir = exp_dir / "traces"
     if not traces_dir.is_dir():
         return
@@ -386,7 +396,7 @@ def _migrate_traces_for_experiment(session: Session, exp_dir: Path, exp_id: int)
                 response_preview=meta.get("response_preview"),
             )
         )
-        bump("traces")
+        stats.traces += 1
 
         # Trace tags
         for key, value in read_tag_files(trace_dir / "tags").items():
@@ -397,7 +407,7 @@ def _migrate_traces_for_experiment(session: Session, exp_dir: Path, exp_id: int)
                     request_id=trace_id,
                 )
             )
-            bump("trace_tags")
+            stats.trace_tags += 1
 
         # Trace request metadata
         for key, value in read_tag_files(trace_dir / "request_metadata").items():
@@ -408,15 +418,17 @@ def _migrate_traces_for_experiment(session: Session, exp_dir: Path, exp_id: int)
                     request_id=trace_id,
                 )
             )
-            bump("trace_metadata")
+            stats.trace_metadata += 1
 
 
-def migrate_assessments(session: Session, mlruns: Path) -> None:
+def migrate_assessments(session: Session, mlruns: Path, stats: MigrationStats) -> None:
     for exp_dir, _exp_id in for_each_experiment(mlruns):
-        _migrate_assessments_for_experiment(session, exp_dir)
+        _migrate_assessments_for_experiment(session, exp_dir, stats)
 
 
-def _migrate_assessments_for_experiment(session: Session, exp_dir: Path) -> None:
+def _migrate_assessments_for_experiment(
+    session: Session, exp_dir: Path, stats: MigrationStats
+) -> None:
     traces_dir = exp_dir / "traces"
     if not traces_dir.is_dir():
         return
@@ -440,11 +452,15 @@ def _migrate_assessments_for_experiment(session: Session, exp_dir: Path) -> None
             if meta is None:
                 continue
 
-            _migrate_one_assessment(session, meta, trace_id, assessment_id)
+            _migrate_one_assessment(session, meta, trace_id, assessment_id, stats)
 
 
 def _migrate_one_assessment(
-    session: Session, meta: dict[str, object], trace_id: str, assessment_id: str
+    session: Session,
+    meta: dict[str, object],
+    trace_id: str,
+    assessment_id: str,
+    stats: MigrationStats,
 ) -> None:
     feedback_data = meta.get("feedback")
     expectation_data = meta.get("expectation")
@@ -491,15 +507,17 @@ def _migrate_one_assessment(
             assessment_metadata=metadata_json,
         )
     )
-    bump("assessments")
+    stats.assessments += 1
 
 
-def migrate_logged_models(session: Session, mlruns: Path) -> None:
+def migrate_logged_models(session: Session, mlruns: Path, stats: MigrationStats) -> None:
     for exp_dir, exp_id in for_each_experiment(mlruns):
-        _migrate_logged_models_for_experiment(session, exp_dir, int(exp_id))
+        _migrate_logged_models_for_experiment(session, exp_dir, int(exp_id), stats)
 
 
-def _migrate_logged_models_for_experiment(session: Session, exp_dir: Path, exp_id: int) -> None:
+def _migrate_logged_models_for_experiment(
+    session: Session, exp_dir: Path, exp_id: int, stats: MigrationStats
+) -> None:
     from mlflow.entities.logged_model_status import LoggedModelStatus
 
     models_dir = exp_dir / "models"
@@ -538,7 +556,7 @@ def _migrate_logged_models_for_experiment(session: Session, exp_dir: Path, exp_i
                 status_message=meta.get("status_message"),
             )
         )
-        bump("logged_models")
+        stats.logged_models += 1
 
         # Logged model params
         for key, value in read_tag_files(model_dir / "params").items():
@@ -550,7 +568,7 @@ def _migrate_logged_models_for_experiment(session: Session, exp_dir: Path, exp_i
                     param_value=value,
                 )
             )
-            bump("logged_model_params")
+            stats.logged_model_params += 1
 
         # Logged model tags
         for key, value in read_tag_files(model_dir / "tags").items():
@@ -562,14 +580,14 @@ def _migrate_logged_models_for_experiment(session: Session, exp_dir: Path, exp_i
                     tag_value=value,
                 )
             )
-            bump("logged_model_tags")
+            stats.logged_model_tags += 1
 
         # Logged model metrics
-        _migrate_logged_model_metrics(session, model_dir / "metrics", model_id, exp_id)
+        _migrate_logged_model_metrics(session, model_dir / "metrics", model_id, exp_id, stats)
 
 
 def _migrate_logged_model_metrics(
-    session: Session, metrics_dir: Path, model_id: str, exp_id: int
+    session: Session, metrics_dir: Path, model_id: str, exp_id: int, stats: MigrationStats
 ) -> None:
     all_metrics = read_metric_lines(metrics_dir)
 
@@ -601,4 +619,4 @@ def _migrate_logged_model_metrics(
                     dataset_digest=dataset_digest,
                 )
             )
-            bump("logged_model_metrics")
+            stats.logged_model_metrics += 1
