@@ -855,6 +855,15 @@ def _unpack_and_save_model(spark_model, dst):
             spark_model.save(dst)
 
 
+def try_update_session(spark):
+    try:
+        spark._jvm.com.johnsnowlabs.license.LicenseValidator.meterServingUsage(
+            spark._jvm.scala.Option.apply(None)
+        )
+    except Exception as e:
+        _logger.info(f"Error updating session: {e}")
+
+
 class _PyFuncModelWrapper:
     """
     Wrapper around NLUPipeline providing interface for scoring pandas DataFrame.
@@ -867,6 +876,7 @@ class _PyFuncModelWrapper:
     ):
         # we have this `or`, so we support _PyFuncModelWrapper(nlu_ref)
         self.spark = spark or _get_or_create_sparksession()
+        try_update_session(self.spark)
         self.spark_model = spark_model
 
     def get_raw_model(self):
