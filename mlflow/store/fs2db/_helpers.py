@@ -1,21 +1,48 @@
 from collections.abc import Iterator
+from dataclasses import dataclass, fields
 from pathlib import Path
 
-from mlflow.utils.file_utils import read_file, read_file_lines, read_yaml
+import yaml
 
 META_YAML = "meta.yaml"
 
 
-summary: dict[str, int] = {}
+@dataclass
+class MigrationStats:
+    experiments: int = 0
+    experiment_tags: int = 0
+    runs: int = 0
+    params: int = 0
+    tags: int = 0
+    metrics: int = 0
+    latest_metrics: int = 0
+    datasets: int = 0
+    inputs: int = 0
+    input_tags: int = 0
+    traces: int = 0
+    trace_tags: int = 0
+    trace_metadata: int = 0
+    assessments: int = 0
+    logged_models: int = 0
+    logged_model_params: int = 0
+    logged_model_tags: int = 0
+    logged_model_metrics: int = 0
+    registered_models: int = 0
+    registered_model_tags: int = 0
+    registered_model_aliases: int = 0
+    model_versions: int = 0
+    model_version_tags: int = 0
 
-
-def bump(key: str, n: int = 1) -> None:
-    summary[key] = summary.get(key, 0) + n
+    def items(self) -> Iterator[tuple[str, int]]:
+        for f in fields(self):
+            val = getattr(self, f.name)
+            if val > 0:
+                yield f.name, val
 
 
 def safe_read_yaml(root: Path, file_name: str) -> dict[str, object] | None:
     try:
-        return read_yaml(str(root), file_name)
+        return yaml.safe_load((root / file_name).read_text())
     except Exception:
         return None
 
@@ -40,7 +67,7 @@ def read_tag_files(tag_dir: Path) -> dict[str, str]:
         if not p.is_file():
             continue
         key = p.relative_to(tag_dir).as_posix()
-        result[key] = read_file(str(tag_dir), key)
+        result[key] = (tag_dir / key).read_text()
     return result
 
 
@@ -52,7 +79,7 @@ def read_metric_lines(metrics_dir: Path) -> dict[str, list[str]]:
         if not p.is_file():
             continue
         key = p.relative_to(metrics_dir).as_posix()
-        result[key] = read_file_lines(str(metrics_dir), key)
+        result[key] = (metrics_dir / key).read_text().splitlines()
     return result
 
 
