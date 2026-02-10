@@ -394,6 +394,7 @@ class Linter(ast.NodeVisitor):
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
         self.prev_stmt: ast.stmt | None = None
         self.used_disables: set[tuple[str, int]] = set()
+        self.node_stack: list[ast.AST] = []
 
     def _check(self, range: Range, rule: rules.Rule) -> None:
         # Skip rules that are not selected in the config
@@ -501,7 +502,9 @@ class Linter(ast.NodeVisitor):
             self._check(Range.from_node(docstring_node), rules.RedundantTestDocstring())
 
     def visit(self, node: ast.AST) -> None:
+        self.node_stack.append(node)
         super().visit(node)
+        self.node_stack.pop()
         if isinstance(node, ast.stmt):
             self.prev_stmt = node
 
@@ -518,6 +521,12 @@ class Linter(ast.NodeVisitor):
             return False
 
         return self.stack[-1].name.startswith("test_")
+
+    def _current_function_name(self) -> str | None:
+        for node in reversed(self.stack):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                return node.name
+        return None
 
     @classmethod
     def visit_example(
@@ -771,6 +780,14 @@ class Linter(ast.NodeVisitor):
         )
 
     def visit_Call(self, node: ast.Call) -> None:
+        if rules.WorkspaceQueryIsolation.check(
+            node,
+            path=self.path,
+            function_name=self._current_function_name(),
+            ancestors=self.node_stack,
+        ):
+            self._check(Range.from_node(node), rules.WorkspaceQueryIsolation())
+
         if (
             self.is_mlflow_init_py
             and isinstance(node.func, ast.Name)
