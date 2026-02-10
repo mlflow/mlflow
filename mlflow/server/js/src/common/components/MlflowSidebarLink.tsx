@@ -49,8 +49,10 @@ export const MlflowSidebarLink = ({
           alignItems: 'center',
           gap: theme.spacing.sm,
           color: theme.colors.textPrimary,
-          paddingInline: theme.spacing.md,
-          paddingBlock: theme.spacing.xs,
+          paddingInline: collapsed ? 0 : theme.spacing.md,
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          // 5 seems to be the magic number to match the text line height
+          paddingBlock: collapsed ? 5 : theme.spacing.xs,
           borderRadius: theme.borders.borderRadiusSm,
           '&:hover': {
             color: theme.colors.actionLinkHover,
