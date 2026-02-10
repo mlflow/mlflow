@@ -139,9 +139,14 @@ def run(
 
     total_tasks = len(eval_items) + len(session_groups)
 
-    # Create rate limiters from environment variables
+    # Create rate limiters from environment variables.
+    # Scorer rate auto-derives from predict rate × num_scorers when not set explicitly.
     predict_rate = MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get()
-    scorer_rate = MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT.get()
+    if MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT.is_set():
+        scorer_rate = MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT.get()
+    else:
+        num_scorers = len(single_turn_scorers) + len(multi_turn_scorers)
+        scorer_rate = (predict_rate * num_scorers) if predict_rate and num_scorers else predict_rate
     predict_limiter = _make_rate_limiter(predict_rate)
     scorer_limiter = _make_rate_limiter(scorer_rate)
 

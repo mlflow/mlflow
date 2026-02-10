@@ -693,9 +693,10 @@ MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT = _EnvironmentVariable(
 
 #: Maximum scorer calls per second during mlflow.genai.evaluate. A token-bucket
 #: rate limiter throttles individual scorer invocations across all worker threads.
-#: Set to 0 to disable rate limiting. (default: ``100``)
+#: When not set, auto-derived as ``predict_rate × num_scorers`` to match pipeline
+#: throughput. Set to 0 to disable rate limiting. (default: auto)
 MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT = _EnvironmentVariable(
-    "MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", float, 100
+    "MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", float, None
 )
 
 #: Maximum number of workers to use for running conversation simulations in parallel.
