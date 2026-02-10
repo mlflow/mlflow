@@ -34,9 +34,6 @@ class ExperimentData:
     run_ids: list[str]
 
 
-# ── Size presets ──────────────────────────────────────────────────────────────
-
-
 @dataclass(frozen=True)
 class SizeConfig:
     experiments: int
@@ -72,8 +69,6 @@ SIZES: dict[Size, SizeConfig] = {
     ),
 }
 
-# ── Version detection ─────────────────────────────────────────────────────────
-
 
 class Feature(str, enum.Enum):
     DATASETS = "datasets"
@@ -95,9 +90,6 @@ def has_feature(feature: Feature) -> bool:
             return MLFLOW_VERSION >= Version("3.5")
         case Feature.PROMPTS:
             return MLFLOW_VERSION >= Version("3.5")
-
-
-# ── Generators ────────────────────────────────────────────────────────────────
 
 
 def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
@@ -144,8 +136,6 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
                 mlflow.log_dict({"lr": 0.001}, "config/params.json")
 
         result.append(ExperimentData(exp_id, run_ids))
-
-    # ── Edge cases ──
 
     # NaN / Inf metrics (on first run of first experiment)
     with mlflow.start_run(run_id=result[0].run_ids[0]):
@@ -351,9 +341,6 @@ def generate_prompts(cfg: SizeConfig) -> None:
             template=f"Hi {{{{name}}}}, welcome to prompt {p_idx}. How can I help?",
             commit_message=f"Updated template for prompt {p_idx}",
         )
-
-
-# ── Main ──────────────────────────────────────────────────────────────────────
 
 
 def main() -> None:
