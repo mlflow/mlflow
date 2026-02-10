@@ -2,7 +2,15 @@ name: fs2db
 
 on:
   push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
