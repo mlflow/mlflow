@@ -82,11 +82,11 @@ roots first to avoid collisions.
 
 ## Environment Variables
 
-| Variable                   | Description                                                                  | Default                                    |
-| -------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------ |
-| `MLFLOW_ENABLE_WORKSPACES` | Enable workspace mode                                                        | `false`                                    |
-| `MLFLOW_WORKSPACE`         | Active workspace for client operations                                       | None                                       |
-| `MLFLOW_WORKSPACE_STORE_URI`     | Override the workspace provider URI; falls back to the resolved tracking URI | None (falls back to resolved tracking URI) |
+| Variable                     | Description                                                                  | Default                                    |
+| ---------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------ |
+| `MLFLOW_ENABLE_WORKSPACES`   | Enable workspace mode                                                        | `false`                                    |
+| `MLFLOW_WORKSPACE`           | Active workspace for client operations                                       | None                                       |
+| `MLFLOW_WORKSPACE_STORE_URI` | Override the workspace provider URI; falls back to the resolved tracking URI | None (falls back to resolved tracking URI) |
 
 `MLFLOW_WORKSPACE` chooses the target workspace. `MLFLOW_WORKSPACE_STORE_URI` selects where the workspace catalog lives (and which provider to use), not which workspace; if unset, the tracking URI is reused. Providers are discovered via the `mlflow.workspace_provider` entry point.
 
