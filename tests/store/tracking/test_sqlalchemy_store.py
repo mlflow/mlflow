@@ -46,6 +46,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
@@ -12847,3 +12848,124 @@ def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
     )
     assert len(completed) == 1
     assert completed[0].session_id == "session-c"
+
+def test_get_metric_history_bulk_interval(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_bulk_interval")[0]
+    run1 = _run_factory(store, _get_run_configs(experiment_id))
+    run2 = _run_factory(store, _get_run_configs(experiment_id))
+
+    metric_key = "test_metric"
+
+    # Log metrics for run1
+    for i in range(10):
+        metric = Metric(key=metric_key, value=float(i), timestamp=1000 + i, step=i)
+        store.log_metric(run1.info.run_id, metric)
+
+    # Log metrics for run2
+    for i in range(10):
+        metric = Metric(key=metric_key, value=float(i + 10), timestamp=2000 + i, step=i)
+        store.log_metric(run2.info.run_id, metric)
+
+    # Test basic functionality
+    results = store.get_metric_history_bulk_interval(
+        [run1.info.run_id, run2.info.run_id], metric_key, 5, 0, 9
+    )
+
+    # Verify results structure
+    assert isinstance(results, list)
+    assert all(isinstance(r, MetricWithRunId) for r in results)
+
+    # Verify both runs are represented
+    run_ids = {r.run_id for r in results}
+    assert run_ids == {run1.info.run_id, run2.info.run_id}
+
+    # Verify metric properties
+    run_id_steps = defaultdict(list)
+    for result in results:
+        assert result.key == metric_key
+        run_id_steps[result.run_id].append(result.step)
+
+    assert run_id_steps[run1.info.run_id] == [0, 2, 4, 6, 8, 9]
+    assert run_id_steps[run2.info.run_id] == [0, 2, 4, 6, 8, 9]
+
+def test_get_metric_history_bulk_interval_empty_runs(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_bulk_empty")[0]
+
+    # Test with empty run list
+    results = store.get_metric_history_bulk_interval([], "test_metric", 5, 0, 9)
+    assert results == []
+
+def test_get_metric_history_bulk_interval_nonexistent_metric(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_bulk_nonexistent")[0]
+    run = _run_factory(store, _get_run_configs(experiment_id))
+
+    # Test with nonexistent metric key
+    results = store.get_metric_history_bulk_interval([run.info.run_id], "nonexistent", 5, 0, 9)
+    assert results == []
+
+def test_get_metric_history_bulk_interval_postgres_sampling(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_postgres_sampling")[0]
+    run1 = _run_factory(store, _get_run_configs(experiment_id))
+    run2 = _run_factory(store, _get_run_configs(experiment_id))
+
+    max_results = 5
+
+    with (
+        patch("mlflow.store.tracking.sqlalchemy_store.func") as mock_func,
+        patch("mlflow.store.tracking.sqlalchemy_store.sqlalchemy.orm.aliased") as mock_aliased,
+        patch.object(store, "ManagedSessionMaker") as mock_session_maker,
+        patch.object(store, "_get_dialect", return_value="postgresql"),
+    ):
+        mock_ntile = MagicMock()
+        mock_over = MagicMock()
+        mock_labeled = MagicMock()
+
+        mock_func.ntile.return_value = mock_ntile
+        mock_ntile.over.return_value = mock_over
+        mock_over.label.return_value = mock_labeled
+
+        mock_aliased_result = MagicMock()
+        mock_aliased.return_value = mock_aliased_result
+        mock_session = MagicMock()
+        mock_session_maker.return_value.__enter__.return_value = mock_session
+
+        mock_metric1 = MagicMock()
+        mock_metric1.run_uuid = run1.info.run_id
+        mock_metric1.to_mlflow_entity.return_value = MagicMock()
+
+        mock_metric2 = MagicMock()
+        mock_metric2.run_uuid = run2.info.run_id
+        mock_metric2.to_mlflow_entity.return_value = MagicMock()
+
+        mock_session.query.return_value.distinct.return_value.all.return_value = [
+            mock_metric1,
+            mock_metric2,
+        ]
+
+        result = store.get_metric_history_bulk_interval(
+            [run1.info.run_id, run2.info.run_id], "test_metric", max_results, 0, 9
+        )
+
+        mock_func.ntile.assert_called_with(max_results)
+        mock_ntile.over.assert_called_with(partition_by=SqlMetric.run_uuid, order_by=SqlMetric.step)
+        mock_over.label.assert_called_with("nt")
+
+        mock_session.query.assert_called_with(mock_aliased_result)
+        mock_session.query.return_value.distinct.assert_called_with(
+            mock_aliased_result.run_uuid, "nt"
+        )
+
+        mock_session.query.return_value.distinct.return_value.all.assert_called_once()
+        assert len(result) == 2
+        assert all(isinstance(item, MetricWithRunId) for item in result)
+        mock_metric1.to_mlflow_entity.assert_called_once()
+        mock_metric2.to_mlflow_entity.assert_called_once()
+
+@pytest.mark.parametrize("dialect", [MYSQL, SQLITE, MSSQL])
+def test_get_metric_history_bulk_interval_sqlite_fallback(store: SqlAlchemyStore, dialect):
+    with (
+        mock.patch.object(store, "_get_dialect", return_value=dialect),
+        mock.patch.object(store, "get_metric_history_bulk_interval") as mock_super,
+    ):
+        store.get_metric_history_bulk_interval(["run1"], "metric", 5, 0, 9)
+        mock_super.assert_called_once_with(["run1"], "metric", 5, 0, 9)
