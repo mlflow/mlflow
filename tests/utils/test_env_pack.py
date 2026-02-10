@@ -508,8 +508,8 @@ def test_tar_creates_single_file_for_small_tar(tmp_path):
 
 
 def test_tar_chunking_disabled(tmp_path, monkeypatch):
-    monkeypatch.setenv("ENV_PACK_ENABLE_CHUNKING", "false")
-    monkeypatch.setenv("ENV_PACK_CHUNK_SIZE_BYTES", "100")
+    monkeypatch.setenv("MLFLOW_ENABLE_ENV_PACK_CHUNKING", "false")
+    monkeypatch.setenv("MLFLOW_ENV_PACK_CHUNK_SIZE", "100")
     importlib.reload(env_pack)
 
     source_dir = tmp_path / "source"
@@ -525,8 +525,8 @@ def test_tar_chunking_disabled(tmp_path, monkeypatch):
 
 def test_tar_e2e_with_chunking(tmp_path, monkeypatch):
     """End-to-end test: create tar with chunking, verify chunks, reassemble and extract."""
-    monkeypatch.setenv("ENV_PACK_ENABLE_CHUNKING", "true")
-    monkeypatch.setenv("ENV_PACK_CHUNK_SIZE_BYTES", "1024")  # 1KB chunks for testing
+    monkeypatch.setenv("MLFLOW_ENABLE_ENV_PACK_CHUNKING", "true")
+    monkeypatch.setenv("MLFLOW_ENV_PACK_CHUNK_SIZE", "1024")  # 1KB chunks for testing
     importlib.reload(env_pack)
 
     # Create source directory with multiple files
@@ -570,7 +570,7 @@ def test_tar_e2e_with_chunking(tmp_path, monkeypatch):
 
 def test_tar_e2e_without_chunking(tmp_path, monkeypatch):
     """End-to-end test: create tar without chunking, verify single file, extract."""
-    monkeypatch.setenv("ENV_PACK_ENABLE_CHUNKING", "false")
+    monkeypatch.setenv("MLFLOW_ENABLE_ENV_PACK_CHUNKING", "false")
     importlib.reload(env_pack)
 
     # Create source directory

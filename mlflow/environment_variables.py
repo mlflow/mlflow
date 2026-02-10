@@ -1073,6 +1073,21 @@ MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
     "MLFLOW_LOCK_MODEL_DEPENDENCIES", False
 )
 
+#: Specifies whether to enable tar chunking when packing environments for
+#: Databricks Model Serving with env_pack="databricks_model_serving".
+#: When enabled, large tar files are split into multiple chunks for parallel upload.
+#: (default: ``False``)
+MLFLOW_ENABLE_ENV_PACK_CHUNKING = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ENV_PACK_CHUNKING", False
+)
+
+#: Specifies the chunk size in bytes for env_pack tar chunking.
+#: Only used when MLFLOW_ENABLE_ENV_PACK_CHUNKING is enabled.
+#: (default: ``1073741824`` (1GB))
+MLFLOW_ENV_PACK_CHUNK_SIZE = _EnvironmentVariable(
+    "MLFLOW_ENV_PACK_CHUNK_SIZE", int, 1024 * 1024 * 1024
+)
+
 #: If specified, tracking server rejects model `/mlflow/model-versions/create` requests with
 #: a source that does not match the specified regular expression.
 #: (default: ``None``).

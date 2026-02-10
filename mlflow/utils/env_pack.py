@@ -12,6 +12,10 @@ from typing import Generator, Literal
 import yaml
 
 from mlflow.artifacts import download_artifacts
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ENV_PACK_CHUNKING,
+    MLFLOW_ENV_PACK_CHUNK_SIZE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -31,12 +35,7 @@ class EnvPackConfig:
 _ARTIFACT_PATH = "_databricks"
 _MODEL_VERSION_TAR = "model_version.tar"
 _MODEL_ENVIRONMENT_TAR = "model_environment.tar"
-_DEFAULT_CHUNK_SIZE = 1024 * 1024 * 1024  # 1GB
 _UNLIMITED_CHUNK_SIZE = 1024 * 1024 * 1024 * 1024  # 1TB
-_ENV_PACK_ENABLE_CHUNKING = os.environ.get("ENV_PACK_ENABLE_CHUNKING", "false") == "true"
-_ENV_PACK_CHUNK_SIZE_BYTES = int(
-    os.environ.get("ENV_PACK_CHUNK_SIZE_BYTES", str(_DEFAULT_CHUNK_SIZE))
-)
 
 
 def _rename_chunks(chunks: list[Path], base_path: Path) -> None:
@@ -157,8 +156,8 @@ def _tar(root_path: Path, tar_path: Path) -> None:
     Package all files under root_path into a tar at tar_path, excluding __pycache__, *.pyc, and
     wheels_info.json.
 
-    If ENV_PACK_ENABLE_CHUNKING is enabled, lexicographically ordered tar chunks of size
-    ENV_PACK_CHUNK_SIZE_BYTES will be created.
+    If MLFLOW_ENABLE_ENV_PACK_CHUNKING is enabled, lexicographically ordered tar chunks of size
+    MLFLOW_ENV_PACK_CHUNK_SIZE will be created.
     """
 
     def exclude(tarinfo: tarfile.TarInfo):
@@ -168,7 +167,11 @@ def _tar(root_path: Path, tar_path: Path) -> None:
             return None
         return tarinfo
 
-    chunk_size = _ENV_PACK_CHUNK_SIZE_BYTES if _ENV_PACK_ENABLE_CHUNKING else _UNLIMITED_CHUNK_SIZE
+    chunk_size = (
+        MLFLOW_ENV_PACK_CHUNK_SIZE.get()
+        if MLFLOW_ENABLE_ENV_PACK_CHUNKING.get()
+        else _UNLIMITED_CHUNK_SIZE
+    )
     with _ChunkedFileWriter(tar_path, chunk_size) as writer:
         with tarfile.open(fileobj=writer, mode="w", dereference=True) as tar:
             tar.add(root_path, arcname=".", filter=exclude)
