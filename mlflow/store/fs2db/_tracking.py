@@ -9,7 +9,7 @@ from mlflow.entities import RunStatus
 from mlflow.store.fs2db._helpers import (
     META_YAML,
     bump,
-    list_experiment_ids,
+    for_each_experiment,
     list_files,
     list_subdirs,
     read_metric_lines,
@@ -37,16 +37,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 
-# ── Phase 1: Experiments + Tags ──────────────────────────────────────────────
-
 
 def migrate_experiments(session: Session, mlruns: Path) -> None:
-    for exp_id in list_experiment_ids(mlruns):
-        _migrate_one_experiment(session, mlruns / exp_id, exp_id)
-
-    trash_dir = mlruns / ".trash"
-    for exp_id in list_experiment_ids(trash_dir):
-        _migrate_one_experiment(session, trash_dir / exp_id, exp_id)
+    for exp_dir, exp_id in for_each_experiment(mlruns):
+        _migrate_one_experiment(session, exp_dir, exp_id)
 
 
 def _migrate_one_experiment(session: Session, exp_dir: Path, exp_id: str) -> None:
@@ -79,18 +73,12 @@ def _migrate_one_experiment(session: Session, exp_dir: Path, exp_id: str) -> Non
         bump("experiment_tags")
 
 
-# ── Phase 2: Runs + Params + Tags + Metrics + LatestMetrics ──────────────────
-
 RESERVED_FOLDERS = {"tags", "datasets", "traces", "models", ".trash"}
 
 
 def migrate_runs(session: Session, mlruns: Path) -> None:
-    for exp_id in list_experiment_ids(mlruns):
-        _migrate_runs_in_dir(session, mlruns / exp_id, int(exp_id))
-
-    trash_dir = mlruns / ".trash"
-    for exp_id in list_experiment_ids(trash_dir):
-        _migrate_runs_in_dir(session, trash_dir / exp_id, int(exp_id))
+    for exp_dir, exp_id in for_each_experiment(mlruns):
+        _migrate_runs_in_dir(session, exp_dir, int(exp_id))
 
 
 def _migrate_runs_in_dir(session: Session, exp_dir: Path, exp_id: int) -> None:
@@ -228,16 +216,9 @@ def _migrate_run_metrics(session: Session, metrics_dir: Path, run_uuid: str) -> 
             bump("latest_metrics")
 
 
-# ── Phase 3: Datasets + Inputs + InputTags ───────────────────────────────────
-
-
 def migrate_datasets(session: Session, mlruns: Path) -> None:
-    for exp_id in list_experiment_ids(mlruns):
-        _migrate_datasets_for_experiment(session, mlruns / exp_id, int(exp_id))
-
-    trash_dir = mlruns / ".trash"
-    for exp_id in list_experiment_ids(trash_dir):
-        _migrate_datasets_for_experiment(session, trash_dir / exp_id, int(exp_id))
+    for exp_dir, exp_id in for_each_experiment(mlruns):
+        _migrate_datasets_for_experiment(session, exp_dir, int(exp_id))
 
 
 def _migrate_datasets_for_experiment(session: Session, exp_dir: Path, exp_id: int) -> None:
@@ -313,16 +294,9 @@ def _migrate_datasets_for_experiment(session: Session, exp_dir: Path, exp_id: in
                 bump("input_tags")
 
 
-# ── Phase 4: Traces + TraceTags + TraceMetadata ──────────────────────────────
-
-
 def migrate_traces(session: Session, mlruns: Path) -> None:
-    for exp_id in list_experiment_ids(mlruns):
-        _migrate_traces_for_experiment(session, mlruns / exp_id, int(exp_id))
-
-    trash_dir = mlruns / ".trash"
-    for exp_id in list_experiment_ids(trash_dir):
-        _migrate_traces_for_experiment(session, trash_dir / exp_id, int(exp_id))
+    for exp_dir, exp_id in for_each_experiment(mlruns):
+        _migrate_traces_for_experiment(session, exp_dir, int(exp_id))
 
 
 def _parse_timestamp_ms(request_time: str) -> int:
@@ -407,16 +381,9 @@ def _migrate_traces_for_experiment(session: Session, exp_dir: Path, exp_id: int)
             bump("trace_metadata")
 
 
-# ── Phase 5: Assessments ─────────────────────────────────────────────────────
-
-
 def migrate_assessments(session: Session, mlruns: Path) -> None:
-    for exp_id in list_experiment_ids(mlruns):
-        _migrate_assessments_for_experiment(session, mlruns / exp_id)
-
-    trash_dir = mlruns / ".trash"
-    for exp_id in list_experiment_ids(trash_dir):
-        _migrate_assessments_for_experiment(session, trash_dir / exp_id)
+    for exp_dir, _exp_id in for_each_experiment(mlruns):
+        _migrate_assessments_for_experiment(session, exp_dir)
 
 
 def _migrate_assessments_for_experiment(session: Session, exp_dir: Path) -> None:
@@ -497,16 +464,9 @@ def _migrate_one_assessment(
     bump("assessments")
 
 
-# ── Phase 6: Logged Models + Params + Tags + Metrics ────────────────────────
-
-
 def migrate_logged_models(session: Session, mlruns: Path) -> None:
-    for exp_id in list_experiment_ids(mlruns):
-        _migrate_logged_models_for_experiment(session, mlruns / exp_id, int(exp_id))
-
-    trash_dir = mlruns / ".trash"
-    for exp_id in list_experiment_ids(trash_dir):
-        _migrate_logged_models_for_experiment(session, trash_dir / exp_id, int(exp_id))
+    for exp_dir, exp_id in for_each_experiment(mlruns):
+        _migrate_logged_models_for_experiment(session, exp_dir, int(exp_id))
 
 
 def _migrate_logged_models_for_experiment(session: Session, exp_dir: Path, exp_id: int) -> None:

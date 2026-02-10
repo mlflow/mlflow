@@ -4,6 +4,20 @@ from pathlib import Path
 from mlflow.exceptions import MlflowException
 
 
+def _resolve_mlruns(source: Path) -> Path:
+    mlruns = source / "mlruns"
+    if mlruns.is_dir():
+        return mlruns
+
+    has_experiment_dirs = any(
+        d.name.isdigit() or d.name in {".trash", "models"} for d in source.iterdir() if d.is_dir()
+    )
+    if has_experiment_dirs:
+        return source
+
+    raise MlflowException(f"Cannot find mlruns directory in '{source}'")
+
+
 def _assert_empty_db(engine) -> None:
     from sqlalchemy import text
 
@@ -37,19 +51,7 @@ def migrate(source: Path, target_uri: str) -> None:
     )
 
     summary.clear()
-
-    mlruns = source / "mlruns"
-    if not mlruns.is_dir():
-        # Source may be the mlruns directory itself — check if it has experiment-like subdirs
-        has_experiment_dirs = any(
-            d.name.isdigit() or d.name in {".trash", "models"}
-            for d in source.iterdir()
-            if d.is_dir()
-        )
-        if has_experiment_dirs:
-            mlruns = source
-        else:
-            raise MlflowException(f"Cannot find mlruns directory in '{source}'")
+    mlruns = _resolve_mlruns(source)
 
     print(f"Source: {mlruns}")
     print(f"Target: {target_uri}")
