@@ -141,6 +141,8 @@ export interface Endpoint {
     strategy: string;
     max_attempts: number;
   };
+  experiment_id?: string;
+  usage_tracking?: boolean;
 }
 
 export interface CreateEndpointRequest {
@@ -152,6 +154,8 @@ export interface CreateEndpointRequest {
     strategy: string;
     max_attempts: number;
   };
+  usage_tracking?: boolean;
+  experiment_id?: string;
 }
 
 export interface CreateEndpointResponse {
@@ -172,6 +176,8 @@ export interface UpdateEndpointRequest {
     max_attempts: number;
   };
   model_configs?: GatewayEndpointModelConfig[];
+  usage_tracking?: boolean;
+  experiment_id?: string;
 }
 
 export interface UpdateEndpointResponse {

@@ -22,12 +22,13 @@ jobs:
     permissions:
       actions: write # to rerun workflows
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          sparse-checkout: |
-            .github
-      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        with:
-          script: |
-            const rerun = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/rerun-cross-version-tests.js`);
-            await rerun({ context, github, workflow_id: "cross-version-tests.yml" });
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          run_id=$(gh run list --repo "$REPO" -w cross-version-tests.yml --event schedule \
+            -L 1 --json databaseId,conclusion \
+            --jq '.[] | select(.conclusion != "success") | .databaseId')
+          if [ -n "$run_id" ]; then
+            gh run rerun "$run_id" --repo "$REPO" --failed
+          fi

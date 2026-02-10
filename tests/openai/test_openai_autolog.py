@@ -13,6 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.openai.utils.chat_schema import _parse_tools
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
+    CostKey,
     SpanAttributeKey,
     TokenUsageKey,
     TraceMetadataKey,
@@ -89,7 +90,10 @@ def embedding_models():
 
 
 @pytest.mark.asyncio
-async def test_chat_completions_autolog(client):
+@pytest.mark.skipif(
+    Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
+)
+async def test_chat_completions_autolog(client, mock_litellm_cost):
     mlflow.openai.autolog()
 
     messages = [{"role": "user", "content": "test"}]
@@ -120,16 +124,33 @@ async def test_chat_completions_autolog(client):
         TokenUsageKey.OUTPUT_TOKENS: 12,
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
+    assert span.model_name == "gpt-4o-mini"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
+
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert span.llm_cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
+
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
     assert trace.info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
+    assert trace.info.cost == {
+        CostKey.INPUT_COST: 9.0,
+        CostKey.OUTPUT_COST: 24.0,
+        CostKey.TOTAL_COST: 33.0,
+    }
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
+)
 async def test_chat_completions_autolog_under_current_active_span(client):
     # If a user have an active span, the autologging should create a child span under it.
     mlflow.openai.autolog()
@@ -395,6 +416,7 @@ async def test_completions_autolog(client):
     assert span.span_type == SpanType.LLM
     assert span.inputs == {"prompt": "test", "model": "gpt-4o-mini", "temperature": 0}
     assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
+    assert span.model_name == "gpt-4o-mini"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
@@ -480,6 +502,7 @@ async def test_embeddings_autolog(client):
     assert span.span_type == SpanType.EMBEDDING
     assert span.inputs == {"input": "test", "model": "text-embedding-ada-002"}
     assert span.outputs["data"][0]["embedding"] == list(range(1536))
+    assert span.model_name == "text-embedding-ada-002"
 
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
@@ -544,6 +567,7 @@ async def test_autolog_raw_response(client):
         span.outputs["choices"][0]["message"]["content"] == '[{"role": "user", "content": "test"}]'
     )
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
+    assert span.model_name == "gpt-4o-mini"
 
     assert trace.info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
@@ -579,6 +603,7 @@ async def test_autolog_raw_response_stream(client):
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
+    assert span.model_name == "gpt-4o-mini"
 
     # Reconstructed response from streaming chunks
     assert isinstance(span.outputs, dict)
@@ -672,6 +697,7 @@ async def test_response_format(client):
     span = trace.data.spans[0]
     assert span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
     assert span.span_type == SpanType.CHAT_MODEL
+    assert span.model_name == "gpt-4o"
 
     assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
         {
@@ -704,6 +730,7 @@ async def test_autolog_link_traces_to_loaded_model_chat_completions(client, comp
         model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
         assert model_id is not None
         assert span.inputs["messages"][0]["content"] == f"test {model_id}"
+        assert span.model_name == model_dict["model"]
 
 
 @skip_when_testing_trace_sdk
@@ -728,6 +755,7 @@ async def test_autolog_link_traces_to_loaded_model_completions(client, completio
         model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
         assert model_id is not None
         assert span.inputs["prompt"] == f"test {model_id}"
+        assert span.model_name == model_dict["model"]
 
 
 @skip_when_testing_trace_sdk
@@ -752,6 +780,7 @@ async def test_autolog_link_traces_to_loaded_model_embeddings(client, embedding_
         model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
         assert model_id is not None
         assert span.inputs["input"] == f"test {model_id}"
+        assert span.model_name == model_dict["model"]
 
 
 @skip_when_testing_trace_sdk
@@ -775,6 +804,7 @@ def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(
         model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
         assert model_id is not None
         assert span.inputs["input"] == [f"test {model_id}"]
+        assert span.model_name == "text-embedding-ada-002"
 
 
 @skip_when_testing_trace_sdk
@@ -797,6 +827,7 @@ def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai, embedding
         assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model.model_id
         logged_model_id = span.inputs["input"][0]
         assert logged_model_id != model.model_id
+        assert span.model_name == "text-embedding-ada-002"
 
 
 @pytest.mark.parametrize(
@@ -831,6 +862,7 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id is not None
     assert span.inputs["messages"][0]["content"] == f"test {model_id}"
+    assert span.model_name == model_dict["model"]
 
 
 @pytest.mark.skipif(

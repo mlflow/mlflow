@@ -143,7 +143,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             import gepa
         except ImportError as e:
             raise ImportError(
-                "GEPA >= 0.0.18 is required. Please install it with: `pip install 'gepa>=0.0.18'`"
+                "GEPA >= 0.0.26 is required. Please install it with: `pip install 'gepa>=0.0.26'`"
             ) from e
 
         provider, model = _parse_model_uri(self.reflection_model)

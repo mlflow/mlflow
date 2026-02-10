@@ -60,7 +60,6 @@ from mlflow.entities.webhook import (
 from mlflow.environment_variables import (
     MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS,
     MLFLOW_ENABLE_ASYNC_LOGGING,
-    MLFLOW_EXPERIMENT_ID,
     MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
@@ -696,7 +695,10 @@ class MlflowClient:
 
         prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
-        if experiment_id := MLFLOW_EXPERIMENT_ID.get():
+        # Import here to avoid circular import
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        if experiment_id := _get_experiment_id():
             self._link_prompt_to_experiment(prompt_version, experiment_id)
 
         return prompt_version
@@ -875,7 +877,10 @@ class MlflowClient:
 
             # Link the prompt to the active experiment. This is called only when
             # the prompt is loaded from the registry to avoid performance overhead.
-            if prompt and (experiment_id := MLFLOW_EXPERIMENT_ID.get()):
+            # Import here to avoid circular import
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            if prompt and (experiment_id := _get_experiment_id()):
                 self._link_prompt_to_experiment(prompt, experiment_id)
 
             # Cache the result if cache_ttl_seconds > 0
@@ -6211,8 +6216,12 @@ class MlflowClient:
                     INVALID_PARAMETER_VALUE,
                 )
 
-        # For non-Unity Catalog registries, or if version check passes, delete the prompt
-        return registry_client.delete_prompt(name)
+        # Acquire lock to wait for any background thread (e.g., from register_prompt)
+        # that may be updating tags on this prompt. This prevents race conditions where
+        # the background thread holds a session open while we try to delete.
+        with _prompt_experiment_link_lock:
+            # For non-Unity Catalog registries, or if version check passes, delete the prompt
+            return registry_client.delete_prompt(name)
 
     @experimental(version="3.4.0")
     @_disable_in_databricks()

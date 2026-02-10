@@ -27,6 +27,7 @@ import {
   CUSTOM_METADATA_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
 } from '../../hooks/useTableColumns';
 import type {
@@ -36,7 +37,7 @@ import type {
   TableFilterOptions,
   TracesTableColumn,
 } from '../../types';
-import { FilterOperator, TracesTableColumnGroup, TracesTableColumnGroupToLabelMap } from '../../types';
+import { FilterOperator, TracesTableColumnGroup, TracesTableColumnGroupToLabelMap, isNullOperator } from '../../types';
 
 const getFilterableInfoColumns = (usesV4APIs?: boolean) => {
   // We use a different set of filterable info columns depending on whether v4 APIs are used
@@ -82,12 +83,20 @@ const getAvailableOperators = (column: string, key?: string): FilterOperator[] =
     return [FilterOperator.EQUALS, FilterOperator.NOT_EQUALS, FilterOperator.CONTAINS];
   }
 
+  if (column === SPAN_STATUS_COLUMN_ID) {
+    return [FilterOperator.EQUALS, FilterOperator.NOT_EQUALS];
+  }
+
   if (column === SPAN_CONTENT_COLUMN_ID) {
     return [FilterOperator.CONTAINS];
   }
 
   if (column === INPUTS_COLUMN_ID || column === RESPONSE_COLUMN_ID) {
     return [FilterOperator.RLIKE, FilterOperator.EQUALS];
+  }
+
+  if (column === TracesTableColumnGroup.ASSESSMENT) {
+    return [FilterOperator.EQUALS, FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL];
   }
 
   return [FilterOperator.EQUALS];
@@ -159,6 +168,7 @@ export const TableFilterItem = ({
         // these when the search API supports them
         { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
         { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
+        { value: SPAN_STATUS_COLUMN_ID, renderValue: () => 'Span status' },
         { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
       );
     }
@@ -295,27 +305,29 @@ export const TableFilterItem = ({
             );
           })()}
         </div>
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <FormUI.Label htmlFor={`filter-value-${index}`}>
-            <FormattedMessage
-              defaultMessage="Value"
-              description="Label for the value field in the GenAI Traces Table Filter form"
+        {!isNullOperator(operator as FilterOperator) && (
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <FormUI.Label htmlFor={`filter-value-${index}`}>
+              <FormattedMessage
+                defaultMessage="Value"
+                description="Label for the value field in the GenAI Traces Table Filter form"
+              />
+            </FormUI.Label>
+            <TableFilterItemValueInput
+              index={index}
+              tableFilter={tableFilter}
+              assessmentInfos={assessmentInfos}
+              onChange={onChange}
+              experimentId={experimentId}
+              tableFilterOptions={tableFilterOptions}
             />
-          </FormUI.Label>
-          <TableFilterItemValueInput
-            index={index}
-            tableFilter={tableFilter}
-            assessmentInfos={assessmentInfos}
-            onChange={onChange}
-            experimentId={experimentId}
-            tableFilterOptions={tableFilterOptions}
-          />
-        </div>
+          </div>
+        )}
         <div
           css={{
             alignSelf: 'flex-end',

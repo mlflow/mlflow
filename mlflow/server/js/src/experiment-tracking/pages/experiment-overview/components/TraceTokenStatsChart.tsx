@@ -16,6 +16,7 @@ import {
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export const TraceTokenStatsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -23,6 +24,7 @@ export const TraceTokenStatsChart: React.FC = () => {
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
+  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process token stats chart data
   const { chartData, avgTokens, isLoading, error, hasData } = useTraceTokenStatsChartData();
@@ -68,7 +70,16 @@ export const TraceTokenStatsChart: React.FC = () => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
+                content={
+                  <ScrollableTooltip
+                    formatter={tooltipFormatter}
+                    linkConfig={{
+                      experimentId,
+                      timeIntervalSeconds,
+                      componentId: 'mlflow.overview.usage.token_stats.view_traces_link',
+                    }}
+                  />
+                }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Line

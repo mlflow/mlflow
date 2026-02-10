@@ -572,11 +572,18 @@ def test_http_request_max_retries(monkeypatch):
     host_creds = MlflowHostCreds("http://example.com")
 
     with mock.patch("requests.Session.request") as mock_request:
+        # Value exceeding limit should raise
         with pytest.raises(MlflowException, match="The configured max_retries"):
             http_request(host_creds, "/endpoint", "GET", max_retries=16)
         mock_request.assert_not_called()
+
+        # Value equal to limit should succeed (boundary case)
+        http_request(host_creds, "/endpoint", "GET", max_retries=15)
+        assert mock_request.call_count == 1
+
+        # Value below limit should succeed
         http_request(host_creds, "/endpoint", "GET", max_retries=3)
-        mock_request.assert_called_once()
+        assert mock_request.call_count == 2
 
 
 def test_http_request_backoff_factor(monkeypatch):
@@ -584,11 +591,18 @@ def test_http_request_backoff_factor(monkeypatch):
     host_creds = MlflowHostCreds("http://example.com")
 
     with mock.patch("requests.Session.request") as mock_request:
+        # Value exceeding limit should raise
         with pytest.raises(MlflowException, match="The configured backoff_factor"):
             http_request(host_creds, "/endpoint", "GET", backoff_factor=250)
         mock_request.assert_not_called()
+
+        # Value equal to limit should succeed (boundary case)
+        http_request(host_creds, "/endpoint", "GET", backoff_factor=200)
+        assert mock_request.call_count == 1
+
+        # Value below limit should succeed
         http_request(host_creds, "/endpoint", "GET", backoff_factor=10)
-        mock_request.assert_called_once()
+        assert mock_request.call_count == 2
 
 
 def test_http_request_negative_max_retries():

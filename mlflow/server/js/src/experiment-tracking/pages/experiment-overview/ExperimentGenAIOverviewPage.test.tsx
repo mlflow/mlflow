@@ -212,7 +212,7 @@ describe('ExperimentGenAIOverviewPage', () => {
 
       // Verify all charts are rendered
       await waitFor(() => {
-        expect(screen.getByText('Requests')).toBeInTheDocument();
+        expect(screen.getByText('Traces')).toBeInTheDocument();
         expect(screen.getByText('Latency')).toBeInTheDocument();
         expect(screen.getByText('Errors')).toBeInTheDocument();
       });
@@ -234,8 +234,8 @@ describe('ExperimentGenAIOverviewPage', () => {
       renderComponent();
 
       await waitFor(() => {
-        // Requests chart should be present (full width)
-        expect(screen.getByText('Requests')).toBeInTheDocument();
+        // Traces chart should be present (full width)
+        expect(screen.getByText('Traces')).toBeInTheDocument();
         // Latency and Errors charts should be present (side by side)
         expect(screen.getByText('Latency')).toBeInTheDocument();
         expect(screen.getByText('Errors')).toBeInTheDocument();

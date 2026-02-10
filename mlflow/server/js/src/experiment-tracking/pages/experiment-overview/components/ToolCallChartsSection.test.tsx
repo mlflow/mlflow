@@ -16,6 +16,7 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 
 // Helper to create a data point with tool name and status
 const createDataPoint = (toolName: string, status: string, count: number) => ({
@@ -56,13 +57,15 @@ describe('ToolCallChartsSection', () => {
   const renderComponent = () => {
     const queryClient = createQueryClient();
     return renderWithIntl(
-      <QueryClientProvider client={queryClient}>
-        <DesignSystemProvider>
-          <OverviewChartProvider {...contextProps}>
-            <ToolCallChartsSection />
-          </OverviewChartProvider>
-        </DesignSystemProvider>
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <OverviewChartProvider {...contextProps}>
+              <ToolCallChartsSection />
+            </OverviewChartProvider>
+          </DesignSystemProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
   };
 

@@ -80,6 +80,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -185,6 +186,7 @@ def save_model(
     pyfunc_predict_fn="predict",
     metadata=None,
     skops_trusted_types=None,
+    extra_files=None,
 ):
     """
     Save a scikit-learn model to a path on the local file system. Produces a MLflow Model
@@ -219,6 +221,7 @@ def save_model(
         metadata: {{ metadata }}
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
+        extra_files: {{ extra_files }}
 
     .. code-block:: python
         :caption: Example
@@ -266,8 +269,9 @@ def save_model(
         warnings.warn(
             "Saving scikit-learn models in the pickle or cloudpickle format requires exercising "
             "caution because these formats rely on Python's object serialization mechanism, "
-            "which can execute arbitrary code during deserialization."
-            "The recommended safe alternative is the 'skops' format.",
+            "which can execute arbitrary code during deserialization. "
+            "The recommended safe alternative is the 'skops' format. "
+            "For more information, see: https://scikit-learn.org/stable/model_persistence.html",
             FutureWarning,
             stacklevel=2,
         )
@@ -299,6 +303,8 @@ def save_model(
         skops_trusted_types=skops_trusted_types,
     )
 
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     # `PyFuncModel` only works for sklearn models that define a predict function
 
     if hasattr(sk_model, pyfunc_predict_fn):
@@ -323,6 +329,7 @@ def save_model(
         serialization_format=serialization_format,
         code=code_path_subdir,
         skops_trusted_types=skops_trusted_types,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -382,7 +389,7 @@ def log_model(
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
     metadata=None,
-    # New arguments
+    extra_files=None,
     params: dict[str, Any] | None = None,
     tags: dict[str, Any] | None = None,
     model_type: str | None = None,
@@ -390,6 +397,7 @@ def log_model(
     model_id: str | None = None,
     name: str | None = None,
     skops_trusted_types: list[str] | None = None,
+    **kwargs,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -426,6 +434,7 @@ def log_model(
             are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
             ``"predict_joint_log_proba"``, and ``"score"``.
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -434,6 +443,7 @@ def log_model(
         name: {{ name }}
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
+        kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -479,12 +489,14 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         pyfunc_predict_fn=pyfunc_predict_fn,
         metadata=metadata,
+        extra_files=extra_files,
         params=params,
         tags=tags,
         model_type=model_type,
         step=step,
         model_id=model_id,
         skops_trusted_types=skops_trusted_types,
+        **kwargs,
     )
 
 

@@ -20,6 +20,8 @@ import { useOverviewChartContext } from '../OverviewChartContext';
 export interface AssessmentChartDataPoint {
   name: string;
   value: number | null;
+  /** Raw timestamp in milliseconds for navigation */
+  timestampMs: number;
 }
 
 export interface DistributionChartDataPoint {
@@ -101,6 +103,7 @@ export function useTraceAssessmentChartData(assessmentName: string): UseTraceAss
     return timeBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       value: valuesByTimestamp.get(timestampMs) ?? null,
+      timestampMs,
     }));
   }, [timeBuckets, valuesByTimestamp, timeIntervalSeconds]);
 

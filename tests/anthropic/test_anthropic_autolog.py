@@ -173,7 +173,7 @@ def _call_anthropic(request: dict[str, Any], mock_response: Message, is_async: b
             return client.messages.create(**request)
 
 
-def test_messages_autolog(is_async):
+def test_messages_autolog(is_async, mock_litellm_cost):
     mlflow.anthropic.autolog()
 
     _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
@@ -197,7 +197,15 @@ def test_messages_autolog(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+    assert span.llm_cost == {
+        "input_cost": 10.0,
+        "output_cost": 36.0,
+        "total_cost": 46.0,
+    }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 10,
@@ -258,6 +266,7 @@ def test_messages_autolog_multi_modal(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     assert traces[0].info.token_usage == {
@@ -267,7 +276,7 @@ def test_messages_autolog_multi_modal(is_async):
     }
 
 
-def test_messages_autolog_tool_calling(is_async):
+def test_messages_autolog_tool_calling(is_async, mock_litellm_cost):
     mlflow.anthropic.autolog()
 
     _call_anthropic(
@@ -283,6 +292,13 @@ def test_messages_autolog_tool_calling(is_async):
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(exclude_unset=False)
+
+    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+    assert span.llm_cost == {
+        "input_cost": 10.0,
+        "output_cost": 36.0,
+        "total_cost": 46.0,
+    }
 
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
@@ -331,6 +347,7 @@ def test_messages_autolog_tool_calling(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
 
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
@@ -342,7 +359,7 @@ def test_messages_autolog_tool_calling(is_async):
 
 
 @pytest.mark.skipif(not _is_thinking_supported, reason="Thinking block is not supported")
-def test_messages_autolog_with_thinking(is_async):
+def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     mlflow.anthropic.autolog()
 
     _call_anthropic(
@@ -370,7 +387,15 @@ def test_messages_autolog_with_thinking(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+    assert span.llm_cost == {
+        "input_cost": 10.0,
+        "output_cost": 36.0,
+        "total_cost": 46.0,
+    }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 10,

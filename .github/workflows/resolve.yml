@@ -77,6 +77,29 @@ jobs:
               throw new Error(`User not allowed to trigger workflow: ${comment.user.login} (association: ${authorAssociation})`);
             }
 
+            // Check if PR is from a fork and allows maintainer edits
+            const prNumber = context.issue.number;
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            const isFork = pr.head.repo && pr.head.repo.full_name !== pr.base.repo.full_name;
+            if (isFork && !pr.maintainer_can_modify) {
+              const forkMessage = `⚠️ This PR does not allow maintainers to push changes. Please enable "Allow edits by maintainers" in the PR settings and re-trigger the workflow.`;
+              const forkUpdatedBody = `${updatedBody}\n\n---\n${forkMessage}`;
+
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id,
+                body: forkUpdatedBody,
+              });
+
+              throw new Error('PR does not allow maintainer edits');
+            }
+
       - name: Get PR information
         id: pr-info
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
@@ -136,7 +159,7 @@ jobs:
 
       - name: Install Claude CLI
         run: |
-          npm install -g @anthropic-ai/claude-code@2.1.3
+          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.29
 
       - name: Run Claude resolve command
         id: claude-fix
@@ -151,7 +174,7 @@ jobs:
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
           ARGS=("/resolve")
           [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
-          timeout 10m claude --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" || true
+          timeout 10m claude --model claude-opus-4-5-20251101 --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" || true
 
           # Display output in workflow logs (pretty print if valid JSON)
           echo "=== Claude Output ==="

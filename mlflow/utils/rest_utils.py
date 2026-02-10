@@ -344,7 +344,7 @@ def _validate_max_retries(max_retries):
             "Cannot be negative.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if max_retries >= max_retry_limit:
+    if max_retries > max_retry_limit:
         raise MlflowException(
             message=f"The configured max_retries value ({max_retries}) is "
             f"in excess of the maximum allowable retries ({max_retry_limit})",
@@ -368,7 +368,7 @@ def _validate_backoff_factor(backoff_factor):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if backoff_factor >= max_backoff_factor_limit:
+    if backoff_factor > max_backoff_factor_limit:
         raise MlflowException(
             message=f"The configured backoff_factor value ({backoff_factor}) is in excess "
             "of the maximum allowable backoff_factor limit "

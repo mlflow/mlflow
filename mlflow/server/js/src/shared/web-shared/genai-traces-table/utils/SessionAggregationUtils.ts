@@ -10,6 +10,7 @@ import type { AssessmentInfo } from '../types';
 export interface PassFailAggregationResult {
   passCount: number;
   totalCount: number;
+  errorCount: number;
 }
 
 /**
@@ -53,12 +54,18 @@ export function aggregatePassFailAssessments(
 ): PassFailAggregationResult {
   let passCount = 0;
   let totalCount = 0;
+  let errorCount = 0;
 
   for (const trace of traces) {
     const assessments = getValidAssessments(trace, assessmentInfo.name);
 
     for (const assessment of assessments) {
       if (!('feedback' in assessment)) {
+        continue;
+      }
+
+      if (assessment.feedback.error?.error_message) {
+        errorCount++;
         continue;
       }
 
@@ -76,7 +83,7 @@ export function aggregatePassFailAssessments(
     }
   }
 
-  return { passCount, totalCount };
+  return { passCount, totalCount, errorCount };
 }
 
 /**

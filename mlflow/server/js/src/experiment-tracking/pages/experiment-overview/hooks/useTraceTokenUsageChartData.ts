@@ -8,6 +8,7 @@ export interface TokenUsageChartDataPoint {
   name: string;
   inputTokens: number;
   outputTokens: number;
+  timestampMs: number;
 }
 
 export interface UseTraceTokenUsageChartDataResult {
@@ -112,6 +113,7 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       inputTokens: inputTokensMap.get(timestampMs) || 0,
       outputTokens: outputTokensMap.get(timestampMs) || 0,
+      timestampMs,
     }));
   }, [timeBuckets, inputTokensMap, outputTokensMap, timeIntervalSeconds]);
 

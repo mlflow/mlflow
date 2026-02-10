@@ -93,6 +93,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlParam,
     SqlRun,
     SqlSpan,
+    SqlSpanMetrics,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -102,6 +103,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    CostKey,
     SpanAttributeKey,
     SpansLocation,
     TraceMetadataKey,
@@ -2455,6 +2457,40 @@ def test_search_runs_pagination(store: SqlAlchemyStore):
     assert result.token is None
 
 
+def test_search_runs_pagination_last_page_exact(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "test_search_runs_pagination_last_page_exact")
+    # Create exactly 8 runs (2 pages of 4 runs each)
+    runs = sorted(
+        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(8)]
+    )
+
+    # First page: should return 4 runs and a token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=4)
+    assert [r.info.run_id for r in result] == runs[0:4]
+    assert result.token is not None
+
+    # Second page: should return exactly 4 runs (last page) with NO token
+    # This is the key test case - with optimistic pagination, this would incorrectly
+    # return a token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=4, page_token=result.token)
+    assert [r.info.run_id for r in result] == runs[4:8]
+    assert result.token is None
+
+
+def test_search_runs_pagination_with_max_results_none(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "test_search_runs_pagination_with_max_results_none")
+    # Create 5 runs
+    runs = sorted(
+        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(5)]
+    )
+
+    # Call search_runs with max_results=None - should return all runs with no token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=None)
+    assert len(result) == 5
+    assert [r.info.run_id for r in result] == runs
+    assert result.token is None
+
+
 def test_search_runs_run_name(store: SqlAlchemyStore):
     exp_id = _create_experiments(store, "test_search_runs_pagination")
     run1 = _run_factory(store, dict(_get_run_configs(exp_id), run_name="run_name1"))
@@ -4300,8 +4336,9 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
         exp_id = store.create_experiment(name="exp")
         exp = store.get_experiment(exp_id)
 
-        if hasattr(store, "__del__"):
-            store.__del__()
+        # Dispose the engine to close all connections and allow the temp directory to be removed
+        # on Windows, where open file handles prevent file deletion.
+        store._dispose_engine()
 
         cwd = Path.cwd().as_posix()
         drive = Path.cwd().drive
@@ -4414,8 +4451,9 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             run_name="name",
         )
 
-        if hasattr(store, "__del__"):
-            store.__del__()
+        # Dispose the engine to close all connections and allow the temp directory to be removed
+        # on Windows, where open file handles prevent file deletion.
+        store._dispose_engine()
 
         cwd = Path.cwd().as_posix()
         drive = Path.cwd().drive
@@ -5422,6 +5460,71 @@ def test_search_traces_with_combined_span_filters(store: SqlAlchemyStore):
     assert traces[0].request_id == trace1_id
 
 
+def test_search_traces_combined_span_filters_match_same_span(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_same_span_filter")
+
+    trace1_id = "trace1"
+    _create_trace(store, trace1_id, exp_id)
+
+    span1a = create_test_span_with_content(
+        trace1_id,
+        name="search_web",
+        span_id=111,
+        span_type="TOOL",
+        status=trace_api.StatusCode.ERROR,
+        custom_attributes={"query": "test"},
+    )
+    span1b = create_test_span_with_content(
+        trace1_id,
+        name="other_tool",
+        span_id=112,
+        span_type="TOOL",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"data": "value"},
+    )
+
+    trace2_id = "trace2"
+    _create_trace(store, trace2_id, exp_id)
+
+    span2 = create_test_span_with_content(
+        trace2_id,
+        name="search_web",
+        span_id=222,
+        span_type="TOOL",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"query": "test2"},
+    )
+
+    store.log_spans(exp_id, [span1a, span1b])
+    store.log_spans(exp_id, [span2])
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "search_web" AND span.status = "OK"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "search_web" AND span.status = "ERROR"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "other_tool" AND span.status = "OK"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.name = "search_web"')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.status = "OK"')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+
 def test_search_traces_span_filters_with_no_results(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_span_no_results")
 
@@ -5847,6 +5950,69 @@ def test_search_traces_with_feedback_like_filters(store: SqlAlchemyStore):
     traces, _ = store.search_traces([exp_id], filter_string='feedback.comment LIKE "%okay%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace2_id
+
+
+def test_search_traces_with_assessment_is_null_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_null_filters")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+    trace5_id = "trace5"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+    _create_trace(store, trace5_id, exp_id)
+
+    feedback1 = Feedback(
+        trace_id=trace1_id,
+        name="quality",
+        value="good",
+        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+    )
+    feedback2 = Feedback(
+        trace_id=trace2_id,
+        name="quality",
+        value="bad",
+        source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
+    )
+
+    expectation1 = Expectation(
+        trace_id=trace4_id,
+        name="score",
+        value=85,
+        source=AssessmentSource(source_type="CODE", source_id="scorer"),
+    )
+
+    store.create_assessment(feedback1)
+    store.create_assessment(feedback2)
+    store.create_assessment(expectation1)
+
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.quality IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.quality IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id, trace5_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="expectation.score IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace4_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="expectation.score IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id, trace5_id}
+
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='feedback.quality IS NOT NULL AND feedback.quality = "good"',
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
 
 
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
@@ -9898,6 +10064,60 @@ def test_dataset_upsert_comprehensive(store):
     assert empty_result["updated"] == 0
 
 
+def test_dataset_delete_records(store):
+    test_prefix = "test_delete_records_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    records = [
+        {
+            "inputs": {"id": 1, "question": "What is MLflow?"},
+            "expectations": {"answer": "ML platform"},
+        },
+        {
+            "inputs": {"id": 2, "question": "What is Python?"},
+            "expectations": {"answer": "Programming language"},
+        },
+        {
+            "inputs": {"id": 3, "question": "What is Docker?"},
+            "expectations": {"answer": "Container platform"},
+        },
+    ]
+    store.upsert_dataset_records(dataset.dataset_id, records)
+
+    loaded_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(loaded_records) == 3
+
+    record_ids = [r.dataset_record_id for r in loaded_records]
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, [record_ids[0]])
+    assert deleted_count == 1
+
+    remaining_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(remaining_records) == 2
+
+    updated_dataset = store.get_dataset(dataset.dataset_id)
+    profile = json.loads(updated_dataset.profile)
+    assert profile["num_records"] == 2
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, [record_ids[1], record_ids[2]])
+    assert deleted_count == 2
+
+    final_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(final_records) == 0
+
+
+def test_dataset_delete_records_idempotent(store):
+    test_prefix = "test_delete_idempotent_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, ["nonexistent-record-id"])
+    assert deleted_count == 0
+
+
 def test_dataset_associations_and_lazy_loading(store):
     experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2", "test_exp_3"])
     created_dataset = store.create_dataset(
@@ -12292,6 +12512,65 @@ def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
         }
 
 
+def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_metrics")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        state=TraceStatus.OK,
+    )
+    store.start_trace(trace_info)
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps(
+            {
+                CostKey.INPUT_COST: 0.01,
+                CostKey.OUTPUT_COST: 0.02,
+                CostKey.TOTAL_COST: 0.03,
+            }
+        ),
+        SpanAttributeKey.MODEL: json.dumps("gpt-4-turbo"),
+        SpanAttributeKey.MODEL_PROVIDER: json.dumps("openai"),
+    }
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        metrics = (
+            session.query(SqlSpanMetrics)
+            .filter(SqlSpanMetrics.trace_id == trace_id, SqlSpanMetrics.span_id == span.span_id)
+            .order_by(SqlSpanMetrics.key)
+            .all()
+        )
+        metrics_by_key = {metric.key: metric.value for metric in metrics}
+        assert metrics_by_key == {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        }
+
+        # Check that dimension_attributes is stored on the span
+        sql_span = (
+            session.query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == span.span_id)
+            .one()
+        )
+        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL] == "gpt-4-turbo"
+        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL_PROVIDER] == "openai"
+
+
 def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_log_spans_incremental_metrics")
     trace_id = f"tr-{uuid.uuid4().hex}"
@@ -12365,6 +12644,83 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
             "input_tokens": 300,
             "output_tokens": 125,
             "total_tokens": 425,
+        }
+
+
+def test_log_spans_stores_span_metrics_per_span(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_metrics_per_span")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        state=TraceStatus.OK,
+    )
+    store.start_trace(trace_info)
+
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id,
+        name="first_llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps(
+            {
+                CostKey.INPUT_COST: 0.001,
+                CostKey.OUTPUT_COST: 0.002,
+                CostKey.TOTAL_COST: 0.003,
+            }
+        ),
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
+
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id,
+        name="second_llm_call",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps(
+            {
+                CostKey.INPUT_COST: 0.01,
+                CostKey.OUTPUT_COST: 0.02,
+                CostKey.TOTAL_COST: 0.03,
+            }
+        ),
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
+
+    store.log_spans(experiment_id, [span1, span2])
+
+    with store.ManagedSessionMaker() as session:
+        all_metrics = (
+            session.query(SqlSpanMetrics)
+            .filter(SqlSpanMetrics.trace_id == trace_id)
+            .order_by(SqlSpanMetrics.span_id, SqlSpanMetrics.key)
+            .all()
+        )
+
+        span1_metrics = {m.key: m.value for m in all_metrics if m.span_id == span1.span_id}
+        assert span1_metrics == {
+            CostKey.INPUT_COST: 0.001,
+            CostKey.OUTPUT_COST: 0.002,
+            CostKey.TOTAL_COST: 0.003,
+        }
+
+        span2_metrics = {m.key: m.value for m in all_metrics if m.span_id == span2.span_id}
+        assert span2_metrics == {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
         }
 
 

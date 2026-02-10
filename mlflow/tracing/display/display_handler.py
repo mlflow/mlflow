@@ -5,7 +5,10 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode, urljoin
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK
+from mlflow.environment_variables import (
+    MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK,
+    MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL,
+)
 from mlflow.tracing.constant import TRACE_RENDERER_ASSET_PATH
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import is_http_uri
@@ -55,7 +58,8 @@ IFRAME_HTML = """
 
 def get_notebook_iframe_html(traces: list["Trace"]):
     # fetch assets from tracking server
-    uri = urljoin(mlflow.get_tracking_uri(), f"{TRACE_RENDERER_ASSET_PATH}/index.html")
+    base_url = MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL.get() or mlflow.get_tracking_uri()
+    uri = urljoin(base_url, f"{TRACE_RENDERER_ASSET_PATH}/index.html")
     query_string = _get_query_string_for_traces(traces)
 
     # include mlflow version to invalidate browser cache when mlflow updates

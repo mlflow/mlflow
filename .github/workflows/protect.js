@@ -32,18 +32,13 @@ module.exports = async ({ github, context }) => {
     // Returns true if newRun should replace existingRun
     if (!existingRun) return true;
 
-    // Higher run_attempt takes priority (re-runs)
-    if (newRun.run_attempt > existingRun.run_attempt) return true;
-
-    // For same run_attempt, use newer created_at as tiebreaker
-    if (
-      newRun.run_attempt === existingRun.run_attempt &&
-      new Date(newRun.created_at) > new Date(existingRun.created_at)
-    ) {
-      return true;
+    // If they are different workflow runs, prefer the one created later
+    if (newRun.id !== existingRun.id) {
+      return new Date(newRun.created_at) > new Date(existingRun.created_at);
     }
 
-    return false;
+    // Same workflow run: higher run_attempt takes priority (re-runs)
+    return newRun.run_attempt > existingRun.run_attempt;
   }
 
   async function fetchChecks(ref) {

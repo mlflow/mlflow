@@ -47,6 +47,7 @@ from clint.rules.unknown_mlflow_function import UnknownMlflowFunction
 from clint.rules.unnamed_thread import UnnamedThread
 from clint.rules.unnamed_thread_pool import UnnamedThreadPool
 from clint.rules.unparameterized_generic_type import UnparameterizedGenericType
+from clint.rules.unused_disable_comment import UnusedDisableComment
 from clint.rules.use_gh_token import UseGhToken
 from clint.rules.use_sys_executable import UseSysExecutable
 from clint.rules.use_walrus_operator import UseWalrusOperator, WalrusOperatorVisitor
@@ -103,6 +104,7 @@ __all__ = [
     "MultiAssign",
     "UnnamedThread",
     "UnparameterizedGenericType",
+    "UnusedDisableComment",
     "AssignBeforeAppend",
     "UseGhToken",
     "UseSysExecutable",

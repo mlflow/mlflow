@@ -1304,7 +1304,7 @@ def test_evaluate_with_conversation_simulator_empty_simulation_error():
     )
 
     with mock.patch(
-        "mlflow.genai.simulators.simulator._invoke_model_without_tracing"
+        "mlflow.genai.simulators.simulator.invoke_model_without_tracing"
     ) as mock_invoke:
         # Simulate a failure that produces no traces
         mock_invoke.side_effect = Exception("LLM call failed")
@@ -1357,7 +1357,7 @@ def test_evaluate_with_conversation_simulator_calls_simulate():
     def mock_predict_fn(input: list[dict[str, Any]], **kwargs):
         return {"output": "Mock response"}
 
-    with mock.patch.object(simulator, "_simulate") as mock_simulate:
+    with mock.patch.object(simulator, "simulate") as mock_simulate:
         # Return empty list to trigger the "no traces" error
         mock_simulate.return_value = []
 
@@ -1368,5 +1368,100 @@ def test_evaluate_with_conversation_simulator_calls_simulate():
                 scorers=[has_trace],
             )
 
-        # Verify _simulate was called with predict_fn
+        # Verify simulate was called with predict_fn
         mock_simulate.assert_called_once_with(mock_predict_fn)
+
+
+@scorer
+def always_pass(outputs):
+    return True
+
+
+@pytest.mark.parametrize(
+    ("expectations_values", "expected_count"),
+    [
+        ([None, {}], 2),
+        ([float("nan")], 1),
+        ([{"expected": "value"}, None, {}], 3),
+    ],
+)
+def test_evaluate_handles_empty_expectations(expectations_values, expected_count):
+    data = [
+        {
+            "inputs": {"question": f"Q{i}"},
+            "outputs": f"A{i}",
+            "expectations": exp,
+        }
+        for i, exp in enumerate(expectations_values)
+    ]
+
+    result = mlflow.genai.evaluate(data=data, scorers=[always_pass])
+
+    assert result is not None
+    assert result.metrics is not None
+    assert result.result_df is not None
+    assert len(result.result_df) == expected_count
+    assert result.metrics["always_pass/mean"] == 1.0
+
+
+from mlflow.genai.simulators.simulator import BaseSimulatedUserAgent
+
+
+class MockUserAgent(BaseSimulatedUserAgent):
+    def __init__(self, **kwargs):
+        pass
+
+    def generate_message(self, context):
+        if context.turn == 0:
+            return f"Hello, I want to {context.goal}"
+        return "[GOAL ACHIEVED]"
+
+
+def test_evaluate_with_simulator_creates_single_run(tmp_path):
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "get help"}],
+        max_turns=2,
+        user_agent_class=MockUserAgent,
+    )
+
+    def mock_predict_fn(input: list[dict[str, Any]], **kwargs):
+        return {"content": "Response"}
+
+    with mock.patch(
+        "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
+        return_value='{"rationale": "Goal achieved!", "result": "yes"}',
+    ):
+        mlflow.genai.evaluate(data=simulator, predict_fn=mock_predict_fn, scorers=[])
+
+    runs = mlflow.search_runs()
+    assert len(runs) == 1
+
+
+def test_evaluate_with_simulator_within_parent_run(tmp_path):
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "get help"}],
+        max_turns=2,
+        user_agent_class=MockUserAgent,
+    )
+
+    def mock_predict_fn(input: list[dict[str, Any]], **kwargs):
+        return {"content": "Response"}
+
+    with mock.patch(
+        "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
+        return_value='{"rationale": "Goal achieved!", "result": "yes"}',
+    ):
+        with mlflow.start_run(run_name="parent-run") as parent_run:
+            parent_run_id = parent_run.info.run_id
+            mlflow.genai.evaluate(data=simulator, predict_fn=mock_predict_fn, scorers=[])
+            assert mlflow.active_run().info.run_id == parent_run_id
+
+    runs = mlflow.search_runs()
+    assert len(runs) == 1
+    assert runs.iloc[0]["tags.mlflow.runName"] == "parent-run"

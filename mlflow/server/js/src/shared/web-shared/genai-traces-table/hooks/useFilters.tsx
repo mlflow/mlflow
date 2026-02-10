@@ -1,7 +1,13 @@
 import { useCallback, useMemo } from 'react';
 
 import { assessmentValueToSerializedString, serializedStringToAssessmentValueV2 } from './useAssessmentFilters';
-import { type TableFilter, type TableFilterValue, type FilterOperator, TracesTableColumnGroup } from '../types';
+import {
+  type TableFilter,
+  type TableFilterValue,
+  type FilterOperator,
+  TracesTableColumnGroup,
+  isNullOperator,
+} from '../types';
 import { useSearchParams } from '../utils/RoutingUtils';
 
 const QUERY_PARAM_KEY = 'filter';
@@ -19,7 +25,8 @@ export const useFilters = () => {
 
     return filtersUrl.reduce<TableFilter[]>((filters, urlFilter) => {
       const [column, urlOperator, value, key] = urlFilter.split(VALUE_SEPARATOR);
-      if (!column || !urlOperator || !value) return filters;
+      // IS NULL / IS NOT NULL operators don't require a value
+      if (!column || !urlOperator || (!value && !isNullOperator(urlOperator))) return filters;
 
       const operator = urlOperator as FilterOperator;
 

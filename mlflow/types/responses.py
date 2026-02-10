@@ -435,7 +435,7 @@ if _HAS_LANGCHAIN_BASE_MESSAGE:
                 if tool_calls := message.get("tool_calls"):
                     for tool_call in tool_calls:
                         function_call_item = create_function_call_item(
-                            id=message.get("id") or str(uuid4()),
+                            id=tool_call.get("id") or message.get("id") or str(uuid4()),
                             call_id=tool_call["id"],
                             name=tool_call["name"],
                             arguments=json.dumps(tool_call["args"]),

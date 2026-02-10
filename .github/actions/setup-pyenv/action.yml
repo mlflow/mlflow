@@ -53,8 +53,3 @@ runs:
       shell: bash
       run: |
         pyenv --version
-
-    - name: Install virtualenv
-      shell: bash
-      run: |
-        pip install virtualenv

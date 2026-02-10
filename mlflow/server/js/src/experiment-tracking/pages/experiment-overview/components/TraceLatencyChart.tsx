@@ -16,6 +16,7 @@ import {
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
 import { formatLatency, useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export const TraceLatencyChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -23,6 +24,7 @@ export const TraceLatencyChart: React.FC = () => {
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
+  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process latency chart data
   const { chartData, avgLatency, isLoading, error, hasData } = useTraceLatencyChartData();
@@ -63,7 +65,16 @@ export const TraceLatencyChart: React.FC = () => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
+                content={
+                  <ScrollableTooltip
+                    formatter={tooltipFormatter}
+                    linkConfig={{
+                      experimentId,
+                      timeIntervalSeconds,
+                      componentId: 'mlflow.overview.usage.latency.view_traces_link',
+                    }}
+                  />
+                }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Line

@@ -257,7 +257,7 @@ def test_gepa_optimizer_import_error(
     with patch.dict("sys.modules", {"gepa": None}):
         optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
-        with pytest.raises(ImportError, match="GEPA >= 0.0.18 is required"):
+        with pytest.raises(ImportError, match="GEPA >= 0.0.26 is required"):
             optimizer.optimize(
                 eval_fn=mock_eval_fn,
                 train_data=sample_train_data,

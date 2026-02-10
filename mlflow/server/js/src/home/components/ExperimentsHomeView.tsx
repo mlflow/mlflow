@@ -72,7 +72,7 @@ export const ExperimentsHomeView = ({
         }}
       >
         <Typography.Title level={3} css={{ margin: 0 }}>
-          <FormattedMessage defaultMessage="Experiments" description="Home page experiments preview title" />
+          <FormattedMessage defaultMessage="Recent Experiments" description="Home page experiments preview title" />
         </Typography.Title>
         <Link to={Routes.experimentsObservatoryRoute}>
           <FormattedMessage defaultMessage="View all" description="Home page experiments view all link" />

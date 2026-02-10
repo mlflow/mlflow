@@ -17,6 +17,8 @@ import { useOverviewChartContext } from '../OverviewChartContext';
 export interface ToolErrorRateDataPoint {
   name: string;
   errorRate: number;
+  /** Raw timestamp in milliseconds for navigation */
+  timestampMs: number;
 }
 
 export interface UseToolErrorRateChartDataResult {
@@ -105,6 +107,7 @@ export function useToolErrorRateChartData({
     return timeBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       errorRate: errorRateByTimestamp.get(timestampMs) || 0,
+      timestampMs,
     }));
   }, [timeBuckets, errorRateByTimestamp, timeIntervalSeconds]);
 

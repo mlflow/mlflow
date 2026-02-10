@@ -154,7 +154,7 @@ def test_ragas_scorer_returns_error_feedback_on_exception():
 
 
 def test_unknown_metric_raises_error():
-    with pytest.raises(MlflowException, match="Unknown metric: 'NonExistentMetric'"):
+    with pytest.raises(MlflowException, match="Unknown RAGAS metric: 'NonExistentMetric'"):
         get_scorer("NonExistentMetric")
 
 

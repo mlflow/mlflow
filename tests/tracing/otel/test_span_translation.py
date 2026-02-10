@@ -365,3 +365,228 @@ def test_translate_inputs_outputs_edge_cases(
 def test_sanitize_attributes(attributes: dict[str, Any], expected_attributes: dict[str, Any]):
     result = sanitize_attributes(attributes)
     assert result == expected_attributes
+
+
+@pytest.mark.parametrize(
+    ("translator", "model_value"),
+    [
+        (GenAiTranslator, "gpt-4o-mini"),
+        (OpenInferenceTranslator, "claude-3-5-sonnet-20241022"),
+    ],
+)
+def test_translate_model_name_from_otel(translator: OtelSchemaTranslator, model_value: str):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    # Test with the first MODEL_NAME_KEY from the translator
+    model_attr_key = translator.MODEL_NAME_KEYS[0]
+    span_dict = {"attributes": {model_attr_key: json.dumps(model_value)}}
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    assert SpanAttributeKey.MODEL in result["attributes"]
+    model = json.loads(result["attributes"][SpanAttributeKey.MODEL])
+    assert model == model_value
+
+
+@pytest.mark.parametrize(
+    ("translator", "provider_value"),
+    [
+        (GenAiTranslator, "openai"),
+        (OpenInferenceTranslator, "anthropic"),
+        (TraceloopTranslator, "azure"),
+    ],
+)
+def test_translate_model_provider_from_otel(translator: OtelSchemaTranslator, provider_value: str):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {"attributes": {translator.LLM_PROVIDER_KEY: json.dumps(provider_value)}}
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    assert SpanAttributeKey.MODEL_PROVIDER in result["attributes"]
+    provider = json.loads(result["attributes"][SpanAttributeKey.MODEL_PROVIDER])
+    assert provider == provider_value
+
+
+@pytest.mark.parametrize(
+    ("inputs_outputs_key", "model_value"),
+    [
+        (
+            SpanAttributeKey.INPUTS,
+            {"model": "mistral-large-latest", "temperature": 0.7, "messages": []},
+        ),
+        (SpanAttributeKey.OUTPUTS, {"model": "gpt-3.5-turbo", "choices": []}),
+    ],
+)
+def test_translate_model_name_from_inputs_outputs(
+    inputs_outputs_key: str, model_value: dict[str, Any]
+):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {"attributes": {inputs_outputs_key: json.dumps(model_value)}}
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    assert SpanAttributeKey.MODEL in result["attributes"]
+    model = json.loads(result["attributes"][SpanAttributeKey.MODEL])
+    assert model == model_value["model"]
+
+
+@pytest.mark.parametrize(
+    ("attributes", "expected_model"),
+    [
+        (
+            {
+                "gen_ai.response.model": '"gpt-4o-mini"',
+                SpanAttributeKey.INPUTS: json.dumps({"model": "different-model"}),
+            },
+            "gpt-4o-mini",
+        ),
+        (
+            {
+                SpanAttributeKey.MODEL: json.dumps("existing-model"),
+                "gen_ai.response.model": '"new-model"',
+            },
+            "existing-model",
+        ),
+        (
+            {SpanAttributeKey.INPUTS: json.dumps({"temperature": 0.7, "messages": []})},
+            None,
+        ),
+        ({}, None),
+    ],
+)
+def test_translate_model_name_edge_cases(attributes: dict[str, Any], expected_model: str | None):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {"attributes": attributes}
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    if expected_model:
+        assert SpanAttributeKey.MODEL in result["attributes"]
+        model = json.loads(result["attributes"][SpanAttributeKey.MODEL])
+        assert model == expected_model
+    else:
+        assert SpanAttributeKey.MODEL not in result["attributes"]
+
+
+@pytest.mark.parametrize(
+    "translator",
+    [OpenInferenceTranslator, GenAiTranslator],
+)
+def test_translate_cost_from_otel(translator: OtelSchemaTranslator, mock_litellm_cost):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    model_attr_key = translator.MODEL_NAME_KEYS[0]
+    span_dict = {
+        "attributes": {
+            translator.INPUT_TOKEN_KEY: 10,
+            translator.OUTPUT_TOKEN_KEY: 20,
+            model_attr_key: '"gpt-4o-mini"',
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    assert SpanAttributeKey.LLM_COST in result["attributes"]
+    cost = json.loads(result["attributes"][SpanAttributeKey.LLM_COST])
+    assert cost == {
+        "input_cost": 10.0,
+        "output_cost": 40.0,
+        "total_cost": 50.0,
+    }
+
+
+@pytest.mark.parametrize(
+    "translator",
+    [OpenInferenceTranslator, GenAiTranslator],
+)
+def test_translate_cost_with_model_provider(translator: OtelSchemaTranslator, mock_litellm_cost):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    model_attr_key = translator.MODEL_NAME_KEYS[0]
+    span_dict = {
+        "attributes": {
+            translator.INPUT_TOKEN_KEY: 10,
+            translator.OUTPUT_TOKEN_KEY: 20,
+            model_attr_key: '"gpt-4o-mini"',
+            translator.LLM_PROVIDER_KEY: '"openai"',
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    # Both model and provider should be stored separately
+    assert SpanAttributeKey.MODEL in result["attributes"]
+    assert SpanAttributeKey.MODEL_PROVIDER in result["attributes"]
+    model = json.loads(result["attributes"][SpanAttributeKey.MODEL])
+    provider = json.loads(result["attributes"][SpanAttributeKey.MODEL_PROVIDER])
+    assert model == "gpt-4o-mini"
+    assert provider == "openai"
+
+    # Cost should still be calculated
+    assert SpanAttributeKey.LLM_COST in result["attributes"]
+    cost = json.loads(result["attributes"][SpanAttributeKey.LLM_COST])
+    assert cost == {
+        "input_cost": 10.0,
+        "output_cost": 40.0,
+        "total_cost": 50.0,
+    }
+
+
+@pytest.mark.parametrize(
+    ("attributes", "should_have_cost"),
+    [
+        (
+            {
+                "gen_ai.usage.input_tokens": 5,
+                "gen_ai.usage.output_tokens": 10,
+                "gen_ai.response.model": '"claude-3-5-sonnet-20241022"',
+            },
+            True,
+        ),
+        (
+            {
+                "gen_ai.usage.input_tokens": 5,
+                "gen_ai.usage.output_tokens": 10,
+            },
+            False,
+        ),
+        (
+            {
+                "gen_ai.response.model": '"gpt-4o-mini"',
+            },
+            False,
+        ),
+        ({}, False),
+    ],
+)
+def test_translate_cost_edge_cases(
+    attributes: dict[str, Any], should_have_cost: bool, mock_litellm_cost
+):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {"attributes": attributes}
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    if should_have_cost:
+        assert SpanAttributeKey.LLM_COST in result["attributes"]
+        cost = json.loads(result["attributes"][SpanAttributeKey.LLM_COST])
+        input_cost = attributes.get("gen_ai.usage.input_tokens", 0) * 1.0
+        output_cost = attributes.get("gen_ai.usage.output_tokens", 0) * 2.0
+        assert cost == {
+            "input_cost": input_cost,
+            "output_cost": output_cost,
+            "total_cost": input_cost + output_cost,
+        }
+    else:
+        assert SpanAttributeKey.LLM_COST not in result["attributes"]

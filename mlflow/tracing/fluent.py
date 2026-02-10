@@ -8,19 +8,21 @@ import json
 import logging
 import os
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Generator, Literal
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import NoOpSpan, SpanType, Trace
+from mlflow.entities import NoOpSpan, Session, SpanType, Trace
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_location import TraceLocationBase
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
@@ -37,6 +39,7 @@ from mlflow.tracing.provider import (
     safe_set_span_in_context,
     with_active_span,
 )
+from mlflow.tracing.sampling import _SAMPLING_RATIO_OVERRIDE
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
@@ -47,7 +50,7 @@ from mlflow.tracing.utils import (
 )
 from mlflow.tracing.utils.search import traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import deprecated, deprecated_parameter
+from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
 from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
@@ -58,6 +61,20 @@ if TYPE_CHECKING:
 
 _LAST_ACTIVE_TRACE_ID_GLOBAL = None
 _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL = ContextVar("last_active_trace_id", default=None)
+
+
+@contextlib.contextmanager
+def _set_sampling_ratio_override(sampling_ratio_override: float | None):
+    """Context manager to set the sampling ratio override for the OTel sampler."""
+    if sampling_ratio_override is not None:
+        token = _SAMPLING_RATIO_OVERRIDE.set(sampling_ratio_override)
+        try:
+            yield
+        finally:
+            _SAMPLING_RATIO_OVERRIDE.reset(token)
+    else:
+        yield
+
 
 # Cache mapping between evaluation request ID to MLflow backend request ID.
 # This is necessary for evaluation harness to access generated traces during
@@ -72,6 +89,7 @@ def trace(
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
+    sampling_ratio_override: float | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -171,7 +189,19 @@ def trace(
             set by the :py:func:`mlflow.tracing.set_destination` function. This parameter
             should only be used for root span and setting this for non-root spans will be
             ignored with a warning.
+        sampling_ratio_override: The sampling ratio override for this specific function. Must be
+            between 0.0 and 1.0. If provided, this overrides the global
+            ``MLFLOW_TRACE_SAMPLING_RATIO`` setting. A value of 1.0 means all traces are sampled,
+            0.5 means 50% are sampled, and 0.0 means no traces are sampled. If not provided (None),
+            the global sampling ratio is used. Note: This only applies to root spans; nested calls
+            always trace if the parent is traced.
     """
+
+    # Validate sampling_ratio_override
+    if sampling_ratio_override is not None and not (0.0 <= sampling_ratio_override <= 1.0):
+        raise MlflowException.invalid_parameter_value(
+            f"sampling_ratio_override must be between 0.0 and 1.0, got {sampling_ratio_override}"
+        )
 
     def decorator(fn):
         # Check if the function is a classmethod or staticmethod
@@ -190,13 +220,16 @@ def trace(
                 attributes,
                 output_reducer,
                 trace_destination,
+                sampling_ratio_override,
             )
         else:
             if output_reducer is not None:
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            wrapped = _wrap_function(original_fn, name, span_type, attributes, trace_destination)
+            wrapped = _wrap_function(
+                original_fn, name, span_type, attributes, trace_destination, sampling_ratio_override
+            )
 
         # If the original was a descriptor, wrap the result back as the same type of descriptor
         if is_classmethod:
@@ -215,6 +248,7 @@ def _wrap_function(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
+    sampling_ratio_override: float | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -261,12 +295,18 @@ def _wrap_function(
     if inspect.iscoroutinefunction(fn):
 
         async def wrapper(*args, **kwargs):
-            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+            with (
+                _set_sampling_ratio_override(sampling_ratio_override),
+                _WrappingContext(fn, args, kwargs) as wrapping_coro,
+            ):
                 return wrapping_coro.send(await fn(*args, **kwargs))
     else:
 
         def wrapper(*args, **kwargs):
-            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+            with (
+                _set_sampling_ratio_override(sampling_ratio_override),
+                _WrappingContext(fn, args, kwargs) as wrapping_coro,
+            ):
                 return wrapping_coro.send(fn(*args, **kwargs))
 
     return _wrap_function_safe(fn, wrapper)
@@ -279,6 +319,7 @@ def _wrap_generator(
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
+    sampling_ratio_override: float | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -355,8 +396,9 @@ def _wrap_generator(
     if inspect.isgeneratorfunction(fn):
 
         def wrapper(*args, **kwargs):
-            inputs = capture_function_input_args(fn, args, kwargs)
-            span = _start_stream_span(fn, inputs)
+            with _set_sampling_ratio_override(sampling_ratio_override):
+                inputs = capture_function_input_args(fn, args, kwargs)
+                span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
             i = 0
@@ -380,8 +422,9 @@ def _wrap_generator(
     else:
 
         async def wrapper(*args, **kwargs):
-            inputs = capture_function_input_args(fn, args, kwargs)
-            span = _start_stream_span(fn, inputs)
+            with _set_sampling_ratio_override(sampling_ratio_override):
+                inputs = capture_function_input_args(fn, args, kwargs)
+                span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
             i = 0
@@ -523,6 +566,7 @@ def start_span_no_context(
     inputs: Any | None = None,
     attributes: dict[str, str] | None = None,
     tags: dict[str, str] | None = None,
+    metadata: dict[str, str] | None = None,
     experiment_id: str | None = None,
     start_time_ns: int | None = None,
 ) -> LiveSpan:
@@ -543,6 +587,7 @@ def start_span_no_context(
         inputs: The input data for the span.
         attributes: A dictionary of attributes to set on the span.
         tags: A dictionary of tags to set on the trace.
+        metadata: A dictionary of metadata to set on the trace.
         experiment_id: The experiment ID to associate with the trace. If not provided,
             the current active experiment will be used.
         start_time_ns: The start time of the span in nanoseconds. If not provided,
@@ -611,6 +656,10 @@ def start_span_no_context(
             with trace_manager.get_trace(trace_id) as trace:
                 trace.info.tags.update(tags)
 
+        if metadata:
+            with trace_manager.get_trace(trace_id) as trace:
+                trace.info.trace_metadata.update(metadata)
+
         return mlflow_span
     except Exception as e:
         _logger.warning(
@@ -665,6 +714,21 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
         else:
             _logger.debug(f"Failed to get trace from the tracking store: {e}.", exc_info=True)
         return None
+
+
+def _get_search_locations(locations: list[str] | None) -> list[str]:
+    from mlflow.tracking.fluent import _get_experiment_id
+
+    if locations:
+        return locations
+
+    if experiment_id := _get_experiment_id():
+        return [experiment_id]
+
+    raise MlflowException(
+        "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
+        "or specify the list of experiment IDs in the `locations` parameter."
+    )
 
 
 @deprecated_parameter("experiment_ids", "locations")
@@ -808,7 +872,6 @@ def search_traces(
         mlflow.search_traces(run_id=run.info.run_id, return_type="list")
 
     """
-    from mlflow.tracking.fluent import _get_experiment_id
 
     if sql_warehouse_id is not None:
         warnings.warn(
@@ -856,14 +919,7 @@ def search_traces(
 
     if not experiment_ids and not locations:
         _logger.debug("Searching traces in the current active experiment")
-
-        if experiment_id := _get_experiment_id():
-            locations = [experiment_id]
-        else:
-            raise MlflowException(
-                "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
-                "or specify the list of experiment IDs in the `locations` parameter."
-            )
+        locations = _get_search_locations(locations)
 
     def pagination_wrapper_func(number_to_get, next_page_token):
         return TracingClient().search_traces(
@@ -888,6 +944,138 @@ def search_traces(
         results = traces_to_df(results, extract_fields=extract_fields)
 
     return results
+
+
+@experimental(version="3.10.0")
+def search_sessions(
+    max_results: int = 100,
+    run_id: str | None = None,
+    model_id: str | None = None,
+    include_spans: bool = True,
+    locations: list[str] | None = None,
+) -> list[Session]:
+    """
+    Return complete sessions that match the given search criteria.
+
+    A session is a collection of traces that share the same session ID, typically representing
+    a multi-turn conversation or a series of related interactions. This API retrieves complete
+    sessions by first identifying unique session IDs from traces, then fetching all traces
+    belonging to each session in parallel.
+
+    Args:
+        max_results: Maximum number of sessions to return. Default is 100.
+        run_id: A run id to scope the search. When a trace is created under an active run,
+            it will be associated with the run and you can filter on the run id to retrieve
+            traces.
+        model_id: If specified, search traces associated with the given model ID.
+        include_spans: If ``True``, include spans in the returned traces. Otherwise, only
+            the trace metadata is returned. Default is ``True``.
+        locations: A list of locations to search over. To search over experiments, provide
+            a list of experiment IDs. To search over UC tables on databricks, provide
+            a list of locations in the format `<catalog_name>.<schema_name>`.
+            If not provided, the search will be performed across the current active experiment.
+
+    Returns:
+        A list of :py:class:`Session <mlflow.entities.Session>` objects, where each session
+        contains :py:class:`Trace <mlflow.entities.Trace>` objects that share the same
+        session ID. Sessions are ordered by the timestamp of their first trace (most recent first).
+        Each Session object provides convenient access via ``session.id`` and supports
+        iteration with ``for trace in session``.
+
+    .. code-block:: python
+        :caption: Basic usage - search sessions in an experiment
+
+        import mlflow
+
+        # Get all sessions from the current experiment
+        sessions = mlflow.search_sessions()
+
+        # Each session provides convenient access to ID and traces
+        for session in sessions:
+            print(f"Session {session.id} has {len(session)} traces")
+            for trace in session:
+                print(f"  Trace: {trace.info.trace_id}")
+
+    .. code-block:: python
+        :caption: Use sessions with evaluation
+
+        import mlflow
+
+        # Get sessions for evaluation
+        sessions = mlflow.search_sessions(
+            locations=["experiment_id"],
+            max_results=50,
+        )
+
+        # Flatten sessions for evaluation if needed
+        all_traces = [trace for session in sessions for trace in session]
+        mlflow.genai.evaluate(data=all_traces)
+    """
+    _validate_list_param("locations", locations, allow_none=True)
+
+    if not locations:
+        _logger.debug("Searching sessions in the current active experiment")
+    locations = _get_search_locations(locations)
+
+    session_id_key = TraceMetadataKey.TRACE_SESSION
+
+    # Step 1: Page through traces to collect unique session IDs (up to max_results)
+    seen_session_ids: set[str] = set()
+    session_ids: list[str] = []
+    page_token: str | None = None
+
+    while len(session_ids) < max_results:
+        traces: list[Trace] = TracingClient().search_traces(
+            max_results=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+            order_by=["timestamp DESC"],
+            page_token=page_token,
+            include_spans=False,
+            run_id=run_id,
+            model_id=model_id,
+            locations=locations,
+        )
+
+        for trace in traces:
+            session_id = trace.info.request_metadata.get(session_id_key)
+            if session_id and session_id not in seen_session_ids:
+                seen_session_ids.add(session_id)
+                session_ids.append(session_id)
+                if len(session_ids) >= max_results:
+                    break
+
+        page_token = traces.token if hasattr(traces, "token") else None
+        if not page_token:
+            break
+
+    if not session_ids:
+        return []
+
+    # Step 2: Fetch complete traces for each session in parallel
+    def fetch_session_traces(session_id: str) -> list[Trace]:
+        session_filter = f"metadata.`{session_id_key}` = '{session_id}'"
+
+        return search_traces(
+            filter_string=session_filter,
+            max_results=None,  # Get all traces in the session
+            order_by=["timestamp ASC"],  # Order by time within session
+            include_spans=include_spans,
+            run_id=run_id,
+            return_type="list",
+            model_id=model_id,
+            locations=locations,
+        )
+
+    max_workers = min(len(session_ids), MLFLOW_SEARCH_TRACES_MAX_THREADS.get())
+    with ThreadPoolExecutor(
+        max_workers=max_workers,
+        thread_name_prefix="search_sessions",
+    ) as executor:
+        session_results = list(executor.map(fetch_session_traces, session_ids))
+
+    # Filter out empty sessions, wrap in Session objects, and preserve order
+    sessions: list[Session] = [Session(s) for s in session_results if s]
+
+    return sessions
 
 
 def get_current_active_span() -> LiveSpan | None:

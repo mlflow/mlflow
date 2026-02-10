@@ -3,6 +3,9 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TabsWrapper from '@site/src/components/TabsWrapper';
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Zap, BookOpen, Search } from "lucide-react";
 
 # Manual Tracing
 
@@ -849,8 +852,26 @@ asyncio.run(async_pipeline(["item1", "item2", "item3"]))
 
 ## Next Steps
 
-**[Combining with Auto-Tracing](/genai/tracing/app-instrumentation/automatic#combining-manual-and-automatic-tracing)**: Mix automatic and manual tracing for optimal observability
-
-**[Trace Concepts](/genai/concepts/trace)**: Understand the structure and components of MLflow traces
-
-**[Querying Traces](/genai/tracing/search-traces)**: Programmatically search and analyze your traces
+<TilesGrid>
+  <TileCard
+    icon={Zap}
+    title="Combining with Auto-Tracing"
+    description="Mix automatic and manual tracing for optimal observability"
+    href="/genai/tracing/app-instrumentation/automatic#combining-manual-and-automatic-tracing"
+    linkText="Learn more →"
+  />
+  <TileCard
+    icon={BookOpen}
+    title="Trace Concepts"
+    description="Understand the structure and components of MLflow traces"
+    href="/genai/concepts/trace"
+    linkText="Explore concepts →"
+  />
+  <TileCard
+    icon={Search}
+    title="Querying Traces"
+    description="Programmatically search and analyze your traces"
+    href="/genai/tracing/search-traces"
+    linkText="Search traces →"
+  />
+</TilesGrid>

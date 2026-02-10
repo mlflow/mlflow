@@ -8,6 +8,7 @@ import { AggregationType, TraceMetricKey } from '@databricks/web-shared/model-tr
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 
 // Helper to create an error count data point
 const createErrorCountDataPoint = (timeBucket: string, count: number) => ({
@@ -61,13 +62,15 @@ describe('TraceErrorsChart', () => {
     const queryClient = createQueryClient();
     const contextProps = { ...defaultContextProps, ...contextOverrides };
     return renderWithIntl(
-      <QueryClientProvider client={queryClient}>
-        <DesignSystemProvider>
-          <OverviewChartProvider {...contextProps}>
-            <TraceErrorsChart />
-          </OverviewChartProvider>
-        </DesignSystemProvider>
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <OverviewChartProvider {...contextProps}>
+              <TraceErrorsChart />
+            </OverviewChartProvider>
+          </DesignSystemProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
   };
 

@@ -1,10 +1,11 @@
-import { describe, jest, test, expect, beforeEach, beforeAll } from '@jest/globals';
+import { describe, jest, test, expect, beforeEach, beforeAll, afterEach } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { SelectTracesModal } from './SelectTracesModal';
 import { useGenAiTraceTableRowSelection } from '../../shared/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+import { useActiveEvaluation } from '../../shared/web-shared/genai-traces-table/hooks/useActiveEvaluation';
 import { TracesV3Logs } from './experiment-page/components/traces-v3/TracesV3Logs';
 import { TestRouter, testRoute } from '../../common/utils/RoutingTestUtils';
 
@@ -16,10 +17,13 @@ jest.mock('./experiment-page/components/traces-v3/TracesV3Logs', () => ({
 const testExperimentId = 'test-experiment-123';
 
 describe('SelectTracesModal', () => {
+  const mockWindowOpen = jest.fn();
+
   beforeAll(() => {
     // Mock the TracesV3Logs component to return a simple mock traces table
     const MockTracesV3Logs = ({ experimentId }: { experimentId: string; endpointName: string }) => {
       const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
+      const [, setSelectedEvaluationId] = useActiveEvaluation();
 
       // A few traces and checkboxes
       const mockTraces = [
@@ -44,13 +48,25 @@ describe('SelectTracesModal', () => {
                 }}
                 data-testid={`checkbox-${trace.id}`}
               />
-              {trace.name}
+              <button data-testid={`view-trace-${trace.id}`} onClick={() => setSelectedEvaluationId(trace.id)}>
+                {trace.name}
+              </button>
             </label>
           ))}
         </div>
       );
     };
     jest.mocked(TracesV3Logs).mockImplementation(MockTracesV3Logs as any);
+
+    // Mock window.open
+    Object.defineProperty(window, 'open', {
+      value: mockWindowOpen,
+      writable: true,
+    });
+  });
+
+  afterEach(() => {
+    mockWindowOpen.mockClear();
   });
 
   const renderTestComponent = (props: {
@@ -135,5 +151,19 @@ describe('SelectTracesModal', () => {
 
     const selectButton = screen.getByRole('button', { name: /select/i });
     expect(selectButton).toBeEnabled();
+  });
+
+  test('should open trace in new tab when clicking a trace', async () => {
+    renderTestComponent({});
+
+    // Click to view a trace
+    await userEvent.click(screen.getByTestId('view-trace-trace-1'));
+
+    // Verify window.open was called with the correct URL
+    expect(mockWindowOpen).toHaveBeenCalledTimes(1);
+    expect(mockWindowOpen).toHaveBeenCalledWith(
+      `/#/experiments/${testExperimentId}/traces?selectedEvaluationId=trace-1&startTimeLabel=LAST_7_DAYS`,
+      '_blank',
+    );
   });
 });

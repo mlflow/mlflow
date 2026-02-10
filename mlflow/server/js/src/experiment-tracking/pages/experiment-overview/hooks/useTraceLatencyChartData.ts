@@ -17,6 +17,7 @@ export interface LatencyChartDataPoint {
   p50: number;
   p90: number;
   p99: number;
+  timestampMs: number;
 }
 
 export interface UseTraceLatencyChartDataResult {
@@ -101,6 +102,7 @@ export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
         p50: latency?.p50 || 0,
         p90: latency?.p90 || 0,
         p99: latency?.p99 || 0,
+        timestampMs,
       };
     });
   }, [timeBuckets, latencyByTimestamp, timeIntervalSeconds]);

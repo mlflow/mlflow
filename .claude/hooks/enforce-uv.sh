@@ -28,7 +28,7 @@ if [[ "$tool_name" != "Bash" ]]; then
 fi
 
 # Block direct python/python3 commands, regardless of their full path
-if echo "$command" | grep -qE '^([^[:space:]]*/)?python3?[[:space:]]'; then
+if echo "$command" | head -1 | grep -qE '^([^[:space:]]*/)?python3?[[:space:]]'; then
   echo '{
     "hookSpecificOutput": {
       "hookEventName": "PreToolUse",

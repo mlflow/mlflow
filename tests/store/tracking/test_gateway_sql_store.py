@@ -482,6 +482,9 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
         name="ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
 
+    # Create an experiment to link with the endpoint
+    experiment_id = store.create_experiment("test-experiment")
+
     endpoint = store.create_gateway_endpoint(
         name="my-endpoint",
         model_configs=[
@@ -492,6 +495,8 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
             ),
         ],
         created_by="test-user",
+        usage_tracking=True,
+        experiment_id=experiment_id,
     )
 
     assert isinstance(endpoint, GatewayEndpoint)
@@ -499,6 +504,35 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
     assert endpoint.name == "my-endpoint"
     assert len(endpoint.model_mappings) == 1
     assert endpoint.model_mappings[0].model_definition_id == model_def.model_definition_id
+    assert endpoint.usage_tracking is True
+    assert endpoint.experiment_id == experiment_id
+
+
+def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="auto-exp-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="auto-exp-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    endpoint = store.create_gateway_endpoint(
+        name="auto-exp-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+    )
+
+    assert endpoint.usage_tracking is True
+    assert endpoint.experiment_id is not None
+
+    experiment = store.get_experiment(endpoint.experiment_id)
+    assert experiment.name == "gateway/auto-exp-endpoint"
 
 
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):

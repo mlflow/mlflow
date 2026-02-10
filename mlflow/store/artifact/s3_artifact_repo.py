@@ -184,6 +184,8 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 Used with STS tokens or IAM roles.
             tracking_uri: Optional URI for the MLflow tracking server.
                 If None, uses the current tracking URI context.
+            registry_uri: Optional URI for the MLflow model registry.
+                If None, uses the current registry URI context.
         """
         super().__init__(artifact_uri, tracking_uri, registry_uri)
         self._access_key_id = access_key_id

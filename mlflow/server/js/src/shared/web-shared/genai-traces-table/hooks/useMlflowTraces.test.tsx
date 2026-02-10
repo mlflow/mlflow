@@ -21,6 +21,7 @@ import {
   LOGGED_MODEL_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
   STATE_COLUMN_ID,
   INPUTS_COLUMN_ID,
@@ -803,6 +804,57 @@ describe('useSearchMlflowTraces', () => {
     expect(JSON.parse(body)).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `span.type ILIKE '%chain%'`,
+      max_results: 10000,
+    });
+  });
+
+  test('handles span status filters with EQUALS operator', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            request: '{"input": "value"}',
+            response: '{"output": "value"}',
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useSearchMlflowTraces({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-xyz',
+              },
+            },
+          ],
+          filters: [
+            {
+              column: SPAN_STATUS_COLUMN_ID,
+              operator: FilterOperator.EQUALS,
+              value: 'ERROR',
+            },
+          ],
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+
+    expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+    expect(JSON.parse(body)).toEqual({
+      locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
+      filter: `span.status = 'ERROR'`,
       max_results: 10000,
     });
   });
@@ -1727,6 +1779,58 @@ describe('createMlflowSearchFilter', () => {
     const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
 
     expect(filterString).toContain("prompt = 'my-prompt/1'");
+    expect(filterString).toContain("attributes.status = 'OK'");
+    expect(filterString).toContain(' AND ');
+  });
+
+  test('creates correct filter string for assessment IS NULL', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.ASSESSMENT,
+        operator: FilterOperator.IS_NULL,
+        key: 'uses_tools_appropriately',
+        value: undefined,
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe('feedback.`uses_tools_appropriately` IS NULL');
+  });
+
+  test('creates correct filter string for assessment IS NOT NULL', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.ASSESSMENT,
+        operator: FilterOperator.IS_NOT_NULL,
+        key: 'safety_score',
+        value: undefined,
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe('feedback.`safety_score` IS NOT NULL');
+  });
+
+  test('combines assessment IS NULL/IS NOT NULL filters with other filters', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.ASSESSMENT,
+        operator: FilterOperator.IS_NOT_NULL,
+        key: 'overall_assessment',
+        value: undefined,
+      },
+      {
+        column: STATE_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: 'OK',
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toContain('feedback.`overall_assessment` IS NOT NULL');
     expect(filterString).toContain("attributes.status = 'OK'");
     expect(filterString).toContain(' AND ');
   });

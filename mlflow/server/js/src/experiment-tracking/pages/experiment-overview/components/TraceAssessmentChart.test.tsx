@@ -14,6 +14,7 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 
 // Helper to create an assessment value data point (for time series)
 const createAssessmentDataPoint = (timeBucket: string, avgValue: number) => ({
@@ -78,13 +79,15 @@ describe('TraceAssessmentChart', () => {
     const contextProps = { ...defaultContextProps, ...contextOverrides };
     const queryClient = createQueryClient();
     return renderWithIntl(
-      <QueryClientProvider client={queryClient}>
-        <DesignSystemProvider>
-          <OverviewChartProvider {...contextProps}>
-            <TraceAssessmentChart {...defaultProps} {...componentProps} />
-          </OverviewChartProvider>
-        </DesignSystemProvider>
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <OverviewChartProvider {...contextProps}>
+              <TraceAssessmentChart {...defaultProps} {...componentProps} />
+            </OverviewChartProvider>
+          </DesignSystemProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
   };
 

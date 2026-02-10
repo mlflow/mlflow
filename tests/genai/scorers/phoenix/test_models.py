@@ -54,5 +54,5 @@ def test_create_phoenix_model_openai(monkeypatch):
 
 
 def test_create_phoenix_model_invalid_format():
-    with pytest.raises(MlflowException, match="Invalid model_uri format"):
+    with pytest.raises(MlflowException, match="Malformed model uri"):
         create_phoenix_model("gpt-4")

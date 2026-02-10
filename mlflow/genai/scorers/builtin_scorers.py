@@ -2849,7 +2849,7 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         Args:
             session: List of traces from the same conversation session.
             expectations: Not used for this scorer.
-            **kwargs: Additional arguments (will raise TypeError if provided).
+            kwargs: Additional arguments (will raise TypeError if provided).
 
         Returns:
             A single Feedback object with value "yes" or "no", plus detailed rationale

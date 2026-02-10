@@ -32,6 +32,11 @@ from mlflow.genai.scorers.base import (
     ScorerKind,
     SerializedScorer,
 )
+from mlflow.genai.utils.trace_utils import (
+    resolve_expectations_from_trace,
+    resolve_inputs_from_trace,
+    resolve_outputs_from_trace,
+)
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
@@ -168,6 +173,11 @@ class MemoryAugmentedJudge(Judge):
         trace: Trace | None = None,
     ) -> Assessment:
         self._lazy_init()
+
+        if trace is not None:
+            inputs = resolve_inputs_from_trace(inputs, trace)
+            outputs = resolve_outputs_from_trace(outputs, trace)
+            expectations = resolve_expectations_from_trace(expectations, trace)
 
         guidelines = [g.guideline_text for g in self._semantic_memory]
         query_kwargs = {
@@ -531,6 +541,12 @@ class MemAlignOptimizer(AlignmentOptimizer):
         retrieval_k: Number of similar examples to retrieve from episodic memory (default: 5)
         embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings (default: 512)
+
+    Note:
+        The number of parallel threads for LLM calls during guideline distillation can be
+        configured via the ``MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS`` environment variable
+        (default: 8). Increasing this value can speed up alignment when processing many
+        feedback examples, but may increase API rate limit errors.
 
     Example:
         .. code-block:: python

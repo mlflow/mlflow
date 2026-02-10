@@ -13,7 +13,12 @@ export const SESSION_ID_METADATA_KEY = 'mlflow.trace.session';
 export const SOURCE_NAME_METADATA_KEY = 'mlflow.source.name';
 export const SOURCE_TYPE_METADATA_KEY = 'mlflow.source.type';
 export const TOKEN_USAGE_METADATA_KEY = 'mlflow.trace.tokenUsage';
+export const COST_METADATA_KEY = 'mlflow.trace.cost';
 export const MLFLOW_TRACE_USER_KEY = 'mlflow.trace.user';
+
+// Span attribute keys for model and cost info
+export const SPAN_ATTRIBUTE_MODEL_KEY = 'mlflow.llm.model';
+export const SPAN_ATTRIBUTE_COST_KEY = 'mlflow.llm.cost';
 
 // Query parameter for selected trace ID in session pages
 export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';

@@ -7,12 +7,10 @@ import { MlflowService } from '../experiment-tracking/sdk/MlflowService';
 import type { SearchExperimentsApiResponse } from '../experiment-tracking/types';
 import { CreateExperimentModal } from '../experiment-tracking/components/modals/CreateExperimentModal';
 import { useInvalidateExperimentList } from '../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
-
-// Loaders and lazy imports for expensive components
-import LogTracesDrawerLoader from './components/LogTracesDrawerLoader';
+import { FeaturesSection } from './components/features';
+import { LogTracesDrawer } from './components/LogTracesDrawer';
 import { TelemetryInfoAlert } from '../telemetry/TelemetryInfoAlert';
-const GetStarted = React.lazy(() => import('./components/GetStarted'));
-const DiscoverNews = React.lazy(() => import('./components/DiscoverNews'));
+
 const ExperimentsHomeView = React.lazy(() => import('./components/ExperimentsHomeView'));
 
 type ExperimentQueryKey = ['home', 'recent-experiments'];
@@ -61,9 +59,6 @@ const HomePage = () => {
       <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
       <TelemetryInfoAlert />
       <React.Suspense fallback={<HomePageSectionSkeleton />}>
-        <GetStarted />
-      </React.Suspense>
-      <React.Suspense fallback={<HomePageSectionSkeleton />}>
         <ExperimentsHomeView
           experiments={experiments}
           isLoading={isLoading}
@@ -72,28 +67,23 @@ const HomePage = () => {
           onRetry={refetch}
         />
       </React.Suspense>
-      <React.Suspense fallback={<HomePageSectionSkeleton />}>
-        <DiscoverNews />
-      </React.Suspense>
+      <FeaturesSection />
 
       <CreateExperimentModal
         isOpen={isCreateModalOpen}
         onClose={handleCloseCreateModal}
         onExperimentCreated={handleExperimentCreated}
       />
-      <LogTracesDrawerLoader />
+      <LogTracesDrawer />
     </ScrollablePageWrapper>
   );
 };
 
-const HomePageSectionSkeleton = () => {
-  const { theme } = useDesignSystemTheme();
-  return (
-    <div>
-      <TitleSkeleton />
-      <TableSkeleton lines={3} />
-    </div>
-  );
-};
+const HomePageSectionSkeleton = () => (
+  <div>
+    <TitleSkeleton />
+    <TableSkeleton lines={3} />
+  </div>
+);
 
 export default HomePage;

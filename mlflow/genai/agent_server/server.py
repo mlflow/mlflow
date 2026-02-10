@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 
 import mlflow
-from mlflow.genai.agent_server.utils import set_request_headers
+from mlflow.genai.agent_server.utils import get_request_headers, set_request_headers
 from mlflow.genai.agent_server.validator import BaseAgentValidator, ResponsesAgentValidator
 from mlflow.pyfunc import ResponsesAgent
 from mlflow.tracing.constant import SpanAttributeKey
@@ -21,6 +21,7 @@ from mlflow.utils.annotations import experimental
 
 logger = logging.getLogger(__name__)
 STREAM_KEY = "stream"
+RETURN_TRACE_HEADER = "x-mlflow-return-trace-id"
 
 AgentType = Literal["ResponsesAgent"]
 
@@ -160,6 +161,9 @@ class AgentServer:
 
             The timeout for the proxy request is specified by the CHAT_PROXY_TIMEOUT_SECONDS
             environment variable (defaults to 300.0 seconds).
+
+            For streaming responses (SSE), the proxy streams chunks as they arrive
+            rather than buffering the entire response.
             """
             for route in self.app.routes:
                 if hasattr(route, "path_regex") and route.path_regex.match(request.url.path):
@@ -179,18 +183,45 @@ class AgentServer:
             try:
                 body = await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
                 target_url = f"http://localhost:{self.chat_app_port}/{path}"
-                proxy_response = await self.proxy_client.request(
+
+                # Build and send request with streaming enabled
+                req = self.proxy_client.build_request(
                     method=request.method,
                     url=target_url,
                     params=dict(request.query_params),
                     headers={k: v for k, v in request.headers.items() if k.lower() != "host"},
                     content=body,
                 )
-                return Response(
-                    proxy_response.content,
-                    proxy_response.status_code,
-                    headers=dict(proxy_response.headers),
-                )
+                proxy_response = await self.proxy_client.send(req, stream=True)
+
+                # Check if this is a streaming response (SSE)
+                content_type = proxy_response.headers.get("content-type", "")
+                if "text/event-stream" in content_type:
+                    # Stream SSE responses chunk by chunk
+                    async def stream_generator():
+                        try:
+                            async for chunk in proxy_response.aiter_bytes():
+                                yield chunk
+                        except Exception as e:
+                            logger.error(f"Streaming error: {e}")
+                            raise
+                        finally:
+                            await proxy_response.aclose()
+
+                    return StreamingResponse(
+                        stream_generator(),
+                        status_code=proxy_response.status_code,
+                        headers=dict(proxy_response.headers),
+                    )
+                else:
+                    # Non-streaming response - read fully then close
+                    content = await proxy_response.aread()
+                    await proxy_response.aclose()
+                    return Response(
+                        content,
+                        proxy_response.status_code,
+                        headers=dict(proxy_response.headers),
+                    )
             except httpx.ConnectError:
                 return Response("Service unavailable", status_code=503, media_type="text/plain")
             except Exception as e:
@@ -259,6 +290,7 @@ class AgentServer:
         )
 
         is_streaming = data.pop(STREAM_KEY, False)
+        return_trace_id = (get_request_headers().get(RETURN_TRACE_HEADER) or "").lower() == "true"
 
         try:
             request_data = self.validator.validate_and_convert_request(data)
@@ -269,11 +301,13 @@ class AgentServer:
             )
 
         if is_streaming:
-            return await self._handle_stream_request(request_data)
+            return await self._handle_stream_request(request_data, return_trace_id)
         else:
-            return await self._handle_invoke_request(request_data)
+            return await self._handle_invoke_request(request_data, return_trace_id)
 
-    async def _handle_invoke_request(self, request: dict[str, Any]) -> dict[str, Any]:
+    async def _handle_invoke_request(
+        self, request: dict[str, Any], return_trace_id: bool
+    ) -> dict[str, Any]:
         if _invoke_function is None:
             raise HTTPException(status_code=500, detail="No invoke function registered")
 
@@ -291,6 +325,10 @@ class AgentServer:
                 result = self.validator.validate_and_convert_result(result)
                 if self.agent_type == "ResponsesAgent":
                     span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai")
+                    if return_trace_id:
+                        result["metadata"] = (result.get("metadata") or {}) | {
+                            "trace_id": span.trace_id
+                        }
                 span.set_outputs(result)
 
             logger.debug(
@@ -320,6 +358,7 @@ class AgentServer:
         self,
         func: Callable[..., Any],
         request: dict[str, Any],
+        return_trace_id: bool,
     ) -> AsyncGenerator[str, None]:
         func_name = func.__name__
         all_chunks: list[dict[str, Any]] = []
@@ -340,6 +379,8 @@ class AgentServer:
                 if self.agent_type == "ResponsesAgent":
                     span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai")
                     span.set_outputs(ResponsesAgent.responses_agent_output_reducer(all_chunks))
+                    if return_trace_id:
+                        yield f"data: {json.dumps({'trace_id': span.trace_id})}\n\n"
                 else:
                     span.set_outputs(all_chunks)
 
@@ -368,11 +409,14 @@ class AgentServer:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
             yield "data: [DONE]\n\n"
 
-    async def _handle_stream_request(self, request: dict[str, Any]) -> StreamingResponse:
+    async def _handle_stream_request(
+        self, request: dict[str, Any], return_trace_id: bool
+    ) -> StreamingResponse:
         if _stream_function is None:
             raise HTTPException(status_code=500, detail="No stream function registered")
         return StreamingResponse(
-            self._generate(_stream_function, request), media_type="text/event-stream"
+            self._generate(_stream_function, request, return_trace_id),
+            media_type="text/event-stream",
         )
 
     @staticmethod

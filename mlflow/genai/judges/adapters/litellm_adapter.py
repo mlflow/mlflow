@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_JUDGE_MAX_ITERATIONS
+from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
@@ -37,10 +37,9 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
 )
+from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracing.constant import AssessmentMetadataKey
-from mlflow.tracking import get_tracking_uri
-from mlflow.utils.uri import append_to_uri_path, is_http_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -235,31 +234,10 @@ def _invoke_litellm_and_handle_tools(
 
     # Construct model URI and gateway params
     if provider == "gateway":
-        # MLFLOW_GATEWAY_URI takes precedence over tracking URI for gateway routing.
-        # This is needed for async job workers: the job infrastructure passes the HTTP
-        # tracking URI (e.g., http://127.0.0.1:5000) to workers, but _get_tracking_store()
-        # overwrites MLFLOW_TRACKING_URI with the backend store URI (e.g., sqlite://).
-        # Job workers set MLFLOW_GATEWAY_URI to preserve the HTTP URI for gateway calls.
-        tracking_uri = MLFLOW_GATEWAY_URI.get() or get_tracking_uri()
-
-        # Validate that tracking URI is a valid HTTP(S) URL for gateway
-        if not is_http_uri(tracking_uri):
-            raise MlflowException(
-                f"Gateway provider requires an HTTP(S) tracking URI, but got: '{tracking_uri}'. "
-                "The gateway provider routes requests through the MLflow tracking server. "
-                "Please set MLFLOW_TRACKING_URI to a valid HTTP(S) URL "
-                "(e.g., 'http://localhost:5000' or 'https://your-mlflow-server.com')."
-            )
-
-        api_base = append_to_uri_path(tracking_uri, "gateway/mlflow/v1/")
-
-        # Use openai/ prefix for LiteLLM to use OpenAI-compatible format.
-        # LiteLLM strips the prefix, so gateway receives model_name as the endpoint.
-        model = f"openai/{model_name}"
-        # LiteLLM requires api_key to be set when using custom api_base, otherwise it
-        # raises AuthenticationError looking for OPENAI_API_KEY env var. Gateway handles
-        # auth in the server layer, so we pass a dummy value to satisfy LiteLLM.
-        api_key = "mlflow-gateway-auth"
+        config = get_gateway_litellm_config(model_name)
+        api_base = config.api_base
+        api_key = config.api_key
+        model = config.model
     else:
         model = f"{provider}/{model_name}"
         api_base = None

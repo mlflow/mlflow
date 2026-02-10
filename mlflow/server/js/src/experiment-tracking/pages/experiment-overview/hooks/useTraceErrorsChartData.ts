@@ -18,6 +18,7 @@ export interface ErrorsChartDataPoint {
   name: string;
   errorCount: number;
   errorRate: number;
+  timestampMs: number;
 }
 
 export interface UseTraceErrorsChartDataResult {
@@ -113,6 +114,7 @@ export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
         name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
         errorCount,
         errorRate: Math.round(errorRate * 100) / 100, // Round to 2 decimal places
+        timestampMs,
       };
     });
   }, [timeBuckets, errorCountByTimestamp, totalCountByTimestamp, timeIntervalSeconds]);

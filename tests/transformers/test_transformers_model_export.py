@@ -931,13 +931,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     [
         image_url,
         str(image_file_path),
-        pytest.param(
-            "base64",
-            marks=pytest.mark.skipif(
-                Version(transformers.__version__) < Version("4.33"),
-                reason="base64 feature not present",
-            ),
-        ),
+        "base64",
         pytest.param(
             "base64_encodebytes",
             marks=pytest.mark.skipif(
@@ -1363,9 +1357,6 @@ def test_table_question_answering_pipeline(table_question_answering_pipeline, mo
     assert pd_inference is not None
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26"), reason="Feature is not available"
-)
 def test_custom_code_pipeline(custom_code_pipeline, model_path):
     data = "hello"
 
@@ -1389,9 +1380,6 @@ def test_custom_code_pipeline(custom_code_pipeline, model_path):
     assert pyfunc_pred[0][0] == transformers_pred[0][0][0]
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26"), reason="Feature is not available"
-)
 def test_custom_components_pipeline(custom_components_pipeline, model_path):
     data = "hello"
 
@@ -1704,13 +1692,7 @@ def test_vision_is_base64_image(input_image, result):
     [
         [str(image_file_path)],
         [image_url],
-        pytest.param(
-            "base64",
-            marks=pytest.mark.skipif(
-                Version(transformers.__version__) < Version("4.33"),
-                reason="base64 feature not present",
-            ),
-        ),
+        "base64",
         pytest.param(
             "base64_encodebytes",
             marks=pytest.mark.skipif(
@@ -2546,9 +2528,6 @@ def test_whisper_model_serve_and_score(whisper_pipeline):
     Version("4.52.0") <= Version(transformers.__version__) < Version("4.53.0"),
     reason="Transformers 4.52 has a bug for beam search in whiper implementation",
 )
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
-)
 def test_whisper_model_support_timestamps(whisper_pipeline):
     # Request payload to the model serving endpoint contains base64 encoded audio data
     audio = read_audio_data("bytes")
@@ -3047,9 +3026,6 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     assert mlmodel["model_size_bytes"] == expected_size
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
-)
 @pytest.mark.parametrize(
     ("task", "input_example"),
     [
@@ -3356,10 +3332,6 @@ def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, 
     assert isinstance(inference[0], str)
     assert inference[0].startswith("How to save Transformer model?")
 
-    if Version(transformers.__version__) < Version("4.34.0"):
-        # Chat model is not supported for Transformers < 4.34.0
-        return
-
     # 3. Save local custom model with LLM v1 chat inference task -> saves successfully
     #    with the corresponding Transformers task
     shutil.rmtree(model_path)
@@ -3393,24 +3365,19 @@ def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, 
 
 
 def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipeline):
-    # max_length and max_new_tokens cannot be used together in Transformers earlier than 4.27
-    validate_max_new_tokens = Version(transformers.__version__) > Version("4.26.1")
-
     model_config = {
         "top_k": 2,
         "num_beams": 5,
         "max_length": 30,
+        "max_new_tokens": 500,
     }
-    if validate_max_new_tokens:
-        model_config["max_new_tokens"] = 500
 
     # Params will be used to override the values of model_config but should not mutate it
     params = {
         "top_k": 30,
         "max_length": 500,
+        "max_new_tokens": 5,
     }
-    if validate_max_new_tokens:
-        params["max_new_tokens"] = 5
 
     pyfunc_model = _TransformersWrapper(text2text_generation_pipeline, model_config=model_config)
     assert pyfunc_model.model_config["top_k"] == 2
@@ -3422,14 +3389,10 @@ def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipel
     assert pyfunc_model.model_config["top_k"] == 2
     assert pyfunc_model.model_config["num_beams"] == 5
     assert pyfunc_model.model_config["max_length"] == 30
-    if validate_max_new_tokens:
-        assert pyfunc_model.model_config["max_new_tokens"] == 500
-        assert len(prediction_output[0].split(" ")) <= 5
+    assert pyfunc_model.model_config["max_new_tokens"] == 500
+    assert len(prediction_output[0].split(" ")) <= 5
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
-)
 def test_text_generation_task_chat_predict(text_generation_pipeline, model_path):
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
@@ -3459,9 +3422,6 @@ def test_text_generation_task_chat_predict(text_generation_pipeline, model_path)
     )
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
-)
 def test_text_generation_task_chat_serve(text_generation_pipeline):
     data = {
         "messages": [
@@ -3773,10 +3733,6 @@ def test_save_model_from_local_checkpoint_with_custom_tokenizer(model_path, loca
     assert tokenizer.special_tokens_map["additional_special_tokens"] == ["<sushi>"]
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.34.0"),
-    reason="Chat template is supported since 4.34.0",
-)
 def test_save_model_from_local_checkpoint_with_llm_inference_task(
     model_path, local_checkpoint_path
 ):
