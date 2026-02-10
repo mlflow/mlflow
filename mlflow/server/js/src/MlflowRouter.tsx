@@ -69,6 +69,8 @@ const MlflowRootRoute = () => {
     setShowSidebar(enableWorkflowBasedNavigation || !isSingleExperimentPage);
   }, [isSingleExperimentPage, enableWorkflowBasedNavigation]);
 
+  console.log('showSidebar', showSidebar);
+
   return (
     <AssistantProvider>
       <AssistantRouteContextProvider />
@@ -76,12 +78,6 @@ const MlflowRootRoute = () => {
         <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <ErrorModal />
           <AppErrorBoundary>
-            <MlflowHeader
-              isDarkTheme={isDarkTheme}
-              setIsDarkTheme={setIsDarkTheme}
-              sidebarOpen={showSidebar}
-              toggleSidebar={() => setShowSidebar((isOpen) => !isOpen)}
-            />
             <RootAssistantLayout>
               <div
                 css={{
@@ -91,7 +87,7 @@ const MlflowRootRoute = () => {
                   width: '100%',
                 }}
               >
-                {showSidebar && <MlflowSidebar />}
+                <MlflowSidebar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
                 <main
                   css={{
                     width: '100%',
