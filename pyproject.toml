@@ -251,6 +251,8 @@ constraint-dependencies = [
   "pyspark<4.1.0",
   # TODO: Remove this once transformers 5.x is supported
   "transformers<5",
+  # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
+  "setuptools<82",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer
