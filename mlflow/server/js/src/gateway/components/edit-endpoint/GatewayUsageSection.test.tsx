@@ -20,6 +20,18 @@ jest.mock('../../../experiment-tracking/pages/experiment-overview/components/Laz
   LazyTraceTokenUsageChart: () => <div data-testid="trace-token-usage-chart">Token Usage Chart</div>,
 }));
 
+jest.mock('../../../experiment-tracking/pages/experiment-overview/components/LazyTraceTokenStatsChart', () => ({
+  LazyTraceTokenStatsChart: () => <div data-testid="trace-token-stats-chart">Token Stats Chart</div>,
+}));
+
+jest.mock('../../../experiment-tracking/pages/experiment-overview/components/LazyTraceCostBreakdownChart', () => ({
+  LazyTraceCostBreakdownChart: () => <div data-testid="trace-cost-breakdown-chart">Cost Breakdown Chart</div>,
+}));
+
+jest.mock('../../../experiment-tracking/pages/experiment-overview/components/LazyTraceCostOverTimeChart', () => ({
+  LazyTraceCostOverTimeChart: () => <div data-testid="trace-cost-over-time-chart">Cost Over Time Chart</div>,
+}));
+
 // Mock TracesV3DateSelector
 jest.mock('../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector', () => ({
   TracesV3DateSelector: () => <div data-testid="date-selector">Date Selector</div>,
@@ -79,6 +91,9 @@ describe('GatewayUsageSection', () => {
     expect(screen.getByTestId('trace-latency-chart')).toBeInTheDocument();
     expect(screen.getByTestId('trace-errors-chart')).toBeInTheDocument();
     expect(screen.getByTestId('trace-token-usage-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('trace-token-stats-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('trace-cost-breakdown-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('trace-cost-over-time-chart')).toBeInTheDocument();
   });
 
   test('updates dashboard link when experiment ID changes', () => {

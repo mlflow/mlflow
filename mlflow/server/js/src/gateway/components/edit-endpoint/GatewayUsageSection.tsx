@@ -8,6 +8,9 @@ import { LazyTraceRequestsChart } from '../../../experiment-tracking/pages/exper
 import { LazyTraceLatencyChart } from '../../../experiment-tracking/pages/experiment-overview/components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from '../../../experiment-tracking/pages/experiment-overview/components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from '../../../experiment-tracking/pages/experiment-overview/components/LazyTraceTokenUsageChart';
+import { LazyTraceTokenStatsChart } from '../../../experiment-tracking/pages/experiment-overview/components/LazyTraceTokenStatsChart';
+import { LazyTraceCostBreakdownChart } from '../../../experiment-tracking/pages/experiment-overview/components/LazyTraceCostBreakdownChart';
+import { LazyTraceCostOverTimeChart } from '../../../experiment-tracking/pages/experiment-overview/components/LazyTraceCostOverTimeChart';
 import { ChartGrid } from '../../../experiment-tracking/pages/experiment-overview/components/OverviewLayoutComponents';
 import { OverviewChartProvider } from '../../../experiment-tracking/pages/experiment-overview/OverviewChartContext';
 import { TimeUnitSelector } from '../../../experiment-tracking/pages/experiment-overview/components/TimeUnitSelector';
@@ -45,14 +48,7 @@ const GatewayUsageSectionImpl = ({ experimentId }: GatewayUsageSectionProps) => 
   );
 
   return (
-    <div
-      css={{
-        padding: theme.spacing.md,
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.borders.borderRadiusMd,
-        backgroundColor: theme.colors.backgroundSecondary,
-      }}
-    >
+    <div>
       <div
         css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.md }}
       >
@@ -106,7 +102,9 @@ const GatewayUsageSectionImpl = ({ experimentId }: GatewayUsageSectionProps) => 
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           {/* Requests chart */}
-          <LazyTraceRequestsChart />
+          <LazyTraceRequestsChart
+            title={<FormattedMessage defaultMessage="Requests" description="Title for the requests chart in gateway" />}
+          />
 
           {/* Latency and Errors charts - side by side */}
           <ChartGrid>
@@ -114,8 +112,30 @@ const GatewayUsageSectionImpl = ({ experimentId }: GatewayUsageSectionProps) => 
             <LazyTraceErrorsChart />
           </ChartGrid>
 
-          {/* Token Usage chart */}
-          <LazyTraceTokenUsageChart />
+          {/* Token Usage and Tokens per Trace charts - side by side */}
+          <ChartGrid>
+            <LazyTraceTokenUsageChart />
+            <LazyTraceTokenStatsChart
+              title={
+                <FormattedMessage
+                  defaultMessage="Tokens per Request"
+                  description="Title for the token stats chart in gateway"
+                />
+              }
+              subtitle={
+                <FormattedMessage
+                  defaultMessage="avg per request"
+                  description="Subtitle for average tokens per request in gateway"
+                />
+              }
+            />
+          </ChartGrid>
+
+          {/* Cost Breakdown and Cost Over Time charts - side by side */}
+          <ChartGrid>
+            <LazyTraceCostBreakdownChart />
+            <LazyTraceCostOverTimeChart />
+          </ChartGrid>
         </div>
       </OverviewChartProvider>
     </div>
