@@ -203,6 +203,7 @@ def test_build_summary_with_issues():
             example_trace_ids=["t-0"],
             scorer=MagicMock(),
             frequency=0.3,
+            confidence=85,
         ),
     ]
     summary = _build_summary(issues, 100)
@@ -363,6 +364,7 @@ def test_discover_issues_full_pipeline():
                 root_cause="Complex queries",
                 detection_instructions="Check the {{ trace }} execution duration",
                 example_indices=[0, 1],
+                confidence=90,
             ),
         ]
     )
@@ -426,24 +428,17 @@ def test_discover_issues_low_frequency_issues_discarded():
                 root_cause="Unknown",
                 detection_instructions="Check the {{ trace }} for rare errors",
                 example_indices=[0],
+                confidence=80,
             ),
         ]
     )
-
-    validation_df = pd.DataFrame(
-        {
-            "rare_issue/value": [False] * 200,
-            "rare_issue/rationale": ["ok"] * 200,
-        }
-    )
-    validation_eval = EvaluationResult(run_id="run-2", metrics={}, result_df=validation_df)
 
     with (
         patch("mlflow.genai.discovery._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.mlflow.search_traces", return_value=traces),
         patch(
             "mlflow.genai.discovery.mlflow.genai.evaluate",
-            side_effect=[test_eval, triage_eval, validation_eval],
+            side_effect=[test_eval, triage_eval],
         ),
         patch(
             "mlflow.genai.discovery.get_chat_completions_with_structured_output",
@@ -452,6 +447,7 @@ def test_discover_issues_low_frequency_issues_discarded():
     ):
         result = discover_issues(sample_size=5)
 
+    # Filtered out: only 1 example (below minimum of 2)
     assert len(result.issues) == 0
 
 

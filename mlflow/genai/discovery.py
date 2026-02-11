@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+import time
 from dataclasses import dataclass, field
 
 import pydantic
@@ -24,6 +26,8 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_SAMPLE_SIZE = 100
 _MAX_SUMMARIES_FOR_CLUSTERING = 50
 _MIN_FREQUENCY_THRESHOLD = 0.01
+_MIN_CONFIDENCE = 75
+_MIN_EXAMPLES = 2
 
 _DEFAULT_JUDGE_MODEL = "openai:/gpt-5-mini"
 _DEFAULT_ANALYSIS_MODEL = "openai:/gpt-5"
@@ -51,6 +55,13 @@ class _IdentifiedIssue(pydantic.BaseModel):
     example_indices: list[int] = pydantic.Field(
         description="Indices into the input trace summary list that exemplify this issue"
     )
+    confidence: int = pydantic.Field(
+        description=(
+            "Confidence that this is a real, distinct issue (0-100). "
+            "0=not confident, 25=might be real, 50=moderately confident, "
+            "75=highly confident and real, 100=absolutely certain"
+        ),
+    )
 
 
 class _IssueClusteringResult(pydantic.BaseModel):
@@ -72,6 +83,7 @@ class Issue:
     example_trace_ids: list[str]
     scorer: Scorer
     frequency: float
+    confidence: int
     rationale_examples: list[str] = field(default_factory=list)
 
 
@@ -255,6 +267,62 @@ def _compute_frequencies(
     return frequencies, rationale_examples
 
 
+def _log_artifacts(result: DiscoverIssuesResult, experiment_id: str) -> str | None:
+    """Log discovery results as MLflow artifacts under a timestamped run. Returns run_id."""
+    run_name = f"discover_issues_{int(time.time())}"
+    try:
+        with mlflow.start_run(run_name=run_name, experiment_id=experiment_id) as run:
+            mlflow.log_text(result.summary, "summary.md")
+            issues_data = [
+                {
+                    "name": issue.name,
+                    "description": issue.description,
+                    "root_cause": issue.root_cause,
+                    "frequency": issue.frequency,
+                    "confidence": issue.confidence,
+                    "example_trace_ids": issue.example_trace_ids,
+                    "rationale_examples": issue.rationale_examples,
+                    "scorer_name": issue.scorer.name,
+                }
+                for issue in result.issues
+            ]
+            mlflow.log_text(json.dumps(issues_data, indent=2), "issues.json")
+            mlflow.log_text(
+                json.dumps(
+                    {
+                        "total_traces_analyzed": result.total_traces_analyzed,
+                        "num_issues": len(result.issues),
+                        "timestamp": int(time.time()),
+                        "triage_run_id": result.triage_evaluation.run_id,
+                        "validation_run_id": (
+                            result.validation_evaluation.run_id
+                            if result.validation_evaluation
+                            else None
+                        ),
+                    },
+                    indent=2,
+                ),
+                "metadata.json",
+            )
+            if result.triage_evaluation.result_df is not None:
+                mlflow.log_text(
+                    result.triage_evaluation.result_df.to_csv(index=False),
+                    "triage_results.csv",
+                )
+            if (
+                result.validation_evaluation is not None
+                and result.validation_evaluation.result_df is not None
+            ):
+                mlflow.log_text(
+                    result.validation_evaluation.result_df.to_csv(index=False),
+                    "validation_results.csv",
+                )
+            return run.info.run_id
+    except Exception:
+        _logger.warning("Failed to log discovery artifacts", exc_info=True)
+        return None
+
+
 def _build_summary(issues: list[Issue], total_traces: int) -> str:
     if not issues:
         return f"## Issue Discovery Summary\n\nAnalyzed {total_traces} traces. No issues found."
@@ -265,7 +333,8 @@ def _build_summary(issues: list[Issue], total_traces: int) -> str:
     ]
     for i, issue in enumerate(issues, 1):
         lines.append(
-            f"### {i}. {issue.name} ({issue.frequency:.0%} of traces)\n\n"
+            f"### {i}. {issue.name} ({issue.frequency:.0%} of traces, "
+            f"confidence: {issue.confidence}/100)\n\n"
             f"{issue.description}\n\n"
             f"**Root cause:** {issue.root_cause}\n"
         )
@@ -439,7 +508,11 @@ def discover_issues(
                     "the literal text '{{ trace }}' (with double curly braces) as a "
                     "template variable — this is how the judge receives the trace data. "
                     "Example: 'Analyze the {{ trace }} to determine if...'\n"
-                    "- Indices of example traces from the input"
+                    "- Indices of example traces from the input\n"
+                    "- A confidence score 0-100 indicating how confident you are this "
+                    "is a real, distinct issue (0=not confident, 50=moderate, "
+                    "75=highly confident, 100=certain). Be rigorous — only score "
+                    "75+ if multiple traces clearly demonstrate the same pattern."
                 ),
             ),
             ChatMessage(
@@ -450,8 +523,16 @@ def discover_issues(
         output_schema=_IssueClusteringResult,
     )
 
-    identified = clustering_result.issues[:max_issues]
-    _logger.info("Phase 2 complete: %d issues identified", len(identified))
+    identified = [
+        issue
+        for issue in clustering_result.issues[:max_issues]
+        if issue.confidence >= _MIN_CONFIDENCE and len(issue.example_indices) >= _MIN_EXAMPLES
+    ]
+    _logger.info(
+        "Phase 2 complete: %d issues identified (%d filtered out by confidence/examples)",
+        len(identified),
+        len(clustering_result.issues) - len(identified),
+    )
 
     if not identified:
         return DiscoverIssuesResult(
@@ -512,6 +593,7 @@ def discover_issues(
                 example_trace_ids=example_ids,
                 scorer=scorer_by_name[ident.name],
                 frequency=freq,
+                confidence=ident.confidence,
                 rationale_examples=rationale_examples_map.get(ident.name, []),
             )
         )
@@ -521,10 +603,15 @@ def discover_issues(
     summary = _build_summary(issues, total_analyzed)
     _logger.info("Done. Found %d issues across %d traces.", len(issues), total_analyzed)
 
-    return DiscoverIssuesResult(
+    result = DiscoverIssuesResult(
         issues=issues,
         triage_evaluation=triage_eval,
         validation_evaluation=validation_eval,
         summary=summary,
         total_traces_analyzed=total_analyzed,
     )
+
+    # Log artifacts so each run's results are preserved
+    _log_artifacts(result, exp_id)
+
+    return result

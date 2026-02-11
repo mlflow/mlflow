@@ -28,7 +28,7 @@ print(f"\nDone in {elapsed:.1f}s — {len(result.issues)} issues found\n")
 print(result.summary)
 
 for issue in result.issues:
-    print(f"\n--- {issue.name} ({issue.frequency:.0%}) ---")
+    print(f"\n--- {issue.name} ({issue.frequency:.0%}, confidence: {issue.confidence}/100) ---")
     print(f"  {issue.description}")
     print(f"  Root cause: {issue.root_cause}")
     print(f"  Examples: {issue.example_trace_ids[:3]}")
