@@ -94,28 +94,17 @@ aligned_judge = judge.align(traces=traces, optimizer=optimizer)
 
 ## Parameters
 
-| Parameter         | Type  | Default                            | Description                                                                                           |
-| ----------------- | ----- | ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `reflection_lm`   | `str` | See below                          | Model used for extracting guidelines from feedback. See "Model Configuration" section for how to set. |
-| `retrieval_k`     | `int` | `5`                                | Number of relevant examples to retrieve from episodic memory during inference.                        |
-| `embedding_model` | `str` | `"openai:/text-embedding-3-small"` | Model for episodic memory retrieval. Must be in `<provider>:/<model-name>` format.                    |
+| Parameter         | Type  | Default                            | Description                                                                                                                                                                        |
+| ----------------- | ----- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reflection_lm`   | `str` | See below                          | Model used for extracting guidelines from feedback. See [Supported Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/supported-models) section for how to specify. |
+| `retrieval_k`     | `int` | `5`                                | Number of relevant examples to retrieve from episodic memory during inference.                                                                                                     |
+| `embedding_model` | `str` | `"openai:/text-embedding-3-small"` | Model for episodic memory retrieval. Must be in `<provider>:/<model-name>` format.                                                                                                 |
 
-Note: The number of parallel threads for LLM calls during guideline distillation can be configured via the `MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS` environment variable (default: 8).
+The number of parallel threads for LLM calls during guideline distillation can be configured via the `MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS` environment variable (default: 8).
 
-### Model Configuration
+The default `reflection_lm` depends on the tracking URI setup:
 
-The `reflection_lm` parameter supports multiple formats:
-
-- **`"databricks"`** - Uses a [default Databricks-hosted model](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/scorers#select-the-llm-that-powers-the-judge) designed for GenAI quality assessments.
-- **`"databricks:/<model-name>"`** - Uses other Databricks-hosted models of your choice (e.g., `databricks:/databricks-gpt-5-mini`, `databricks:/databricks-claude-sonnet-4-5`). For a full list, see [LiteLLM Models](https://models.litellm.ai/) and select "databricks" as the provider.
-- **`"databricks:/<endpoint-name>"`** or **`"endpoints:/<endpoint-name>"`** - Uses custom endpoints on Databricks (e.g., `databricks:/my-endpoint`).
-- **`<provider>:/<model-name>`** - Uses other providers (e.g., `"openai:/gpt-4o-mini"`, `"anthropic:/claude-3.5-sonnet-20240620"`). For a full list, see [LiteLLM Models](https://models.litellm.ai/).
-
-MLflow natively supports `["openai", "anthropic", "bedrock", "mistral"]`, and more providers are supported through [LiteLLM](https://docs.litellm.ai/docs/providers).
-
-**Default model depends on the tracking URI setup:**
-
-- **Databricks**: `databricks` (a default Databricks-hosted model designed for GenAI quality assessments)
+- **If on Databricks**: `databricks` (a [default Databricks-hosted model](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/scorers#select-the-llm-that-powers-the-judge) designed for GenAI quality assessments)
 - **Otherwise**: `openai:/gpt-4o-mini`
 
 ## Inspecting Learned Knowledge
