@@ -282,10 +282,13 @@ def generate_assessments(cfg: SizeConfig, trace_ids: list[str]) -> None:
 
 def generate_logged_models(cfg: SizeConfig, experiments: list[ExperimentData]) -> list[str]:
     """Returns list of model artifact URIs."""
+    from mlflow.entities.logged_model_input import LoggedModelInput
+
     client = MlflowClient()
     model_uris: list[str] = []
 
     for exp in experiments:
+        model_ids: list[str] = []
         for m_idx in range(cfg.logged_models_per_exp):
             with mlflow.start_run(experiment_id=exp.experiment_id):
                 model_info = mlflow.pyfunc.log_model(
@@ -298,6 +301,13 @@ def generate_logged_models(cfg: SizeConfig, experiments: list[ExperimentData]) -
             client.set_logged_model_tags(
                 model_info.model_id, {"framework": "pytorch", "stage": "dev"}
             )
+            model_ids.append(model_info.model_id)
+
+        # Log model inputs on existing runs in this experiment
+        if model_ids and exp.run_ids:
+            for i, model_id in enumerate(model_ids):
+                run_id = exp.run_ids[i % len(exp.run_ids)]
+                client.log_inputs(run_id, models=[LoggedModelInput(model_id=model_id)])
 
     return model_uris
 

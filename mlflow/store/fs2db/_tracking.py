@@ -307,20 +307,35 @@ def _migrate_datasets_for_experiment(
             source_type = input_meta.get("source_type", "DATASET")
             source_id = input_meta.get("source_id", "")
 
-            ds_uuid = dataset_uuid_map.get(source_id)
-            if source_type == "DATASET" and ds_uuid is None:
-                continue
-
-            input_uuid = str(uuid.uuid4())
-            session.add(
-                SqlInput(
-                    input_uuid=input_uuid,
-                    source_type=source_type,
-                    source_id=ds_uuid if source_type == "DATASET" else source_id,
-                    destination_type="RUN",
-                    destination_id=run_uuid,
+            if source_type == "DATASET":
+                ds_uuid = dataset_uuid_map.get(source_id)
+                if ds_uuid is None:
+                    continue
+                input_uuid = str(uuid.uuid4())
+                session.add(
+                    SqlInput(
+                        input_uuid=input_uuid,
+                        source_type="DATASET",
+                        source_id=ds_uuid,
+                        destination_type="RUN",
+                        destination_id=run_uuid,
+                    )
                 )
-            )
+            elif source_type == "MODEL":
+                # FileStore: source_type=MODEL, source_id=model_id, destination_type=RUN
+                # DB store:  source_type=RUN_INPUT, source_id=run_id, destination_type=MODEL_INPUT
+                input_uuid = str(uuid.uuid4())
+                session.add(
+                    SqlInput(
+                        input_uuid=input_uuid,
+                        source_type="RUN_INPUT",
+                        source_id=run_uuid,
+                        destination_type="MODEL_INPUT",
+                        destination_id=source_id,
+                    )
+                )
+            else:
+                continue
             stats.inputs += 1
 
             input_tags = input_meta.get("tags", {})
