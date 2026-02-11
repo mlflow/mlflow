@@ -19,6 +19,7 @@ jest.setTimeout(60000); // Larger timeout for integration testing
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(false),
 }));
 jest.mock('../experiment-logged-models/ExperimentLoggedModelListPage', () => ({
   // mock default export

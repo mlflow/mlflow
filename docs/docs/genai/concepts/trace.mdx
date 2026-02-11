@@ -94,6 +94,10 @@ To learn more about the span object and its schema, continue to the [Span Concep
 
 ## Storage Layout
 
-`TraceInfo` is a lightweight metadata object, hence can be stored directly in a relational database. For example, if you are running MLflow Tracking Server on SQL database such as PostgreSQL, `TraceInfo` is stored as a single row in the trace table and support efficient query with indexes. For example, the data that is contained in the `TraceInfo` object is used to populate the trace view page within the MLflow tracking UI.
+`TraceInfo` is a lightweight metadata object stored in the `trace_info` table in a relational database. For example, if you are running MLflow Tracking Server on a SQL database such as PostgreSQL, `TraceInfo` is stored as a single row in the table and supports efficient querying with indexes. The data contained in the `TraceInfo` object is used to populate the trace view page within the MLflow tracking UI.
 
-`TraceData` (Spans) are relatively large objects compared to `TraceInfo`, because it contains rich information about each execution step, such as the full message history input to an LLM call. Therefore, MLflow stores them in artifact storage rather than in the database. This allows you to handle large number of traces with cheaper costs and minimum impact to the performance of typical filtering and grouping operations for traces.
+`TraceData` (Spans) are relatively large objects compared to `TraceInfo`, because they contain rich information about each execution step, such as the full message history input to an LLM call. MLflow stores each span as a separate row in the `spans` table, with the full span content serialized as JSON. This approach enables efficient retrieval and querying of span data within the same transactional store.
+
+:::note
+Prior to MLflow 3.3.0, spans were stored in artifact storage (e.g., S3, local filesystem) rather than in the database. Starting from MLflow 3.3.0, spans are stored directly in the database for improved query performance and transactional consistency.
+:::
