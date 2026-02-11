@@ -15,8 +15,8 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
     NAME = "Hugging Face Text Generation Inference"
     CONFIG_TYPE = HuggingFaceTextGenerationInferenceConfig
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(
             config.model.config, HuggingFaceTextGenerationInferenceConfig
         ):
@@ -32,7 +32,9 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
             payload=payload,
         )
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)

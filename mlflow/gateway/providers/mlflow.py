@@ -53,8 +53,8 @@ class MlflowModelServingProvider(BaseProvider):
     NAME = "MLflow Model Serving"
     CONFIG_TYPE = MlflowModelServingConfig
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(
             config.model.config, MlflowModelServingConfig
         ):
@@ -98,7 +98,9 @@ class MlflowModelServingProvider(BaseProvider):
             for idx, entry in enumerate(inference_data)
         ]
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         # Example request to MLflow REST API server for completions:
         # {
         #     "inputs": ["hi", "hello", "bye"],
@@ -142,7 +144,7 @@ class MlflowModelServingProvider(BaseProvider):
             for entry in inference_data
         ]
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         # Example request to MLflow REST API for chat:
         # {
         #     "inputs": ["question"],
@@ -200,7 +202,7 @@ class MlflowModelServingProvider(BaseProvider):
 
         return inference_data
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         # Example request to MLflow REST API server for embeddings:
         # {
         #     "inputs": ["a sentence", "another sentence"],

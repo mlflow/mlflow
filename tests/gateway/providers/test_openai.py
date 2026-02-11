@@ -198,6 +198,7 @@ async def _run_test_chat_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -215,6 +216,7 @@ async def _run_test_chat_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -232,6 +234,7 @@ async def _run_test_chat_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
         ]
 
@@ -245,6 +248,7 @@ async def _run_test_chat_stream(resp, provider):
             json={
                 "model": "gpt-4o-mini",
                 "n": 1,
+                "stream_options": {"include_usage": True},
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
@@ -313,6 +317,7 @@ async def test_chat_stream_with_function_calling():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -337,6 +342,7 @@ async def test_chat_stream_with_function_calling():
                         },
                     }
                 ],
+                "usage": None,
             },
             {
                 "id": "test-id",
@@ -361,6 +367,7 @@ async def test_chat_stream_with_function_calling():
                         },
                     }
                 ],
+                "usage": None,
             },
         ]
 
@@ -487,6 +494,7 @@ async def _run_test_completions_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -500,6 +508,7 @@ async def _run_test_completions_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -513,6 +522,7 @@ async def _run_test_completions_stream(resp, provider):
                 "id": "test-id",
                 "model": "test",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
         ]
 
@@ -528,6 +538,7 @@ async def _run_test_completions_stream(resp, provider):
                 "model": "gpt-4-32k",
                 "n": 1,
                 "prompt": "This is a test",
+                "stream_options": {"include_usage": True},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -1169,3 +1180,101 @@ async def test_chat_with_structured_output():
             response.choices[0].message.content == '{"steps": ["1 + 1 = 2"], "final_answer": "2"}'
         )
         assert response.choices[0].finish_reason == "stop"
+
+
+# Tests for passthrough token extraction
+def test_extract_passthrough_token_usage():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 20,
+            "total_tokens": 30,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_extract_passthrough_token_usage_no_usage():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage is None
+
+
+def test_extract_passthrough_token_usage_partial():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    result = {
+        "usage": {
+            "prompt_tokens": 10,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage == {"input_tokens": 10}
+
+
+def test_extract_streaming_token_usage():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"id":"chatcmpl-123","usage":'
+        b'{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_extract_streaming_token_usage_no_usage_in_chunk():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = b'data: {"id":"chatcmpl-123","choices":[{"delta":{"content":"Hello"}}]}\n\n'
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_extract_streaming_token_usage_done_chunk():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = b"data: [DONE]\n\n"
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_extract_streaming_token_usage_invalid_json():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = b"data: {invalid json}\n\n"
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_extract_streaming_token_usage_non_data_line():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = b"event: message\n\n"
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_extract_streaming_token_usage_responses_api():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    # Responses API returns usage in data.response.usage with input_tokens/output_tokens
+    chunk = (
+        b'data: {"type":"response.completed","response":{"id":"resp_123",'
+        b'"usage":{"input_tokens":9,"output_tokens":65,"total_tokens":74}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 9,
+        "output_tokens": 65,
+        "total_tokens": 74,
+    }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
@@ -12,6 +12,8 @@ import {
   shouldUseTracesV4API,
   useUnifiedTraceTagsModal,
   ModelTraceExplorerContextProvider,
+  ModelTraceExplorerRunJudgesContextProvider,
+  isEvaluatingTracesInDetailsViewEnabled,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
@@ -21,6 +23,7 @@ import {
   REQUEST_TIME_COLUMN_ID,
   STATE_COLUMN_ID,
   RESPONSE_COLUMN_ID,
+  SESSION_COLUMN_ID,
   TracesTableColumnType,
   useSearchMlflowTraces,
   useSelectedColumns,
@@ -54,6 +57,16 @@ import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
+import { useRunScorerInTracesViewConfiguration } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
+
+const JudgeContextProvider = ({ children }: { children: React.ReactNode }) => {
+  const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
+  return (
+    <ModelTraceExplorerRunJudgesContextProvider {...runJudgeConfiguration}>
+      {children}
+    </ModelTraceExplorerRunJudgesContextProvider>
+  );
+};
 
 const ContextProviders = ({
   children,
@@ -66,7 +79,7 @@ const ContextProviders = ({
 }) => {
   return (
     <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
-      {children}
+      {isEvaluatingTracesInDetailsViewEnabled() ? <JudgeContextProvider>{children}</JudgeContextProvider> : children}
     </GenAiTracesMarkdownConverterProvider>
   );
 };
@@ -114,10 +127,6 @@ const TracesV3LogsImpl = React.memo(
     // Row selection state - lifted to provide shared state via context
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
     useRegisterSelectedIds('selectedTraceIds', rowSelection);
-
-    const onToggleSessionGrouping = useCallback(() => {
-      setIsGroupedBySession(!isGroupedBySession);
-    }, [isGroupedBySession]);
 
     const traceSearchLocations = useMemo(
       () => {
@@ -193,6 +202,21 @@ const TracesV3LogsImpl = React.memo(
       undefined, // runUuid
       columnStorageKeyPrefix,
     );
+
+    // Toggle session grouping and auto-select session column when enabling
+    const onToggleSessionGrouping = useCallback(() => {
+      const newIsGroupedBySession = !isGroupedBySession;
+      setIsGroupedBySession(newIsGroupedBySession);
+
+      // Auto-select session column when enabling grouping
+      if (newIsGroupedBySession) {
+        const sessionColumn = allColumns.find((col) => col.id === SESSION_COLUMN_ID);
+        const isSessionColumnSelected = selectedColumns.some((col) => col.id === SESSION_COLUMN_ID);
+        if (sessionColumn && !isSessionColumnSelected) {
+          setSelectedColumns([...selectedColumns, sessionColumn]);
+        }
+      }
+    }, [isGroupedBySession, allColumns, selectedColumns, setSelectedColumns]);
 
     const [tableSort, setTableSort] = useTableSort(selectedColumns, {
       key: REQUEST_TIME_COLUMN_ID,

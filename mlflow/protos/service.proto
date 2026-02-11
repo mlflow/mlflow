@@ -1002,6 +1002,92 @@ service MlflowService {
     };
   }
 
+  // Workspace APIs
+  rpc listWorkspaces(ListWorkspaces) returns (ListWorkspaces.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/workspaces"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "List Workspaces"
+    };
+  }
+
+  rpc createWorkspace(CreateWorkspace) returns (CreateWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/workspaces"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create Workspace"
+    };
+  }
+
+  rpc getWorkspace(GetWorkspace) returns (GetWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/workspaces/{workspace_name}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Workspace"
+    };
+  }
+
+  rpc updateWorkspace(UpdateWorkspace) returns (UpdateWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/workspaces/{workspace_name}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Update Workspace"
+    };
+  }
+
+  rpc deleteWorkspace(DeleteWorkspace) returns (DeleteWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/workspaces/{workspace_name}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Workspace"
+    };
+  }
+
   rpc createLoggedModel(CreateLoggedModel) returns (CreateLoggedModel.Response) {
     option (rpc) = {
       endpoints: [
@@ -1551,6 +1637,29 @@ service MlflowService {
     };
   }
 
+  // Delete evaluation dataset records
+  rpc deleteDatasetRecords(DeleteDatasetRecords) returns (DeleteDatasetRecords.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/datasets/{dataset_id}/records"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Evaluation Dataset Records"
+    };
+  }
+
   // Add a dataset to additional experiments
   rpc addDatasetToExperiments(AddDatasetToExperiments) returns (AddDatasetToExperiments.Response) {
     option (rpc) = {
@@ -2028,6 +2137,62 @@ service MlflowService {
     };
   }
 
+  // Get the details and status of a prompt optimization job.
+  // Returns the job configuration, current status, progress statistics,
+  // and the best prompt if the optimization has completed.
+  rpc getPromptOptimizationJob(GetPromptOptimizationJob) returns (GetPromptOptimizationJob.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/prompt-optimization/jobs/{job_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Prompt Optimization Job"
+    };
+  }
+
+  // Search for prompt optimization jobs.
+  // Returns a list of optimization jobs matching the specified filters.
+  rpc searchPromptOptimizationJobs(SearchPromptOptimizationJobs) returns (SearchPromptOptimizationJobs.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/prompt-optimization/jobs/search"
+          since: {
+            major: 3
+            minor: 0
+          }
+        },
+        {
+          method: "GET"
+          path: "/mlflow/prompt-optimization/jobs/search"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Search Prompt Optimization Jobs"
+    };
+  }
+
   // Cancel an in-progress prompt optimization job.
   // If the job is already completed or cancelled, this operation has no effect.
   rpc cancelPromptOptimizationJob(CancelPromptOptimizationJob) returns (CancelPromptOptimizationJob.Response) {
@@ -2050,6 +2215,30 @@ service MlflowService {
       ]
       visibility: PUBLIC
       rpc_doc_title: "Cancel Prompt Optimization Job"
+    };
+  }
+
+  // Delete a prompt optimization job and its associated data.
+  // This permanently removes the job and all related information.
+  rpc deletePromptOptimizationJob(DeletePromptOptimizationJob) returns (DeletePromptOptimizationJob.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/prompt-optimization/jobs/{job_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Prompt Optimization Job"
     };
   }
 }
@@ -4049,6 +4238,21 @@ message GetDatasetRecords {
   }
 }
 
+message DeleteDatasetRecords {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Dataset ID to delete records from.
+  optional string dataset_id = 1 [(validate_required) = true];
+
+  // List of dataset record IDs to delete.
+  repeated string dataset_record_ids = 2;
+
+  message Response {
+    // Number of records deleted
+    optional int32 deleted_count = 1;
+  }
+}
+
 message AddDatasetToExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -4282,6 +4486,12 @@ message GatewayEndpoint {
   optional RoutingStrategy routing_strategy = 9;
   // Fallback configuration (populated if routing_strategy is FALLBACK)
   optional FallbackConfig fallback_config = 10;
+  // ID of the MLflow experiment where traces for this endpoint are logged
+  optional string experiment_id = 11;
+  // Whether usage tracking is enabled for this endpoint.
+  // When true, an experiment will be auto-created if not provided,
+  // and traces will be logged for endpoint invocations.
+  optional bool usage_tracking = 12;
 }
 
 // Tag associated with an endpoint
@@ -4515,6 +4725,12 @@ message CreateGatewayEndpoint {
   optional RoutingStrategy routing_strategy = 4;
   // Optional fallback configuration (includes strategy, max_attempts)
   optional FallbackConfig fallback_config = 5;
+  // Optional experiment ID for tracing. Only used when usage_tracking is true.
+  // If not provided and usage_tracking is true, an experiment will be auto-created.
+  optional string experiment_id = 6;
+  // Whether to enable usage tracking for this endpoint. Defaults to false.
+  // When true, traces will be logged for endpoint invocations.
+  optional bool usage_tracking = 7;
 
   message Response {
     // The created endpoint with all model mappings
@@ -4546,6 +4762,12 @@ message UpdateGatewayEndpoint {
   optional RoutingStrategy routing_strategy = 5;
   // Optional fallback configuration (includes strategy, max_attempts)
   optional FallbackConfig fallback_config = 6;
+  // Optional experiment ID for tracing. Only used when usage_tracking is true.
+  optional string experiment_id = 7;
+  // Whether to enable usage tracking for this endpoint.
+  // When set to true, traces will be logged for endpoint invocations.
+  // When set to false, usage tracking is disabled and experiment_id is cleared.
+  optional bool usage_tracking = 8;
 
   message Response {
     // The updated endpoint
@@ -4690,6 +4912,26 @@ message CreatePromptOptimizationJob {
   }
 }
 
+message GetPromptOptimizationJob {
+  // The unique identifier of the optimization job (same as run_id).
+  optional string job_id = 1;
+
+  message Response {
+    // The optimization job details.
+    optional PromptOptimizationJob job = 1;
+  }
+}
+
+message SearchPromptOptimizationJobs {
+  // ID of the MLflow experiment to search optimization jobs in.
+  optional string experiment_id = 1;
+
+  message Response {
+    // List of optimization jobs.
+    repeated PromptOptimizationJob jobs = 1;
+  }
+}
+
 message CancelPromptOptimizationJob {
   // The unique identifier of the optimization job to cancel.
   optional string job_id = 1;
@@ -4698,4 +4940,100 @@ message CancelPromptOptimizationJob {
     // The cancelled optimization job.
     optional PromptOptimizationJob job = 1;
   }
+}
+
+message DeletePromptOptimizationJob {
+  // The unique identifier of the optimization job to delete.
+  optional string job_id = 1;
+
+  message Response {
+    // Empty response on successful deletion.
+  }
+}
+
+// =============================================================================
+// Workspace Management Messages
+// =============================================================================
+
+// Workspace metadata returned by workspace APIs.
+message Workspace {
+  // The unique workspace name.
+  optional string name = 1 [(validate_required) = true];
+
+  // Optional workspace description.
+  optional string description = 2;
+
+  // Optional default artifact root override for this workspace.
+  optional string default_artifact_root = 3;
+}
+
+// List workspaces available to the current principal.
+message ListWorkspaces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message Response {
+    // Collection of workspace records.
+    repeated Workspace workspaces = 1;
+  }
+}
+
+// Create a new workspace.
+message CreateWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Workspace name to create.
+  optional string name = 1 [(validate_required) = true];
+
+  // Optional workspace description.
+  optional string description = 2;
+
+  // Optional default artifact root override to apply at creation time.
+  optional string default_artifact_root = 3;
+
+  message Response {
+    // Metadata describing the created workspace.
+    optional Workspace workspace = 1;
+  }
+}
+
+// Retrieve workspace metadata.
+message GetWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the workspace to fetch.
+  optional string workspace_name = 1 [(validate_required) = true];
+
+  message Response {
+    // Metadata describing the requested workspace.
+    optional Workspace workspace = 1;
+  }
+}
+
+// Update workspace metadata.
+message UpdateWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the workspace to update.
+  optional string workspace_name = 1 [(validate_required) = true];
+
+  // Optional description update.
+  optional string description = 2;
+
+  // Optional default artifact root override update.
+  optional string default_artifact_root = 3;
+
+  message Response {
+    // Metadata describing the updated workspace.
+    optional Workspace workspace = 1;
+  }
+}
+
+// Delete a workspace.
+message DeleteWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the workspace to delete.
+  optional string workspace_name = 1 [(validate_required) = true];
+
+  message Response {}
 }

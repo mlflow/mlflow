@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 
 import { useIntl } from '@databricks/i18n';
 import type { NetworkRequestError } from '@databricks/web-shared/errors';
-import { matchPredefinedErrorFromResponse } from '@databricks/web-shared/errors';
 import type { QueryClient, UseQueryOptions, UseQueryResult } from '@databricks/web-shared/query-client';
 import { useQuery } from '@databricks/web-shared/query-client';
 
@@ -21,6 +20,7 @@ import {
   CUSTOM_METADATA_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
   INPUTS_COLUMN_ID,
   RESPONSE_COLUMN_ID,
@@ -40,11 +40,17 @@ import type {
   TableFilter,
   TableFilterOptions,
 } from '../types';
-import { FilterOperator, HiddenFilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
+import {
+  FilterOperator,
+  HiddenFilterOperator,
+  TracesTableColumnGroup,
+  TracesTableColumnType,
+  isNullOperator,
+} from '../types';
 import { ERROR_KEY, getAssessmentInfos } from '../utils/AggregationUtils';
 import { filterEvaluationResults } from '../utils/EvaluationsFilterUtils';
 import { getMlflowTracesSearchPageSize, getEvalTabTotalTracesLimit, shouldUseTracesV4API } from '../utils/FeatureUtils';
-import { fetchFn, getAjaxUrl } from '../utils/FetchUtils';
+import { fetchAPI, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import {
   convertTraceInfoV3ToRunEvalEntry,
@@ -257,6 +263,13 @@ const getNetworkAndClientFilters = (
     clientFilters: TableFilter[];
   }>(
     (acc, filter) => {
+      // IS NULL / IS NOT NULL operators should always go to network filters
+      // since they don't require a value and are handled by the backend
+      if (filter.column === TracesTableColumnGroup.ASSESSMENT && isNullOperator(filter.operator)) {
+        acc.networkFilters.push(filter);
+        return acc;
+      }
+
       // Assessment filters with undefined or 'Error' value must always be filtered client-side
       // because the backend cannot query for absence of an assessment or error state.
       // Note: filter.value is already converted from string 'undefined' to actual undefined by useFilters
@@ -497,16 +510,11 @@ export const searchMlflowTracesQueryFn = async ({
     if (pageToken) {
       payload.page_token = pageToken;
     }
-    const queryResponse = await fetchFn(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
+    const json = (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+      body: payload,
       signal,
-    });
-    if (!queryResponse.ok) throw matchPredefinedErrorFromResponse(queryResponse);
-    const json = (await queryResponse.json()) as { traces: ModelTraceInfoV3[]; next_page_token?: string };
+    })) as { traces: ModelTraceInfoV3[]; next_page_token?: string };
     const traces = json.traces;
     if (!isNil(traces)) {
       allTraces = allTraces.concat(traces);
@@ -707,9 +715,16 @@ export const createMlflowSearchFilter = (
           filter.push(`request_metadata."mlflow.source.name" ${networkFilter.operator} '${networkFilter.value}'`);
           break;
         case TracesTableColumnGroup.ASSESSMENT:
-          // Skip 'undefined' values - these must be filtered client-side since they represent
-          // absence of an assessment, which cannot be queried on the backend
-          if (networkFilter.value !== 'undefined') {
+          // Handle IS NULL / IS NOT NULL operators for assessments
+          // Note: This is not supported in managed backend
+          if (
+            networkFilter.operator === FilterOperator.IS_NULL ||
+            networkFilter.operator === FilterOperator.IS_NOT_NULL
+          ) {
+            filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator}`);
+          } else if (networkFilter.value !== 'undefined') {
+            // Skip 'undefined' values - these must be filtered client-side since they represent
+            // absence of an assessment, which cannot be queried on the backend
             filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
           }
           break;
@@ -739,6 +754,10 @@ export const createMlflowSearchFilter = (
           } else {
             filter.push(`span.type ${networkFilter.operator} '${networkFilter.value}'`);
           }
+          break;
+        case SPAN_STATUS_COLUMN_ID:
+          // Span status uses exact match (OK, ERROR, UNSET)
+          filter.push(`span.status ${networkFilter.operator} '${networkFilter.value}'`);
           break;
         case SPAN_CONTENT_COLUMN_ID:
           if (networkFilter.operator === 'CONTAINS') {

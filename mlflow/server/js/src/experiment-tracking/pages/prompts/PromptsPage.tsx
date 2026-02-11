@@ -8,11 +8,13 @@ import { PromptsListTable } from './components/PromptsListTable';
 import { useUpdateRegisteredPromptTags } from './hooks/useUpdateRegisteredPromptTags';
 import { CreatePromptModalMode, useCreatePromptModal } from './hooks/useCreatePromptModal';
 import Routes from '../../routes';
-import { useNavigate } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useSearchParams } from '../../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { PromptPageErrorHandler } from './components/PromptPageErrorHandler';
 import { useDebounce } from 'use-debounce';
+import { shouldEnableWorkspaces } from '../../../common/utils/FeatureUtils';
+import { extractWorkspaceFromSearchParams } from '../../../workspaces/utils/WorkspaceUtils';
 
 export type PromptsListComponentId =
   | 'mlflow.prompts.global.list.create'
@@ -51,6 +53,12 @@ const EXPERIMENT_COMPONENT_IDS: PromptsListComponentIds = {
 };
 
 const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
+  const [searchParams] = useSearchParams();
+  const workspacesEnabled = shouldEnableWorkspaces();
+  const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
+  // Only show creation buttons when: workspaces are disabled OR a workspace is selected
+  const showCreationButtons = !workspacesEnabled || workspaceFromUrl !== null;
+
   const [searchFilter, setSearchFilter] = useState('');
   const navigate = useNavigate();
   const componentIds = experimentId ? EXPERIMENT_COMPONENT_IDS : GLOBAL_COMPONENT_IDS;
@@ -73,12 +81,14 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
       <Header
         title={<FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />}
         buttons={
-          <Button componentId={componentIds.create} type="primary" onClick={openCreateVersionModal}>
-            <FormattedMessage
-              defaultMessage="Create prompt"
-              description="Label for the create prompt button on the registered prompts page"
-            />
-          </Button>
+          showCreationButtons && (
+            <Button componentId={componentIds.create} type="primary" onClick={openCreateVersionModal}>
+              <FormattedMessage
+                defaultMessage="Create prompt"
+                description="Label for the create prompt button on the registered prompts page"
+              />
+            </Button>
+          )
         }
       />
       <Spacer shrinks={false} />

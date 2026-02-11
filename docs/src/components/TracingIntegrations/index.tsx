@@ -129,6 +129,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks (Python)',
   },
   {
+    id: 'livekit',
+    name: 'LiveKit Agents',
+    logoPath: '/images/logos/livekit-logo.png',
+    link: '/genai/tracing/integrations/listing/livekit',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
     id: 'agno',
     name: 'Agno',
     logoPath: '/images/logos/agno-logo.png',
@@ -155,6 +162,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'Semantic Kernel',
     logoPath: '/images/logos/semantic-kernel-logo.png',
     link: '/genai/tracing/integrations/listing/semantic_kernel',
+    category: 'Agent Frameworks (Python)',
+  },
+  {
+    id: 'deepagent',
+    name: 'LangChain DeepAgent',
+    logoPath: '/images/logos/deepagent-logo.svg',
+    link: '/genai/tracing/integrations/listing/deepagent',
     category: 'Agent Frameworks (Python)',
   },
   {
@@ -392,6 +406,20 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Tools',
   },
   // Gateways
+  {
+    id: 'mlflow-ai-gateway',
+    name: 'MLflow AI Gateway',
+    logoPath: '/images/logos/mlflow-logo.svg',
+    link: '/genai/tracing/integrations/listing/mlflow-ai-gateway',
+    category: 'Gateways',
+  },
+  {
+    id: 'databricks-ai-gateway',
+    name: 'Databricks',
+    logoPath: '/images/logos/databricks-logo.png',
+    link: '/genai/tracing/integrations/listing/databricks-ai-gateway',
+    category: 'Gateways',
+  },
   {
     id: 'litellm-proxy',
     name: 'LiteLLM Proxy',

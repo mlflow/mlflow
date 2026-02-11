@@ -32,6 +32,11 @@ from mlflow.genai.scorers.base import (
     ScorerKind,
     SerializedScorer,
 )
+from mlflow.genai.utils.trace_utils import (
+    resolve_expectations_from_trace,
+    resolve_inputs_from_trace,
+    resolve_outputs_from_trace,
+)
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
@@ -42,6 +47,18 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _CONFIG_FIELDS = ("reflection_lm", "retrieval_k", "embedding_model", "embedding_dim")
+
+# Databricks embedding endpoints have stricter input size limits than other providers.
+# Use a smaller batch size to avoid "input embedding size too large" errors.
+_DEFAULT_EMBEDDING_BATCH_SIZE = 200
+_DATABRICKS_EMBEDDING_BATCH_SIZE = 150
+
+
+def _get_embedding_batch_size(litellm_model: str) -> int:
+    if litellm_model.startswith("databricks/"):
+        return _DATABRICKS_EMBEDDING_BATCH_SIZE
+    return _DEFAULT_EMBEDDING_BATCH_SIZE
+
 
 _MODEL_API_DOC = {
     "reflection_lm": """Model to use for distilling guidelines from feedback.
@@ -142,15 +159,24 @@ class MemoryAugmentedJudge(Judge):
         self._base_signature = create_dspy_signature(effective_base_judge)
         litellm_embedding_model = convert_mlflow_uri_to_litellm(self._embedding_model)
         self._embedder = dspy.Embedder(
-            litellm_embedding_model, dimensions=self._embedding_dim, drop_params=True
+            litellm_embedding_model,
+            dimensions=self._embedding_dim,
+            drop_params=True,
+            batch_size=_get_embedding_batch_size(litellm_embedding_model),
         )
         self._retriever = None
 
-        # Inherit memory from base_judge if it's a MemoryAugmentedJudge
+        # Inherit memory from base_judge if it's a MemoryAugmentedJudge.
+        # Episodic memory index is not built here — _add_examples_to_memory() handles it.
         if isinstance(base_judge, MemoryAugmentedJudge):
             self._semantic_memory = copy.deepcopy(base_judge._semantic_memory)
-            self._episodic_memory = copy.deepcopy(base_judge._episodic_memory)
-            self._build_episodic_memory()
+            self._episodic_trace_ids = base_judge._episodic_trace_ids.copy()
+            if base_judge._episodic_memory:
+                self._episodic_memory = copy.deepcopy(base_judge._episodic_memory)
+            elif self._episodic_trace_ids:
+                self._episodic_memory = self._reconstruct_episodic_memory()
+            else:
+                self._episodic_memory: list["dspy.Example"] = []
         else:
             self._episodic_memory: list["dspy.Example"] = []
             self._semantic_memory: list[Guideline] = []
@@ -169,6 +195,11 @@ class MemoryAugmentedJudge(Judge):
     ) -> Assessment:
         self._lazy_init()
 
+        if trace is not None:
+            inputs = resolve_inputs_from_trace(inputs, trace)
+            outputs = resolve_outputs_from_trace(outputs, trace)
+            expectations = resolve_expectations_from_trace(expectations, trace)
+
         guidelines = [g.guideline_text for g in self._semantic_memory]
         query_kwargs = {
             "inputs": inputs,
@@ -186,14 +217,18 @@ class MemoryAugmentedJudge(Judge):
         relevant_examples = [example for example, _ in retrieved_results]
         retrieved_trace_ids = [trace_id for _, trace_id in retrieved_results]
 
-        prediction = self._predict_module(
-            guidelines=guidelines,
-            example_judgements=relevant_examples,
-            inputs=inputs,
-            outputs=outputs,
-            expectations=expectations,
-            trace=value_to_embedding_text(trace) if trace is not None else None,
-        )
+        import dspy
+        from dspy.adapters.json_adapter import JSONAdapter
+
+        with dspy.context(adapter=JSONAdapter()):
+            prediction = self._predict_module(
+                guidelines=guidelines,
+                example_judgements=relevant_examples,
+                inputs=inputs,
+                outputs=outputs,
+                expectations=expectations,
+                trace=value_to_embedding_text(trace) if trace is not None else None,
+            )
 
         return Feedback(
             name=self._base_judge.name,
@@ -307,6 +342,29 @@ class MemoryAugmentedJudge(Judge):
 
         return judge_copy
 
+    def _reconstruct_episodic_memory(self) -> list["dspy.Example"]:
+        examples = []
+        missing_ids = []
+        for trace_id in self._episodic_trace_ids:
+            trace = mlflow.get_trace(trace_id, silent=True)
+            if trace is not None:
+                if example := trace_to_dspy_example(trace, self._base_judge):
+                    example._trace_id = trace.info.trace_id
+                    examples.append(example)
+            else:
+                missing_ids.append(trace_id)
+
+        if missing_ids:
+            _logger.warning(
+                f"Could not find {len(missing_ids)} traces for episodic memory reconstruction. "
+                f"Missing trace IDs: {missing_ids[:5]}"
+                f"{'...' if len(missing_ids) > 5 else ''}. "
+                f"Judge will operate with partial memory "
+                f"({len(examples)}/{len(self._episodic_trace_ids)} traces)."
+            )
+
+        return examples
+
     def _lazy_init(self) -> None:
         """
         Lazily initialize DSPy components and episodic memory from stored trace IDs.
@@ -328,36 +386,17 @@ class MemoryAugmentedJudge(Judge):
 
         litellm_embedding_model = convert_mlflow_uri_to_litellm(self._embedding_model)
         self._embedder = dspy.Embedder(
-            litellm_embedding_model, dimensions=self._embedding_dim, drop_params=True
+            litellm_embedding_model,
+            dimensions=self._embedding_dim,
+            drop_params=True,
+            batch_size=_get_embedding_batch_size(litellm_embedding_model),
         )
 
         extended_signature = create_extended_signature(self._base_signature)
         self._predict_module = dspy.Predict(extended_signature)
         self._predict_module.set_lm(construct_dspy_lm(self._base_judge.model))
 
-        # Fetch traces by ID using mlflow.get_trace which handles location context
-        traces = []
-        missing_ids = []
-        for trace_id in self._episodic_trace_ids:
-            trace = mlflow.get_trace(trace_id, silent=True)
-            if trace is not None:
-                traces.append(trace)
-            else:
-                missing_ids.append(trace_id)
-
-        if missing_ids:
-            _logger.warning(
-                f"Could not find {len(missing_ids)} traces for episodic memory reconstruction. "
-                f"Missing trace IDs: {missing_ids[:5]}"
-                f"{'...' if len(missing_ids) > 5 else ''}. "
-                f"Judge will operate with partial memory "
-                f"({len(traces)}/{len(self._episodic_trace_ids)} traces)."
-            )
-
-        for trace in traces:
-            if example := trace_to_dspy_example(trace, self._base_judge):
-                example._trace_id = trace.info.trace_id
-                self._episodic_memory.append(example)
+        self._episodic_memory = self._reconstruct_episodic_memory()
 
         if self._episodic_memory:
             self._build_episodic_memory()
@@ -531,6 +570,12 @@ class MemAlignOptimizer(AlignmentOptimizer):
         retrieval_k: Number of similar examples to retrieve from episodic memory (default: 5)
         embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings (default: 512)
+
+    Note:
+        The number of parallel threads for LLM calls during guideline distillation can be
+        configured via the ``MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS`` environment variable
+        (default: 8). Increasing this value can speed up alignment when processing many
+        feedback examples, but may increase API rate limit errors.
 
     Example:
         .. code-block:: python

@@ -6,11 +6,14 @@ import uuid
 from importlib import reload
 from pathlib import Path
 from unittest import mock
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import pytest
 
 import mlflow
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_INSECURE_TLS,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_TOKEN,
@@ -29,6 +32,7 @@ from mlflow.tracking._tracking_service.utils import (
     _get_store,
     _get_tracking_scheme,
     _resolve_tracking_uri,
+    _use_tracking_uri,
     get_tracking_uri,
     set_tracking_uri,
 )
@@ -36,6 +40,7 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
 
+from tests.helpers.db_mocks import mock_get_managed_session_maker
 from tests.tracing.helper import get_tracer_tracking_uri
 
 # Disable mocking tracking URI here, as we want to test setting the tracking URI via
@@ -93,6 +98,24 @@ def test_get_store_with_mlruns_dir_but_no_meta_yaml(tmp_path, monkeypatch):
 
     store = _get_store()
     assert isinstance(store, SqlAlchemyStore)
+
+
+def test_default_sqlite_tracking_uri_respects_cwd(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with _use_tracking_uri(None):
+        store = _get_store()
+
+    assert isinstance(store, SqlAlchemyStore)
+    sqlite_uri = store.db_uri
+    assert sqlite_uri.startswith("sqlite:")
+    parsed = urlparse(sqlite_uri)
+    path = parsed.path
+    if not parsed.netloc and path.startswith("//"):
+        path = path[1:]
+    if parsed.netloc:
+        path = f"//{parsed.netloc}{path}"
+    db_path = Path(url2pathname(path))
+    assert db_path.parent == tmp_path
 
 
 def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
@@ -180,6 +203,7 @@ def test_get_store_rest_store_with_no_insecure(monkeypatch):
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     uri = f"{db_type}://hostname/database-{uuid.uuid4().hex}"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
@@ -189,11 +213,19 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
+            "mlflow.store.db.utils._get_managed_session_maker",
+            new=mock_get_managed_session_maker,
+        ),
+        mock.patch(
             # In sqlalchemy 1.4.0, `SqlAlchemyStore.search_experiments`, which is called when
             # fetching the store, results in an error when called with a mocked sqlalchemy engine.
             # Accordingly, we mock `SqlAlchemyStore.search_experiments`
             "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
             return_value=[],
+        ),
+        mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore._initialize_store_state",
+            return_value=None,
         ),
     ):
         store = _get_store()
@@ -214,6 +246,7 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
 def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_type):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     uri = f"{db_type}://hostname/database-{uuid.uuid4().hex}"
     artifact_uri = "file:artifact/path"
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, uri)
@@ -224,8 +257,16 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
+            "mlflow.store.db.utils._get_managed_session_maker",
+            new=mock_get_managed_session_maker,
+        ),
+        mock.patch(
             "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.search_experiments",
             return_value=[],
+        ),
+        mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore._initialize_store_state",
+            return_value=None,
         ),
     ):
         store = _get_store(artifact_uri=artifact_uri)

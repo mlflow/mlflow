@@ -81,6 +81,15 @@ export const TEMPLATES_WITH_GUIDELINES: readonly LLM_TEMPLATE[] = [
 export const isGuidelinesTemplate = (template: string | undefined): boolean =>
   template !== undefined && TEMPLATES_WITH_GUIDELINES.includes(template as LLM_TEMPLATE);
 
+export const TEMPLATES_WITH_EXPECTATIONS: readonly LLM_TEMPLATE[] = [
+  LLM_TEMPLATE.CORRECTNESS,
+  LLM_TEMPLATE.EQUIVALENCE,
+  LLM_TEMPLATE.EXPECTATIONS_GUIDELINES,
+];
+
+export const isExpectationsTemplate = (template: string | undefined): boolean =>
+  template !== undefined && TEMPLATES_WITH_EXPECTATIONS.includes(template as LLM_TEMPLATE);
+
 export type LLMTemplate =
   | 'Completeness'
   | 'Correctness'
@@ -136,6 +145,11 @@ export interface LLMScorer extends ScheduledScorerBase {
   // rather than builtin_scorer_pydantic_data.
   is_instructions_judge?: boolean;
   outputType?: JudgeOutputTypeSpec;
+  // True if the scorer was optimized with MemAlign (memory-augmented judge)
+  isMemoryAugmented?: boolean;
+  // Raw memory_augmented_judge_data from the serialized scorer, preserved for round-trip serialization.
+  // When saving, the model field inside is updated but the memory structure is kept intact.
+  rawMemoryAugmentedData?: Record<string, unknown>;
 }
 
 export interface CustomCodeScorer extends ScheduledScorerBase {
@@ -192,4 +206,6 @@ export interface EvaluateChatAssessmentsParams extends EvaluateChatParamsBase {
 /**
  * Union type for all trace evaluation parameters
  */
-export type EvaluateTracesParams = EvaluateChatCompletionsParams | EvaluateChatAssessmentsParams;
+export type EvaluateTracesParams = (EvaluateChatCompletionsParams | EvaluateChatAssessmentsParams) & {
+  saveAssessment?: boolean;
+};

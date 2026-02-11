@@ -20,7 +20,7 @@ const ASSISTANT_OPEN_DRAWER_WIDTH = '70vw';
 function Root({
   open,
   onOpenChange,
-  modal,
+  modal = false,
   children,
 }: {
   // Matches with Drawer.Root props
@@ -30,8 +30,9 @@ function Root({
   children: ReactNode;
 }) {
   return (
-    // NB: Modal is set to false to allow clicks on the assistant chat panel to pass through
-    <Drawer.Root modal={false} open={open} onOpenChange={onOpenChange}>
+    // NB: Modal defaults to false to allow clicks on the assistant chat panel to pass through,
+    // but can be overridden when needed (e.g., for comparison drawers that need proper modal behavior)
+    <Drawer.Root modal={modal} open={open} onOpenChange={onOpenChange}>
       {children}
     </Drawer.Root>
   );
@@ -71,8 +72,17 @@ function Content({
       size={size}
       css={cssProp}
       onInteractOutside={(event) => {
-        // Prevent closing when clicking outside the drawer
-        event.preventDefault();
+        // Prevent drawer from closing when clicking on assistant UI elements.
+        // We use a data attribute selector instead of React patterns (e.g., stopPropagation)
+        // because Radix's DismissableLayer uses document-level listeners that bypass
+        // React's event propagation. The onInteractOutside handler is the correct
+        // interception point, and we identify assistant elements via data-assistant-ui
+        // attribute set on AssistantIconButton and RootAssistantLayout.
+        const target = event.target as HTMLElement;
+        const isAssistantClick = target?.closest('[data-assistant-ui="true"]');
+        if (isAssistantClick) {
+          event.preventDefault();
+        }
       }}
     >
       {children}

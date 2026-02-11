@@ -3,11 +3,23 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { Typography, useDesignSystemTheme, Input, Checkbox, Spinner } from '@databricks/design-system';
+import {
+  Typography,
+  useDesignSystemTheme,
+  Input,
+  Checkbox,
+  Spinner,
+  Radio,
+  Tooltip,
+  QuestionMarkIcon,
+  Alert,
+} from '@databricks/design-system';
 
-import { updateConfig } from '../AssistantService';
+import { updateConfig, installSkills } from '../AssistantService';
 import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
 import { WizardFooter } from './WizardFooter';
+
+type SkillsLocation = 'global' | 'project' | 'custom';
 
 interface SetupStepProjectProps {
   experimentId?: string;
@@ -19,6 +31,25 @@ interface SetupStepProjectProps {
   backLabel?: string;
 }
 
+const GLOBAL_SKILLS_PATH = '~/.claude/skills';
+
+const deriveSkillsLocation = (
+  skillsLocation: string | undefined,
+  projectPath: string,
+): { location: SkillsLocation; customPath: string } => {
+  if (!skillsLocation) {
+    return { location: 'global', customPath: '' };
+  }
+  const globalPath = GLOBAL_SKILLS_PATH.replace('~', '');
+  if (skillsLocation.endsWith(globalPath)) {
+    return { location: 'global', customPath: '' };
+  }
+  if (projectPath && skillsLocation.endsWith(`${projectPath}/.claude/skills`)) {
+    return { location: 'project', customPath: '' };
+  }
+  return { location: 'custom', customPath: skillsLocation };
+};
+
 export const SetupStepProject = ({
   experimentId,
   onBack,
@@ -27,13 +58,17 @@ export const SetupStepProject = ({
   backLabel,
 }: SetupStepProjectProps) => {
   const { theme } = useDesignSystemTheme();
-  const { config, isLoading: isLoadingConfig } = useAssistantConfigQuery();
+  const { config, isLoading: isLoadingConfig, refetch: refetchConfig } = useAssistantConfigQuery();
 
   const [projectPath, setProjectPath] = useState<string>('');
   // Permissions state
   const [editFiles, setEditFiles] = useState(true);
   const [readDocs, setReadDocs] = useState(true);
   const [fullPermission, setFullPermission] = useState(false);
+
+  // Skills state
+  const [skillsLocation, setSkillsLocation] = useState<SkillsLocation>('global');
+  const [customSkillsPath, setCustomSkillsPath] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,9 +82,17 @@ export const SetupStepProject = ({
       setReadDocs(provider.permissions.allow_read_docs ?? true);
       setFullPermission(provider.permissions.full_access ?? false);
     }
+
+    let currentProjectPath = '';
     if (experimentId && config.projects?.[experimentId]) {
-      setProjectPath(config.projects[experimentId].location || '');
+      currentProjectPath = config.projects[experimentId].location || '';
+      setProjectPath(currentProjectPath);
     }
+
+    // Initialize skills location from config
+    const { location, customPath } = deriveSkillsLocation(config.skills_location, currentProjectPath);
+    setSkillsLocation(location);
+    setCustomSkillsPath(customPath);
   }, [config, experimentId]);
 
   const handleSave = useCallback(async () => {
@@ -72,20 +115,50 @@ export const SetupStepProject = ({
         },
       };
 
-      // Add project mapping if experiment and path provided
-      if (experimentId && projectPath.trim()) {
-        configUpdate.projects = {
-          [experimentId]: { type: 'local' as const, location: projectPath.trim() },
-        };
+      // Handle project mapping - add if path provided, remove if cleared
+      if (experimentId) {
+        if (projectPath.trim()) {
+          configUpdate.projects = {
+            [experimentId]: { type: 'local' as const, location: projectPath.trim() },
+          };
+        } else {
+          // Send null to remove the project mapping
+          configUpdate.projects = {
+            [experimentId]: null,
+          };
+        }
       }
 
       await updateConfig(configUpdate);
+
+      // Install skills based on selected location
+      try {
+        await installSkills(
+          skillsLocation,
+          skillsLocation === 'custom' ? customSkillsPath.trim() : undefined,
+          skillsLocation === 'project' ? experimentId : undefined,
+        );
+        await refetchConfig();
+      } catch {
+        // Silently ignore skills installation errors - user can install later
+      }
+
       onComplete();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save configuration');
       setIsSaving(false);
     }
-  }, [experimentId, projectPath, editFiles, readDocs, fullPermission, onComplete]);
+  }, [
+    experimentId,
+    projectPath,
+    skillsLocation,
+    customSkillsPath,
+    onComplete,
+    refetchConfig,
+    editFiles,
+    readDocs,
+    fullPermission,
+  ]);
 
   if (isLoadingConfig) {
     return (
@@ -97,7 +170,7 @@ export const SetupStepProject = ({
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div css={{ flex: 1 }}>
+      <div css={{ flex: 1, overflow: 'auto' }}>
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
           {/* Permissions Section */}
           <div>
@@ -105,11 +178,11 @@ export const SetupStepProject = ({
               Permissions
             </Typography.Text>
             <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
-              Configure what actions the assistant can perform on your behalf.
+              Configure what actions the assistant can perform.
             </Typography.Text>
 
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-              <div>
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                 <Checkbox
                   componentId={`mlflow.assistant.setup.project.perm_mlflow_cli`}
                   isChecked
@@ -118,15 +191,35 @@ export const SetupStepProject = ({
                 >
                   <Typography.Text>Execute MLflow CLI (required)</Typography.Text>
                 </Checkbox>
-                <Typography.Text
-                  color="secondary"
-                  css={{ fontSize: theme.typography.fontSizeSm, marginLeft: 24, display: 'block' }}
+                <Tooltip
+                  componentId="mlflow.assistant.setup.project.perm_mlflow_cli_tooltip"
+                  content="Allow running MLflow commands to fetch traces, runs, and experiment data. This is required for the assistant to work properly."
                 >
-                  Allow running MLflow commands to fetch traces, runs, and experiment data.
-                </Typography.Text>
+                  <QuestionMarkIcon
+                    css={{ color: theme.colors.actionPrimaryBackgroundDefault, fontSize: 14, cursor: 'help' }}
+                  />
+                </Tooltip>
               </div>
 
-              <div>
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                <Checkbox
+                  componentId="mlflow.assistant.setup.project.perm_read_docs"
+                  isChecked={readDocs}
+                  onChange={(checked) => setReadDocs(checked)}
+                >
+                  <Typography.Text>Read MLflow doc</Typography.Text>
+                </Checkbox>
+                <Tooltip
+                  componentId="mlflow.assistant.setup.project.perm_read_docs_tooltip"
+                  content="Allow fetching content from mlflow.org documentation to get the latest information about MLflow and make accurate suggestions."
+                >
+                  <QuestionMarkIcon
+                    css={{ color: theme.colors.actionPrimaryBackgroundDefault, fontSize: 14, cursor: 'help' }}
+                  />
+                </Tooltip>
+              </div>
+
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                 <Checkbox
                   componentId="mlflow.assistant.setup.project.perm_edit_files"
                   isChecked={editFiles}
@@ -134,31 +227,17 @@ export const SetupStepProject = ({
                 >
                   <Typography.Text>Edit project code</Typography.Text>
                 </Checkbox>
-                <Typography.Text
-                  color="secondary"
-                  css={{ fontSize: theme.typography.fontSizeSm, marginLeft: 24, display: 'block' }}
+                <Tooltip
+                  componentId="mlflow.assistant.setup.project.perm_edit_files_tooltip"
+                  content="Allow modifying files in your project directory. Required if you want to use the assistant to work on your project code, e.g., writing evaluation scripts, fixing bugs, etc."
                 >
-                  Allow modifying files in your project directory.
-                </Typography.Text>
+                  <QuestionMarkIcon
+                    css={{ color: theme.colors.actionPrimaryBackgroundDefault, fontSize: 14, cursor: 'help' }}
+                  />
+                </Tooltip>
               </div>
 
-              <div>
-                <Checkbox
-                  componentId="mlflow.assistant.setup.project.perm_read_docs"
-                  isChecked={readDocs}
-                  onChange={(checked) => setReadDocs(checked)}
-                >
-                  <Typography.Text>Read MLflow documentation</Typography.Text>
-                </Checkbox>
-                <Typography.Text
-                  color="secondary"
-                  css={{ fontSize: theme.typography.fontSizeSm, marginLeft: 24, display: 'block' }}
-                >
-                  Allow fetching content from mlflow.org documentation.
-                </Typography.Text>
-              </div>
-
-              <div>
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                 <Checkbox
                   componentId="mlflow.assistant.setup.project.perm_full"
                   isChecked={fullPermission}
@@ -166,12 +245,14 @@ export const SetupStepProject = ({
                 >
                   <Typography.Text>Full access</Typography.Text>
                 </Checkbox>
-                <Typography.Text
-                  color="secondary"
-                  css={{ fontSize: theme.typography.fontSizeSm, marginLeft: 24, display: 'block' }}
+                <Tooltip
+                  componentId="mlflow.assistant.setup.project.perm_full_tooltip"
+                  content="Bypass all permission checks. Use with caution."
                 >
-                  Bypass all permission checks. Use with caution.
-                </Typography.Text>
+                  <QuestionMarkIcon
+                    css={{ color: theme.colors.actionPrimaryBackgroundDefault, fontSize: 14, cursor: 'help' }}
+                  />
+                </Tooltip>
               </div>
             </div>
           </div>
@@ -179,18 +260,21 @@ export const SetupStepProject = ({
           {/* Project Configuration Section */}
           <div>
             <Typography.Text bold css={{ fontSize: 18, marginBottom: theme.spacing.sm, display: 'block' }}>
-              Project Path (Optional)
+              Project Path
             </Typography.Text>
             <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
-              Link this experiment to your local codebase. This enables the assistant to understand your project context
-              and provide more accurate suggestions and fixes.
+              Link this experiment to your local codebase (optional) to enable the assistant to understand your project
+              context.
             </Typography.Text>
 
             {experimentId ? (
               <Input
                 componentId="mlflow.assistant.setup.project.path_input"
                 value={projectPath}
-                onChange={(e) => setProjectPath(e.target.value)}
+                onChange={(e) => {
+                  setProjectPath(e.target.value);
+                  if (error) setError(null);
+                }}
                 placeholder="/Users/me/projects/my-llm-project"
                 css={{ width: '100%' }}
               />
@@ -209,9 +293,82 @@ export const SetupStepProject = ({
             )}
           </div>
 
-          {error && <Typography.Text css={{ color: theme.colors.textValidationDanger }}>{error}</Typography.Text>}
+          {/* Skills Installation Section */}
+          <div>
+            <Typography.Text bold css={{ fontSize: 18, marginBottom: theme.spacing.sm, display: 'block' }}>
+              Skills Location
+            </Typography.Text>
+            <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+              Extend the assistant with specialized MLflow workflows. See{' '}
+              <Typography.Link
+                componentId="mlflow.assistant.setup.project.skills_link"
+                href="https://github.com/mlflow/skills"
+                target="_blank"
+              >
+                MLflow Skills
+              </Typography.Link>{' '}
+              to find list of skills to be installed.
+            </Typography.Text>
+
+            <Radio.Group
+              componentId="mlflow.assistant.setup.project.skills_location"
+              name="skills-location"
+              value={skillsLocation}
+              onChange={(e) => setSkillsLocation(e.target.value as SkillsLocation)}
+            >
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                <Radio componentId="mlflow.assistant.setup.project.skills_global" value="global">
+                  <Typography.Text>Global</Typography.Text>
+                  <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
+                    (~/.claude/skills/)
+                  </Typography.Text>
+                </Radio>
+
+                <Radio
+                  componentId="mlflow.assistant.setup.project.skills_project"
+                  value="project"
+                  disabled={!projectPath.trim()}
+                >
+                  <Typography.Text color={!projectPath.trim() ? 'secondary' : undefined}>Project</Typography.Text>
+                  <Typography.Text color="secondary" css={{ marginLeft: theme.spacing.xs }}>
+                    {projectPath.trim() ? `(${projectPath.trim()}/.claude/skills/)` : '(requires project path)'}
+                  </Typography.Text>
+                </Radio>
+
+                <div>
+                  <Radio componentId="mlflow.assistant.setup.project.skills_custom" value="custom">
+                    <Typography.Text>Custom location</Typography.Text>
+                  </Radio>
+                  {skillsLocation === 'custom' && (
+                    <div css={{ marginTop: theme.spacing.sm, paddingLeft: 24 }}>
+                      <Input
+                        componentId="mlflow.assistant.setup.project.custom_skills_path"
+                        value={customSkillsPath}
+                        onChange={(e) => {
+                          setCustomSkillsPath(e.target.value);
+                          if (error) setError(null);
+                        }}
+                        placeholder="/path/to/skills"
+                        css={{ width: '100%' }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Radio.Group>
+          </div>
         </div>
       </div>
+
+      {error && (
+        <Alert
+          componentId="mlflow.assistant.setup.project.error"
+          type="error"
+          message={error}
+          closable={false}
+          css={{ marginTop: theme.spacing.md }}
+        />
+      )}
 
       <WizardFooter
         onBack={onBack}
@@ -219,6 +376,7 @@ export const SetupStepProject = ({
         nextLabel={nextLabel}
         backLabel={backLabel}
         isLoading={isSaving}
+        nextDisabled={!!error}
       />
     </div>
   );

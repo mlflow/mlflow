@@ -10,8 +10,8 @@ import JsonBigInt from 'json-bigint';
 import yaml from 'js-yaml';
 import { isNil, pickBy } from 'lodash';
 import { ErrorWrapper } from './ErrorWrapper';
-import { matchPredefinedError } from '@databricks/web-shared/errors';
-import { matchPredefinedErrorFromResponse } from '@databricks/web-shared/errors';
+import { matchPredefinedError, matchPredefinedErrorFromResponse } from '@databricks/web-shared/errors';
+import { getActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 
 export const HTTPMethods = {
   GET: 'GET',
@@ -48,8 +48,13 @@ export const getDefaultHeadersFromCookies = (cookieStr: any) => {
 
 export const getDefaultHeaders = (cookieStr: any) => {
   const cookieHeaders = getDefaultHeadersFromCookies(cookieStr);
+
+  // getActiveWorkspace() returns null if workspaces feature is not enabled
+  const workspace = getActiveWorkspace();
+
   return {
     ...cookieHeaders,
+    ...(workspace ? { 'X-MLFLOW-WORKSPACE': workspace } : {}),
   };
 };
 
@@ -453,19 +458,33 @@ function serializeRequestBody(payload: any | FormData | Blob) {
     : JSON.stringify(payload);
 }
 
+export type FetchAPIOptions = Omit<RequestInit, 'body'> & {
+  body?: any;
+};
+
 // Helper method to make a request to the backend.
-export const fetchAPI = async (url: string, method: 'POST' | 'GET' | 'PATCH' | 'DELETE' = 'GET', body?: any) => {
+export const fetchAPI = async (url: string, options: FetchAPIOptions = {}) => {
+  const { method, headers, body, ...restOptions } = options;
+
+  let cookieString = '';
+  if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
+    cookieString = document.cookie || '';
+  }
+
+  const fetchOptions: RequestInit = {
+    ...restOptions,
+    method: method || HTTPMethods.GET,
+    headers: {
+      ...getDefaultHeaders(cookieString),
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...headers,
+    },
+    ...(body && { body: serializeRequestBody(body) }),
+  };
+
   // eslint-disable-next-line no-restricted-globals
   const fetchFn = fetch;
-  const headers = {
-    ...(body ? { 'Content-Type': 'application/json' } : {}),
-    ...getDefaultHeaders(document.cookie),
-  };
-  const response = await fetchFn(url, {
-    method,
-    body: serializeRequestBody(body),
-    headers,
-  });
+  const response = await fetchFn(url, fetchOptions);
   if (!response.ok) {
     const predefinedError = matchPredefinedError(response);
     if (predefinedError) {
@@ -484,6 +503,7 @@ export const fetchAPI = async (url: string, method: 'POST' | 'GET' | 'PATCH' | '
 /**
  * Wrapper around fetch that throws on non-OK responses
  * Returns the Response object for further processing (.json(), .text(), etc.)
+ * Automatically includes default headers (cookies and workspace).
  *
  * @param input - URL or Request object
  * @param options - Fetch options
@@ -491,8 +511,21 @@ export const fetchAPI = async (url: string, method: 'POST' | 'GET' | 'PATCH' | '
  * @throws PredefinedError (NotFoundError, PermissionError, etc.) if response is not OK
  */
 export async function fetchOrFail(input: RequestInfo | URL, options?: RequestInit): Promise<Response> {
+  let cookieString = '';
+  if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
+    cookieString = document.cookie || '';
+  }
+
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers: {
+      ...getDefaultHeaders(cookieString),
+      ...options?.headers,
+    },
+  };
+
   // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
-  const response = await fetch(input, options);
+  const response = await fetch(input, fetchOptions);
   if (!response.ok) {
     const error = matchPredefinedErrorFromResponse(response);
     throw error;

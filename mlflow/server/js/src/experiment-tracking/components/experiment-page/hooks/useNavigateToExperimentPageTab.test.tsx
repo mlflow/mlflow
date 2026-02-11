@@ -5,15 +5,34 @@ import { setupTestRouter, testRoute, TestRouter } from '../../../../common/utils
 import { createMLflowRoutePath, useParams } from '../../../../common/utils/RoutingUtils';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 import { setupServer } from '../../../../common/utils/setup-msw';
-import { graphql } from 'msw';
+import { graphql, rest } from 'msw';
 import type { MlflowGetExperimentQuery } from '../../../../graphql/__generated__/graphql';
 import { ExperimentKind } from '../../../constants';
+import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
+import { useWorkflowType, WorkflowType } from '../../../../common/contexts/WorkflowTypeContext';
+
+jest.mock('../../../../common/utils/ServerFeaturesContext', () => ({
+  getWorkspacesEnabledSync: () => false,
+  useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
+}));
+
+jest.mock('../../../../common/contexts/WorkflowTypeContext', () => ({
+  ...jest.requireActual<typeof import('../../../../common/contexts/WorkflowTypeContext')>(
+    '../../../../common/contexts/WorkflowTypeContext',
+  ),
+  useWorkflowType: jest.fn(),
+}));
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
 
 describe('useNavigateToExperimentPageTab', () => {
-  const server = setupServer();
+  const server = setupServer(
+    // Mock the tracking store info endpoint - default to non-FileStore
+    rest.get('/server-info', (_req, res, ctx) => {
+      return res(ctx.json({ store_type: 'SqlAlchemyStore' }));
+    }),
+  );
 
   beforeEach(() => {
     server.resetHandlers();
@@ -62,6 +81,7 @@ describe('useNavigateToExperimentPageTab', () => {
       const { tabName } = useParams();
       return <span>experiment page displaying {tabName} tab</span>;
     };
+    const queryClient = new QueryClient();
     return render(
       <TestRouter
         history={history}
@@ -71,10 +91,17 @@ describe('useNavigateToExperimentPageTab', () => {
         ]}
         initialEntries={[initialRoute]}
       />,
-      { wrapper: ({ children }) => <TestApolloProvider disableCache>{children}</TestApolloProvider> },
+      {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={queryClient}>
+            <TestApolloProvider disableCache>{children}</TestApolloProvider>
+          </QueryClientProvider>
+        ),
+      },
     );
   };
   test('should not redirect if the hook is disabled', async () => {
+    (useWorkflowType as jest.Mock).mockReturnValue({ workflowType: WorkflowType.GENAI });
     renderTestHook(createMLflowRoutePath('/experiments/123'), false);
 
     await waitFor(() => {
@@ -83,6 +110,7 @@ describe('useNavigateToExperimentPageTab', () => {
   });
 
   test('should redirect to the overview tab on GenAI experiment kind', async () => {
+    (useWorkflowType as jest.Mock).mockReturnValue({ workflowType: WorkflowType.GENAI });
     mockResponseWithExperimentKind(ExperimentKind.GENAI_DEVELOPMENT);
 
     renderTestHook(createMLflowRoutePath('/experiments/123'));
@@ -91,10 +119,26 @@ describe('useNavigateToExperimentPageTab', () => {
   });
 
   test('should redirect to the traces tab on custom development experiment kind', async () => {
+    (useWorkflowType as jest.Mock).mockReturnValue({ workflowType: WorkflowType.MACHINE_LEARNING });
     mockResponseWithExperimentKind(ExperimentKind.CUSTOM_MODEL_DEVELOPMENT);
 
     renderTestHook(createMLflowRoutePath('/experiments/123'));
 
     expect(await screen.findByText('experiment page displaying runs tab')).toBeInTheDocument();
+  });
+
+  test('should redirect to the traces tab on GenAI experiment kind when using FileStore', async () => {
+    (useWorkflowType as jest.Mock).mockReturnValue({ workflowType: WorkflowType.GENAI });
+    // Override the default mock to return FileStore
+    server.use(
+      rest.get('/server-info', (_req, res, ctx) => {
+        return res(ctx.json({ store_type: 'FileStore' }));
+      }),
+    );
+    mockResponseWithExperimentKind(ExperimentKind.GENAI_DEVELOPMENT);
+
+    renderTestHook(createMLflowRoutePath('/experiments/123'));
+
+    expect(await screen.findByText('experiment page displaying traces tab')).toBeInTheDocument();
   });
 });

@@ -1,0 +1,81 @@
+# Generate PR title using AI
+
+name: Title PR
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    paths:
+      - ".github/workflows/title.yml"
+      - ".github/workflows/title.py"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  title:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    # Trigger conditions:
+    # - pull_request: skip fork PRs (no access to secrets)
+    # - issue_comment: only maintainers can trigger via `/title`
+    if: >
+      (
+        github.event_name == 'pull_request'
+        && github.event.pull_request.head.repo.full_name == github.repository
+      )
+      || (
+        github.event.issue.pull_request
+        && startsWith(github.event.comment.body, '/title')
+        && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+      )
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+      REPO: ${{ github.repository }}
+      COMMENT_ID: ${{ github.event.comment.id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: .github/workflows/title.py
+          sparse-checkout-cone-mode: false
+
+      - name: Add reaction to comment
+        if: github.event_name != 'pull_request'
+        run: |
+          gh api \
+            --method POST \
+            "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+            -f content='eyes'
+
+      - name: Generate new title
+        id: generate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          new_title=$(python .github/workflows/title.py --repo "$REPO" --pr-number "$PR_NUMBER")
+          echo "new_title=$new_title" >> "$GITHUB_OUTPUT"
+
+      - name: Update PR title
+        if: github.event_name != 'pull_request'
+        env:
+          NEW_TITLE: ${{ steps.generate.outputs.new_title }}
+        run: |
+          if [ -z "$NEW_TITLE" ]; then
+            echo "Error: Generated title is empty"
+            exit 1
+          fi
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --title "$NEW_TITLE"
+
+      - name: Post failure comment
+        if: failure() && github.event_name != 'pull_request'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body \
+            "> [!WARNING]
+            > Failed to generate the PR title. See [workflow run]($RUN_URL) for details."

@@ -10,7 +10,6 @@ import time
 from pathlib import Path
 
 import jwt
-import psutil
 import pytest
 import requests
 
@@ -29,10 +28,15 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.server import auth as auth_module
-from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION, GET_SCORER_PERMISSION
+from mlflow.server.auth.routes import (
+    CREATE_REGISTERED_MODEL_PERMISSION,
+    GET_REGISTERED_MODEL_PERMISSION,
+    GET_SCORER_PERMISSION,
+)
 from mlflow.utils.os import is_windows
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-from tests.helper_functions import random_str
+from tests.helper_functions import kill_process_tree, random_str
 from tests.server.auth.auth_test_utils import ADMIN_PASSWORD, ADMIN_USERNAME, User, create_user
 from tests.tracking.integration_test_utils import (
     _init_server,
@@ -375,6 +379,7 @@ def test_create_and_delete_registered_model(client, monkeypatch):
     permission = response.json()["registered_model_permission"]
     assert permission["name"] == rm.name
     assert permission["permission"] == "MANAGE"
+    assert permission["workspace"] == DEFAULT_WORKSPACE_NAME
 
     # trying to create a model with the same name should fail
     with User(username1, password1, monkeypatch):
@@ -396,15 +401,68 @@ def test_create_and_delete_registered_model(client, monkeypatch):
 
     assert response.status_code == 404
     assert response.json()["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-    assert (
-        response.json()["message"]
-        == f"Registered model permission with name={rm.name} and username={username1} not found"
+    expected_message = (
+        "Registered model permission with "
+        f"workspace={DEFAULT_WORKSPACE_NAME}, name={rm.name} "
+        f"and username={username1} not found"
     )
+    assert response.json()["message"] == expected_message
 
     # now we should be able to create a model with the same name
     with User(username1, password1, monkeypatch):
         rm = client.create_registered_model("test_model")
     assert rm.name == "test_model"
+
+
+def test_delete_registered_model_clears_all_permissions(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, _password2 = create_user(client.tracking_uri)
+
+    # create a registered model and grant user2 READ
+    with User(username1, password1, monkeypatch):
+        rm = client.create_registered_model("test_model_permissions")
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            CREATE_REGISTERED_MODEL_PERMISSION,
+            json_payload={"name": rm.name, "username": username2, "permission": "READ"},
+            auth=(username1, password1),
+        )
+
+    # confirm permission exists for user2
+    with User(username1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + GET_REGISTERED_MODEL_PERMISSION,
+            params={"name": rm.name, "username": username2},
+            auth=(username1, password1),
+        )
+    assert response.ok
+    assert response.json()["registered_model_permission"]["permission"] == "READ"
+
+    # delete the registered model
+    with User(username1, password1, monkeypatch):
+        client.delete_registered_model(rm.name)
+
+    # confirm permissions are deleted for *all* users (check as admin)
+    for username in (username1, username2):
+        response = requests.get(
+            url=client.tracking_uri + GET_REGISTERED_MODEL_PERMISSION,
+            params={"name": rm.name, "username": username},
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        )
+        assert response.status_code == 404
+        assert response.json()["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    # recreate model with the same name; user2 should not regain access implicitly
+    with User(username1, password1, monkeypatch):
+        rm2 = client.create_registered_model(rm.name)
+    assert rm2.name == rm.name
+
+    response = requests.get(
+        url=client.tracking_uri + GET_REGISTERED_MODEL_PERMISSION,
+        params={"name": rm.name, "username": username2},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert response.status_code == 404
 
 
 def _wait(url: str, timeout: int = 10) -> None:
@@ -418,13 +476,6 @@ def _wait(url: str, timeout: int = 10) -> None:
         time.sleep(0.5)
 
     pytest.fail("Server did not start")
-
-
-def _kill_all(pid: str):
-    parent = psutil.Process(pid)
-    for child in parent.children(recursive=True):
-        child.kill()
-    parent.kill()
 
 
 def test_proxy_log_artifacts(monkeypatch, tmp_path):
@@ -477,11 +528,11 @@ def test_proxy_log_artifacts(monkeypatch, tmp_path):
                 tmp_file_with_numbers = tmp_path / "123456.txt"
                 tmp_file_with_numbers.touch()
                 with pytest.raises(requests.HTTPError, match="Permission denied"):
-                    client.log_artifact(run.info.run_id, tmp_file)
+                    client.log_artifact(run.info.run_id, tmp_file_with_numbers)
         finally:
             # Kill the server process to prevent `prc.wait()` (called when exiting the context
             # manager) from waiting forever.
-            _kill_all(prc.pid)
+            kill_process_tree(prc.pid)
 
 
 def test_create_user_from_ui_fails_without_csrf_token(client):
@@ -2125,6 +2176,131 @@ def test_gateway_endpoint_requires_fallback_model_definition_use_permission(clie
             json={"secret_id": secret_id},
             auth=(user1, password1),
         ).raise_for_status()
+
+
+def test_prompt_optimization_job_search_permissions(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    # user1 creates an experiment
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("prompt_optimization_search_test")
+
+    # Grant NO_PERMISSIONS to user2 on the experiment
+    _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/experiments/permissions/create",
+        json_payload={
+            "experiment_id": experiment_id,
+            "username": user2,
+            "permission": "NO_PERMISSIONS",
+        },
+        auth=(user1, password1),
+    )
+
+    # user1 can search jobs in the experiment
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs/search",
+        json={"experiment_id": experiment_id},
+        auth=(user1, password1),
+    )
+    assert response.status_code != 403
+
+    # user2 cannot search jobs in the experiment (NO_PERMISSIONS)
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs/search",
+        json={"experiment_id": experiment_id},
+        auth=(user2, password2),
+    )
+    assert response.status_code == 403
+
+    # Grant READ permission to user2
+    response = requests.patch(
+        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
+        json={
+            "experiment_id": experiment_id,
+            "username": user2,
+            "permission": "READ",
+        },
+        auth=(user1, password1),
+    )
+    assert response.status_code == 200
+
+    # user2 can now search jobs (READ grants can_read)
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs/search",
+        json={"experiment_id": experiment_id},
+        auth=(user2, password2),
+    )
+    assert response.status_code != 403
+
+
+def test_prompt_optimization_job_create_permissions(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    # user1 creates an experiment
+    with User(user1, password1, monkeypatch):
+        experiment_id = client.create_experiment("prompt_optimization_create_test")
+
+    # Grant READ permission to user2 (not enough for create)
+    _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/experiments/permissions/create",
+        json_payload={
+            "experiment_id": experiment_id,
+            "username": user2,
+            "permission": "READ",
+        },
+        auth=(user1, password1),
+    )
+
+    # user2 cannot create jobs (READ doesn't grant update)
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs",
+        json={
+            "experiment_id": experiment_id,
+            "source_prompt_uri": "prompts:/test/1",
+            "config": {
+                "optimizer_type": 1,  # GEPA
+                "dataset_id": "test-dataset",
+                "scorers": ["Correctness"],
+            },
+        },
+        auth=(user2, password2),
+    )
+    assert response.status_code == 403
+
+    # Grant EDIT permission to user2
+    response = requests.patch(
+        url=client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
+        json={
+            "experiment_id": experiment_id,
+            "username": user2,
+            "permission": "EDIT",
+        },
+        auth=(user1, password1),
+    )
+    assert response.status_code == 200
+
+    # user2 can now create jobs (EDIT grants can_update)
+    # The request will fail for other reasons (missing prompt, dataset, etc.)
+    # but should pass the permission check
+    response = requests.post(
+        url=client.tracking_uri + "/api/3.0/mlflow/prompt-optimization/jobs",
+        json={
+            "experiment_id": experiment_id,
+            "source_prompt_uri": "prompts:/test/1",
+            "config": {
+                "optimizer_type": 1,  # GEPA
+                "dataset_id": "test-dataset",
+                "scorers": ["Correctness"],
+            },
+        },
+        auth=(user2, password2),
+    )
+    # Should not be 403 (permission denied)
+    assert response.status_code != 403
 
 
 def test_gateway_endpoint_invocation_requires_use_permission(fastapi_client, monkeypatch):

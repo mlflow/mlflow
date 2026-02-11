@@ -25,7 +25,7 @@ import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE, isGuidelinesTemplate, type JudgeOutputTypeKind, type JudgePrimitiveOutputType } from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
-import EvaluateTracesSectionRenderer from './EvaluateTracesSectionRenderer';
+import EvaluateTracesSection from './EvaluateTracesSection';
 import { ModelSectionRenderer } from './ModelSectionRenderer';
 import OutputTypeSection from './OutputTypeSection';
 import { AccordionSection, ScorerFormAccordion, type ScorerFormAccordionHandle } from './ScorerFormAccordion';
@@ -44,6 +44,7 @@ export interface LLMScorerFormData {
   model: string;
   disableMonitoring?: boolean;
   isInstructionsJudge?: boolean;
+  isMemoryAugmented?: boolean;
   evaluationScope?: ScorerEvaluationScope;
   outputTypeKind?: JudgeOutputTypeKind;
   categoricalOptions?: string;
@@ -56,6 +57,7 @@ interface LLMScorerFormRendererProps {
   control: Control<LLMScorerFormData>;
   setValue: UseFormSetValue<LLMScorerFormData>;
   getValues: UseFormGetValues<LLMScorerFormData>;
+  onScopeChange?: () => void;
 }
 
 interface LLMTemplateSectionProps {
@@ -241,6 +243,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
   };
 
   const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' }) ?? false;
+  const isMemoryAugmented = watch('isMemoryAugmented') ?? false;
 
   // Hide instructions section for built-in judges that don't support editing
   // These templates use Python-specific variables not available in the UI
@@ -248,7 +251,9 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
     return null;
   }
 
-  const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY;
+  // Memory-augmented judges have instructions that include distilled guidelines
+  // from alignment — these should not be edited through the UI.
+  const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY || isMemoryAugmented;
   const isSessionLevelScorer = scope === ScorerEvaluationScope.SESSIONS;
 
   const traceLevelTemplateVariables = (
@@ -360,7 +365,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                 componentId={`${COMPONENT_ID_PREFIX}.add-variable-button`}
                 size="small"
                 endIcon={<ChevronDownIcon />}
-                disabled={mode === SCORER_FORM_MODE.DISPLAY || !isInstructionsJudge}
+                disabled={isReadOnly || !isInstructionsJudge}
                 onClick={stopPropagationClick}
               >
                 <FormattedMessage defaultMessage="Add variable" description="Button text for adding variables" />
@@ -529,22 +534,25 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
   );
 };
 
-const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, control, setValue, getValues }) => {
+const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
+  mode,
+  control,
+  setValue,
+  getValues,
+  onScopeChange,
+}) => {
   const { theme } = useDesignSystemTheme();
   const selectedTemplate = useWatch({ control, name: 'llmTemplate' });
   const accordionRef = useRef<ScorerFormAccordionHandle>(null);
-
-  // Update name when template changes
-  useEffect(() => {
-    if (mode === SCORER_FORM_MODE.CREATE && selectedTemplate) {
-      setValue('name', selectedTemplate);
-    }
-  }, [selectedTemplate, setValue, mode]);
 
   // Check if General section is complete and progress to Evaluation Criteria
   const checkAndProgressGeneral = useCallback(
     (fieldName: keyof LLMScorerFormData, newValue: string) => {
       if (mode === SCORER_FORM_MODE.DISPLAY) return;
+
+      if (fieldName === 'evaluationScope') {
+        onScopeChange?.();
+      }
 
       const values = getValues();
       const updated = { ...values, [fieldName]: newValue };
@@ -557,7 +565,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
         accordionRef.current?.progressToSection(AccordionSection.SCORING_CRITERIA);
       }
     },
-    [getValues, mode],
+    [getValues, mode, onScopeChange],
   );
 
   const generalSection = (
@@ -581,7 +589,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
     </>
   );
 
-  const automaticEvaluationSection = <EvaluateTracesSectionRenderer control={control} mode={mode} />;
+  const automaticEvaluationSection = <EvaluateTracesSection control={control} mode={mode} setValue={setValue} />;
 
   // In DISPLAY mode, render original flat layout without accordion
   if (mode === SCORER_FORM_MODE.DISPLAY) {
@@ -602,7 +610,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({ mode, con
         )}
         {EDITABLE_TEMPLATES.has(selectedTemplate) && <OutputTypeSection mode={mode} control={control} />}
         <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />
-        <EvaluateTracesSectionRenderer control={control} mode={mode} />
+        <EvaluateTracesSection control={control} mode={mode} setValue={setValue} />
       </div>
     );
   }

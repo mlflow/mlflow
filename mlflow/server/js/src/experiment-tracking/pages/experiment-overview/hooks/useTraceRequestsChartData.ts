@@ -12,6 +12,8 @@ import { useOverviewChartContext } from '../OverviewChartContext';
 export interface RequestsChartDataPoint {
   name: string;
   count: number;
+  /** Raw timestamp in milliseconds for navigation */
+  timestampMs: number;
 }
 
 export interface UseTraceRequestsChartDataResult {
@@ -39,14 +41,14 @@ export interface UseTraceRequestsChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Fetch trace count metrics grouped by time bucket
   const {
     data: traceCountData,
     isLoading,
     error,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -78,6 +80,7 @@ export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
     return timeBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       count: countByTimestamp.get(timestampMs) || 0,
+      timestampMs,
     }));
   }, [timeBuckets, countByTimestamp, timeIntervalSeconds]);
 

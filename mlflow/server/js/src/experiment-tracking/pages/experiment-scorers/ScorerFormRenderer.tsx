@@ -5,6 +5,7 @@ import {
   type UseFormSetValue,
   type UseFormGetValues,
   useWatch,
+  useFormContext,
 } from 'react-hook-form';
 import { useDesignSystemTheme, Button, Alert } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -35,6 +36,7 @@ interface ScorerFormRendererProps {
   handleCancel: () => void;
   isSubmitDisabled: boolean;
   experimentId: string;
+  initialSelectedItemIds?: string[];
 }
 
 // Extracted form content component
@@ -44,9 +46,17 @@ interface ScorerFormContentProps {
   setValue: UseFormSetValue<ScorerFormData>;
   getValues: UseFormGetValues<ScorerFormData>;
   scorerType: ScorerFormData['scorerType'];
+  onScopeChange?: () => void;
 }
 
-const ScorerFormContent: React.FC<ScorerFormContentProps> = ({ mode, control, setValue, getValues, scorerType }) => {
+const ScorerFormContent: React.FC<ScorerFormContentProps> = ({
+  mode,
+  control,
+  setValue,
+  getValues,
+  scorerType,
+  onScopeChange,
+}) => {
   return (
     <>
       {/* Conditional Form Content */}
@@ -56,6 +66,7 @@ const ScorerFormContent: React.FC<ScorerFormContentProps> = ({ mode, control, se
           control={control as Control<LLMScorerFormData>}
           setValue={setValue as UseFormSetValue<LLMScorerFormData>}
           getValues={getValues as UseFormGetValues<LLMScorerFormData>}
+          onScopeChange={onScopeChange}
         />
       ) : (
         <CustomCodeScorerFormRenderer mode={mode} control={control as Control<CustomCodeScorerFormData>} />
@@ -77,6 +88,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
   handleCancel,
   isSubmitDisabled,
   experimentId,
+  initialSelectedItemIds,
 }) => {
   const { theme } = useDesignSystemTheme();
   const [leftPaneWidth, setLeftPaneWidth] = useState(800);
@@ -84,6 +96,15 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
   const isRunningScorersFeatureEnabled = isRunningScorersEnabled();
   const evaluationScope = useWatch({ control, name: 'evaluationScope' });
   const isSessionLevelScorer = evaluationScope === ScorerEvaluationScope.SESSIONS;
+  const { resetField } = useFormContext<ScorerFormData>();
+
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>(initialSelectedItemIds ?? []);
+
+  const handleScopeChange = useCallback(() => {
+    setSelectedItemIds([]);
+    resetField('instructions');
+    resetField('llmTemplate');
+  }, [resetField]);
 
   // Callback to adjust panel ratio after scorer runs
   const handleScorerFinished = useCallback(() => {
@@ -145,6 +166,7 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
                     setValue={setValue}
                     getValues={getValues}
                     scorerType={scorerType}
+                    onScopeChange={handleScopeChange}
                   />
                 </div>
               </div>
@@ -167,6 +189,8 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
                   experimentId={experimentId}
                   onScorerFinished={handleScorerFinished}
                   isSessionLevelScorer={isSessionLevelScorer}
+                  selectedItemIds={selectedItemIds}
+                  onSelectedItemIdsChange={setSelectedItemIds}
                 />
               </div>
             }
