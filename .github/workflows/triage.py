@@ -195,11 +195,7 @@ def run_tests() -> None:
         if result["comment"]:
             print(f"  comment: {result['comment'][:200]}")
 
-    print(
-        f"\nTotal usage: {{input_tokens: {total_usage['input_tokens']}, "
-        f"output_tokens: {total_usage['output_tokens']}, "
-        f"cost_in_usd: {total_usage['cost_in_usd']:.4f}}}"
-    )
+    print(f"\nTotal usage: {json.dumps(total_usage)}")
 
 
 def main() -> None:
