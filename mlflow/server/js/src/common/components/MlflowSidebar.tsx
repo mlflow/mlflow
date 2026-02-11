@@ -46,7 +46,7 @@ import { getExperimentKindForWorkflowType } from '../../experiment-tracking/util
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { MlflowLogo } from './MlflowLogo';
-import { HomePageDocsUrl } from '../constants';
+import { HomePageDocsUrl, Version } from '../constants';
 import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
 
 const isHomeActive = (location: Location) => Boolean(matchPath({ path: '/', end: true }, location.pathname));
@@ -379,9 +379,15 @@ export function MlflowSidebar({
                 height: theme.spacing.lg,
                 color: theme.colors.textPrimary,
                 marginLeft: -(theme.spacing.sm + theme.spacing.xs),
+                marginRight: -theme.spacing.lg,
               }}
             />
           </Link>
+        )}
+        {showSidebar && (
+          <Typography.Text size="sm" color="secondary">
+            {Version}
+          </Typography.Text>
         )}
         <Button
           componentId="mlflow_header.toggle_sidebar_button"
