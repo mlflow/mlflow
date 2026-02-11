@@ -309,8 +309,7 @@ class SimulatedUserAgent(BaseSimulatedUserAgent):
     """
 
     def generate_message(self, context: SimulatorContext) -> str:
-        guidelines = context.simulation_guidelines
-        if guidelines:
+        if guidelines := context.simulation_guidelines:
             if isinstance(guidelines, list):
                 formatted = "\n".join(f"- {g}" for g in guidelines)
             else:

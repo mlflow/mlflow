@@ -147,13 +147,13 @@ results = mlflow.genai.evaluate(
 
 Each test case represents a conversation scenario. Test cases support the following fields:
 
-| Field                    | Required | Description                                                          |
-| ------------------------ | -------- | -------------------------------------------------------------------- |
-| `goal`                   | Yes      | What the simulated user is trying to accomplish                      |
-| `persona`                | No       | Description of the user's personality and communication style        |
-| `simulation_guidelines`  | No       | A list of instructions controlling how the simulated user behaves    |
-| `context`                | No       | Additional kwargs passed to your predict function                    |
-| `expectations`           | No       | Expected outcomes logged to the first trace for scorer reference     |
+| Field                   | Required | Description                                                       |
+| ----------------------- | -------- | ----------------------------------------------------------------- |
+| `goal`                  | Yes      | What the simulated user is trying to accomplish                   |
+| `persona`               | No       | Description of the user's personality and communication style     |
+| `simulation_guidelines` | No       | A list of instructions controlling how the simulated user behaves |
+| `context`               | No       | Additional kwargs passed to your predict function                 |
+| `expectations`          | No       | Expected outcomes logged to the first trace for scorer reference  |
 
 ### Goal
 
@@ -283,7 +283,7 @@ simulator = ConversationSimulator(test_cases=df)
 The `generate_test_cases` API is experimental in MLflow 3.10.0. The API and behavior may change in future releases.
 :::
 
-Generate test cases from existing conversation sessions using <APILink fn="mlflow.genai.simulators.generate_test_cases">`generate_test_cases`</APILink>. This analyzes each session and extracts the user's goal, persona, and simulation guidelines that help reproduce the original conversation trajectory:
+Generate test cases from existing conversation sessions using <APILink fn="mlflow.genai.simulators.generate_test_cases">`generate_test_cases`</APILink>. This is useful for creating test cases that reflect real user behavior from production conversations:
 
 ```python
 import mlflow
