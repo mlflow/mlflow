@@ -49,19 +49,18 @@ export const EvaluationImageCellRenderer = ({ value }: EvaluationImageCellRender
           />
         </Typography.Text>
       ) : (
-        <span
+        <div
           css={{
-            display: '-webkit-box',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: '7',
             width: '100%',
             height: '100%',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
           }}
         >
           <ImagePlot imageUrl={value.url} compressedImageUrl={value.compressed_url} />
-        </span>
+        </div>
       )}
     </div>
   );
