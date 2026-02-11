@@ -47,6 +47,7 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
         _migrate_datasets_for_experiment,
         _migrate_logged_models_for_experiment,
         _migrate_one_experiment,
+        _migrate_outputs_for_experiment,
         _migrate_runs_in_dir,
         _migrate_traces_for_experiment,
     )
@@ -90,6 +91,7 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
                 _migrate_runs_in_dir(session, exp_dir, int(exp_id), stats)
                 session.flush()
                 _migrate_datasets_for_experiment(session, exp_dir, int(exp_id), stats)
+                _migrate_outputs_for_experiment(session, exp_dir, stats)
                 _migrate_traces_for_experiment(session, exp_dir, int(exp_id), stats)
                 session.flush()
                 _migrate_assessments_for_experiment(session, exp_dir, stats)

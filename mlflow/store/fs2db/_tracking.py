@@ -335,6 +335,32 @@ def _migrate_datasets_for_experiment(
                 stats.input_tags += 1
 
 
+def _migrate_outputs_for_experiment(session: Session, exp_dir: Path, stats: MigrationStats) -> None:
+    for run_uuid in list_subdirs(exp_dir):
+        if run_uuid in RESERVED_FOLDERS:
+            continue
+        outputs_dir = exp_dir / run_uuid / "outputs"
+        if not outputs_dir.is_dir():
+            continue
+
+        for model_id in list_subdirs(outputs_dir):
+            meta = safe_read_yaml(outputs_dir / model_id, META_YAML)
+            if meta is None:
+                continue
+
+            session.add(
+                SqlInput(
+                    input_uuid=str(uuid.uuid4()),
+                    source_type="RUN_OUTPUT",
+                    source_id=run_uuid,
+                    destination_type="MODEL_OUTPUT",
+                    destination_id=model_id,
+                    step=meta.get("step", 0),
+                )
+            )
+            stats.outputs += 1
+
+
 def migrate_traces(session: Session, mlruns: Path, stats: MigrationStats) -> None:
     for exp_dir, exp_id in for_each_experiment(mlruns):
         _migrate_traces_for_experiment(session, exp_dir, int(exp_id), stats)
