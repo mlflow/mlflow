@@ -19,6 +19,8 @@ import {
   SidebarExpandIcon,
   InfoBookIcon,
   CodeIcon,
+  Tooltip,
+  NewWindowIcon,
 } from '@databricks/design-system';
 import type { Location } from '../utils/RoutingUtils';
 import { Link, matchPath, useLocation, useParams, useSearchParams } from '../utils/RoutingUtils';
@@ -38,6 +40,7 @@ import { HomePageDocsUrl, Version } from '../constants';
 import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
 import { MlflowSidebarExperimentItems } from './MlflowSidebarExperimentItems';
 import { MlflowSidebarGatewayItems } from './MlflowSidebarGatewayItems';
+import { MlflowSidebarWorkflowSwitch } from './MlflowSidebarWorkflowSwitch';
 
 const isInsideExperiment = (location: Location) =>
   Boolean(matchPath('/experiments/:experimentId/*', location.pathname));
@@ -234,7 +237,7 @@ export function MlflowSidebar({
   return (
     <aside
       css={{
-        width: showSidebar ? (enableWorkflowBasedNavigation ? 230 : 200) : 36,
+        width: showSidebar ? 190 : 36,
         flexShrink: 0,
         padding: theme.spacing.sm,
         paddingRight: 0,
@@ -271,41 +274,7 @@ export function MlflowSidebar({
       </div>
       {workspacesEnabled && showSidebar && <WorkspaceSelector />}
       {enableWorkflowBasedNavigation && showWorkspaceMenuItems && showSidebar && (
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.xs,
-          }}
-        >
-          <Typography.Title level={4} withoutMargins color="info" css={{ textTransform: 'uppercase' }}>
-            <FormattedMessage
-              defaultMessage="Workflow type"
-              description="Label for the workflow type selector in the sidebar"
-            />
-          </Typography.Title>
-          <SegmentedControlGroup
-            value={workflowType}
-            onChange={(e) => {
-              if (e.target.value) {
-                setWorkflowType(e.target.value as WorkflowType);
-              }
-            }}
-            name="workflow-type-selector"
-            componentId="mlflow.sidebar.workflow_type_selector"
-            css={{ width: '100%', display: 'flex' }}
-          >
-            <SegmentedControlButton value={WorkflowType.GENAI}>
-              <FormattedMessage defaultMessage="GenAI" description="Label for GenAI workflow type option" />
-            </SegmentedControlButton>
-            <SegmentedControlButton value={WorkflowType.MACHINE_LEARNING} css={{ whiteSpace: 'nowrap' }}>
-              <FormattedMessage
-                defaultMessage="Machine Learning"
-                description="Label for Machine Learning workflow type option"
-              />
-            </SegmentedControlButton>
-          </SegmentedControlGroup>
-        </div>
+        <MlflowSidebarWorkflowSwitch workflowType={workflowType} setWorkflowType={setWorkflowType} />
       )}
 
       <nav css={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
@@ -343,43 +312,55 @@ export function MlflowSidebar({
                   'linear-gradient(90deg, rgba(232, 72, 85, 0.7), rgba(155, 93, 229, 0.7), rgba(67, 97, 238, 0.7))',
               }}
             >
-              <div
-                role="button"
-                tabIndex={0}
-                aria-pressed={isPanelOpen}
-                css={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: theme.spacing.sm,
-                  paddingInline: showSidebar ? theme.spacing.md : 0,
-                  paddingBlock: theme.spacing.xs,
-                  borderRadius: theme.borders.borderRadiusMd - 2,
-                  justifyContent: showSidebar ? 'flex-start' : 'center',
-                  cursor: 'pointer',
-                  background: theme.colors.backgroundSecondary,
-                  color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
-                }}
-                onClick={handleAssistantToggle}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    handleAssistantToggle();
-                  }
-                }}
-                onMouseEnter={() => setIsAssistantHovered(true)}
-                onMouseLeave={() => setIsAssistantHovered(false)}
+              <Tooltip
+                componentId="mlflow.sidebar.assistant_tooltip"
+                content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
+                open={isAssistantHovered && !showSidebar}
+                side="right"
+                delayDuration={0}
               >
-                <AssistantSparkleIcon isHovered={isAssistantHovered} />
-                {showSidebar && (
-                  <>
-                    <Typography.Text color="primary">
-                      <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
-                    </Typography.Text>
-                    <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
-                      Beta
-                    </Tag>
-                  </>
-                )}
-              </div>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isPanelOpen}
+                  css={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: theme.spacing.sm,
+                    paddingInline: showSidebar ? theme.spacing.md : 0,
+                    paddingBlock: theme.spacing.xs,
+                    borderRadius: theme.borders.borderRadiusMd - 2,
+                    justifyContent: showSidebar ? 'flex-start' : 'center',
+                    cursor: 'pointer',
+                    background: theme.colors.backgroundSecondary,
+                    color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
+                  }}
+                  onClick={handleAssistantToggle}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      handleAssistantToggle();
+                    }
+                  }}
+                  onMouseEnter={() => setIsAssistantHovered(true)}
+                  onMouseLeave={() => setIsAssistantHovered(false)}
+                >
+                  <AssistantSparkleIcon isHovered={isAssistantHovered} />
+                  {showSidebar && (
+                    <>
+                      <Typography.Text color="primary">
+                        <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
+                      </Typography.Text>
+                      <Tag
+                        componentId="mlflow.sidebar.assistant_beta_tag"
+                        color="turquoise"
+                        css={{ marginLeft: 'auto' }}
+                      >
+                        Beta
+                      </Tag>
+                    </>
+                  )}
+                </div>
+              </Tooltip>
             </div>
           )}
           <MlflowSidebarLink
@@ -392,7 +373,10 @@ export function MlflowSidebar({
             collapsed={!showSidebar}
             openInNewTab
           >
-            <FormattedMessage defaultMessage="Docs" description="Sidebar link for docs page" />
+            <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+              <FormattedMessage defaultMessage="Docs" description="Sidebar link for docs page" />
+              <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
+            </span>
           </MlflowSidebarLink>
           <MlflowSidebarLink
             disableWorkspacePrefix
@@ -404,7 +388,10 @@ export function MlflowSidebar({
             collapsed={!showSidebar}
             openInNewTab
           >
-            <FormattedMessage defaultMessage="GitHub" description="Sidebar link for GitHub page" />
+            <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+              <FormattedMessage defaultMessage="GitHub" description="Sidebar link for GitHub page" />
+              <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
+            </span>
           </MlflowSidebarLink>
           <MlflowSidebarLink
             disableWorkspacePrefix

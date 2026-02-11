@@ -14,6 +14,7 @@ import { useExperimentEvaluationRunsData } from '../../experiment-tracking/compo
 import { WorkflowType } from '../contexts/WorkflowTypeContext';
 import { useGetExperimentPageActiveTabByRoute } from '../../experiment-tracking/components/experiment-page/hooks/useGetExperimentPageActiveTabByRoute';
 import { ExperimentPageTabName } from '../../experiment-tracking/constants';
+import { FormattedMessage } from 'react-intl';
 
 const isExperimentsActive = (location: Location) =>
   Boolean(
@@ -63,6 +64,9 @@ export const MlflowSidebarExperimentItems = ({
         onClick={onBackClick}
         icon={<ArrowLeftIcon />}
         collapsed={collapsed}
+        tooltipContent={
+          <FormattedMessage defaultMessage="Back to experiment list" description="Tooltip for experiments button" />
+        }
       >
         <BeakerIcon />
         {loading ? <Spinner /> : <Typography.Text ellipsis>{experiment?.name}</Typography.Text>}
