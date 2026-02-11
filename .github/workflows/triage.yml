@@ -38,6 +38,7 @@ jobs:
     if: >-
       github.event_name == 'issues'
       && contains(github.event.issue.labels.*.name, 'area/uiux')
+      && contains(github.event.issue.labels.*.name, 'bug')
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
