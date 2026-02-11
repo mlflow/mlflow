@@ -67,6 +67,25 @@ def test_model_save_and_load(model_path, basic_model):
     assert all(len(x) == 384 for x in encoded_multi)
 
 
+def test_load_model_with_kwargs(model_path, basic_model):
+    mlflow.sentence_transformers.save_model(model=basic_model, path=model_path)
+
+    loaded_model = mlflow.sentence_transformers.load_model(model_path, truncate_dim=42)
+
+    encoded_single = loaded_model.encode("I'm just a simple string; nothing to see here.")
+    assert len(encoded_single) == 42
+
+
+def test_load_model_with_kwargs_raises(model_path, basic_model):
+    mlflow.sentence_transformers.save_model(model=basic_model, path=model_path)
+
+    with pytest.raises(
+        TypeError,
+        match="SentenceTransformer.__init__() got an unexpected keyword argument 'i_dont_exist'",
+    ):
+        mlflow.sentence_transformers.load_model(model_path, i_dont_exists="foo")
+
+
 @pytest.mark.skipif(
     Version(sentence_transformers.__version__) < Version("2.4.0"),
     reason="`trust_remote_code` is not supported in Sentence Transformers < 2.3.0 "
@@ -371,6 +390,26 @@ def test_model_pyfunc_save_load(basic_model, model_path):
 
     np.testing.assert_array_equal(emb1, emb2)
     np.testing.assert_array_equal(emb1, emb3)
+
+
+def test_model_pyfunc_load_with_kwargs(basic_model, model_path):
+    mlflow.sentence_transformers.save_model(basic_model, model_path)
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path, truncate_dim=42)
+
+    sentence = "hello world and hello mlflow"
+    embedding = loaded_pyfunc.predict(sentence)
+
+    assert embedding.shape == (1, 42)
+
+
+def test_model_pyfunc_load_with_kwargs_raises(basic_model, model_path):
+    mlflow.sentence_transformers.save_model(basic_model, model_path)
+
+    with pytest.raises(
+        TypeError,
+        match="SentenceTransformer.__init__() got an unexpected keyword argument 'i_dont_exist'",
+    ):
+        pyfunc.load_model(model_uri=model_path, i_dont_exist="foo")
 
 
 def test_model_pyfunc_predict_with_params(basic_model, tmp_path):
