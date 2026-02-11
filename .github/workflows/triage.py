@@ -127,20 +127,20 @@ def compute_cost(usage: dict[str, int]) -> float:
     ) / 1_000_000
 
 
-def triage_issue(title: str, body: str) -> dict[str, Any]:
+def triage_issue(title: str, body: str) -> tuple[dict[str, Any], dict[str, int]]:
     # Skip triage for security vulnerability issues
     if "security vulnerability" in title.lower():
         return {
             "comment": None,
             "reason": "Skipped: Issue title contains 'Security Vulnerability'",
-        }
+        }, {"input_tokens": 0, "output_tokens": 0}
 
     prompt = build_prompt(title, body)
-    classification, _ = call_anthropic_api(prompt)
+    classification, usage = call_anthropic_api(prompt)
     return {
         "comment": classification["comment"],
         "reason": classification["reason"],
-    }
+    }, usage
 
 
 GREEN = "\033[32m"
@@ -166,32 +166,13 @@ def parse_dataset(path: Path) -> list[dict[str, str]]:
     return issues
 
 
-def triage_synthetic(title: str, body: str) -> tuple[dict[str, Any], dict[str, int]]:
-    # Skip triage for security vulnerability issues
-    if "security vulnerability" in title.lower():
-        return {
-            "title": title,
-            "comment": None,
-            "reason": "Skipped: Issue title contains 'Security Vulnerability'",
-        }, {"input_tokens": 0, "output_tokens": 0}
-
-    prompt = build_prompt(title, body)
-    classification, usage = call_anthropic_api(prompt)
-    return {
-        "title": title,
-        "comment": classification["comment"],
-        "reason": classification["reason"],
-    }, usage
-
-
 def run_tests() -> None:
     dataset_path = Path(__file__).parent / "triage.md"
     issues = parse_dataset(dataset_path)
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {
-            executor.submit(triage_synthetic, issue["title"], issue["body"]): issue
-            for issue in issues
+            executor.submit(triage_issue, issue["title"], issue["body"]): issue for issue in issues
         }
 
     total_usage = {"input_tokens": 0, "output_tokens": 0}
@@ -229,8 +210,14 @@ def main() -> None:
     args = parser.parse_args()
     match args.command:
         case "triage":
-            result = triage_issue(args.title, args.body)
+            result, usage = triage_issue(args.title, args.body)
             print(json.dumps(result))
+            cost = compute_cost(usage)
+            print(
+                f"Tokens: {usage['input_tokens']} input, {usage['output_tokens']} output"
+                f" (${cost:.4f})",
+                file=sys.stderr,
+            )
         case "test":
             run_tests()
         case _:
