@@ -32,12 +32,11 @@ jobs:
 
       - run: python .github/workflows/triage.py test
 
-  # Main job: runs on new issues
-  # Scoped to area/uiux for now; expand to other labels once we validate the results.
+  # Main job: runs on new bug issues
+  # Comments are only posted for area/uiux bugs; other bugs are triaged silently for observation.
   triage:
     if: >-
       github.event_name == 'issues'
-      && contains(github.event.issue.labels.*.name, 'area/uiux')
       && contains(github.event.issue.labels.*.name, 'bug')
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -65,7 +64,9 @@ jobs:
           echo "result=$result" >> "$GITHUB_OUTPUT"
 
       - name: Comment and label if info needed
-        if: fromJSON(steps.triage.outputs.result).comment
+        if: >-
+          fromJSON(steps.triage.outputs.result).comment
+          && contains(github.event.issue.labels.*.name, 'area/uiux')
         env:
           COMMENT: ${{ fromJSON(steps.triage.outputs.result).comment }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
