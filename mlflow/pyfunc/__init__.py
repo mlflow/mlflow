@@ -3042,9 +3042,9 @@ def save_model(
         kwargs: Extra keyword arguments.
     """
     if (
-        python_model is not None and
-        not isinstance(python_model, (Path, str)) and
-        not is_in_databricks_runtime()
+        python_model is not None
+        and not isinstance(python_model, (Path, str))
+        and not is_in_databricks_runtime()
     ):
         _logger.warning(
             "Passing a Python object as `python_model` causes it to be serialized "
