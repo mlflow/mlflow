@@ -118,6 +118,19 @@ class MemoryAugmentedJudge(Judge):
         *,
         _defer_init: bool = False,
     ):
+        # Input validation
+        if not isinstance(retrieval_k, int) or retrieval_k <= 0:
+            raise MlflowException(
+                f"retrieval_k must be a positive integer, got {retrieval_k}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if not isinstance(embedding_dim, int) or embedding_dim <= 0:
+            raise MlflowException(
+                f"embedding_dim must be a positive integer, got {embedding_dim}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+            
         effective_base_judge = (
             base_judge._base_judge if isinstance(base_judge, MemoryAugmentedJudge) else base_judge
         )
