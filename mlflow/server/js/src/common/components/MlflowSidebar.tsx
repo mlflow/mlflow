@@ -478,48 +478,67 @@ export function MlflowSidebar() {
             margin: 0,
           }}
         >
-          {menuItems.map(({ key, icon, linkProps, componentId, nestedItemsGroups, nestedItems }) => (
-            <li key={key}>
-              <MlflowSidebarLink to={linkProps.to} componentId={componentId} isActive={linkProps.isActive} icon={icon}>
-                {linkProps.children}
+          {workspacesEnabled && (
+            <div css={{ display: 'flex', flexDirection: 'column', marginBottom: theme.spacing.md }}>
+              <MlflowSidebarLink
+                componentId="mlflow.sidebar.workspaces_link"
+                disableWorkspacePrefix
+                to={Routes.rootRoute}
+                isActive={() => !workspaceFromUrl && !isSettingsActive(location)}
+                icon={workspaceFromUrl ? <ChevronLeftIcon /> : <HomeIcon />}
+              >
+                <FormattedMessage defaultMessage="Workspaces" description="Sidebar link for workspaces page" />
               </MlflowSidebarLink>
-              {nestedItemsGroups && nestedItemsGroups.length > 0 && (
-                <ul css={NESTED_ITEMS_UL_CSS}>
-                  {nestedItemsGroups.map((group) => (
-                    <Fragment key={group.sectionKey}>
-                      {group.sectionKey !== 'top-level' && (
-                        <li
-                          css={{
-                            display: 'flex',
-                            marginTop: theme.spacing.xs,
-                            marginBottom: theme.spacing.xs,
-                            position: 'relative',
-                            height: theme.typography.lineHeightBase,
-                            paddingLeft: 40,
-                          }}
-                        >
-                          <Typography.Text size="sm" color="secondary">
-                            {getExperimentPageSideNavSectionLabel(group.sectionKey, [])}
-                          </Typography.Text>
-                        </li>
-                      )}
-                      {group.items.map((nestedItem) => {
-                        const isDisabled = !experimentId && key === 'experiments';
-                        return <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, isDisabled)}</li>;
-                      })}
-                    </Fragment>
-                  ))}
-                </ul>
-              )}
-              {nestedItems && nestedItems.length > 0 && (
-                <ul css={NESTED_ITEMS_UL_CSS}>
-                  {nestedItems.map((nestedItem) => (
-                    <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, false)}</li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
+            </div>
+          )}
+          {showWorkspaceMenuItems &&
+            menuItems.map(({ key, icon, linkProps, componentId, nestedItemsGroups, nestedItems }) => (
+              <>
+                <MlflowSidebarLink
+                  to={linkProps.to}
+                  componentId={componentId}
+                  isActive={linkProps.isActive}
+                  icon={icon}
+                >
+                  {linkProps.children}
+                </MlflowSidebarLink>
+                {nestedItemsGroups && nestedItemsGroups.length > 0 && (
+                  <ul css={NESTED_ITEMS_UL_CSS}>
+                    {nestedItemsGroups.map((group) => (
+                      <Fragment key={group.sectionKey}>
+                        {group.sectionKey !== 'top-level' && (
+                          <li
+                            css={{
+                              display: 'flex',
+                              marginTop: theme.spacing.xs,
+                              marginBottom: theme.spacing.xs,
+                              position: 'relative',
+                              height: theme.typography.lineHeightBase,
+                              paddingLeft: 40,
+                            }}
+                          >
+                            <Typography.Text size="sm" color="secondary">
+                              {getExperimentPageSideNavSectionLabel(group.sectionKey, [])}
+                            </Typography.Text>
+                          </li>
+                        )}
+                        {group.items.map((nestedItem) => {
+                          const isDisabled = !experimentId && key === 'experiments';
+                          return <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, isDisabled)}</li>;
+                        })}
+                      </Fragment>
+                    ))}
+                  </ul>
+                )}
+                {nestedItems && nestedItems.length > 0 && (
+                  <ul css={NESTED_ITEMS_UL_CSS}>
+                    {nestedItems.map((nestedItem) => (
+                      <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, false)}</li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ))}
         </ul>
         <div>
           {isLocalServer && (
