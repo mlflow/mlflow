@@ -88,9 +88,11 @@ optimizer = MemAlignOptimizer(
 # Retrieve traces with human feedback
 all_traces = mlflow.search_traces(return_type="list")
 alignment_traces = [
-    trace for trace in all_traces
+    trace
+    for trace in all_traces
     if any(
-        feedback.name == "politeness" for feedback in trace.info.assessments
+        feedback.name == "politeness"
+        for feedback in trace.info.assessments
         # feedback name must match the judge name for alignment to work
     )
 ]
