@@ -411,15 +411,23 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
                 ),
                 reverse=True,
             )
-            for assessment in sorted_assessments:
-                sanitized_assessment_name = _sanitize_assessment_name(assessment.name)
-                sanitized_judge_name = _sanitize_assessment_name(judge.name)
-                if (
-                    sanitized_assessment_name == sanitized_judge_name
-                    and assessment.source.source_type == AssessmentSourceType.HUMAN
-                ):
-                    expected_result = assessment
-                    break
+            sanitized_judge_name = _sanitize_assessment_name(judge.name)
+            matching_assessments = [
+                a
+                for a in sorted_assessments
+                if _sanitize_assessment_name(a.name) == sanitized_judge_name
+                and a.source.source_type == AssessmentSourceType.HUMAN
+            ]
+
+            if len(matching_assessments) > 1:
+                _logger.warning(
+                    f"Found {len(matching_assessments)} human assessments with name "
+                    f"'{judge.name}' in trace {trace.info.trace_id}. "
+                    f"Only the most recent one will be used for alignment."
+                )
+
+            if matching_assessments:
+                expected_result = matching_assessments[0]
 
         if not expected_result:
             _logger.warning(
