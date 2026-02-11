@@ -101,18 +101,13 @@ aligned_judge = judge.align(traces=alignment_traces, optimizer=optimizer)
 
 ## Parameters
 
-| Parameter         | Type  | Default                            | Description                                                                                                                                                                        |
-| ----------------- | ----- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `reflection_lm`   | `str` | See below                          | Model used for extracting guidelines from feedback. See [Supported Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/supported-models) section for how to specify. |
-| `retrieval_k`     | `int` | `5`                                | Number of relevant examples to retrieve from episodic memory during inference.                                                                                                     |
-| `embedding_model` | `str` | `"openai:/text-embedding-3-small"` | Model for episodic memory retrieval. Must be in `<provider>:/<model-name>` format.                                                                                                 |
+| Parameter         | Type  | Default                                                                                            | Description                                                                                                                                                                                    |
+| ----------------- | ----- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reflection_lm`   | `str` | See [Supported Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/supported-models) | Model used for extracting guidelines from feedback. See [Supported Judge Models](/genai/eval-monitor/scorers/llm-judge/custom-judges/supported-models) section for which models are supported. |
+| `retrieval_k`     | `int` | `5`                                                                                                | Number of relevant examples to retrieve from episodic memory during inference.                                                                                                                 |
+| `embedding_model` | `str` | `"openai:/text-embedding-3-small"`                                                                 | Model for episodic memory retrieval. Must be in `<provider>:/<model-name>` format.                                                                                                             |
 
 The number of parallel threads for LLM calls during guideline distillation can be configured via the `MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS` environment variable (default: 8).
-
-The default `reflection_lm` depends on the tracking URI setup:
-
-- **If on Databricks**: `databricks` (a [default Databricks-hosted model](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/scorers#select-the-llm-that-powers-the-judge) designed for GenAI quality assessments)
-- **Otherwise**: `openai:/gpt-4o-mini`
 
 ## Inspecting Learned Knowledge
 

@@ -1,5 +1,12 @@
 # Supported Models
 
+When no model is specified, MLflow uses a default based on your environment:
+
+- **Databricks**: `"databricks"` (a [Databricks-hosted model](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/scorers#select-the-llm-that-powers-the-judge) designed for GenAI quality assessments)
+- **Other environments**: `"openai:/gpt-4o-mini"`
+
+You can also explicitly specify a model from any of the following sources:
+
 ## AI Gateway Endpoints
 
 [AI Gateway](/genai/governance/ai-gateway/) endpoints are the recommended way to configure judge models, especially when creating judges from the UI. Benefits include:
