@@ -3041,7 +3041,11 @@ def save_model(
         auth_policy: {{ auth_policy }}
         kwargs: Extra keyword arguments.
     """
-    if not isinstance(python_model, (Path, str)) and not is_in_databricks_runtime():
+    if (
+        python_model is not None and
+        not isinstance(python_model, (Path, str)) and
+        not is_in_databricks_runtime()
+    ):
         warnings.warn(
             "Passing a Python object as `python_model` causes it to be serialized "
             "using CloudPickle, "
