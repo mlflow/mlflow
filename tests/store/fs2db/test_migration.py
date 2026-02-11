@@ -126,6 +126,20 @@ def test_logged_models(clients: Clients) -> None:
         assert set(dst_model.tags) >= set(src_model.tags)
 
 
+def test_run_outputs(clients: Clients) -> None:
+    src, dst = clients
+    exp_ids = [e.experiment_id for e in _get_all_experiments(src)]
+    src_runs = _get_all_runs(src, exp_ids)
+    dst_by_id = {r.info.run_id: r for r in _get_all_runs(dst, exp_ids)}
+
+    for src_run in src_runs:
+        dst_run = dst_by_id[src_run.info.run_id]
+        src_outputs = src_run.outputs.model_outputs if src_run.outputs else []
+        dst_outputs = dst_run.outputs.model_outputs if dst_run.outputs else []
+        assert len(dst_outputs) == len(src_outputs)
+        assert sorted(o.model_id for o in dst_outputs) == sorted(o.model_id for o in src_outputs)
+
+
 def test_registered_models(clients: Clients) -> None:
     src, dst = clients
 

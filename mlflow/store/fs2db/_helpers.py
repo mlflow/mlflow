@@ -20,6 +20,7 @@ class MigrationStats:
     datasets: int = 0
     inputs: int = 0
     input_tags: int = 0
+    outputs: int = 0
     traces: int = 0
     trace_tags: int = 0
     trace_metadata: int = 0
