@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
+import queue
 import threading
 import time
 import traceback
 import uuid
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, as_completed, wait
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, as_completed, wait
 from typing import Any, Callable
 
 import pandas as pd
@@ -31,8 +32,8 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT,
 )
 from mlflow.genai.evaluation import context
-from mlflow.genai.evaluation.rate_limiter import NoOpRateLimiter, RPSRateLimiter, RateLimiter
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
+from mlflow.genai.evaluation.rate_limiter import NoOpRateLimiter, RateLimiter, RPSRateLimiter
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
     evaluate_session_level_scorers,
@@ -101,6 +102,16 @@ def _make_rate_limiter(rate: float | None) -> RateLimiter:
     return RPSRateLimiter(rate) if rate else NoOpRateLimiter()
 
 
+def _pool_size(rate: float | None) -> int:
+    """Derive thread count from rate limit assuming ~5s avg LLM latency, capped at [10, 50]."""
+    return min(50, max(10, int(rate * 5))) if rate else 10
+
+
+def backpressure_buffer(score_workers: int) -> int:
+    """Max items that may be predicted but not yet scored, bounding memory usage."""
+    return 2 * score_workers
+
+
 @context.eval_context
 def run(
     *,
@@ -140,7 +151,7 @@ def run(
     total_tasks = len(eval_items) + len(session_groups)
 
     # Create rate limiters from environment variables.
-    # Scorer rate auto-derives from predict rate × num_scorers when not set explicitly.
+    # Scorer rate auto-derives from predict rate * num_scorers when not set explicitly.
     predict_rate = MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get()
     if MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT.is_set():
         scorer_rate = MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT.get()
@@ -151,21 +162,21 @@ def run(
     scorer_limiter = _make_rate_limiter(scorer_rate)
 
     if MLFLOW_GENAI_EVAL_MAX_WORKERS.is_set():
-        max_workers = MLFLOW_GENAI_EVAL_MAX_WORKERS.get()
+        predict_workers = score_workers = MLFLOW_GENAI_EVAL_MAX_WORKERS.get()
     else:
-        # Derive from rate limits: enough threads to keep the pipeline saturated
-        # assuming ~5s average LLM call latency, capped at [10, 50].
-        max_rate = max(predict_rate or 0, scorer_rate or 0)
-        max_workers = min(50, max(10, int(max_rate * 5))) if max_rate else 10
+        predict_workers = _pool_size(predict_rate)
+        score_workers = _pool_size(scorer_rate)
 
     predict_pool = ThreadPoolExecutor(
-        max_workers=max_workers,
+        max_workers=predict_workers,
         thread_name_prefix="MlflowGenAIEvalPredict",
     )
     score_pool = ThreadPoolExecutor(
-        max_workers=max_workers,
+        max_workers=score_workers,
         thread_name_prefix="MlflowGenAIEvalScore",
     )
+    # Backpressure: cap predicted-but-not-yet-scored items to bound memory usage.
+    in_flight = threading.Semaphore(backpressure_buffer(score_workers))
 
     progress_bar = (
         tqdm(
@@ -201,22 +212,65 @@ def run(
             score_times.append(time.monotonic() - start)
         return result
 
+    # Sentinel signaling that the submit thread is done (or failed).
+    _SUBMIT_DONE = None
+
     try:
-        # Maps to track which future belongs to which item index
-        predict_futures = {}  # future → item_index
+        # Queue for the submit thread to pass (future, index) pairs to the main loop.
+        predict_queue: queue.Queue[tuple[Future, int] | None] = queue.Queue()
         score_futures = {}  # future → item_index
 
-        # Submit all predict (or prepare) tasks upfront
-        for i, eval_item in enumerate(eval_items):
-            future = predict_pool.submit(
-                _timed_predict, eval_item, predict_fn, run_id, predict_limiter
-            )
-            predict_futures[future] = i
+        # Submit predict tasks with backpressure: the semaphore blocks when
+        # too many items are predicted but not yet scored, bounding memory.
+        submit_error = None
 
-        # Pipeline loop: handles both predict and score completions
-        pending = set(predict_futures.keys())
+        def _submit_predicts():
+            nonlocal submit_error
+            try:
+                for i, eval_item in enumerate(eval_items):
+                    in_flight.acquire()
+                    future = predict_pool.submit(
+                        _timed_predict, eval_item, predict_fn, run_id, predict_limiter
+                    )
+                    predict_queue.put((future, i))
+            except Exception as e:
+                submit_error = e
+            finally:
+                predict_queue.put(_SUBMIT_DONE)
 
-        while pending:
+        submit_thread = threading.Thread(
+            target=_submit_predicts, daemon=True, name="MlflowGenAIEvalSubmit"
+        )
+        submit_thread.start()
+
+        # Pipeline loop: handles both predict and score completions.
+        predict_futures = {}  # future → item_index
+        items_scored = 0
+        pending = set()
+
+        while items_scored < len(eval_items):
+            # Drain newly submitted predict futures from the queue.
+            # When pending is empty, block on the queue to avoid busy-waiting.
+            while True:
+                try:
+                    if pending:
+                        item = predict_queue.get_nowait()
+                    else:
+                        item = predict_queue.get(timeout=0.01)
+                except queue.Empty:
+                    break
+                if item is _SUBMIT_DONE:
+                    break
+                future, idx = item
+                predict_futures[future] = idx
+                pending.add(future)
+
+            if submit_error:
+                raise submit_error
+
+            if not pending:
+                continue
+
             done, pending = wait(pending, return_when=FIRST_COMPLETED)
             for future in done:
                 if future in predict_futures:
@@ -236,8 +290,12 @@ def run(
                     # Score completed → item is fully done
                     idx = score_futures.pop(future)
                     eval_results[idx] = future.result()
+                    in_flight.release()
+                    items_scored += 1
                     if progress_bar:
                         progress_bar.update(1)
+
+        submit_thread.join()
 
         # Phase 2: Submit and complete multi-turn tasks (after single-turn)
         # We run multi-turn scorers after single-turn, since single-turn scorers may create new

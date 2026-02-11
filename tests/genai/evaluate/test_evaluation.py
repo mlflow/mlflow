@@ -1,3 +1,4 @@
+import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -16,6 +17,8 @@ from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvaluationResult
+from mlflow.genai.evaluation.harness import backpressure_buffer
+from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.genai.simulators import ConversationSimulator
@@ -1480,8 +1483,6 @@ def test_evaluate_with_simulator_within_parent_run(tmp_path):
 def test_predict_rate_limiter_is_wired_to_predict_fn(monkeypatch):
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "100")
 
-    from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
-
     with mock.patch.object(
         RPSRateLimiter, "acquire", autospec=True, side_effect=lambda self: None
     ) as mock_acquire:
@@ -1493,8 +1494,6 @@ def test_predict_rate_limiter_is_wired_to_predict_fn(monkeypatch):
 
 def test_scorer_rate_limiter_is_wired_to_scorers(monkeypatch):
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "100")
-
-    from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
 
     with mock.patch.object(
         RPSRateLimiter, "acquire", autospec=True, side_effect=lambda self: None
@@ -1515,9 +1514,6 @@ def test_scorer_rate_limiter_is_wired_to_scorers(monkeypatch):
 
 
 def test_pipelining_scores_while_predicts_pending(monkeypatch):
-    """Verify that scoring starts while predictions are still pending (structural test)."""
-    import threading
-
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "2")
 
     # Gate that blocks predicts after the first batch completes
@@ -1572,8 +1568,64 @@ def test_pipelining_scores_while_predicts_pending(monkeypatch):
         gate.set()  # Ensure we don't leave threads blocked
 
 
+def test_backpressure_limits_in_flight_items(monkeypatch):
+    workers = 2
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", str(workers))
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "0")
+    buffer = backpressure_buffer(workers)
+
+    max_in_flight = 0
+    in_flight = 0
+    lock = threading.Lock()
+    predict_done = threading.Semaphore(0)
+    score_gate = threading.Event()
+
+    def tracking_predict(q):
+        nonlocal in_flight, max_in_flight
+        with lock:
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+        predict_done.release()
+        return "answer"
+
+    @scorer
+    def blocking_scorer(outputs):
+        score_gate.wait(timeout=10)
+        nonlocal in_flight
+        with lock:
+            in_flight -= 1
+        return True
+
+    num_items = 3 * buffer
+    data = [{"inputs": {"q": f"Q{i}"}} for i in range(num_items)]
+
+    eval_thread = threading.Thread(
+        target=lambda: mlflow.genai.evaluate(
+            data=data, predict_fn=tracking_predict, scorers=[blocking_scorer]
+        )
+    )
+    eval_thread.start()
+
+    # Wait for exactly `buffer` predicts to complete. After this, the submit
+    # thread is blocked on semaphore.acquire() and no more predicts can run
+    # (scorers are blocked on score_gate).
+    for _ in range(buffer):
+        assert predict_done.acquire(timeout=5)
+
+    with lock:
+        observed_max = max_in_flight
+
+    # Release scorers and let evaluation finish
+    score_gate.set()
+    eval_thread.join(timeout=30)
+
+    # The semaphore bounds in-flight items. Without backpressure all
+    # num_items would pile up.
+    assert observed_max <= buffer
+
+
 def test_no_rate_limit_backward_compat():
-    """Without rate limit env vars, evaluation should work identically to before."""
     data = [
         {
             "inputs": {"question": "What is MLflow?"},
