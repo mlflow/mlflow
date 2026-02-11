@@ -7,6 +7,7 @@ import pathlib
 import posixpath
 import re
 import tempfile
+import threading
 import time
 import urllib
 from functools import partial, wraps
@@ -5264,6 +5265,11 @@ def get_gateway_endpoints():
 
 # Demo APIs
 
+# Serialize demo generation so concurrent requests (e.g. FastAPI running Flask
+# handlers in a thread pool) cannot race on the process-wide MLFLOW_WORKSPACE
+# env var that WorkspaceContext temporarily sets during generate_all_demos.
+_demo_generate_lock = threading.Lock()
+
 
 def get_demo_endpoints():
     """Returns endpoint tuples for demo data generation and deletion APIs."""
@@ -5318,7 +5324,8 @@ def _generate_demo():
             }
         )
 
-    results = generate_all_demos(features=features)
+    with _demo_generate_lock:
+        results = generate_all_demos(features=features)
 
     experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     experiment_id = experiment.experiment_id if experiment else None
