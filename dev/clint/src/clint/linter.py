@@ -780,13 +780,14 @@ class Linter(ast.NodeVisitor):
         )
 
     def visit_Call(self, node: ast.Call) -> None:
-        if rules.WorkspaceQueryIsolation.check(
-            node,
-            path=self.path,
-            function_name=self._current_function_name(),
-            ancestors=self.node_stack,
-        ):
-            self._check(Range.from_node(node), rules.WorkspaceQueryIsolation())
+        if rules.WorkspaceQueryIsolation.name in self.config.select:
+            if rules.WorkspaceQueryIsolation.check(
+                node,
+                path=self.path,
+                function_name=self._current_function_name(),
+                ancestors=self.node_stack,
+            ):
+                self._check(Range.from_node(node), rules.WorkspaceQueryIsolation())
 
         if (
             self.is_mlflow_init_py

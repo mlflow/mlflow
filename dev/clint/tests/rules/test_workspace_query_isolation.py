@@ -8,6 +8,7 @@ from clint.config import Config
 from clint.linter import Violation, lint_file
 from clint.rules.workspace_query_isolation import (
     WorkspaceQueryIsolation,
+    _get_protected_models,
     _get_workspace_isolated_models,
     _get_workspace_overrides,
     _parse_workspace_store,
@@ -44,6 +45,7 @@ MOCK_WORKSPACE_MODELS = frozenset(
 def _mock_workspace_discovery() -> Generator[None, None, None]:
     _get_workspace_overrides.cache_clear()
     _get_workspace_isolated_models.cache_clear()
+    _get_protected_models.cache_clear()
     _parse_workspace_store.cache_clear()
     with (
         patch(
@@ -58,6 +60,7 @@ def _mock_workspace_discovery() -> Generator[None, None, None]:
         yield
     _get_workspace_overrides.cache_clear()
     _get_workspace_isolated_models.cache_clear()
+    _get_protected_models.cache_clear()
     _parse_workspace_store.cache_clear()
 
 
@@ -277,6 +280,69 @@ class Store:
 """
     violations = _lint(code, index_path)
     assert len(violations) == 0
+
+
+def test_per_model_trust_covers_child_model(index_path: Path) -> None:
+    code = """
+class Store:
+    def delete_scorer(self, session, experiment_id, name):
+        experiment = self.get_experiment(experiment_id)
+        session.query(SqlRun).filter(SqlRun.experiment_id == experiment.experiment_id).all()
+"""
+    violations = _lint(code, index_path)
+    assert len(violations) == 0
+
+
+def test_per_model_trust_flags_unrelated_model(index_path: Path) -> None:
+    code = """
+class Store:
+    def bad_method(self, session, run_id):
+        self._validate_run_accessible(session, run_id)
+        session.query(SqlExperiment).filter(SqlExperiment.experiment_id == "1").first()
+"""
+    violations = _lint(code, index_path)
+    assert len(violations) == 1
+
+
+def test_per_model_trust_unknown_helper_not_trusted(index_path: Path) -> None:
+    code = """
+class Store:
+    def method(self, session):
+        self._create_default_experiment(session)
+        session.query(SqlExperiment).filter(SqlExperiment.experiment_id == "1").first()
+"""
+    violations = _lint(code, index_path)
+    assert len(violations) == 1
+
+
+def test_per_model_trust_get_query_extracts_model(index_path: Path) -> None:
+    code = """
+class Store:
+    def method(self, session, run_id):
+        ws_query = self._get_query(session, SqlRun)
+        session.query(SqlRun).filter(SqlRun.run_uuid == run_id).first()
+"""
+    violations = _lint(code, index_path)
+    assert len(violations) == 0
+
+
+def test_model_registry_store_path(index_path: Path) -> None:
+    code = """
+class Store:
+    def get_model(self, session, name):
+        session.query(SqlRegisteredModel).filter(SqlRegisteredModel.name == name).one()
+"""
+    registry_models = frozenset({"SqlRegisteredModel", "SqlModelVersion"})
+    with patch(
+        "clint.rules.workspace_query_isolation._get_workspace_isolated_models",
+        return_value=registry_models,
+    ):
+        violations = _lint(
+            code,
+            index_path,
+            path=Path("mlflow/store/model_registry/sqlalchemy_store.py"),
+        )
+    assert len(violations) == 1
 
 
 def test_inner_function_without_helper_flagged(index_path: Path) -> None:
