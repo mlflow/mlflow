@@ -3,7 +3,7 @@ import { Button, Empty, Spinner, BeakerIcon, CloseIcon, useDesignSystemTheme } f
 import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
-import { getAjaxUrl } from '../../common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl } from '../../common/utils/FetchUtils';
 
 const DEMO_BANNER_DISMISSED_KEY = 'mlflow.demo.banner.dismissed';
 
@@ -16,10 +16,9 @@ export const DemoBanner = () => {
   const handleLaunchDemo = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(getAjaxUrl('ajax-api/3.0/mlflow/demo/generate'), {
+      const data = await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/demo/generate'), {
         method: 'POST',
       });
-      const data = await response.json();
       navigate(data.navigation_url || '/experiments');
     } catch (error) {
       Utils.logErrorAndNotifyUser(error);

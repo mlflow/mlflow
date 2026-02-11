@@ -3,6 +3,15 @@
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
 
+import { getWorkspacesEnabledSync } from './ServerFeaturesContext';
+
+// Returns the current workspaces enabled state from the cached server features.
+// This is synchronous and returns the cached value (false if not yet loaded).
+// For React components, prefer using the useWorkspacesEnabled hook instead.
+export const shouldEnableWorkspaces = () => getWorkspacesEnabledSync();
+
+export const shouldEnableWorkspacePermissions = () => shouldEnableWorkspaces();
+
 export const shouldEnableRunDetailsPageAutoRefresh = () => true;
 
 /**
