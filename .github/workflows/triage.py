@@ -59,7 +59,7 @@ def build_prompt(title: str, body: str) -> str:
     )
 
 
-def call_anthropic_api(prompt: str) -> tuple[dict[str, Any], dict[str, int]]:
+def call_anthropic_api(prompt: str) -> dict[str, Any]:
     api_key = os.environ["ANTHROPIC_API_KEY"]
     request_body = {
         "model": "claude-haiku-4-5-20251001",
@@ -111,7 +111,11 @@ def call_anthropic_api(prompt: str) -> tuple[dict[str, Any], dict[str, int]]:
 
     usage = response.get("usage", {})
     classification = json.loads(response["content"][0]["text"])
-    return classification, usage
+    return {
+        "comment": classification["comment"],
+        "reason": classification["reason"],
+        "usage": usage,
+    }
 
 
 # https://docs.anthropic.com/en/docs/about-claude/models#model-comparison-table
@@ -137,12 +141,7 @@ def triage_issue(title: str, body: str) -> dict[str, Any]:
         }
 
     prompt = build_prompt(title, body)
-    classification, usage = call_anthropic_api(prompt)
-    return {
-        "comment": classification["comment"],
-        "reason": classification["reason"],
-        "usage": usage,
-    }
+    return call_anthropic_api(prompt)
 
 
 GREEN = "\033[32m"
