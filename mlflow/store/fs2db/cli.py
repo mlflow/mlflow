@@ -31,6 +31,17 @@ def migrate_filestore(source: str, target: str, verify: bool) -> None:
             param_hint="'--target'",
         )
 
+    db_path = Path(target.removeprefix("sqlite:///")).resolve()
+    if not db_path.parent.is_dir():
+        raise click.BadParameter(
+            f"Parent directory does not exist: {db_path.parent}",
+            param_hint="'--target'",
+        )
+    if db_path.exists():
+        click.confirm(f"Database file already exists: {db_path}\nOverwrite?", abort=True)
+        db_path.unlink()
+
+    target = f"sqlite:///{db_path}"
     migrate(Path(source), target)
 
     if verify:
