@@ -347,7 +347,7 @@ def test_streamable_model_save_load(tmp_path, model_path):
     assert list(stream_result) == ["test1", "test2"]
 
 
-def test_log_model_does_not_emit_pickle_warning(sklearn_knn_model, tmp_path):
+def test_log_loader_module_model_does_not_emit_pickle_warning(sklearn_knn_model, tmp_path):
     sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
