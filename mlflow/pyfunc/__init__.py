@@ -412,7 +412,6 @@ import sys
 import tempfile
 import threading
 import uuid
-import warnings
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterator, Tuple, Union
@@ -3052,9 +3051,7 @@ def save_model(
             "it requires exercising caution as Python object serialization mechanisms may "
             "execute arbitrary code during deserialization."
             "Consider using a file path (str or Path) instead. See "
-            "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details.",
-            FutureWarning,
-            stacklevel=2,
+            "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details."
         )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
