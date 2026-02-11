@@ -115,6 +115,7 @@ def call_anthropic_api(prompt: str) -> dict[str, Any]:
         "comment": result["comment"],
         "reason": result["reason"],
         "usage": usage,
+        "cost_in_usd": compute_cost(usage),
     }
 
 
@@ -138,6 +139,7 @@ def triage_issue(title: str, body: str) -> dict[str, Any]:
             "comment": None,
             "reason": "Skipped: Issue title contains 'Security Vulnerability'",
             "usage": {"input_tokens": 0, "output_tokens": 0},
+            "cost_in_usd": 0,
         }
 
     prompt = build_prompt(title, body)
@@ -176,13 +178,12 @@ def run_tests() -> None:
             executor.submit(triage_issue, issue["title"], issue["body"]): issue for issue in issues
         }
 
-    total_usage = {"input_tokens": 0, "output_tokens": 0}
+    total_cost = 0.0
 
     for future in futures:
         issue = futures[future]
         result = future.result()
-        for k in total_usage:
-            total_usage[k] += result["usage"].get(k, 0)
+        total_cost += result["cost_in_usd"]
 
         has_comment = result["comment"] is not None
         color = RED if has_comment else GREEN
@@ -191,11 +192,7 @@ def run_tests() -> None:
         if result["comment"]:
             print(f"  comment: {result['comment'][:200]}")
 
-    cost = compute_cost(total_usage)
-    print(
-        f"\nTokens: {total_usage['input_tokens']} input, {total_usage['output_tokens']} output"
-        f" (${cost:.4f})"
-    )
+    print(f"\nTotal cost: ${total_cost:.4f}")
 
 
 def main() -> None:
@@ -212,13 +209,7 @@ def main() -> None:
     match args.command:
         case "triage":
             result = triage_issue(args.title, args.body)
-            print(json.dumps({"comment": result["comment"], "reason": result["reason"]}))
-            # Print cost to stdout
-            cost = compute_cost(result["usage"])
-            print(
-                f"Tokens: {result['usage']['input_tokens']} input, "
-                f"{result['usage']['output_tokens']} output (${cost:.4f})"
-            )
+            print(json.dumps(result))
         case "test":
             run_tests()
         case _:

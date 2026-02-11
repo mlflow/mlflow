@@ -60,9 +60,8 @@ jobs:
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          output=$(python .github/workflows/triage.py triage --title "$ISSUE_TITLE" --body "$ISSUE_BODY")
-          echo "$output"
-          result=$(echo "$output" | head -1)
+          result=$(python .github/workflows/triage.py triage --title "$ISSUE_TITLE" --body "$ISSUE_BODY")
+          echo "$result"
           echo "result=$result" >> "$GITHUB_OUTPUT"
 
       - name: Comment and label if info needed
