@@ -111,7 +111,11 @@ _RICH_QUERIES: dict[str, str] = {
         " (SELECT COUNT(*) FROM model_versions mv WHERE mv.name = rm.name)"
         " + (SELECT COUNT(*) FROM registered_model_tags rt WHERE rt.name = rm.name)"
         " AS richness"
-        " FROM registered_models rm ORDER BY richness DESC LIMIT 3"
+        " FROM registered_models rm"
+        " WHERE rm.name NOT IN"
+        "  (SELECT rt.name FROM registered_model_tags rt"
+        "   WHERE rt.key = 'mlflow.prompt.is_prompt')"
+        " ORDER BY richness DESC LIMIT 3"
     ),
     "prompt": (
         "SELECT rm.name,"
@@ -332,18 +336,33 @@ def _check_dataset(src: MlflowClient, dst: MlflowClient, target_uri: str) -> boo
     return ok
 
 
+def _find_trace_experiment(target_uri: str, trace_id: str) -> str | None:
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(target_uri)
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT experiment_id FROM trace_info WHERE request_id = :tid"),
+            {"tid": trace_id},
+        ).fetchone()
+        return str(row[0]) if row else None
+
+
 def _find_trace_pair(
-    src: MlflowClient, dst: MlflowClient, trace_id: str
+    src: MlflowClient, dst: MlflowClient, target_uri: str, trace_id: str
 ) -> tuple[object, object] | None:
-    """Find a trace in both source and destination by searching all experiments."""
-    src_exps = src.search_experiments(view_type=3)
-    for exp in src_exps:
-        src_traces = src.search_traces(locations=[exp.experiment_id], max_results=10)
-        if src_trace := next((t for t in src_traces if t.info.request_id == trace_id), None):
-            dst_traces = dst.search_traces(locations=[exp.experiment_id], max_results=10)
-            dst_trace = next((t for t in dst_traces if t.info.request_id == trace_id), None)
-            return src_trace, dst_trace
-    return None
+    exp_id = _find_trace_experiment(target_uri, trace_id)
+    if exp_id is None:
+        return None
+
+    src_traces = src.search_traces(locations=[exp_id])
+    src_trace = next((t for t in src_traces if t.info.request_id == trace_id), None)
+    if src_trace is None:
+        return None
+
+    dst_traces = dst.search_traces(locations=[exp_id])
+    dst_trace = next((t for t in dst_traces if t.info.request_id == trace_id), None)
+    return src_trace, dst_trace
 
 
 def _check_trace(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
@@ -355,7 +374,7 @@ def _check_trace(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool:
     ok = True
     for row in rows:
         trace_id = row[0]
-        pair = _find_trace_pair(src, dst, trace_id)
+        pair = _find_trace_pair(src, dst, target_uri, trace_id)
         if pair is None:
             _pass(f"trace {trace_id}: not found in source (skipped)")
             continue
@@ -411,7 +430,7 @@ def _check_assessment(src: MlflowClient, dst: MlflowClient, target_uri: str) -> 
     ok = True
     for row in rows:
         trace_id = row[0]
-        pair = _find_trace_pair(src, dst, trace_id)
+        pair = _find_trace_pair(src, dst, target_uri, trace_id)
         if pair is None:
             _pass(f"assessment: trace {trace_id} not found in source (skipped)")
             continue
@@ -453,13 +472,13 @@ def _check_logged_model(src: MlflowClient, dst: MlflowClient, target_uri: str) -
         model_id = row[0]
         exp_id = str(row[1])
 
-        src_models = src.search_logged_models(experiment_ids=[exp_id], max_results=10)
+        src_models = src.search_logged_models(experiment_ids=[exp_id])
         src_model = next((m for m in src_models if m.model_id == model_id), None)
         if src_model is None:
             _pass(f"logged_model {model_id}: not found in source (skipped)")
             continue
 
-        dst_models = dst.search_logged_models(experiment_ids=[exp_id], max_results=10)
+        dst_models = dst.search_logged_models(experiment_ids=[exp_id])
         dst_model = next((m for m in dst_models if m.model_id == model_id), None)
         if dst_model is None:
             _fail(f"logged_model {model_id}: missing from DB")
@@ -498,14 +517,14 @@ def _check_registered_model(src: MlflowClient, dst: MlflowClient, target_uri: st
     ok = True
     for row in rows:
         name = row[0]
-        src_models = src.search_registered_models(max_results=10)
-        src_model = next((m for m in src_models if m.name == name), None)
+        src_models = src.search_registered_models(filter_string=f"name='{name}'")
+        src_model = next(iter(src_models), None)
         if src_model is None:
             _pass(f"registered_model {name}: not found in source (skipped)")
             continue
 
-        dst_models = dst.search_registered_models(max_results=10)
-        dst_model = next((m for m in dst_models if m.name == name), None)
+        dst_models = dst.search_registered_models(filter_string=f"name='{name}'")
+        dst_model = next(iter(dst_models), None)
         if dst_model is None:
             _fail(f"registered_model {name}: missing from DB")
             ok = False
@@ -599,17 +618,18 @@ def _check_prompt(src: MlflowClient, dst: MlflowClient, target_uri: str) -> bool
         _pass("prompt: none found")
         return True
 
+    src_prompts = {p.name: p for p in src.search_prompts()}
+    dst_prompts = {p.name: p for p in dst.search_prompts()}
+
     ok = True
     for row in rows:
         name = row[0]
 
-        src_prompt = src.get_prompt(name)
-        if src_prompt is None:
+        if name not in src_prompts:
             _pass(f"prompt {name}: not found in source (skipped)")
             continue
 
-        dst_prompt = dst.get_prompt(name)
-        if dst_prompt is None:
+        if name not in dst_prompts:
             _fail(f"prompt {name}: missing from DB")
             ok = False
             continue
