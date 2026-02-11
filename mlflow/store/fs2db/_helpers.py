@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from dataclasses import dataclass, fields
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -40,7 +41,7 @@ class MigrationStats:
                 yield f.name, val
 
 
-def safe_read_yaml(root: Path, file_name: str) -> dict[str, object] | None:
+def safe_read_yaml(root: Path, file_name: str) -> dict[str, Any] | None:
     try:
         return yaml.safe_load((root / file_name).read_text())
     except Exception:
