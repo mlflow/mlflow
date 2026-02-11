@@ -1,4 +1,5 @@
 import ast
+from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
 
@@ -16,10 +17,67 @@ WORKSPACE_STORE_PATHS = {
 BASE_STORE_PATHS = set(WORKSPACE_STORE_PATHS)
 # Methods that intentionally don't need workspace isolation (e.g., DB setup).
 ALLOWLISTED_METHODS = {"_initialize_store_state"}
-# Base store methods that internally delegate to workspace overrides (e.g.,
-# get_experiment calls _get_experiment which calls self._get_query).  Calling
-# these via self makes the caller workspace-aware.
-WORKSPACE_SAFE_CALLERS = {"get_experiment", "get_experiment_by_name"}
+
+# Per-model coverage for workspace helpers.  When a method calls one of these
+# helpers via ``self``, only queries on the listed models (and their children
+# via MODEL_CHILDREN) are trusted.  New workspace helpers must be added here
+# to be recognized by the linter.
+HELPER_MODEL_COVERAGE: dict[str, frozenset[str]] = {
+    "get_experiment": frozenset({"SqlExperiment"}),
+    "get_experiment_by_name": frozenset({"SqlExperiment"}),
+    "_validate_run_accessible": frozenset({"SqlRun"}),
+    "_validate_trace_accessible": frozenset({"SqlTraceInfo"}),
+    "_validate_dataset_accessible": frozenset({"SqlEvaluationDataset"}),
+    "_trace_query": frozenset({"SqlTraceInfo"}),
+    "_experiment_where_clauses": frozenset({"SqlExperiment"}),
+    "_filter_experiment_ids": frozenset({"SqlExperiment"}),
+    "_filter_endpoint_binding_query": frozenset({"SqlGatewayEndpointBinding"}),
+    "_get_sql_assessment": frozenset({"SqlAssessments"}),
+}
+
+# Parent model -> child models for transitive workspace safety.  Validating a
+# parent also trusts queries on its children (scoped by the parent's FK).
+# Only workspace-isolated models need entries here since non-isolated models
+# are already skipped by the linter.
+MODEL_CHILDREN: dict[str, frozenset[str]] = {
+    "SqlExperiment": frozenset(
+        {
+            "SqlGatewayEndpoint",
+            "SqlLoggedModel",
+            "SqlOnlineScoringConfig",
+            "SqlRun",
+            "SqlTraceInfo",
+        }
+    ),
+    "SqlGatewayEndpoint": frozenset(
+        {
+            "SqlGatewayEndpointBinding",
+            "SqlGatewayEndpointModelMapping",
+        }
+    ),
+    "SqlGatewayModelDefinition": frozenset(
+        {
+            "SqlGatewayEndpointModelMapping",
+        }
+    ),
+    "SqlGatewaySecret": frozenset(
+        {
+            "SqlGatewayModelDefinition",
+        }
+    ),
+    "SqlModelVersion": frozenset(
+        {
+            "SqlModelVersionTag",
+        }
+    ),
+    "SqlRegisteredModel": frozenset(
+        {
+            "SqlModelVersion",
+            "SqlRegisteredModelAlias",
+            "SqlRegisteredModelTag",
+        }
+    ),
+}
 
 
 @lru_cache(maxsize=None)
@@ -151,7 +209,8 @@ class WorkspaceQueryIsolation(Rule):
                 f"No workspace-isolated models found for {path}. "
                 "Has the workspace store's _get_query been refactored?"
             )
-        if not _targets_workspace_model(node, workspace_models):
+        queried_model = _get_queried_model(node)
+        if not queried_model or queried_model not in workspace_models:
             return False
 
         method_name, method_node = _get_enclosing_class_method(ancestors)
@@ -167,18 +226,14 @@ class WorkspaceQueryIsolation(Rule):
         # is replaced at runtime with a workspace-filtered version.
         if method_name in workspace_overrides:
             return False
-        # The method already calls a workspace-aware helper (e.g.
-        # self._get_query(), self._validate_run_accessible()), so it is
-        # workspace-aware and its session.query() calls are trusted.
-        # Note: this is a method-level heuristic — a method could validate one
-        # entity but miss another.  Catching that would require data-flow
-        # analysis, so we accept the tradeoff of trusting the method once it
-        # demonstrates workspace awareness.
-        safe_methods = workspace_overrides | WORKSPACE_SAFE_CALLERS
-        if method_node is not None and _calls_workspace_helper(
-            id(method_node), method_node, safe_methods
-        ):
-            return False
+        # Per-model trust: check which models the method's workspace helpers
+        # actually protect, and only trust queries on those specific models
+        # (plus their children via MODEL_CHILDREN).
+        safe_methods = workspace_overrides | frozenset(HELPER_MODEL_COVERAGE)
+        if method_node is not None:
+            protected = _get_protected_models(id(method_node), method_node, safe_methods)
+            if queried_model in protected:
+                return False
 
         return True
 
@@ -197,14 +252,12 @@ def _is_outermost_call(node: ast.Call, ancestors: list[ast.AST]) -> bool:
     )
 
 
-def _get_call_chain(node: ast.Call) -> list[ast.Call]:
-    """Walk a method chain like ``session.query(...).filter(...).all()``."""
-    chain: list[ast.Call] = []
+def _iter_call_chain(node: ast.Call) -> Iterator[ast.Call]:
+    """Yield calls in a method chain like ``session.query(...).filter(...).all()``."""
     current: ast.Call | None = node
     while isinstance(current, ast.Call) and isinstance(current.func, ast.Attribute):
-        chain.append(current)
+        yield current
         current = current.func.value if isinstance(current.func.value, ast.Call) else None
-    return chain
 
 
 def _is_direct_session_query(node: ast.Call) -> bool:
@@ -213,7 +266,7 @@ def _is_direct_session_query(node: ast.Call) -> bool:
     Returns False for chains starting with ``self._get_query(...)`` or other
     ``self.<method>(...)`` calls since those are workspace-aware helpers.
     """
-    for call in _get_call_chain(node):
+    for call in _iter_call_chain(node):
         if not isinstance(call.func, ast.Attribute):
             continue
         if call.func.attr == "query":
@@ -224,16 +277,21 @@ def _is_direct_session_query(node: ast.Call) -> bool:
     return False
 
 
-def _targets_workspace_model(node: ast.Call, workspace_models: frozenset[str]) -> bool:
-    """Return True if the query chain references a workspace-isolated model."""
-    for call in _get_call_chain(node):
+def _get_queried_model(node: ast.Call) -> str | None:
+    """Extract the ``Sql*`` model name from the ``session.query()`` in the chain.
+
+    Returns the first ``Sql*`` name found.  Multi-model queries like
+    ``session.query(SqlRun, SqlExperiment)`` only check the first model,
+    but this pattern is rare in the codebase.
+    """
+    for call in _iter_call_chain(node):
         if not isinstance(call.func, ast.Attribute) or call.func.attr != "query":
             continue
         for arg in call.args:
             for inner in ast.walk(arg):
-                if isinstance(inner, ast.Name) and inner.id in workspace_models:
-                    return True
-    return False
+                if isinstance(inner, ast.Name) and inner.id.startswith("Sql"):
+                    return inner.id
+    return None
 
 
 def _get_enclosing_class_method(
@@ -250,24 +308,46 @@ def _get_enclosing_class_method(
 
 
 @lru_cache(maxsize=None)
-def _calls_workspace_helper(
+def _get_protected_models(
     _method_id: int,
     method_node: ast.FunctionDef | ast.AsyncFunctionDef,
     safe_methods: frozenset[str],
-) -> bool:
-    """Return True if the method calls any workspace-aware helper via ``self``.
+) -> frozenset[str]:
+    """Return models protected by workspace helpers called via ``self``.
 
-    Results are cached per method node (keyed by ``id(method_node)``) so the
-    AST walk is not repeated for every ``session.query()`` call in the same
-    method.
+    Returns an empty frozenset if no recognized workspace helpers are called.
+    Results are cached per method node to avoid repeated AST walks.
+    ``_method_id`` (``id(method_node)``) is safe as a cache key because AST
+    nodes live for the entire file traversal, so ids are not recycled.
     """
+    protected: set[str] = set()
     for node in ast.walk(method_node):
-        if (
+        if not (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
             and isinstance(node.func.value, ast.Name)
             and node.func.value.id == "self"
             and node.func.attr in safe_methods
         ):
-            return True
-    return False
+            continue
+        helper_name = node.func.attr
+        if helper_name in HELPER_MODEL_COVERAGE:
+            protected.update(HELPER_MODEL_COVERAGE[helper_name])
+        elif helper_name == "_get_query" and len(node.args) >= 2:
+            # Extract model from self._get_query(session, SqlModel)
+            model_arg = node.args[1]
+            if isinstance(model_arg, ast.Name) and model_arg.id.startswith("Sql"):
+                protected.add(model_arg.id)
+        # Helpers not in HELPER_MODEL_COVERAGE and not _get_query are ignored —
+        # they don't contribute any model coverage.  This is intentionally
+        # strict: new helpers must be added to the mapping to be recognized.
+    # Transitively expand with parent -> child relationships
+    expanded = set(protected)
+    queue = list(protected)
+    while queue:
+        model = queue.pop()
+        for child in MODEL_CHILDREN.get(model, frozenset()):
+            if child not in expanded:
+                expanded.add(child)
+                queue.append(child)
+    return frozenset(expanded)
