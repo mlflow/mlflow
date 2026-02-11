@@ -198,6 +198,29 @@ def run_tests() -> None:
     print(f"\nTotal usage: {json.dumps(total_usage, indent=2)}")
 
 
+def write_step_summary(result: dict[str, Any]) -> None:
+    """Write formatted triage result to GitHub step summary if env var is set."""
+    step_summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not step_summary_path:
+        return
+
+    comment = result.get("comment")
+    reason = result.get("reason", "")
+    usage = result.get("usage", {})
+
+    with open(step_summary_path, "a") as f:
+        f.write("## Comment\n")
+        f.write(f"{comment or 'None'}\n")
+        f.write("\n")
+        f.write("## Reason\n")
+        f.write(f"{reason}\n")
+        f.write("\n")
+        f.write("## Usage\n")
+        f.write("```json\n")
+        f.write(json.dumps({"usage": usage}, indent=2))
+        f.write("\n```\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Triage GitHub issues")
     subparsers = parser.add_subparsers(dest="command")
@@ -212,6 +235,7 @@ def main() -> None:
     match args.command:
         case "triage":
             result = triage_issue(args.title, args.body)
+            write_step_summary(result)
             print(json.dumps(result))
         case "test":
             run_tests()
