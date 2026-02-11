@@ -127,20 +127,22 @@ def compute_cost(usage: dict[str, int]) -> float:
     ) / 1_000_000
 
 
-def triage_issue(title: str, body: str) -> tuple[dict[str, Any], dict[str, int]]:
+def triage_issue(title: str, body: str) -> dict[str, Any]:
     # Skip triage for security vulnerability issues
     if "security vulnerability" in title.lower():
         return {
             "comment": None,
             "reason": "Skipped: Issue title contains 'Security Vulnerability'",
-        }, {"input_tokens": 0, "output_tokens": 0}
+            "usage": {"input_tokens": 0, "output_tokens": 0},
+        }
 
     prompt = build_prompt(title, body)
     classification, usage = call_anthropic_api(prompt)
     return {
         "comment": classification["comment"],
         "reason": classification["reason"],
-    }, usage
+        "usage": usage,
+    }
 
 
 GREEN = "\033[32m"
@@ -179,9 +181,9 @@ def run_tests() -> None:
 
     for future in futures:
         issue = futures[future]
-        result, usage = future.result()
+        result = future.result()
         for k in total_usage:
-            total_usage[k] += usage.get(k, 0)
+            total_usage[k] += result["usage"].get(k, 0)
 
         has_comment = result["comment"] is not None
         color = RED if has_comment else GREEN
@@ -210,12 +212,15 @@ def main() -> None:
     args = parser.parse_args()
     match args.command:
         case "triage":
-            result, usage = triage_issue(args.title, args.body)
-            print(json.dumps(result))
-            cost = compute_cost(usage)
+            result = triage_issue(args.title, args.body)
+            # Print result without usage to stdout
+            output = {k: v for k, v in result.items() if k != "usage"}
+            print(json.dumps(output))
+            # Print cost to stderr
+            cost = compute_cost(result["usage"])
             print(
-                f"Tokens: {usage['input_tokens']} input, {usage['output_tokens']} output"
-                f" (${cost:.4f})",
+                f"Tokens: {result['usage']['input_tokens']} input, "
+                f"{result['usage']['output_tokens']} output (${cost:.4f})",
                 file=sys.stderr,
             )
         case "test":
