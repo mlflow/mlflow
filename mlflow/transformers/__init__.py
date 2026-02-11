@@ -205,11 +205,12 @@ def get_default_pip_requirements(model) -> list[str]:
         engine = _get_engine_type(model)
         packages.append(engine)
     except Exception as e:
-        packages += ["torch", "tensorflow"]
+        packages.append("torch")
+        if importlib.util.find_spec("tensorflow"):
+            packages.append("tensorflow")
         _logger.warning(
-            "Could not infer model execution engine type due to huggingface_hub not "
-            "being installed or unable to connect in online mode. Adding both Pytorch"
-            f"and Tensorflow to requirements.\nFailure cause: {e}"
+            "Could not infer model execution engine type. Adding available deep learning "
+            f"framework(s) to requirements.\nFailure cause: {e}"
         )
 
     if "torch" in packages:
@@ -1568,18 +1569,28 @@ def _get_engine_type(model):
     Determines the underlying execution engine for the model based on the 3 currently supported
     deep learning framework backends: ``tensorflow``, ``torch``, or ``flax``.
     """
-    from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
+    from transformers import PreTrainedModel
     from transformers.utils import is_torch_available
+
+    try:
+        from transformers import TFPreTrainedModel
+    except Exception:
+        TFPreTrainedModel = None
+
+    try:
+        from transformers import FlaxPreTrainedModel
+    except Exception:
+        FlaxPreTrainedModel = None
 
     if is_peft_model(model):
         model = get_peft_base_model(model)
 
     for cls in model.__class__.__mro__:
-        if issubclass(cls, TFPreTrainedModel):
+        if TFPreTrainedModel is not None and issubclass(cls, TFPreTrainedModel):
             return "tensorflow"
         elif issubclass(cls, PreTrainedModel):
             return "torch"
-        elif issubclass(cls, FlaxPreTrainedModel):
+        elif FlaxPreTrainedModel is not None and issubclass(cls, FlaxPreTrainedModel):
             return "flax"
 
     # As a fallback, we check current environment to determine the engine type
