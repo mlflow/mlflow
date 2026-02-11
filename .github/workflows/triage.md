@@ -186,3 +186,24 @@ pickle.PicklingError: Could not serialize object
 **Expected behavior:**
 The evaluation should work with Spark DataFrames just like it does with
 Pandas DataFrames.
+
+---
+
+## Issue 11 — Security Vulnerability (expect no comment - filtered by triage.py)
+
+**Title:** Security Vulnerability: XSS in MLflow UI allows script injection
+
+**Body:**
+I discovered a cross-site scripting vulnerability in the MLflow UI that allows
+an attacker to inject malicious JavaScript code through experiment names.
+
+This is a serious security issue that needs immediate attention.
+
+---
+
+## Issue 12 — security vulnerability lowercase (expect no comment - filtered by triage.py)
+
+**Title:** security vulnerability in authentication module
+
+**Body:**
+Found a security issue in the authentication flow that allows bypassing login.

@@ -59,7 +59,7 @@ def build_prompt(title: str, body: str) -> str:
     )
 
 
-def call_anthropic_api(prompt: str) -> tuple[dict[str, Any], dict[str, int]]:
+def call_anthropic_api(prompt: str) -> dict[str, Any]:
     api_key = os.environ["ANTHROPIC_API_KEY"]
     request_body = {
         "model": "claude-haiku-4-5-20251001",
@@ -110,8 +110,12 @@ def call_anthropic_api(prompt: str) -> tuple[dict[str, Any], dict[str, int]]:
         raise
 
     usage = response.get("usage", {})
-    classification = json.loads(response["content"][0]["text"])
-    return classification, usage
+    result = json.loads(response["content"][0]["text"])
+    return {
+        "comment": result["comment"],
+        "reason": result["reason"],
+        "usage": usage,
+    }
 
 
 # https://docs.anthropic.com/en/docs/about-claude/models#model-comparison-table
@@ -128,12 +132,16 @@ def compute_cost(usage: dict[str, int]) -> float:
 
 
 def triage_issue(title: str, body: str) -> dict[str, Any]:
+    # Skip triage for security vulnerability issues
+    if "security vulnerability" in title.lower():
+        return {
+            "comment": None,
+            "reason": "Skipped: Issue title contains 'Security Vulnerability'",
+            "usage": {"input_tokens": 0, "output_tokens": 0},
+        }
+
     prompt = build_prompt(title, body)
-    classification, _ = call_anthropic_api(prompt)
-    return {
-        "comment": classification["comment"],
-        "reason": classification["reason"],
-    }
+    return call_anthropic_api(prompt)
 
 
 GREEN = "\033[32m"
@@ -159,33 +167,22 @@ def parse_dataset(path: Path) -> list[dict[str, str]]:
     return issues
 
 
-def triage_synthetic(title: str, body: str) -> tuple[dict[str, Any], dict[str, int]]:
-    prompt = build_prompt(title, body)
-    classification, usage = call_anthropic_api(prompt)
-    return {
-        "title": title,
-        "comment": classification["comment"],
-        "reason": classification["reason"],
-    }, usage
-
-
 def run_tests() -> None:
     dataset_path = Path(__file__).parent / "triage.md"
     issues = parse_dataset(dataset_path)
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {
-            executor.submit(triage_synthetic, issue["title"], issue["body"]): issue
-            for issue in issues
+            executor.submit(triage_issue, issue["title"], issue["body"]): issue for issue in issues
         }
 
     total_usage = {"input_tokens": 0, "output_tokens": 0}
 
     for future in futures:
         issue = futures[future]
-        result, usage = future.result()
+        result = future.result()
         for k in total_usage:
-            total_usage[k] += usage.get(k, 0)
+            total_usage[k] += result["usage"].get(k, 0)
 
         has_comment = result["comment"] is not None
         color = RED if has_comment else GREEN
@@ -215,7 +212,16 @@ def main() -> None:
     match args.command:
         case "triage":
             result = triage_issue(args.title, args.body)
+            # Extract usage for cost calculation, then remove from result
+            usage = result.pop("usage")
             print(json.dumps(result))
+            # Print cost to stderr
+            cost = compute_cost(usage)
+            print(
+                f"Tokens: {usage['input_tokens']} input, "
+                f"{usage['output_tokens']} output (${cost:.4f})",
+                file=sys.stderr,
+            )
         case "test":
             run_tests()
         case _:
