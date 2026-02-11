@@ -86,7 +86,7 @@ def load_small_conversational_model():
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             "microsoft/DialoGPT-small", low_cpu_mem_usage=True
         )
-        model = transformers.AutoModelWithLMHead.from_pretrained(
+        model = transformers.AutoModelForCausalLM.from_pretrained(
             "satvikag/chatbot", low_cpu_mem_usage=True
         )
         return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
@@ -116,7 +116,7 @@ def load_text2text_generation_pipeline():
 def load_text_generation_pipeline():
     task = "text-generation"
     architecture = "distilgpt2"
-    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
+    model = transformers.AutoModelForCausalLM.from_pretrained(architecture)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         architecture, chat_template=CHAT_TEMPLATE
     )

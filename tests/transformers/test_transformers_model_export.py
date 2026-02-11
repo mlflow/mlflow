@@ -3309,7 +3309,7 @@ def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, 
     local_repo_path = tmp_path / "local_repo"
     text_generation_pipeline.save_pretrained(local_repo_path)
 
-    locally_loaded_model = transformers.AutoModelWithLMHead.from_pretrained(local_repo_path)
+    locally_loaded_model = transformers.AutoModelForCausalLM.from_pretrained(local_repo_path)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         local_repo_path, chat_template=CHAT_TEMPLATE
     )
@@ -3630,7 +3630,7 @@ def local_checkpoint_path(tmp_path):
     """
     Fixture to create a local model checkpoint for testing fine-tuning scenario.
     """
-    model = transformers.AutoModelWithLMHead.from_pretrained("distilgpt2")
+    model = transformers.AutoModelForCausalLM.from_pretrained("distilgpt2")
 
     class DummyDataset(torch.utils.data.Dataset):
         def __getitem__(self, idx):
