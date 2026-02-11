@@ -195,7 +195,7 @@ def run_tests() -> None:
         if result["comment"]:
             print(f"  comment: {result['comment'][:200]}")
 
-    print(f"\nTotal usage: {json.dumps(total_usage)}")
+    print(f"\nTotal usage: {json.dumps(total_usage, indent=2)}")
 
 
 def main() -> None:
