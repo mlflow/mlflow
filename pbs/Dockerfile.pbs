@@ -1,0 +1,40 @@
+# Dockerfile.pbs - Using python-build-standalone directly
+# Downloads pre-built Python binary - no compilation needed
+
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Minimal dependencies - only need curl and tar for extraction
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python version configuration
+# Using the same version as pyenv Dockerfile for fair comparison
+ARG PYTHON_VERSION=3.10.14
+ARG PBS_RELEASE=20240713
+
+# Download and extract pre-built Python from python-build-standalone
+RUN ARCH=$(uname -m) && \
+    echo "=== PBS Python Install ===" && \
+    echo "START_TIME=$(date +%s)" && \
+    curl -fsSL --retry 3 --retry-delay 5 -o /tmp/python.tar.gz \
+    "https://github.com/astral-sh/python-build-standalone/releases/download/${PBS_RELEASE}/cpython-${PYTHON_VERSION}+${PBS_RELEASE}-${ARCH}-unknown-linux-gnu-install_only.tar.gz" && \
+    mkdir -p /opt/python && \
+    tar -xzf /tmp/python.tar.gz -C /opt/python --strip-components=1 && \
+    rm /tmp/python.tar.gz && \
+    echo "END_TIME=$(date +%s)"
+
+ENV PATH="/opt/python/bin:$PATH"
+
+RUN python3 --version && which python3
+
+RUN pip3 install --upgrade pip virtualenv && \
+    python3 -m virtualenv /opt/venv && \
+    /opt/venv/bin/pip install scikit-learn numpy
+
+COPY test_sklearn.py /app/test_sklearn.py
+
+CMD ["/opt/venv/bin/python", "/app/test_sklearn.py"]
