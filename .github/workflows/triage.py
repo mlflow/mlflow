@@ -215,12 +215,11 @@ def main() -> None:
             # Extract usage for cost calculation, then remove from result
             usage = result.pop("usage")
             print(json.dumps(result))
-            # Print cost to stderr
+            # Print cost to stdout
             cost = compute_cost(usage)
             print(
                 f"Tokens: {usage['input_tokens']} input, "
-                f"{usage['output_tokens']} output (${cost:.4f})",
-                file=sys.stderr,
+                f"{usage['output_tokens']} output (${cost:.4f})"
             )
         case "test":
             run_tests()
