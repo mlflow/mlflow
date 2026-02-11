@@ -32,9 +32,9 @@ jobs:
 
       - run: python .github/workflows/triage.py test
 
-  # Production job: runs on new issues
+  # Main job: runs on new issues
   # Scoped to area/uiux for now; expand to other labels once we validate the results.
-  classify:
+  triage:
     if: >-
       github.event_name == 'issues'
       && contains(github.event.issue.labels.*.name, 'area/uiux')
