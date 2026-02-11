@@ -206,18 +206,21 @@ def write_step_summary(result: dict[str, Any]) -> None:
     comment = result.get("comment")
     reason = result.get("reason", "")
     usage = result.get("usage", {})
+    usage_json = json.dumps({"usage": usage}, indent=2)
 
+    summary = f"""## Comment
+{comment or "None"}
+
+## Reason
+{reason}
+
+## Usage
+```json
+{usage_json}
+```
+"""
     with open(step_summary_path, "a") as f:
-        f.write("## Comment\n")
-        f.write(f"{comment or 'None'}\n")
-        f.write("\n")
-        f.write("## Reason\n")
-        f.write(f"{reason}\n")
-        f.write("\n")
-        f.write("## Usage\n")
-        f.write("```json\n")
-        f.write(json.dumps({"usage": usage}, indent=2))
-        f.write("\n```\n")
+        f.write(summary)
 
 
 def main() -> None:
