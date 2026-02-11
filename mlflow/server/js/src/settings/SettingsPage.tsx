@@ -33,6 +33,13 @@ const SettingsPage = () => {
     [setIsTelemetryEnabled],
   );
 
+  const handleThemeToggle = useCallback(
+    (checked: boolean) => {
+      setIsDarkTheme(checked);
+    },
+    [setIsDarkTheme],
+  );
+
   const handleClearAllDemoData = useCallback(async () => {
     setIsCleaningDemo(true);
     try {
@@ -67,14 +74,14 @@ const SettingsPage = () => {
         <Switch
           componentId="mlflow.settings.theme.toggle-switch"
           checked={isDarkTheme}
-          onChange={() => setIsDarkTheme(!isDarkTheme)}
+          onChange={handleThemeToggle}
           label={
             isDarkTheme
               ? intl.formatMessage({ defaultMessage: 'Dark', description: 'Dark theme label' })
               : intl.formatMessage({ defaultMessage: 'Light', description: 'Light theme label' })
           }
-          activeLabel={intl.formatMessage({ defaultMessage: 'On', description: 'Telemetry enabled label' })}
-          inactiveLabel={intl.formatMessage({ defaultMessage: 'Off', description: 'Telemetry disabled label' })}
+          activeLabel={intl.formatMessage({ defaultMessage: 'Dark', description: 'Dark theme label' })}
+          inactiveLabel={intl.formatMessage({ defaultMessage: 'Light', description: 'Light theme label' })}
         />
       </div>
 
