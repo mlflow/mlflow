@@ -1889,6 +1889,85 @@ def test_find_completed_sessions_workspace_scoped(workspace_tracking_store):
         assert completed[0].session_id == "session-b"
 
 
+def test_delete_scorer_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-del-scorer-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-del-scorer-a")
+        with mock.patch.object(
+            workspace_tracking_store,
+            "get_gateway_endpoint",
+            return_value=_mock_gateway_endpoint(),
+        ):
+            workspace_tracking_store.register_scorer(
+                exp_a, "scorer-a", _gateway_model_scorer_json()
+            )
+
+    with WorkspaceContext("team-del-scorer-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-del-scorer-b")
+        with mock.patch.object(
+            workspace_tracking_store,
+            "get_gateway_endpoint",
+            return_value=_mock_gateway_endpoint(),
+        ):
+            workspace_tracking_store.register_scorer(
+                exp_b, "scorer-b", _gateway_model_scorer_json()
+            )
+
+        # Cross-workspace delete_scorer should fail (experiment not visible)
+        with pytest.raises(MlflowException, match="exists"):
+            workspace_tracking_store.delete_scorer(exp_a, "scorer-a")
+
+    # Scorer in workspace A should still exist
+    with WorkspaceContext("team-del-scorer-a"):
+        versions = workspace_tracking_store.list_scorer_versions(exp_a, "scorer-a")
+        assert len(versions) == 1
+
+        # Same-workspace delete should succeed
+        workspace_tracking_store.delete_scorer(exp_a, "scorer-a")
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.list_scorer_versions(exp_a, "scorer-a")
+
+
+def test_delete_dataset_records_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-del-rec-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-del-rec-a")
+        dataset_a = workspace_tracking_store.create_dataset(
+            name="dataset-del-rec-a",
+            experiment_ids=[exp_a],
+        )
+        workspace_tracking_store.upsert_dataset_records(
+            dataset_a.dataset_id,
+            [
+                {"inputs": {"x": 1}, "outputs": {"y": 1}},
+                {"inputs": {"x": 2}, "outputs": {"y": 2}},
+            ],
+        )
+
+    with WorkspaceContext("team-del-rec-b"):
+        workspace_tracking_store.create_experiment("exp-del-rec-b")
+
+        # Cross-workspace access to the dataset should be blocked
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store._load_dataset_records(dataset_a.dataset_id)
+
+        # Cross-workspace delete should also be blocked
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.delete_dataset_records(dataset_a.dataset_id, ["any-record-id"])
+
+    # Records in workspace A should still exist
+    with WorkspaceContext("team-del-rec-a"):
+        records, _ = workspace_tracking_store._load_dataset_records(dataset_a.dataset_id)
+        assert len(records) == 2
+        record_ids = [r.dataset_record_id for r in records]
+
+        # Same-workspace delete should succeed
+        deleted = workspace_tracking_store.delete_dataset_records(
+            dataset_a.dataset_id, record_ids[:1]
+        )
+        assert deleted == 1
+        remaining, _ = workspace_tracking_store._load_dataset_records(dataset_a.dataset_id)
+        assert len(remaining) == 1
+
+
 def test_gateway_config_resolver_scopes_bindings(gateway_workspace_store):
     resource_type = GatewayResourceType.SCORER.value
     resource_id = "job-42"

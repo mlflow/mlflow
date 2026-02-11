@@ -2344,7 +2344,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Verify endpoint exists in DB (handles mocked tests and race conditions)
             if endpoint_id is not None:
                 endpoint_exists = (
-                    session.query(SqlGatewayEndpoint)
+                    self._get_query(session, SqlGatewayEndpoint)
                     .filter(SqlGatewayEndpoint.endpoint_id == endpoint_id)
                     .first()
                 )
@@ -3505,12 +3505,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         # Subquery: first trace timestamp for each session
         first_trace_metadata = aliased(SqlTraceMetadata)
         first_traces = (
-            session.query(
+            self._trace_query(session)
+            .with_entities(
                 first_trace_metadata.value.label("session_id"),
                 func.min(SqlTraceInfo.timestamp_ms).label("first_timestamp"),
             )
             .join(
-                SqlTraceInfo,
+                first_trace_metadata,
                 SqlTraceInfo.request_id == first_trace_metadata.request_id,
             )
             .join(
@@ -3570,7 +3571,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         session_metadata = aliased(SqlTraceMetadata)
         stats_query = (
-            session.query(
+            self._trace_query(session)
+            .with_entities(
                 session_metadata.value.label("session_id"),
                 func.min(SqlTraceInfo.timestamp_ms).label("first_trace_timestamp_ms"),
                 func.max(SqlTraceInfo.timestamp_ms).label("last_trace_timestamp_ms"),
@@ -5397,6 +5399,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             The number of records deleted.
         """
         with self.ManagedSessionMaker() as session:
+            self._validate_dataset_accessible(session, dataset_id)
+
             deleted_count = (
                 session.query(SqlEvaluationDatasetRecord)
                 .filter(
@@ -5414,7 +5418,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 return 0
 
             dataset = (
-                session.query(SqlEvaluationDataset)
+                self._get_query(session, SqlEvaluationDataset)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
                 .first()
             )
