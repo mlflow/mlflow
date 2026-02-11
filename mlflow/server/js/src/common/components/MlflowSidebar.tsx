@@ -390,7 +390,8 @@ export function MlflowSidebar({
           icon={showSidebar ? <SidebarCollapseIcon /> : <SidebarExpandIcon />}
         />
       </div>
-      {enableWorkflowBasedNavigation && (
+      {workspacesEnabled && showSidebar && <WorkspaceSelector />}
+      {enableWorkflowBasedNavigation && showWorkspaceMenuItems && showSidebar && (
         <div
           css={{
             display: 'flex',
@@ -436,11 +437,6 @@ export function MlflowSidebar({
             margin: 0,
           }}
         >
-          {workspacesEnabled && showSidebar && (
-            <div css={{ display: 'flex', flexDirection: 'column', marginBottom: theme.spacing.md }}>
-              <WorkspaceSelector />
-            </div>
-          )}
           {showWorkspaceMenuItems &&
             menuItems.map(({ key, icon, linkProps, componentId, nestedItemsGroups, nestedItems }) => (
               <>
