@@ -18,7 +18,7 @@ import { useOverviewChartContext } from '../OverviewChartContext';
  * @returns Whether there are assessments outside the time range and loading state
  */
 export function useHasAssessmentsOutsideTimeRange(enabled: boolean) {
-  const { experimentId } = useOverviewChartContext();
+  const { experimentIds } = useOverviewChartContext();
 
   // Filter for feedback assessments only
   const filters = useMemo(() => [createAssessmentFilter(AssessmentFilterKey.TYPE, AssessmentTypeValue.FEEDBACK)], []);
@@ -29,7 +29,7 @@ export function useHasAssessmentsOutsideTimeRange(enabled: boolean) {
     isLoading,
     error,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs: undefined,
     endTimeMs: undefined,
     viewType: MetricViewType.ASSESSMENTS,

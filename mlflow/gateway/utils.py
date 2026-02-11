@@ -352,6 +352,46 @@ def to_sse_chunk(data: str) -> str:
     return f"data: {data}\n\n"
 
 
+def to_sse_error_chunk(error: Exception) -> str:
+    """Create an SSE-formatted error chunk."""
+    error_data = {
+        "error": {
+            "message": str(error),
+            "type": type(error).__name__,
+        }
+    }
+    return to_sse_chunk(json.dumps(error_data))
+
+
+async def safe_stream(
+    stream: AsyncGenerator[str | bytes, None],
+    as_bytes: bool = False,
+) -> AsyncGenerator[bytes | str, None]:
+    """
+    Wrap a streaming generator with exception handling.
+
+    When streaming responses, if an error occurs mid-stream after HTTP headers
+    have been sent, we can't raise an HTTPException. Instead, this wrapper
+    catches exceptions and yields an error chunk so the client can receive
+    the error information.
+
+    Args:
+        stream: The async generator to wrap.
+        as_bytes: If True, encode the error chunk as bytes. Use this when the
+            stream yields bytes (e.g., passthrough endpoints).
+
+    Yields:
+        Chunks from the stream, or an error chunk if an exception occurs.
+    """
+    try:
+        async for chunk in stream:
+            yield chunk
+    except Exception as e:
+        _logger.exception("Error during streaming response")
+        error_chunk = to_sse_error_chunk(e)
+        yield error_chunk.encode("utf-8") if as_bytes else error_chunk
+
+
 def _find_boundary(buffer: bytes) -> int:
     try:
         return buffer.index(b"\n")

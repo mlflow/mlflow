@@ -38,8 +38,8 @@ from mlflow.gateway.providers.base import (
     TrafficRouteProvider,
 )
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
-from mlflow.gateway.utils import to_sse_chunk, translate_http_exception
+from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
+from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
@@ -51,7 +51,7 @@ from mlflow.store.tracking.gateway.entities import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationType
 from mlflow.telemetry.track import _record_event
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
@@ -88,9 +88,9 @@ async def _get_request_body(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
 
 
-def _get_user_attributes(request: Request) -> dict[str, Any]:
+def _get_user_metadata(request: Request) -> dict[str, Any]:
     """
-    Extract user attributes from request state for tracing.
+    Extract user metadata from request state for tracing.
 
     The auth middleware stores the authenticated user's info in request.state.
 
@@ -98,14 +98,14 @@ def _get_user_attributes(request: Request) -> dict[str, Any]:
         request: The FastAPI Request object.
 
     Returns:
-        Dictionary with user attributes (username and user_id if available).
+        Dictionary with user metadata (username and user_id if available).
     """
-    attrs = {}
+    metadata = {}
     if username := getattr(request.state, "username", None):
-        attrs[SpanAttributeKey.USERNAME] = username
+        metadata[TraceMetadataKey.AUTH_USERNAME] = username
     if user_id := getattr(request.state, "user_id", None):
-        attrs[SpanAttributeKey.USER_ID] = user_id
-    return attrs
+        metadata[TraceMetadataKey.AUTH_USER_ID] = str(user_id)
+    return metadata
 
 
 def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callable[..., Any]:
@@ -420,7 +420,7 @@ async def invocations(endpoint_name: str, request: Request):
     - If payload has "input" field -> embeddings endpoint
     """
     body = await _get_request_body(request)
-    user_attrs = _get_user_attributes(request)
+    user_metadata = _get_user_metadata(request)
 
     store = _get_store()
 
@@ -440,15 +440,18 @@ async def invocations(endpoint_name: str, request: Request):
         )
 
         if payload.stream:
-            stream = maybe_traced_gateway_call(provider.chat_stream, endpoint_config, user_attrs)(
-                payload
-            )
+            stream = maybe_traced_gateway_call(
+                provider.chat_stream,
+                endpoint_config,
+                user_metadata,
+                output_reducer=aggregate_chat_stream_chunks,
+            )(payload)
             return StreamingResponse(
-                (to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+                safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
                 media_type="text/event-stream",
             )
         else:
-            return await maybe_traced_gateway_call(provider.chat, endpoint_config, user_attrs)(
+            return await maybe_traced_gateway_call(provider.chat, endpoint_config, user_metadata)(
                 payload
             )
 
@@ -464,7 +467,7 @@ async def invocations(endpoint_name: str, request: Request):
             store, endpoint_name, endpoint_type
         )
 
-        return await maybe_traced_gateway_call(provider.embeddings, endpoint_config, user_attrs)(
+        return await maybe_traced_gateway_call(provider.embeddings, endpoint_config, user_metadata)(
             payload
         )
 
@@ -494,7 +497,7 @@ async def chat_completions(request: Request):
         }
     """
     body = await _get_request_body(request)
-    user_attrs = _get_user_attributes(request)
+    user_metadata = _get_user_metadata(request)
 
     # Extract endpoint name from "model" parameter
     endpoint_name = _extract_endpoint_name_from_model(body)
@@ -514,15 +517,20 @@ async def chat_completions(request: Request):
     )
 
     if payload.stream:
-        stream = maybe_traced_gateway_call(provider.chat_stream, endpoint_config, user_attrs)(
-            payload
-        )
+        stream = maybe_traced_gateway_call(
+            provider.chat_stream,
+            endpoint_config,
+            user_metadata,
+            output_reducer=aggregate_chat_stream_chunks,
+        )(payload)
         return StreamingResponse(
-            (to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+            safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
             media_type="text/event-stream",
         )
     else:
-        return await maybe_traced_gateway_call(provider.chat, endpoint_config, user_attrs)(payload)
+        return await maybe_traced_gateway_call(provider.chat, endpoint_config, user_metadata)(
+            payload
+        )
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
@@ -548,7 +556,7 @@ async def openai_passthrough_chat(request: Request):
         }
     """
     body = await _get_request_body(request)
-    user_attrs = _get_user_attributes(request)
+    user_metadata = _get_user_metadata(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -568,11 +576,13 @@ async def openai_passthrough_chat(request: Request):
             async for chunk in stream:
                 yield chunk
 
-        traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_attrs)
-        return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+        traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_metadata)
+        return StreamingResponse(
+            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+        )
 
     traced_passthrough = maybe_traced_gateway_call(
-        provider.passthrough, endpoint_config, user_attrs
+        provider.passthrough, endpoint_config, user_metadata
     )
     return await traced_passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
 
@@ -596,7 +606,7 @@ async def openai_passthrough_embeddings(request: Request):
         }
     """
     body = await _get_request_body(request)
-    user_attrs = _get_user_attributes(request)
+    user_metadata = _get_user_metadata(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -609,7 +619,7 @@ async def openai_passthrough_embeddings(request: Request):
     )
 
     traced_passthrough = maybe_traced_gateway_call(
-        provider.passthrough, endpoint_config, user_attrs
+        provider.passthrough, endpoint_config, user_metadata
     )
     return await traced_passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body, headers)
 
@@ -637,7 +647,7 @@ async def openai_passthrough_responses(request: Request):
         }
     """
     body = await _get_request_body(request)
-    user_attrs = _get_user_attributes(request)
+    user_metadata = _get_user_metadata(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -657,11 +667,13 @@ async def openai_passthrough_responses(request: Request):
             async for chunk in stream:
                 yield chunk
 
-        traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_attrs)
-        return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+        traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_metadata)
+        return StreamingResponse(
+            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+        )
 
     traced_passthrough = maybe_traced_gateway_call(
-        provider.passthrough, endpoint_config, user_attrs
+        provider.passthrough, endpoint_config, user_metadata
     )
     return await traced_passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
 
@@ -689,7 +701,7 @@ async def anthropic_passthrough_messages(request: Request):
         }
     """
     body = await _get_request_body(request)
-    user_attrs = _get_user_attributes(request)
+    user_metadata = _get_user_metadata(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -709,11 +721,13 @@ async def anthropic_passthrough_messages(request: Request):
             async for chunk in stream:
                 yield chunk
 
-        traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_attrs)
-        return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+        traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_metadata)
+        return StreamingResponse(
+            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+        )
 
     traced_passthrough = maybe_traced_gateway_call(
-        provider.passthrough, endpoint_config, user_attrs
+        provider.passthrough, endpoint_config, user_metadata
     )
     return await traced_passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
 
@@ -743,7 +757,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         }
     """
     body = await _get_request_body(request)
-    user_attrs = _get_user_attributes(request)
+    user_metadata = _get_user_metadata(request)
 
     store = _get_store()
     _validate_store(store)
@@ -754,7 +768,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     )
 
     traced_passthrough = maybe_traced_gateway_call(
-        provider.passthrough, endpoint_config, user_attrs
+        provider.passthrough, endpoint_config, user_metadata
     )
     return await traced_passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
 
@@ -784,7 +798,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         }
     """
     body = await _get_request_body(request)
-    user_attrs = _get_user_attributes(request)
+    user_metadata = _get_user_metadata(request)
 
     store = _get_store()
     _validate_store(store)
@@ -803,5 +817,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         async for chunk in stream:
             yield chunk
 
-    traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_attrs)
-    return StreamingResponse(traced_stream(body), media_type="text/event-stream")
+    traced_stream = maybe_traced_gateway_call(yield_stream, endpoint_config, user_metadata)
+    return StreamingResponse(
+        safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+    )

@@ -10,6 +10,11 @@ import type { MlflowGetExperimentQuery } from '../../../../graphql/__generated__
 import { ExperimentKind } from '../../../constants';
 import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 
+jest.mock('../../../../common/utils/ServerFeaturesContext', () => ({
+  getWorkspacesEnabledSync: () => false,
+  useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
+}));
+
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
 

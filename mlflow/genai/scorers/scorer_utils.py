@@ -181,6 +181,9 @@ def extract_model_from_serialized_scorer(serialized_data: dict[str, Any]) -> str
         return ij_data.get("model")
     if bs_data := serialized_data.get(BUILTIN_SCORER_PYDANTIC_DATA):
         return bs_data.get("model")
+    if mem_data := serialized_data.get("memory_augmented_judge_data"):
+        base_judge = mem_data.get("base_judge", {})
+        return extract_model_from_serialized_scorer(base_judge)
     return None
 
 
@@ -192,6 +195,13 @@ def update_model_in_serialized_scorer(
         result[INSTRUCTIONS_JUDGE_PYDANTIC_DATA] = {**ij_data, "model": new_model}
     elif bs_data := result.get(BUILTIN_SCORER_PYDANTIC_DATA):
         result[BUILTIN_SCORER_PYDANTIC_DATA] = {**bs_data, "model": new_model}
+    elif mem_data := result.get("memory_augmented_judge_data"):
+        result["memory_augmented_judge_data"] = {
+            **mem_data,
+            "base_judge": update_model_in_serialized_scorer(
+                mem_data.get("base_judge", {}), new_model
+            ),
+        }
     return result
 
 
