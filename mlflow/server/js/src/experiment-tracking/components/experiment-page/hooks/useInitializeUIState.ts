@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { EXPERIMENT_PAGE_UI_STATE_FIELDS, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { loadExperimentViewState } from '../utils/persistSearchFacets';
@@ -7,6 +7,7 @@ import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selec
 import type { UseExperimentsResult } from './useExperiments';
 import { useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { expandedEvaluationRunRowsUIStateInitializer } from '../utils/expandedRunsViewStateInitializer';
+import { IndexedDBInitializationContext } from '@mlflow/mlflow/src/experiment-tracking/components/contexts/IndexedDBInitializationContext';
 
 // prettier-ignore
 const uiStateInitializers = [
@@ -53,6 +54,8 @@ export const useInitializeUIState = (
 
   const updateSearchFacets = useUpdateExperimentPageSearchFacets();
 
+  const { isIndexedDBAvailable } = useContext(IndexedDBInitializationContext);
+
   const [{ uiState, isSeeded, isFirstVisit }, dispatchAction] = useReducer(
     (state: UIStateContainer, action: UpdateUIStateAction | SetupInitUIStateAction | LoadNewExperimentAction) => {
       if (action.type === 'UPDATE_UI_STATE') {
@@ -83,7 +86,7 @@ export const useInitializeUIState = (
     },
     undefined,
     () => {
-      const persistedViewState = loadExperimentViewState(persistKey);
+      const persistedViewState = loadExperimentViewState(persistKey, isIndexedDBAvailable);
       const persistedStateFound = Boolean(keys(persistedViewState || {}).length);
       const persistedUIState = persistedStateFound ? pick(persistedViewState, EXPERIMENT_PAGE_UI_STATE_FIELDS) : {};
       return {
@@ -144,7 +147,7 @@ export const useInitializeUIState = (
 
   // Each time persist key (experiment IDs) change, load persisted view state
   useEffect(() => {
-    const persistedViewState = loadExperimentViewState(persistKey);
+    const persistedViewState = loadExperimentViewState(persistKey, isIndexedDBAvailable);
     const persistedUIState = pick(persistedViewState, EXPERIMENT_PAGE_UI_STATE_FIELDS);
     const isSeeded = Boolean(keys(persistedViewState || {}).length);
     const isFirstVisit = !isSeeded;
@@ -153,7 +156,7 @@ export const useInitializeUIState = (
       type: 'LOAD_NEW_EXPERIMENT',
       payload: { uiState: { ...baseState, ...persistedUIState }, isSeeded, isFirstVisit, newPersistKey: persistKey },
     });
-  }, [persistKey]);
+  }, [persistKey, isIndexedDBAvailable]);
 
   return [uiState, setUIState, seedInitialUIState];
 };
