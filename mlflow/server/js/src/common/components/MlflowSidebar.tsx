@@ -20,6 +20,7 @@ import {
   InfoBookIcon,
   CodeIcon,
   Tooltip,
+  NewWindowIcon,
 } from '@databricks/design-system';
 import type { Location } from '../utils/RoutingUtils';
 import { Link, matchPath, useLocation, useParams, useSearchParams } from '../utils/RoutingUtils';
@@ -372,7 +373,10 @@ export function MlflowSidebar({
             collapsed={!showSidebar}
             openInNewTab
           >
-            <FormattedMessage defaultMessage="Docs" description="Sidebar link for docs page" />
+            <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+              <FormattedMessage defaultMessage="Docs" description="Sidebar link for docs page" />
+              <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
+            </span>
           </MlflowSidebarLink>
           <MlflowSidebarLink
             disableWorkspacePrefix
@@ -384,7 +388,10 @@ export function MlflowSidebar({
             collapsed={!showSidebar}
             openInNewTab
           >
-            <FormattedMessage defaultMessage="GitHub" description="Sidebar link for GitHub page" />
+            <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+              <FormattedMessage defaultMessage="GitHub" description="Sidebar link for GitHub page" />
+              <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
+            </span>
           </MlflowSidebarLink>
           <MlflowSidebarLink
             disableWorkspacePrefix
