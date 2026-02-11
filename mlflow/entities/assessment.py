@@ -242,10 +242,7 @@ class Feedback(Assessment):
         overrides: str | None = None,
         valid: bool = True,
     ):
-        if value is None and error is None:
-            raise MlflowException.invalid_parameter_value(
-                "Either `value` or `error` must be provided.",
-            )
+        
 
         # Default to CODE source if not provided
         if source is None:
@@ -542,8 +539,14 @@ class FeedbackValue(_MlflowObject):
     error: AssessmentError | None = None
 
     def to_proto(self):
+        # Allow None feedback values
+        if self.value is None:
+            proto_value = Value()
+        else:
+            proto_value = ParseDict(self.value, Value(), ignore_unknown_fields=True)
+            
         return ProtoFeedback(
-            value=ParseDict(self.value, Value(), ignore_unknown_fields=True),
+            value=proto_value,
             error=self.error.to_proto() if self.error else None,
         )
 
