@@ -446,8 +446,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.38.2"
-    # transformers 5.x is not supported yet
-    maximum: "4.57.5"
+    maximum: "5.1.0"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032

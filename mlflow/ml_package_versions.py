@@ -406,7 +406,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.38.2",
-            "maximum": "4.57.5"
+            "maximum": "5.1.0"
         },
         "autologging": {
             "minimum": "4.38.2",

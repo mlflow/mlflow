@@ -1686,6 +1686,51 @@ def _try_import_conversational_pipeline():
         return
 
 
+def _try_import_translation_pipeline():
+    try:
+        from transformers import TranslationPipeline
+
+        return TranslationPipeline
+    except ImportError:
+        return
+
+
+def _is_translation_pipeline(pipeline):
+    if cls := _try_import_translation_pipeline():
+        return isinstance(pipeline, cls)
+    return False
+
+
+def _try_import_summarization_pipeline():
+    try:
+        from transformers import SummarizationPipeline
+
+        return SummarizationPipeline
+    except ImportError:
+        return
+
+
+def _is_summarization_pipeline(pipeline):
+    if cls := _try_import_summarization_pipeline():
+        return isinstance(pipeline, cls)
+    return False
+
+
+def _try_import_text2text_generation_pipeline():
+    try:
+        from transformers import Text2TextGenerationPipeline
+
+        return Text2TextGenerationPipeline
+    except ImportError:
+        return
+
+
+def _is_text2text_generation_pipeline(pipeline):
+    if cls := _try_import_text2text_generation_pipeline():
+        return isinstance(pipeline, cls)
+    return False
+
+
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
@@ -1891,14 +1936,15 @@ class _TransformersWrapper:
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
         # SummarizationPipeline both inherit from TextGenerationPipeline (they are subclasses)
         # in which the return data structure from their __call__ implementation is modified.
-        if isinstance(self.pipeline, transformers.TranslationPipeline):
+        # These classes were removed in transformers 5.0, so we use try-import guards.
+        if _is_translation_pipeline(self.pipeline):
             self._validate_str_or_list_str(data)
             output_key = "translation_text"
-        elif isinstance(self.pipeline, transformers.SummarizationPipeline):
+        elif _is_summarization_pipeline(self.pipeline):
             self._validate_str_or_list_str(data)
             data = self._format_prompt_template(data)
             output_key = "summary_text"
-        elif isinstance(self.pipeline, transformers.Text2TextGenerationPipeline):
+        elif _is_text2text_generation_pipeline(self.pipeline):
             data = self._parse_text2text_input(data)
             data = self._format_prompt_template(data)
             output_key = "generated_text"
@@ -2053,15 +2099,17 @@ class _TransformersWrapper:
         elif _is_conversational_pipeline(self.pipeline):
             return self._parse_conversation_input(data)
         elif (  # noqa: SIM114
-            isinstance(
-                self.pipeline,
-                (
-                    transformers.FillMaskPipeline,
-                    transformers.TextGenerationPipeline,
-                    transformers.TranslationPipeline,
-                    transformers.SummarizationPipeline,
-                    transformers.TokenClassificationPipeline,
-                ),
+            (
+                isinstance(
+                    self.pipeline,
+                    (
+                        transformers.FillMaskPipeline,
+                        transformers.TextGenerationPipeline,
+                        transformers.TokenClassificationPipeline,
+                    ),
+                )
+                or _is_translation_pipeline(self.pipeline)
+                or _is_summarization_pipeline(self.pipeline)
             )
             and isinstance(data, list)
             and all(isinstance(entry, dict) for entry in data)
@@ -2090,7 +2138,7 @@ class _TransformersWrapper:
         # In long-term, we should definitely change the upstream handling to avoid this
         # complexity, but here we just try to make it work by checking if the key is auto-generated.
         elif (
-            isinstance(self.pipeline, transformers.Text2TextGenerationPipeline)
+            _is_text2text_generation_pipeline(self.pipeline)
             and isinstance(data, list)
             and all(isinstance(entry, dict) for entry in data)
             # Pandas Dataframe derived dictionary will have integer key (row index)
