@@ -1,0 +1,62 @@
+---
+title: Deploy MLflow to AWS cloud
+---
+
+# Deploy MLflow to AWS cloud
+
+MLflow core components include MLflow server, backend store, and artifact store.
+
+In this guide, the MLflow server is deployed to Amazon ECS (elastic container service), the backend store is deployed to Amazon RDS (PostgreSQL), and the artifact store is deployed to Amazon S3. The guide also include IAM role, VPC subnet and security group, ALB (Application Load Balancer) settings. Once deployment completes, you can access MLflow service web UI through the AWS application URL like "https://ml-<unique-service-id>.ecs.ap-southeast-2.on.aws", and your MLflow client code can access the MLflow service through setting MLflow tracking URI to the above URI.
+
+## Create S3 bucket
+
+Create a S3 bucket with name "mlflow-artifacts-123", and block all public access as follows:
+
+![create s3 bucket](/images/self-hosting/create-aws-s3-bucket.png)
+
+## Create RDS (PostgresSQL) instance, set credentials management to "Self managed", and set master username / password. Once creation completes, you can view the RDS instance endpoint information as follows:
+
+![create RDS](/images/self-hosting/create-aws-rds.png)
+
+Then you can construct the database URI like "postgresql://<username>:<password>@<endpoint>:5432/<database-name>". The database URI is used by MLflow server.
+
+## Create IAM role for MLflow service to access the S3 bucket
+
+The s3 bucket that is created in the first step blocks all public access. Create an IAM role "
+mlflow-task-role" with an inline policy as follows:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "MLflowArtifacts",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::mlflow-artifacts-123",
+                "arn:aws:s3:::mlflow-artifacts-123/*"
+            ]
+        }
+    ]
+}
+```
+
+## Create ECS (Elastic container service) service to host the MLFlow server, choose "Express mode" to configure most settings including VPC and ABI automatically, but you need to fill the following settings correctly:
+
+- Set the "Container port" to 5000, this is the port of the MLFlow server running inside the container.
+- Set the "Health check" path to "/health"
+- Set the "Command" to `bash,-c,mlflow server --backend-store-uri postgresql://postgres:mlflow--db@mlflow-db-123.cf6uoag0woi4.ap-southeast-2.rds.amazonaws.com:5432/postgres --default-artifact-root s3://mlflow-artifacts-123/ --host 0.0.0.0 --port 5000 --disable-security-middleware`, note that we disable the security middleware because the MLflow service is protected behind the Amazon ALB Security group + VPC subnet, and the ECS express mode will generate the default ALB / VPC settings automatically.
+- Set the "Task role" to the "mlflow-task-role" that is created above.
+- Set the compute resources used by the MLflow server (CPU / memory etc) properly.
+- Set both of "Minimum number of tasks" and "Maximum number of tasks" to 1. We only need to run 1 MLflow server task at a time.
+
+After creation, you can view the ECS express service overview page as follows:
+![create ECS](/images/self-hosting/create-aws-ecs.png)
+
+The "Application URL" on the overview page is the MLflow service URL that you can access from public network.
