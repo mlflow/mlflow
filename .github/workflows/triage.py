@@ -167,6 +167,14 @@ def parse_dataset(path: Path) -> list[dict[str, str]]:
 
 
 def triage_synthetic(title: str, body: str) -> tuple[dict[str, Any], dict[str, int]]:
+    # Skip triage for security vulnerability issues
+    if "security vulnerability" in title.lower():
+        return {
+            "title": title,
+            "comment": None,
+            "reason": "Skipped: Issue title contains 'Security Vulnerability'",
+        }, {"input_tokens": 0, "output_tokens": 0}
+
     prompt = build_prompt(title, body)
     classification, usage = call_anthropic_api(prompt)
     return {
