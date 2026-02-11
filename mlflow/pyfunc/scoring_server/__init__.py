@@ -575,17 +575,6 @@ def _predict(model_uri, input_path, output_path, content_type):
                 else parse_csv_input(sys.stdin)
             )
             params = None
-        elif content_type == "parquet":
-            # For a direct stdin stream we need to read through the entire text buffer first
-            # before converting it from a TextIO stream into a BytesIO stream for Pandas.
-            # A seek that pyarrow engine will try to do with Parquet for sys.stdin input
-            # will get forbidden otherwise.
-            df = (
-                parse_parquet_input(input_path)
-                if input_path is not None
-                else parse_parquet_input(BytesIO(sys.stdin.buffer.read()))
-            )
-            params = None
         else:
             raise Exception(f"Unknown content type '{content_type}'")
 
