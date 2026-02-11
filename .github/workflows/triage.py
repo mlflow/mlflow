@@ -177,9 +177,16 @@ def run_tests() -> None:
             executor.submit(triage_issue, issue["title"], issue["body"]): issue for issue in issues
         }
 
+    total_usage = {"input_tokens": 0, "output_tokens": 0, "cost_in_usd": 0.0}
+
     for future in futures:
         issue = futures[future]
         result = future.result()
+
+        usage = result["usage"]
+        total_usage["input_tokens"] += usage.get("input_tokens", 0)
+        total_usage["output_tokens"] += usage.get("output_tokens", 0)
+        total_usage["cost_in_usd"] += usage.get("cost_in_usd", 0.0)
 
         has_comment = result["comment"] is not None
         color = RED if has_comment else GREEN
@@ -187,7 +194,12 @@ def run_tests() -> None:
         print(f"  reason: {result['reason']}")
         if result["comment"]:
             print(f"  comment: {result['comment'][:200]}")
-        print(f"  usage: {result['usage']}")
+
+    print(
+        f"\nTotal usage: {{input_tokens: {total_usage['input_tokens']}, "
+        f"output_tokens: {total_usage['output_tokens']}, "
+        f"cost_in_usd: {total_usage['cost_in_usd']:.4f}}}"
+    )
 
 
 def main() -> None:
