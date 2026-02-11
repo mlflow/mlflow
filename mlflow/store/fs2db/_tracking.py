@@ -37,6 +37,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from mlflow.entities import RunStatus
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.store.fs2db._helpers import (
     META_YAML,
     MigrationStats,
@@ -519,8 +520,6 @@ def migrate_logged_models(session: Session, mlruns: Path, stats: MigrationStats)
 def _migrate_logged_models_for_experiment(
     session: Session, exp_dir: Path, exp_id: int, stats: MigrationStats
 ) -> None:
-    from mlflow.entities.logged_model_status import LoggedModelStatus
-
     models_dir = exp_dir / "models"
     if not models_dir.is_dir():
         return
