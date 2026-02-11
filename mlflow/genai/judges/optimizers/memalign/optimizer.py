@@ -64,11 +64,15 @@ _MODEL_API_DOC = {
     "reflection_lm": """Model to use for distilling guidelines from feedback.
 Supported formats:
 
-* `"databricks"` for Databricks-native integration
+* `"databricks"` for a default Databricks-hosted model designed for GenAI quality assessments.
+* `"databricks:/<model-name>"` for other Databricks-hosted models 
+  (e.g., `databricks:/databricks-gpt-5-mini`, `databricks:/databricks-claude-sonnet-4-5`). 
+  For a full list, see https://models.litellm.ai/ and select "databricks" as the provider.)
 * `"databricks:/<endpoint-name>"` or `"endpoints:/<endpoint-name>"` for
-  Databricks model serving endpoints
+  custom endpoints on Databricks (e.g., `databricks:/my-endpoint`).
 * `<provider>:/<model-name>` for other providers (e.g.,
-  `"openai:/gpt-4o-mini"`, `"anthropic:/claude-3.5-sonnet-20240620"`)
+  `"openai:/gpt-4o-mini"`, `"anthropic:/claude-3.5-sonnet-20240620"`). 
+  For a full list, see https://models.litellm.ai/.
 
 MLflow natively supports `["openai", "anthropic", "bedrock", "mistral"]`,
 and more providers are supported through
@@ -76,7 +80,7 @@ and more providers are supported through
 
 Default model depends on the tracking URI setup:
 
-* Databricks: `databricks`
+* Databricks: `databricks` (a default Databricks-hosted model designed for GenAI quality assessments)
 * Otherwise: `openai:/gpt-4o-mini`.
 """,
     "embedding_model": """Model to use for generating embeddings for
