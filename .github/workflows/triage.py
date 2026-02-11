@@ -128,6 +128,13 @@ def compute_cost(usage: dict[str, int]) -> float:
 
 
 def triage_issue(title: str, body: str) -> dict[str, Any]:
+    # Skip triage for security vulnerability issues
+    if "security vulnerability" in title.lower():
+        return {
+            "comment": None,
+            "reason": "Skipped: Issue title contains 'Security Vulnerability'",
+        }
+
     prompt = build_prompt(title, body)
     classification, _ = call_anthropic_api(prompt)
     return {
