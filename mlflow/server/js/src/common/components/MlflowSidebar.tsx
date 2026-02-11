@@ -1,19 +1,16 @@
-import React, { Fragment, useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   BeakerIcon,
   Button,
-  ChainIcon,
   CloudModelIcon,
   GearIcon,
   HomeIcon,
-  KeyIcon,
   ModelsIcon,
   SegmentedControlGroup,
   SegmentedControlButton,
   Tag,
   TextBoxIcon,
-  Tooltip,
   Typography,
   useDesignSystemTheme,
   DesignSystemEventProviderComponentTypes,
@@ -24,31 +21,26 @@ import {
   CodeIcon,
 } from '@databricks/design-system';
 import type { Location } from '../utils/RoutingUtils';
-import { Link, matchPath, useLocation, useNavigate, useParams, useSearchParams } from '../utils/RoutingUtils';
+import { Link, matchPath, useLocation, useParams, useSearchParams } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
-import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
 import { useWorkflowType, WorkflowType } from '../contexts/WorkflowTypeContext';
-import {
-  getExperimentPageSideNavSectionLabel,
-  type ExperimentPageSideNavSectionKey,
-  useExperimentPageSideNavConfig,
-} from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/constants';
-import { ExperimentPageTabName } from '../../experiment-tracking/constants';
 import { shouldEnableWorkflowBasedNavigation, shouldEnableWorkspaces } from '../utils/FeatureUtils';
 import { AssistantSparkleIcon } from '../../assistant/AssistantIconButton';
 import { useAssistant } from '../../assistant/AssistantContext';
-import { useExperimentEvaluationRunsData } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentEvaluationRunsData';
-import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { MlflowLogo } from './MlflowLogo';
 import { HomePageDocsUrl, Version } from '../constants';
 import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
+import { MlflowSidebarExperimentItems } from './MlflowSidebarExperimentItems';
+import { MlflowSidebarGatewayItems } from './MlflowSidebarGatewayItems';
 
+const isInsideExperiment = (location: Location) =>
+  Boolean(matchPath('/experiments/:experimentId/*', location.pathname));
 const isHomeActive = (location: Location) => Boolean(matchPath({ path: '/', end: true }, location.pathname));
 const isExperimentsActive = (location: Location) =>
   Boolean(
@@ -65,20 +57,6 @@ type MlFlowSidebarMenuDropdownComponentId =
   | 'mlflow_sidebar.create_model_button'
   | 'mlflow_sidebar.create_prompt_button';
 
-type NestedMenuItem = {
-  key: string;
-  icon: React.ReactNode;
-  label: React.ReactNode;
-  to: string;
-  componentId: string;
-  isActive: (location: Location) => boolean;
-};
-
-type NestedItemsGroup = {
-  sectionKey: ExperimentPageSideNavSectionKey;
-  items: NestedMenuItem[];
-};
-
 type MenuItemWithNested = {
   key: string;
   icon: React.ReactNode;
@@ -93,31 +71,7 @@ type MenuItemWithNested = {
     onClick: () => void;
     children: React.ReactNode;
   };
-  nestedItems?: NestedMenuItem[];
-  nestedItemsGroups?: NestedItemsGroup[];
-};
-
-const buildNestedItemsFromConfig = (
-  items: Array<{ tabName: ExperimentPageTabName; icon: React.ReactNode; label: React.ReactNode; componentId: string }>,
-  experimentId?: string,
-): NestedMenuItem[] => {
-  return items.map((item) => ({
-    key: `experiments-${item.tabName}`,
-    icon: item.icon,
-    label: item.label,
-    to: experimentId
-      ? Routes.getExperimentPageTabRoute(experimentId, item.tabName)
-      : ExperimentTrackingRoutes.experimentsObservatoryRoute,
-    componentId: item.componentId,
-    isActive: (loc) =>
-      Boolean(experimentId && matchPath(`/experiments/${experimentId}/${item.tabName}/*`, loc.pathname)),
-  }));
-};
-
-const NESTED_ITEMS_UL_CSS = {
-  listStyleType: 'none' as const,
-  padding: 0,
-  margin: 0,
+  nestedItems?: React.ReactNode;
 };
 
 const shouldShowGenAIFeatures = (enableWorkflowBasedNavigation: boolean, workflowType: WorkflowType) =>
@@ -143,16 +97,23 @@ export function MlflowSidebar({
     setShowSidebar(!showSidebar);
   }, [setShowSidebar, showSidebar]);
 
-  const { trainingRuns } = useExperimentEvaluationRunsData({
-    experimentId: experimentId || '',
-    enabled: Boolean(experimentId) && workflowType === WorkflowType.GENAI,
-    filter: '', // not important in this case, we show the runs tab if there are any training runs
-  });
+  // Persist the last selected experiment ID so the nested experiment view
+  // stays visible when navigating away from experiment pages
+  const lastSelectedExperimentIdRef = useRef<string | null>(null);
 
-  const config = useExperimentPageSideNavConfig({
-    experimentKind: getExperimentKindForWorkflowType(workflowType),
-    hasTrainingRuns: (trainingRuns?.length ?? 0) > 0,
-  });
+  // Update the ref when we're inside an experiment
+  if (experimentId && isInsideExperiment(location)) {
+    lastSelectedExperimentIdRef.current = experimentId;
+  }
+
+  // Callback to clear the persisted experiment ID (used by back button)
+  const clearLastSelectedExperiment = useCallback(() => {
+    lastSelectedExperimentIdRef.current = null;
+  }, []);
+
+  // Use the current experimentId if inside an experiment, otherwise use the persisted one
+  const activeExperimentId = isInsideExperiment(location) ? experimentId : lastSelectedExperimentIdRef.current;
+  const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -171,89 +132,6 @@ export function MlflowSidebar({
       eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
     });
   }, [isPanelOpen, closePanel, openPanel, logTelemetryEvent, viewId]);
-
-  const renderNestedItemLink = useCallback(
-    (nestedItem: NestedMenuItem, isDisabled: boolean) => {
-      const isNestedActive = nestedItem.isActive(location);
-      const linkElement = (
-        <Link
-          to={nestedItem.to}
-          aria-current={isNestedActive ? 'page' : undefined}
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: theme.spacing.sm,
-            color: isDisabled ? theme.colors.textSecondary : theme.colors.textPrimary,
-            paddingInline: theme.spacing.md,
-            paddingLeft: 40,
-            paddingBlock: theme.spacing.xs,
-            borderRadius: theme.borders.borderRadiusSm,
-            cursor: isDisabled ? 'not-allowed' : 'pointer',
-            opacity: isDisabled ? 0.5 : 1,
-            '&:hover': isDisabled
-              ? {}
-              : {
-                  color: theme.colors.actionLinkHover,
-                  backgroundColor: theme.colors.actionDefaultBackgroundHover,
-                },
-            '&[aria-current="page"]': {
-              backgroundColor: theme.colors.actionDefaultBackgroundPress,
-              color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
-              fontWeight: theme.typography.typographyBoldFontWeight,
-            },
-          }}
-          onClick={(e) => {
-            if (isDisabled) {
-              e.preventDefault();
-              return;
-            }
-            logTelemetryEvent({
-              componentId: nestedItem.componentId,
-              componentViewId: viewId,
-              componentType: DesignSystemEventProviderComponentTypes.TypographyLink,
-              componentSubType: null,
-              eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-            });
-          }}
-        >
-          {nestedItem.icon}
-          {nestedItem.label}
-        </Link>
-      );
-
-      if (isDisabled) {
-        return (
-          <Tooltip
-            componentId={`mlflow.sidebar.nested-item.disabled-tooltip.${nestedItem.key}`}
-            content={
-              <FormattedMessage
-                defaultMessage="Select an experiment to view this tab"
-                description="Tooltip shown when nested experiment items are disabled because no experiment is selected"
-              />
-            }
-            side="right"
-          >
-            {linkElement}
-          </Tooltip>
-        );
-      }
-      return linkElement;
-    },
-    [location, theme, logTelemetryEvent, viewId],
-  );
-
-  const experimentNestedItemsGroups = useMemo((): NestedItemsGroup[] => {
-    if (!enableWorkflowBasedNavigation) {
-      return [];
-    }
-
-    const groups: NestedItemsGroup[] = Object.entries(config).map(([sectionKey, items]) => ({
-      sectionKey: sectionKey as ExperimentPageSideNavSectionKey,
-      items: buildNestedItemsFromConfig(items, experimentId),
-    }));
-
-    return groups;
-  }, [enableWorkflowBasedNavigation, config, experimentId]);
 
   const menuItems: MenuItemWithNested[] = useMemo(
     () => [
@@ -276,7 +154,14 @@ export function MlflowSidebar({
           children: <FormattedMessage defaultMessage="Experiments" description="Sidebar link for experiments tab" />,
         },
         componentId: 'mlflow.sidebar.experiments_tab_link',
-        nestedItemsGroups: experimentNestedItemsGroups.length > 0 ? experimentNestedItemsGroups : undefined,
+        nestedItems: showNestedExperimentItems ? (
+          <MlflowSidebarExperimentItems
+            collapsed={!showSidebar}
+            experimentId={activeExperimentId ?? undefined}
+            workflowType={workflowType}
+            onBackClick={clearLastSelectedExperiment}
+          />
+        ) : undefined,
       },
       ...(workflowType === WorkflowType.MACHINE_LEARNING || !enableWorkflowBasedNavigation
         ? [
@@ -286,13 +171,15 @@ export function MlflowSidebar({
               linkProps: {
                 to: ModelRegistryRoutes.modelListPageRoute,
                 isActive: isModelsActive,
-                children: <FormattedMessage defaultMessage="Models" description="Sidebar link for models tab" />,
+                children: (
+                  <FormattedMessage defaultMessage="Model registry" description="Sidebar link for model registry tab" />
+                ),
               },
               componentId: 'mlflow.sidebar.models_tab_link',
             },
           ]
         : []),
-      ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType)
+      ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType) && !showNestedExperimentItems
         ? [
             {
               key: 'prompts',
@@ -320,36 +207,22 @@ export function MlflowSidebar({
               },
               componentId: 'mlflow.sidebar.gateway_tab_link',
               nestedItems:
-                enableWorkflowBasedNavigation && workflowType === WorkflowType.GENAI
-                  ? [
-                      {
-                        key: 'gateway-endpoints',
-                        icon: <ChainIcon />,
-                        label: (
-                          <FormattedMessage defaultMessage="Endpoints" description="Gateway side nav > Endpoints tab" />
-                        ),
-                        to: GatewayRoutes.gatewayPageRoute,
-                        componentId: 'mlflow.sidebar.gateway.endpoints',
-                        isActive: (loc: Location) =>
-                          Boolean(matchPath('/gateway', loc.pathname) && !matchPath('/gateway/api-keys', loc.pathname)),
-                      },
-                      {
-                        key: 'gateway-api-keys',
-                        icon: <KeyIcon />,
-                        label: (
-                          <FormattedMessage defaultMessage="API Keys" description="Gateway side nav > API Keys tab" />
-                        ),
-                        to: GatewayRoutes.apiKeysPageRoute,
-                        componentId: 'mlflow.sidebar.gateway.api-keys',
-                        isActive: (loc: Location) => Boolean(matchPath('/gateway/api-keys', loc.pathname)),
-                      },
-                    ]
-                  : undefined,
+                shouldEnableWorkflowBasedNavigation() && isGatewayActive(location) ? (
+                  <MlflowSidebarGatewayItems collapsed={!showSidebar} />
+                ) : undefined,
             },
           ]
         : []),
     ],
-    [enableWorkflowBasedNavigation, workflowType, experimentNestedItemsGroups],
+    [
+      showNestedExperimentItems,
+      activeExperimentId,
+      workflowType,
+      clearLastSelectedExperiment,
+      enableWorkflowBasedNavigation,
+      location,
+      showSidebar,
+    ],
   );
 
   // Workspace support
@@ -444,54 +317,20 @@ export function MlflowSidebar({
           }}
         >
           {showWorkspaceMenuItems &&
-            menuItems.map(({ key, icon, linkProps, componentId, nestedItemsGroups, nestedItems }) => (
-              <>
-                <MlflowSidebarLink
-                  to={linkProps.to}
-                  componentId={componentId}
-                  isActive={linkProps.isActive}
-                  icon={icon}
-                  collapsed={!showSidebar}
-                >
-                  {linkProps.children}
-                </MlflowSidebarLink>
-                {nestedItemsGroups && nestedItemsGroups.length > 0 && (
-                  <ul css={NESTED_ITEMS_UL_CSS}>
-                    {nestedItemsGroups.map((group) => (
-                      <Fragment key={group.sectionKey}>
-                        {group.sectionKey !== 'top-level' && (
-                          <li
-                            css={{
-                              display: 'flex',
-                              marginTop: theme.spacing.xs,
-                              marginBottom: theme.spacing.xs,
-                              position: 'relative',
-                              height: theme.typography.lineHeightBase,
-                              paddingLeft: 40,
-                            }}
-                          >
-                            <Typography.Text size="sm" color="secondary">
-                              {getExperimentPageSideNavSectionLabel(group.sectionKey, [])}
-                            </Typography.Text>
-                          </li>
-                        )}
-                        {group.items.map((nestedItem) => {
-                          const isDisabled = !experimentId && key === 'experiments';
-                          return <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, isDisabled)}</li>;
-                        })}
-                      </Fragment>
-                    ))}
-                  </ul>
-                )}
-                {nestedItems && nestedItems.length > 0 && (
-                  <ul css={NESTED_ITEMS_UL_CSS}>
-                    {nestedItems.map((nestedItem) => (
-                      <li key={nestedItem.key}>{renderNestedItemLink(nestedItem, false)}</li>
-                    ))}
-                  </ul>
-                )}
-              </>
-            ))}
+            menuItems.map(
+              ({ key, icon, linkProps, componentId, nestedItems }) =>
+                nestedItems ?? (
+                  <MlflowSidebarLink
+                    to={linkProps.to}
+                    componentId={componentId}
+                    isActive={linkProps.isActive}
+                    icon={icon}
+                    collapsed={!showSidebar}
+                  >
+                    {linkProps.children}
+                  </MlflowSidebarLink>
+                ),
+            )}
         </ul>
         <div>
           {isLocalServer && (
