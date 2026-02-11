@@ -19,6 +19,7 @@ import {
   SidebarExpandIcon,
   InfoBookIcon,
   CodeIcon,
+  Tooltip,
 } from '@databricks/design-system';
 import type { Location } from '../utils/RoutingUtils';
 import { Link, matchPath, useLocation, useParams, useSearchParams } from '../utils/RoutingUtils';
@@ -310,43 +311,55 @@ export function MlflowSidebar({
                   'linear-gradient(90deg, rgba(232, 72, 85, 0.7), rgba(155, 93, 229, 0.7), rgba(67, 97, 238, 0.7))',
               }}
             >
-              <div
-                role="button"
-                tabIndex={0}
-                aria-pressed={isPanelOpen}
-                css={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: theme.spacing.sm,
-                  paddingInline: showSidebar ? theme.spacing.md : 0,
-                  paddingBlock: theme.spacing.xs,
-                  borderRadius: theme.borders.borderRadiusMd - 2,
-                  justifyContent: showSidebar ? 'flex-start' : 'center',
-                  cursor: 'pointer',
-                  background: theme.colors.backgroundSecondary,
-                  color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
-                }}
-                onClick={handleAssistantToggle}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    handleAssistantToggle();
-                  }
-                }}
-                onMouseEnter={() => setIsAssistantHovered(true)}
-                onMouseLeave={() => setIsAssistantHovered(false)}
+              <Tooltip
+                componentId="mlflow.sidebar.assistant_tooltip"
+                content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
+                open={isAssistantHovered && !showSidebar}
+                side="right"
+                delayDuration={0}
               >
-                <AssistantSparkleIcon isHovered={isAssistantHovered} />
-                {showSidebar && (
-                  <>
-                    <Typography.Text color="primary">
-                      <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
-                    </Typography.Text>
-                    <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
-                      Beta
-                    </Tag>
-                  </>
-                )}
-              </div>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isPanelOpen}
+                  css={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: theme.spacing.sm,
+                    paddingInline: showSidebar ? theme.spacing.md : 0,
+                    paddingBlock: theme.spacing.xs,
+                    borderRadius: theme.borders.borderRadiusMd - 2,
+                    justifyContent: showSidebar ? 'flex-start' : 'center',
+                    cursor: 'pointer',
+                    background: theme.colors.backgroundSecondary,
+                    color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
+                  }}
+                  onClick={handleAssistantToggle}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      handleAssistantToggle();
+                    }
+                  }}
+                  onMouseEnter={() => setIsAssistantHovered(true)}
+                  onMouseLeave={() => setIsAssistantHovered(false)}
+                >
+                  <AssistantSparkleIcon isHovered={isAssistantHovered} />
+                  {showSidebar && (
+                    <>
+                      <Typography.Text color="primary">
+                        <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
+                      </Typography.Text>
+                      <Tag
+                        componentId="mlflow.sidebar.assistant_beta_tag"
+                        color="turquoise"
+                        css={{ marginLeft: 'auto' }}
+                      >
+                        Beta
+                      </Tag>
+                    </>
+                  )}
+                </div>
+              </Tooltip>
             </div>
           )}
           <MlflowSidebarLink
