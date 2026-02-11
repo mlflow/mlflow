@@ -528,6 +528,22 @@ export const searchMlflowTracesQueryFn = async ({
 };
 
 /**
+ * Query cache config for trace search. Exported for tests.
+ * keepPreviousData in both modes prevents the trace list from "bouncing" (disappearing
+ * and showing a full loading skeleton) when search/filter changes.
+ */
+export function getSearchMlflowTracesQueryCacheConfig(usingV4APIs: boolean) {
+  return {
+    keepPreviousData: true,
+    refetchOnWindowFocus: false,
+    // For V4 APIs, we use server-side filtering for all filters. Since it's server-side, we
+    // do not need to cache indefinitely.
+    // In previous APIs, we relied on client-side filtering so we want to cache indefinitely.
+    ...(usingV4APIs ? {} : { staleTime: Infinity, cacheTime: Infinity }),
+  };
+}
+
+/**
  * Fetches all mlflow traces for a given location/filter in a synchronous loop.
  * The results of all the traces are cached under a single key.
  * TODO: De-dup with useSearchMlflowTraces defined in webapp/web/js/genai
@@ -553,21 +569,7 @@ const useSearchMlflowTracesInner = ({
 } & Omit<UseQueryOptions<ModelTraceInfoV3[], NetworkRequestError>, 'queryFn'>) => {
   const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
 
-  // In V4 API, we use server-side for all filters so we can keep previous data to smooth out UX and use default cache values.
-  // In previous APIs, we relied on client-side filtering so we want to cache indefinitely.
-  const queryCacheConfig = useMemo(
-    () =>
-      usingV4APIs
-        ? {
-            keepPreviousData: true,
-            refetchOnWindowFocus: false,
-          }
-        : {
-            staleTime: Infinity,
-            cacheTime: Infinity,
-          },
-    [usingV4APIs],
-  );
+  const queryCacheConfig = useMemo(() => getSearchMlflowTracesQueryCacheConfig(Boolean(usingV4APIs)), [usingV4APIs]);
 
   return useQuery<ModelTraceInfoV3[], NetworkRequestError>({
     ...queryCacheConfig,

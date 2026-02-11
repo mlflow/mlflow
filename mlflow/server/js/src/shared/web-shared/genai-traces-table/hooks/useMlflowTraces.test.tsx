@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-c
 import { useGenAiTraceEvaluationArtifacts } from './useGenAiTraceEvaluationArtifacts';
 import {
   createMlflowSearchFilter,
+  getSearchMlflowTracesQueryCacheConfig,
   invalidateMlflowSearchTracesCache,
   useMlflowTracesTableMetadata,
   useSearchMlflowTraces,
@@ -239,6 +240,26 @@ describe('useMlflowTracesTableMetadata', () => {
 
     expect(result.current.tableFilterOptions.prompt).toHaveLength(1);
     expect(result.current.tableFilterOptions.prompt?.[0].value).toBe('valid-prompt/1');
+  });
+});
+
+describe('getSearchMlflowTracesQueryCacheConfig', () => {
+  it('returns staleTime: Infinity and cacheTime: Inifity for OSS (non-V4). keepPreviousData should be true and refetchOnWindowFocus should be false to prevent list bounce when search/filter changes', () => {
+    const config = getSearchMlflowTracesQueryCacheConfig(false);
+    expect(config).toEqual({
+      staleTime: Infinity,
+      cacheTime: Infinity,
+      keepPreviousData: true,
+      refetchOnWindowFocus: false,
+    });
+  });
+
+  it('returns keepPreviousData and refetchOnWindowFocus: false for V4 APIs', () => {
+    const config = getSearchMlflowTracesQueryCacheConfig(true);
+    expect(config).toEqual({
+      keepPreviousData: true,
+      refetchOnWindowFocus: false,
+    });
   });
 });
 
