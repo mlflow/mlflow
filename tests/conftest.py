@@ -736,6 +736,8 @@ def remote_backend_for_tracing_sdk_test():
                 "--directory",
                 # Install from the dev version
                 mlflow_root,
+                "--with",
+                "setuptools<82",  # setuptools 82+ removed pkg_resources
                 "mlflow",
                 "server",
                 "--port",
