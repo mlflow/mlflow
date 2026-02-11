@@ -3,17 +3,14 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   BeakerIcon,
   Button,
-  ChainIcon,
   CloudModelIcon,
   GearIcon,
   HomeIcon,
-  KeyIcon,
   ModelsIcon,
   SegmentedControlGroup,
   SegmentedControlButton,
   Tag,
   TextBoxIcon,
-  Tooltip,
   Typography,
   useDesignSystemTheme,
   DesignSystemEventProviderComponentTypes,
@@ -24,25 +21,16 @@ import {
   CodeIcon,
 } from '@databricks/design-system';
 import type { Location } from '../utils/RoutingUtils';
-import { Link, matchPath, useLocation, useNavigate, useParams, useSearchParams } from '../utils/RoutingUtils';
+import { Link, matchPath, useLocation, useParams, useSearchParams } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
-import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
 import { useWorkflowType, WorkflowType } from '../contexts/WorkflowTypeContext';
-import {
-  getExperimentPageSideNavSectionLabel,
-  type ExperimentPageSideNavSectionKey,
-  useExperimentPageSideNavConfig,
-} from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/constants';
-import { ExperimentPageTabName } from '../../experiment-tracking/constants';
 import { shouldEnableWorkflowBasedNavigation, shouldEnableWorkspaces } from '../utils/FeatureUtils';
 import { AssistantSparkleIcon } from '../../assistant/AssistantIconButton';
 import { useAssistant } from '../../assistant/AssistantContext';
-import { useExperimentEvaluationRunsData } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentEvaluationRunsData';
-import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { MlflowLogo } from './MlflowLogo';
@@ -126,17 +114,6 @@ export function MlflowSidebar({
   // Use the current experimentId if inside an experiment, otherwise use the persisted one
   const activeExperimentId = isInsideExperiment(location) ? experimentId : lastSelectedExperimentIdRef.current;
   const showNestedExperimentItems = Boolean(activeExperimentId) && shouldEnableWorkflowBasedNavigation();
-
-  const { trainingRuns } = useExperimentEvaluationRunsData({
-    experimentId: experimentId || '',
-    enabled: Boolean(experimentId) && workflowType === WorkflowType.GENAI,
-    filter: '', // not important in this case, we show the runs tab if there are any training runs
-  });
-
-  const config = useExperimentPageSideNavConfig({
-    experimentKind: getExperimentKindForWorkflowType(workflowType),
-    hasTrainingRuns: (trainingRuns?.length ?? 0) > 0,
-  });
 
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
@@ -340,17 +317,20 @@ export function MlflowSidebar({
           }}
         >
           {showWorkspaceMenuItems &&
-            menuItems.map(({ key, icon, linkProps, componentId }) => (
-              <MlflowSidebarLink
-                to={linkProps.to}
-                componentId={componentId}
-                isActive={linkProps.isActive}
-                icon={icon}
-                collapsed={!showSidebar}
-              >
-                {linkProps.children}
-              </MlflowSidebarLink>
-            ))}
+            menuItems.map(
+              ({ key, icon, linkProps, componentId, nestedItems }) =>
+                nestedItems ?? (
+                  <MlflowSidebarLink
+                    to={linkProps.to}
+                    componentId={componentId}
+                    isActive={linkProps.isActive}
+                    icon={icon}
+                    collapsed={!showSidebar}
+                  >
+                    {linkProps.children}
+                  </MlflowSidebarLink>
+                ),
+            )}
         </ul>
         <div>
           {isLocalServer && (
