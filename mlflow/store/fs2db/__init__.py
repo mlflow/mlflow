@@ -40,15 +40,15 @@ def migrate(source: Path, target_uri: str) -> None:
     from sqlalchemy.orm import Session
 
     from mlflow.store.db.utils import _initialize_tables
-    from mlflow.store.fs2db._helpers import MigrationStats, list_experiment_ids
+    from mlflow.store.fs2db._helpers import MigrationStats, for_each_experiment
     from mlflow.store.fs2db._registry import migrate_model_registry
     from mlflow.store.fs2db._tracking import (
-        migrate_assessments,
-        migrate_datasets,
-        migrate_experiments,
-        migrate_logged_models,
-        migrate_runs,
-        migrate_traces,
+        _migrate_assessments_for_experiment,
+        _migrate_datasets_for_experiment,
+        _migrate_logged_models_for_experiment,
+        _migrate_one_experiment,
+        _migrate_runs_in_dir,
+        _migrate_traces_for_experiment,
     )
 
     warnings.filterwarnings("ignore", message=".*filesystem.*deprecated.*", category=FutureWarning)
@@ -67,68 +67,36 @@ def migrate(source: Path, target_uri: str) -> None:
     _assert_empty_db(engine)
 
     with Session(engine) as session:
+        for exp_dir, exp_id in for_each_experiment(mlruns):
+            try:
+                print(f"[experiment {exp_id}] Migrating...")
+                _migrate_one_experiment(session, exp_dir, exp_id, stats)
+                _migrate_runs_in_dir(session, exp_dir, int(exp_id), stats)
+                _migrate_datasets_for_experiment(session, exp_dir, int(exp_id), stats)
+                _migrate_traces_for_experiment(session, exp_dir, int(exp_id), stats)
+                _migrate_assessments_for_experiment(session, exp_dir, stats)
+                _migrate_logged_models_for_experiment(session, exp_dir, int(exp_id), stats)
+                session.commit()
+                print(f"[experiment {exp_id}] Committed")
+            except Exception:
+                session.rollback()
+                print(f"[experiment {exp_id}] FAILED — rolled back")
+                raise
+
+        # Model registry is independent of experiments
         try:
-            # Phase 1
-            print("[1/7] Migrating experiments + tags...")
-            migrate_experiments(session, mlruns, stats)
-            session.flush()
-
-            # Phase 2
-            print("[2/7] Migrating runs + params + tags + metrics...")
-            migrate_runs(session, mlruns, stats)
-            session.flush()
-
-            # Phase 3
-            has_datasets = any(
-                (mlruns / d / "datasets").is_dir() for d in list_experiment_ids(mlruns)
-            )
-            if has_datasets:
-                print("[3/7] Migrating datasets + inputs...")
-                migrate_datasets(session, mlruns, stats)
-                session.flush()
-            else:
-                print("[3/7] Skipping datasets (not found)")
-
-            # Phase 4
-            has_traces = any((mlruns / d / "traces").is_dir() for d in list_experiment_ids(mlruns))
-            if has_traces:
-                print("[4/7] Migrating traces + tags + metadata...")
-                migrate_traces(session, mlruns, stats)
-                session.flush()
-
-                # Phase 5
-                print("[5/7] Migrating assessments...")
-                migrate_assessments(session, mlruns, stats)
-                session.flush()
-            else:
-                print("[4/7] Skipping traces (not found)")
-                print("[5/7] Skipping assessments (not found)")
-
-            # Phase 6
-            has_models = any((mlruns / d / "models").is_dir() for d in list_experiment_ids(mlruns))
-            if has_models:
-                print("[6/7] Migrating logged models...")
-                migrate_logged_models(session, mlruns, stats)
-                session.flush()
-            else:
-                print("[6/7] Skipping logged models (not found)")
-
-            # Phase 7
             if (mlruns / "models").is_dir():
-                print("[7/7] Migrating model registry...")
+                print("[model registry] Migrating...")
                 migrate_model_registry(session, mlruns, stats)
-            else:
-                print("[7/7] Skipping model registry (not found)")
-
-            session.commit()
-            print()
-            print("Migration completed successfully!")
-
+                session.commit()
+                print("[model registry] Committed")
         except Exception:
             session.rollback()
-            print()
-            print("Migration FAILED — transaction rolled back.")
+            print("[model registry] FAILED — rolled back")
             raise
+
+    print()
+    print("Migration completed successfully!")
 
     print()
     print("=" * 50)
