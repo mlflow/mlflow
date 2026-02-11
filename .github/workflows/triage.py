@@ -213,14 +213,14 @@ def main() -> None:
     match args.command:
         case "triage":
             result = triage_issue(args.title, args.body)
-            # Print result without usage to stdout
-            output = {k: v for k, v in result.items() if k != "usage"}
-            print(json.dumps(output))
+            # Extract usage for cost calculation, then remove from result
+            usage = result.pop("usage")
+            print(json.dumps(result))
             # Print cost to stderr
-            cost = compute_cost(result["usage"])
+            cost = compute_cost(usage)
             print(
-                f"Tokens: {result['usage']['input_tokens']} input, "
-                f"{result['usage']['output_tokens']} output (${cost:.4f})",
+                f"Tokens: {usage['input_tokens']} input, "
+                f"{usage['output_tokens']} output (${cost:.4f})",
                 file=sys.stderr,
             )
         case "test":
