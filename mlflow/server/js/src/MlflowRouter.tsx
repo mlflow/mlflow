@@ -15,8 +15,6 @@ import {
   usePageTitle,
   useSearchParams,
 } from './common/utils/RoutingUtils';
-import { MlflowHeader } from './common/components/MlflowHeader';
-import { useDarkThemeContext } from './common/contexts/DarkThemeContext';
 import { WorkflowTypeProvider } from './common/contexts/WorkflowTypeContext';
 import { shouldEnableWorkflowBasedNavigation } from './common/utils/FeatureUtils';
 import { useWorkspacesEnabled } from './common/utils/ServerFeaturesContext';
@@ -58,8 +56,6 @@ const MlflowRootRoute = () => {
   const [showSidebar, setShowSidebar] = useState(true);
   const { theme } = useDesignSystemTheme();
   const { experimentId } = useParams();
-  const { setIsDarkTheme } = useDarkThemeContext();
-  const isDarkTheme = theme.isDarkMode;
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 
   // Hide sidebar if we are in a single experiment page (only when feature flag is disabled)
@@ -76,12 +72,6 @@ const MlflowRootRoute = () => {
         <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <ErrorModal />
           <AppErrorBoundary>
-            <MlflowHeader
-              isDarkTheme={isDarkTheme}
-              setIsDarkTheme={setIsDarkTheme}
-              sidebarOpen={showSidebar}
-              toggleSidebar={() => setShowSidebar((isOpen) => !isOpen)}
-            />
             <RootAssistantLayout>
               <div
                 css={{
@@ -91,7 +81,7 @@ const MlflowRootRoute = () => {
                   width: '100%',
                 }}
               >
-                {showSidebar && <MlflowSidebar />}
+                <MlflowSidebar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
                 <main
                   css={{
                     width: '100%',

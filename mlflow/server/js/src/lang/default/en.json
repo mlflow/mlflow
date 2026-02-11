@@ -1046,10 +1046,6 @@
     "defaultMessage": "Source run",
     "description": "Header title for the source run column in the logged model list table"
   },
-  "5y4o+l": {
-    "defaultMessage": "Model",
-    "description": "Sidebar button inside the 'new' popover to create new model"
-  },
   "5yWkFd": {
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
@@ -1329,10 +1325,6 @@
   "7Y0hIS": {
     "defaultMessage": "Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint",
     "description": "Section heading to display the code block on how we can validate a model locally prior to serving"
-  },
-  "7YANiA": {
-    "defaultMessage": "Workspaces",
-    "description": "Sidebar link for workspaces page"
   },
   "7ZzboF": {
     "defaultMessage": "Link prompts to your traces by loading your registered prompts inside the traced function.",
@@ -1713,6 +1705,10 @@
   "A+GxQM": {
     "defaultMessage": "avg per request",
     "description": "Subtitle for average tokens per request in gateway"
+  },
+  "A1ljDC": {
+    "defaultMessage": "Docs",
+    "description": "Sidebar link for docs page"
   },
   "A3bM/D": {
     "defaultMessage": "Assistant",
@@ -5027,10 +5023,6 @@
     "defaultMessage": "Choose experiment type",
     "description": "A title for the modal displayed when the experiment type could not be inferred"
   },
-  "YuWDVj": {
-    "defaultMessage": "Experiment",
-    "description": "Sidebar button inside the 'new' popover to create new experiment"
-  },
   "YuYnxd": {
     "defaultMessage": "Delete",
     "description": "Text for delete button on the experiment view page header"
@@ -5770,10 +5762,6 @@
   "dYbJha": {
     "defaultMessage": "Please provide run name",
     "description": "Experiment page > new run modal > invalid state - no run name provided"
-  },
-  "dbps6u": {
-    "defaultMessage": "Prompt",
-    "description": "Sidebar button inside the 'new' popover to create new prompt"
   },
   "dcoaGS": {
     "defaultMessage": "No experiments created",
@@ -7098,6 +7086,10 @@
   "mmz4aA": {
     "defaultMessage": "Delete {numRuns, plural, =1 {1 run} other {# runs}}",
     "description": "Delete evaluation runs modal title"
+  },
+  "mowpxw": {
+    "defaultMessage": "GitHub",
+    "description": "Sidebar link for GitHub page"
   },
   "mpHsCg": {
     "defaultMessage": "Size:",
@@ -8622,10 +8614,6 @@
   "xpwj4T": {
     "defaultMessage": "Presence Penalty",
     "description": "Label for presence penalty input"
-  },
-  "xq0Rde": {
-    "defaultMessage": "New",
-    "description": "Sidebar create popover button to create new experiment, model or prompt"
   },
   "xqc4yl": {
     "defaultMessage": "Cancel",

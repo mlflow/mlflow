@@ -4,15 +4,11 @@ import {
   BeakerIcon,
   Button,
   ChainIcon,
-  ChevronLeftIcon,
   CloudModelIcon,
-  DatabaseIcon,
-  DropdownMenu,
   GearIcon,
   HomeIcon,
   KeyIcon,
   ModelsIcon,
-  PlusIcon,
   SegmentedControlGroup,
   SegmentedControlButton,
   Tag,
@@ -22,19 +18,16 @@ import {
   useDesignSystemTheme,
   DesignSystemEventProviderComponentTypes,
   DesignSystemEventProviderAnalyticsEventTypes,
+  SidebarCollapseIcon,
+  SidebarExpandIcon,
+  InfoBookIcon,
+  CodeIcon,
 } from '@databricks/design-system';
 import type { Location } from '../utils/RoutingUtils';
 import { Link, matchPath, useLocation, useNavigate, useParams, useSearchParams } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
-import { CreateExperimentModal } from '../../experiment-tracking/components/modals/CreateExperimentModal';
-import { useInvalidateExperimentList } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
-import { CreateModelModal } from '../../model-registry/components/CreateModelModal';
-import {
-  CreatePromptModalMode,
-  useCreatePromptModal,
-} from '../../experiment-tracking/pages/prompts/hooks/useCreatePromptModal';
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -52,6 +45,9 @@ import { useExperimentEvaluationRunsData } from '../../experiment-tracking/compo
 import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
+import { MlflowLogo } from './MlflowLogo';
+import { HomePageDocsUrl, Version } from '../constants';
+import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
 
 const isHomeActive = (location: Location) => Boolean(matchPath({ path: '/', end: true }, location.pathname));
 const isExperimentsActive = (location: Location) =>
@@ -127,18 +123,25 @@ const NESTED_ITEMS_UL_CSS = {
 const shouldShowGenAIFeatures = (enableWorkflowBasedNavigation: boolean, workflowType: WorkflowType) =>
   !enableWorkflowBasedNavigation || (enableWorkflowBasedNavigation && workflowType === WorkflowType.GENAI);
 
-export function MlflowSidebar() {
+export function MlflowSidebar({
+  showSidebar,
+  setShowSidebar,
+}: {
+  showSidebar: boolean;
+  setShowSidebar: (showSidebar: boolean) => void;
+}) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { theme } = useDesignSystemTheme();
-  const invalidateExperimentList = useInvalidateExperimentList();
-  const navigate = useNavigate();
   const viewId = useMemo(() => uuidv4(), []);
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
   // WorkflowType context is always available, but UI is guarded by feature flag
   const { workflowType, setWorkflowType } = useWorkflowType();
   const { experimentId } = useParams();
   const logTelemetryEvent = useLogTelemetryEvent();
+  const toggleSidebar = useCallback(() => {
+    setShowSidebar(!showSidebar);
+  }, [setShowSidebar, showSidebar]);
 
   const { trainingRuns } = useExperimentEvaluationRunsData({
     experimentId: experimentId || '',
@@ -151,12 +154,6 @@ export function MlflowSidebar() {
     hasTrainingRuns: (trainingRuns?.length ?? 0) > 0,
   });
 
-  const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
-  const [showCreateModelModal, setShowCreateModelModal] = useState(false);
-  const { CreatePromptModal, openModal: openCreatePromptModal } = useCreatePromptModal({
-    mode: CreatePromptModalMode.CreatePrompt,
-    onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
-  });
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
 
@@ -279,16 +276,6 @@ export function MlflowSidebar() {
           children: <FormattedMessage defaultMessage="Experiments" description="Sidebar link for experiments tab" />,
         },
         componentId: 'mlflow.sidebar.experiments_tab_link',
-        dropdownProps: {
-          componentId: 'mlflow_sidebar.create_experiment_button' as MlFlowSidebarMenuDropdownComponentId,
-          onClick: () => setShowCreateExperimentModal(true),
-          children: (
-            <FormattedMessage
-              defaultMessage="Experiment"
-              description="Sidebar button inside the 'new' popover to create new experiment"
-            />
-          ),
-        },
         nestedItemsGroups: experimentNestedItemsGroups.length > 0 ? experimentNestedItemsGroups : undefined,
       },
       ...(workflowType === WorkflowType.MACHINE_LEARNING || !enableWorkflowBasedNavigation
@@ -302,16 +289,6 @@ export function MlflowSidebar() {
                 children: <FormattedMessage defaultMessage="Models" description="Sidebar link for models tab" />,
               },
               componentId: 'mlflow.sidebar.models_tab_link',
-              dropdownProps: {
-                componentId: 'mlflow_sidebar.create_model_button' as MlFlowSidebarMenuDropdownComponentId,
-                onClick: () => setShowCreateModelModal(true),
-                children: (
-                  <FormattedMessage
-                    defaultMessage="Model"
-                    description="Sidebar button inside the 'new' popover to create new model"
-                  />
-                ),
-              },
             },
           ]
         : []),
@@ -326,16 +303,6 @@ export function MlflowSidebar() {
                 children: <FormattedMessage defaultMessage="Prompts" description="Sidebar link for prompts tab" />,
               },
               componentId: 'mlflow.sidebar.prompts_tab_link',
-              dropdownProps: {
-                componentId: 'mlflow_sidebar.create_prompt_button' as MlFlowSidebarMenuDropdownComponentId,
-                onClick: openCreatePromptModal,
-                children: (
-                  <FormattedMessage
-                    defaultMessage="Prompt"
-                    description="Sidebar button inside the 'new' popover to create new prompt"
-                  />
-                ),
-              },
             },
           ]
         : []),
@@ -382,29 +349,55 @@ export function MlflowSidebar() {
           ]
         : []),
     ],
-    [enableWorkflowBasedNavigation, workflowType, experimentNestedItemsGroups, openCreatePromptModal],
+    [enableWorkflowBasedNavigation, workflowType, experimentNestedItemsGroups],
   );
 
   // Workspace support
   const workspacesEnabled = shouldEnableWorkspaces();
   const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
-  // Only show creation buttons when: workspaces are disabled OR a workspace is selected
-  const showCreationButtons = !workspacesEnabled || workspaceFromUrl !== null;
   // Only show workspace-specific menu items when: workspaces are disabled OR a workspace is selected
   const showWorkspaceMenuItems = !workspacesEnabled || workspaceFromUrl !== null;
 
   return (
     <aside
       css={{
-        width: enableWorkflowBasedNavigation ? 230 : 200,
+        width: showSidebar ? (enableWorkflowBasedNavigation ? 230 : 200) : 36,
         flexShrink: 0,
         padding: theme.spacing.sm,
+        paddingRight: 0,
         display: 'inline-flex',
         flexDirection: 'column',
         gap: theme.spacing.md,
       }}
     >
-      {enableWorkflowBasedNavigation && (
+      <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {showSidebar && (
+          <Link to={ExperimentTrackingRoutes.rootRoute}>
+            <MlflowLogo
+              css={{
+                display: 'block',
+                height: theme.spacing.lg,
+                color: theme.colors.textPrimary,
+                marginLeft: -(theme.spacing.sm + theme.spacing.xs),
+                marginRight: -theme.spacing.lg,
+              }}
+            />
+          </Link>
+        )}
+        {showSidebar && (
+          <Typography.Text size="sm" color="secondary">
+            {Version}
+          </Typography.Text>
+        )}
+        <Button
+          componentId="mlflow_header.toggle_sidebar_button"
+          onClick={toggleSidebar}
+          aria-label="Toggle sidebar"
+          icon={showSidebar ? <SidebarCollapseIcon /> : <SidebarExpandIcon />}
+        />
+      </div>
+      {workspacesEnabled && showSidebar && <WorkspaceSelector />}
+      {enableWorkflowBasedNavigation && showWorkspaceMenuItems && showSidebar && (
         <div
           css={{
             display: 'flex',
@@ -442,34 +435,6 @@ export function MlflowSidebar() {
         </div>
       )}
 
-      {showCreationButtons && (
-        <DropdownMenu.Root modal={false}>
-          <DropdownMenu.Trigger asChild>
-            <Button componentId="mlflow.sidebar.new_button" icon={<PlusIcon />}>
-              <FormattedMessage
-                defaultMessage="New"
-                description="Sidebar create popover button to create new experiment, model or prompt"
-              />
-            </Button>
-          </DropdownMenu.Trigger>
-
-          <DropdownMenu.Content side="right" sideOffset={theme.spacing.sm} align="start">
-            {menuItems
-              .filter((item) => item.dropdownProps !== undefined)
-              .map(({ key, icon, dropdownProps }) => (
-                <DropdownMenu.Item
-                  key={key}
-                  componentId={(dropdownProps?.componentId ?? `${key}-dropdown-item`) as string}
-                  onClick={dropdownProps?.onClick}
-                >
-                  <DropdownMenu.IconWrapper>{icon}</DropdownMenu.IconWrapper>
-                  {dropdownProps?.children}
-                </DropdownMenu.Item>
-              ))}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-      )}
-
       <nav css={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
         <ul
           css={{
@@ -478,19 +443,6 @@ export function MlflowSidebar() {
             margin: 0,
           }}
         >
-          {workspacesEnabled && (
-            <div css={{ display: 'flex', flexDirection: 'column', marginBottom: theme.spacing.md }}>
-              <MlflowSidebarLink
-                componentId="mlflow.sidebar.workspaces_link"
-                disableWorkspacePrefix
-                to={Routes.rootRoute}
-                isActive={() => !workspaceFromUrl && !isSettingsActive(location)}
-                icon={workspaceFromUrl ? <ChevronLeftIcon /> : <HomeIcon />}
-              >
-                <FormattedMessage defaultMessage="Workspaces" description="Sidebar link for workspaces page" />
-              </MlflowSidebarLink>
-            </div>
-          )}
           {showWorkspaceMenuItems &&
             menuItems.map(({ key, icon, linkProps, componentId, nestedItemsGroups, nestedItems }) => (
               <>
@@ -499,6 +451,7 @@ export function MlflowSidebar() {
                   componentId={componentId}
                   isActive={linkProps.isActive}
                   icon={icon}
+                  collapsed={!showSidebar}
                 >
                   {linkProps.children}
                 </MlflowSidebarLink>
@@ -559,9 +512,10 @@ export function MlflowSidebar() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: theme.spacing.sm,
-                  paddingInline: theme.spacing.md,
+                  paddingInline: showSidebar ? theme.spacing.md : 0,
                   paddingBlock: theme.spacing.xs,
                   borderRadius: theme.borders.borderRadiusMd - 2,
+                  justifyContent: showSidebar ? 'flex-start' : 'center',
                   cursor: 'pointer',
                   background: theme.colors.backgroundSecondary,
                   color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
@@ -576,34 +530,56 @@ export function MlflowSidebar() {
                 onMouseLeave={() => setIsAssistantHovered(false)}
               >
                 <AssistantSparkleIcon isHovered={isAssistantHovered} />
-                <Typography.Text color="primary">
-                  <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
-                </Typography.Text>
-                <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
-                  Beta
-                </Tag>
+                {showSidebar && (
+                  <>
+                    <Typography.Text color="primary">
+                      <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
+                    </Typography.Text>
+                    <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
+                      Beta
+                    </Tag>
+                  </>
+                )}
               </div>
             </div>
           )}
           <MlflowSidebarLink
             disableWorkspacePrefix
+            css={{ paddingBlock: theme.spacing.sm }}
+            to={HomePageDocsUrl}
+            componentId="mlflow.sidebar.docs_link"
+            isActive={() => false}
+            icon={<InfoBookIcon />}
+            collapsed={!showSidebar}
+            openInNewTab
+          >
+            <FormattedMessage defaultMessage="Docs" description="Sidebar link for docs page" />
+          </MlflowSidebarLink>
+          <MlflowSidebarLink
+            disableWorkspacePrefix
+            css={{ paddingBlock: theme.spacing.sm }}
+            to="https://github.com/mlflow/mlflow"
+            componentId="mlflow.sidebar.github_link"
+            isActive={() => false}
+            icon={<CodeIcon />}
+            collapsed={!showSidebar}
+            openInNewTab
+          >
+            <FormattedMessage defaultMessage="GitHub" description="Sidebar link for GitHub page" />
+          </MlflowSidebarLink>
+          <MlflowSidebarLink
+            disableWorkspacePrefix
+            css={{ paddingBlock: theme.spacing.sm }}
             to={ExperimentTrackingRoutes.settingsPageRoute}
             componentId="mlflow.sidebar.settings_tab_link"
             isActive={isSettingsActive}
             icon={<GearIcon />}
+            collapsed={!showSidebar}
           >
             <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
           </MlflowSidebarLink>
         </div>
       </nav>
-
-      <CreateExperimentModal
-        isOpen={showCreateExperimentModal}
-        onClose={() => setShowCreateExperimentModal(false)}
-        onExperimentCreated={invalidateExperimentList}
-      />
-      <CreateModelModal modalVisible={showCreateModelModal} hideModal={() => setShowCreateModelModal(false)} />
-      {CreatePromptModal}
     </aside>
   );
 }
