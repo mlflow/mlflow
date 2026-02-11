@@ -199,7 +199,6 @@ def run_tests() -> None:
 
 
 def write_step_summary(result: dict[str, Any]) -> None:
-    """Write formatted triage result to GitHub step summary if env var is set."""
     step_summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if not step_summary_path:
         return
