@@ -271,7 +271,7 @@ export function MlflowSidebar({
         />
       </div>
       {workspacesEnabled && showSidebar && <WorkspaceSelector />}
-      {enableWorkflowBasedNavigation && showWorkspaceMenuItems &&showSidebar && (
+      {enableWorkflowBasedNavigation && showWorkspaceMenuItems && showSidebar && (
         <MlflowSidebarWorkflowSwitch workflowType={workflowType} setWorkflowType={setWorkflowType} />
       )}
 
