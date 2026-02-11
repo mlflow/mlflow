@@ -229,7 +229,6 @@ export const getRouteDefs = () => [
     element: createLazyRouteElement(() => import('../settings/SettingsPage')),
     pageId: PageId.settingsPage,
     handle: { getPageTitle: () => 'Settings' } satisfies RouteHandle,
-    globalRoute: true, // Settings is a global route, not workspace-specific
   },
   ...getExperimentPageRouteDefs(),
   {
