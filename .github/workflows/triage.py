@@ -111,11 +111,11 @@ def call_anthropic_api(prompt: str) -> dict[str, Any]:
 
     usage = response.get("usage", {})
     result = json.loads(response["content"][0]["text"])
+    usage["cost_in_usd"] = compute_cost(usage)
     return {
         "comment": result["comment"],
         "reason": result["reason"],
         "usage": usage,
-        "cost_in_usd": compute_cost(usage),
     }
 
 
@@ -138,8 +138,7 @@ def triage_issue(title: str, body: str) -> dict[str, Any]:
         return {
             "comment": None,
             "reason": "Skipped: Issue title contains 'Security Vulnerability'",
-            "usage": {"input_tokens": 0, "output_tokens": 0},
-            "cost_in_usd": 0,
+            "usage": {"input_tokens": 0, "output_tokens": 0, "cost_in_usd": 0},
         }
 
     prompt = build_prompt(title, body)
@@ -178,12 +177,16 @@ def run_tests() -> None:
             executor.submit(triage_issue, issue["title"], issue["body"]): issue for issue in issues
         }
 
-    total_cost = 0.0
+    total_usage = {"input_tokens": 0, "output_tokens": 0, "cost_in_usd": 0.0}
 
     for future in futures:
         issue = futures[future]
         result = future.result()
-        total_cost += result["cost_in_usd"]
+
+        usage = result["usage"]
+        total_usage["input_tokens"] += usage.get("input_tokens", 0)
+        total_usage["output_tokens"] += usage.get("output_tokens", 0)
+        total_usage["cost_in_usd"] += usage.get("cost_in_usd", 0.0)
 
         has_comment = result["comment"] is not None
         color = RED if has_comment else GREEN
@@ -192,7 +195,7 @@ def run_tests() -> None:
         if result["comment"]:
             print(f"  comment: {result['comment'][:200]}")
 
-    print(f"\nTotal cost: ${total_cost:.4f}")
+    print(f"\nTotal usage: {json.dumps(total_usage, indent=2)}")
 
 
 def main() -> None:
