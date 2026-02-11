@@ -411,6 +411,15 @@ def output_to_responses_items_stream(
 
 if _HAS_LANGCHAIN_BASE_MESSAGE:
 
+    def _stringify_content(content: Any) -> str:
+        """Ensure content is a string, JSON-serializing if necessary."""
+        if isinstance(content, str):
+            return content
+        try:
+            return json.dumps(content)
+        except (TypeError, ValueError):
+            return str(content)
+
     def _langchain_message_stream_to_responses_stream(
         chunks: Iterator[BaseMessage],
         aggregator: list[dict[str, Any]] | None = None,
@@ -449,7 +458,7 @@ if _HAS_LANGCHAIN_BASE_MESSAGE:
             elif role == "tool":
                 function_call_output_item = create_function_call_output_item(
                     call_id=message["tool_call_id"],
-                    output=message["content"],
+                    output=_stringify_content(message["content"]),
                 )
                 if aggregator is not None:
                     aggregator.append(function_call_output_item)

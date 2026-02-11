@@ -1120,6 +1120,304 @@ def test_responses_agent_non_mlflow_decorators():
                 ),
             ],
         ),
+        # Real-world test case: 3 parallel tool calls from Databricks Claude endpoint
+        # This test case was captured from actual API responses
+        (
+            [
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {"content": "I'll call", "role": "assistant"},
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {"content": " all three tools in", "role": "assistant"},
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {"content": " parallel.", "role": "assistant"},
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                # Tool call 0: search_documents - initialization
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {
+                                "content": None,
+                                "role": "assistant",
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "toolu_bdrk_01LtBCr4wGYBR6kG7cAbQPx1",
+                                        "function": {"arguments": "", "name": "search_documents"},
+                                        "type": "function",
+                                    }
+                                ],
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                # Tool call 0: search_documents - arguments streaming
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {"index": 0, "function": {"arguments": '{"query": "'}}
+                                ]
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {"index": 0, "function": {"arguments": "machine learning"}}
+                                ]
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {"index": 0, "function": {"arguments": ' best practices"}'}}
+                                ]
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                # Tool call 1: get_weather - initialization
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 1,
+                                        "id": "toolu_bdrk_014F4DopzAMvZqjXPWc1JVDh",
+                                        "function": {"arguments": "", "name": "get_weather"},
+                                        "type": "function",
+                                    }
+                                ]
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                # Tool call 1: get_weather - arguments streaming
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {"index": 1, "function": {"arguments": '{"location": "'}}
+                                ]
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {"index": 1, "function": {"arguments": 'Seattle, WA"}'}}
+                                ]
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                # Tool call 2: calculate - initialization
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 2,
+                                        "id": "toolu_bdrk_01FEsMf3SWnhjQiNTHX3i3cV",
+                                        "function": {"arguments": "", "name": "calculate"},
+                                        "type": "function",
+                                    }
+                                ]
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                # Tool call 2: calculate - arguments streaming
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {"index": 2, "function": {"arguments": '{"expression": "'}}
+                                ]
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {"index": 2, "function": {"arguments": '42 * 17"}'}}
+                                ]
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                # Final chunk
+                {
+                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    "choices": [
+                        {
+                            "delta": {"content": "", "role": "assistant"},
+                            "finish_reason": "tool_calls",
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+            ],
+            [
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    delta="I'll call",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    delta=" all three tools in",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    delta=" parallel.",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta",
+                    custom_outputs=None,
+                    item_id="msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                    delta="",
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                        "content": [
+                            {
+                                "text": "I'll call all three tools in parallel.",
+                                "type": "output_text",
+                            }
+                        ],
+                        "role": "assistant",
+                        "type": "message",
+                    },
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "type": "function_call",
+                        "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                        "call_id": "toolu_bdrk_01LtBCr4wGYBR6kG7cAbQPx1",
+                        "name": "search_documents",
+                        "arguments": '{"query": "machine learning best practices"}',
+                    },
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "type": "function_call",
+                        "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                        "call_id": "toolu_bdrk_014F4DopzAMvZqjXPWc1JVDh",
+                        "name": "get_weather",
+                        "arguments": '{"location": "Seattle, WA"}',
+                    },
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    custom_outputs=None,
+                    item={
+                        "type": "function_call",
+                        "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
+                        "call_id": "toolu_bdrk_01FEsMf3SWnhjQiNTHX3i3cV",
+                        "name": "calculate",
+                        "arguments": '{"expression": "42 * 17"}',
+                    },
+                ),
+            ],
+        ),
     ],
 )
 def test_responses_agent_output_to_responses_items_stream(chunks, expected_output):
