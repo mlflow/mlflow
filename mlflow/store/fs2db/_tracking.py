@@ -32,6 +32,7 @@ import json
 import math
 import uuid
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -457,7 +458,7 @@ def _migrate_assessments_for_experiment(
 
 def _migrate_one_assessment(
     session: Session,
-    meta: dict[str, object],
+    meta: dict[str, Any],
     trace_id: str,
     assessment_id: str,
     stats: MigrationStats,
