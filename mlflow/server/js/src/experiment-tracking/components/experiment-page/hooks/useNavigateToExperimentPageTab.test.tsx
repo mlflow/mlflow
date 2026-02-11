@@ -11,7 +11,8 @@ import { ExperimentKind } from '../../../constants';
 import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 import { useWorkflowType, WorkflowType } from '../../../../common/contexts/WorkflowTypeContext';
 
-jest.mock('../../../../common/utils/ServerFeaturesContext', () => ({
+jest.mock('../../../hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../../../hooks/useServerInfo')>('../../../hooks/useServerInfo'),
   getWorkspacesEnabledSync: () => false,
   useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
 }));
@@ -30,7 +31,7 @@ describe('useNavigateToExperimentPageTab', () => {
   const server = setupServer(
     // Mock the tracking store info endpoint - default to non-FileStore
     rest.get('/server-info', (_req, res, ctx) => {
-      return res(ctx.json({ store_type: 'SqlAlchemyStore' }));
+      return res(ctx.json({ store_type: 'SqlAlchemyStore', workspaces_enabled: false }));
     }),
   );
 
@@ -132,7 +133,7 @@ describe('useNavigateToExperimentPageTab', () => {
     // Override the default mock to return FileStore
     server.use(
       rest.get('/server-info', (_req, res, ctx) => {
-        return res(ctx.json({ store_type: 'FileStore' }));
+        return res(ctx.json({ store_type: 'FileStore', workspaces_enabled: false }));
       }),
     );
     mockResponseWithExperimentKind(ExperimentKind.GENAI_DEVELOPMENT);

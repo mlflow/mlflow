@@ -9,7 +9,8 @@ import { DirectRunPage } from './DirectRunPage';
 import { useEffect } from 'react';
 import { renderWithIntl, screen, act } from '../../common/utils/TestUtils.react18';
 
-jest.mock('../../common/utils/ServerFeaturesContext', () => ({
+jest.mock('../hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../hooks/useServerInfo')>('../hooks/useServerInfo'),
   getWorkspacesEnabledSync: () => false,
   useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
 }));

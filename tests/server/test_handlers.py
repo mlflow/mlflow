@@ -350,6 +350,7 @@ def test_server_info():
         assert response.status_code == 200
         data = response.get_json()
         assert data["store_type"] == "SqlStore"
+        assert data["workspaces_enabled"] is False
 
 
 def test_get_endpoints():

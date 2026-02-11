@@ -114,34 +114,37 @@ def test_fastapi_workspace_middleware_handles_missing_header(monkeypatch):
     assert workspace_context.get_request_workspace() is None
 
 
-def test_server_features_endpoint(monkeypatch):
+def test_server_info_workspaces_enabled(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     client = flask_app.test_client()
-    resp = client.get("/api/3.0/mlflow/server-features")
+    resp = client.get("/server-info")
     assert resp.status_code == 200
-    assert resp.get_json() == {"workspaces_enabled": True}
+    data = resp.get_json()
+    assert data["workspaces_enabled"] is True
 
     # Disable workspaces and ensure the endpoint reflects the change.
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
-    resp = client.get("/api/3.0/mlflow/server-features")
+    resp = client.get("/server-info")
     assert resp.status_code == 200
-    assert resp.get_json() == {"workspaces_enabled": False}
+    data = resp.get_json()
+    assert data["workspaces_enabled"] is False
 
 
-def test_server_features_skips_workspace_resolution(monkeypatch):
+def test_server_info_skips_workspace_resolution(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
 
     def _raise_if_called(_header_workspace):
-        raise AssertionError("workspace resolution should not run for server-features")
+        raise AssertionError("workspace resolution should not run for server-info")
 
     monkeypatch.setattr(
         "mlflow.server.workspace_helpers.resolve_workspace_from_header", _raise_if_called
     )
 
     client = flask_app.test_client()
-    resp = client.get("/api/3.0/mlflow/server-features", headers={WORKSPACE_HEADER_NAME: "missing"})
+    resp = client.get("/server-info", headers={WORKSPACE_HEADER_NAME: "missing"})
     assert resp.status_code == 200
-    assert resp.get_json() == {"workspaces_enabled": True}
+    data = resp.get_json()
+    assert data["workspaces_enabled"] is True
 
 
 def test_fastapi_wsgi_flask_workspace_propagation(monkeypatch):
