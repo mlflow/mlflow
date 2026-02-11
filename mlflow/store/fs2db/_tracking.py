@@ -31,6 +31,7 @@ FileStore layout:
 import json
 import math
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -341,11 +342,8 @@ def migrate_traces(session: Session, mlruns: Path, stats: MigrationStats) -> Non
 
 def _parse_timestamp_ms(request_time: str) -> int:
     try:
-        from google.protobuf.timestamp_pb2 import Timestamp
-
-        ts = Timestamp()
-        ts.FromJsonString(request_time)
-        return ts.ToMilliseconds()
+        dt = datetime.fromisoformat(request_time.replace("Z", "+00:00"))
+        return int(dt.replace(tzinfo=dt.tzinfo or timezone.utc).timestamp() * 1000)
     except Exception:
         return 0
 
