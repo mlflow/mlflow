@@ -88,33 +88,9 @@ answer = await kernel.invoke_prompt("Is sushi the best food ever?")
 print("AI says:", answer)
 ```
 
-## Token Usage Tracking
+## Token Usage and Cost Tracking
 
-MLflow >= 3.2.0 supports token usage tracking for Semantic Kernel. The token usage for each LLM call during a kernel invocation will be logged in the `mlflow.chat.tokenUsage` span attribute, and the total usage in the entire trace will be logged in the `mlflow.trace.tokenUsage` metadata field.
-
-```python
-# Generate a trace using the above example
-# ...
-
-
-# Get the trace object just created
-last_trace_id = mlflow.get_last_active_trace_id()
-trace = mlflow.get_trace(trace_id=last_trace_id)
-
-# Print the token usage
-total_usage = trace.info.token_usage
-print("== Total token usage: ==")
-print(f"  Input tokens: {total_usage['input_tokens']}")
-print(f"  Output tokens: {total_usage['output_tokens']}")
-print(f"  Total tokens: {total_usage['total_tokens']}")
-```
-
-```
-== Total token usage: ==
-  Input tokens: 14
-  Output tokens: 113
-  Total tokens: 127
-```
+MLflow automatically tracks token usage and cost for Semantic Kernel. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
 
 ## Disable Auto-tracing
 

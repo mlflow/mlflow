@@ -87,6 +87,11 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
+                  id: 'tracing/token-usage-cost/index',
+                  label: 'Token Usage and Cost',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/track-users-sessions/index',
                   label: 'Track Users and Sessions',
                 },

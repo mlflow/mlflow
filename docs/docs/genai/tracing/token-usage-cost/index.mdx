@@ -1,0 +1,228 @@
+---
+sidebar_position: 7
+sidebar_label: Token Usage and Cost
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import useBaseUrl from "@docusaurus/useBaseUrl";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Coins, BarChart3, Calculator } from "lucide-react";
+
+# Token Usage and Cost Tracking
+
+MLflow automatically tracks token usage and cost for LLM calls within your traces. This enables you to monitor resource consumption and optimize costs across your GenAI applications.
+
+## Overview
+
+When tracing is enabled, MLflow captures:
+
+- **Token Usage**: The number of input tokens, output tokens, and total tokens for each LLM call
+- **Cost**: The estimated cost in USD for each LLM call, calculated based on model pricing
+
+This information is available at both the span level (individual LLM calls) and aggregated at the trace level.
+
+## Requirements
+
+| Feature              | MLflow Version |
+| -------------------- | -------------- |
+| Token Usage Tracking | >= 3.2.0       |
+| Cost Tracking        | >= 3.10.0      |
+
+:::note
+Cost tracking requires [LiteLLM](https://www.litellm.ai/) to be installed. Install it with:
+
+```bash
+pip install litellm
+```
+
+Cost is calculated based on token usage and [model pricing data from LiteLLM](https://models.litellm.ai/). Cost may not be available for all models, particularly custom or self-hosted models.
+:::
+
+## Viewing in the UI
+
+Token usage and cost information is displayed in the MLflow Trace UI:
+
+<video src={useBaseUrl("/images/llms/tracing/token-and-cost-ui.mp4")} controls loop autoPlay muted aria-label="Token Usage and Cost in MLflow UI" />
+
+## Accessing Programmatically
+
+### Python SDK
+
+<Tabs>
+  <TabItem value="trace-level" label="Trace Level" default>
+
+```python
+import mlflow
+
+# Get the most recent trace
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Access token usage
+total_usage = trace.info.token_usage
+if total_usage:
+    print("== Total token usage: ==")
+    print(f"  Input tokens: {total_usage['input_tokens']}")
+    print(f"  Output tokens: {total_usage['output_tokens']}")
+    print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Access cost (requires MLflow >= 3.10.0 and LiteLLM)
+total_cost = trace.info.cost
+if total_cost:
+    print("\n== Total cost (USD): ==")
+    print(f"  Input cost: ${total_cost['input_cost']:.6f}")
+    print(f"  Output cost: ${total_cost['output_cost']:.6f}")
+    print(f"  Total cost: ${total_cost['total_cost']:.6f}")
+```
+
+  </TabItem>
+  <TabItem value="span-level" label="Span Level">
+
+```python
+import mlflow
+
+# Get the most recent trace
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Access token usage for each LLM call
+print("== Token usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+
+# Access cost for each LLM call
+print("\n== Cost for each LLM call: ==")
+for span in trace.data.spans:
+    if cost := span.llm_cost:
+        print(f"{span.name}:")
+        print(f"  Input cost: ${cost['input_cost']:.6f}")
+        print(f"  Output cost: ${cost['output_cost']:.6f}")
+        print(f"  Total cost: ${cost['total_cost']:.6f}")
+```
+
+  </TabItem>
+</Tabs>
+
+### TypeScript / JavaScript SDK
+
+:::note
+Cost tracking support for TypeScript SDK will come soon. Token usage is currently available.
+:::
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+// Flush any pending spans then fetch the most recent trace
+await mlflow.flushTraces();
+const lastTraceId = mlflow.getLastActiveTraceId();
+
+if (lastTraceId) {
+  const client = new mlflow.MlflowClient({ trackingUri: "http://localhost:5000" });
+  const trace = await client.getTrace(lastTraceId);
+
+  // Access token usage
+  console.log("== Total token usage: ==");
+  console.log(trace.info.tokenUsage); // { input_tokens, output_tokens, total_tokens }
+
+  // Per-span usage
+  console.log("\n== Usage for each LLM call: ==");
+  for (const span of trace.data.spans) {
+    const usage = span.attributes?.["mlflow.chat.tokenUsage"];
+    if (usage) {
+      console.log(`${span.name}:`, usage);
+    }
+  }
+}
+```
+
+### Example Output
+
+```bash
+== Total token usage: ==
+  Input tokens: 84
+  Output tokens: 22
+  Total tokens: 106
+
+== Total cost (USD): ==
+  Input cost: $0.000013
+  Output cost: $0.000013
+  Total cost: $0.000026
+
+== Token usage for each LLM call: ==
+Completions_1:
+  Input tokens: 45
+  Output tokens: 14
+  Total tokens: 59
+Completions_2:
+  Input tokens: 39
+  Output tokens: 8
+  Total tokens: 47
+```
+
+## Data Structure
+
+### Token Usage
+
+The `token_usage` field returns a dictionary with the following keys:
+
+| Key             | Type  | Description                               |
+| --------------- | ----- | ----------------------------------------- |
+| `input_tokens`  | `int` | Number of tokens in the input/prompt      |
+| `output_tokens` | `int` | Number of tokens in the output/completion |
+| `total_tokens`  | `int` | Sum of input and output tokens            |
+
+### Cost
+
+The `cost` field returns a dictionary with the following keys:
+
+| Key           | Type    | Description                          |
+| ------------- | ------- | ------------------------------------ |
+| `input_cost`  | `float` | Cost of input tokens in USD          |
+| `output_cost` | `float` | Cost of output tokens in USD         |
+| `total_cost`  | `float` | Sum of input and output costs in USD |
+
+## Supported Integrations
+
+Token usage and cost tracking is supported for most MLflow tracing integrations. See the individual [integration pages](/genai/tracing/integrations) for specific support details.
+
+:::tip
+Some providers or models may not return token usage information. In these cases, the `token_usage` and `cost` fields will be `None`.
+:::
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={BarChart3}
+    iconSize={48}
+    title="View Traces in UI"
+    description="Learn how to navigate and analyze traces in the MLflow UI."
+    href="/genai/tracing/observe-with-traces/ui"
+    linkText="View traces →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Calculator}
+    iconSize={48}
+    title="Search Traces"
+    description="Search and filter traces based on various criteria."
+    href="/genai/tracing/search-traces"
+    linkText="Search traces →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Coins}
+    iconSize={48}
+    title="Tracing Integrations"
+    description="See which integrations support token usage and cost tracking."
+    href="/genai/tracing/integrations"
+    linkText="View integrations →"
+    containerHeight={64}
+  />
+</TilesGrid>
