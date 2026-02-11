@@ -65,13 +65,13 @@ _MODEL_API_DOC = {
 Supported formats:
 
 * `"databricks"` for a default Databricks-hosted model designed for GenAI quality assessments.
-* `"databricks:/<model-name>"` for other Databricks-hosted models 
-  (e.g., `databricks:/databricks-gpt-5-mini`, `databricks:/databricks-claude-sonnet-4-5`). 
+* `"databricks:/<model-name>"` for other Databricks-hosted models
+  (e.g., `databricks:/databricks-gpt-5-mini`, `databricks:/databricks-claude-sonnet-4-5`).
   For a full list, see https://models.litellm.ai/ and select "databricks" as the provider.)
 * `"databricks:/<endpoint-name>"` or `"endpoints:/<endpoint-name>"` for
   custom endpoints on Databricks (e.g., `databricks:/my-endpoint`).
 * `<provider>:/<model-name>` for other providers (e.g.,
-  `"openai:/gpt-4o-mini"`, `"anthropic:/claude-3.5-sonnet-20240620"`). 
+  `"openai:/gpt-4o-mini"`, `"anthropic:/claude-3.5-sonnet-20240620"`).
   For a full list, see https://models.litellm.ai/.
 
 MLflow natively supports `["openai", "anthropic", "bedrock", "mistral"]`,
@@ -80,7 +80,8 @@ and more providers are supported through
 
 Default model depends on the tracking URI setup:
 
-* Databricks: `databricks` (a default Databricks-hosted model designed for GenAI quality assessments)
+* Databricks: `databricks` (a default Databricks-hosted model designed
+  for GenAI quality assessments)
 * Otherwise: `openai:/gpt-4o-mini`.
 """,
     "embedding_model": """Model to use for generating embeddings for
@@ -134,7 +135,7 @@ class MemoryAugmentedJudge(Judge):
                 f"embedding_dim must be a positive integer, got {embedding_dim}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-            
+
         effective_base_judge = (
             base_judge._base_judge if isinstance(base_judge, MemoryAugmentedJudge) else base_judge
         )
