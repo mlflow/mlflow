@@ -30,7 +30,7 @@ def clients(
         ]
     )
 
-    migrate(Path(source), target_uri)
+    migrate(Path(source), target_uri, progress=False)
 
     mlruns = _resolve_mlruns(Path(source))
     with warnings.catch_warnings():

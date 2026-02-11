@@ -34,61 +34,63 @@ from mlflow.store.model_registry.dbmodels.models import (
 )
 
 
-def migrate_model_registry(session: Session, mlruns: Path, stats: MigrationStats) -> None:
+def list_registered_models(mlruns: Path) -> list[Path]:
     models_dir = mlruns / "models"
     if not models_dir.is_dir():
+        return []
+    return [models_dir / name for name in list_subdirs(models_dir)]
+
+
+def _migrate_one_registered_model(session: Session, model_dir: Path, stats: MigrationStats) -> None:
+    model_name = model_dir.name
+    meta = safe_read_yaml(model_dir, META_YAML)
+    if meta is None:
         return
 
-    for model_name in list_subdirs(models_dir):
-        model_dir = models_dir / model_name
-        meta = safe_read_yaml(model_dir, META_YAML)
-        if meta is None:
-            continue
+    session.add(
+        SqlRegisteredModel(
+            name=meta.get("name", model_name),
+            creation_time=meta.get("creation_timestamp"),
+            last_updated_time=meta.get("last_updated_timestamp"),
+            description=meta.get("description"),
+        )
+    )
+    stats.registered_models += 1
 
+    # Registered model tags
+    for key, value in read_tag_files(model_dir / "tags").items():
         session.add(
-            SqlRegisteredModel(
+            SqlRegisteredModelTag(
                 name=meta.get("name", model_name),
-                creation_time=meta.get("creation_timestamp"),
-                last_updated_time=meta.get("last_updated_timestamp"),
-                description=meta.get("description"),
+                key=key,
+                value=value,
             )
         )
-        stats.registered_models += 1
+        stats.registered_model_tags += 1
 
-        # Registered model tags
-        for key, value in read_tag_files(model_dir / "tags").items():
-            session.add(
-                SqlRegisteredModelTag(
-                    name=meta.get("name", model_name),
-                    key=key,
-                    value=value,
-                )
+    # Model versions
+    for version_dir_name in list_subdirs(model_dir):
+        if not version_dir_name.startswith("version-"):
+            continue
+        version_dir = model_dir / version_dir_name
+        _migrate_model_version(session, version_dir, meta.get("name", model_name), stats)
+
+    # Aliases
+    aliases_dir = model_dir / "aliases"
+    for alias_name in list_files(aliases_dir):
+        version_str = (aliases_dir / alias_name).read_text().strip()
+        try:
+            version_int = int(version_str)
+        except ValueError:
+            continue
+        session.add(
+            SqlRegisteredModelAlias(
+                name=meta.get("name", model_name),
+                alias=alias_name,
+                version=version_int,
             )
-            stats.registered_model_tags += 1
-
-        # Model versions
-        for version_dir_name in list_subdirs(model_dir):
-            if not version_dir_name.startswith("version-"):
-                continue
-            version_dir = model_dir / version_dir_name
-            _migrate_model_version(session, version_dir, meta.get("name", model_name), stats)
-
-        # Aliases
-        aliases_dir = model_dir / "aliases"
-        for alias_name in list_files(aliases_dir):
-            version_str = (aliases_dir / alias_name).read_text().strip()
-            try:
-                version_int = int(version_str)
-            except ValueError:
-                continue
-            session.add(
-                SqlRegisteredModelAlias(
-                    name=meta.get("name", model_name),
-                    alias=alias_name,
-                    version=version_int,
-                )
-            )
-            stats.registered_model_aliases += 1
+        )
+        stats.registered_model_aliases += 1
 
 
 def _migrate_model_version(

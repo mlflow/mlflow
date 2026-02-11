@@ -292,6 +292,7 @@ def generate_logged_models(cfg: SizeConfig, experiments: list[ExperimentData]) -
                     name=f"logged_model_{m_idx}",
                     python_model=lambda model_input: model_input,
                     input_example="hello",
+                    pip_requirements=[],
                 )
                 model_uris.append(model_info.model_uri)
             client.set_logged_model_tags(
