@@ -28,7 +28,7 @@ To use MLflow with the OIDC plugin, we need to (1) configure OIDC provider (2) d
 
 ### Configure the OIDC provider
 
-The OIDC plugin requires an Identity Provider (IDP) service that supports the OIDC protocol. Popular cloud OIDC providers include [Okta Auth0](https://developer.okta.com/), [Google Identity Platform](https://cloud.google.com/security/products/identity-platform), [Aws Cognito](https://aws.amazon.com/pm/cognito) and [Azure Entra ID](https://www.microsoft.com/en-sg/security/business/identity-access/microsoft-entra-id). Below is configuration examples for these popular cloud OIDC providers:
+The OIDC plugin requires an Identity Provider (IDP) service that supports the OIDC protocol. Popular cloud OIDC providers include [Okta Auth0](https://developer.okta.com/), [Google Identity Platform](https://cloud.google.com/security/products/identity-platform), [Aws Cognito](https://aws.amazon.com/pm/cognito) and [Azure Entra ID](https://www.microsoft.com/en-sg/security/business/identity-access/microsoft-entra-id). Below are configuration examples for these popular cloud OIDC providers:
 
 #### Okta Auth0 configuration
 
@@ -54,7 +54,7 @@ In Okta account sidebar menu: Actions -> Library -> Create Actions -> Create Cus
 ```javascript
 exports.onExecutePostLogin = async (event, api) => {
   const email = event.user.email;
-  if (email == "weichenxuworks@gmail.com") {
+  if (email == "somebody@gmail.com") {
     var group = "mlflow-admin"
   } else {
     var group = "mlflow"
@@ -87,7 +87,7 @@ Then in Okta account sidebar menu: Actions -> Triggers -> Sign up & Login: post-
 
 3. Unlike Okta Auth0, Google Identity Platform does not support the post-login trigger, so that we can't configure the user group setting there. Instead, we need to write a simple plugin as follows. The example group configuration plugin assigns the administrator group to a certain user, and assign the plain group to other users.
 
-Create a Python file named as "google_oidc_auth_plugin.py":
+In the working directory that you launch the mlflow server, create a Python file named as "google_oidc_auth_plugin.py":
 
 ```python
 import requests
@@ -105,12 +105,12 @@ def get_user_groups(access_token):
     # userinfo contains: email, name, picture, sub, etc.
     email = userinfo.get("email")
 
-    if email == "weichenxuworks@gmail.com":
+    if email == "somebody@gmail.com":
         return ["mlflow-admin"]
     return ["mlflow"]
 ```
 
-The plugin Python file will be used when you deploy the mlflow server.
+The plugin Python file will be used by the mlflow server's OIDC auth plugin, see the environment variable 'OIDC_GROUP_DETECTION_PLUGIN' setting in the following "Deploy MLflow server with the OIDC plugin" section.
 
 #### Aws Cognito configuration
 
@@ -225,7 +225,7 @@ After all environment variables are set, we can start the MLflow server with the
 mlflow server --app-name oidc-auth --host 0.0.0.0 --port 8080
 ```
 
-Then you can open URL "http://localhost:8080/" and it will jump to the OIDC login page, use a Okta account / Google account to log in, after login, it will jump to the OIDC permission configuration page as follows:
+Then you can open URL "http://localhost:8080/" and it will jump to the OIDC login page, log in as an Okta / Google / AWS / Azure user, after login, it will jump to the OIDC permission configuration page as follows:
 
 ![custom action setting](/images/self-hosting/oidc-page.png)
 
