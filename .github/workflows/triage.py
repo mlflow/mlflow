@@ -110,10 +110,10 @@ def call_anthropic_api(prompt: str) -> dict[str, Any]:
         raise
 
     usage = response.get("usage", {})
-    classification = json.loads(response["content"][0]["text"])
+    result = json.loads(response["content"][0]["text"])
     return {
-        "comment": classification["comment"],
-        "reason": classification["reason"],
+        "comment": result["comment"],
+        "reason": result["reason"],
         "usage": usage,
     }
 
