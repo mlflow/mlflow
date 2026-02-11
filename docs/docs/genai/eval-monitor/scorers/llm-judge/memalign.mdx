@@ -36,7 +36,7 @@ MemAlign is an experimental optimizer. The API may change in future releases.
 
 For alignment to work:
 
-- Traces must contain human assessments (labels) with the same name as the judge
+- Traces must contain human assessments (labels) with the **same name** as the judge name
 - Natural language feedback (rationale) is highly recommended for better alignment
 - A mix of positive and negative labels is recommended
 
@@ -86,10 +86,17 @@ optimizer = MemAlignOptimizer(
 )
 
 # Retrieve traces with human feedback
-traces = mlflow.search_traces(return_type="list")
+all_traces = mlflow.search_traces(return_type="list")
+alignment_traces = [
+    trace for trace in all_traces
+    if any(
+        feedback.name == "politeness" for feedback in trace.info.assessments
+        # feedback name must match the judge name for alignment to work
+    )
+]
 
 # Align the judge
-aligned_judge = judge.align(traces=traces, optimizer=optimizer)
+aligned_judge = judge.align(traces=alignment_traces, optimizer=optimizer)
 ```
 
 ## Parameters
