@@ -179,4 +179,77 @@ describe('useRunSortOptions', () => {
       },
     ]);
   });
+
+  test('creates RunSortOptions with tags', () => {
+    const sortOptions = renderHook(() => useRunSortOptions([], [], ['tag1', 'tag2'])).result.current;
+
+    // Should include attribute sort options plus tag sort options
+    expect(sortOptions).toEqual(
+      expect.arrayContaining([
+        {
+          label: 'tag1',
+          value: 'tags.`tag1`***ASCENDING',
+          order: 'ASCENDING',
+        },
+        {
+          label: 'tag1',
+          value: 'tags.`tag1`***DESCENDING',
+          order: 'DESCENDING',
+        },
+        {
+          label: 'tag2',
+          value: 'tags.`tag2`***ASCENDING',
+          order: 'ASCENDING',
+        },
+        {
+          label: 'tag2',
+          value: 'tags.`tag2`***DESCENDING',
+          order: 'DESCENDING',
+        },
+      ]),
+    );
+  });
+
+  test('creates RunSortOptions with metrics, params, and tags', () => {
+    const sortOptions = renderHook(() => useRunSortOptions(['metric1'], ['param1'], ['customTag'])).result.current;
+
+    // Should include all sort options: attributes, metrics, params, and tags
+    expect(sortOptions).toEqual(
+      expect.arrayContaining([
+        // Metric
+        {
+          label: 'metric1',
+          value: 'metrics.`metric1`***ASCENDING',
+          order: 'ASCENDING',
+        },
+        {
+          label: 'metric1',
+          value: 'metrics.`metric1`***DESCENDING',
+          order: 'DESCENDING',
+        },
+        // Param
+        {
+          label: 'param1',
+          value: 'params.`param1`***ASCENDING',
+          order: 'ASCENDING',
+        },
+        {
+          label: 'param1',
+          value: 'params.`param1`***DESCENDING',
+          order: 'DESCENDING',
+        },
+        // Tag
+        {
+          label: 'customTag',
+          value: 'tags.`customTag`***ASCENDING',
+          order: 'ASCENDING',
+        },
+        {
+          label: 'customTag',
+          value: 'tags.`customTag`***DESCENDING',
+          order: 'DESCENDING',
+        },
+      ]),
+    );
+  });
 });

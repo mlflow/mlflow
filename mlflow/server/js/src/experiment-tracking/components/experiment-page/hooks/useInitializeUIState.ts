@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
-import { EXPERIMENT_PAGE_UI_STATE_FIELDS, createExperimentPageUIState } from '../models/ExperimentPageUIState';
+import {
+  EXPERIMENT_PAGE_UI_STATE_FIELDS,
+  createExperimentPageUIState,
+  migrateSelectedColumns,
+} from '../models/ExperimentPageUIState';
 import { loadExperimentViewState } from '../utils/persistSearchFacets';
 import { keys, pick } from 'lodash';
 import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
@@ -86,6 +90,12 @@ export const useInitializeUIState = (
       const persistedViewState = loadExperimentViewState(persistKey);
       const persistedStateFound = Boolean(keys(persistedViewState || {}).length);
       const persistedUIState = persistedStateFound ? pick(persistedViewState, EXPERIMENT_PAGE_UI_STATE_FIELDS) : {};
+
+      // Migrate selectedColumns to include Date and Duration if missing (for existing users)
+      if (persistedUIState['selectedColumns']) {
+        persistedUIState['selectedColumns'] = migrateSelectedColumns(persistedUIState['selectedColumns'] as string[]);
+      }
+
       return {
         uiState: { ...baseState, ...persistedUIState },
         isSeeded: persistedStateFound,
@@ -148,6 +158,11 @@ export const useInitializeUIState = (
     const persistedUIState = pick(persistedViewState, EXPERIMENT_PAGE_UI_STATE_FIELDS);
     const isSeeded = Boolean(keys(persistedViewState || {}).length);
     const isFirstVisit = !isSeeded;
+
+    // Migrate selectedColumns to include Date and Duration if missing (for existing users)
+    if (persistedUIState['selectedColumns']) {
+      persistedUIState['selectedColumns'] = migrateSelectedColumns(persistedUIState['selectedColumns'] as string[]);
+    }
 
     dispatchAction({
       type: 'LOAD_NEW_EXPERIMENT',

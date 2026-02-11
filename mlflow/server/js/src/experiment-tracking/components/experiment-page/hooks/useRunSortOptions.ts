@@ -24,6 +24,7 @@ type SORT_KEY_TYPE = keyof (typeof ATTRIBUTE_COLUMN_SORT_KEY & typeof ATTRIBUTE_
 export const useRunSortOptions = (
   filteredMetricKeys: string[],
   filteredParamKeys: string[],
+  filteredTagKeys: string[] = [],
 ): ExperimentRunSortOption[] =>
   useMemo(() => {
     let sortOptions = [];
@@ -63,7 +64,18 @@ export const useRunSortOptions = (
 
       return options;
     }, []);
-    sortOptions = [...attributesSortBy, ...metricsSortBy, ...paramsSortBy];
+    const tagsSortBy = filteredTagKeys.reduce<any[]>((options, sortLabelKey) => {
+      ColumnSortByOrder.forEach((order) => {
+        options.push({
+          label: sortLabelKey,
+          value: `${makeCanonicalSortKey(COLUMN_TYPES.TAGS, sortLabelKey)}${SORT_DELIMITER_SYMBOL}${order}`,
+          order,
+        });
+      });
+
+      return options;
+    }, []);
+    sortOptions = [...attributesSortBy, ...metricsSortBy, ...paramsSortBy, ...tagsSortBy];
 
     return sortOptions;
-  }, [filteredMetricKeys, filteredParamKeys]);
+  }, [filteredMetricKeys, filteredParamKeys, filteredTagKeys]);

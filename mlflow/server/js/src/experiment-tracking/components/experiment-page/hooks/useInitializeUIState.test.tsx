@@ -7,7 +7,10 @@ import {
   type ExperimentPageUIState,
   createExperimentPageUIState,
   RUNS_VISIBILITY_MODE,
+  migrateSelectedColumns,
 } from '../models/ExperimentPageUIState';
+import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
+import { makeCanonicalSortKey } from '../utils/experimentPage.common-utils';
 import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { RunsChartType } from '../../runs-charts/runs-charts.types';
 import { expandedEvaluationRunRowsUIStateInitializer } from '../utils/expandedRunsViewStateInitializer';
@@ -43,6 +46,8 @@ describe('useInitializeUIState', () => {
   });
 
   test('should return persisted UI state when present', () => {
+    const DATE_KEY = makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATE);
+    const DURATION_KEY = makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DURATION);
     const persistedState = {
       ...createExperimentPageSearchFacetsState(),
       ...initialUIState,
@@ -59,7 +64,8 @@ describe('useInitializeUIState', () => {
       ...initialUIState,
       viewMaximized: true,
       runListHidden: true,
-      selectedColumns: ['metrics.m2'],
+      // Migration adds Date and Duration columns if missing
+      selectedColumns: [DATE_KEY, DURATION_KEY, 'metrics.m2'],
     });
   });
 
@@ -287,5 +293,73 @@ describe('generateExperimentHash', () => {
     ];
 
     expect(generateExperimentHash(runs, experiments)).toEqual('experiment_1:experiment_2:run_1:run_2:run_3');
+  });
+});
+
+describe('migrateSelectedColumns', () => {
+  const DATE_COLUMN_KEY = makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATE);
+  const DURATION_COLUMN_KEY = makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DURATION);
+
+  test('returns unchanged array if Date and Duration columns already exist', () => {
+    const selectedColumns = [DATE_COLUMN_KEY, DURATION_COLUMN_KEY, 'metrics.m1'];
+    const result = migrateSelectedColumns(selectedColumns);
+    expect(result).toEqual(selectedColumns);
+  });
+
+  test('adds Date column if missing', () => {
+    const selectedColumns = [DURATION_COLUMN_KEY, 'metrics.m1'];
+    const result = migrateSelectedColumns(selectedColumns);
+    expect(result).toEqual([DATE_COLUMN_KEY, DURATION_COLUMN_KEY, 'metrics.m1']);
+  });
+
+  test('adds Duration column if missing', () => {
+    const selectedColumns = [DATE_COLUMN_KEY, 'metrics.m1'];
+    const result = migrateSelectedColumns(selectedColumns);
+    // Duration is added at the beginning with unshift
+    expect(result).toEqual([DURATION_COLUMN_KEY, DATE_COLUMN_KEY, 'metrics.m1']);
+  });
+
+  test('adds both Date and Duration columns if both are missing', () => {
+    const selectedColumns = ['metrics.m1', 'params.p1'];
+    const result = migrateSelectedColumns(selectedColumns);
+    expect(result).toEqual([DATE_COLUMN_KEY, DURATION_COLUMN_KEY, 'metrics.m1', 'params.p1']);
+  });
+
+  test('adds columns at the beginning of the array', () => {
+    const selectedColumns = ['attributes.`Source`', 'attributes.`Models`'];
+    const result = migrateSelectedColumns(selectedColumns);
+    expect(result[0]).toBe(DATE_COLUMN_KEY);
+    expect(result[1]).toBe(DURATION_COLUMN_KEY);
+  });
+});
+
+describe('useInitializeUIState migration', () => {
+  const DATE_COLUMN_KEY = makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATE);
+  const DURATION_COLUMN_KEY = makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DURATION);
+
+  const renderParametrizedHook = () => {
+    return renderHook(() => useInitializeUIState(experimentIds), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    });
+  };
+
+  test('should migrate persisted state to include Date and Duration columns', () => {
+    // Simulate old persisted state without Date and Duration columns
+    const oldPersistedState = {
+      ...initialUIState,
+      selectedColumns: ['attributes.`Source`', 'attributes.`Models`', 'metrics.m1'],
+    };
+    jest.mocked(loadExperimentViewState).mockImplementation(() => oldPersistedState);
+
+    const { result } = renderParametrizedHook();
+    const [uiState] = result.current;
+
+    // Verify Date and Duration were added
+    expect(uiState.selectedColumns).toContain(DATE_COLUMN_KEY);
+    expect(uiState.selectedColumns).toContain(DURATION_COLUMN_KEY);
+    // Verify original columns are preserved
+    expect(uiState.selectedColumns).toContain('attributes.`Source`');
+    expect(uiState.selectedColumns).toContain('attributes.`Models`');
+    expect(uiState.selectedColumns).toContain('metrics.m1');
   });
 });
