@@ -3046,7 +3046,7 @@ def save_model(
         not isinstance(python_model, (Path, str)) and
         not is_in_databricks_runtime()
     ):
-        warnings.warn(
+        _logger.warning(
             "Passing a Python object as `python_model` causes it to be serialized "
             "using CloudPickle, "
             "it requires exercising caution as Python object serialization mechanisms may "

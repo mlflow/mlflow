@@ -19,6 +19,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
+from unittest import mock
 from tests.helper_functions import _assert_pip_requirements
 
 
@@ -344,3 +345,20 @@ def test_streamable_model_save_load(tmp_path, model_path):
     assert isinstance(stream_result, types.GeneratorType)
 
     assert list(stream_result) == ["test1", "test2"]
+
+
+def test_log_model_does_not_emit_pickle_warning(sklearn_knn_model, iris_data, tmp_path):
+    sk_model_path = os.path.join(tmp_path, "knn.pkl")
+    with open(sk_model_path, "wb") as f:
+        pickle.dump(sklearn_knn_model, f)
+
+    pyfunc_artifact_path = "pyfunc_model"
+    with mlflow.start_run(), mock.patch("mlflow.pyfunc._logger.warning") as mock_log_warning:
+        mlflow.pyfunc.log_model(
+            name=pyfunc_artifact_path,
+            data_path=sk_model_path,
+            loader_module=__name__,
+            code_paths=[__file__],
+        )
+
+    mock_log_warning.assert_not_called()
