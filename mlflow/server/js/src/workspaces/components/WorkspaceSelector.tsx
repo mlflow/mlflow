@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   DialogCombobox,
   DialogComboboxContent,
@@ -17,8 +17,9 @@ import {
   setLastUsedWorkspace,
   WORKSPACE_QUERY_PARAM,
 } from '../../workspaces/utils/WorkspaceUtils';
-import { useLocation, useSearchParams } from '../../common/utils/RoutingUtils';
-import { useWorkspaces, type Workspace } from '../hooks/useWorkspaces';
+import { useLocation, useNavigate, useSearchParams } from '../../common/utils/RoutingUtils';
+import Routes from '../../experiment-tracking/routes';
+import { useWorkspaces } from '../hooks/useWorkspaces';
 
 export const WorkspaceSelector = () => {
   const workspacesEnabled = shouldEnableWorkspaces();
@@ -26,7 +27,7 @@ export const WorkspaceSelector = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { theme } = useDesignSystemTheme();
-
+  const navigate = useNavigate({ bypassWorkspacePrefix: true });
   // Extract workspace from query param
   const currentWorkspace = extractWorkspaceFromSearchParams(searchParams);
 
@@ -101,7 +102,8 @@ export const WorkspaceSelector = () => {
         withInlineLabel={false}
         placeholder="Select workspace"
         renderDisplayedValue={() => currentWorkspace}
-        allowClear={false}
+        onClear={() => navigate(Routes.rootRoute)}
+        width="100%"
       />
       <DialogComboboxContent style={{ zIndex: theme.options.zIndexBase + 100 }} loading={isLoading}>
         {isError && (

@@ -4,10 +4,7 @@ import {
   BeakerIcon,
   Button,
   ChainIcon,
-  ChevronLeftIcon,
   CloudModelIcon,
-  DatabaseIcon,
-  DropdownMenu,
   GearIcon,
   HomeIcon,
   KeyIcon,
@@ -17,6 +14,7 @@ import {
   Tag,
   TextBoxIcon,
   Tooltip,
+  Typography,
   useDesignSystemTheme,
   DesignSystemEventProviderComponentTypes,
   DesignSystemEventProviderAnalyticsEventTypes,
@@ -30,13 +28,6 @@ import { Link, matchPath, useLocation, useNavigate, useParams, useSearchParams }
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
-import { CreateExperimentModal } from '../../experiment-tracking/components/modals/CreateExperimentModal';
-import { useInvalidateExperimentList } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
-import { CreateModelModal } from '../../model-registry/components/CreateModelModal';
-import {
-  CreatePromptModalMode,
-  useCreatePromptModal,
-} from '../../experiment-tracking/pages/prompts/hooks/useCreatePromptModal';
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
@@ -56,6 +47,7 @@ import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/Workspa
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { MlflowLogo } from './MlflowLogo';
 import { HomePageDocsUrl } from '../constants';
+import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
 
 const isHomeActive = (location: Location) => Boolean(matchPath({ path: '/', end: true }, location.pathname));
 const isExperimentsActive = (location: Location) =>
@@ -141,8 +133,6 @@ export function MlflowSidebar({
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { theme } = useDesignSystemTheme();
-  const invalidateExperimentList = useInvalidateExperimentList();
-  const navigate = useNavigate();
   const viewId = useMemo(() => uuidv4(), []);
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
   // WorkflowType context is always available, but UI is guarded by feature flag
@@ -164,12 +154,6 @@ export function MlflowSidebar({
     hasTrainingRuns: (trainingRuns?.length ?? 0) > 0,
   });
 
-  const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
-  const [showCreateModelModal, setShowCreateModelModal] = useState(false);
-  const { CreatePromptModal, openModal: openCreatePromptModal } = useCreatePromptModal({
-    mode: CreatePromptModalMode.CreatePrompt,
-    onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
-  });
   const { openPanel, closePanel, isPanelOpen, isLocalServer } = useAssistant();
   const [isAssistantHovered, setIsAssistantHovered] = useState(false);
 
@@ -452,17 +436,9 @@ export function MlflowSidebar({
             margin: 0,
           }}
         >
-          {workspacesEnabled && (
+          {workspacesEnabled && showSidebar && (
             <div css={{ display: 'flex', flexDirection: 'column', marginBottom: theme.spacing.md }}>
-              <MlflowSidebarLink
-                componentId="mlflow.sidebar.workspaces_link"
-                disableWorkspacePrefix
-                to={Routes.rootRoute}
-                isActive={() => !workspaceFromUrl && !isSettingsActive(location)}
-                icon={workspaceFromUrl ? <ChevronLeftIcon /> : <HomeIcon />}
-              >
-                <FormattedMessage defaultMessage="Workspaces" description="Sidebar link for workspaces page" />
-                </MlflowSidebarLink>
+              <WorkspaceSelector />
             </div>
           )}
           {showWorkspaceMenuItems &&
@@ -473,6 +449,7 @@ export function MlflowSidebar({
                   componentId={componentId}
                   isActive={linkProps.isActive}
                   icon={icon}
+                  collapsed={!showSidebar}
                 >
                   {linkProps.children}
                 </MlflowSidebarLink>
@@ -601,14 +578,6 @@ export function MlflowSidebar({
           </MlflowSidebarLink>
         </div>
       </nav>
-
-      <CreateExperimentModal
-        isOpen={showCreateExperimentModal}
-        onClose={() => setShowCreateExperimentModal(false)}
-        onExperimentCreated={invalidateExperimentList}
-      />
-      <CreateModelModal modalVisible={showCreateModelModal} hideModal={() => setShowCreateModelModal(false)} />
-      {CreatePromptModal}
     </aside>
   );
 }

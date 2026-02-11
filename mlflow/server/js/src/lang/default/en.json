@@ -1326,10 +1326,6 @@
     "defaultMessage": "Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint",
     "description": "Section heading to display the code block on how we can validate a model locally prior to serving"
   },
-  "7YANiA": {
-    "defaultMessage": "Workspaces",
-    "description": "Sidebar link for workspaces page"
-  },
   "7ZzboF": {
     "defaultMessage": "Link prompts to your traces by loading your registered prompts inside the traced function.",
     "description": "Helper text describing how to link prompts when no prompt records are available"
