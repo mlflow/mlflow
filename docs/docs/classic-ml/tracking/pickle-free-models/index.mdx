@@ -24,7 +24,7 @@ model = DecisionTreeClassifier().fit(X, y)
 with mlflow.start_run():
     mlflow.sklearn.log_model(
         model,
-        "model",
+        name="model",
         serialization_format="skops",
     )
 ```
@@ -37,30 +37,28 @@ from sklearn.base import BaseEstimator, TransformerMixin
 import pandas as pd
 from sklearn.pipeline import Pipeline
 
+
 class CustomTransformer(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
     def transform(self, X, y=None):
-        # Perform arbitary transformation
+        # Perform arbitrary transformation
         X["random_int"] = randint(0, 10, X.shape[0])
         return X
 
+
 df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9]})
 
-pipeline = Pipeline(
-    steps=[
-        ("use_custom_transformer", CustomTransformer())
-    ]
-)
+pipeline = Pipeline(steps=[("use_custom_transformer", CustomTransformer())])
 
 # Custom classes must be marked as trusted for skops
 with mlflow.start_run():
     mlflow.sklearn.log_model(
         pipeline,
-        "model",
+        name="model",
         serialization_format="skops",
-        skops_trusted_types=['__main__.CustomTransformer']
+        skops_trusted_types=["__main__.CustomTransformer"],
     )
 ```
 
@@ -78,7 +76,7 @@ Requirements:
 
 Note:
 
-This graph-based pytorch model format does not allow the loaded model weights to transfer between different devices. E.g., if the model weights are in GPU device  when saving, then the loaded model must load weights to the same GPU device.
+This graph-based pytorch model format does not allow the loaded model weights to transfer between different devices. E.g., if the model weights are in GPU device when saving, then the loaded model must load weights to the same GPU device.
 
 ```python
 import mlflow
@@ -89,9 +87,9 @@ sequential_model = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1))
 input_example = torch.rand(5, 4).numpy()
 
 with mlflow.start_run():
-    mlflow.pytorch.save_model(
+    mlflow.pytorch.log_model(
         sequential_model,
-        "model",
+        name="model",
         export_model=True,
         input_example=input_example,
     )
@@ -113,7 +111,7 @@ model = dspy.ChainOfThought("question -> answer")
 with mlflow.start_run():
     mlflow.dspy.log_model(
         model,
-        "model",
+        name="model",
         use_dspy_model_save=True,
     )
 ```
@@ -135,9 +133,13 @@ model = LGBMClassifier(objective="multiclass", random_state=42).fit(X, y)
 with mlflow.start_run():
     mlflow.lightgbm.log_model(
         model,
-        "model",
+        name="model",
         serialization_format="skops",
-        skops_trusted_types=['collections.OrderedDict', 'lightgbm.basic.Booster', 'lightgbm.sklearn.LGBMClassifier']
+        skops_trusted_types=[
+            "collections.OrderedDict",
+            "lightgbm.basic.Booster",
+            "lightgbm.sklearn.LGBMClassifier",
+        ],
     )
 ```
 
@@ -151,7 +153,6 @@ LangChain model supports saving as **Models-From-Code** artifacts, which avoids 
 
 Custom Python model supports saving as **Models-From-Code** artifacts, which avoids pickle entirely. For details and examples, see [Models From Code](/ml/model/models-from-code).
 
-
 ## Global configuration to force MLflow pickle-free model loading
 
 You can disallow MLflow model loading with `pickle` or `cloudpickle` globally by setting the environment variable as follows:
@@ -162,14 +163,13 @@ export MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false
 
 When set to `false`, loading a model that was saved with `pickle` or `cloudpickle` will raise an error unless you use a pickle-free saving option when logging the model. The default is `true` for backward compatibility.
 
-
 ## Summary
 
-| Flavor | Pickle-free option | Notes |
-|--------|--------------------|-------|
-| Scikit-learn | `serialization_format="skops"` | Use `skops_trusted_types` when needed. |
-| PyTorch | `export_model=True` | Requires `input_example`, torch >= 2.4; not for ScriptModule. |
-| DSPy | `use_dspy_model_save=True` | Requires dspy >= 3.1.0. |
-| LightGBM | `serialization_format="skops"` | Only for lightGBM model of sklearn type |
-| LangChain | Models From Code | Pickle saving emits warnings. |
-| Custom Python model | Models From Code | Pickle saving emits warnings. |
+| Flavor              | Pickle-free option             | Notes                                                         |
+| ------------------- | ------------------------------ | ------------------------------------------------------------- |
+| Scikit-learn        | `serialization_format="skops"` | Use `skops_trusted_types` when needed.                        |
+| PyTorch             | `export_model=True`            | Requires `input_example`, torch >= 2.4; not for ScriptModule. |
+| DSPy                | `use_dspy_model_save=True`     | Requires dspy >= 3.1.0.                                       |
+| LightGBM            | `serialization_format="skops"` | Only for lightGBM model of sklearn type                       |
+| LangChain           | Models From Code               | Pickle saving emits warnings.                                 |
+| Custom Python model | Models From Code               | Pickle saving emits warnings.                                 |
