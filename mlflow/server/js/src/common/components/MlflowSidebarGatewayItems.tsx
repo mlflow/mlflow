@@ -21,11 +21,11 @@ export const MlflowSidebarGatewayItems = ({ collapsed }: { collapsed: boolean })
           gap: theme.spacing.sm,
           justifyContent: collapsed ? 'center' : 'flex-start',
           paddingLeft: collapsed ? 0 : theme.spacing.sm,
-          paddingBlock: theme.spacing.xs,
+          paddingBlock: collapsed ? 7 : theme.spacing.sm,
           border: collapsed ? `1px solid ${theme.colors.actionDefaultBorderDefault}` : 'none',
           borderRadius: theme.borders.borderRadiusSm,
-          marginTop: collapsed ? theme.spacing.sm : 0,
           marginBottom: collapsed ? theme.spacing.sm : 0,
+          boxSizing: 'border-box',
         }}
       >
         <CloudModelIcon />

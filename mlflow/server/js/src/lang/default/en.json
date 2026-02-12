@@ -7107,10 +7107,6 @@
     "defaultMessage": "Delete {numRuns, plural, =1 {1 run} other {# runs}}",
     "description": "Delete evaluation runs modal title"
   },
-  "mowpxw": {
-    "defaultMessage": "GitHub",
-    "description": "Sidebar link for GitHub page"
-  },
   "mpHsCg": {
     "defaultMessage": "Size:",
     "description": "Label to display the size of the artifact of the experiment"
