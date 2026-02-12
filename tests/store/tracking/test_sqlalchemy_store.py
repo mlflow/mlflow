@@ -4255,30 +4255,24 @@ def test_input_uuid_unique_constraint_and_foreign_key(store: SqlAlchemyStore):
     tags = [entities.InputTag(key="test_key", value="test_value")]
     dataset_input = entities.DatasetInput(dataset, tags)
 
-    # Log the input with tags
     store.log_inputs(run.info.run_id, [dataset_input])
 
-    # Verify the data was logged correctly
     run_data = store.get_run(run.info.run_id)
     assert len(run_data.inputs.dataset_inputs) == 1
     assert len(run_data.inputs.dataset_inputs[0].tags) == 1
 
-    # Verify at the database level that input_uuid is unique and FK exists
     with store.ManagedSessionMaker() as session:
-        # Get the SqlInput entry
         sql_input = session.query(models.SqlInput).filter_by(destination_id=run.info.run_id).first()
         assert sql_input is not None
         input_uuid = sql_input.input_uuid
 
-        # Get the SqlInputTag entry
         sql_input_tag = session.query(models.SqlInputTag).filter_by(input_uuid=input_uuid).first()
         assert sql_input_tag is not None
         assert sql_input_tag.name == "test_key"
         assert sql_input_tag.value == "test_value"
 
-    # Try to insert a duplicate input_uuid - should fail due to unique constraint
     duplicate_input = models.SqlInput(
-        input_uuid=input_uuid,  # Same UUID as above
+        input_uuid=input_uuid,
         source_type="DATASET",
         source_id="different_source",
         destination_type="RUN",
