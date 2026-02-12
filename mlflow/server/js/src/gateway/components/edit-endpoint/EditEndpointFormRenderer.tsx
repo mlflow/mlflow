@@ -144,9 +144,22 @@ export const EditEndpointFormRenderer = ({
             <Tabs.Trigger value="configuration">
               <FormattedMessage defaultMessage="Configuration" description="Tab label for endpoint configuration" />
             </Tabs.Trigger>
-            <Tabs.Trigger value="usage" disabled={!experimentId}>
-              <FormattedMessage defaultMessage="Usage" description="Tab label for endpoint usage metrics" />
-            </Tabs.Trigger>
+            <Tooltip
+              componentId="mlflow.gateway.endpoint.usage-tab-tooltip"
+              content={
+                !experimentId
+                  ? intl.formatMessage({
+                      defaultMessage: 'Enable Usage Tracking in the Configuration tab to view usage metrics',
+                      description:
+                        'Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first',
+                    })
+                  : undefined
+              }
+            >
+              <Tabs.Trigger value="usage" disabled={!experimentId}>
+                <FormattedMessage defaultMessage="Usage" description="Tab label for endpoint usage metrics" />
+              </Tabs.Trigger>
+            </Tooltip>
           </Tabs.List>
         </div>
 
@@ -252,19 +265,11 @@ export const EditEndpointFormRenderer = ({
                     <Controller
                       control={form.control}
                       name="usageTracking"
-                      render={({ field: usageTrackingField }) => (
-                        <Controller
-                          control={form.control}
-                          name="experimentId"
-                          render={({ field: experimentIdField }) => (
-                            <UsageTrackingConfigurator
-                              value={usageTrackingField.value}
-                              onChange={usageTrackingField.onChange}
-                              experimentId={experimentIdField.value}
-                              onExperimentIdChange={experimentIdField.onChange}
-                              componentIdPrefix="mlflow.gateway.edit-endpoint.usage-tracking"
-                            />
-                          )}
+                      render={({ field }) => (
+                        <UsageTrackingConfigurator
+                          value={field.value}
+                          onChange={field.onChange}
+                          componentIdPrefix="mlflow.gateway.edit-endpoint.usage-tracking"
                         />
                       )}
                     />
