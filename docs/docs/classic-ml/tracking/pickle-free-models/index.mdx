@@ -15,7 +15,6 @@ When saving a scikit-learn model, set param `serialization_format="skops"` to us
 
 ```python
 import mlflow
-import mlflow.sklearn
 from sklearn.datasets import load_iris
 from sklearn.tree import DecisionTreeClassifier
 
@@ -30,10 +29,39 @@ with mlflow.start_run():
     )
 ```
 
-For some scikit-learn model that contains custom or third-party types, you need to set `skops_trusted_types` mark a list of classes as trusted types.
+For some scikit-learn model that contains custom or third-party types, you need to set `skops_trusted_types` to a list of fully qualified type names so skops can load them. For example, a pipeline with a custom transformer must list that transformer's type as trusted:
 
 ```python
-# Add an example that contains custom type, e.g. a pipeline with a custom transformer.
+from numpy.random import randint
+from sklearn.base import BaseEstimator, TransformerMixin
+import pandas as pd
+from sklearn.pipeline import Pipeline
+
+class CustomTransformer(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+        # Perform arbitary transformation
+        X["random_int"] = randint(0, 10, X.shape[0])
+        return X
+
+df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9]})
+
+pipeline = Pipeline(
+    steps=[
+        ("use_custom_transformer", CustomTransformer())
+    ]
+)
+
+# Custom classes must be marked as trusted for skops
+with mlflow.start_run():
+    mlflow.sklearn.log_model(
+        pipeline,
+        "model",
+        serialization_format="skops",
+        skops_trusted_types=['__main__.CustomTransformer']
+    )
 ```
 
 See <APILink fn="mlflow.sklearn.log_model" /> and <APILink fn="mlflow.sklearn.save_model" /> for full parameters.
@@ -48,24 +76,24 @@ Requirements:
 - An **input_example** is required (and only `Tensor` type input are supported for the exported model)
 - Not supported for `torch.jit.ScriptModule` models
 
+Note:
+
+This graph-based pytorch model format does not allow the loaded model weights to transfer between different devices. E.g., if the model weights are in GPU device  when saving, then the loaded model must load weights to the same GPU device.
+
 ```python
 import mlflow
-import mlflow.pytorch
 import torch
 from torch import nn
-from mlflow.models import infer_signature
 
-model = nn.Linear(10, 2)
-input_example = torch.randn(1, 10)
-signature = infer_signature(input_example.numpy(), model(input_example).detach().numpy())
+sequential_model = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1))
+input_example = torch.rand(5, 4).numpy()
 
 with mlflow.start_run():
-    mlflow.pytorch.log_model(
-        model,
+    mlflow.pytorch.save_model(
+        sequential_model,
         "model",
         export_model=True,
         input_example=input_example,
-        signature=signature,
     )
 ```
 
@@ -73,16 +101,14 @@ See <APILink fn="mlflow.pytorch.log_model" /> and <APILink fn="mlflow.pytorch.sa
 
 ## Pickle-free format for DSPy model
 
-DSPy models can be save with param `use_dspy_model_save=True` to use the DSPy built-in `dspy.Module.save` method instead of pickle format. This option requires **dspy >= 3.1.0**.
+Right now DSPy model hasn't supported pickle-free format, but a new saving option `use_dspy_model_save` is introduced to delegate the model saving implementation to DSPy library.
+Set param `use_dspy_model_save=True` to use the DSPy built-in `dspy.Module.save` method. This option requires **dspy >= 3.1.0**.
 
 ```python
 import mlflow
-import mlflow.dspy
 import dspy
 
-# Build and compile your DSPy model
-model = dspy.Module(...)  # your module
-# ... compile, etc.
+model = dspy.ChainOfThought("question -> answer")
 
 with mlflow.start_run():
     mlflow.dspy.log_model(
@@ -100,7 +126,6 @@ For LightGBM models that are the scikit-learn model types (e.g., `LGBMClassifier
 
 ```python
 import mlflow
-import mlflow.lightgbm
 from lightgbm import LGBMClassifier
 from sklearn.datasets import load_iris
 
@@ -112,6 +137,7 @@ with mlflow.start_run():
         model,
         "model",
         serialization_format="skops",
+        skops_trusted_types=['collections.OrderedDict', 'lightgbm.basic.Booster', 'lightgbm.sklearn.LGBMClassifier']
     )
 ```
 
