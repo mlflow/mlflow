@@ -15,7 +15,7 @@ import {
   usePageTitle,
   useSearchParams,
 } from './common/utils/RoutingUtils';
-import { WorkflowTypeProvider } from './common/contexts/WorkflowTypeContext';
+import { useWorkflowType, WorkflowType, WorkflowTypeProvider } from './common/contexts/WorkflowTypeContext';
 import { shouldEnableWorkflowBasedNavigation } from './common/utils/FeatureUtils';
 import { useWorkspacesEnabled } from './common/utils/ServerFeaturesContext';
 
@@ -42,6 +42,57 @@ type MlflowRouteDef = {
   pageId?: string;
   children?: MlflowRouteDef[];
   [key: string]: unknown;
+};
+
+/**
+ * Inner layout component that has access to WorkflowType context
+ */
+const MlflowRootLayout = ({
+  showSidebar,
+  setShowSidebar,
+}: {
+  showSidebar: boolean;
+  setShowSidebar: (showSidebar: boolean) => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const { workflowType } = useWorkflowType();
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <ErrorModal />
+      <AppErrorBoundary>
+        <RootAssistantLayout>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'row',
+              width: '100%',
+              background:
+                workflowType === WorkflowType.GENAI
+                  ? `radial-gradient(ellipse 200% 100% at bottom right, ${theme.colors.actionDangerDefaultBackgroundPress}, transparent 70%)`
+                  : theme.colors.backgroundSecondary,
+            }}
+          >
+            <MlflowSidebar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
+            <main
+              css={{
+                width: '100%',
+                backgroundColor: theme.colors.backgroundPrimary,
+                margin: theme.spacing.sm,
+                borderRadius: theme.borders.borderRadiusMd,
+                boxShadow: theme.shadows.md,
+                overflowX: 'auto',
+              }}
+            >
+              <React.Suspense fallback={<LegacySkeleton />}>
+                <Outlet />
+              </React.Suspense>
+            </main>
+          </div>
+        </RootAssistantLayout>
+      </AppErrorBoundary>
+    </div>
+  );
 };
 
 /**
@@ -72,37 +123,7 @@ const MlflowRootRoute = () => {
     <AssistantProvider>
       <AssistantRouteContextProvider />
       <WorkflowTypeProvider>
-        <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <ErrorModal />
-          <AppErrorBoundary>
-            <RootAssistantLayout>
-              <div
-                css={{
-                  backgroundColor: theme.colors.backgroundSecondary,
-                  display: 'flex',
-                  flexDirection: 'row',
-                  width: '100%',
-                }}
-              >
-                <MlflowSidebar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
-                <main
-                  css={{
-                    width: '100%',
-                    backgroundColor: theme.colors.backgroundPrimary,
-                    margin: theme.spacing.sm,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    boxShadow: theme.shadows.md,
-                    overflowX: 'auto',
-                  }}
-                >
-                  <React.Suspense fallback={<LegacySkeleton />}>
-                    <Outlet />
-                  </React.Suspense>
-                </main>
-              </div>
-            </RootAssistantLayout>
-          </AppErrorBoundary>
-        </div>
+        <MlflowRootLayout showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
       </WorkflowTypeProvider>
     </AssistantProvider>
   );

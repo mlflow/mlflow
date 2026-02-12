@@ -64,7 +64,7 @@ const Pill = ({
       }}
       onClick={() => setWorkflowType(workflowType)}
     >
-      <Typography.Text>{label}</Typography.Text>
+      <Typography.Text color="secondary">{label}</Typography.Text>
     </div>
   );
 };
