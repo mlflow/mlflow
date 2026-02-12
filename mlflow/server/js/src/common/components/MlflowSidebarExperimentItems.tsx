@@ -16,11 +16,8 @@ import { useGetExperimentPageActiveTabByRoute } from '../../experiment-tracking/
 import { ExperimentPageTabName } from '../../experiment-tracking/constants';
 import { FormattedMessage } from 'react-intl';
 
-const isExperimentsActive = (location: Location) =>
-  Boolean(
-    matchPath({ path: '/experiments', end: true }, location.pathname) ||
-    matchPath('/compare-experiments/*', location.pathname),
-  );
+// pass a dummy function to avoid highlighting the experiment back link
+const isExperimentsActive = () => false;
 
 export const MlflowSidebarExperimentItems = ({
   collapsed,
