@@ -4237,6 +4237,60 @@ def test_log_inputs_with_duplicates_in_single_request(store: SqlAlchemyStore):
     )
 
 
+def test_input_uuid_unique_constraint_and_foreign_key(store: SqlAlchemyStore):
+    """
+    Test that input_uuid has a unique constraint and that foreign key from
+    input_tags to inputs works correctly.
+    """
+    experiment_id = _create_experiments(store, "test exp")
+    run = _run_factory(store, config=_get_run_configs(experiment_id, start_time=1))
+
+    dataset = entities.Dataset(
+        name="test_dataset",
+        digest="test_digest",
+        source_type="test_type",
+        source="test_source",
+    )
+
+    tags = [entities.InputTag(key="test_key", value="test_value")]
+    dataset_input = entities.DatasetInput(dataset, tags)
+
+    # Log the input with tags
+    store.log_inputs(run.info.run_id, [dataset_input])
+
+    # Verify the data was logged correctly
+    run_data = store.get_run(run.info.run_id)
+    assert len(run_data.inputs.dataset_inputs) == 1
+    assert len(run_data.inputs.dataset_inputs[0].tags) == 1
+
+    # Verify at the database level that input_uuid is unique and FK exists
+    with store.ManagedSessionMaker() as session:
+        # Get the SqlInput entry
+        sql_input = session.query(models.SqlInput).filter_by(destination_id=run.info.run_id).first()
+        assert sql_input is not None
+        input_uuid = sql_input.input_uuid
+
+        # Get the SqlInputTag entry
+        sql_input_tag = session.query(models.SqlInputTag).filter_by(input_uuid=input_uuid).first()
+        assert sql_input_tag is not None
+        assert sql_input_tag.name == "test_key"
+        assert sql_input_tag.value == "test_value"
+
+    # Try to insert a duplicate input_uuid - should fail due to unique constraint
+    duplicate_input = models.SqlInput(
+        input_uuid=input_uuid,  # Same UUID as above
+        source_type="DATASET",
+        source_id="different_source",
+        destination_type="RUN",
+        destination_id="different_destination",
+    )
+
+    with pytest.raises(MlflowException, match="UNIQUE.*input_uuid"):  # noqa: PT012
+        with store.ManagedSessionMaker() as session:
+            session.add(duplicate_input)
+            session.flush()
+
+
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(
     monkeypatch, workspaces_enabled
 ):
