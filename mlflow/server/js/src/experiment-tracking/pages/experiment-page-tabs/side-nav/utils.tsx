@@ -1,4 +1,5 @@
 import { ExperimentPageTabName } from '../../../constants';
+import { FormattedMessage } from '@databricks/i18n';
 
 export const isTracesRelatedTab = (tabName: ExperimentPageTabName) => {
   return (

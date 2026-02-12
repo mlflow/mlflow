@@ -1582,6 +1582,10 @@
     "defaultMessage": "All endpoints",
     "description": "All endpoints option"
   },
+  "9Gg0Q8": {
+    "defaultMessage": "Chat sessions",
+    "description": "Label for the chat sessions tab in the MLflow experiment navbar"
+  },
   "9HXup+": {
     "defaultMessage": "Toggle visibility of runs",
     "description": "Experiment page > runs table > toggle visibility of runs > accessible label"
@@ -3342,6 +3346,10 @@
     "defaultMessage": "avg per trace",
     "description": "Subtitle for average tokens per trace"
   },
+  "MZCW9F": {
+    "defaultMessage": "Labeling schemas",
+    "description": "Label for the labeling schemas tab in the MLflow experiment navbar"
+  },
   "MZNjYJ": {
     "defaultMessage": "Actions ({count})",
     "description": "Actions dropdown button label with count of selected sessions"
@@ -3772,6 +3780,10 @@
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
+  },
+  "PmPV+3": {
+    "defaultMessage": "Models",
+    "description": "Label for the versions tab in the MLflow experiment navbar"
   },
   "Pne4Lp": {
     "defaultMessage": "Maximum of {max} sessions can be selected",
@@ -7775,6 +7787,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "rPbiUM": {
+    "defaultMessage": "Labeling sessions",
+    "description": "Label for the labeling sessions tab in the MLflow experiment navbar"
+  },
   "rRaThb": {
     "defaultMessage": "Select a provider first",
     "description": "Placeholder when no provider selected"
@@ -8518,6 +8534,10 @@
   "x2+7hZ": {
     "defaultMessage": "Are you sure you want to delete the prompt version?",
     "description": "A content for the delete prompt version confirmation modal"
+  },
+  "x5ukxr": {
+    "defaultMessage": "Runs",
+    "description": "Label for the training runs tab in the MLflow experiment navbar"
   },
   "x6rkyu": {
     "defaultMessage": "Response",
