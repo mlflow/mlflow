@@ -3129,10 +3129,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
             sql_trace_info.tags = tags
 
-            sql_trace_info.request_metadata = [
+            request_metadata = [
                 SqlTraceMetadata(request_id=trace_id, key=k, value=v)
                 for k, v in trace_info.trace_metadata.items()
             ]
+            sql_trace_info.request_metadata = request_metadata
             sql_trace_info.assessments = [
                 SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
             ]
@@ -3177,16 +3178,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                 SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
                             )
                             break
-                    # Preserve existing metadata from log_spans() and only add new ones.
-                    # We need to clear request_metadata before merge to avoid SQLAlchemy
-                    # trying to orphan existing SqlTraceMetadata objects (which fails because
-                    # request_id is part of the composite primary key and cannot be set to NULL).
-                    existing_metadata_keys = {m.key for m in db_sql_trace_info.request_metadata}
-                    sql_trace_info.request_metadata = [
-                        m
-                        for m in sql_trace_info.request_metadata
-                        if m.key not in existing_metadata_keys
-                    ]
+
+                    new_metadata_keys = {m.key for m in request_metadata}
+                    for metadata in db_sql_trace_info.request_metadata:
+                        if metadata.key not in new_metadata_keys:
+                            sql_trace_info.request_metadata.append(
+                                SqlTraceMetadata(
+                                    request_id=trace_id, key=metadata.key, value=metadata.value
+                                )
+                            )
+
                 session.merge(sql_trace_info)
                 session.flush()
 
