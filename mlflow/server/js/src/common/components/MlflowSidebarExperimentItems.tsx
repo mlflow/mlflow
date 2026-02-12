@@ -48,14 +48,6 @@ export const MlflowSidebarExperimentItems = ({
 
   return (
     <>
-      <div
-        css={{
-          borderTop: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
-          width: '100%',
-          paddingBottom: theme.spacing.sm,
-          marginTop: theme.spacing.xs,
-        }}
-      />
       <MlflowSidebarLink
         css={{ border: `1px solid ${theme.colors.actionDefaultBorderDefault}`, marginBottom: theme.spacing.sm }}
         to={ExperimentTrackingRoutes.experimentsObservatoryRoute}
@@ -120,7 +112,7 @@ export const MlflowSidebarExperimentItems = ({
           borderBottom: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
           width: '100%',
           paddingTop: theme.spacing.sm,
-          marginBottom: theme.spacing.xs,
+          marginBottom: theme.spacing.sm,
         }}
       />
     </>
