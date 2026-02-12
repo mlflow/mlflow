@@ -639,10 +639,6 @@
     "defaultMessage": "X axis",
     "description": "Label for X axis in Contour chart configurator in compare runs chart config modal"
   },
-  "2XVGD5": {
-    "defaultMessage": "All models",
-    "description": "Label for model selector when all models are selected"
-  },
   "2YEXRM": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the experiment view page"
@@ -809,6 +805,10 @@
   "451ETc": {
     "defaultMessage": "Session",
     "description": "Label for the session to which an assessment belongs"
+  },
+  "45tCkn": {
+    "defaultMessage": "No providers selected",
+    "description": "Label for selector when no providers are selected"
   },
   "46+W5N": {
     "defaultMessage": "New to MLflow?",
@@ -1478,6 +1478,10 @@
     "defaultMessage": "Select output type",
     "description": "Placeholder for output type selection"
   },
+  "8cK5xK": {
+    "defaultMessage": "{count} selected",
+    "description": "Label for selector showing count of selected items"
+  },
   "8f4/Zi": {
     "defaultMessage": "Search logged models using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search logged models from the listing page"
@@ -1785,6 +1789,10 @@
   "AOoWxS": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in prompts management UI"
+  },
+  "AQh8lf": {
+    "defaultMessage": "Model",
+    "description": "Dimension toggle option for model"
   },
   "AX7L9r": {
     "defaultMessage": "Error",
@@ -2217,6 +2225,10 @@
   "DLGEdG": {
     "defaultMessage": "Thank you for exploring the new Model Registry UI. We are dedicated to providing the best experience, and your feedback is invaluable. Please share your thoughts with us <link>here</link>.",
     "description": "Model registry > Switcher for the new model registry UI containing aliases > disable confirmation modal content"
+  },
+  "DLZwqO": {
+    "defaultMessage": "All models",
+    "description": "Label for selector when all models are selected"
   },
   "DMEY+O": {
     "defaultMessage": "Select value type",
@@ -3034,6 +3046,10 @@
     "defaultMessage": "Commit message:",
     "description": "A label for the commit message in the prompt details page"
   },
+  "KIlp8v": {
+    "defaultMessage": "No models selected",
+    "description": "Label for selector when no models are selected"
+  },
   "KJbYrw": {
     "defaultMessage": "Loaded {childRuns} child {childRuns, plural, =1 {run} other {runs}}",
     "description": "Experiment page > loaded more runs notification > loaded only child runs"
@@ -3141,6 +3157,10 @@
   "L3szkg": {
     "defaultMessage": "Failed to create assessment. Error: {error}",
     "description": "Error message when creating an assessment fails"
+  },
+  "L71uzj": {
+    "defaultMessage": "Provider",
+    "description": "Dimension toggle option for provider"
   },
   "L72WxS": {
     "defaultMessage": "Please fix the validation errors",
@@ -4384,6 +4404,10 @@
     "defaultMessage": "Guidelines should not be empty",
     "description": "Tooltip message when guidelines are empty"
   },
+  "UJWipj": {
+    "defaultMessage": "Select All",
+    "description": "Option to select all items in the selector"
+  },
   "ULljUX": {
     "defaultMessage": "Filter: {filterString}",
     "description": "Filter display for scorer"
@@ -4776,10 +4800,6 @@
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
   },
-  "Wwyoav": {
-    "defaultMessage": "{count} selected",
-    "description": "Label for model selector showing count of selected models"
-  },
   "X+boXI": {
     "defaultMessage": "Copied",
     "description": "Tooltip text shown when copy operation completes"
@@ -5046,10 +5066,6 @@
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the compare button when enabled"
-  },
-  "Z3mQzp": {
-    "defaultMessage": "No models selected",
-    "description": "Label for model selector when no models are selected"
   },
   "Z4cZMo": {
     "defaultMessage": "by {user}",
@@ -5331,6 +5347,10 @@
     "defaultMessage": "No results",
     "description": "Experiment page > group by runs control > no results after filtering by search query"
   },
+  "abIH3b": {
+    "defaultMessage": "All providers",
+    "description": "Label for selector when all providers are selected"
+  },
   "adVHxN": {
     "defaultMessage": "Outputs",
     "description": "Section title for the outputs of a single chat turn"
@@ -5554,10 +5574,6 @@
   "cEwSR8": {
     "defaultMessage": "Maximum number of language tokens returned from evaluation.",
     "description": "Experiment page > prompt lab > max tokens parameter help text"
-  },
-  "cF28Mx": {
-    "defaultMessage": "Select All",
-    "description": "Option to select all models in the model selector"
   },
   "cGGc0A": {
     "defaultMessage": "Delete API key",
