@@ -1,4 +1,4 @@
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { WorkflowType } from '../contexts/WorkflowTypeContext';
 import { FormattedMessage } from '@databricks/i18n';
 
@@ -64,7 +64,7 @@ const Pill = ({
       }}
       onClick={() => setWorkflowType(workflowType)}
     >
-      <Typography.Text>{label}</Typography.Text>
+      <Typography.Text color="secondary">{label}</Typography.Text>
     </div>
   );
 };
@@ -79,26 +79,37 @@ export const MlflowSidebarWorkflowSwitch = ({
   const { theme } = useDesignSystemTheme();
 
   return (
-    <div
-      css={{
-        display: 'flex',
-        position: 'relative',
-        alignItems: 'center',
-        background: theme.colors.backgroundSecondary,
-        borderRadius: theme.borders.borderRadiusFull,
-        border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
-      }}
+    <Tooltip
+      componentId="mlflow.sidebar.workflow_switch.tooltip"
+      content={
+        <FormattedMessage
+          defaultMessage="Select your workflow type. This changes the tabs that are visible in the navigation sidebar."
+          description="Tooltip for workflow switch"
+        />
+      }
+      side="right"
     >
-      <Pill
-        isActive={workflowType === WorkflowType.GENAI}
-        workflowType={WorkflowType.GENAI}
-        setWorkflowType={setWorkflowType}
-      />
-      <Pill
-        isActive={workflowType === WorkflowType.MACHINE_LEARNING}
-        workflowType={WorkflowType.MACHINE_LEARNING}
-        setWorkflowType={setWorkflowType}
-      />
-    </div>
+      <div
+        css={{
+          display: 'flex',
+          position: 'relative',
+          alignItems: 'center',
+          background: theme.colors.backgroundSecondary,
+          borderRadius: theme.borders.borderRadiusFull,
+          border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+        }}
+      >
+        <Pill
+          isActive={workflowType === WorkflowType.GENAI}
+          workflowType={WorkflowType.GENAI}
+          setWorkflowType={setWorkflowType}
+        />
+        <Pill
+          isActive={workflowType === WorkflowType.MACHINE_LEARNING}
+          workflowType={WorkflowType.MACHINE_LEARNING}
+          setWorkflowType={setWorkflowType}
+        />
+      </div>
+    </Tooltip>
   );
 };
