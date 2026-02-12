@@ -1032,10 +1032,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
     model_conf = Model.load(_get_model_uri())
 
     warning_messages = [args[0] for args, _ in mock_warning.call_args_list if args]
-    assert any(
-        msg.endswith("DO NOT SLICE ME")
-        for msg in warning_messages
-    )
+    assert any(msg.endswith("DO NOT SLICE ME") for msg in warning_messages)
 
     assert "signature" not in model_conf.to_dict()
     assert "saved_input_example_info" not in model_conf.to_dict()
