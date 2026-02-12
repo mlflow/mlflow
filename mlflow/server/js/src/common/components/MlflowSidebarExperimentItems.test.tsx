@@ -67,18 +67,12 @@ describe('MlflowSidebarExperimentItems', () => {
 
     // Find the Sessions link (traces-related tab)
     const sessionsLink = screen.getByText('Sessions').closest('a');
-    expect(sessionsLink).toHaveAttribute(
-      'href',
-      expect.stringContaining('startTimeLabel=LAST_24_HOURS'),
-    );
+    expect(sessionsLink).toHaveAttribute('href', expect.stringContaining('startTimeLabel=LAST_24_HOURS'));
     expect(sessionsLink).toHaveAttribute('href', expect.stringContaining('startTime=2024-01-01'));
 
     // Find the Overview link (traces-related tab)
     const overviewLink = screen.getByText('Overview').closest('a');
-    expect(overviewLink).toHaveAttribute(
-      'href',
-      expect.stringContaining('startTimeLabel=LAST_24_HOURS'),
-    );
+    expect(overviewLink).toHaveAttribute('href', expect.stringContaining('startTimeLabel=LAST_24_HOURS'));
   });
 
   test('does not preserve query params when navigating to non-traces-related tabs', () => {
