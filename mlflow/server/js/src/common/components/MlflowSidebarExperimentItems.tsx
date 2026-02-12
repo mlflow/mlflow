@@ -1,5 +1,6 @@
 import { ArrowLeftIcon, BeakerIcon, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useGetExperimentQuery } from '../../experiment-tracking/hooks/useExperimentQuery';
+import { useLocation } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
@@ -13,6 +14,7 @@ import { WorkflowType } from '../contexts/WorkflowTypeContext';
 import { useGetExperimentPageActiveTabByRoute } from '../../experiment-tracking/components/experiment-page/hooks/useGetExperimentPageActiveTabByRoute';
 import { ExperimentPageTabName } from '../../experiment-tracking/constants';
 import { FormattedMessage } from 'react-intl';
+import { isTracesRelatedTab } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/utils';
 
 // pass a dummy function to avoid highlighting the experiment back link
 const isExperimentsActive = () => false;
@@ -40,6 +42,8 @@ export const MlflowSidebarExperimentItems = ({
     hasTrainingRuns: (trainingRuns?.length ?? 0) > 0,
   });
   const { tabName: activeTabByRoute } = useGetExperimentPageActiveTabByRoute();
+  const location = useLocation();
+  const { search } = location;
 
   return (
     <>
@@ -86,11 +90,16 @@ export const MlflowSidebarExperimentItems = ({
               }
               return activeTabByRoute === item.tabName;
             };
+            const preserveQueryParams =
+              activeTabByRoute && isTracesRelatedTab(activeTabByRoute) && isTracesRelatedTab(item.tabName);
             return (
               <MlflowSidebarLink
                 css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
                 key={item.componentId}
-                to={ExperimentTrackingRoutes.getExperimentPageTabRoute(experimentId ?? '', item.tabName)}
+                to={{
+                  pathname: ExperimentTrackingRoutes.getExperimentPageTabRoute(experimentId ?? '', item.tabName),
+                  search: preserveQueryParams ? search : undefined,
+                }}
                 componentId={item.componentId}
                 isActive={isActive}
                 collapsed={collapsed}

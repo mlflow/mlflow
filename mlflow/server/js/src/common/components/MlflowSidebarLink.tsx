@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Location } from '../utils/RoutingUtils';
+import type { Location, To } from '../utils/RoutingUtils';
 import { Link, useLocation } from '../utils/RoutingUtils';
 import {
   DesignSystemEventProviderAnalyticsEventTypes,
@@ -24,7 +24,7 @@ export const MlflowSidebarLink = ({
   tooltipContent,
 }: {
   className?: string;
-  to: string;
+  to: To;
   componentId: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
