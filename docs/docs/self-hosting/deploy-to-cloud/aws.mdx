@@ -49,6 +49,7 @@ mlflow-task-role" with an inline policy as follows:
 
 ## Create ECS (Elastic container service) service to host the MLFlow server, choose "Express mode" to configure most settings including VPC and ABI automatically, but you need to fill the following settings correctly:
 
+- Set the "Image URI" to a certain version MLflow image, e.g. "ghcr.io/mlflow/mlflow:latest".
 - Set the "Container port" to 5000, this is the port of the MLFlow server running inside the container.
 - Set the "Health check" path to "/health"
 - Set the "Command" to `bash,-c,mlflow server --backend-store-uri postgresql://postgres:mlflow--db@mlflow-db-123.cf6uoag0woi4.ap-southeast-2.rds.amazonaws.com:5432/postgres --default-artifact-root s3://mlflow-artifacts-123/ --host 0.0.0.0 --port 5000 --disable-security-middleware`, note that we disable the security middleware because the MLflow service is protected behind the Amazon ALB Security group + VPC subnet, and the ECS express mode will generate the default ALB / VPC settings automatically.
