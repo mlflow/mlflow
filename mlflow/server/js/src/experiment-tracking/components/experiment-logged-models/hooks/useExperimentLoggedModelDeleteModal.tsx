@@ -22,7 +22,7 @@ export const useExperimentLoggedModelDeleteModal = ({
     }
   >({
     mutationFn: async ({ loggedModelId }) => {
-      await fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'DELETE');
+      await fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), { method: 'DELETE' });
     },
   });
 

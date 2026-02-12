@@ -1,10 +1,34 @@
-import { describe, test, expect, it } from '@jest/globals';
+import { describe, test, expect, it, beforeAll, afterAll, jest } from '@jest/globals';
 import React from 'react';
 import { ErrorView } from './ErrorView';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { MemoryRouter } from '../utils/RoutingUtils';
+import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
+import { getWorkspacesEnabledSync } from '../utils/ServerFeaturesContext';
+
+jest.mock('../utils/ServerFeaturesContext', () => ({
+  ...jest.requireActual<typeof import('../utils/ServerFeaturesContext')>('../utils/ServerFeaturesContext'),
+  getWorkspacesEnabledSync: jest.fn(),
+}));
+
+const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
+
+const TEST_WORKSPACE = 'test-workspace';
 
 describe('ErrorView', () => {
+  // With query param routing, workspace is added as a query param
+  const workspacePrefixed = (path: string) => `${path}?workspace=${TEST_WORKSPACE}`;
+
+  beforeAll(() => {
+    getWorkspacesEnabledSyncMock.mockReturnValue(true);
+    setActiveWorkspace(TEST_WORKSPACE);
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+    setActiveWorkspace(null);
+  });
+
   test('should render 400', () => {
     renderWithIntl(
       <MemoryRouter>
@@ -26,7 +50,7 @@ describe('ErrorView', () => {
 
     const link = screen.getByRole('link');
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/path/to');
+    expect(link).toHaveAttribute('href', workspacePrefixed('/path/to'));
   });
 
   it('should render 404', () => {
@@ -50,7 +74,7 @@ describe('ErrorView', () => {
 
     const link = screen.getByRole('link');
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/path/to');
+    expect(link).toHaveAttribute('href', workspacePrefixed('/path/to'));
   });
 
   test('should render 404 with sub message', () => {
@@ -74,6 +98,6 @@ describe('ErrorView', () => {
 
     const link = screen.getByRole('link');
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/path/to');
+    expect(link).toHaveAttribute('href', workspacePrefixed('/path/to'));
   });
 });

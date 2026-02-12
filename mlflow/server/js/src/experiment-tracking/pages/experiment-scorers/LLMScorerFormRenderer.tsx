@@ -44,6 +44,7 @@ export interface LLMScorerFormData {
   model: string;
   disableMonitoring?: boolean;
   isInstructionsJudge?: boolean;
+  isMemoryAugmented?: boolean;
   evaluationScope?: ScorerEvaluationScope;
   outputTypeKind?: JudgeOutputTypeKind;
   categoricalOptions?: string;
@@ -242,6 +243,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
   };
 
   const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' }) ?? false;
+  const isMemoryAugmented = watch('isMemoryAugmented') ?? false;
 
   // Hide instructions section for built-in judges that don't support editing
   // These templates use Python-specific variables not available in the UI
@@ -249,7 +251,9 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
     return null;
   }
 
-  const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY;
+  // Memory-augmented judges have instructions that include distilled guidelines
+  // from alignment — these should not be edited through the UI.
+  const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY || isMemoryAugmented;
   const isSessionLevelScorer = scope === ScorerEvaluationScope.SESSIONS;
 
   const traceLevelTemplateVariables = (
@@ -361,7 +365,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
                 componentId={`${COMPONENT_ID_PREFIX}.add-variable-button`}
                 size="small"
                 endIcon={<ChevronDownIcon />}
-                disabled={mode === SCORER_FORM_MODE.DISPLAY || !isInstructionsJudge}
+                disabled={isReadOnly || !isInstructionsJudge}
                 onClick={stopPropagationClick}
               >
                 <FormattedMessage defaultMessage="Add variable" description="Button text for adding variables" />
