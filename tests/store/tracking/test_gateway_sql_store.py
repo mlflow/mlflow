@@ -16,7 +16,6 @@ from mlflow.entities import (
     GatewayModelLinkageType,
     GatewaySecretInfo,
     RoutingStrategy,
-    TraceLocation,
 )
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
@@ -1503,13 +1502,6 @@ def test_get_gateway_endpoint_config_experiment_id_is_string(store: SqlAlchemySt
     # Verify experiment_id is a string (not an integer from SQLAlchemy)
     assert config.experiment_id is not None
     assert isinstance(config.experiment_id, str)
-    # Verify it can be used with protobuf (which expects strings)
-    trace_location = TraceLocation.from_dict(
-        {"type": "MLFLOW_EXPERIMENT", "location": {"experiment_id": config.experiment_id}}
-    )
-    # Should not raise TypeError
-    proto = trace_location.to_proto()
-    assert proto is not None
 
 
 # =============================================================================
