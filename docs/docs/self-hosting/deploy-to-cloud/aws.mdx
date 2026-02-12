@@ -6,15 +6,17 @@ title: Deploy MLflow to AWS cloud
 
 MLflow core components include MLflow server, backend store, and artifact store.
 
-In this guide, the MLflow server is deployed to Amazon ECS (elastic container service), the backend store is deployed to Amazon RDS (PostgreSQL), and the artifact store is deployed to Amazon S3. The guide also include IAM role, VPC subnet and security group, ALB (Application Load Balancer) settings. Once deployment completes, you can access MLflow service web UI through the AWS application URL like "https://ml-<unique-service-id>.ecs.ap-southeast-2.on.aws", and your MLflow client code can access the MLflow service through setting MLflow tracking URI to the above URI.
+In this guide, the MLflow server is deployed to Amazon ECS (Elastic container service), the backend store is deployed to Amazon RDS (PostgreSQL), and the artifact store is deployed to Amazon S3. The guide also includes IAM role, VPC subnet and security group, ALB (Application Load Balancer) settings. Once deployment completes, you can access MLflow service web UI through the AWS application URL like "https://ml-<unique-service-id>.ecs.ap-southeast-2.on.aws", and your MLflow client code can access the MLflow service through setting MLflow tracking URI to the above URI.
 
 ## Create S3 bucket
 
-Create a S3 bucket with name "mlflow-artifacts-123", and block all public access as follows:
+Create a S3 bucket with name like "mlflow-artifacts-123", and block all public access as follows:
 
 ![create s3 bucket](/images/self-hosting/create-aws-s3-bucket.png)
 
-## Create RDS (PostgresSQL) instance, set credentials management to "Self managed", and set master username / password. Once creation completes, you can view the RDS instance endpoint information as follows:
+## Create RDS instance
+
+Create an RDS instance of PostgreSQL type, set credentials management to "Self managed", and set master username / password. Once creation completes, you can view the RDS instance endpoint information as follows:
 
 ![create RDS](/images/self-hosting/create-aws-rds.png)
 
@@ -22,8 +24,7 @@ Then you can construct the database URI like "postgresql://<username>:<password>
 
 ## Create IAM role for MLflow service to access the S3 bucket
 
-The s3 bucket that is created in the first step blocks all public access. Create an IAM role "
-mlflow-task-role" with an inline policy as follows:
+The s3 bucket that is created in the first step blocks all public access. Create an IAM role "mlflow-task-role" with an inline policy as follows:
 
 ```json
 {
@@ -39,15 +40,15 @@ mlflow-task-role" with an inline policy as follows:
                 "s3:ListBucket"
             ],
             "Resource": [
-                "arn:aws:s3:::mlflow-artifacts-123",
-                "arn:aws:s3:::mlflow-artifacts-123/*"
+                "arn:aws:s3:::<the name of s3 bucket for mlflow artifacts store>",
+                "arn:aws:s3:::<the name of s3 bucket for mlflow artifacts store>/*"
             ]
         }
     ]
 }
 ```
 
-## Create ECS (Elastic container service) service to host the MLFlow server, choose "Express mode" to configure most settings including VPC and ABI automatically, but you need to fill the following settings correctly:
+## Create ECS (Elastic container service) service to host the MLFlow server, choose "Express mode" to configure most settings including VPC and ALB automatically, but you need to fill the following settings correctly:
 
 - Set the "Image URI" to a certain version MLflow image, e.g. "ghcr.io/mlflow/mlflow:latest".
 - Set the "Container port" to 5000, this is the port of the MLFlow server running inside the container.

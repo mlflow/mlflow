@@ -105,16 +105,6 @@ const sidebarsSelfHosting: SidebarsConfig = {
           id: 'deploy-to-cloud/aws',
           label: 'AWS cloud',
         },
-        {
-          type: 'doc',
-          id: 'deploy-to-cloud/azure',
-          label: 'Azure cloud',
-        },
-        {
-          type: 'doc',
-          id: 'deploy-to-cloud/google',
-          label: 'Google cloud',
-        },
       ],
     },
     {
