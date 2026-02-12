@@ -35,6 +35,7 @@ RUN apt install -y software-properties-common \
     && ln -s -f $(which python3.10) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
+RUN pip install virtualenv
 """  # noqa: E501
 
 _DOCKERFILE_TEMPLATE = """# Build an image that can serve mlflow models.
