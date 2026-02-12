@@ -6,4 +6,4 @@ WORKDIR /app
 RUN pip install --no-cache-dir psycopg2-binary boto3
 # Install the dev version of mlflow via wheel
 COPY dist ./dist
-RUN pip install --no-cache-dir dist/mlflow-*.whl && rm -rf dist
+RUN pip install --no-cache-dir dist/mlflow-*.whl
