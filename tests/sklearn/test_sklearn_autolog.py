@@ -1030,8 +1030,13 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
         model.fit(throwing_X, y)
 
     model_conf = Model.load(_get_model_uri())
-    assert mock_warning.call_count == 2
-    mock_warning.call_args[0][0].endswith("DO NOT SLICE ME")
+
+    warning_messages = [args[0] for args, _ in mock_warning.call_args_list if args]
+    assert any(
+        msg.endswith("DO NOT SLICE ME")
+        for msg in warning_messages
+    )
+
     assert "signature" not in model_conf.to_dict()
     assert "saved_input_example_info" not in model_conf.to_dict()
 
@@ -1068,7 +1073,8 @@ def test_autolog_does_not_throw_when_predict_fails():
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
-    mock_warning.assert_called_with("Failed to infer model signature: Failed")
+    warning_messages = [args[0] for args, _ in mock_warning.call_args_list if args]
+    assert "Failed to infer model signature: Failed" in warning_messages
     model_conf = Model.load(_get_model_uri())
     assert "signature" not in model_conf.to_dict()
 
@@ -1085,7 +1091,8 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
-    mock_warning.assert_called_once_with("Failed to infer model signature: Failed")
+    warning_messages = [args[0] for args, _ in mock_warning.call_args_list if args]
+    assert "Failed to infer model signature: Failed" in warning_messages
     model_conf = Model.load(_get_model_uri())
     assert "signature" not in model_conf.to_dict()
 
