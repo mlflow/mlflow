@@ -1,4 +1,6 @@
 import copy
+import socket
+from unittest.mock import patch
 
 import pytest
 
@@ -23,6 +25,7 @@ from mlflow.utils.validation import (
     _validate_param_name,
     _validate_run_id,
     _validate_tag_name,
+    _validate_webhook_url,
     path_not_unique,
 )
 
@@ -416,3 +419,84 @@ def test_validate_list_param_with_invalid_type(param_name, param_value, expected
         _validate_list_param(param_name, param_value)
     assert f"Did you mean to use {param_name}=[{param_value!r}]?" in str(exc_info.value)
     assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+# -- _validate_webhook_url tests --
+
+
+def _mock_getaddrinfo(ip_str):
+    return lambda host, port, *a, **kw: [(None, None, None, None, (ip_str, 0))]
+
+
+@pytest.mark.parametrize(
+    ("url", "expected_match"),
+    [
+        (123, "Webhook URL must be a string"),
+        ("", "Webhook URL cannot be empty"),
+        ("   ", "Webhook URL cannot be empty"),
+        ("ftp://example.com", "Invalid webhook URL scheme"),
+        ("http://example.com", "Invalid webhook URL scheme"),
+        ("https://", "must include a hostname"),
+    ],
+)
+def test_validate_webhook_url_rejects_invalid_input(url, expected_match):
+    with pytest.raises(MlflowException, match=expected_match):
+        _validate_webhook_url(url)
+
+
+@pytest.mark.parametrize(
+    ("url", "resolved_ip"),
+    [
+        ("https://127.0.0.1/callback", "127.0.0.1"),
+        ("https://localhost/callback", "127.0.0.1"),
+        ("https://internal.corp/hook", "10.0.0.1"),
+        ("https://internal.corp/hook", "172.16.0.1"),
+        ("https://internal.corp/hook", "192.168.1.1"),
+        ("https://metadata.internal/hook", "169.254.169.254"),
+    ],
+)
+def test_validate_webhook_url_rejects_private_ips(url, resolved_ip):
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo(resolved_ip),
+    ):
+        with pytest.raises(MlflowException, match="must not resolve to a private"):
+            _validate_webhook_url(url)
+
+
+def test_validate_webhook_url_rejects_unresolvable_hostname():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=socket.gaierror("Name or service not known"),
+    ):
+        with pytest.raises(MlflowException, match="Cannot resolve webhook URL hostname"):
+            _validate_webhook_url("https://does-not-exist.invalid/hook")
+
+
+def test_validate_webhook_url_rejects_if_any_resolved_address_is_private():
+    def multi_resolve(host, port, *a, **kw):
+        return [
+            (None, None, None, None, ("8.8.8.8", 0)),
+            (None, None, None, None, ("10.0.0.1", 0)),
+        ]
+
+    with patch("mlflow.utils.validation.socket.getaddrinfo", side_effect=multi_resolve):
+        with pytest.raises(MlflowException, match="must not resolve to a private"):
+            _validate_webhook_url("https://dual-homed.example.com/hook")
+
+
+def test_validate_webhook_url_accepts_public_ip():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("8.8.8.8"),
+    ):
+        _validate_webhook_url("https://example.com/webhook")
+
+
+def test_validate_webhook_url_allow_private_ips_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS", "true")
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("127.0.0.1"),
+    ):
+        _validate_webhook_url("https://localhost/callback")
