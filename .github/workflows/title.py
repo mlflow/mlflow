@@ -170,7 +170,8 @@ Rewrite the issue title to be more descriptive and follow the guidelines below.
 {body}
 
 ## Guidelines for a good issue title:
-1. Start with a verb or descriptive noun (e.g., "Fix", "Add", "Support", "Investigate")
+1. Clearly describe the problem or feature request (e.g., "`load_model` fails with `KeyError`
+   when model has nested flavors", "Support custom metric types in autologging")
 2. Be specific about what the issue is about
 3. Keep it concise (aim for 72 characters or less, 100 characters maximum)
 4. Do not include issue numbers in the title
