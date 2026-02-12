@@ -530,6 +530,46 @@ def _create_llm_and_tool_spans(
                 tool_span.end(end_time_ns=tool_start_ns + tool_duration_ns)
 
 
+def _finalize_trace(
+    parent_span,
+    user_prompt: str,
+    final_response: str | None,
+    session_id: str,
+    end_time_ns: int,
+) -> mlflow.entities.Trace:
+    try:
+        with InMemoryTraceManager.get_instance().get_trace(
+            parent_span.trace_id
+        ) as in_memory_trace:
+            if user_prompt:
+                in_memory_trace.info.request_preview = user_prompt[:MAX_PREVIEW_LENGTH]
+            if final_response:
+                in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
+            in_memory_trace.info.trace_metadata = {
+                **in_memory_trace.info.trace_metadata,
+                TraceMetadataKey.TRACE_SESSION: session_id,
+                TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
+                "mlflow.trace.working_directory": os.getcwd(),
+            }
+    except Exception as e:
+        get_logger().warning("Failed to update trace metadata and previews: %s", e)
+
+    parent_span.set_outputs(
+        {"response": final_response or "Conversation completed", "status": "completed"}
+    )
+    parent_span.end(end_time_ns=end_time_ns)
+
+    try:
+        if hasattr(_get_trace_exporter(), "_async_queue"):
+            mlflow.flush_trace_async_logging()
+    except Exception as e:
+        get_logger().debug("Failed to flush trace async logging: %s", e)
+
+    get_logger().log(CLAUDE_TRACING_LEVEL, "Created MLflow trace: %s", parent_span.trace_id)
+
+    return mlflow.get_trace(parent_span.trace_id)
+
+
 def find_final_assistant_response(transcript: list[dict[str, Any]], start_idx: int) -> str | None:
     """Find the final text response from the assistant for trace preview.
 
@@ -614,47 +654,157 @@ def process_transcript(
         final_response = find_final_assistant_response(transcript, last_user_idx + 1)
         user_prompt_text = extract_text_content(last_user_prompt)
 
-        # Set trace previews for UI display
-        try:
-            with InMemoryTraceManager.get_instance().get_trace(
-                parent_span.trace_id
-            ) as in_memory_trace:
-                if user_prompt_text:
-                    in_memory_trace.info.request_preview = user_prompt_text[:MAX_PREVIEW_LENGTH]
-                if final_response:
-                    in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
-                in_memory_trace.info.trace_metadata = {
-                    **in_memory_trace.info.trace_metadata,
-                    TraceMetadataKey.TRACE_SESSION: session_id,
-                    TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
-                    "mlflow.trace.working_directory": os.getcwd(),
-                }
-        except Exception as e:
-            get_logger().warning("Failed to update trace metadata and previews: %s", e)
-
-        # Calculate end time based on last entry or use default duration
         last_entry = transcript[-1] if transcript else last_user_entry
         conv_end_ns = parse_timestamp_to_ns(last_entry.get(MESSAGE_FIELD_TIMESTAMP))
         if not conv_end_ns or conv_end_ns <= conv_start_ns:
-            conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)  # 10 second default
+            conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)
 
-        parent_span.set_outputs(
-            {"response": final_response or "Conversation completed", "status": "completed"}
+        return _finalize_trace(
+            parent_span, user_prompt_text, final_response, session_id, conv_end_ns,
         )
-        parent_span.end(end_time_ns=conv_end_ns)
-
-        try:
-            # Use this to check if async trace logging is enabled
-            if hasattr(_get_trace_exporter(), "_async_queue"):
-                mlflow.flush_trace_async_logging()
-        except Exception as e:
-            # This is not a critical error, so we log it as debug
-            get_logger().debug("Failed to flush trace async logging: %s", e)
-
-        get_logger().log(CLAUDE_TRACING_LEVEL, "Created MLflow trace: %s", parent_span.trace_id)
-
-        return mlflow.get_trace(parent_span.trace_id)
 
     except Exception as e:
         get_logger().error("Error processing transcript: %s", e, exc_info=True)
+        return None
+
+
+# ============================================================================
+# SDK MESSAGE PROCESSING
+# ============================================================================
+
+
+def _find_sdk_user_prompt(messages: list[Any]) -> str | None:
+    """Find the first actual user prompt (not tool results) from SDK messages."""
+    from claude_agent_sdk.types import TextBlock, ToolResultBlock, UserMessage
+
+    for msg in messages:
+        if not isinstance(msg, UserMessage):
+            continue
+        if msg.tool_use_result is not None:
+            continue
+        content = msg.content
+        if isinstance(content, list):
+            if all(isinstance(block, ToolResultBlock) for block in content):
+                continue
+            text = "\n".join(b.text for b in content if isinstance(b, TextBlock))
+        elif isinstance(content, str):
+            text = content
+        else:
+            continue
+        if text and text.strip():
+            return text
+    return None
+
+
+def process_sdk_messages(
+    messages: list[Any], session_id: str | None = None
+) -> mlflow.entities.Trace | None:
+    """Process SDK Message objects into an MLflow trace, analogous to process_transcript
+    for CLI-format transcripts.
+    """
+    from claude_agent_sdk.types import (
+        AssistantMessage,
+        ResultMessage,
+        TextBlock,
+        ToolResultBlock,
+        ToolUseBlock,
+        UserMessage,
+    )
+
+    try:
+        if not messages:
+            get_logger().warning("Empty messages list, skipping")
+            return None
+
+        user_prompt = _find_sdk_user_prompt(messages)
+        if user_prompt is None:
+            get_logger().warning("No user prompt found in SDK messages")
+            return None
+
+        if not session_id:
+            session_id = f"claude-sdk-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        get_logger().log(
+            CLAUDE_TRACING_LEVEL, "Creating MLflow trace from SDK messages for session: %s",
+            session_id,
+        )
+
+        # Build tool_use_id → result content map from UserMessages containing ToolResultBlocks
+        tool_result_map: dict[str, str] = {}
+        for msg in messages:
+            if isinstance(msg, UserMessage) and isinstance(msg.content, list):
+                for block in msg.content:
+                    if isinstance(block, ToolResultBlock):
+                        result = block.content
+                        if isinstance(result, list):
+                            result = str(result)
+                        tool_result_map[block.tool_use_id] = result or ""
+
+        conv_start_ns = int(datetime.now().timestamp() * NANOSECONDS_PER_S)
+        parent_span = mlflow.start_span_no_context(
+            name="claude_code_conversation",
+            inputs={"prompt": user_prompt},
+            start_time_ns=conv_start_ns,
+            span_type=SpanType.AGENT,
+        )
+
+        llm_call_num = 0
+        final_response = None
+        result_usage = None
+        span_time_ns = conv_start_ns
+
+        for msg in messages:
+            if isinstance(msg, ResultMessage):
+                result_usage = msg.usage
+                if msg.session_id:
+                    session_id = msg.session_id
+                continue
+
+            if not isinstance(msg, AssistantMessage) or not msg.content:
+                continue
+
+            text_blocks = [b for b in msg.content if isinstance(b, TextBlock)]
+            tool_use_blocks = [b for b in msg.content if isinstance(b, ToolUseBlock)]
+            span_time_ns += int(100 * NANOSECONDS_PER_MS)
+
+            if text_blocks and not tool_use_blocks:
+                llm_call_num += 1
+                text = "\n".join(b.text for b in text_blocks)
+                if text.strip():
+                    final_response = text
+                llm_span = mlflow.start_span_no_context(
+                    name=f"llm_call_{llm_call_num}",
+                    parent_span=parent_span,
+                    span_type=SpanType.LLM,
+                    start_time_ns=span_time_ns,
+                    inputs={"model": getattr(msg, "model", "unknown")},
+                    attributes={"model": getattr(msg, "model", "unknown")},
+                )
+                llm_span.set_outputs({"response": text})
+                llm_span.end(end_time_ns=span_time_ns + int(500 * NANOSECONDS_PER_MS))
+
+            for idx, tool_block in enumerate(tool_use_blocks):
+                tool_start_ns = span_time_ns + idx * int(10 * NANOSECONDS_PER_MS)
+                tool_span = mlflow.start_span_no_context(
+                    name=f"tool_{tool_block.name}",
+                    parent_span=parent_span,
+                    span_type=SpanType.TOOL,
+                    start_time_ns=tool_start_ns,
+                    inputs=tool_block.input,
+                    attributes={"tool_name": tool_block.name, "tool_id": tool_block.id},
+                )
+                tool_result = tool_result_map.get(tool_block.id, "No result found")
+                tool_span.set_outputs({"result": tool_result})
+                tool_span.end(end_time_ns=tool_start_ns + int(500 * NANOSECONDS_PER_MS))
+
+        if result_usage:
+            _set_token_usage_attribute(parent_span, result_usage)
+
+        return _finalize_trace(
+            parent_span, user_prompt, final_response, session_id,
+            span_time_ns + int(1 * NANOSECONDS_PER_S),
+        )
+
+    except Exception as e:
+        get_logger().error("Error processing SDK messages: %s", e, exc_info=True)
         return None

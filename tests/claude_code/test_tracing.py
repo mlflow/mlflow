@@ -4,6 +4,14 @@ import logging
 from pathlib import Path
 
 import pytest
+from claude_agent_sdk.types import (
+    AssistantMessage,
+    ResultMessage,
+    TextBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
+)
 
 import mlflow
 import mlflow.claude_code.tracing as tracing_module
@@ -11,6 +19,7 @@ from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
     get_hook_response,
     parse_timestamp_to_ns,
+    process_sdk_messages,
     process_transcript,
     setup_logging,
 )
@@ -292,3 +301,231 @@ def test_process_transcript_tracks_token_usage(mock_transcript_file_with_usage):
     assert trace.info.token_usage["input_tokens"] == 150
     assert trace.info.token_usage["output_tokens"] == 25
     assert trace.info.token_usage["total_tokens"] == 175
+
+
+# ============================================================================
+# SDK MESSAGE PROCESSING TESTS
+# ============================================================================
+
+
+def test_process_sdk_messages_empty_list():
+    assert process_sdk_messages([]) is None
+
+
+def test_process_sdk_messages_no_user_prompt():
+    messages = [
+        AssistantMessage(
+            content=[TextBlock(text="Hello!")],
+            model="claude-sonnet-4-20250514",
+        ),
+    ]
+    assert process_sdk_messages(messages) is None
+
+
+def test_process_sdk_messages_simple_conversation():
+    messages = [
+        UserMessage(content="What is 2 + 2?"),
+        AssistantMessage(
+            content=[TextBlock(text="The answer is 4.")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=1000,
+            duration_api_ms=800,
+            is_error=False,
+            num_turns=1,
+            session_id="test-sdk-session",
+            usage={"input_tokens": 100, "output_tokens": 20},
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "test-sdk-session")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+    assert len(spans) > 0
+
+    root_span = trace.data.spans[0]
+    assert root_span.name == "claude_code_conversation"
+    assert root_span.span_type == SpanType.AGENT
+
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    assert len(llm_spans) == 1
+    assert llm_spans[0].name == "llm_call_1"
+
+    assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-sdk-session"
+
+
+def test_process_sdk_messages_with_tool_use():
+    messages = [
+        UserMessage(content="List files in current directory"),
+        AssistantMessage(
+            content=[
+                ToolUseBlock(id="tool_1", name="Bash", input={"command": "ls"}),
+            ],
+            model="claude-sonnet-4-20250514",
+        ),
+        UserMessage(
+            content=[
+                ToolResultBlock(tool_use_id="tool_1", content="file1.py\nfile2.py"),
+            ],
+            tool_use_result={"tool_use_id": "tool_1"},
+        ),
+        AssistantMessage(
+            content=[TextBlock(text="Here are the files: file1.py and file2.py")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=2000,
+            duration_api_ms=1500,
+            is_error=False,
+            num_turns=2,
+            session_id="tool-session",
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "tool-session")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
+    assert len(tool_spans) == 1
+    assert tool_spans[0].name == "tool_Bash"
+    assert tool_spans[0].inputs == {"command": "ls"}
+    assert tool_spans[0].outputs["result"] == "file1.py\nfile2.py"
+
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    assert len(llm_spans) == 1
+
+
+def test_process_sdk_messages_token_usage():
+    messages = [
+        UserMessage(content="Hello!"),
+        AssistantMessage(
+            content=[TextBlock(text="Hi there!")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=500,
+            duration_api_ms=400,
+            is_error=False,
+            num_turns=1,
+            session_id="usage-session",
+            usage={"input_tokens": 200, "output_tokens": 50},
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "usage-session")
+
+    assert trace is not None
+
+    root_span = trace.data.spans[0]
+    token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage["input_tokens"] == 200
+    assert token_usage["output_tokens"] == 50
+    assert token_usage["total_tokens"] == 250
+
+
+def test_process_sdk_messages_multi_turn():
+    messages = [
+        UserMessage(content="First question"),
+        AssistantMessage(
+            content=[TextBlock(text="First answer")],
+            model="claude-sonnet-4-20250514",
+        ),
+        UserMessage(content="Second question"),
+        AssistantMessage(
+            content=[TextBlock(text="Second answer")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=3000,
+            duration_api_ms=2000,
+            is_error=False,
+            num_turns=2,
+            session_id="multi-turn-session",
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "multi-turn-session")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    assert len(llm_spans) == 2
+    assert llm_spans[0].name == "llm_call_1"
+    assert llm_spans[1].name == "llm_call_2"
+
+
+def test_process_sdk_messages_multiple_tools():
+    messages = [
+        UserMessage(content="Read two files"),
+        AssistantMessage(
+            content=[
+                ToolUseBlock(id="tool_1", name="Read", input={"path": "a.py"}),
+                ToolUseBlock(id="tool_2", name="Read", input={"path": "b.py"}),
+            ],
+            model="claude-sonnet-4-20250514",
+        ),
+        UserMessage(
+            content=[
+                ToolResultBlock(tool_use_id="tool_1", content="content of a"),
+                ToolResultBlock(tool_use_id="tool_2", content="content of b"),
+            ],
+            tool_use_result={"tool_use_id": "tool_1"},
+        ),
+        AssistantMessage(
+            content=[TextBlock(text="Here are the contents.")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=2000,
+            duration_api_ms=1500,
+            is_error=False,
+            num_turns=2,
+            session_id="multi-tool-session",
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "multi-tool-session")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
+    assert len(tool_spans) == 2
+    assert all(s.name == "tool_Read" for s in tool_spans)
+    tool_results = {s.outputs["result"] for s in tool_spans}
+    assert tool_results == {"content of a", "content of b"}
+
+
+def test_process_sdk_messages_sets_previews():
+    messages = [
+        UserMessage(content="What is Python?"),
+        AssistantMessage(
+            content=[TextBlock(text="Python is a programming language.")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=500,
+            duration_api_ms=400,
+            is_error=False,
+            num_turns=1,
+            session_id="preview-session",
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "preview-session")
+
+    assert trace is not None
+    assert trace.info.request_preview == "What is Python?"
+    assert trace.info.response_preview == "Python is a programming language."
