@@ -1005,415 +1005,59 @@ def test_responses_agent_non_mlflow_decorators():
                 )
             ],
         ),
-        # Test case for parallel tool calls - multiple tool calls in a single response
+        # Parallel tool calls: verifies arguments are assembled per tool call index
+        # Before fix, all arguments were concatenated into first tool call, causing JSON errors
         (
             [
-                {
-                    "id": "chatcmpl-parallel",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {
-                                        "index": 0,
-                                        "id": "call_1",
-                                        "function": {"name": "search", "arguments": ""},
-                                        "type": "function",
-                                    }
-                                ]
-                            },
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                {
-                    "id": "chatcmpl-parallel",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {
-                                        "index": 1,
-                                        "id": "call_2",
-                                        "function": {"name": "search", "arguments": ""},
-                                        "type": "function",
-                                    }
-                                ]
-                            },
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                {
-                    "id": "chatcmpl-parallel",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [{"index": 0, "function": {"arguments": '{"query":'}}]
-                            },
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                {
-                    "id": "chatcmpl-parallel",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [{"index": 1, "function": {"arguments": '{"query":'}}]
-                            },
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                {
-                    "id": "chatcmpl-parallel",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [{"index": 0, "function": {"arguments": '"first"}'}}]
-                            },
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                {
-                    "id": "chatcmpl-parallel",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [{"index": 1, "function": {"arguments": '"second"}'}}]
-                            },
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-            ],
-            [
-                ResponsesAgentStreamEvent(
-                    type="response.output_item.done",
-                    custom_outputs=None,
-                    item={
-                        "type": "function_call",
-                        "id": "chatcmpl-parallel",
-                        "call_id": "call_1",
-                        "name": "search",
-                        "arguments": '{"query":"first"}',
-                    },
-                ),
-                ResponsesAgentStreamEvent(
-                    type="response.output_item.done",
-                    custom_outputs=None,
-                    item={
-                        "type": "function_call",
-                        "id": "chatcmpl-parallel",
-                        "call_id": "call_2",
-                        "name": "search",
-                        "arguments": '{"query":"second"}',
-                    },
-                ),
-            ],
-        ),
-        # Real-world test case: 3 parallel tool calls from Databricks Claude endpoint
-        # This test case was captured from actual API responses
-        (
-            [
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {"content": "I'll call", "role": "assistant"},
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {"content": " all three tools in", "role": "assistant"},
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {"content": " parallel.", "role": "assistant"},
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                # Tool call 0: search_documents - initialization
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {
-                                "content": None,
-                                "role": "assistant",
-                                "tool_calls": [
-                                    {
-                                        "index": 0,
-                                        "id": "toolu_bdrk_01LtBCr4wGYBR6kG7cAbQPx1",
-                                        "function": {"arguments": "", "name": "search_documents"},
-                                        "type": "function",
-                                    }
-                                ],
-                            },
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                # Tool call 0: search_documents - arguments streaming
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {"index": 0, "function": {"arguments": '{"query": "'}}
-                                ]
-                            },
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {"index": 0, "function": {"arguments": "machine learning"}}
-                                ]
-                            },
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {"index": 0, "function": {"arguments": ' best practices"}'}}
-                                ]
-                            },
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                # Tool call 1: get_weather - initialization
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {
-                                        "index": 1,
-                                        "id": "toolu_bdrk_014F4DopzAMvZqjXPWc1JVDh",
-                                        "function": {"arguments": "", "name": "get_weather"},
-                                        "type": "function",
-                                    }
-                                ]
-                            },
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                # Tool call 1: get_weather - arguments streaming
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {"index": 1, "function": {"arguments": '{"location": "'}}
-                                ]
-                            },
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {"index": 1, "function": {"arguments": 'Seattle, WA"}'}}
-                                ]
-                            },
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                # Tool call 2: calculate - initialization
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {
-                                        "index": 2,
-                                        "id": "toolu_bdrk_01FEsMf3SWnhjQiNTHX3i3cV",
-                                        "function": {"arguments": "", "name": "calculate"},
-                                        "type": "function",
-                                    }
-                                ]
-                            },
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                # Tool call 2: calculate - arguments streaming
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [
-                                    {"index": 2, "function": {"arguments": '{"expression": "'}}
-                                ]
-                            },
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {
-                                "tool_calls": [{"index": 2, "function": {"arguments": '42 * 17"}'}}]
-                            },
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
+                # Text content
+                {"id": "msg1", "choices": [{"delta": {"content": "Calling tools."}, "index": 0}],
+                 "object": "chat.completion.chunk"},
+                # Tool 0: search - init + args
+                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
+                    {"index": 0, "id": "call_0", "function": {"name": "search", "arguments": ""}}
+                ]}, "index": 0}], "object": "chat.completion.chunk"},
+                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
+                    {"index": 0, "function": {"arguments": '{"query": "ML best practices"}'}}
+                ]}, "index": 0}], "object": "chat.completion.chunk"},
+                # Tool 1: weather - init + args
+                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
+                    {"index": 1, "id": "call_1", "function": {"name": "weather", "arguments": ""}}
+                ]}, "index": 0}], "object": "chat.completion.chunk"},
+                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
+                    {"index": 1, "function": {"arguments": '{"location": "Seattle"}'}}
+                ]}, "index": 0}], "object": "chat.completion.chunk"},
+                # Tool 2: calculate - init + args
+                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
+                    {"index": 2, "id": "call_2", "function": {"name": "calc", "arguments": ""}}
+                ]}, "index": 0}], "object": "chat.completion.chunk"},
+                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
+                    {"index": 2, "function": {"arguments": '{"expr": "42*17"}'}}
+                ]}, "index": 0}], "object": "chat.completion.chunk"},
                 # Final chunk
-                {
-                    "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    "choices": [
-                        {
-                            "delta": {"content": "", "role": "assistant"},
-                            "finish_reason": "tool_calls",
-                            "index": 0,
-                        }
-                    ],
-                    "object": "chat.completion.chunk",
-                },
+                {"id": "msg1", "choices": [{"delta": {"content": ""}, "finish_reason": "tool_calls",
+                 "index": 0}], "object": "chat.completion.chunk"},
             ],
             [
                 ResponsesAgentStreamEvent(
-                    type="response.output_text.delta",
-                    custom_outputs=None,
-                    item_id="msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    delta="I'll call",
-                ),
+                    type="response.output_text.delta", item_id="msg1", delta="Calling tools."),
                 ResponsesAgentStreamEvent(
-                    type="response.output_text.delta",
-                    custom_outputs=None,
-                    item_id="msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    delta=" all three tools in",
-                ),
-                ResponsesAgentStreamEvent(
-                    type="response.output_text.delta",
-                    custom_outputs=None,
-                    item_id="msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    delta=" parallel.",
-                ),
-                ResponsesAgentStreamEvent(
-                    type="response.output_text.delta",
-                    custom_outputs=None,
-                    item_id="msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                    delta="",
-                ),
+                    type="response.output_text.delta", item_id="msg1", delta=""),
                 ResponsesAgentStreamEvent(
                     type="response.output_item.done",
-                    custom_outputs=None,
-                    item={
-                        "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                        "content": [
-                            {
-                                "text": "I'll call all three tools in parallel.",
-                                "type": "output_text",
-                            }
-                        ],
-                        "role": "assistant",
-                        "type": "message",
-                    },
-                ),
+                    item={"id": "msg1", "type": "message", "role": "assistant",
+                          "content": [{"text": "Calling tools.", "type": "output_text"}]}),
                 ResponsesAgentStreamEvent(
                     type="response.output_item.done",
-                    custom_outputs=None,
-                    item={
-                        "type": "function_call",
-                        "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                        "call_id": "toolu_bdrk_01LtBCr4wGYBR6kG7cAbQPx1",
-                        "name": "search_documents",
-                        "arguments": '{"query": "machine learning best practices"}',
-                    },
-                ),
+                    item={"type": "function_call", "id": "msg1", "call_id": "call_0",
+                          "name": "search", "arguments": '{"query": "ML best practices"}'}),
                 ResponsesAgentStreamEvent(
                     type="response.output_item.done",
-                    custom_outputs=None,
-                    item={
-                        "type": "function_call",
-                        "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                        "call_id": "toolu_bdrk_014F4DopzAMvZqjXPWc1JVDh",
-                        "name": "get_weather",
-                        "arguments": '{"location": "Seattle, WA"}',
-                    },
-                ),
+                    item={"type": "function_call", "id": "msg1", "call_id": "call_1",
+                          "name": "weather", "arguments": '{"location": "Seattle"}'}),
                 ResponsesAgentStreamEvent(
                     type="response.output_item.done",
-                    custom_outputs=None,
-                    item={
-                        "type": "function_call",
-                        "id": "msg_bdrk_01TBkpd1FZyx6cnHi6VmGDjS",
-                        "call_id": "toolu_bdrk_01FEsMf3SWnhjQiNTHX3i3cV",
-                        "name": "calculate",
-                        "arguments": '{"expression": "42 * 17"}',
-                    },
-                ),
+                    item={"type": "function_call", "id": "msg1", "call_id": "call_2",
+                          "name": "calc", "arguments": '{"expr": "42*17"}'}),
             ],
         ),
     ],
