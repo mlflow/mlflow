@@ -14,8 +14,9 @@ import { TraceTableGenericQuickstart } from '@mlflow/mlflow/src/experiment-track
 import type { QUICKSTART_FLAVOR } from '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableQuickstart.utils';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
-import { Link } from '../../common/utils/RoutingUtils';
+import { Link, useSearchParams } from '../../common/utils/RoutingUtils';
 import Routes from '../../experiment-tracking/routes';
+import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 import OpenAiLogo from '../../common/static/logos/openai.svg';
 import OpenAiLogoDark from '../../common/static/logos/openai-dark.svg';
 import LangChainLogo from '../../common/static/logos/langchain.svg';
@@ -106,17 +107,23 @@ const MORE_INTEGRATIONS_URL = 'https://mlflow.org/docs/latest/genai/tracing/#one
 
 const TRACING_DOCS_URL = 'https://mlflow.org/docs/latest/genai/tracing/';
 
-const CONFIGURE_EXPERIMENT_SNIPPET = `import mlflow
+const getConfigureExperimentSnippet = (workspace?: string | null) => {
+  const workspaceLine = workspace ? `mlflow.set_workspace("${workspace}")\n` : '';
+  return `import mlflow
 
 # Specify the tracking server URI, e.g. http://localhost:5000
 mlflow.set_tracking_uri("http://<tracking-server-host>:<port>")
-# If the experiment with the name "traces-quickstart" doesn't exist, MLflow will create it
+${workspaceLine}# If the experiment with the name "traces-quickstart" doesn't exist, MLflow will create it
 mlflow.set_experiment("traces-quickstart")`;
+};
 
 export const LogTracesDrawer = () => {
   const { theme } = useDesignSystemTheme();
   const [selectedFramework, setSelectedFramework] = useState<SupportedQuickstartFlavor>('openai');
   const { isLogTracesDrawerOpen, closeLogTracesDrawer } = useHomePageViewState();
+  const [searchParams] = useSearchParams();
+  const activeWorkspace = extractWorkspaceFromSearchParams(searchParams);
+  const configureSnippet = getConfigureExperimentSnippet(activeWorkspace);
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -277,7 +284,7 @@ export const LogTracesDrawer = () => {
                   componentId="mlflow.home.log_traces.drawer.configure.copy"
                   css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
                   showLabel={false}
-                  copyText={CONFIGURE_EXPERIMENT_SNIPPET}
+                  copyText={configureSnippet}
                   icon={<CopyIcon />}
                 />
                 <CodeSnippet
@@ -289,7 +296,7 @@ export const LogTracesDrawer = () => {
                     marginTop: theme.spacing.xs,
                   }}
                 >
-                  {CONFIGURE_EXPERIMENT_SNIPPET}
+                  {configureSnippet}
                 </CodeSnippet>
               </div>
             </section>

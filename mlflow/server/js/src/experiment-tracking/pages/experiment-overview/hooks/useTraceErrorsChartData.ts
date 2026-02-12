@@ -46,14 +46,14 @@ export interface UseTraceErrorsChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Fetch error count metrics grouped by time bucket
   const {
     data: errorCountData,
     isLoading: isLoadingErrors,
     error: errorCountError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -70,7 +70,7 @@ export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
     isLoading: isLoadingTotal,
     error: totalCountError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,

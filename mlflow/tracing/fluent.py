@@ -10,7 +10,7 @@ import os
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, Callable, Generator, Literal
+from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, ParamSpec, TypeVar, overload
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
@@ -39,6 +39,7 @@ from mlflow.tracing.provider import (
     safe_set_span_in_context,
     with_active_span,
 )
+from mlflow.tracing.sampling import _SAMPLING_RATIO_OVERRIDE
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
@@ -61,10 +62,51 @@ if TYPE_CHECKING:
 _LAST_ACTIVE_TRACE_ID_GLOBAL = None
 _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL = ContextVar("last_active_trace_id", default=None)
 
+
+@contextlib.contextmanager
+def _set_sampling_ratio_override(sampling_ratio_override: float | None):
+    """Context manager to set the sampling ratio override for the OTel sampler."""
+    if sampling_ratio_override is not None:
+        token = _SAMPLING_RATIO_OVERRIDE.set(sampling_ratio_override)
+        try:
+            yield
+        finally:
+            _SAMPLING_RATIO_OVERRIDE.reset(token)
+    else:
+        yield
+
+
 # Cache mapping between evaluation request ID to MLflow backend request ID.
 # This is necessary for evaluation harness to access generated traces during
 # evaluation using the dataset row ID (evaluation request ID).
 _EVAL_REQUEST_ID_TO_TRACE_ID = TTLCache(maxsize=10000, ttl=3600)
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+@overload
+def trace(
+    func: Callable[_P, _R],
+    name: str | None = None,
+    span_type: str = SpanType.UNKNOWN,
+    attributes: dict[str, Any] | None = None,
+    output_reducer: Callable[[list[Any]], Any] | None = None,
+    trace_destination: TraceLocationBase | None = None,
+    sampling_ratio_override: float | None = None,
+) -> Callable[_P, _R]: ...
+
+
+@overload
+def trace(
+    func: None = None,
+    name: str | None = None,
+    span_type: str = SpanType.UNKNOWN,
+    attributes: dict[str, Any] | None = None,
+    output_reducer: Callable[[list[Any]], Any] | None = None,
+    trace_destination: TraceLocationBase | None = None,
+    sampling_ratio_override: float | None = None,
+) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]: ...
 
 
 def trace(
@@ -74,6 +116,7 @@ def trace(
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
+    sampling_ratio_override: float | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -173,7 +216,19 @@ def trace(
             set by the :py:func:`mlflow.tracing.set_destination` function. This parameter
             should only be used for root span and setting this for non-root spans will be
             ignored with a warning.
+        sampling_ratio_override: The sampling ratio override for this specific function. Must be
+            between 0.0 and 1.0. If provided, this overrides the global
+            ``MLFLOW_TRACE_SAMPLING_RATIO`` setting. A value of 1.0 means all traces are sampled,
+            0.5 means 50% are sampled, and 0.0 means no traces are sampled. If not provided (None),
+            the global sampling ratio is used. Note: This only applies to root spans; nested calls
+            always trace if the parent is traced.
     """
+
+    # Validate sampling_ratio_override
+    if sampling_ratio_override is not None and not (0.0 <= sampling_ratio_override <= 1.0):
+        raise MlflowException.invalid_parameter_value(
+            f"sampling_ratio_override must be between 0.0 and 1.0, got {sampling_ratio_override}"
+        )
 
     def decorator(fn):
         # Check if the function is a classmethod or staticmethod
@@ -192,13 +247,16 @@ def trace(
                 attributes,
                 output_reducer,
                 trace_destination,
+                sampling_ratio_override,
             )
         else:
             if output_reducer is not None:
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            wrapped = _wrap_function(original_fn, name, span_type, attributes, trace_destination)
+            wrapped = _wrap_function(
+                original_fn, name, span_type, attributes, trace_destination, sampling_ratio_override
+            )
 
         # If the original was a descriptor, wrap the result back as the same type of descriptor
         if is_classmethod:
@@ -217,6 +275,7 @@ def _wrap_function(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
+    sampling_ratio_override: float | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -263,12 +322,18 @@ def _wrap_function(
     if inspect.iscoroutinefunction(fn):
 
         async def wrapper(*args, **kwargs):
-            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+            with (
+                _set_sampling_ratio_override(sampling_ratio_override),
+                _WrappingContext(fn, args, kwargs) as wrapping_coro,
+            ):
                 return wrapping_coro.send(await fn(*args, **kwargs))
     else:
 
         def wrapper(*args, **kwargs):
-            with _WrappingContext(fn, args, kwargs) as wrapping_coro:
+            with (
+                _set_sampling_ratio_override(sampling_ratio_override),
+                _WrappingContext(fn, args, kwargs) as wrapping_coro,
+            ):
                 return wrapping_coro.send(fn(*args, **kwargs))
 
     return _wrap_function_safe(fn, wrapper)
@@ -281,6 +346,7 @@ def _wrap_generator(
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
+    sampling_ratio_override: float | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -357,8 +423,9 @@ def _wrap_generator(
     if inspect.isgeneratorfunction(fn):
 
         def wrapper(*args, **kwargs):
-            inputs = capture_function_input_args(fn, args, kwargs)
-            span = _start_stream_span(fn, inputs)
+            with _set_sampling_ratio_override(sampling_ratio_override):
+                inputs = capture_function_input_args(fn, args, kwargs)
+                span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
             i = 0
@@ -382,8 +449,9 @@ def _wrap_generator(
     else:
 
         async def wrapper(*args, **kwargs):
-            inputs = capture_function_input_args(fn, args, kwargs)
-            span = _start_stream_span(fn, inputs)
+            with _set_sampling_ratio_override(sampling_ratio_override):
+                inputs = capture_function_input_args(fn, args, kwargs)
+                span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
             i = 0
