@@ -497,11 +497,8 @@ class Linter(ast.NodeVisitor):
     def _redundant_test_docstring(
         self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
     ) -> None:
-        if rule := rules.RedundantTestDocstring.check(node, self.path.name):
-            # At this point, we know node.body[0] is an ast.Expr with a value attribute
-            docstring_expr = node.body[0]
-            assert isinstance(docstring_expr, ast.Expr)
-            self._check(Range.from_node(docstring_expr.value), rule)
+        if docstring_node := rules.RedundantTestDocstring.check(node, self.path.name):
+            self._check(Range.from_node(docstring_node), rules.RedundantTestDocstring())
 
     def visit(self, node: ast.AST) -> None:
         super().visit(node)
@@ -509,11 +506,8 @@ class Linter(ast.NodeVisitor):
             self.prev_stmt = node
 
     def visit_Module(self, node: ast.Module) -> None:
-        if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
-            # At this point, we know node.body[0] is an ast.Expr with a value attribute
-            docstring_expr = node.body[0]
-            assert isinstance(docstring_expr, ast.Expr)
-            self._check(Range.from_node(docstring_expr.value), rule)
+        if docstring_node := rules.RedundantTestDocstring.check_module(node, self.path.name):
+            self._check(Range.from_node(docstring_node), rules.RedundantTestDocstring())
         self.generic_visit(node)
 
     def _is_in_test(self) -> bool:

@@ -8,19 +8,14 @@ generally provide meaningful context.
 
 import ast
 
-from typing_extensions import Self
-
 from clint.rules.base import Rule
 
 
 class RedundantTestDocstring(Rule):
-    def __init__(self) -> None:
-        pass
-
-    @classmethod
+    @staticmethod
     def check(
-        cls, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef, path_name: str
-    ) -> Self | None:
+        node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef, path_name: str
+    ) -> ast.Constant | None:
         if not (path_name.startswith("test_") or path_name.endswith("_test.py")):
             return None
 
@@ -44,13 +39,13 @@ class RedundantTestDocstring(Rule):
             if "\n" in raw_docstring:
                 return None
 
-            # Single-line docstrings in test functions/classes rarely provide meaningful context
-            return cls()
+            # Return the docstring node to flag
+            return node.body[0].value
 
         return None
 
-    @classmethod
-    def check_module(cls, module: ast.Module, path_name: str) -> Self | None:
+    @staticmethod
+    def check_module(module: ast.Module, path_name: str) -> ast.Constant | None:
         """Check if module-level docstring is redundant."""
         if not (path_name.startswith("test_") or path_name.endswith("_test.py")):
             return None
@@ -65,7 +60,7 @@ class RedundantTestDocstring(Rule):
             raw_docstring = module.body[0].value.s
             # Only flag single-line module docstrings
             if "\n" not in raw_docstring:
-                return cls()
+                return module.body[0].value
 
         return None
 
