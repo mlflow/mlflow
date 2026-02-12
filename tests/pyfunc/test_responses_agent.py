@@ -1010,54 +1010,171 @@ def test_responses_agent_non_mlflow_decorators():
         (
             [
                 # Text content
-                {"id": "msg1", "choices": [{"delta": {"content": "Calling tools."}, "index": 0}],
-                 "object": "chat.completion.chunk"},
+                {
+                    "id": "msg1",
+                    "choices": [{"delta": {"content": "Calling tools."}, "index": 0}],
+                    "object": "chat.completion.chunk",
+                },
                 # Tool 0: search - init + args
-                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
-                    {"index": 0, "id": "call_0", "function": {"name": "search", "arguments": ""}}
-                ]}, "index": 0}], "object": "chat.completion.chunk"},
-                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
-                    {"index": 0, "function": {"arguments": '{"query": "ML best practices"}'}}
-                ]}, "index": 0}], "object": "chat.completion.chunk"},
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "call_0",
+                                        "function": {"name": "search", "arguments": ""},
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "function": {"arguments": '{"query": "ML best practices"}'},
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
                 # Tool 1: weather - init + args
-                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
-                    {"index": 1, "id": "call_1", "function": {"name": "weather", "arguments": ""}}
-                ]}, "index": 0}], "object": "chat.completion.chunk"},
-                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
-                    {"index": 1, "function": {"arguments": '{"location": "Seattle"}'}}
-                ]}, "index": 0}], "object": "chat.completion.chunk"},
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 1,
+                                        "id": "call_1",
+                                        "function": {"name": "weather", "arguments": ""},
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 1,
+                                        "function": {"arguments": '{"location": "Seattle"}'},
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
                 # Tool 2: calculate - init + args
-                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
-                    {"index": 2, "id": "call_2", "function": {"name": "calc", "arguments": ""}}
-                ]}, "index": 0}], "object": "chat.completion.chunk"},
-                {"id": "msg1", "choices": [{"delta": {"tool_calls": [
-                    {"index": 2, "function": {"arguments": '{"expr": "42*17"}'}}
-                ]}, "index": 0}], "object": "chat.completion.chunk"},
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 2,
+                                        "id": "call_2",
+                                        "function": {"name": "calc", "arguments": ""},
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {"index": 2, "function": {"arguments": '{"expr": "42*17"}'}}
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
                 # Final chunk
-                {"id": "msg1", "choices": [{"delta": {"content": ""}, "finish_reason": "tool_calls",
-                 "index": 0}], "object": "chat.completion.chunk"},
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {"delta": {"content": ""}, "finish_reason": "tool_calls", "index": 0}
+                    ],
+                    "object": "chat.completion.chunk",
+                },
             ],
             [
                 ResponsesAgentStreamEvent(
-                    type="response.output_text.delta", item_id="msg1", delta="Calling tools."),
+                    type="response.output_text.delta", item_id="msg1", delta="Calling tools."
+                ),
                 ResponsesAgentStreamEvent(
-                    type="response.output_text.delta", item_id="msg1", delta=""),
-                ResponsesAgentStreamEvent(
-                    type="response.output_item.done",
-                    item={"id": "msg1", "type": "message", "role": "assistant",
-                          "content": [{"text": "Calling tools.", "type": "output_text"}]}),
+                    type="response.output_text.delta", item_id="msg1", delta=""
+                ),
                 ResponsesAgentStreamEvent(
                     type="response.output_item.done",
-                    item={"type": "function_call", "id": "msg1", "call_id": "call_0",
-                          "name": "search", "arguments": '{"query": "ML best practices"}'}),
+                    item={
+                        "id": "msg1",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"text": "Calling tools.", "type": "output_text"}],
+                    },
+                ),
                 ResponsesAgentStreamEvent(
                     type="response.output_item.done",
-                    item={"type": "function_call", "id": "msg1", "call_id": "call_1",
-                          "name": "weather", "arguments": '{"location": "Seattle"}'}),
+                    item={
+                        "type": "function_call",
+                        "id": "msg1",
+                        "call_id": "call_0",
+                        "name": "search",
+                        "arguments": '{"query": "ML best practices"}',
+                    },
+                ),
                 ResponsesAgentStreamEvent(
                     type="response.output_item.done",
-                    item={"type": "function_call", "id": "msg1", "call_id": "call_2",
-                          "name": "calc", "arguments": '{"expr": "42*17"}'}),
+                    item={
+                        "type": "function_call",
+                        "id": "msg1",
+                        "call_id": "call_1",
+                        "name": "weather",
+                        "arguments": '{"location": "Seattle"}',
+                    },
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    item={
+                        "type": "function_call",
+                        "id": "msg1",
+                        "call_id": "call_2",
+                        "name": "calc",
+                        "arguments": '{"expr": "42*17"}',
+                    },
+                ),
             ],
         ),
     ],
