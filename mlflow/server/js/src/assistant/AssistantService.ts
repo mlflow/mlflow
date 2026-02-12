@@ -10,7 +10,7 @@ import type {
   HealthCheckResult,
   InstallSkillsResponse,
 } from './types';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
@@ -56,7 +56,9 @@ const processContentBlocks = (
  * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
  */
 export const checkProviderHealth = async (provider: string): Promise<HealthCheckResult> => {
-  const response = await fetch(`${API_BASE}/providers/${provider}/health`);
+  const response = await fetch(`${API_BASE}/providers/${provider}/health`, {
+    headers: { ...getDefaultHeaders(document.cookie) },
+  });
   if (response.ok) {
     return { ok: true };
   }
@@ -68,7 +70,9 @@ export const checkProviderHealth = async (provider: string): Promise<HealthCheck
  * Get the assistant configuration.
  */
 export const getConfig = async (): Promise<AssistantConfig> => {
-  const response = await fetch(`${API_BASE}/config`);
+  const response = await fetch(`${API_BASE}/config`, {
+    headers: { ...getDefaultHeaders(document.cookie) },
+  });
   if (!response.ok) {
     throw new Error(`Failed to get config: ${response.statusText}`);
   }
@@ -82,7 +86,7 @@ export const getConfig = async (): Promise<AssistantConfig> => {
 export const updateConfig = async (config: AssistantConfigUpdate): Promise<AssistantConfig> => {
   const response = await fetch(`${API_BASE}/config`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getDefaultHeaders(document.cookie) },
     body: JSON.stringify(config),
   });
   if (!response.ok) {
@@ -107,6 +111,7 @@ export const cancelSession = async (sessionId: string): Promise<{ message: strin
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
+      ...getDefaultHeaders(document.cookie),
     },
     body: JSON.stringify({ status: 'cancelled' }),
   });
@@ -145,10 +150,12 @@ export const sendMessageStream = async (
 
   try {
     // Step 1: POST the message to initiate processing
+    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
     const response = await fetch(`${API_BASE}/message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getDefaultHeaders(document.cookie),
       },
       body: JSON.stringify(request),
     });
@@ -279,7 +286,7 @@ export const installSkills = async (
 ): Promise<InstallSkillsResponse> => {
   const response = await fetch(`${API_BASE}/skills/install`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getDefaultHeaders(document.cookie) },
     body: JSON.stringify({
       type,
       custom_path: customPath,

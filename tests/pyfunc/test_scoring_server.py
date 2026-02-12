@@ -3,7 +3,7 @@ import math
 import os
 import random
 import signal
-from io import StringIO
+from io import BytesIO, StringIO
 from typing import Any, NamedTuple
 
 import keras
@@ -341,6 +341,25 @@ def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_
     assert "stack_trace" in response_json
 
 
+def test_scoring_server_responds_to_invalid_parquet_input_with_stacktrace_and_error_code(
+    sklearn_model, model_path
+):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    # Any empty string is not valid pandas parquet input
+    incorrect_parquet_content = ""
+    response = score_model_in_process(
+        model_uri=os.path.abspath(model_path),
+        data=incorrect_parquet_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_PARQUET,
+    )
+    response_json = json.loads(response.content)
+    assert "error_code" in response_json
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
+    assert "message" in response_json
+    assert "stack_trace" in response_json
+
+
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_records_orientation(
     sklearn_model, model_path
 ):
@@ -550,6 +569,14 @@ def test_parse_with_schema_csv(pandas_df_with_csv_types):
     assert schema == infer_signature(df[schema.input_names()]).inputs
 
 
+def test_parse_parquet_schema(pandas_df_with_all_types):
+    schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
+    df = _shuffle_pdf(pandas_df_with_all_types)
+    parquet_stream = df.to_parquet()
+    df = pyfunc_scoring_server.parse_parquet_input(BytesIO(parquet_stream))
+    assert schema == infer_signature(df[schema.input_names()]).inputs
+
+
 def test_parse_with_schema(pandas_df_with_all_types):
     schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
     df = _shuffle_pdf(pandas_df_with_all_types)
@@ -712,6 +739,29 @@ def test_numpy_encoder_for_pydantic():
     assert json.dumps(_get_jsonable_obj(messages), cls=NumpyEncoder) == json.dumps(
         msg_dict, cls=NumpyEncoder
     )
+
+
+def test_parse_parquet_input():
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return 1
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(name="model", python_model=TestModel())
+
+    pandas_df = pd.DataFrame(
+        {
+            "foo": [3.0, 4.0],
+            "bar": [1.0, 2.0],
+        }
+    )
+
+    response_records_content_type = score_model_in_process(
+        model_uri=f"runs:/{run.info.run_id}/model",
+        data=pandas_df,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_PARQUET,
+    )
+    expect_status_code(response_records_content_type, 200)
 
 
 def test_parse_json_input_including_path():

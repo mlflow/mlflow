@@ -27,8 +27,17 @@ import { useUpdateExperimentTags } from './experiment-page/hooks/useUpdateExperi
 import { useSearchFilter } from './experiment-page/hooks/useSearchFilter';
 import { TagFilter, useTagsFilter } from './experiment-page/hooks/useTagsFilter';
 import { ExperimentListViewTagsFilter } from './experiment-page/components/ExperimentListViewTagsFilter';
+import { shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
+import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
+import { useSearchParams } from '../../common/utils/RoutingUtils';
 
 export const ExperimentListView = () => {
+  const [searchParams] = useSearchParams();
+  const workspacesEnabled = shouldEnableWorkspaces();
+  const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
+  // Only show creation buttons when: workspaces are disabled OR a workspace is selected
+  const showCreationButtons = !workspacesEnabled || workspaceFromUrl !== null;
+
   const [searchFilter, setSearchFilter] = useSearchFilter();
   const { tagsFilter, setTagsFilter, isTagsFilterOpen, setIsTagsFilterOpen } = useTagsFilter();
 
@@ -95,17 +104,19 @@ export const ExperimentListView = () => {
         title={<FormattedMessage defaultMessage="Experiments" description="Header title for the experiments page" />}
         buttons={
           <>
-            <Button
-              componentId="mlflow.experiment_list_view.new_experiment_button"
-              type="primary"
-              onClick={handleCreateExperiment}
-              data-testid="create-experiment-button"
-            >
-              <FormattedMessage
-                defaultMessage="Create"
-                description="Label for the create experiment action on the experiments list page"
-              />
-            </Button>
+            {showCreationButtons && (
+              <Button
+                componentId="mlflow.experiment_list_view.new_experiment_button"
+                type="primary"
+                onClick={handleCreateExperiment}
+                data-testid="create-experiment-button"
+              >
+                <FormattedMessage
+                  defaultMessage="Create"
+                  description="Label for the create experiment action on the experiments list page"
+                />
+              </Button>
+            )}
             <Button
               componentId="mlflow.experiment_list_view.compare_experiments_button"
               onClick={pushExperimentRoute}

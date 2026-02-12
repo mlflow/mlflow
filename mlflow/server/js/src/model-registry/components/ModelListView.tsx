@@ -20,12 +20,13 @@ import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
 import { Alert, CursorPagination, Spacer as DuBoisSpacer, Spacer, Typography } from '@databricks/design-system';
-import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
+import { shouldShowModelsNextUI, shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
 import { ModelListFilters } from './model-list/ModelListFilters';
 import { ModelListTable } from './model-list/ModelListTable';
 import { PageContainer } from '../../common/components/PageContainer';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
+import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 
 const NAME_COLUMN_INDEX = 'name';
 const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
@@ -154,6 +155,12 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
       // prettier-ignore
       Boolean(searchInput);
 
+    // Only show creation buttons when: workspaces are disabled OR a workspace is selected
+    const workspacesEnabled = shouldEnableWorkspaces();
+    const searchParams = new URLSearchParams(window.location.search);
+    const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
+    const showCreationButtons = !workspacesEnabled || workspaceFromUrl !== null;
+
     const title = (
       <FormattedMessage
         defaultMessage="Registered Models"
@@ -164,7 +171,7 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
       <PageContainer data-testid="ModelListView-container" usesFullHeight>
         <div>
           <PageHeader title={title} spacerSize="xs">
-            <CreateModelButton />
+            {showCreationButtons && <CreateModelButton />}
           </PageHeader>
           {/* TODO[SHIP-6202]: Move the description to the Header prop 'description' once it's been added */}
           <Typography.Hint>

@@ -20,7 +20,6 @@ from opentelemetry import trace
 from opentelemetry.context.contextvars_context import ContextVarsRuntimeContext
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
-from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
 from mlflow.entities.trace_location import (
@@ -37,6 +36,7 @@ from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import TraceDestination, UserTraceDestinationRegistry
+from mlflow.tracing.sampling import _MlflowSampler
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import (
@@ -56,7 +56,6 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R = TypeVar("R")
-
 
 # A trace destination specified by the user via the `set_destination` function.
 _MLFLOW_TRACE_USER_DESTINATION = UserTraceDestinationRegistry()
@@ -515,12 +514,12 @@ def _parse_otel_resource_attributes(otel_resource_attributes: str | None) -> dic
     return attributes
 
 
-def _get_trace_sampler() -> TraceIdRatioBased | None:
+def _get_trace_sampler() -> _MlflowSampler | None:
     """
     Get the sampler configuration based on environment variable.
 
     Returns:
-        TraceIdRatioBased sampler or None for default sampling.
+        _MlflowSampler or None for default sampling.
     """
     sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
     if sampling_ratio is not None:
@@ -530,7 +529,7 @@ def _get_trace_sampler() -> TraceIdRatioBased | None:
                 "Ignoring the invalid value and using default sampling (1.0)."
             )
             return None
-        return TraceIdRatioBased(sampling_ratio)
+        return _MlflowSampler(sampling_ratio)
     return None
 
 

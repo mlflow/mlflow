@@ -91,6 +91,8 @@ export {
   INPUTS_COLUMN_ID,
   SIMULATION_GOAL_COLUMN_ID,
   SIMULATION_PERSONA_COLUMN_ID,
+  SPAN_NAME_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
 } from './hooks/useTableColumns';
 
 export { getSimulationColumnsToAdd } from './GenAiTracesTable.utils';

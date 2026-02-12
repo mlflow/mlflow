@@ -2175,6 +2175,24 @@ def test_wrapper_isinstance_checks_for_dataset_interfaces(experiments):
             },
             {"inputs": {"goal": "Single goal"}, "expectations": {"output": "expected"}},
         ],
+        [
+            {"inputs": {"goal": "Learn ML", "simulation_guidelines": "Be concise"}},
+            {
+                "inputs": {
+                    "persona": "Engineer",
+                    "goal": "Debug",
+                    "simulation_guidelines": "Focus on logs",
+                }
+            },
+            {
+                "inputs": {
+                    "persona": "Student",
+                    "goal": "Study",
+                    "context": {"course": "CS101"},
+                    "simulation_guidelines": "Ask clarifying questions",
+                }
+            },
+        ],
     ],
 )
 def test_multiturn_valid_formats(experiments, records):
@@ -2184,7 +2202,9 @@ def test_multiturn_valid_formats(experiments, records):
 
     assert len(df) == 3
     for _, row in df.iterrows():
-        assert any(key in row["inputs"] for key in ["persona", "goal", "context"])
+        assert any(
+            key in row["inputs"] for key in ["persona", "goal", "context", "simulation_guidelines"]
+        )
 
 
 @pytest.mark.parametrize(
@@ -2263,6 +2283,7 @@ def test_multiturn_with_expectations_and_tags(experiments):
                 "persona": "Graduate Student",
                 "goal": "Find peer-reviewed articles on machine learning",
                 "context": {"user_id": "U0001", "department": "CS"},
+                "simulation_guidelines": "Be thorough and cite sources",
             },
             "expectations": {"expected_output": "relevant articles", "quality": "high"},
             "tags": {"difficulty": "medium"},
@@ -2286,3 +2307,4 @@ def test_multiturn_with_expectations_and_tags(experiments):
     assert grad_record["expectations"]["quality"] == "high"
     assert grad_record["tags"]["difficulty"] == "medium"
     assert grad_record["inputs"]["context"] == {"user_id": "U0001", "department": "CS"}
+    assert grad_record["inputs"]["simulation_guidelines"] == "Be thorough and cite sources"

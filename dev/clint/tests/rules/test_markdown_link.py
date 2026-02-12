@@ -72,3 +72,32 @@ def func_without_disable():
     # Only the last function without disable comment should have a violation
     assert len(violations) == 1
     assert isinstance(violations[0].rule, MarkdownLink)
+
+
+def test_markdown_link_disable_multiple_rules(index_path: Path) -> None:
+    code = '''
+def func():
+    """
+    Docstring with [markdown link](url).
+    """  # clint: disable=markdown-link,other-rule
+    pass
+
+def func2():
+    """
+    Docstring with [markdown link](url).
+    """  # clint: disable=other-rule, markdown-link
+    pass
+
+# This should still be detected (markdown-link not in disable list)
+def func_without_markdown_disable():
+    """
+    Docstring with [markdown link](url).
+    """  # clint: disable=some-other-rule
+    pass
+'''
+
+    config = Config(select={MarkdownLink.name})
+    violations = lint_file(Path("test.py"), code, config, index_path)
+    # Only the last function should have a violation (markdown-link not disabled)
+    assert len(violations) == 1
+    assert isinstance(violations[0].rule, MarkdownLink)
