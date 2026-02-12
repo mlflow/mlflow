@@ -352,18 +352,17 @@ def test_log_loader_module_model_does_not_emit_pickle_warning(sklearn_knn_model,
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
 
-    pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run(), mock.patch("mlflow.pyfunc._logger.warning") as mock_log_warning:
         mlflow.pyfunc.log_model(
-            name=pyfunc_artifact_path,
+            name="pyfunc_model",
             data_path=sk_model_path,
             loader_module=__name__,
             code_paths=[__file__],
         )
 
-    warning_messages = [str(args[0]) for args, _ in mock_log_warning.call_args_list if args]
+    warning_messages = [args[0] for args, _ in mock_log_warning.call_args_list if args]
     assert not any(
         "Passing a Python object as `python_model` causes it to be serialized using CloudPickle"
-        in msg.lower()
+        in msg
         for msg in warning_messages
     )
