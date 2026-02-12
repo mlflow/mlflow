@@ -37,7 +37,7 @@ Create an RDS instance of PostgreSQL type, set credentials management to "Self m
 
 ![create RDS](/images/self-hosting/create-aws-rds.png)
 
-Then you can construct the database URI like "postgresql://<username>:<password>@<endpoint>:5432/{database-name}". The database URI is used by MLflow server.
+Then you can construct the database URI like `postgresql://<username>:<password>@<endpoint>:5432/<database-name>`. The database URI is used by MLflow server.
 
 ## Create IAM role for MLflow service to access the S3 bucket
 
