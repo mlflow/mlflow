@@ -74,6 +74,19 @@ class EndpointType(str, Enum):
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
 
 
+class GatewayRequestType(str, Enum):
+    UNIFIED_CHAT = "unified/chat"
+    UNIFIED_EMBEDDINGS = "unified/embeddings"
+    PASSTHROUGH_MODEL_OPENAI_CHAT = "passthrough/model/openai-chat"
+    PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS = "passthrough/model/openai-embeddings"
+    PASSTHROUGH_MODEL_OPENAI_RESPONSES = "passthrough/model/openai-responses"
+    PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES = "passthrough/model/anthropic-messages"
+    PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT = "passthrough/model/gemini-generateContent"
+    PASSTHROUGH_MODEL_GEMINI_STREAM_GENERATE_CONTENT = (
+        "passthrough/model/gemini-streamGenerateContent"
+    )
+
+
 class CohereConfig(ConfigModel):
     cohere_api_key: str
 

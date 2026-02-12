@@ -20,6 +20,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     EndpointType,
+    GatewayRequestType,
     GeminiConfig,
     LiteLLMConfig,
     MistralConfig,
@@ -51,7 +52,11 @@ from mlflow.server.gateway_api import (
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
+from mlflow.tracing.constant import (
+    SpanAttributeKey,
+    TokenUsageKey,
+    TraceMetadataKey,
+)
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -1969,7 +1974,7 @@ async def test_gateway_creates_trace_with_usage(store: SqlAlchemyStore, handler)
         provider="openai",
         model_name="gpt-4",
     )
-    store.create_gateway_endpoint(
+    endpoint = store.create_gateway_endpoint(
         name=endpoint_name,
         model_configs=[
             GatewayEndpointModelConfig(
@@ -2017,6 +2022,16 @@ async def test_gateway_creates_trace_with_usage(store: SqlAlchemyStore, handler)
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.state == TraceState.OK
+
+    # Verify gateway metadata is present in trace
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_ENDPOINT_ID)
+        == endpoint.endpoint_id
+    )
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_REQUEST_TYPE)
+        == GatewayRequestType.UNIFIED_CHAT
+    )
 
     # Verify span has provider information (OpenAI uses capitalized provider name)
     span_names = {span.name for span in trace.data.spans}
@@ -2066,7 +2081,7 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
         provider="openai",
         model_name="gpt-4",
     )
-    store.create_gateway_endpoint(
+    endpoint = store.create_gateway_endpoint(
         name=endpoint_name,
         model_configs=[
             GatewayEndpointModelConfig(
@@ -2116,6 +2131,16 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
     trace = traces[0]
     assert trace.info.state == TraceState.OK
 
+    # Verify gateway metadata is present in trace
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_ENDPOINT_ID)
+        == endpoint.endpoint_id
+    )
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_REQUEST_TYPE)
+        == GatewayRequestType.UNIFIED_CHAT
+    )
+
     # Verify gateway span exists with correct attributes
     gateway_span = next(
         (span for span in trace.data.spans if span.name == f"gateway/{endpoint_name}"), None
@@ -2161,7 +2186,7 @@ async def test_gateway_trace_includes_user_metadata(store: SqlAlchemyStore, hand
         provider="openai",
         model_name="gpt-4",
     )
-    store.create_gateway_endpoint(
+    endpoint = store.create_gateway_endpoint(
         name=endpoint_name,
         model_configs=[
             GatewayEndpointModelConfig(
@@ -2214,6 +2239,16 @@ async def test_gateway_trace_includes_user_metadata(store: SqlAlchemyStore, hand
     # Verify user metadata is present in trace info
     assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USERNAME) == "test_user"
     assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USER_ID) == "42"
+
+    # Verify gateway metadata is present alongside user metadata
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_ENDPOINT_ID)
+        == endpoint.endpoint_id
+    )
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_REQUEST_TYPE)
+        == GatewayRequestType.UNIFIED_CHAT
+    )
 
     # Verify span attributes still include endpoint info
     gateway_span = next(
