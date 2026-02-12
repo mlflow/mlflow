@@ -60,7 +60,8 @@ CREATE TABLE inputs (
 	destination_type VARCHAR(36) NOT NULL,
 	destination_id VARCHAR(36) NOT NULL,
 	step BIGINT DEFAULT '0' NOT NULL,
-	CONSTRAINT inputs_pk PRIMARY KEY (source_type, source_id, destination_type, destination_id)
+	CONSTRAINT inputs_pk PRIMARY KEY (source_type, source_id, destination_type, destination_id),
+	CONSTRAINT uq_inputs_input_uuid UNIQUE (input_uuid)
 )
 
 
