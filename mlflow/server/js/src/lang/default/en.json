@@ -930,6 +930,10 @@
     "defaultMessage": "No endpoints created",
     "description": "Empty state title for endpoints list"
   },
+  "513m15": {
+    "defaultMessage": "Select your workflow type. This changes the tabs that are visible in the navigation sidebar.",
+    "description": "Tooltip for workflow switch"
+  },
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
