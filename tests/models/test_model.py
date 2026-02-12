@@ -24,6 +24,7 @@ from mlflow.models.utils import _read_example, _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
@@ -290,9 +291,6 @@ def test_model_log_with_databricks_runtime():
 
 
 def test_model_log_with_databricks_runtime_gpu():
-    """Test that GPU runtime versions are correctly saved and loaded from MLmodel."""
-    from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
-
     dbr_version = "client.8.1-gpu"
     with mlflow.start_run():
         with mock.patch(
