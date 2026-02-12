@@ -45,13 +45,44 @@ _TEMPLATE_VARS = {
 # ---- Pydantic schemas for LLM structured output ----
 
 
+class _TraceAnalysis(pydantic.BaseModel):
+    trace_index: int = pydantic.Field(description="Index of the trace in the input list")
+    failure_category: str = pydantic.Field(
+        description=(
+            "Category of failure: tool_error, hallucination, latency, "
+            "incomplete_response, error_propagation, wrong_tool_use, "
+            "context_loss, or other"
+        )
+    )
+    failure_summary: str = pydantic.Field(description="Brief summary of what went wrong")
+    root_cause_hypothesis: str = pydantic.Field(
+        description="Hypothesis about why this failure occurred based on span-level evidence"
+    )
+    affected_spans: list[str] = pydantic.Field(
+        description="Names of spans most relevant to the failure"
+    )
+    severity: int = pydantic.Field(
+        description="Severity of the failure (1=minor, 3=moderate, 5=critical)"
+    )
+
+
+class _BatchTraceAnalysisResult(pydantic.BaseModel):
+    analyses: list[_TraceAnalysis] = pydantic.Field(description="Analysis for each failing trace")
+
+
+class _ScorerInstructions(pydantic.BaseModel):
+    detection_instructions: str = pydantic.Field(
+        description=(
+            "Instructions for a judge to detect this issue from a {{ trace }}. "
+            "MUST contain the literal text '{{ trace }}'."
+        )
+    )
+
+
 class _IdentifiedIssue(pydantic.BaseModel):
     name: str = pydantic.Field(description="snake_case identifier for the issue")
     description: str = pydantic.Field(description="What the issue is")
     root_cause: str = pydantic.Field(description="Why this issue occurs")
-    detection_instructions: str = pydantic.Field(
-        description="Instructions for a judge to detect this issue from a {{ trace }}"
-    )
     example_indices: list[int] = pydantic.Field(
         description="Indices into the input trace summary list that exemplify this issue"
     )
@@ -122,7 +153,7 @@ def _ensure_template_var(instructions: str) -> str:
     """Ensure instructions contain at least one template variable, defaulting to {{ trace }}."""
     if any(var in instructions for var in _TEMPLATE_VARS):
         return instructions
-    return f"Analyze the following {{ trace }} and determine:\n\n{instructions}"
+    return f"Analyze the following {{{{ trace }}}} and determine:\n\n{instructions}"
 
 
 def _get_existing_score(trace: Trace, scorer_name: str) -> bool | None:
@@ -185,22 +216,171 @@ def _test_scorer(scorer: Scorer, trace: Trace) -> None:
     )
 
 
-def _format_trace_for_clustering(index: int, trace: Trace, rationale: str) -> str:
+def _build_span_tree(spans: list[object]) -> str:
+    """Build an indented span tree string from a flat list of spans."""
+    if not spans:
+        return "    (no spans)"
+
+    # Index spans by span_id for parent lookup
+    span_by_id: dict[str, object] = {}
+    children: dict[str | None, list[object]] = {}
+    for span in spans:
+        span_by_id[span.span_id] = span
+        children.setdefault(span.parent_id, []).append(span)
+
+    def _format_span(span, depth: int) -> list[str]:
+        indent = "    " + "  " * depth
+        duration_ms = ""
+        if span.end_time_ns is not None and span.start_time_ns is not None:
+            duration_ms = f", {(span.end_time_ns - span.start_time_ns) // 1_000_000}ms"
+
+        status = span.status.status_code.value if span.status else "UNKNOWN"
+        span_type = getattr(span, "span_type", "UNKNOWN") or "UNKNOWN"
+        model = getattr(span, "model_name", None)
+        model_str = f", model={model}" if model else ""
+
+        line = f"{indent}{span.name} ({span_type}, {status}{duration_ms}{model_str})"
+        lines = [line]
+
+        # Add error details
+        if span.status and span.status.status_code == SpanStatusCode.ERROR:
+            if span.status.description:
+                lines.append(f"{indent}  ERROR: {span.status.description[:200]}")
+            for event in getattr(span, "events", []):
+                if event.name == "exception":
+                    exc_type = event.attributes.get("exception.type", "")
+                    exc_msg = event.attributes.get("exception.message", "")
+                    if exc_type or exc_msg:
+                        lines.append(f"{indent}  EXCEPTION: {exc_type}: {exc_msg}"[:250])
+
+        # Add span I/O (truncated)
+        inputs = getattr(span, "inputs", None)
+        outputs = getattr(span, "outputs", None)
+        if inputs:
+            lines.append(f"{indent}  in: {str(inputs)[:200]}")
+        if outputs:
+            lines.append(f"{indent}  out: {str(outputs)[:200]}")
+
+        for child in children.get(span.span_id, []):
+            lines.extend(_format_span(child, depth + 1))
+        return lines
+
+    # Start from root spans (parent_id is None)
+    roots = children.get(None, [])
+    # Fallback: if no roots found, treat all spans as flat
+    if not roots:
+        roots = spans
+
+    result_lines: list[str] = []
+    for root in roots:
+        result_lines.extend(_format_span(root, 0))
+    return "\n".join(result_lines)
+
+
+def _build_enriched_trace_summary(index: int, trace: Trace, rationale: str) -> str:
     request = (trace.info.request_preview or "")[:500]
     response = (trace.info.response_preview or "")[:500]
-    spans = ", ".join(s.name for s in trace.data.spans)
-    errors = ", ".join(
-        s.name for s in trace.data.spans if s.status.status_code == SpanStatusCode.ERROR
-    )
+    duration = trace.info.execution_duration or 0
+    span_tree = _build_span_tree(trace.data.spans)
     return (
         f"[{index}] trace_id={trace.info.trace_id}\n"
         f"  Input: {request}\n"
         f"  Output: {response}\n"
-        f"  Spans: {spans}\n"
-        f"  Error spans: {errors or 'none'}\n"
-        f"  Duration: {trace.info.execution_duration}ms\n"
-        f"  Failure rationale: {rationale}"
+        f"  Duration: {duration}ms | Failure rationale: {rationale}\n"
+        f"  Span tree:\n{span_tree}"
     )
+
+
+def _run_deep_analysis(
+    enriched_summaries: list[str],
+    analysis_model: str,
+) -> list[_TraceAnalysis]:
+    result = get_chat_completions_with_structured_output(
+        model_uri=analysis_model,
+        messages=[
+            ChatMessage(
+                role="system",
+                content=(
+                    "You are an expert at diagnosing AI application failures. "
+                    "Given enriched trace summaries with span-level detail, analyze each "
+                    "failing trace individually.\n\n"
+                    "For each trace, identify:\n"
+                    "- The failure category (tool_error, hallucination, latency, "
+                    "incomplete_response, error_propagation, wrong_tool_use, "
+                    "context_loss, or other)\n"
+                    "- A brief failure summary\n"
+                    "- A root cause hypothesis based on the span evidence\n"
+                    "- Which spans are most relevant to the failure\n"
+                    "- Severity (1=minor, 3=moderate, 5=critical)"
+                ),
+            ),
+            ChatMessage(
+                role="user",
+                content=(
+                    "Analyze each of the following failing traces:\n\n"
+                    + "\n\n".join(enriched_summaries)
+                ),
+            ),
+        ],
+        output_schema=_BatchTraceAnalysisResult,
+    )
+    return result.analyses
+
+
+def _format_analysis_for_clustering(
+    index: int,
+    analysis: _TraceAnalysis,
+    enriched_summary: str,
+) -> str:
+    return (
+        f"[{index}] Category: {analysis.failure_category} | "
+        f"Severity: {analysis.severity}/5\n"
+        f"  Summary: {analysis.failure_summary}\n"
+        f"  Root cause: {analysis.root_cause_hypothesis}\n"
+        f"  Affected spans: {', '.join(analysis.affected_spans)}\n"
+        f"  ---\n"
+        f"  {enriched_summary}"
+    )
+
+
+def _generate_scorer_instructions(
+    issue: _IdentifiedIssue,
+    example_analyses: list[_TraceAnalysis],
+    judge_model: str,
+) -> str:
+    examples_text = "\n".join(
+        f"- [{a.failure_category}] {a.failure_summary} (affected: {', '.join(a.affected_spans)})"
+        for a in example_analyses
+    )
+    result = get_chat_completions_with_structured_output(
+        model_uri=judge_model,
+        messages=[
+            ChatMessage(
+                role="system",
+                content=(
+                    "You are an expert at writing detection instructions for AI quality judges. "
+                    "Given an issue description and example failures, write concise instructions "
+                    "that a judge can use to detect this issue in a trace.\n\n"
+                    "CRITICAL: Your detection_instructions MUST contain the literal text "
+                    "'{{ trace }}' (with double curly braces) as a template variable — "
+                    "this is how the judge receives the trace data.\n"
+                    "Example: 'Analyze the {{ trace }} to determine if...'"
+                ),
+            ),
+            ChatMessage(
+                role="user",
+                content=(
+                    f"Issue: {issue.name}\n"
+                    f"Description: {issue.description}\n"
+                    f"Root cause: {issue.root_cause}\n\n"
+                    f"Example failures:\n{examples_text}\n\n"
+                    "Write detection instructions for this issue."
+                ),
+            ),
+        ],
+        output_schema=_ScorerInstructions,
+    )
+    return _ensure_template_var(result.detection_instructions)
 
 
 def _extract_failing_traces(
@@ -360,8 +540,10 @@ def discover_issues(
 
     Runs a multi-phase pipeline:
     1. **Triage**: Scores a sample of traces for user satisfaction
-    2. **Cluster**: Groups failing traces into distinct issues via LLM
-    3. **Validate**: Runs generated issue scorers on a broader trace set
+    2. **Deep Analysis**: Extracts enriched span data and analyzes each failure
+    3. **Cluster**: Groups analyses into distinct issue categories
+    4. **Generate Scorers**: Writes detection instructions per issue
+    5. **Validate**: Runs generated issue scorers on a broader trace set
 
     Args:
         experiment_id: Experiment to analyze. Defaults to the active experiment.
@@ -483,11 +665,27 @@ def discover_issues(
             total_traces_analyzed=len(triage_traces),
         )
 
-    # Phase 2: Cluster — identify distinct issues from failing traces
-    _logger.info("Phase 2: Clustering %d failing traces into issues...", len(failing_traces))
-    summaries_text = "\n\n".join(
-        _format_trace_for_clustering(i, t, rationale_map.get(t.info.trace_id, ""))
-        for i, t in enumerate(failing_traces[:_MAX_SUMMARIES_FOR_CLUSTERING])
+    # Phase 2: Deep Analysis — enriched span extraction + batched LLM analysis
+    capped_failing = failing_traces[:_MAX_SUMMARIES_FOR_CLUSTERING]
+    _logger.info("Phase 2: Deep analysis of %d failing traces...", len(capped_failing))
+    enriched_summaries = [
+        _build_enriched_trace_summary(i, t, rationale_map.get(t.info.trace_id, ""))
+        for i, t in enumerate(capped_failing)
+    ]
+    analyses = _run_deep_analysis(enriched_summaries, analysis_model)
+    _logger.info("Phase 2 complete: %d trace analyses produced", len(analyses))
+
+    # Phase 3: Cluster — group analyses into distinct issues
+    _logger.info("Phase 3: Clustering analyses into issues...")
+    # Build lookup from trace_index -> analysis
+    analysis_by_index = {a.trace_index: a for a in analyses}
+    clustering_texts = "\n\n".join(
+        _format_analysis_for_clustering(
+            i,
+            analysis_by_index.get(i, analyses[i] if i < len(analyses) else analyses[0]),
+            enriched_summaries[i],
+        )
+        for i in range(len(enriched_summaries))
     )
 
     clustering_result = get_chat_completions_with_structured_output(
@@ -497,17 +695,12 @@ def discover_issues(
                 role="system",
                 content=(
                     "You are an expert at analyzing AI application failures. "
-                    "Given failing trace summaries, identify distinct issue categories. "
-                    f"Identify at most {max_issues} issues.\n\n"
+                    "Given per-trace analyses with failure categories and root causes, "
+                    f"group them into at most {max_issues} distinct issue categories.\n\n"
                     "For each issue provide:\n"
                     "- A snake_case name\n"
                     "- A clear description\n"
                     "- The root cause\n"
-                    "- Detection instructions for a judge that returns True if the issue "
-                    "is present. CRITICAL: The detection_instructions string MUST contain "
-                    "the literal text '{{ trace }}' (with double curly braces) as a "
-                    "template variable — this is how the judge receives the trace data. "
-                    "Example: 'Analyze the {{ trace }} to determine if...'\n"
                     "- Indices of example traces from the input\n"
                     "- A confidence score 0-100 indicating how confident you are this "
                     "is a real, distinct issue (0=not confident, 50=moderate, "
@@ -517,7 +710,7 @@ def discover_issues(
             ),
             ChatMessage(
                 role="user",
-                content=f"Failing trace summaries:\n\n{summaries_text}",
+                content=f"Per-trace analyses:\n\n{clustering_texts}",
             ),
         ],
         output_schema=_IssueClusteringResult,
@@ -529,7 +722,7 @@ def discover_issues(
         if issue.confidence >= _MIN_CONFIDENCE and len(issue.example_indices) >= _MIN_EXAMPLES
     ]
     _logger.info(
-        "Phase 2 complete: %d issues identified (%d filtered out by confidence/examples)",
+        "Phase 3 complete: %d issues identified (%d filtered out by confidence/examples)",
         len(identified),
         len(clustering_result.issues) - len(identified),
     )
@@ -543,24 +736,31 @@ def discover_issues(
             total_traces_analyzed=len(triage_traces),
         )
 
-    # Phase 3: Validate — run issue scorers on a broader sample
+    # Phase 4: Generate Scorers — write detection instructions per issue
+    _logger.info("Phase 4: Generating scorers for %d issues...", len(identified))
+    issue_scorers: list[Scorer] = []
+    for issue in identified:
+        example_analyses = [
+            analysis_by_index[idx] for idx in issue.example_indices if idx in analysis_by_index
+        ]
+        instructions = _generate_scorer_instructions(issue, example_analyses, judge_model)
+        scorer = make_judge(
+            name=issue.name,
+            instructions=instructions,
+            model=judge_model,
+            feedback_value_type=bool,
+        )
+        issue_scorers.append(scorer)
+    _logger.info("Phase 4 complete: %d scorers generated", len(issue_scorers))
+
+    # Phase 5: Validate — run issue scorers on a broader sample
     if validation_sample_size is None:
         validation_sample_size = 5 * sample_size
 
     _logger.info(
-        "Phase 3: Validating %d issues on %d traces...", len(identified), validation_sample_size
+        "Phase 5: Validating %d issues on %d traces...", len(identified), validation_sample_size
     )
     validation_traces = mlflow.search_traces(max_results=validation_sample_size, **search_kwargs)
-
-    issue_scorers = [
-        make_judge(
-            name=issue.name,
-            instructions=_ensure_template_var(issue.detection_instructions),
-            model=judge_model,
-            feedback_value_type=bool,
-        )
-        for issue in identified
-    ]
 
     validation_eval = mlflow.genai.evaluate(
         data=validation_traces,
