@@ -6,22 +6,22 @@ title: Deploy MLflow to AWS cloud
 
 MLflow core components include MLflow server, backend store, and artifact store.
 
-In this guide, the MLflow server is deployed to Amazon ECS (Elastic container service), the backend store is deployed to Amazon RDS (PostgreSQL), and the artifact store is deployed to Amazon S3. The guide also includes IAM role, VPC subnet and security group, ALB (Application Load Balancer) settings. Once deployment completes, you can access MLflow service web UI through the AWS application URL like "https://ml-{unique-service-id}.ecs.ap-southeast-2.on.aws", and your MLflow client code can access the MLflow service through setting MLflow tracking URI to the above URI.
+In this guide, the MLflow server is deployed to Amazon ECS (Elastic container service), the backend store is deployed to Amazon RDS (PostgreSQL), and the artifact store is deployed to Amazon S3. The guide also includes IAM role, VPC subnet and security group, ALB (Application Load Balancer) settings. Once deployment completes, you can access MLflow service web UI through the AWS application URL like `https://ml-<unique-service-id>.ecs.<aws-region>.on.aws`, and your MLflow client code can access the MLflow service through setting MLflow tracking URI to the above URI.
 
 The following deployment architecture has a couple of advantages:
 
-- ** High Availability **
+- **High Availability**
   - The Amazon S3 provides built-in multi-AZ durability and extremely high availability for MLflow artifact storage.
   - Amazon RDS supports automatic failover to a standby instance in a different Availability Zone, minimizing database downtime for MLflow backend store.
   - Amazon ECS on Fargate automatically restarts failed tasks and can redeploy them in another Availability Zone if needed, minimizing MLflow service downtime.
   - ALB (Application Load Balancer) distributes traffic across multiple Availability Zones and remains available even if a single AZ fails.
 
-- ** Security by design **
+- **Security by design**
   - Public traffic is encrypted using HTTPS, ensuring secure communication between clients and the application endpoint.
   - IAM Roles: The S3 bucket blocks all public access and MLflow server uses IAM role for secure access to the S3 bucket.
   - VPC Isolation and VPC Security Groups: Application containers run in private subnets, preventing direct exposure to the public internet, only the load balancer can access the ECS task that runs MLflow server, there is no unnecessary inbound exposure.
 
-- ** Operational Simplicity **
+- **Operational Simplicity**
   - Serverless Compute (ECS on Fargate), no EC2 instances to manage, patch, or scale manually.
   - Managed Database (RDS): Automated backups, patching, and failover.
 
