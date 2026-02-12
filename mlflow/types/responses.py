@@ -340,8 +340,8 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
         return [{"role": "assistant", "content": json.dumps(message["summary"])}]
     elif msg_type == "function_call_output":
         output = message["output"]
-        # Convert list output to JSON string for ChatCompletion compatibility
-        if isinstance(output, list):
+        # Convert non-string output to string for ChatCompletion compatibility
+        if not isinstance(output, str):
             try:
                 output = json.dumps(output)
             except (TypeError, ValueError):
