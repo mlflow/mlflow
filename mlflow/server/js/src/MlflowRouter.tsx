@@ -69,7 +69,7 @@ const MlflowRootLayout = ({
               width: '100%',
               background:
                 workflowType === WorkflowType.GENAI
-                  ? `radial-gradient(ellipse 200% 100% at bottom right, ${theme.colors.actionDangerDefaultBackgroundPress}, transparent 70%)`
+                  ? `linear-gradient(163deg, rgba(66, 153, 224, 0.06) 20%, rgba(202, 66, 224, 0.06) 35%, rgba(255, 95, 70, 0.06) 50%, transparent 80%), ${theme.colors.backgroundSecondary}`
                   : theme.colors.backgroundSecondary,
             }}
           >
