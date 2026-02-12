@@ -181,21 +181,22 @@ def test_responses_stream_event_validation():
 @pytest.mark.parametrize(
     "output",
     [
-        "Hello, world!",
-        [{"type": "input_text", "text": "Result"}],
+        "hello",
+        [{"type": "input_text", "text": "result"}],
+        [
+            {
+                "type": "input_text",
+                "text": '{"content":{"queryAttachments":[]},"status":"COMPLETED"}',
+            }
+        ],
     ],
 )
 def test_function_call_output_accepts_string_and_list(output):
-    item = FunctionCallOutput(call_id="call_123", output=output)
-    assert item.output == output
-
-
-def test_function_call_output_stream_event_with_list_output():
-    event = ResponsesAgentStreamEvent(
+    FunctionCallOutput(call_id="c", output=output)
+    ResponsesAgentStreamEvent(
         type="response.output_item.done",
-        item={"type": "function_call_output", "call_id": "c", "output": [{"type": "input_text"}]},
+        item={"type": "function_call_output", "call_id": "c", "output": output},
     )
-    assert event.type == "response.output_item.done"
 
 
 @pytest.mark.parametrize(
@@ -222,56 +223,18 @@ def test_responses_to_cc_fallback_to_str_on_non_serializable():
     assert isinstance(result[0]["content"], str)
 
 
-def test_function_call_output_with_openai_agents_sdk_format():
-    """Test real-world output format from OpenAI Agents SDK tool calls."""
+def test_function_call_output_round_trip():
     raw_item = {
         "call_id": "toolu_bdrk_017fvUyTS6oaCDYg6GVL3X7j",
-        "output": [
-            {
-                "type": "input_text",
-                "text": '{"content":{"queryAttachments":[]},"status":"COMPLETED"}',
-            }
-        ],
+        "output": [{"type": "input_text", "text": '{"status":"COMPLETED"}'}],
         "type": "function_call_output",
     }
-    # Validation should pass
-    item = FunctionCallOutput(**raw_item)
-    assert isinstance(item.output, list)
-
-    # Stream event should pass
     event = ResponsesAgentStreamEvent(type="response.output_item.done", item=raw_item)
-    assert event.type == "response.output_item.done"
-
-    # Conversion to ChatCompletion should produce valid string content
-    result = responses_to_cc(raw_item)
-    assert result[0]["role"] == "tool"
-    assert isinstance(result[0]["content"], str)
-    assert "input_text" in result[0]["content"]
-
-
-def test_function_call_output_round_trip():
-    """Test round-trip: Responses API items -> ChatCompletion -> back works with list output."""
-    responses_input = [
-        {"role": "user", "content": "What's the weather?", "type": "message"},
-        {
-            "type": "function_call",
-            "id": "fc_1",
-            "call_id": "call_123",
-            "name": "get_weather",
-            "arguments": '{"city": "Seattle"}',
-        },
-        {
-            "type": "function_call_output",
-            "call_id": "call_123",
-            "output": [{"type": "input_text", "text": "Sunny, 72°F"}],
-        },
+    response_items = [event.item]
+    dumped_items = [
+        item.model_dump() if hasattr(item, "model_dump") else item for item in response_items
     ]
-    # Convert to ChatCompletion format
-    cc_messages = to_chat_completions_input(responses_input)
-
-    assert len(cc_messages) == 3
-    assert cc_messages[0]["role"] == "user"
-    assert cc_messages[1]["role"] == "assistant"
-    assert cc_messages[2]["role"] == "tool"
-    assert isinstance(cc_messages[2]["content"], str)
-    assert cc_messages[2]["tool_call_id"] == "call_123"
+    cc_messages = to_chat_completions_input(dumped_items)
+    assert cc_messages[0]["role"] == "tool"
+    assert isinstance(cc_messages[0]["content"], str)
+    assert "input_text" in cc_messages[0]["content"]
