@@ -23,11 +23,11 @@ export interface UseTraceCostBreakdownChartDataResult {
 }
 
 export function useTraceCostBreakdownChartData(): UseTraceCostBreakdownChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs } = useOverviewChartContext();
 
   // Fetch total cost grouped by model name
   const { data, isLoading, error } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,

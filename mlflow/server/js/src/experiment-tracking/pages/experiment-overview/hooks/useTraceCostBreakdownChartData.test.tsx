@@ -33,7 +33,7 @@ describe('useTraceCostBreakdownChartData', () => {
   ];
 
   const contextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,

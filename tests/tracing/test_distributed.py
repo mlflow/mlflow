@@ -142,34 +142,34 @@ def test_distributed_tracing_e2e(tmp_path):
 
 @skip_when_testing_trace_sdk
 def test_distributed_tracing_e2e_nested_call(tmp_path):
-    port = get_safe_port()
-    port2 = get_safe_port()
-
     # Path to the Flask server script
     server_path = Path(__file__).parent / "fixtures" / "flask_tracing_server.py"
 
-    # Start both Flask servers using the context manager
-    with flask_server(server_path, port) as base_url, flask_server(server_path, port2) as base_url2:
-        # Client side: create a span and send headers to server
-        with mlflow.start_span("client-root") as client_span:
-            headers = get_tracing_context_headers_for_http_request()
-            # Pass the second server URL as a query parameter
-            resp = requests.post(
-                f"{base_url}/handle1",
-                headers=headers,
-                params={"second_server_url": base_url2},
-                timeout=REQUEST_TIMEOUT,
-            )
-            assert resp.ok, f"Server returned {resp.status_code}: {resp.text}"
-            payload = resp.json()
+    # Start first Flask server, then get port for second server to avoid port conflicts
+    port = get_safe_port()
+    with flask_server(server_path, port) as base_url:
+        port2 = get_safe_port()
+        with flask_server(server_path, port2) as base_url2:
+            # Client side: create a span and send headers to server
+            with mlflow.start_span("client-root") as client_span:
+                headers = get_tracing_context_headers_for_http_request()
+                # Pass the second server URL as a query parameter
+                resp = requests.post(
+                    f"{base_url}/handle1",
+                    headers=headers,
+                    params={"second_server_url": base_url2},
+                    timeout=REQUEST_TIMEOUT,
+                )
+                assert resp.ok, f"Server returned {resp.status_code}: {resp.text}"
+                payload = resp.json()
 
-            # Validate server span is a child in the same trace
-            assert payload["trace_id"] == client_span.trace_id
-            assert payload["parent_id"] == client_span.span_id
-            child_span1_id = payload["span_id"]
-            assert payload["nested_call_resp"]["trace_id"] == client_span.trace_id
-            assert payload["nested_call_resp"]["parent_id"] == child_span1_id
-            child_span2_id = payload["nested_call_resp"]["span_id"]
+                # Validate server span is a child in the same trace
+                assert payload["trace_id"] == client_span.trace_id
+                assert payload["parent_id"] == client_span.span_id
+                child_span1_id = payload["span_id"]
+                assert payload["nested_call_resp"]["trace_id"] == client_span.trace_id
+                assert payload["nested_call_resp"]["parent_id"] == child_span1_id
+                child_span2_id = payload["nested_call_resp"]["span_id"]
 
     mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(client_span.trace_id)

@@ -72,6 +72,19 @@ def store(tmp_path: Path, db_uri: str):
     mlflow.set_tracking_uri(None)
 
 
+def create_mock_request(
+    cached_body: dict[str, Any] | None = None,
+    username: str | None = None,
+    user_id: int | str | None = None,
+) -> MagicMock:
+    """Create a mock request with proper state attributes for gateway tests."""
+    mock_request = MagicMock()
+    mock_request.state.cached_body = cached_body
+    mock_request.state.username = username
+    mock_request.state.user_id = user_id
+    return mock_request
+
+
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
     # Create test data
     secret = store.create_gateway_secret(
@@ -456,7 +469,7 @@ async def test_invocations_handler_chat(store: SqlAlchemyStore):
     )
 
     # Create a mock request with chat payload
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "messages": [{"role": "user", "content": "Hi"}],
@@ -519,7 +532,7 @@ async def test_invocations_handler_embeddings(store: SqlAlchemyStore):
     )
 
     # Create a mock request with embeddings payload
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(return_value={"input": "test text"})
 
     # Patch the provider creation to return a mocked provider
@@ -573,7 +586,7 @@ async def test_invocations_handler_invalid_json(store: SqlAlchemyStore):
     )
 
     # Mock request that raises exception when parsing JSON
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(side_effect=ValueError("Invalid JSON"))
 
     with pytest.raises(HTTPException, match="Invalid JSON payload: Invalid JSON") as exc_info:
@@ -607,7 +620,7 @@ async def test_invocations_handler_missing_fields(store: SqlAlchemyStore):
     )
 
     # Create request with neither messages nor input
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(return_value={"temperature": 0.7})
 
     with patch(
@@ -652,7 +665,7 @@ async def test_invocations_handler_invalid_chat_payload(store: SqlAlchemyStore):
     )
 
     # Create request with invalid messages structure
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "messages": "not a list",  # Should be a list
@@ -700,7 +713,7 @@ async def test_invocations_handler_invalid_embeddings_payload(store: SqlAlchemyS
     )
 
     # Create request with invalid input structure
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "input": 123,  # Should be string or list of strings
@@ -747,7 +760,7 @@ async def test_invocations_handler_streaming(store: SqlAlchemyStore):
     )
 
     # Create streaming request
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "messages": [{"role": "user", "content": "Hi"}],
@@ -870,7 +883,7 @@ async def test_chat_completions_endpoint(store: SqlAlchemyStore):
     )
 
     # Create a mock request with OpenAI-compatible format
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "my-chat-endpoint",  # Endpoint name via model parameter
@@ -925,7 +938,7 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
     )
 
     # Create streaming request
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "stream-endpoint",
@@ -971,7 +984,7 @@ async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
 @pytest.mark.asyncio
 async def test_chat_completions_endpoint_missing_model_parameter(store: SqlAlchemyStore):
     # Create request without model parameter
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "messages": [{"role": "user", "content": "Hi"}],
@@ -1010,7 +1023,7 @@ async def test_chat_completions_endpoint_missing_messages(store: SqlAlchemyStore
     )
 
     # Create request without messages
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "my-endpoint",
@@ -1026,7 +1039,7 @@ async def test_chat_completions_endpoint_missing_messages(store: SqlAlchemyStore
 
 @pytest.mark.asyncio
 async def test_chat_completions_endpoint_invalid_json(store: SqlAlchemyStore):
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(side_effect=ValueError("Invalid JSON"))
 
     with pytest.raises(HTTPException, match="Invalid JSON payload: Invalid JSON") as exc_info:
@@ -1076,7 +1089,7 @@ async def test_openai_passthrough_chat(store: SqlAlchemyStore):
     }
 
     # Create mock request
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "openai-passthrough-endpoint",
@@ -1136,7 +1149,7 @@ async def test_openai_passthrough_embeddings(store: SqlAlchemyStore):
     }
 
     # Create mock request
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "openai-embed-passthrough-endpoint",
@@ -1203,7 +1216,7 @@ async def test_openai_passthrough_responses(store: SqlAlchemyStore):
     }
 
     # Create mock request
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "openai-responses-endpoint",
@@ -1260,7 +1273,7 @@ async def test_openai_passthrough_chat_streaming(store: SqlAlchemyStore):
     )
 
     # Create mock request with streaming enabled
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "openai-stream-passthrough-endpoint",
@@ -1323,7 +1336,7 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
     )
 
     # Create mock request with streaming enabled
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "openai-responses-stream-endpoint",
@@ -1401,7 +1414,7 @@ async def test_anthropic_passthrough_messages(store: SqlAlchemyStore):
         ],
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "anthropic-passthrough-endpoint",
@@ -1462,7 +1475,7 @@ async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
         ],
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": "anthropic-stream-passthrough-endpoint",
@@ -1539,7 +1552,7 @@ async def test_gemini_passthrough_generate_content(store: SqlAlchemyStore):
         ],
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "contents": [
@@ -1613,7 +1626,7 @@ async def test_gemini_passthrough_stream_generate_content(store: SqlAlchemyStore
         ],
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "contents": [
@@ -1969,7 +1982,7 @@ async def test_gateway_creates_trace_with_usage(store: SqlAlchemyStore, handler)
         experiment_id=experiment_id,
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     payload = {
         "model": endpoint_name,
         "messages": [{"role": "user", "content": "Hi"}],
@@ -2066,7 +2079,7 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
         experiment_id=experiment_id,
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     payload = {
         "model": endpoint_name,
         "messages": [{"role": "user", "content": "Hi"}],
@@ -2110,32 +2123,40 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
     assert gateway_span is not None
     assert gateway_span.attributes.get("endpoint_name") == endpoint_name
 
-    # Verify that streaming chunks are captured in the span outputs
-    assert gateway_span.outputs is not None
-    assert len(gateway_span.outputs) > 0
-    first_output = gateway_span.outputs[0]
-    assert isinstance(first_output, dict), "Streaming output should be dict, not string repr"
-    assert "choices" in first_output, "Streaming output should contain chat completion data"
+    # Verify that streaming output is aggregated into a ChatCompletion-like response
+    output = gateway_span.outputs
+    assert output is not None
+    assert output["object"] == "chat.completion"
+    assert output["id"] == "chatcmpl-123"
+    assert output["model"] == "gpt-4"
+    assert len(output["choices"]) == 1
+    assert output["choices"][0]["index"] == 0
+    assert output["choices"][0]["message"]["role"] == "assistant"
+    assert output["choices"][0]["message"]["content"] == "Hello!"
+    assert output["choices"][0]["finish_reason"] == "stop"
+    assert output["usage"]["prompt_tokens"] == 10
+    assert output["usage"]["completion_tokens"] == 5
+    assert output["usage"]["total_tokens"] == 15
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "handler", [_call_invocations, _call_chat_completions], ids=["invocations", "chat_completions"]
 )
-async def test_gateway_trace_includes_user_attributes(store: SqlAlchemyStore, handler):
-    endpoint_name = "user-attrs-tracing-endpoint"
+async def test_gateway_trace_includes_user_metadata(store: SqlAlchemyStore, handler):
+    endpoint_name = "user-metadata-tracing-endpoint"
 
     # Create experiment for tracing
     experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
 
     # Create endpoint with usage tracking enabled
     secret = store.create_gateway_secret(
-        secret_name="user-attrs-tracing-key",
-        secret_value={"api_key": "sk-test-user-attrs"},
+        secret_name="user-metadata-tracing-key",
+        secret_value={"api_key": "sk-test-user-metadata"},
         provider="openai",
     )
     model_def = store.create_gateway_model_definition(
-        name="user-attrs-tracing-model",
+        name="user-metadata-tracing-model",
         secret_id=secret.secret_id,
         provider="openai",
         model_name="gpt-4",
@@ -2153,10 +2174,8 @@ async def test_gateway_trace_includes_user_attributes(store: SqlAlchemyStore, ha
         experiment_id=experiment_id,
     )
 
-    # Create mock request with user attributes set (as auth middleware would do)
-    mock_request = MagicMock()
-    mock_request.state.username = "test_user"
-    mock_request.state.user_id = 42
+    # Create mock request with user metadata set (as auth middleware would do)
+    mock_request = create_mock_request(username="test_user", user_id=42)
     payload = {
         "model": endpoint_name,
         "messages": [{"role": "user", "content": "Hi"}],
@@ -2192,13 +2211,15 @@ async def test_gateway_trace_includes_user_attributes(store: SqlAlchemyStore, ha
     trace = traces[0]
     assert trace.info.state == TraceState.OK
 
-    # Find the gateway span and verify user attributes are present
+    # Verify user metadata is present in trace info
+    assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USERNAME) == "test_user"
+    assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USER_ID) == "42"
+
+    # Verify span attributes still include endpoint info
     gateway_span = next(
         (span for span in trace.data.spans if span.name == f"gateway/{endpoint_name}"), None
     )
     assert gateway_span is not None
-    assert gateway_span.attributes.get(SpanAttributeKey.USERNAME) == "test_user"
-    assert gateway_span.attributes.get(SpanAttributeKey.USER_ID) == 42
     assert gateway_span.attributes.get("endpoint_name") == endpoint_name
 
 
@@ -2238,7 +2259,7 @@ async def test_openai_passthrough_chat_token_usage_tracking(store: SqlAlchemySto
         experiment_id=experiment_id,
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": endpoint_name,
@@ -2318,7 +2339,7 @@ async def test_openai_passthrough_embeddings_token_usage_tracking(store: SqlAlch
         experiment_id=experiment_id,
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": endpoint_name,
@@ -2387,7 +2408,7 @@ async def test_openai_passthrough_responses_token_usage_tracking(store: SqlAlche
         experiment_id=experiment_id,
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": endpoint_name,
@@ -2467,7 +2488,7 @@ async def test_anthropic_passthrough_messages_token_usage_tracking(store: SqlAlc
         experiment_id=experiment_id,
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": endpoint_name,
@@ -2543,7 +2564,7 @@ async def test_gemini_passthrough_generate_content_token_usage_tracking(store: S
         experiment_id=experiment_id,
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "contents": [
@@ -2627,7 +2648,7 @@ async def test_openai_passthrough_streaming_captures_chunks(store: SqlAlchemySto
         experiment_id=experiment_id,
     )
 
-    mock_request = MagicMock()
+    mock_request = create_mock_request()
     mock_request.json = AsyncMock(
         return_value={
             "model": endpoint_name,
