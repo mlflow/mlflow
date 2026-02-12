@@ -388,4 +388,3 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         client.log_param(result.run_id, "demo", "true")
 
         return result.run_id
-
