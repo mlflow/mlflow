@@ -241,9 +241,9 @@ MLflow Tracing for Gemini SDK supports embeddings API (Python only):
 result = client.models.embed_content(model="text-embedding-004", contents="Hello world")
 ```
 
-## Token Usage and Cost
+## Tracking Token Usage and Cost
 
-MLflow automatically tracks token usage and cost for Gemini API calls. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
+MLflow automatically tracks token usage and cost for Gemini API calls. The token usage for each LLM call will be logged in each Trace/Span and the aggregated cost and time trend are displayed in the built-in dashboard. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
 
 Token usage and cost tracking is supported for both Python and TypeScript/JavaScript implementations.
 

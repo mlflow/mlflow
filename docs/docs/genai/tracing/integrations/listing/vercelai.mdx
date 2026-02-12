@@ -158,9 +158,9 @@ for await (const part of stream.textStream) {
 }
 ```
 
-## Token Usage and Cost
+## Tracking Token Usage and Cost
 
-MLflow automatically tracks token usage and cost for Vercel AI SDK. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
+MLflow automatically tracks token usage for Vercel AI SDK. The token usage for each LLM call will be logged in each Trace/Span and the aggregated cost and time trend are displayed in the built-in dashboard. Cost information may be unavailable depending on the provider; see the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
 
 ## Disable auto-tracing
 

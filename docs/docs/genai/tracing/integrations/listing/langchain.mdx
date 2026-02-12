@@ -269,9 +269,9 @@ The following APIs are supported by auto tracing for LangChain.
 - `get_relevant_documents` (for retrievers)
 - `__call__` (for Chains and AgentExecutors)
 
-## Token Usage and Cost Tracking
+## Tracking Token Usage and Cost
 
-MLflow automatically tracks token usage and cost for LangChain. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
+MLflow automatically tracks token usage and cost for LangChain. The token usage for each LLM call during a chain invocation will be logged in each Trace/Span and the aggregated cost and time trend are displayed in the built-in dashboard. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
 
 ## Customize Tracing Behavior
 

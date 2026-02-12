@@ -14,6 +14,8 @@ import { Coins, BarChart3, Calculator } from "lucide-react";
 
 MLflow automatically tracks token usage and cost for LLM calls within your traces. This enables you to monitor resource consumption and optimize costs across your GenAI applications.
 
+<video src={useBaseUrl("/images/llms/tracing/token-usage-and-cost-charts.mp4")} controls loop autoPlay muted aria-label="Token Usage and Cost charts in MLflow UI" />
+
 ## Overview
 
 When tracing is enabled, MLflow captures:
@@ -31,20 +33,22 @@ This information is available at both the span level (individual LLM calls) and 
 | Cost Tracking        | >= 3.10.0      |
 
 :::note
-Cost tracking requires [LiteLLM](https://www.litellm.ai/) to be installed. Install it with:
+Cost tracking requires <ins>[LiteLLM](https://www.litellm.ai/)</ins> to be installed **on the client**. Install it with `pip install litellm`.
 
-```bash
-pip install litellm
-```
-
-Cost is calculated based on token usage and [model pricing data from LiteLLM](https://models.litellm.ai/). Cost may not be available for all models, particularly custom or self-hosted models.
+Cost is calculated based on token usage and <ins>[model pricing data from LiteLLM](https://models.litellm.ai/)</ins>. Cost may not be available for all models, particularly custom or self-hosted models.
 :::
 
 ## Viewing in the UI
 
-Token usage and cost information is displayed in the MLflow Trace UI:
+Token usage and cost information is displayed in the MLflow Trace UI.
 
 <video src={useBaseUrl("/images/llms/tracing/token-and-cost-ui.mp4")} controls loop autoPlay muted aria-label="Token Usage and Cost in MLflow UI" />
+
+<br />
+
+The aggregated cost and trend charts are available in the **Overview** tab of the experiment page.
+
+<img src={useBaseUrl("/images/llms/tracing/overview-token-cost-charts.png")} alt="Token Usage and Cost charts in Overview tab" />
 
 ## Accessing Programmatically
 
@@ -87,20 +91,17 @@ import mlflow
 last_trace_id = mlflow.get_last_active_trace_id()
 trace = mlflow.get_trace(trace_id=last_trace_id)
 
-# Access token usage for each LLM call
-print("== Token usage for each LLM call: ==")
+# Access token usage and cost for each LLM call
+print("== Token usage and cost for each LLM call: ==")
 for span in trace.data.spans:
-    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
-        print(f"{span.name}:")
+    usage = span.get_attribute("mlflow.chat.tokenUsage")
+    cost = span.llm_cost
+    print(f"{span.name}:")
+    if usage:
         print(f"  Input tokens: {usage['input_tokens']}")
         print(f"  Output tokens: {usage['output_tokens']}")
         print(f"  Total tokens: {usage['total_tokens']}")
-
-# Access cost for each LLM call
-print("\n== Cost for each LLM call: ==")
-for span in trace.data.spans:
-    if cost := span.llm_cost:
-        print(f"{span.name}:")
+    if cost:
         print(f"  Input cost: ${cost['input_cost']:.6f}")
         print(f"  Output cost: ${cost['output_cost']:.6f}")
         print(f"  Total cost: ${cost['total_cost']:.6f}")
@@ -169,7 +170,7 @@ Completions_2:
 
 ### Token Usage
 
-The `token_usage` field returns a dictionary with the following keys:
+The `token_usage` field in the `TraceInfo` object returns a dictionary with the following keys:
 
 | Key             | Type  | Description                               |
 | --------------- | ----- | ----------------------------------------- |
@@ -194,6 +195,37 @@ Token usage and cost tracking is supported for most MLflow tracing integrations.
 :::tip
 Some providers or models may not return token usage information. In these cases, the `token_usage` and `cost` fields will be `None`.
 :::
+
+### Manually Setting Token and Cost Information
+
+If automatic cost tracking is not available for your model or you want to override the calculated cost, you can manually set token and cost information on a span:
+
+```python
+import mlflow
+
+@mlflow.trace
+def my_llm_call():
+    # Get the current span
+    span = mlflow.get_current_active_span()
+
+    # Your LLM call logic here...
+
+    # Manually set token usage
+    span.set_attribute("mlflow.chat.tokenUsage", {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+    })
+
+    # Manually set cost (in USD)
+    span.set_attribute("mlflow.llm.cost", {
+        "input_cost": 0.0001,
+        "output_cost": 0.0002,
+        "total_cost": 0.0003,
+    })
+
+    return "response"
+```
 
 ## Next Steps
 

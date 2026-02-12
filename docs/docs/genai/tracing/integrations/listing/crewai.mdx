@@ -192,9 +192,9 @@ trip_crew = TripCrew("California", "Tokyo", "Dec 12 - Dec 20", "sports")
 result = trip_crew.run()
 ```
 
-## Token Usage and Cost
+## Tracking Token Usage and Cost
 
-MLflow automatically tracks token usage and cost for CrewAI. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
+MLflow automatically tracks token usage and cost for CrewAI. The token usage for each LLM call will be logged in each Trace/Span and the aggregated cost and time trend are displayed in the built-in dashboard. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
 
 ### Disable auto-tracing
 
