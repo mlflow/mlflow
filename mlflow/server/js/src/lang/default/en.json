@@ -7651,6 +7651,10 @@
     "defaultMessage": "Show less",
     "description": "Button to close alert description"
   },
+  "qa80t1": {
+    "defaultMessage": "Enable Usage Tracking in the Configuration tab to view usage metrics",
+    "description": "Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first"
+  },
   "qcYoo4": {
     "defaultMessage": "Please select sessions to run the judge",
     "description": "Tooltip message when no sessions are selected"
