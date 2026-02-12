@@ -7,28 +7,58 @@ from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import Span
+from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.genai.discovery import (
     _DEFAULT_SCORER_NAME,
     Issue,
+    _BatchTraceAnalysisResult,
+    _ScorerInstructions,
+    _TraceAnalysis,
     _build_default_satisfaction_scorer,
+    _build_enriched_trace_summary,
+    _build_span_tree,
     _build_summary,
     _compute_frequencies,
     _extract_failing_traces,
-    _format_trace_for_clustering,
+    _format_analysis_for_clustering,
+    _generate_scorer_instructions,
     _get_existing_score,
     _IdentifiedIssue,
     _IssueClusteringResult,
     _partition_by_existing_scores,
+    _run_deep_analysis,
     discover_issues,
 )
 from mlflow.genai.evaluation.entities import EvaluationResult
 
 
-def _make_mock_span(name="test_span", status_code=SpanStatusCode.OK):
+def _make_mock_span(
+    name="test_span",
+    status_code=SpanStatusCode.OK,
+    span_id="span-1",
+    parent_id=None,
+    span_type="UNKNOWN",
+    start_time_ns=0,
+    end_time_ns=100_000_000,
+    model_name=None,
+    events=None,
+    inputs=None,
+    outputs=None,
+    status_description="",
+):
     span = MagicMock(spec=Span)
     span.name = name
-    span.status = SpanStatus(status_code=status_code)
+    span.span_id = span_id
+    span.parent_id = parent_id
+    span.span_type = span_type
+    span.start_time_ns = start_time_ns
+    span.end_time_ns = end_time_ns
+    span.model_name = model_name
+    span.status = SpanStatus(status_code=status_code, description=status_description)
+    span.events = events or []
+    span.inputs = inputs
+    span.outputs = outputs
     return span
 
 
@@ -64,44 +94,224 @@ def _make_assessment(name, value):
     )
 
 
-# ---- _format_trace_for_clustering ----
+# ---- _build_span_tree ----
 
 
-def test_format_trace_for_clustering():
+def test_build_span_tree_simple():
+    root = _make_mock_span(
+        name="agent",
+        span_id="s1",
+        parent_id=None,
+        span_type="AGENT",
+        start_time_ns=0,
+        end_time_ns=1_500_000_000,
+    )
+    child = _make_mock_span(
+        name="llm_call",
+        span_id="s2",
+        parent_id="s1",
+        span_type="LLM",
+        start_time_ns=100_000_000,
+        end_time_ns=900_000_000,
+        model_name="gpt-4",
+    )
+    tree = _build_span_tree([root, child])
+
+    assert "agent (AGENT, OK, 1500ms)" in tree
+    assert "llm_call (LLM, OK, 800ms, model=gpt-4)" in tree
+
+
+def test_build_span_tree_error_with_exception():
+    exc_event = MagicMock(spec=SpanEvent)
+    exc_event.name = "exception"
+    exc_event.attributes = {
+        "exception.type": "ConnectionTimeout",
+        "exception.message": "API unreachable",
+    }
+    span = _make_mock_span(
+        name="weather_tool",
+        span_id="s1",
+        span_type="TOOL",
+        status_code=SpanStatusCode.ERROR,
+        status_description="Connection failed",
+        events=[exc_event],
+    )
+    tree = _build_span_tree([span])
+
+    assert "TOOL, ERROR" in tree
+    assert "ERROR: Connection failed" in tree
+    assert "EXCEPTION: ConnectionTimeout: API unreachable" in tree
+
+
+def test_build_span_tree_empty():
+    assert "(no spans)" in _build_span_tree([])
+
+
+def test_build_span_tree_with_io():
+    span = _make_mock_span(
+        name="tool",
+        span_id="s1",
+        inputs={"query": "test"},
+        outputs={"result": "ok"},
+    )
+    tree = _build_span_tree([span])
+
+    assert "in: " in tree
+    assert "out: " in tree
+
+
+# ---- _build_enriched_trace_summary ----
+
+
+def test_build_enriched_trace_summary():
+    root = _make_mock_span(name="agent", span_id="s1", span_type="AGENT")
+    child = _make_mock_span(
+        name="tool_call",
+        span_id="s2",
+        parent_id="s1",
+        span_type="TOOL",
+        status_code=SpanStatusCode.ERROR,
+        status_description="Failed",
+    )
     trace = _make_trace(
         trace_id="t-1",
         request_preview="Hello",
         response_preview="Hi there",
         execution_duration=200,
-        spans=[
-            _make_mock_span("llm_call"),
-            _make_mock_span("tool_call", SpanStatusCode.ERROR),
-        ],
+        spans=[root, child],
     )
-    text = _format_trace_for_clustering(0, trace, "Response was incomplete")
+    text = _build_enriched_trace_summary(0, trace, "Response was incomplete")
 
     assert "[0] trace_id=t-1" in text
     assert "Hello" in text
     assert "Hi there" in text
-    assert "tool_call" in text
+    assert "200ms" in text
     assert "Response was incomplete" in text
+    assert "Span tree:" in text
+    assert "tool_call" in text
 
 
-def test_format_trace_truncates_previews():
+def test_build_enriched_trace_summary_truncates_previews():
     long_text = "x" * 1000
     trace = _make_trace(request_preview=long_text, response_preview=long_text)
-    text = _format_trace_for_clustering(0, trace, "")
+    text = _build_enriched_trace_summary(0, trace, "")
     # Each preview should be truncated to 500 chars
     assert text.count("x") <= 1000
 
 
-def test_format_trace_none_previews():
+def test_build_enriched_trace_summary_none_previews():
     trace = _make_trace()
     trace.info.request_preview = None
     trace.info.response_preview = None
-    text = _format_trace_for_clustering(0, trace, "rationale")
+    text = _build_enriched_trace_summary(0, trace, "rationale")
     assert "Input: \n" in text
     assert "Output: \n" in text
+
+
+# ---- _run_deep_analysis ----
+
+
+def test_run_deep_analysis():
+    mock_result = _BatchTraceAnalysisResult(
+        analyses=[
+            _TraceAnalysis(
+                trace_index=0,
+                failure_category="tool_error",
+                failure_summary="Tool API call failed",
+                root_cause_hypothesis="External API was unreachable",
+                affected_spans=["weather_tool"],
+                severity=4,
+            )
+        ]
+    )
+    with patch(
+        "mlflow.genai.discovery.get_chat_completions_with_structured_output",
+        return_value=mock_result,
+    ) as mock_llm:
+        analyses = _run_deep_analysis(["[0] trace summary..."], "openai:/gpt-5")
+
+    assert len(analyses) == 1
+    assert analyses[0].failure_category == "tool_error"
+    assert analyses[0].affected_spans == ["weather_tool"]
+    mock_llm.assert_called_once()
+    assert mock_llm.call_args[1]["model_uri"] == "openai:/gpt-5"
+
+
+# ---- _format_analysis_for_clustering ----
+
+
+def test_format_analysis_for_clustering():
+    analysis = _TraceAnalysis(
+        trace_index=0,
+        failure_category="tool_error",
+        failure_summary="Tool failed",
+        root_cause_hypothesis="API down",
+        affected_spans=["weather_tool"],
+        severity=4,
+    )
+    text = _format_analysis_for_clustering(0, analysis, "[0] trace summary...")
+
+    assert "Category: tool_error" in text
+    assert "Severity: 4/5" in text
+    assert "Tool failed" in text
+    assert "API down" in text
+    assert "weather_tool" in text
+    assert "[0] trace summary..." in text
+
+
+# ---- _generate_scorer_instructions ----
+
+
+def test_generate_scorer_instructions():
+    issue = _IdentifiedIssue(
+        name="tool_error",
+        description="Tool calls fail",
+        root_cause="API timeout",
+        example_indices=[0, 1],
+        confidence=90,
+    )
+    analyses = [
+        _TraceAnalysis(
+            trace_index=0,
+            failure_category="tool_error",
+            failure_summary="Tool API call failed",
+            root_cause_hypothesis="External API unreachable",
+            affected_spans=["weather_tool"],
+            severity=4,
+        )
+    ]
+    mock_result = _ScorerInstructions(
+        detection_instructions="Analyze the {{ trace }} for tool failures"
+    )
+    with patch(
+        "mlflow.genai.discovery.get_chat_completions_with_structured_output",
+        return_value=mock_result,
+    ) as mock_llm:
+        instructions = _generate_scorer_instructions(issue, analyses, "openai:/gpt-5-mini")
+
+    assert "{{ trace }}" in instructions
+    mock_llm.assert_called_once()
+    assert mock_llm.call_args[1]["model_uri"] == "openai:/gpt-5-mini"
+
+
+def test_generate_scorer_instructions_adds_template_var():
+    issue = _IdentifiedIssue(
+        name="test",
+        description="Test",
+        root_cause="Test",
+        example_indices=[0],
+        confidence=90,
+    )
+    mock_result = _ScorerInstructions(
+        detection_instructions="Check if the response is bad"
+    )
+    with patch(
+        "mlflow.genai.discovery.get_chat_completions_with_structured_output",
+        return_value=mock_result,
+    ):
+        instructions = _generate_scorer_instructions(issue, [], "openai:/gpt-5-mini")
+
+    assert "{{ trace }}" in instructions
 
 
 # ---- _extract_failing_traces ----
@@ -356,17 +566,37 @@ def test_discover_issues_full_pipeline():
     )
     triage_eval = EvaluationResult(run_id="run-triage", metrics={}, result_df=triage_df)
 
+    # Phase 2: Deep analysis result
+    deep_analysis_result = _BatchTraceAnalysisResult(
+        analyses=[
+            _TraceAnalysis(
+                trace_index=i,
+                failure_category="latency",
+                failure_summary="Slow response",
+                root_cause_hypothesis="Complex queries",
+                affected_spans=["llm_call"],
+                severity=3,
+            )
+            for i in range(3)
+        ]
+    )
+
+    # Phase 3: Clustering result (no detection_instructions field)
     clustering_result = _IssueClusteringResult(
         issues=[
             _IdentifiedIssue(
                 name="slow_response",
                 description="Responses take too long",
                 root_cause="Complex queries",
-                detection_instructions="Check the {{ trace }} execution duration",
                 example_indices=[0, 1],
                 confidence=90,
             ),
         ]
+    )
+
+    # Phase 4: Scorer instructions result
+    scorer_instructions_result = _ScorerInstructions(
+        detection_instructions="Check the {{ trace }} execution duration"
     )
 
     validation_df = pd.DataFrame(
@@ -386,7 +616,7 @@ def test_discover_issues_full_pipeline():
         ),
         patch(
             "mlflow.genai.discovery.get_chat_completions_with_structured_output",
-            return_value=clustering_result,
+            side_effect=[deep_analysis_result, clustering_result, scorer_instructions_result],
         ),
     ):
         result = discover_issues(sample_size=10)
@@ -420,13 +650,28 @@ def test_discover_issues_low_frequency_issues_discarded():
     )
     triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=triage_df)
 
+    # Phase 2: Deep analysis
+    deep_analysis_result = _BatchTraceAnalysisResult(
+        analyses=[
+            _TraceAnalysis(
+                trace_index=i,
+                failure_category="other",
+                failure_summary="Rare issue",
+                root_cause_hypothesis="Unknown",
+                affected_spans=["span"],
+                severity=2,
+            )
+            for i in range(2)
+        ]
+    )
+
+    # Phase 3: Clustering — only 1 example (below minimum of 2)
     clustering_result = _IssueClusteringResult(
         issues=[
             _IdentifiedIssue(
                 name="rare_issue",
                 description="Happens very rarely",
                 root_cause="Unknown",
-                detection_instructions="Check the {{ trace }} for rare errors",
                 example_indices=[0],
                 confidence=80,
             ),
@@ -442,7 +687,7 @@ def test_discover_issues_low_frequency_issues_discarded():
         ),
         patch(
             "mlflow.genai.discovery.get_chat_completions_with_structured_output",
-            return_value=clustering_result,
+            side_effect=[deep_analysis_result, clustering_result],
         ),
     ):
         result = discover_issues(sample_size=5)
