@@ -32,7 +32,7 @@ export const UsageTrackingConfigurator = ({
 
       <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
         <FormattedMessage
-          defaultMessage="When enabled, all requests to this endpoint will be logged as traces in an MLflow experiment. This allows you to monitor usage, debug issues, and analyze performance."
+          defaultMessage="When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance."
           description="Usage tracking description"
         />
       </Typography.Text>
