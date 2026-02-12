@@ -9,6 +9,7 @@ from packaging.version import Version
 
 from mlflow.crewai.autolog import (
     patched_class_call,
+    patched_native_tool_call,
     patched_standalone_call,
 )
 from mlflow.telemetry.events import AutologgingEvent
@@ -72,9 +73,18 @@ def autolog(
         standalone_method_map.update(
             {"crewai.agents.crew_agent_executor": ["execute_tool_and_check_finality"]}
         )
+
+    # Native function calling support for CrewAI >= 1.9.0
+    native_tool_method_map = {}
+    if CREWAI_VERSION >= Version("1.9.0"):
+        native_tool_method_map["crewai.agents.crew_agent_executor.CrewAgentExecutor"] = [
+            "_handle_native_tool_calls"
+        ]
+
     try:
         _apply_patches(standalone_method_map, _import_module, patched_standalone_call)
         _apply_patches(class_method_map, _import_class, patched_class_call)
+        _apply_patches(native_tool_method_map, _import_class, patched_native_tool_call)
     except (AttributeError, ModuleNotFoundError) as e:
         _logger.error("An exception happens when applying auto-tracing to crewai. Exception: %s", e)
 
