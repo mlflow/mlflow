@@ -32,7 +32,7 @@ const GatewayChartsPanelImpl = ({
   experimentIds,
   showTokenStats = false,
   additionalControls,
-  hideTooltipLinks = true,
+  hideTooltipLinks = false,
 }: GatewayChartsPanelProps) => {
   const { theme } = useDesignSystemTheme();
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);

@@ -34,7 +34,7 @@ export const GatewayUsageSection = ({ experimentId }: GatewayUsageSectionProps) 
         </Typography.Link>
       </div>
 
-      <GatewayChartsPanel experimentIds={[experimentId]} showTokenStats hideTooltipLinks={false} />
+      <GatewayChartsPanel experimentIds={[experimentId]} showTokenStats />
     </div>
   );
 };
