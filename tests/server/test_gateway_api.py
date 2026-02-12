@@ -2281,7 +2281,7 @@ async def test_openai_passthrough_chat_token_usage_tracking(store: SqlAlchemySto
         provider="openai",
         model_name="gpt-4o",
     )
-    store.create_gateway_endpoint(
+    endpoint = store.create_gateway_endpoint(
         name=endpoint_name,
         model_configs=[
             GatewayEndpointModelConfig(
@@ -2329,6 +2329,16 @@ async def test_openai_passthrough_chat_token_usage_tracking(store: SqlAlchemySto
     trace = traces[0]
     assert trace.info.state == TraceState.OK
 
+    # Verify gateway metadata
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_ENDPOINT_ID)
+        == endpoint.endpoint_id
+    )
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_REQUEST_TYPE)
+        == GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT
+    )
+
     # Find the passthrough span and check token usage attributes
     passthrough_span = next(
         (span for span in trace.data.spans if "action" in span.attributes), None
@@ -2361,7 +2371,7 @@ async def test_openai_passthrough_embeddings_token_usage_tracking(store: SqlAlch
         provider="openai",
         model_name="text-embedding-3-small",
     )
-    store.create_gateway_endpoint(
+    endpoint = store.create_gateway_endpoint(
         name=endpoint_name,
         model_configs=[
             GatewayEndpointModelConfig(
@@ -2399,6 +2409,16 @@ async def test_openai_passthrough_embeddings_token_usage_tracking(store: SqlAlch
     assert len(traces) == 1
     trace = traces[0]
 
+    # Verify gateway metadata
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_ENDPOINT_ID)
+        == endpoint.endpoint_id
+    )
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_REQUEST_TYPE)
+        == GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS
+    )
+
     # Find the passthrough span and check token usage attributes
     passthrough_span = next(
         (span for span in trace.data.spans if "action" in span.attributes), None
@@ -2430,7 +2450,7 @@ async def test_openai_passthrough_responses_token_usage_tracking(store: SqlAlche
         provider="openai",
         model_name="gpt-4o",
     )
-    store.create_gateway_endpoint(
+    endpoint = store.create_gateway_endpoint(
         name=endpoint_name,
         model_configs=[
             GatewayEndpointModelConfig(
@@ -2478,6 +2498,16 @@ async def test_openai_passthrough_responses_token_usage_tracking(store: SqlAlche
     trace = traces[0]
     assert trace.info.state == TraceState.OK
 
+    # Verify gateway metadata
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_ENDPOINT_ID)
+        == endpoint.endpoint_id
+    )
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_REQUEST_TYPE)
+        == GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES
+    )
+
     # Find the passthrough span and check token usage attributes
     passthrough_span = next(
         (span for span in trace.data.spans if "action" in span.attributes), None
@@ -2510,7 +2540,7 @@ async def test_anthropic_passthrough_messages_token_usage_tracking(store: SqlAlc
         provider="anthropic",
         model_name="claude-3-5-sonnet-20241022",
     )
-    store.create_gateway_endpoint(
+    endpoint = store.create_gateway_endpoint(
         name=endpoint_name,
         model_configs=[
             GatewayEndpointModelConfig(
@@ -2553,6 +2583,16 @@ async def test_anthropic_passthrough_messages_token_usage_tracking(store: SqlAlc
     assert len(traces) == 1
     trace = traces[0]
 
+    # Verify gateway metadata
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_ENDPOINT_ID)
+        == endpoint.endpoint_id
+    )
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_REQUEST_TYPE)
+        == GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES
+    )
+
     # Find the passthrough span and check token usage attributes
     passthrough_span = next(
         (span for span in trace.data.spans if "action" in span.attributes), None
@@ -2586,7 +2626,7 @@ async def test_gemini_passthrough_generate_content_token_usage_tracking(store: S
         provider="gemini",
         model_name="gemini-2.0-flash",
     )
-    store.create_gateway_endpoint(
+    endpoint = store.create_gateway_endpoint(
         name=endpoint_name,
         model_configs=[
             GatewayEndpointModelConfig(
@@ -2639,6 +2679,16 @@ async def test_gemini_passthrough_generate_content_token_usage_tracking(store: S
     assert len(traces) == 1
     trace = traces[0]
 
+    # Verify gateway metadata
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_ENDPOINT_ID)
+        == endpoint.endpoint_id
+    )
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_REQUEST_TYPE)
+        == GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT
+    )
+
     # Find the passthrough span and check token usage attributes
     passthrough_span = next(
         (span for span in trace.data.spans if "action" in span.attributes), None
@@ -2670,7 +2720,7 @@ async def test_openai_passthrough_streaming_captures_chunks(store: SqlAlchemySto
         provider="openai",
         model_name="gpt-4o",
     )
-    store.create_gateway_endpoint(
+    endpoint = store.create_gateway_endpoint(
         name=endpoint_name,
         model_configs=[
             GatewayEndpointModelConfig(
@@ -2717,6 +2767,16 @@ async def test_openai_passthrough_streaming_captures_chunks(store: SqlAlchemySto
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.state == TraceState.OK
+
+    # Verify gateway metadata
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_ENDPOINT_ID)
+        == endpoint.endpoint_id
+    )
+    assert (
+        trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_REQUEST_TYPE)
+        == GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_STREAM_GENERATE_CONTENT
+    )
 
     gateway_span = next(
         (span for span in trace.data.spans if span.name == f"gateway/{endpoint_name}"), None
