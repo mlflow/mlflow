@@ -426,7 +426,7 @@ class Linter(ast.NodeVisitor):
         if (
             isinstance(node.body[0], ast.Expr)
             and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.s, str)
+            and isinstance(node.body[0].value.value, str)
         ):
             return node.body[0].value
         return None

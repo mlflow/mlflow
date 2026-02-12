@@ -31,9 +31,9 @@ class RedundantTestDocstring(Rule):
             node.body
             and isinstance(node.body[0], ast.Expr)
             and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.s, str)
+            and isinstance(node.body[0].value.value, str)
         ):
-            raw_docstring = node.body[0].value.s
+            raw_docstring = node.body[0].value.value
 
             # If raw docstring has newlines, it's multiline - always allow
             if "\n" in raw_docstring:
@@ -55,9 +55,9 @@ class RedundantTestDocstring(Rule):
             module.body
             and isinstance(module.body[0], ast.Expr)
             and isinstance(module.body[0].value, ast.Constant)
-            and isinstance(module.body[0].value.s, str)
+            and isinstance(module.body[0].value.value, str)
         ):
-            raw_docstring = module.body[0].value.s
+            raw_docstring = module.body[0].value.value
             # Only flag single-line module docstrings
             if "\n" not in raw_docstring:
                 return module.body[0].value
