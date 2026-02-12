@@ -4,6 +4,8 @@ from subprocess import Popen
 from typing import Literal
 from urllib.parse import urlparse
 
+from packaging.version import Version
+
 from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
 from mlflow.utils import env_manager as em
 from mlflow.utils.file_utils import _copy_project
@@ -35,7 +37,6 @@ RUN apt install -y software-properties-common \
     && ln -s -f $(which python3.10) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
-RUN pip install virtualenv
 """  # noqa: E501
 
 _DOCKERFILE_TEMPLATE = """# Build an image that can serve mlflow models.
@@ -188,6 +189,12 @@ def _pip_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             "RUN pip install /opt/mlflow"
         )
     else:
+        # Dev version is not available on PyPI, install from GitHub instead
+        if Version(VERSION).is_devrelease:
+            return (
+                "# Install MLflow\n"
+                "RUN pip install git+https://github.com/mlflow/mlflow.git"
+            )
         return f"# Install MLflow\nRUN pip install mlflow=={VERSION}"
 
 

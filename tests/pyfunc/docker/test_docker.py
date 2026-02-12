@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 import sklearn
 import sklearn.neighbors
+from packaging.version import Version
 
 import mlflow
 from mlflow.environment_variables import _MLFLOW_RUN_SLOW_TESTS
@@ -21,13 +22,17 @@ from mlflow.version import VERSION
 from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_version
 
 
+def _get_mlflow_install_specifier():
+    if Version(VERSION).is_devrelease:
+        return "git+https://github.com/mlflow/mlflow.git"
+    return f"mlflow=={VERSION}"
+
+
 def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
-    actual_dockerfile = actual_dockerfile_path.read_text().replace(
-        VERSION, get_released_mlflow_version()
-    )
+    actual_dockerfile = actual_dockerfile_path.read_text()
     expected_dockerfile = (
         expected_dockerfile_path.read_text()
-        .replace("${{ MLFLOW_VERSION }}", get_released_mlflow_version())
+        .replace("${{ MLFLOW_INSTALL }}", _get_mlflow_install_specifier())
         .replace("${{ PYTHON_VERSION }}", PYTHON_VERSION)
     )
     assert actual_dockerfile == expected_dockerfile, (
@@ -90,11 +95,6 @@ def test_build_image(tmp_path, params):
 
     # Copy the context dir to a temp dir so we can verify the generated Dockerfile
     def _build_image_with_copy(context_dir, image_name):
-        # Replace mlflow dev version in Dockerfile with the latest released one
-        dockerfile = Path(context_dir) / "Dockerfile"
-        content = dockerfile.read_text()
-        content = content.replace(VERSION, get_released_mlflow_version())
-        dockerfile.write_text(content)
         shutil.copytree(context_dir, dst_dir)
         # Build the image if the slow-tests flag is enabled
         if _MLFLOW_RUN_SLOW_TESTS.get():
