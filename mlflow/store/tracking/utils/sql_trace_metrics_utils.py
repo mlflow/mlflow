@@ -85,6 +85,8 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
             SpanMetricDimensionKey.SPAN_NAME,
             SpanMetricDimensionKey.SPAN_TYPE,
             SpanMetricDimensionKey.SPAN_STATUS,
+            SpanMetricDimensionKey.SPAN_MODEL_NAME,
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
         },
     ),
     SpanMetricKey.LATENCY: TraceMetricsConfig(
@@ -354,10 +356,14 @@ def _get_json_dimension_column(db_type: str, json_key: str, label: str) -> Colum
     """
     match db_type:
         case db_types.MSSQL:
-            # Use JSON_VALUE for extracting scalar values
-            # Use literal_column to ensure identical SQL text across SELECT, GROUP BY, and ORDER BY
+            # Use CASE with ISJSON to handle JSON null values stored as 'null' string
+            # SQLAlchemy stores Python None as JSON 'null', which JSON_VALUE can't handle
+            # ISJSON returns 1 for valid JSON objects, 0 for 'null' string
             return literal_column(
-                f"JSON_VALUE(spans.dimension_attributes, '$.\"{json_key}\"')"
+                f"CASE WHEN ISJSON(spans.dimension_attributes) = 1 "
+                f"AND spans.dimension_attributes != 'null' "
+                f"THEN JSON_VALUE(spans.dimension_attributes, '$.\"{json_key}\"') "
+                f"ELSE NULL END"
             ).label(label)
         case db_types.POSTGRES:
             # Use ->> operator to extract as text without JSON quotes
@@ -812,6 +818,10 @@ def convert_results_to_metric_data_points(
     for row in results:
         # Split row values into dimensions and aggregations based on select_columns
         dims = {col.name: row[i] for i, col in enumerate(select_columns[:num_dimensions])}
+
+        # Skip data points with None dimension values
+        if any(value is None for value in dims.values()):
+            continue
 
         # Convert time_bucket from milliseconds to ISO 8601 datetime string
         if TIME_BUCKET_LABEL in dims:

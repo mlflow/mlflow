@@ -5325,7 +5325,7 @@ def _generate_demo():
                 "status": "exists",
                 "experiment_id": experiment.experiment_id,
                 "features_generated": [],
-                "navigation_url": f"/experiments/{experiment.experiment_id}/traces",
+                "navigation_url": f"/experiments/{experiment.experiment_id}",
             }
         )
 
@@ -5333,7 +5333,7 @@ def _generate_demo():
 
     experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     experiment_id = experiment.experiment_id if experiment else None
-    navigation_url = f"/experiments/{experiment_id}/traces" if experiment_id else "/experiments"
+    navigation_url = f"/experiments/{experiment_id}" if experiment_id else "/experiments"
 
     return jsonify(
         {
