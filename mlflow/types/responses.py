@@ -491,6 +491,7 @@ def _cc_stream_to_responses_stream(
             for tool_call_delta in tc:
                 idx = tool_call_delta.get("index", 0)
                 if idx not in tool_calls:
+                    # First chunk for this tool call contains id and name
                     tool_calls[idx] = {
                         "id": tool_call_delta.get("id"),
                         "function": {
@@ -499,13 +500,10 @@ def _cc_stream_to_responses_stream(
                         },
                     }
                 else:
+                    # Subsequent chunks only contain argument fragments
                     tool_calls[idx]["function"]["arguments"] += tool_call_delta.get(
                         "function", {}
                     ).get("arguments", "")
-                    if tool_call_delta.get("id"):
-                        tool_calls[idx]["id"] = tool_call_delta["id"]
-                    if tool_call_delta.get("function", {}).get("name"):
-                        tool_calls[idx]["function"]["name"] = tool_call_delta["function"]["name"]
         elif content is not None:
             # logic for content item format
             # https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/api-reference#contentitem

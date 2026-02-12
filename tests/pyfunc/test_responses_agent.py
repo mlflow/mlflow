@@ -1320,9 +1320,7 @@ def test_responses_agent_non_mlflow_decorators():
                     "choices": [
                         {
                             "delta": {
-                                "tool_calls": [
-                                    {"index": 2, "function": {"arguments": '42 * 17"}'}}
-                                ]
+                                "tool_calls": [{"index": 2, "function": {"arguments": '42 * 17"}'}}]
                             },
                             "finish_reason": None,
                             "index": 0,
