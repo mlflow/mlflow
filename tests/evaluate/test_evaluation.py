@@ -2395,8 +2395,6 @@ def test_mlflow_evaluate_logs_traces_to_active_model():
 
 
 def test_delete_run_deletes_assessments_with_source_run_id():
-    """Deleting a run should delete assessments linked via assessment_metadata sourceRunId."""
-
     @mlflow.trace
     def model(inputs):
         return inputs
