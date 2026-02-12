@@ -13,8 +13,9 @@ from mlflow.demo import generate_all_demos
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DEMO_PROMPT_PREFIX
 from mlflow.demo.data import DEMO_PROMPTS
 from mlflow.demo.generators.evaluation import (
-    DEMO_DATASET_V1_NAME,
-    DEMO_DATASET_V2_NAME,
+    DEMO_DATASET_BASELINE_SESSION_NAME,
+    DEMO_DATASET_IMPROVED_SESSION_NAME,
+    DEMO_DATASET_TRACE_LEVEL_NAME,
     EvaluationDemoGenerator,
 )
 from mlflow.demo.generators.prompts import PromptsDemoGenerator
@@ -195,28 +196,35 @@ def test_traces_delete_removes_all(client, traces_generator):
     assert len(traces_after) == 0
 
 
-def test_evaluation_creates_two_datasets(client, evaluation_generator):
+def test_evaluation_creates_three_datasets(client, evaluation_generator):
     result = evaluation_generator.generate()
     evaluation_generator.store_version()
 
-    assert len(result.entity_ids) == 2  # Two evaluation run IDs
+    assert len(result.entity_ids) == 3  # Three evaluation run IDs
 
     experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    v1_datasets = search_datasets(
+    trace_level_datasets = search_datasets(
         experiment_ids=[experiment.experiment_id],
-        filter_string=f"name = '{DEMO_DATASET_V1_NAME}'",
+        filter_string=f"name = '{DEMO_DATASET_TRACE_LEVEL_NAME}'",
         max_results=10,
     )
-    v2_datasets = search_datasets(
+    baseline_session_datasets = search_datasets(
         experiment_ids=[experiment.experiment_id],
-        filter_string=f"name = '{DEMO_DATASET_V2_NAME}'",
+        filter_string=f"name = '{DEMO_DATASET_BASELINE_SESSION_NAME}'",
+        max_results=10,
+    )
+    improved_session_datasets = search_datasets(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"name = '{DEMO_DATASET_IMPROVED_SESSION_NAME}'",
         max_results=10,
     )
 
-    assert len(v1_datasets) == 1
-    assert len(v2_datasets) == 1
-    assert v1_datasets[0].name == DEMO_DATASET_V1_NAME
-    assert v2_datasets[0].name == DEMO_DATASET_V2_NAME
+    assert len(trace_level_datasets) == 1
+    assert len(baseline_session_datasets) == 1
+    assert len(improved_session_datasets) == 1
+    assert trace_level_datasets[0].name == DEMO_DATASET_TRACE_LEVEL_NAME
+    assert baseline_session_datasets[0].name == DEMO_DATASET_BASELINE_SESSION_NAME
+    assert improved_session_datasets[0].name == DEMO_DATASET_IMPROVED_SESSION_NAME
 
 
 def test_evaluation_datasets_have_records(client, evaluation_generator):
@@ -225,26 +233,36 @@ def test_evaluation_datasets_have_records(client, evaluation_generator):
 
     experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
 
-    v1_datasets = search_datasets(
+    trace_level_datasets = search_datasets(
         experiment_ids=[experiment.experiment_id],
-        filter_string=f"name = '{DEMO_DATASET_V1_NAME}'",
+        filter_string=f"name = '{DEMO_DATASET_TRACE_LEVEL_NAME}'",
         max_results=10,
     )
-    v2_datasets = search_datasets(
+    baseline_session_datasets = search_datasets(
         experiment_ids=[experiment.experiment_id],
-        filter_string=f"name = '{DEMO_DATASET_V2_NAME}'",
+        filter_string=f"name = '{DEMO_DATASET_BASELINE_SESSION_NAME}'",
+        max_results=10,
+    )
+    improved_session_datasets = search_datasets(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"name = '{DEMO_DATASET_IMPROVED_SESSION_NAME}'",
         max_results=10,
     )
 
-    assert len(v1_datasets) == 1
-    assert len(v2_datasets) == 1
+    assert len(trace_level_datasets) == 1
+    assert len(baseline_session_datasets) == 1
+    assert len(improved_session_datasets) == 1
 
-    v1_df = v1_datasets[0].to_df()
-    v2_df = v2_datasets[0].to_df()
+    trace_level_df = trace_level_datasets[0].to_df()
+    baseline_session_df = baseline_session_datasets[0].to_df()
+    improved_session_df = improved_session_datasets[0].to_df()
 
-    # Each dataset has one record per trace (17 traces per version)
-    assert len(v1_df) == 17
-    assert len(v2_df) == 17
+    # Trace-level dataset merges v1 + v2 non-session traces (10 unique queries,
+    # merge_records deduplicates by inputs so v2 records overwrite v1)
+    assert len(trace_level_df) == 10
+    # Session datasets have 7 traces each (v1 and v2)
+    assert len(baseline_session_df) == 7
+    assert len(improved_session_df) == 7
 
 
 def test_evaluation_delete_removes_datasets(client, evaluation_generator):
@@ -258,7 +276,7 @@ def test_evaluation_delete_removes_datasets(client, evaluation_generator):
         filter_string="name LIKE 'demo-%'",
         max_results=10,
     )
-    assert len(datasets_before) == 2
+    assert len(datasets_before) == 3
 
     evaluation_generator.delete_demo()
 

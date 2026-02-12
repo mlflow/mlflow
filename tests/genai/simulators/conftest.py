@@ -105,3 +105,11 @@ def test_case_with_context():
         "goal": "Debug an error",
         "context": {"user_id": "U001", "session_id": "S001"},
     }
+
+
+@pytest.fixture
+def test_case_with_simulation_guidelines():
+    return {
+        "goal": "Learn about ML pipelines",
+        "simulation_guidelines": "Ask clarifying questions before proceeding",
+    }

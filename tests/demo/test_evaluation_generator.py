@@ -38,10 +38,10 @@ def test_generate_creates_eval_runs(evaluation_generator):
     result = evaluation_generator.generate()
     assert isinstance(result, DemoResult)
     assert result.feature == DemoFeature.EVALUATION
-    assert len(result.entity_ids) == 2  # Two run IDs returned
+    assert len(result.entity_ids) == 3  # Three run IDs returned
 
 
-def test_generate_creates_two_runs(evaluation_generator):
+def test_generate_creates_three_runs(evaluation_generator):
     evaluation_generator.generate()
 
     client = mlflow.MlflowClient()
@@ -50,7 +50,7 @@ def test_generate_creates_two_runs(evaluation_generator):
         experiment_ids=[experiment.experiment_id],
         filter_string="params.demo = 'true'",
     )
-    assert len(runs) == 2
+    assert len(runs) == 3
 
 
 def test_data_exists_true_after_generate(evaluation_generator):
@@ -90,8 +90,9 @@ def test_runs_have_different_names(evaluation_generator):
     )
 
     run_names = {run.data.tags.get("mlflow.runName") for run in runs}
-    assert "baseline-evaluation" in run_names
-    assert "improved-evaluation" in run_names
+    assert "trace-level-evaluation" in run_names
+    assert "baseline-session-evaluation" in run_names
+    assert "improved-session-evaluation" in run_names
 
 
 def test_demo_traces_have_responses():

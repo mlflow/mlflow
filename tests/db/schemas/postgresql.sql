@@ -26,6 +26,7 @@ CREATE TABLE evaluation_datasets (
 	last_update_time BIGINT,
 	created_by VARCHAR(255),
 	last_updated_by VARCHAR(255),
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	CONSTRAINT evaluation_datasets_pk PRIMARY KEY (dataset_id)
 )
 
@@ -37,8 +38,9 @@ CREATE TABLE experiments (
 	lifecycle_stage VARCHAR(32),
 	creation_time BIGINT,
 	last_update_time BIGINT,
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	CONSTRAINT experiment_pk PRIMARY KEY (experiment_id),
-	CONSTRAINT experiments_name_key UNIQUE (name),
+	CONSTRAINT uq_experiments_workspace_name UNIQUE (workspace, name),
 	CONSTRAINT experiments_lifecycle_stage CHECK (lifecycle_stage::text = ANY (ARRAY['active'::character varying, 'deleted'::character varying]::text[]))
 )
 
@@ -72,6 +74,7 @@ CREATE TABLE jobs (
 	result TEXT,
 	retry_count INTEGER NOT NULL,
 	last_update_time BIGINT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
@@ -81,7 +84,8 @@ CREATE TABLE registered_models (
 	creation_time BIGINT,
 	last_updated_time BIGINT,
 	description VARCHAR(5000),
-	CONSTRAINT registered_model_pk PRIMARY KEY (name)
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	CONSTRAINT registered_model_pk PRIMARY KEY (workspace, name)
 )
 
 
@@ -99,7 +103,9 @@ CREATE TABLE secrets (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
-	CONSTRAINT secrets_pk PRIMARY KEY (secret_id)
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	CONSTRAINT secrets_pk PRIMARY KEY (secret_id),
+	CONSTRAINT uq_secrets_workspace_secret_name UNIQUE (workspace, secret_name)
 )
 
 
@@ -113,7 +119,16 @@ CREATE TABLE webhooks (
 	creation_timestamp BIGINT,
 	last_updated_timestamp BIGINT,
 	deleted_timestamp BIGINT,
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	CONSTRAINT webhook_pk PRIMARY KEY (webhook_id)
+)
+
+
+CREATE TABLE workspaces (
+	name VARCHAR(63) NOT NULL,
+	description TEXT,
+	default_artifact_root TEXT,
+	CONSTRAINT workspaces_pk PRIMARY KEY (name)
 )
 
 
@@ -142,8 +157,10 @@ CREATE TABLE endpoints (
 	fallback_config_json TEXT,
 	experiment_id INTEGER,
 	usage_tracking BOOLEAN DEFAULT false NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id),
-	CONSTRAINT fk_endpoints_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE SET NULL
+	CONSTRAINT fk_endpoints_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE SET NULL,
+	CONSTRAINT uq_endpoints_workspace_name UNIQUE (workspace, name)
 )
 
 
@@ -214,8 +231,10 @@ CREATE TABLE model_definitions (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	CONSTRAINT model_definitions_pk PRIMARY KEY (model_definition_id),
-	CONSTRAINT fk_model_definitions_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE SET NULL
+	CONSTRAINT fk_model_definitions_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE SET NULL,
+	CONSTRAINT uq_model_definitions_workspace_name UNIQUE (workspace, name)
 )
 
 
@@ -233,8 +252,9 @@ CREATE TABLE model_versions (
 	status_message VARCHAR(500),
 	run_link VARCHAR(500),
 	storage_location VARCHAR(500),
-	CONSTRAINT model_version_pk PRIMARY KEY (name, version),
-	CONSTRAINT model_versions_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	CONSTRAINT model_version_pk PRIMARY KEY (workspace, name, version),
+	CONSTRAINT fk_model_versions_registered_models FOREIGN KEY(workspace, name) REFERENCES registered_models (workspace, name) ON UPDATE CASCADE
 )
 
 
@@ -242,8 +262,9 @@ CREATE TABLE registered_model_aliases (
 	alias VARCHAR(256) NOT NULL,
 	version INTEGER NOT NULL,
 	name VARCHAR(256) NOT NULL,
-	CONSTRAINT registered_model_alias_pk PRIMARY KEY (name, alias),
-	CONSTRAINT registered_model_alias_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON DELETE CASCADE ON UPDATE CASCADE
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	CONSTRAINT registered_model_alias_pk PRIMARY KEY (workspace, name, alias),
+	CONSTRAINT fk_registered_model_aliases_registered_models FOREIGN KEY(workspace, name) REFERENCES registered_models (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -251,8 +272,9 @@ CREATE TABLE registered_model_tags (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(5000),
 	name VARCHAR(256) NOT NULL,
-	CONSTRAINT registered_model_tag_pk PRIMARY KEY (key, name),
-	CONSTRAINT registered_model_tags_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	CONSTRAINT registered_model_tag_pk PRIMARY KEY (workspace, key, name),
+	CONSTRAINT fk_registered_model_tags_registered_models FOREIGN KEY(workspace, name) REFERENCES registered_models (workspace, name) ON UPDATE CASCADE
 )
 
 
@@ -440,8 +462,9 @@ CREATE TABLE model_version_tags (
 	value TEXT,
 	name VARCHAR(256) NOT NULL,
 	version INTEGER NOT NULL,
-	CONSTRAINT model_version_tag_pk PRIMARY KEY (key, name, version),
-	CONSTRAINT model_version_tags_name_version_fkey FOREIGN KEY(name, version) REFERENCES model_versions (name, version) ON UPDATE CASCADE
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	CONSTRAINT model_version_tag_pk PRIMARY KEY (workspace, key, name, version),
+	CONSTRAINT fk_model_version_tags_model_versions FOREIGN KEY(workspace, name, version) REFERENCES model_versions (workspace, name, version) ON UPDATE CASCADE
 )
 
 

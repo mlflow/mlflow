@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import {
   MetricViewType,
   AggregationType,
@@ -9,18 +9,19 @@ import {
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
+import type { CostDimension } from './useTraceCostDimension';
 
 export interface CostOverTimeDataPoint {
   name: string;
-  [modelName: string]: number | string;
+  [key: string]: number | string;
 }
 
 export interface UseTraceCostOverTimeChartDataResult {
   /** Processed chart data with all time buckets filled */
   chartData: CostOverTimeDataPoint[];
-  /** List of unique model names for creating chart lines */
-  modelNames: string[];
-  /** Total cost across all models in the time range */
+  /** List of unique dimension values for creating chart lines */
+  dimensionValues: string[];
+  /** Total cost across all dimension values in the time range */
   totalCost: number;
   /** Whether data is currently being fetched */
   isLoading: boolean;
@@ -31,87 +32,87 @@ export interface UseTraceCostOverTimeChartDataResult {
 }
 
 /**
- * Custom hook that fetches and processes cost over time chart data grouped by model name.
+ * Custom hook that fetches and processes cost over time chart data grouped by a dimension.
  * Encapsulates all data-fetching and processing logic for the cost over time chart.
  *
  * @returns Processed chart data, loading state, and error state
  */
-export function useTraceCostOverTimeChartData(): UseTraceCostOverTimeChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+export function useTraceCostOverTimeChartData(dimension: CostDimension = 'model'): UseTraceCostOverTimeChartDataResult {
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
 
-  // Fetch total cost grouped by model name and time
+  const dimensionKey = dimension === 'model' ? SpanDimensionKey.MODEL_NAME : SpanDimensionKey.MODEL_PROVIDER;
+
+  // Fetch total cost grouped by dimension and time
   const { data, isLoading, error } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
     metricName: SpanMetricKey.TOTAL_COST,
     aggregations: [{ aggregation_type: AggregationType.SUM }],
-    dimensions: [SpanDimensionKey.MODEL_NAME],
+    dimensions: [dimensionKey],
     timeIntervalSeconds,
   });
 
   const dataPoints = useMemo(() => data?.data_points || [], [data?.data_points]);
 
-  // Extract unique model names from the data
-  const modelNames = useMemo(() => {
+  // Extract unique dimension values from the data
+  const dimensionValues = useMemo(() => {
     const names = new Set<string>();
     for (const dp of dataPoints) {
-      const modelName = dp.dimensions?.[SpanDimensionKey.MODEL_NAME];
-      if (modelName) {
-        names.add(modelName);
+      const value = dp.dimensions?.[dimensionKey];
+      if (value) {
+        names.add(value);
       }
     }
-    // Sort model names for consistent ordering
     return Array.from(names).sort();
-  }, [dataPoints]);
+  }, [dataPoints, dimensionKey]);
 
-  // Create a map of timestamp -> modelName -> cost
-  const costByTimestampAndModel = useMemo(() => {
+  // Create a map of timestamp -> dimensionValue -> cost
+  const costByTimestampAndDimension = useMemo(() => {
     const map = new Map<number, Map<string, number>>();
 
     for (const dp of dataPoints) {
       const timeBucket = dp.dimensions?.[TIME_BUCKET_DIMENSION_KEY];
-      const modelName = dp.dimensions?.[SpanDimensionKey.MODEL_NAME];
+      const dimValue = dp.dimensions?.[dimensionKey];
       const cost = dp.values?.[AggregationType.SUM] || 0;
 
-      if (timeBucket && modelName) {
+      if (timeBucket && dimValue) {
         const timestampMs = new Date(timeBucket).getTime();
         if (!map.has(timestampMs)) {
           map.set(timestampMs, new Map());
         }
-        map.get(timestampMs)!.set(modelName, cost);
+        map.get(timestampMs)!.set(dimValue, cost);
       }
     }
 
     return map;
-  }, [dataPoints]);
+  }, [dataPoints, dimensionKey]);
 
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
     return timeBuckets.map((timestampMs) => {
-      const modelCosts = costByTimestampAndModel.get(timestampMs);
+      const costs = costByTimestampAndDimension.get(timestampMs);
       const dataPoint: CostOverTimeDataPoint = {
         name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       };
 
-      // Add cost for each model (0 if no data for that time bucket)
-      for (const modelName of modelNames) {
-        dataPoint[modelName] = modelCosts?.get(modelName) || 0;
+      for (const dimValue of dimensionValues) {
+        dataPoint[dimValue] = costs?.get(dimValue) || 0;
       }
 
       return dataPoint;
     });
-  }, [timeBuckets, costByTimestampAndModel, modelNames, timeIntervalSeconds]);
+  }, [timeBuckets, costByTimestampAndDimension, dimensionValues, timeIntervalSeconds]);
 
-  // Calculate total cost across all models
+  // Calculate total cost across all dimension values
   const totalCost = useMemo(() => {
     return dataPoints.reduce((sum, dp) => sum + (dp.values?.[AggregationType.SUM] || 0), 0);
   }, [dataPoints]);
 
   return {
     chartData,
-    modelNames,
+    dimensionValues,
     totalCost,
     isLoading,
     error,

@@ -9,13 +9,17 @@ export const ErrorCodes = {
   RESOURCE_CONFLICT: 'RESOURCE_CONFLICT',
 };
 
-export const Version = '3.9.1.dev0';
+export const Version = '3.10.1.dev0';
 
 const DOCS_VERSION = 'latest';
 
 const DOCS_ROOT = `https://www.mlflow.org/docs/${DOCS_VERSION}`;
 
 export const HomePageDocsUrl = `${DOCS_ROOT}/index.html`;
+
+export const GenAIDocsUrl = `${DOCS_ROOT}/genai/index.html`;
+
+export const MLDocsUrl = `${DOCS_ROOT}/ml/index.html`;
 
 export const ModelRegistryDocUrl = `${DOCS_ROOT}/model-registry.html`;
 

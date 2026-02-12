@@ -1,5 +1,7 @@
+import shutil
 import time
 import uuid
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -14,6 +16,7 @@ from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
     _MLFLOW_GO_STORE_TESTING,
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_URI,
 )
 from mlflow.exceptions import MlflowException
@@ -31,6 +34,11 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlWebhook,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.model_registry.sqlalchemy_workspace_store import (
+    WorkspaceAwareSqlAlchemyStore,
+)
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 
@@ -39,14 +47,32 @@ pytestmark = pytest.mark.notrackingurimock
 GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
 
 
+@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+def workspaces_enabled(request, monkeypatch, disable_workspace_mode_by_default):
+    """
+    Run every test in this module with workspaces disabled and enabled to cover both code paths.
+    """
+    enabled = request.param
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true" if enabled else "false")
+    if enabled:
+        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+            yield enabled
+    else:
+        yield enabled
+
+
 @pytest.fixture
-def store(db_uri: str):
+def store(tmp_path: Path, cached_db: Path, workspaces_enabled):
+    store_cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
     if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = SqlAlchemyStore(db_uri_env)
+        s = store_cls(db_uri_env)
         yield s
         _cleanup_database(s)
     else:
-        s = SqlAlchemyStore(db_uri)
+        db_path = tmp_path / "mlflow.db"
+        shutil.copy(cached_db, db_path)
+        db_uri = f"sqlite:///{db_path}"
+        s = store_cls(db_uri)
         yield s
 
     # Dispose the engine to close all pooled connections
@@ -1714,7 +1740,10 @@ def test_delete_model_version_deletes_alias(store):
     store.delete_model_version(model_name, 2)
     model = store.get_registered_model(model_name)
     assert model.aliases == {}
-    with pytest.raises(MlflowException, match=r"Registered model alias test_alias not found."):
+    with pytest.raises(
+        MlflowException,
+        match=r"Registered model alias test_alias not found.",
+    ):
         store.get_model_version_by_alias(model_name, "test_alias")
 
 
@@ -1724,7 +1753,7 @@ def test_delete_model_deletes_alias(store):
     store.delete_registered_model(model_name)
     with pytest.raises(
         MlflowException,
-        match=r"Registered model alias test_alias not found.",
+        match=rf"Registered Model with name={model_name} not found",
     ):
         store.get_model_version_by_alias(model_name, "test_alias")
 

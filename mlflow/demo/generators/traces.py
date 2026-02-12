@@ -124,6 +124,9 @@ class TracesDemoGenerator(BaseDemoGenerator):
     def generate(self) -> DemoResult:
         self._restore_experiment_if_deleted()
         experiment = mlflow.set_experiment(DEMO_EXPERIMENT_NAME)
+        mlflow.MlflowClient().set_experiment_tag(
+            experiment.experiment_id, "mlflow.experimentKind", "genai_development"
+        )
 
         v1_trace_ids = self._generate_trace_set("v1")
         v2_trace_ids = self._generate_trace_set("v2")
@@ -133,7 +136,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         return DemoResult(
             feature=self.name,
             entity_ids=all_trace_ids,
-            navigation_url=f"#/experiments/{experiment.experiment_id}/traces",
+            navigation_url=f"#/experiments/{experiment.experiment_id}",
         )
 
     def _generate_trace_set(self, version: Literal["v1", "v2"]) -> list[str]:
