@@ -15,6 +15,7 @@ import { useGetExperimentPageActiveTabByRoute } from '../../experiment-tracking/
 import { ExperimentPageTabName } from '../../experiment-tracking/constants';
 import { FormattedMessage } from 'react-intl';
 import { isTracesRelatedTab } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/utils';
+import { Fragment } from 'react';
 
 // pass a dummy function to avoid highlighting the experiment back link
 const isExperimentsActive = () => false;
@@ -62,7 +63,7 @@ export const MlflowSidebarExperimentItems = ({
         {loading ? <Spinner /> : <Typography.Text ellipsis>{experiment?.name}</Typography.Text>}
       </MlflowSidebarLink>
       {Object.entries(config).map(([sectionKey, items]) => (
-        <>
+        <Fragment key={`${sectionKey}-section`}>
           {sectionKey !== 'top-level' && collapsed ? (
             <div
               css={{
@@ -108,7 +109,7 @@ export const MlflowSidebarExperimentItems = ({
               </MlflowSidebarLink>
             );
           })}
-        </>
+        </Fragment>
       ))}
       <div
         css={{
