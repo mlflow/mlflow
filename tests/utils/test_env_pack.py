@@ -23,6 +23,7 @@ def mock_dbr_version():
             is_client_image=True,
             major=2,
             minor=0,
+            is_gpu_image=False,
         ),
     ):
         yield
@@ -184,6 +185,7 @@ def test_pack_env_for_databricks_model_serving_unsupported_version():
             is_client_image=False,  # Not a client image
             major=13,
             minor=0,
+            is_gpu_image=False,
         ),
     ):
         with pytest.raises(ValueError, match="Serverless environment is required"):
