@@ -340,7 +340,6 @@ export function MlflowSidebar({
                   borderRadius: theme.borders.borderRadiusMd - 2,
                   justifyContent: showSidebar ? 'flex-start' : 'center',
                   cursor: 'pointer',
-                  background: theme.colors.backgroundSecondary,
                   color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
                   '&:hover': {
                     color: theme.colors.actionLinkHover,
