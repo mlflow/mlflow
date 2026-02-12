@@ -75,23 +75,13 @@ jobs:
             echo "Error: Generated title is empty"
             exit 1
           fi
-          if [ "$IS_PR" = "true" ]; then
-            cmd="pr"
-          else
-            cmd="issue"
-          fi
-          gh "$cmd" edit "$NUMBER" --repo "$REPO" --title "$NEW_TITLE"
+          gh issue edit "$NUMBER" --repo "$REPO" --title "$NEW_TITLE"
 
       - name: Post failure comment
         if: failure() && github.event_name != 'pull_request'
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          if [ "$IS_PR" = "true" ]; then
-            cmd="pr"
-          else
-            cmd="issue"
-          fi
-          gh "$cmd" comment "$NUMBER" --repo "$REPO" --body \
+          gh issue comment "$NUMBER" --repo "$REPO" --body \
             "> [!WARNING]
             > Failed to generate the title. See [workflow run]($RUN_URL) for details."
