@@ -1,6 +1,6 @@
-# Generate PR title using AI
+# Generate PR or issue title using AI
 
-name: Title PR
+name: Title
 
 on:
   issue_comment:
@@ -20,22 +20,22 @@ jobs:
     timeout-minutes: 5
     # Trigger conditions:
     # - pull_request: skip fork PRs (no access to secrets)
-    # - issue_comment: only maintainers can trigger via `/title`
+    # - issue_comment: only maintainers can trigger via `/title` on PRs or issues
     if: >
       (
         github.event_name == 'pull_request'
         && github.event.pull_request.head.repo.full_name == github.repository
       )
       || (
-        github.event.issue.pull_request
-        && startsWith(github.event.comment.body, '/title')
+        startsWith(github.event.comment.body, '/title')
         && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
       )
     permissions:
       pull-requests: write
+      issues: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+      NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
       REPO: ${{ github.repository }}
       COMMENT_ID: ${{ github.event.comment.id }}
     steps:
@@ -56,11 +56,17 @@ jobs:
         id: generate
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          IS_PR: ${{ github.event_name == 'pull_request' || github.event.issue.pull_request != null }}
         run: |
-          new_title=$(python .github/workflows/title.py --repo "$REPO" --pr-number "$PR_NUMBER")
+          if [ "$IS_PR" = "true" ]; then
+            type_flag="pr"
+          else
+            type_flag="issue"
+          fi
+          new_title=$(python .github/workflows/title.py --repo "$REPO" --number "$NUMBER" --type "$type_flag")
           echo "new_title=$new_title" >> "$GITHUB_OUTPUT"
 
-      - name: Update PR title
+      - name: Update title
         if: github.event_name != 'pull_request'
         env:
           NEW_TITLE: ${{ steps.generate.outputs.new_title }}
@@ -69,13 +75,13 @@ jobs:
             echo "Error: Generated title is empty"
             exit 1
           fi
-          gh pr edit "$PR_NUMBER" --repo "$REPO" --title "$NEW_TITLE"
+          gh issue edit "$NUMBER" --repo "$REPO" --title "$NEW_TITLE"
 
       - name: Post failure comment
         if: failure() && github.event_name != 'pull_request'
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh pr comment "$PR_NUMBER" --repo "$REPO" --body \
+          gh issue comment "$NUMBER" --repo "$REPO" --body \
             "> [!WARNING]
-            > Failed to generate the PR title. See [workflow run]($RUN_URL) for details."
+            > Failed to generate the title. See [workflow run]($RUN_URL) for details."

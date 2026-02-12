@@ -1475,6 +1475,35 @@ def test_get_gateway_endpoint_config_nonexistent_endpoint_raises(store: SqlAlche
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
+def test_get_gateway_endpoint_config_experiment_id_is_string(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="exp-id-test-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="exp-id-test-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="exp-id-test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+    )
+
+    config = get_endpoint_config(
+        endpoint_name=endpoint.name,
+        store=store,
+    )
+
+    # Verify experiment_id is a string (not an integer from SQLAlchemy)
+    assert config.experiment_id is not None
+    assert isinstance(config.experiment_id, str)
+
+
 # =============================================================================
 # Endpoint Tag Operations
 # =============================================================================

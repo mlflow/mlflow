@@ -215,6 +215,8 @@ export enum SpanDimensionKey {
   SPAN_STATUS = 'span_status',
   /** Model name dimension */
   MODEL_NAME = 'span_model_name',
+  /** Model provider dimension */
+  MODEL_PROVIDER = 'span_model_provider',
 }
 
 /**

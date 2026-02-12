@@ -1,7 +1,6 @@
 import { ArrowLeftIcon, BeakerIcon, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useGetExperimentQuery } from '../../experiment-tracking/hooks/useExperimentQuery';
-import type { Location } from '../utils/RoutingUtils';
-import { matchPath } from '../utils/RoutingUtils';
+import { useLocation } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
@@ -15,12 +14,11 @@ import { WorkflowType } from '../contexts/WorkflowTypeContext';
 import { useGetExperimentPageActiveTabByRoute } from '../../experiment-tracking/components/experiment-page/hooks/useGetExperimentPageActiveTabByRoute';
 import { ExperimentPageTabName } from '../../experiment-tracking/constants';
 import { FormattedMessage } from 'react-intl';
+import { isTracesRelatedTab } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/utils';
+import { Fragment } from 'react';
 
-const isExperimentsActive = (location: Location) =>
-  Boolean(
-    matchPath({ path: '/experiments', end: true }, location.pathname) ||
-    matchPath('/compare-experiments/*', location.pathname),
-  );
+// pass a dummy function to avoid highlighting the experiment back link
+const isExperimentsActive = () => false;
 
 export const MlflowSidebarExperimentItems = ({
   collapsed,
@@ -45,17 +43,10 @@ export const MlflowSidebarExperimentItems = ({
     hasTrainingRuns: (trainingRuns?.length ?? 0) > 0,
   });
   const { tabName: activeTabByRoute } = useGetExperimentPageActiveTabByRoute();
+  const { search } = useLocation();
 
   return (
     <>
-      <div
-        css={{
-          borderTop: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
-          width: '100%',
-          paddingBottom: theme.spacing.sm,
-          marginTop: theme.spacing.xs,
-        }}
-      />
       <MlflowSidebarLink
         css={{ border: `1px solid ${theme.colors.actionDefaultBorderDefault}`, marginBottom: theme.spacing.sm }}
         to={ExperimentTrackingRoutes.experimentsObservatoryRoute}
@@ -72,7 +63,7 @@ export const MlflowSidebarExperimentItems = ({
         {loading ? <Spinner /> : <Typography.Text ellipsis>{experiment?.name}</Typography.Text>}
       </MlflowSidebarLink>
       {Object.entries(config).map(([sectionKey, items]) => (
-        <>
+        <Fragment key={`${sectionKey}-section`}>
           {sectionKey !== 'top-level' && collapsed ? (
             <div
               css={{
@@ -99,11 +90,16 @@ export const MlflowSidebarExperimentItems = ({
               }
               return activeTabByRoute === item.tabName;
             };
+            const preserveQueryParams =
+              activeTabByRoute && isTracesRelatedTab(activeTabByRoute) && isTracesRelatedTab(item.tabName);
             return (
               <MlflowSidebarLink
                 css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
                 key={item.componentId}
-                to={ExperimentTrackingRoutes.getExperimentPageTabRoute(experimentId ?? '', item.tabName)}
+                to={{
+                  pathname: ExperimentTrackingRoutes.getExperimentPageTabRoute(experimentId ?? '', item.tabName),
+                  search: preserveQueryParams ? search : undefined,
+                }}
                 componentId={item.componentId}
                 isActive={isActive}
                 collapsed={collapsed}
@@ -113,14 +109,14 @@ export const MlflowSidebarExperimentItems = ({
               </MlflowSidebarLink>
             );
           })}
-        </>
+        </Fragment>
       ))}
       <div
         css={{
           borderBottom: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
           width: '100%',
           paddingTop: theme.spacing.sm,
-          marginBottom: theme.spacing.xs,
+          marginBottom: theme.spacing.sm,
         }}
       />
     </>
