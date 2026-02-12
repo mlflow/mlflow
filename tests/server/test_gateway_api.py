@@ -2123,12 +2123,20 @@ async def test_gateway_streaming_creates_trace(store: SqlAlchemyStore, handler):
     assert gateway_span is not None
     assert gateway_span.attributes.get("endpoint_name") == endpoint_name
 
-    # Verify that streaming chunks are captured in the span outputs
-    assert gateway_span.outputs is not None
-    assert len(gateway_span.outputs) > 0
-    first_output = gateway_span.outputs[0]
-    assert isinstance(first_output, dict), "Streaming output should be dict, not string repr"
-    assert "choices" in first_output, "Streaming output should contain chat completion data"
+    # Verify that streaming output is aggregated into a ChatCompletion-like response
+    output = gateway_span.outputs
+    assert output is not None
+    assert output["object"] == "chat.completion"
+    assert output["id"] == "chatcmpl-123"
+    assert output["model"] == "gpt-4"
+    assert len(output["choices"]) == 1
+    assert output["choices"][0]["index"] == 0
+    assert output["choices"][0]["message"]["role"] == "assistant"
+    assert output["choices"][0]["message"]["content"] == "Hello!"
+    assert output["choices"][0]["finish_reason"] == "stop"
+    assert output["usage"]["prompt_tokens"] == 10
+    assert output["usage"]["completion_tokens"] == 5
+    assert output["usage"]["total_tokens"] == 15
 
 
 @pytest.mark.asyncio

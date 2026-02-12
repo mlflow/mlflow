@@ -10,13 +10,16 @@ jest.mock('../../common/utils/RoutingUtils', () => ({
   useNavigate: () => mockNavigate,
 }));
 
+const mockFetchAPI = jest.fn<any>();
 jest.mock('../../common/utils/FetchUtils', () => ({
   getAjaxUrl: (url: string) => `/${url}`,
+  fetchAPI: (...args: unknown[]) => mockFetchAPI(...args),
 }));
 
 describe('DemoBanner', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
+    mockFetchAPI.mockClear();
     localStorage.clear();
     jest.restoreAllMocks();
   });
@@ -48,10 +51,7 @@ describe('DemoBanner', () => {
   });
 
   it('navigates to returned URL on successful demo generation', async () => {
-    // @ts-expect-error -- partial Response mock
-    jest.spyOn(global, 'fetch').mockResolvedValueOnce({
-      json: () => Promise.resolve({ navigation_url: '/experiments/123/traces' }),
-    });
+    mockFetchAPI.mockResolvedValueOnce({ navigation_url: '/experiments/123/traces' });
 
     renderWithDesignSystem(<DemoBanner />);
 
@@ -63,7 +63,7 @@ describe('DemoBanner', () => {
   });
 
   it('does not navigate on failed demo generation', async () => {
-    jest.spyOn(global, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+    mockFetchAPI.mockRejectedValueOnce(new Error('Network error'));
 
     renderWithDesignSystem(<DemoBanner />);
 
