@@ -5,19 +5,9 @@ sidebar_position: 5
 
 import { APILink } from "@site/src/components/APILink";
 
-# Pickle-Free Model Saving
+# Pickle-Free Model format
 
 Saving models with Python's `pickle` or `cloudpickle` rely on Python's object serialization mechanism, which can execute arbitrary code during deserialization. MLflow supports safer **pickle-free** saving formats for several model flavors. Prefer these formats when possible.
-
-## Environment Variable: `MLFLOW_ALLOW_PICKLE_DESERIALIZATION`
-
-You can disallow MLflow model loading with `pickle` or `cloudpickle` globally by setting the environment variable as follows:
-
-```bash
-export MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false
-```
-
-When set to `false`, loading a model that was saved with `pickle` or `cloudpickle` will raise an error unless you use a pickle-free saving option when logging the model. The default is `true` for backward compatibility.
 
 ## Pickle-free format for Scikit-learn model
 
@@ -135,13 +125,25 @@ LangChain model supports saving as **Models-From-Code** artifacts, which avoids 
 
 Custom Python model supports saving as **Models-From-Code** artifacts, which avoids pickle entirely. For details and examples, see [Models From Code](/ml/model/models-from-code).
 
+
+## Global configuration to force MLflow pickle-free model loading
+
+You can disallow MLflow model loading with `pickle` or `cloudpickle` globally by setting the environment variable as follows:
+
+```bash
+export MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false
+```
+
+When set to `false`, loading a model that was saved with `pickle` or `cloudpickle` will raise an error unless you use a pickle-free saving option when logging the model. The default is `true` for backward compatibility.
+
+
 ## Summary
 
-| Flavor        | Pickle-free option                         | Notes |
-|---------------|--------------------------------------------|-------|
-| Scikit-learn  | `serialization_format="skops"`             | Use `skops_trusted_types` when needed. |
-| PyTorch       | `export_model=True`                        | Requires `input_example`, torch >= 2.4; not for ScriptModule. |
-| DSPy          | `use_dspy_model_save=True`                 | Requires dspy >= 3.1.0. |
-| LightGBM      | `serialization_format="skops"`             | For sklearn API only; use `skops_trusted_types` when needed. |
-| LangChain     | Models From Code (script path + `set_model`) | Pickle saving emits warnings. |
-| mlflow.pyfunc | Models From Code (script path + `set_model`) | Pickle saving emits warnings. |
+| Flavor | Pickle-free option | Notes |
+|--------|--------------------|-------|
+| Scikit-learn | `serialization_format="skops"` | Use `skops_trusted_types` when needed. |
+| PyTorch | `export_model=True` | Requires `input_example`, torch >= 2.4; not for ScriptModule. |
+| DSPy | `use_dspy_model_save=True` | Requires dspy >= 3.1.0. |
+| LightGBM | `serialization_format="skops"` | Only for lightGBM model of sklearn type |
+| LangChain | Models From Code | Pickle saving emits warnings. |
+| Custom Python model | Models From Code | Pickle saving emits warnings. |
