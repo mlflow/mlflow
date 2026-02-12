@@ -215,5 +215,7 @@ def test_responses_to_cc_fallback_to_str_on_non_serializable():
     class NonSerializable:
         pass
 
-    result = responses_to_cc({"type": "function_call_output", "call_id": "c", "output": [NonSerializable()]})
+    result = responses_to_cc(
+        {"type": "function_call_output", "call_id": "c", "output": [NonSerializable()]}
+    )
     assert isinstance(result[0]["content"], str)
