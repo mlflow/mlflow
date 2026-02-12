@@ -87,9 +87,7 @@ _MODEL_PRICING: dict[str, tuple[float, float]] = {
 }
 
 
-def _compute_cost(
-    model: str, prompt_tokens: int, completion_tokens: int
-) -> dict[str, float]:
+def _compute_cost(model: str, prompt_tokens: int, completion_tokens: int) -> dict[str, float]:
     """Compute synthetic cost using approximate per-model pricing."""
     input_rate, output_rate = _MODEL_PRICING[model]
     input_cost = prompt_tokens * input_rate / 1_000_000
@@ -292,9 +290,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
                 SpanAttributeKey.MODEL: model,
-                SpanAttributeKey.LLM_COST: _compute_cost(
-                    model, prompt_tokens, completion_tokens
-                ),
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -362,9 +358,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
                 SpanAttributeKey.MODEL: model,
-                SpanAttributeKey.LLM_COST: _compute_cost(
-                    model, prompt_tokens, completion_tokens
-                ),
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -461,9 +455,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
                 SpanAttributeKey.MODEL: model,
-                SpanAttributeKey.LLM_COST: _compute_cost(
-                    model, prompt_tokens, completion_tokens
-                ),
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -645,9 +637,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
                 SpanAttributeKey.MODEL: model,
-                SpanAttributeKey.LLM_COST: _compute_cost(
-                    model, prompt_tokens, completion_tokens
-                ),
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
