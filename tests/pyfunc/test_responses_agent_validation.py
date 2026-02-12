@@ -6,6 +6,7 @@ from mlflow.types.responses import (
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
     responses_to_cc,
+    to_chat_completions_input,
 )
 from mlflow.types.responses_helpers import FunctionCallOutput, Message
 
@@ -219,3 +220,58 @@ def test_responses_to_cc_fallback_to_str_on_non_serializable():
         {"type": "function_call_output", "call_id": "c", "output": [NonSerializable()]}
     )
     assert isinstance(result[0]["content"], str)
+
+
+def test_function_call_output_with_openai_agents_sdk_format():
+    """Test real-world output format from OpenAI Agents SDK tool calls."""
+    raw_item = {
+        "call_id": "toolu_bdrk_017fvUyTS6oaCDYg6GVL3X7j",
+        "output": [
+            {
+                "type": "input_text",
+                "text": '{"content":{"queryAttachments":[]},"status":"COMPLETED"}',
+            }
+        ],
+        "type": "function_call_output",
+    }
+    # Validation should pass
+    item = FunctionCallOutput(**raw_item)
+    assert isinstance(item.output, list)
+
+    # Stream event should pass
+    event = ResponsesAgentStreamEvent(type="response.output_item.done", item=raw_item)
+    assert event.type == "response.output_item.done"
+
+    # Conversion to ChatCompletion should produce valid string content
+    result = responses_to_cc(raw_item)
+    assert result[0]["role"] == "tool"
+    assert isinstance(result[0]["content"], str)
+    assert "input_text" in result[0]["content"]
+
+
+def test_function_call_output_round_trip():
+    """Test round-trip: Responses API items -> ChatCompletion -> back works with list output."""
+    responses_input = [
+        {"role": "user", "content": "What's the weather?", "type": "message"},
+        {
+            "type": "function_call",
+            "id": "fc_1",
+            "call_id": "call_123",
+            "name": "get_weather",
+            "arguments": '{"city": "Seattle"}',
+        },
+        {
+            "type": "function_call_output",
+            "call_id": "call_123",
+            "output": [{"type": "input_text", "text": "Sunny, 72°F"}],
+        },
+    ]
+    # Convert to ChatCompletion format
+    cc_messages = to_chat_completions_input(responses_input)
+
+    assert len(cc_messages) == 3
+    assert cc_messages[0]["role"] == "user"
+    assert cc_messages[1]["role"] == "assistant"
+    assert cc_messages[2]["role"] == "tool"
+    assert isinstance(cc_messages[2]["content"], str)
+    assert cc_messages[2]["tool_call_id"] == "call_123"
