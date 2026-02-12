@@ -24,7 +24,7 @@ from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_versi
 
 def _get_mlflow_install_specifier():
     if Version(VERSION).is_devrelease:
-        return "git+https://github.com/mlflow/mlflow.git"
+        return "https://github.com/mlflow/mlflow/archive/refs/heads/master.zip"
     return f"mlflow=={VERSION}"
 
 

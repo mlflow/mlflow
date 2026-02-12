@@ -191,7 +191,7 @@ def _pip_mlflow_install_step(dockerfile_context_dir, mlflow_home):
     else:
         # Dev version is not available on PyPI, install from GitHub instead
         if Version(VERSION).is_devrelease:
-            return "# Install MLflow\nRUN pip install git+https://github.com/mlflow/mlflow.git"
+            return "# Install MLflow\nRUN pip install https://github.com/mlflow/mlflow/archive/refs/heads/master.zip"
         return f"# Install MLflow\nRUN pip install mlflow=={VERSION}"
 
 
