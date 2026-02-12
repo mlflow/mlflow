@@ -30,4 +30,15 @@ def upgrade():
 
 
 def downgrade():
-    pass
+    """
+    Remove the unique constraint from the input_uuid column.
+    Note: This downgrade may fail if there are input_tags referencing inputs
+    via the foreign key constraint, as the foreign key requires the referenced
+    column to be unique.
+    """
+    # Use batch mode for SQLite compatibility
+    with op.batch_alter_table(SqlInput.__tablename__, schema=None) as batch_op:
+        batch_op.drop_constraint(
+            f"uq_{SqlInput.__tablename__}_input_uuid",
+            type_="unique",
+        )
