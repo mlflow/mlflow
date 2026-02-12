@@ -203,6 +203,7 @@ If automatic cost tracking is not available for your model or you want to overri
 ```python
 import mlflow
 
+
 @mlflow.trace
 def my_llm_call():
     # Get the current span
@@ -211,18 +212,24 @@ def my_llm_call():
     # Your LLM call logic here...
 
     # Manually set token usage
-    span.set_attribute("mlflow.chat.tokenUsage", {
-        "input_tokens": 100,
-        "output_tokens": 50,
-        "total_tokens": 150,
-    })
+    span.set_attribute(
+        "mlflow.chat.tokenUsage",
+        {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        },
+    )
 
     # Manually set cost (in USD)
-    span.set_attribute("mlflow.llm.cost", {
-        "input_cost": 0.0001,
-        "output_cost": 0.0002,
-        "total_cost": 0.0003,
-    })
+    span.set_attribute(
+        "mlflow.llm.cost",
+        {
+            "input_cost": 0.0001,
+            "output_cost": 0.0002,
+            "total_cost": 0.0003,
+        },
+    )
 
     return "response"
 ```
