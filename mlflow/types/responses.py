@@ -339,10 +339,17 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
     elif msg_type == "reasoning":
         return [{"role": "assistant", "content": json.dumps(message["summary"])}]
     elif msg_type == "function_call_output":
+        output = message["output"]
+        # Convert list output to JSON string for ChatCompletion compatibility
+        if isinstance(output, list):
+            try:
+                output = json.dumps(output)
+            except (TypeError, ValueError):
+                output = str(output)
         return [
             {
                 "role": "tool",
-                "content": message["output"],
+                "content": output,
                 "tool_call_id": message["call_id"],
             }
         ]
