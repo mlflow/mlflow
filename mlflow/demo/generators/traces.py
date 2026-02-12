@@ -119,7 +119,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.TRACES
-    version = 2
+    version = 1
 
     def generate(self) -> DemoResult:
         self._restore_experiment_if_deleted()

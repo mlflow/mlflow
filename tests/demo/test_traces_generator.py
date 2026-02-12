@@ -20,7 +20,7 @@ def traces_generator():
 def test_generator_attributes():
     generator = TracesDemoGenerator()
     assert generator.name == DemoFeature.TRACES
-    assert generator.version == 2
+    assert generator.version == 1
 
 
 def test_data_exists_false_when_no_experiment():
