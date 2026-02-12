@@ -432,137 +432,67 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog, mock_lite
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
 
-    if _HAS_NATIVE_TOOL_CALLS:
-        # CrewAI >= 1.9.0: tool execution is handled internally by the LLM class,
-        # so we get 6 spans (no standalone tool execution span).
-        assert len(traces[0].data.spans) == 6
-        # Crew
-        span_0 = traces[0].data.spans[0]
-        assert span_0.name == "Crew.kickoff"
-        assert span_0.span_type == SpanType.CHAIN
-        assert span_0.parent_id is None
-        assert span_0.inputs == {}
-        assert span_0.outputs is not None
-        assert _LLM_ANSWER in span_0.outputs["raw"]
-        # Task
-        span_1 = traces[0].data.spans[1]
-        assert span_1.name == "Task.execute_sync"
-        assert span_1.span_type == SpanType.CHAIN
-        assert span_1.parent_id is span_0.span_id
-        assert len(span_1.inputs["tools"]) == 1
-        assert span_1.inputs["tools"][0]["name"] == "TestTool"
-        assert span_1.outputs is not None
-        # Agent
-        span_2 = traces[0].data.spans[2]
-        assert span_2.name == "City Selection Expert"
-        assert span_2.span_type == SpanType.AGENT
-        assert span_2.parent_id is span_1.span_id
-        assert len(span_2.inputs["tools"]) == 1
-        assert span_2.inputs["tools"][0]["name"] == "TestTool"
-        assert span_2.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-        # LLM - tool calling
-        span_3 = traces[0].data.spans[3]
-        assert span_3.name == "openai/gpt-4o-mini"
-        assert span_3.span_type == SpanType.LLM
-        assert span_3.parent_id is span_2.span_id
-        assert span_3.inputs["messages"] is not None
-        assert span_3.model_name == "openai/gpt-4o-mini"
-        assert span_3.llm_cost == {
-            "input_cost": 9.0,
-            "output_cost": 24.0,
-            "total_cost": 33.0,
-        }
-        # LLM - return answer
-        span_4 = traces[0].data.spans[4]
-        assert span_4.name == "openai/gpt-4o-mini"
-        assert span_4.span_type == SpanType.LLM
-        assert span_4.parent_id is span_2.span_id
-        assert span_4.inputs["messages"] is not None
-        assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-        assert span_4.model_name == "openai/gpt-4o-mini"
-        assert span_4.llm_cost == {
-            "input_cost": 9.0,
-            "output_cost": 24.0,
-            "total_cost": 33.0,
-        }
-        # Create Long Term Memory
-        span_5 = traces[0].data.spans[5]
-        assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
-        assert span_5.span_type == SpanType.MEMORY
-        assert span_5.parent_id is span_2.span_id
-    else:
-        # CrewAI < 1.9.0: text-based "Action:" tool calling with standalone tool span.
-        assert len(traces[0].data.spans) == 7
-        # Crew
-        span_0 = traces[0].data.spans[0]
-        assert span_0.name == "Crew.kickoff"
-        assert span_0.span_type == SpanType.CHAIN
-        assert span_0.parent_id is None
-        assert span_0.inputs == {}
-        assert span_0.outputs == _CREW_OUTPUT
-        # Task
-        span_1 = traces[0].data.spans[1]
-        assert span_1.name == "Task.execute_sync"
-        assert span_1.span_type == SpanType.CHAIN
-        assert span_1.parent_id is span_0.span_id
-        assert len(span_1.inputs["tools"]) == 1
-        assert span_1.inputs["tools"][0]["name"] == "TestTool"
-        assert span_1.outputs is not None
-        # Agent
-        span_2 = traces[0].data.spans[2]
-        assert span_2.name == "City Selection Expert"
-        assert span_2.span_type == SpanType.AGENT
-        assert span_2.parent_id is span_1.span_id
-        assert len(span_2.inputs["tools"]) == 1
-        assert span_2.inputs["tools"][0]["name"] == "TestTool"
-        assert span_2.outputs == _LLM_ANSWER
-        # LLM - tool calling
-        span_3 = traces[0].data.spans[3]
-        assert span_3.name == "openai/gpt-4o-mini"
-        assert span_3.span_type == SpanType.LLM
-        assert span_3.parent_id is span_2.span_id
-        assert span_3.inputs["messages"] is not None
-        assert "Action: TestTool" in span_3.outputs
-        assert span_3.model_name == "openai/gpt-4o-mini"
-        assert span_3.llm_cost == {
-            "input_cost": 9.0,
-            "output_cost": 24.0,
-            "total_cost": 33.0,
-        }
-        # Tool trace
-        span_4 = traces[0].data.spans[4]
-        assert span_4.name == "TestTool"
-        assert span_4.span_type == SpanType.TOOL
-        assert span_4.parent_id is span_2.span_id
-        assert span_4.inputs["agent_action"] is not None
-        assert span_4.inputs["tools"] is not None
-        assert "Tool Answer" in span_4.outputs["result"]
-        # LLM - return answer
-        span_5 = traces[0].data.spans[5]
-        assert span_5.name == "openai/gpt-4o-mini"
-        assert span_5.span_type == SpanType.LLM
-        assert span_5.parent_id is span_2.span_id
-        assert span_5.inputs["messages"] is not None
-        assert span_5.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
-        assert span_5.model_name == "openai/gpt-4o-mini"
-        assert span_5.llm_cost == {
-            "input_cost": 9.0,
-            "output_cost": 24.0,
-            "total_cost": 33.0,
-        }
-        # Create Long Term Memory
-        span_6 = traces[0].data.spans[6]
-        assert span_6.name == "CrewAgentExecutor._create_long_term_memory"
-        assert span_6.span_type == SpanType.MEMORY
-        assert span_6.parent_id is span_2.span_id
-        assert span_6.inputs == {
-            "output": {
-                "output": _LLM_ANSWER,
-                "text": f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}",
-                "thought": "",
-            }
-        }
-        assert span_6.outputs is None
+    assert len(traces[0].data.spans) == 7
+    # Crew
+    span_0 = traces[0].data.spans[0]
+    assert span_0.name == "Crew.kickoff"
+    assert span_0.span_type == SpanType.CHAIN
+    assert span_0.parent_id is None
+    assert span_0.inputs == {}
+    assert span_0.outputs is not None
+    assert _LLM_ANSWER in span_0.outputs["raw"]
+    # Task
+    span_1 = traces[0].data.spans[1]
+    assert span_1.name == "Task.execute_sync"
+    assert span_1.span_type == SpanType.CHAIN
+    assert span_1.parent_id is span_0.span_id
+    assert len(span_1.inputs["tools"]) == 1
+    assert span_1.inputs["tools"][0]["name"] == "TestTool"
+    assert span_1.outputs is not None
+    # Agent
+    span_2 = traces[0].data.spans[2]
+    assert span_2.name == "City Selection Expert"
+    assert span_2.span_type == SpanType.AGENT
+    assert span_2.parent_id is span_1.span_id
+    assert len(span_2.inputs["tools"]) == 1
+    assert span_2.inputs["tools"][0]["name"] == "TestTool"
+    assert _LLM_ANSWER in span_2.outputs
+    # LLM - tool calling
+    span_3 = traces[0].data.spans[3]
+    assert span_3.name == "openai/gpt-4o-mini"
+    assert span_3.span_type == SpanType.LLM
+    assert span_3.parent_id is span_2.span_id
+    assert span_3.inputs["messages"] is not None
+    assert span_3.model_name == "openai/gpt-4o-mini"
+    assert span_3.llm_cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
+    # Tool trace
+    span_4 = traces[0].data.spans[4]
+    assert span_4.name == "TestTool"
+    assert span_4.span_type == SpanType.TOOL
+    assert span_4.parent_id is span_2.span_id
+    assert "Tool Answer" in span_4.outputs["result"]
+    # LLM - return answer
+    span_5 = traces[0].data.spans[5]
+    assert span_5.name == "openai/gpt-4o-mini"
+    assert span_5.span_type == SpanType.LLM
+    assert span_5.parent_id is span_2.span_id
+    assert span_5.inputs["messages"] is not None
+    assert span_5.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
+    assert span_5.model_name == "openai/gpt-4o-mini"
+    assert span_5.llm_cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
+    # Create Long Term Memory
+    span_6 = traces[0].data.spans[6]
+    assert span_6.name == "CrewAgentExecutor._create_long_term_memory"
+    assert span_6.span_type == SpanType.MEMORY
+    assert span_6.parent_id is span_2.span_id
 
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 18,
