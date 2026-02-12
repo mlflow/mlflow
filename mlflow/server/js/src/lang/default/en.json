@@ -5623,6 +5623,10 @@
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
   },
+  "cYlLx9": {
+    "defaultMessage": "Usage",
+    "description": "Sidebar link for gateway usage"
+  },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
     "description": "Tooltip for the refresh evaluation runs button in the evaluation runs table controls"
