@@ -368,7 +368,6 @@ def test_output_to_responses_items_stream_langchain_multiple_tool_calls_unique_i
 
 
 def test_output_to_responses_items_stream_langchain_non_string_tool_content():
-    """ToolMessage content can be non-string (e.g. MCP content blocks). Verify JSON serialization."""
     mcp_content_blocks = [{"type": "text", "text": "result from mcp tool"}]
 
     messages = [
