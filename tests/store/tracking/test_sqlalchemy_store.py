@@ -4237,10 +4237,9 @@ def test_log_inputs_with_duplicates_in_single_request(store: SqlAlchemyStore):
     )
 
 
-def test_input_uuid_unique_constraint_and_foreign_key(store: SqlAlchemyStore):
+def test_input_uuid_unique_constraint(store: SqlAlchemyStore):
     """
-    Test that input_uuid has a unique constraint and that foreign key from
-    input_tags to inputs works correctly.
+    Test that input_uuid has a unique constraint enforced at the database level.
     """
     experiment_id = _create_experiments(store, "test exp")
     run = _run_factory(store, config=_get_run_configs(experiment_id, start_time=1))

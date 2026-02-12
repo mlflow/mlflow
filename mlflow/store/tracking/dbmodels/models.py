@@ -614,6 +614,9 @@ class SqlInput(Base):
         PrimaryKeyConstraint(
             "source_type", "source_id", "destination_type", "destination_id", name="inputs_pk"
         ),
+        # NOTE: This index is redundant with the unique constraint on input_uuid (line 626).
+        # The unique constraint creates its own index. This explicit index is kept for
+        # backward compatibility but could be removed in a future migration.
         Index(f"index_{__tablename__}_input_uuid", "input_uuid"),
         Index(
             f"index_{__tablename__}_destination_type_destination_id_source_type",
