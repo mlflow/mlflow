@@ -66,7 +66,7 @@ See <APILink fn="mlflow.sklearn.log_model" /> and <APILink fn="mlflow.sklearn.sa
 
 ## Pickle-free format for PyTorch model
 
-When saving a pytorch model, saving with **export_model=True** uses `torch.export.save` and stores the model as a traced graph instead of pickle serialization format.
+When saving a PyTorch model, saving with **export_model=True** uses `torch.export.save` and stores the model as a traced graph instead of pickle serialization format.
 
 Requirements:
 
@@ -76,7 +76,7 @@ Requirements:
 
 Note:
 
-This graph-based pytorch model format does not allow the loaded model weights to transfer between different devices. E.g., if the model weights are in GPU device when saving, then the loaded model must load weights to the same GPU device.
+This graph-based PyTorch model format does not allow the loaded model weights to transfer between different devices. E.g., if the model weights are in GPU device when saving, then the loaded model must load weights to the same GPU device.
 
 ```python
 import mlflow
@@ -99,8 +99,8 @@ See <APILink fn="mlflow.pytorch.log_model" /> and <APILink fn="mlflow.pytorch.sa
 
 ## Pickle-free format for DSPy model
 
-Right now DSPy model hasn't supported pickle-free format, but a new saving option `use_dspy_model_save` is introduced to delegate the model saving implementation to DSPy library.
-Set param `use_dspy_model_save=True` to use the DSPy built-in `dspy.Module.save` method. This option requires **dspy >= 3.1.0**.
+Right now DSPy models don't support pickle-free format, but a new saving option `use_dspy_model_save` is introduced to delegate the model saving implementation to DSPy library.
+Set param `use_dspy_model_save=True` to use the DSPy built-in `dspy.Module.save` method. This option requires **dspy > 3.1.0**.
 
 ```python
 import mlflow
@@ -169,7 +169,7 @@ When set to `false`, loading a model that was saved with `pickle` or `cloudpickl
 | ------------------- | ------------------------------ | ------------------------------------------------------------- |
 | Scikit-learn        | `serialization_format="skops"` | Use `skops_trusted_types` when needed.                        |
 | PyTorch             | `export_model=True`            | Requires `input_example`, torch >= 2.4; not for ScriptModule. |
-| DSPy                | `use_dspy_model_save=True`     | Requires dspy >= 3.1.0.                                       |
-| LightGBM            | `serialization_format="skops"` | Only for lightGBM model of sklearn type                       |
+| DSPy                | `use_dspy_model_save=True`     | Requires dspy > 3.1.0.                                       |
+| LightGBM            | `serialization_format="skops"` | Only for lightGBM model of sklearn type.                      |
 | LangChain           | Models From Code               | Pickle saving emits warnings.                                 |
 | Custom Python model | Models From Code               | Pickle saving emits warnings.                                 |
