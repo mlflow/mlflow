@@ -1,7 +1,6 @@
 import { Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { WorkflowType } from '../contexts/WorkflowTypeContext';
 import { FormattedMessage } from '@databricks/i18n';
-import { useParams } from '../utils/RoutingUtils';
 
 const Pill = ({
   isActive,
