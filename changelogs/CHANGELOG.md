@@ -1,6 +1,23 @@
 # CHANGELOG
 
-For versions >= 3.10, see version-specific changelog files in this directory (e.g., v3.10.0.md).
+## 3.10.0rc0 (2026-02-11)
+
+We're excited to announce MLflow 3.10.0rc0, which includes several notable updates:
+
+**Major New Features**:
+
+- 🏢 **Organization Support in MLflow Tracking Server**: MLflow now supports multi-workspace environments! You can organize your experiments and resources across different workspaces with a new landing page that lets you navigate between them seamlessly. (#20702, #20657, @Gkrumbach07, @B-Step62)
+- 💬 **Multi-turn Conversation Simulation**: Building on the conversation simulator introduced in 3.9, we've made it fully public and easily subclassable. You can now create custom simulation scenarios, compare sessions with goal/persona matching, and distill conversations into reusable goal/persona pairs for comprehensive agent testing. (#20243, #20377, #20289, @smoorjani)
+- 💰 **Trace Cost Tracking**: Gain visibility into your LLM spending! MLflow now automatically extracts model information from LLM spans and calculates costs, with a new UI that renders model and cost data directly in your trace views. (#20327, #20330, @serena-ruan)
+- 🎯 **Top-level GenAI/Classical ML Split**: We've redesigned the navigation to provide a frictionless experience. A new workflow type selector in the top-level navbar lets you quickly switch between GenAI and Classical ML contexts, with streamlined sidebars that reduce visual clutter. (#20158, #20160, #20161, #20699, @ispoljari, @daniellok-db)
+- 🎮 **MLflow Demo Experiment**: Get started with MLflow faster than ever! The new `mlflow demo` CLI command generates a fully-populated demo environment with sample traces, prompts, and evaluation data so you can explore MLflow's features hands-on without any setup. (#19994, #19995, #20046, #20047, #20048, #20162, @BenWilson2)
+- 📊 **Gateway Usage Tracking**: Monitor your AI Gateway endpoints with detailed usage analytics. A new usage page shows request patterns and metrics, with trace ingestion that links gateway calls back to your experiments for end-to-end observability. (#20357, #20358, #20642, @TomeHirata)
+
+Stay tuned for the full release, which will be packed with even more features and bugfixes.
+
+To try out this release candidate, please run:
+
+`pip install mlflow==3.10.0rc0`
 
 ## 3.9.0 (2026-01-28)
 
