@@ -281,6 +281,18 @@ export function MlflowSidebar({
         />
       </div>
       {workspacesEnabled && showSidebar && <WorkspaceSelector />}
+      {workspacesEnabled && !showWorkspaceMenuItems && (
+        <MlflowSidebarLink
+          key="mlflow.sidebar.workspace_home_link"
+          to={ExperimentTrackingRoutes.rootRoute}
+          componentId="mlflow.sidebar.workspace_home_link"
+          isActive={isHomeActive}
+          icon={<HomeIcon />}
+          collapsed={!showSidebar}
+        >
+          <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />
+        </MlflowSidebarLink>
+      )}
       {enableWorkflowBasedNavigation && showWorkspaceMenuItems && showSidebar && (
         <MlflowSidebarWorkflowSwitch workflowType={workflowType} setWorkflowType={setWorkflowType} />
       )}
