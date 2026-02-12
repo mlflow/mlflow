@@ -734,10 +734,6 @@
     "defaultMessage": "Download data",
     "description": "String for the download csv button to download metrics from this run offline in a CSV format"
   },
-  "3UM+1S": {
-    "defaultMessage": "Select an existing experiment or leave blank to auto-create one named 'gateway/[endpoint_name]'.",
-    "description": "Experiment selector help text"
-  },
   "3VURvw": {
     "defaultMessage": "No metrics or parameters available",
     "description": "Message displayed when no metrics or params are available in the compare runs chart configure modal"
@@ -1241,10 +1237,6 @@
   "757GVc": {
     "defaultMessage": "Cancel",
     "description": "experiment page > description modal > cancel button"
-  },
-  "76S52o": {
-    "defaultMessage": "Experiment",
-    "description": "Label for experiment selector"
   },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
