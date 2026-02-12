@@ -6,6 +6,7 @@ import { ExperimentListTable } from '../../experiment-tracking/components/Experi
 import Routes from '../../experiment-tracking/routes';
 import { Link } from '../../common/utils/RoutingUtils';
 import type { ExperimentEntity } from '../../experiment-tracking/types';
+import { isDemoExperiment } from '../../experiment-tracking/utils/isDemoExperiment';
 
 type ExperimentsHomeViewProps = {
   experiments?: ExperimentEntity[];
@@ -58,7 +59,12 @@ export const ExperimentsHomeView = ({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  const topExperiments = useMemo(() => experiments?.slice(0, 5) ?? [], [experiments]);
+  const topExperiments = useMemo(() => {
+    const sliced = experiments?.slice(0, 5) ?? [];
+    const demo = sliced.filter(isDemoExperiment);
+    const nonDemo = sliced.filter((e) => !isDemoExperiment(e));
+    return [...demo, ...nonDemo];
+  }, [experiments]);
   const shouldShowEmptyState = !isLoading && !error && topExperiments.length === 0;
 
   return (

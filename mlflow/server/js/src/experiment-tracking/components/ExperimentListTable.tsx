@@ -12,6 +12,9 @@ import {
   TableHeader,
   TableCell,
   TableSkeletonRows,
+  Tag,
+  Tooltip,
+  QuestionMarkIcon,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import type { ExperimentEntity } from '../types';
@@ -23,6 +26,7 @@ import Utils from '../../common/utils/Utils';
 import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { ExperimentListTableTagsCell } from './ExperimentListTableTagsCell';
+import { isDemoExperiment } from '../utils/isDemoExperiment';
 
 export type ExperimentTableColumnDef = ColumnDef<ExperimentEntity>;
 
@@ -217,6 +221,39 @@ export const ExperimentListTable = ({
 };
 
 const ExperimentListTableCell: ExperimentTableColumnDef['cell'] = ({ row: { original } }) => {
+  const { theme } = useDesignSystemTheme();
+  if (isDemoExperiment(original)) {
+    return (
+      <div css={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Link
+          to={Routes.getExperimentPageRoute(original.experimentId)}
+          title={original.name}
+          data-testid="experiment-list-item-link"
+          css={{ textDecoration: 'none' }}
+        >
+          <Tag componentId="mlflow.experiment_list.demo_badge" color="turquoise">
+            <FormattedMessage
+              defaultMessage="MLflow Demo Experiment"
+              description="Badge label for the demo experiment in the experiments list"
+            />
+          </Tag>
+        </Link>
+        <Tooltip
+          componentId="mlflow.experiment_list.demo_tooltip"
+          content={
+            <FormattedMessage
+              defaultMessage="A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings."
+              description="Tooltip explaining the demo experiment in the experiments list"
+            />
+          }
+        >
+          <span css={{ display: 'inline-flex', color: theme.colors.textSecondary }}>
+            <QuestionMarkIcon css={{ fontSize: 13 }} />
+          </span>
+        </Tooltip>
+      </div>
+    );
+  }
   return (
     <Link
       className="experiment-link"
