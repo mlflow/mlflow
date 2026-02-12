@@ -267,10 +267,8 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         session: bool | None = None,
     ) -> list[Trace]:
         filter_parts = [f"metadata.`{DEMO_VERSION_TAG}` = '{version}'"]
-        if session is True:
-            filter_parts.append(f"metadata.`{DEMO_TRACE_TYPE_TAG}` = 'session'")
-        elif session is False:
-            filter_parts.append(f"metadata.`{DEMO_TRACE_TYPE_TAG}` != 'session'")
+        operator = "=" if session else "!="
+        filter_parts.append(f"metadata.`{DEMO_TRACE_TYPE_TAG}` {operator} 'session'")
         return mlflow.search_traces(
             locations=[experiment_id],
             filter_string=" AND ".join(filter_parts),
