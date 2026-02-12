@@ -14,15 +14,8 @@ from clint.rules.base import Rule
 
 
 class RedundantTestDocstring(Rule):
-    def __init__(
-        self,
-        function_name: str | None = None,
-        has_class_docstring: bool = False,
-        is_module_docstring: bool = False,
-    ) -> None:
-        self.function_name = function_name
-        self.has_class_docstring = has_class_docstring
-        self.is_module_docstring = is_module_docstring
+    def __init__(self) -> None:
+        pass
 
     @classmethod
     def check(
@@ -52,7 +45,7 @@ class RedundantTestDocstring(Rule):
                 return None
 
             # Single-line docstrings in test functions/classes rarely provide meaningful context
-            return cls(node.name, has_class_docstring=is_class)
+            return cls()
 
         return None
 
@@ -72,21 +65,12 @@ class RedundantTestDocstring(Rule):
             raw_docstring = module.body[0].value.s
             # Only flag single-line module docstrings
             if "\n" not in raw_docstring:
-                return cls(is_module_docstring=True)
+                return cls()
 
         return None
 
     def _message(self) -> str:
-        if self.is_module_docstring:
-            return (
-                "Test module has a single-line docstring. "
-                "Single-line module docstrings don't provide enough context. "
-                "Consider removing it."
-            )
-
-        entity_type = "Test class" if self.has_class_docstring else "Test function"
         return (
-            f"{entity_type} '{self.function_name}' has a single-line docstring. "
-            f"Single-line docstrings in tests rarely provide meaningful context. "
-            f"Consider removing it."
+            "Single-line docstrings in tests rarely provide meaningful context. "
+            "Consider removing it."
         )
