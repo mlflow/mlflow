@@ -59,9 +59,12 @@ const MlflowRootRoute = () => {
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 
   // Hide sidebar if we are in a single experiment page (only when feature flag is disabled)
-  // When feature flag is enabled, sidebar should always be visible
   const isSingleExperimentPage = Boolean(experimentId);
   useEffect(() => {
+    // When feature flag is enabled, sidebar should always retain its current state
+    if (enableWorkflowBasedNavigation) {
+      return;
+    }
     setShowSidebar(enableWorkflowBasedNavigation || !isSingleExperimentPage);
   }, [isSingleExperimentPage, enableWorkflowBasedNavigation]);
 
