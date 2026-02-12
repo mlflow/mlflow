@@ -11,8 +11,12 @@ mlflow.Rcheck
 outputs
 examples
 
-dev
-# required for Docker build
+# Exclude dev contents but keep files required for proto build (COPY dev ./dev/)
+dev/*
+!dev/generate_protos.py
+!dev/Dockerfile.protos
+!dev/proto-plugin.sh
+!dev/proto_plugin.py
 !requirements/test-requirements.txt
 !requirements/lint-requirements.txt
 !requirements/extra-ml-requirements.txt
@@ -20,6 +24,7 @@ dev
 tests
 # required for Docker build
 !tests/resources/mlflow-test-plugin/
+!tests/protos/
 
 node_modules
 coverage

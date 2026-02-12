@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 export PYTHONPATH="$PWD:$PYTHONPATH"
-python dev/proto_plugin.py
+exec python dev/proto_plugin.py

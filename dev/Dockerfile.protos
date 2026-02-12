@@ -8,3 +8,6 @@ RUN pip install protobuf packaging
 COPY mlflow/protos ./mlflow/protos/
 COPY dev ./dev/
 COPY tests/protos ./tests/protos/
+
+# Ensure proto-plugin.sh is executable (slim image may not preserve execute bit from COPY)
+RUN chmod +x dev/proto-plugin.sh
