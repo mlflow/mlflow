@@ -9,11 +9,10 @@ from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 
 
-def _maybe_unwrap_single_arg_input(args, kwargs):
+def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
     """Unwrap single-argument inputs so trace shows the request body directly"""
-    if len(args) == 1 and not kwargs:
-        if span := mlflow.get_current_active_span():
-            span.set_inputs(args[0])
+    if len(args) == 1 and not kwargs and (span := mlflow.get_current_active_span()):
+        span.set_inputs(args[0])
 
 
 def maybe_traced_gateway_call(
