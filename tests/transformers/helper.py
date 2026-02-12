@@ -41,15 +41,23 @@ def load_small_qa_pipeline():
 @flaky()
 def load_small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
-    feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
-        architecture, low_cpu_mem_usage=True
-    )
     model = transformers.MobileNetV2ForImageClassification.from_pretrained(
         architecture, low_cpu_mem_usage=True
     )
-    return transformers.pipeline(
-        task="image-classification", model=model, feature_extractor=feature_extractor
-    )
+    if IS_NEW_FEATURE_EXTRACTION_API:
+        image_processor = transformers.AutoImageProcessor.from_pretrained(
+            architecture, low_cpu_mem_usage=True
+        )
+        return transformers.pipeline(
+            task="image-classification", model=model, image_processor=image_processor
+        )
+    else:
+        feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
+            architecture, low_cpu_mem_usage=True
+        )
+        return transformers.pipeline(
+            task="image-classification", model=model, feature_extractor=feature_extractor
+        )
 
 
 @prefetch
