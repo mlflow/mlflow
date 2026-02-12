@@ -20,7 +20,7 @@ The following deployment architecture has a couple of advantages:
   - Public traffic is encrypted using HTTPS, ensuring secure communication between clients and the application endpoint.
   - VPC Isolation: Application containers and the database run in private subnets, preventing direct exposure to the public internet.
   - IAM Roles: The S3 bucket blocks all public access and MLflow server uses IAM role for secure access to the S3 bucket.
-  - VPC Security Groups: Only the load balancer can access the ECS task that runs MLflow server, only the ECS task can access the database, there is no unnecessary inbound exposure.
+  - VPC Security Groups: Only the load balancer can access the ECS task that runs MLflow server, there is no unnecessary inbound exposure.
 
 - ** Operational Simplicity **
   - Serverless Compute (ECS on Fargate), no EC2 instances to manage, patch, or scale manually.
