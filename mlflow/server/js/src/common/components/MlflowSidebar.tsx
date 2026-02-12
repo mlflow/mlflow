@@ -36,7 +36,7 @@ import { useAssistant } from '../../assistant/AssistantContext';
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { MlflowLogo } from './MlflowLogo';
-import { HomePageDocsUrl, Version } from '../constants';
+import { HomePageDocsUrl, GenAIDocsUrl, MLDocsUrl, Version } from '../constants';
 import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
 import { MlflowSidebarExperimentItems } from './MlflowSidebarExperimentItems';
 import { MlflowSidebarGatewayItems } from './MlflowSidebarGatewayItems';
@@ -234,6 +234,13 @@ export function MlflowSidebar({
   // Only show workspace-specific menu items when: workspaces are disabled OR a workspace is selected
   const showWorkspaceMenuItems = !workspacesEnabled || workspaceFromUrl !== null;
 
+  // Select appropriate docs URL based on workflow type
+  const docsUrl = enableWorkflowBasedNavigation
+    ? workflowType === WorkflowType.GENAI
+      ? GenAIDocsUrl
+      : MLDocsUrl
+    : HomePageDocsUrl;
+
   return (
     <aside
       css={{
@@ -366,7 +373,7 @@ export function MlflowSidebar({
           <MlflowSidebarLink
             disableWorkspacePrefix
             css={{ paddingBlock: theme.spacing.sm }}
-            to={HomePageDocsUrl}
+            to={docsUrl}
             componentId="mlflow.sidebar.docs_link"
             isActive={() => false}
             icon={<InfoBookIcon />}
