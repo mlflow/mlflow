@@ -4,15 +4,14 @@ title: Usage Tracking
 
 # Usage Tracking
 
-AI Gateway usage tracking logs all requests to an endpoint as traces in an MLflow experiment linked to your gateway endpoints, allowing you to monitor request volume, latency, errors, token consumption, and costs.
+AI Gateway usage tracking logs all requests to an endpoint as traces, allowing you to monitor request volume, latency, errors, token consumption, and costs.
 
 ## Enabling Usage Tracking
 
 Open your endpoint's detail page and scroll to the **Usage Tracking** section at the bottom.
 
 1. Toggle **Enable usage tracking** on
-2. Optionally select an existing experiment, or leave blank to auto-create one named `gateway/<endpoint_name>`
-3. Click **Save changes**
+2. Click **Save changes**
 
 ![Endpoint Configuration](/images/genai/governance/ai-gateway/usage-tracking-endpoint.png)
 
@@ -30,7 +29,7 @@ The dashboard provides the following charts:
 - **Token Usage** — Input and output tokens over time
 - **Tokens per Request** — Average token consumption per request
 - **Cost Breakdown** — Cost distribution by model or provider
-- **Cost Over Time** — Cumulative cost trends
+- **Cost Over Time** — Cumulative cost trends by model or provider
 
 Note: Token usage and cost metrics are not supported for all LLM providers or models. Depending on your configuration and LiteLLM pricing, the token and cost charts may be empty or unavailable.
 
