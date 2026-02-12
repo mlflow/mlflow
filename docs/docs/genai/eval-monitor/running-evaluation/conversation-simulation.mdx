@@ -106,6 +106,10 @@ test_cases = [
     {
         "goal": "Set up model versioning for a production ML pipeline",
         "persona": "You are a beginner who needs step-by-step guidance",
+        "simulation_guidelines": [
+            "Start by asking about model versioning without mentioning any specific tools",
+            "Do not ask about deployment until the assistant brings it up",
+        ],
         "context": {
             "user_id": "beginner_123"
         },  # user_id is passed to predict_fn via kwargs
@@ -141,13 +145,15 @@ results = mlflow.genai.evaluate(
 
 ## Defining Test Cases
 
-Each test case represents a conversation scenario. Test cases support three fields:
+Each test case represents a conversation scenario. Test cases support the following fields:
 
-| Field     | Required | Description                                                   |
-| --------- | -------- | ------------------------------------------------------------- |
-| `goal`    | Yes      | What the simulated user is trying to accomplish               |
-| `persona` | No       | Description of the user's personality and communication style |
-| `context` | No       | Additional kwargs passed to your predict function             |
+| Field                   | Required | Description                                                       |
+| ----------------------- | -------- | ----------------------------------------------------------------- |
+| `goal`                  | Yes      | What the simulated user is trying to accomplish                   |
+| `persona`               | No       | Description of the user's personality and communication style     |
+| `simulation_guidelines` | No       | A list of instructions controlling how the simulated user behaves |
+| `context`               | No       | Additional kwargs passed to your predict function                 |
+| `expectations`          | No       | Expected outcomes logged to the first trace for scorer reference  |
 
 ### Goal
 
@@ -193,6 +199,34 @@ The persona shapes how the simulated user communicates. If not specified, a defa
     "persona": "You are impatient and frustrated because this is blocking a production release",
 }
 ```
+
+### Simulation Guidelines
+
+Simulation guidelines give you fine-grained control over _how_ the simulated user behaves during the conversation. While the goal defines _what_ the user wants and the persona defines _who_ the user is, guidelines specify _rules_ the simulated user must follow. They are especially useful for reproducing specific conversation patterns observed in production.
+
+Guidelines are provided as a list of strings, where each string is a specific instruction:
+
+```python
+{
+    "goal": "Get a summary of last quarter's sales data broken down by region",
+    "persona": "You are a sales manager who prefers concise answers",
+    "simulation_guidelines": [
+        "Do not provide the date range upfront; wait until the assistant asks for it",
+        "Do not explicitly ask for percentage changes; the assistant should provide them without being asked",
+        "Start with a broad request and only narrow down to specific regions after the assistant responds",
+    ],
+}
+```
+
+Guidelines can cover several categories:
+
+- **Information withholding**: Prevent the simulated user from revealing details too early (e.g., _"Do not provide the error message upfront; wait until the assistant asks for more details"_)
+- **Implicit expectations**: Things the user expects the assistant to infer without being asked (e.g., _"Do not explicitly ask for code examples; the assistant should provide them on its own"_)
+- **Pacing and ordering**: Control the order in which topics are raised (e.g., _"Start with a broad question and only narrow down after the assistant responds"_)
+
+:::tip
+Simulation guidelines are particularly valuable when using <APILink fn="mlflow.genai.simulators.generate_test_cases">`generate_test_cases`</APILink> to extract test cases from production sessions. The function automatically infers guidelines that help reproduce the original conversation trajectory.
+:::
 
 ### Context
 

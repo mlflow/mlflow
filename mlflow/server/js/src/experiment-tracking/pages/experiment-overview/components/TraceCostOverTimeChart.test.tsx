@@ -213,7 +213,7 @@ describe('TraceCostOverTimeChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+        expect(screen.getByTestId('item-selector-dropdown')).toBeInTheDocument();
       });
     });
 
@@ -241,11 +241,11 @@ describe('TraceCostOverTimeChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+        expect(screen.getByTestId('item-selector-dropdown')).toBeInTheDocument();
       });
 
       // Open dropdown
-      fireEvent.click(screen.getByTestId('model-selector-dropdown'));
+      fireEvent.click(screen.getByTestId('item-selector-dropdown'));
 
       await waitFor(() => {
         expect(screen.getByText('Select All')).toBeInTheDocument();
@@ -258,11 +258,11 @@ describe('TraceCostOverTimeChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+        expect(screen.getByTestId('item-selector-dropdown')).toBeInTheDocument();
       });
 
       // Open dropdown
-      fireEvent.click(screen.getByTestId('model-selector-dropdown'));
+      fireEvent.click(screen.getByTestId('item-selector-dropdown'));
 
       await waitFor(() => {
         expect(screen.getByText('gpt-4')).toBeInTheDocument();
@@ -276,11 +276,11 @@ describe('TraceCostOverTimeChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+        expect(screen.getByTestId('item-selector-dropdown')).toBeInTheDocument();
       });
 
       // Open dropdown and click Select All to deselect all
-      fireEvent.click(screen.getByTestId('model-selector-dropdown'));
+      fireEvent.click(screen.getByTestId('item-selector-dropdown'));
 
       await waitFor(() => {
         expect(screen.getByText('Select All')).toBeInTheDocument();
@@ -299,12 +299,12 @@ describe('TraceCostOverTimeChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('model-selector-dropdown')).toBeInTheDocument();
+        expect(screen.getByTestId('item-selector-dropdown')).toBeInTheDocument();
         expect(screen.getByText('All models')).toBeInTheDocument();
       });
 
       // Open dropdown
-      await userEvent.click(screen.getByTestId('model-selector-dropdown'));
+      await userEvent.click(screen.getByTestId('item-selector-dropdown'));
 
       await waitFor(() => {
         expect(screen.getByText('gpt-4')).toBeInTheDocument();

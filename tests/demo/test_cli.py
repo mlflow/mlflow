@@ -118,7 +118,7 @@ def test_cli_creates_evaluation_datasets():
         max_results=10,
     )
 
-    assert len(datasets) == 2
+    assert len(datasets) == 3
 
 
 def test_cli_creates_prompts():

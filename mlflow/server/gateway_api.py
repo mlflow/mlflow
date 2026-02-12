@@ -38,7 +38,7 @@ from mlflow.gateway.providers.base import (
     TrafficRouteProvider,
 )
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
+from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -441,7 +441,10 @@ async def invocations(endpoint_name: str, request: Request):
 
         if payload.stream:
             stream = maybe_traced_gateway_call(
-                provider.chat_stream, endpoint_config, user_metadata
+                provider.chat_stream,
+                endpoint_config,
+                user_metadata,
+                output_reducer=aggregate_chat_stream_chunks,
             )(payload)
             return StreamingResponse(
                 safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
@@ -514,9 +517,12 @@ async def chat_completions(request: Request):
     )
 
     if payload.stream:
-        stream = maybe_traced_gateway_call(provider.chat_stream, endpoint_config, user_metadata)(
-            payload
-        )
+        stream = maybe_traced_gateway_call(
+            provider.chat_stream,
+            endpoint_config,
+            user_metadata,
+            output_reducer=aggregate_chat_stream_chunks,
+        )(payload)
         return StreamingResponse(
             safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
             media_type="text/event-stream",

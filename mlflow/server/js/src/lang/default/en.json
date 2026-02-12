@@ -215,6 +215,10 @@
     "defaultMessage": "Inputs",
     "description": "Model trace explorer > selected span > inputs header"
   },
+  "/TolHF": {
+    "defaultMessage": "Please input a name for the new workspace.",
+    "description": "Error message for name requirement in create workspace modal"
+  },
   "/UktTY": {
     "defaultMessage": "Are the expected facts supported by the response?",
     "description": "Hint for Correctness template"
@@ -547,6 +551,10 @@
     "defaultMessage": "Cancel",
     "description": "Delete evaluation runs cancel button text"
   },
+  "2+uccV": {
+    "defaultMessage": "Workspaces",
+    "description": "Home page workspaces section title"
+  },
   "2/B9Zg": {
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
@@ -631,10 +639,6 @@
     "defaultMessage": "X axis",
     "description": "Label for X axis in Contour chart configurator in compare runs chart config modal"
   },
-  "2XVGD5": {
-    "defaultMessage": "All models",
-    "description": "Label for model selector when all models are selected"
-  },
   "2YEXRM": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the experiment view page"
@@ -674,6 +678,10 @@
   "2mRfvl": {
     "defaultMessage": "Request error",
     "description": "A title shown on the experiment page if the runs request fails"
+  },
+  "2mwSM3": {
+    "defaultMessage": "LLM-as-a-judge (Optimized)",
+    "description": "Label for memory-augmented LLM scorer type"
   },
   "2oFAO4": {
     "defaultMessage": "Share",
@@ -797,6 +805,10 @@
   "451ETc": {
     "defaultMessage": "Session",
     "description": "Label for the session to which an assessment belongs"
+  },
+  "45tCkn": {
+    "defaultMessage": "No providers selected",
+    "description": "Label for selector when no providers are selected"
   },
   "46+W5N": {
     "defaultMessage": "New to MLflow?",
@@ -1034,10 +1046,6 @@
     "defaultMessage": "Source run",
     "description": "Header title for the source run column in the logged model list table"
   },
-  "5y4o+l": {
-    "defaultMessage": "Model",
-    "description": "Sidebar button inside the 'new' popover to create new model"
-  },
   "5yWkFd": {
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
@@ -1169,6 +1177,10 @@
   "6fV0+T": {
     "defaultMessage": "Total: {total}%",
     "description": "Total weight display"
+  },
+  "6i/EoY": {
+    "defaultMessage": "Save",
+    "description": "Save button text for edit workspace modal"
   },
   "6jqEbB": {
     "defaultMessage": "Model",
@@ -1466,6 +1478,10 @@
     "defaultMessage": "Select output type",
     "description": "Placeholder for output type selection"
   },
+  "8cK5xK": {
+    "defaultMessage": "{count} selected",
+    "description": "Label for selector showing count of selected items"
+  },
   "8f4/Zi": {
     "defaultMessage": "Search logged models using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search logged models from the listing page"
@@ -1505,6 +1521,10 @@
   "8xji5J": {
     "defaultMessage": "X-axis:",
     "description": "Label text for X-axis in box plot comparison in MLflow"
+  },
+  "8xpU1t": {
+    "defaultMessage": "Edit Artifact Root",
+    "description": "Title for edit workspace artifact root modal"
   },
   "8xzQsr": {
     "defaultMessage": "Train models",
@@ -1610,6 +1630,10 @@
     "defaultMessage": "MLflow runs:",
     "description": "A label for the associated MLflow runs in the prompt details page"
   },
+  "9ZzOhu": {
+    "defaultMessage": "API Keys",
+    "description": "Sidebar link for gateway API keys"
+  },
   "9cTaBs": {
     "defaultMessage": "Fail",
     "description": "Failing assessment label"
@@ -1617,6 +1641,10 @@
   "9dX4XQ": {
     "defaultMessage": "Select parameter or metric",
     "description": "Placeholder text for parameter/metric selector in box plot comparison in MLflow"
+  },
+  "9eWlQw": {
+    "defaultMessage": "Artifact Root",
+    "description": "Workspaces table artifact root column header"
   },
   "9fVZg8": {
     "defaultMessage": "Delete",
@@ -1685,6 +1713,10 @@
   "A+GxQM": {
     "defaultMessage": "avg per request",
     "description": "Subtitle for average tokens per request in gateway"
+  },
+  "A1ljDC": {
+    "defaultMessage": "Docs",
+    "description": "Sidebar link for docs page"
   },
   "A3bM/D": {
     "defaultMessage": "Assistant",
@@ -1758,6 +1790,10 @@
     "defaultMessage": "Error",
     "description": "Title for error fallback component in prompts management UI"
   },
+  "AQh8lf": {
+    "defaultMessage": "Model",
+    "description": "Dimension toggle option for model"
+  },
   "AX7L9r": {
     "defaultMessage": "Error",
     "description": "Error assessment status in the evaluations table."
@@ -1785,6 +1821,10 @@
   "AhfXyS": {
     "defaultMessage": "Previous",
     "description": "Button text for previous trace"
+  },
+  "AoDwev": {
+    "defaultMessage": "Description (optional)",
+    "description": "Label for description field"
   },
   "Aqq08o": {
     "defaultMessage": "HTTP",
@@ -1977,6 +2017,10 @@
   "Bs2X0L": {
     "defaultMessage": "Created by",
     "description": "Label for the creator of a logged model on the logged model details page"
+  },
+  "Bsuyal": {
+    "defaultMessage": "Description",
+    "description": "Workspaces table description column header"
   },
   "BuykLs": {
     "defaultMessage": "Delete judge",
@@ -2182,6 +2226,10 @@
     "defaultMessage": "Thank you for exploring the new Model Registry UI. We are dedicated to providing the best experience, and your feedback is invaluable. Please share your thoughts with us <link>here</link>.",
     "description": "Model registry > Switcher for the new model registry UI containing aliases > disable confirmation modal content"
   },
+  "DLZwqO": {
+    "defaultMessage": "All models",
+    "description": "Label for selector when all models are selected"
+  },
   "DMEY+O": {
     "defaultMessage": "Select value type",
     "description": "Placeholder for dict value type"
@@ -2325,10 +2373,6 @@
   "EkUD0b": {
     "defaultMessage": "No results",
     "description": "Experiment page > sort selector > no results after filtering by search query"
-  },
-  "Emh131": {
-    "defaultMessage": "Select an experiment to view this tab",
-    "description": "Tooltip shown when nested experiment items are disabled because no experiment is selected"
   },
   "EpFST9": {
     "defaultMessage": "No trace data recorded",
@@ -2526,6 +2570,10 @@
     "defaultMessage": "Start Time:",
     "description": "Text for start time row header in the main table in the model comparison\n                page"
   },
+  "GOdou5": {
+    "defaultMessage": "Default Artifact Root (optional)",
+    "description": "Label for artifact root field"
+  },
   "GRaplV": {
     "defaultMessage": "Context sufficiency",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
@@ -2641,6 +2689,10 @@
   "HYQHVk": {
     "defaultMessage": "See more",
     "description": "Model trace explorer > selected span > code snippet > see more button"
+  },
+  "HZH8Yr": {
+    "defaultMessage": "Set artifact root",
+    "description": "Label for set artifact root button in workspaces table"
   },
   "HZdpLU": {
     "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
@@ -2994,6 +3046,10 @@
     "defaultMessage": "Commit message:",
     "description": "A label for the commit message in the prompt details page"
   },
+  "KIlp8v": {
+    "defaultMessage": "No models selected",
+    "description": "Label for selector when no models are selected"
+  },
   "KJbYrw": {
     "defaultMessage": "Loaded {childRuns} child {childRuns, plural, =1 {run} other {runs}}",
     "description": "Experiment page > loaded more runs notification > loaded only child runs"
@@ -3102,6 +3158,10 @@
     "defaultMessage": "Failed to create assessment. Error: {error}",
     "description": "Error message when creating an assessment fails"
   },
+  "L71uzj": {
+    "defaultMessage": "Provider",
+    "description": "Dimension toggle option for provider"
+  },
   "L72WxS": {
     "defaultMessage": "Please fix the validation errors",
     "description": "Tooltip message when there are validation errors"
@@ -3133,6 +3193,10 @@
   "LKH6uO": {
     "defaultMessage": "Not registered",
     "description": "Tag for not registered model on the logged model details page"
+  },
+  "LLANE+": {
+    "defaultMessage": "Edit Description",
+    "description": "Title for edit workspace description modal"
   },
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
@@ -3261,6 +3325,10 @@
   "MQ4Voz": {
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
     "description": "Evaluation review > input section > title"
+  },
+  "MS5PhU": {
+    "defaultMessage": "Model training",
+    "description": "Label for model training workflow type option"
   },
   "MUUYWZ": {
     "defaultMessage": "Created at",
@@ -3422,6 +3490,10 @@
     "defaultMessage": "Provider{count}",
     "description": "Provider filter button label with count"
   },
+  "NW59bs": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button text for edit workspace modal"
+  },
   "NWbmIK": {
     "defaultMessage": "Is the text grammatically correct and naturally flowing?",
     "description": "Hint for Fluency template"
@@ -3497,6 +3569,10 @@
   "O+/hDQ": {
     "defaultMessage": "For local development, MLflow uses a default passphrase. For production deployments, server administrators must set a secure encryption passphrase on the tracking server before starting it:",
     "description": "AI Gateway setup guide > Step 3 description"
+  },
+  "O+hq1Q": {
+    "defaultMessage": "Create Workspace",
+    "description": "Title for create workspace modal"
   },
   "O1rYVN": {
     "defaultMessage": "Load model as a Spark UDF. Override result_type if the model does not return double values.",
@@ -3708,6 +3784,10 @@
   "PpP8du": {
     "defaultMessage": "Model configuration",
     "description": "Label for model configuration section"
+  },
+  "PuXTcZ": {
+    "defaultMessage": "Welcome to MLflow",
+    "description": "Workspace landing page title"
   },
   "PwQiIn": {
     "defaultMessage": "Actions{count}",
@@ -4057,6 +4137,10 @@
     "defaultMessage": "Evaluating traces: ON",
     "description": "Status label for active scorer"
   },
+  "SSwoap": {
+    "defaultMessage": "Select a workspace to start experiments",
+    "description": "Home page workspaces section subtitle"
+  },
   "STEhnv": {
     "defaultMessage": "Description",
     "description": "Header for the description column in the experiments table"
@@ -4320,6 +4404,10 @@
     "defaultMessage": "Guidelines should not be empty",
     "description": "Tooltip message when guidelines are empty"
   },
+  "UJWipj": {
+    "defaultMessage": "Select All",
+    "description": "Option to select all items in the selector"
+  },
   "ULljUX": {
     "defaultMessage": "Filter: {filterString}",
     "description": "Filter display for scorer"
@@ -4372,6 +4460,10 @@
     "defaultMessage": "Transition to",
     "description": "Text for transitioning a model version to a different stage under\n                 dropdown menu in model version page"
   },
+  "UjInB0": {
+    "defaultMessage": "Enter workspace description",
+    "description": "Input placeholder for workspace description in create workspace modal"
+  },
   "UkVgwL": {
     "defaultMessage": "Create endpoint",
     "description": "Page title for create endpoint"
@@ -4399,6 +4491,10 @@
   "UzZf+2": {
     "defaultMessage": "Add chart",
     "description": "Confirm button label within a modal when adding a new runs comparison chart"
+  },
+  "Uzii0L": {
+    "defaultMessage": "AI Gateway",
+    "description": "Sidebar link for gateway"
   },
   "V0/LoE": {
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
@@ -4544,6 +4640,10 @@
     "defaultMessage": "forecasting",
     "description": "A short label for experiments focused on time series forecasting"
   },
+  "W0PKNU": {
+    "defaultMessage": "Model registry",
+    "description": "Sidebar link for model registry tab"
+  },
   "W1ZIP4": {
     "defaultMessage": "Safety",
     "description": "LLM template option"
@@ -4648,6 +4748,10 @@
     "defaultMessage": "Details & Timeline",
     "description": "Label for the details & timeline view tab in the model trace explorer"
   },
+  "WiML15": {
+    "defaultMessage": "Create your first workspace",
+    "description": "Home page workspaces empty state title"
+  },
   "WiaEQ3": {
     "defaultMessage": "Model output",
     "description": "Evaluation review > Response section > model output > title"
@@ -4695,10 +4799,6 @@
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
-  },
-  "Wwyoav": {
-    "defaultMessage": "{count} selected",
-    "description": "Label for model selector showing count of selected models"
   },
   "X+boXI": {
     "defaultMessage": "Copied",
@@ -4799,9 +4899,9 @@
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
   },
-  "Xuz/xh": {
-    "defaultMessage": "Models",
-    "description": "Sidebar link for models tab"
+  "Xt8M9f": {
+    "defaultMessage": "Loading workspaces...",
+    "description": "Loading workspaces message"
   },
   "XuzIWs": {
     "defaultMessage": "Some traces are hidden by your time range filter: \"{filterLabel}\"",
@@ -4923,6 +5023,10 @@
     "defaultMessage": "PASS",
     "description": "Header label for pass/fail assessment type for the pass rate"
   },
+  "YeIhTa": {
+    "defaultMessage": "Enter artifact root URI",
+    "description": "Placeholder for artifact root input in edit modal"
+  },
   "Yhydp3": {
     "defaultMessage": "Relevance",
     "description": "Evaluation results > known type of evaluation result assessment > relevance assessment. Used to indicate if the result is relevant to query in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Relevance: moderate\""
@@ -4947,10 +5051,6 @@
     "defaultMessage": "Choose experiment type",
     "description": "A title for the modal displayed when the experiment type could not be inferred"
   },
-  "YuWDVj": {
-    "defaultMessage": "Experiment",
-    "description": "Sidebar button inside the 'new' popover to create new experiment"
-  },
   "YuYnxd": {
     "defaultMessage": "Delete",
     "description": "Text for delete button on the experiment view page header"
@@ -4966,10 +5066,6 @@
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the compare button when enabled"
-  },
-  "Z3mQzp": {
-    "defaultMessage": "No models selected",
-    "description": "Label for model selector when no models are selected"
   },
   "Z4cZMo": {
     "defaultMessage": "by {user}",
@@ -5251,6 +5347,10 @@
     "defaultMessage": "No results",
     "description": "Experiment page > group by runs control > no results after filtering by search query"
   },
+  "abIH3b": {
+    "defaultMessage": "All providers",
+    "description": "Label for selector when all providers are selected"
+  },
   "adVHxN": {
     "defaultMessage": "Outputs",
     "description": "Section title for the outputs of a single chat turn"
@@ -5262,10 +5362,6 @@
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
-  },
-  "amFk5F": {
-    "defaultMessage": "Workflow type",
-    "description": "Label for the workflow type selector in the sidebar"
   },
   "aqMseN": {
     "defaultMessage": "Manage prompt updates and collaborate across teams.",
@@ -5435,6 +5531,10 @@
     "defaultMessage": "Click into an individual run to see all models associated with it",
     "description": "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
   },
+  "c1it6D": {
+    "defaultMessage": "Select your theme preference between light and dark.",
+    "description": "Description for the theme setting in the settings page"
+  },
   "c1jD8u": {
     "defaultMessage": "Create an evaluation dataset",
     "description": "Evaluation datasets empty state title"
@@ -5474,10 +5574,6 @@
   "cEwSR8": {
     "defaultMessage": "Maximum number of language tokens returned from evaluation.",
     "description": "Experiment page > prompt lab > max tokens parameter help text"
-  },
-  "cF28Mx": {
-    "defaultMessage": "Select All",
-    "description": "Option to select all models in the model selector"
   },
   "cGGc0A": {
     "defaultMessage": "Delete API key",
@@ -5535,10 +5631,6 @@
     "defaultMessage": "Hide assessments",
     "description": "Tooltip for a button that closes the assessments pane"
   },
-  "cSEpGa": {
-    "defaultMessage": "Machine Learning",
-    "description": "Label for Machine Learning workflow type option"
-  },
   "cSQJ9N": {
     "defaultMessage": "Select sessions",
     "description": "Button to select sessions"
@@ -5546,6 +5638,10 @@
   "cSSMIs": {
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
+  },
+  "cYlLx9": {
+    "defaultMessage": "Usage",
+    "description": "Sidebar link for gateway usage"
   },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
@@ -5659,6 +5755,10 @@
     "defaultMessage": "Passthrough APIs",
     "description": "Passthrough APIs tab title"
   },
+  "dQvz5p": {
+    "defaultMessage": "Workspace Name",
+    "description": "Label for workspace name field"
+  },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
@@ -5667,6 +5767,14 @@
     "defaultMessage": "Add a custom expectation to this trace.",
     "description": "Hint message prompting user to add a new expectation"
   },
+  "dUY9eq": {
+    "defaultMessage": "Edit description",
+    "description": "Label for edit description button in workspaces table"
+  },
+  "dUm30k": {
+    "defaultMessage": "Create a workspace to organize and logically isolate your experiments and models.",
+    "description": "Home page workspaces empty state description"
+  },
   "dVh69l": {
     "defaultMessage": "Run name",
     "description": "Column label for run name"
@@ -5674,10 +5782,6 @@
   "dYbJha": {
     "defaultMessage": "Please provide run name",
     "description": "Experiment page > new run modal > invalid state - no run name provided"
-  },
-  "dbps6u": {
-    "defaultMessage": "Prompt",
-    "description": "Sidebar button inside the 'new' popover to create new prompt"
   },
   "dcoaGS": {
     "defaultMessage": "No experiments created",
@@ -6111,6 +6215,10 @@
     "defaultMessage": "An endpoint with this name already exists",
     "description": "Error message when endpoint name already exists"
   },
+  "gXb1Ab": {
+    "defaultMessage": "Create new workspace",
+    "description": "Create workspace button"
+  },
   "gYOuKs": {
     "defaultMessage": "Rationale",
     "description": "Label for the rationale of an expectation assessment"
@@ -6211,6 +6319,10 @@
     "defaultMessage": "{count, plural, one {1 session selected} other {# sessions selected}}",
     "description": "Label for the number of sessions selected"
   },
+  "hN4qL/": {
+    "defaultMessage": "Create workspace",
+    "description": "Home page workspaces empty state CTA"
+  },
   "hR27A2": {
     "defaultMessage": "View full dashboard",
     "description": "Link to view full usage dashboard"
@@ -6242,6 +6354,10 @@
   "hWHLjo": {
     "defaultMessage": "True",
     "description": "Label for an assessment with a 'true' boolean value"
+  },
+  "hYrjzD": {
+    "defaultMessage": "Create",
+    "description": "Confirm button text for create workspace modal"
   },
   "hcDB9U": {
     "defaultMessage": "+∞",
@@ -6310,6 +6426,10 @@
   "i1Hj20": {
     "defaultMessage": "{count, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Time duration in hours"
+  },
+  "i3T+JQ": {
+    "defaultMessage": "Retry",
+    "description": "Home page workspaces retry CTA"
   },
   "i49wE6": {
     "defaultMessage": "We couldn't load your experiments.",
@@ -6419,6 +6539,10 @@
     "defaultMessage": "TRUE",
     "description": "Header label for boolean assessment type for the true rate"
   },
+  "ie1fGj": {
+    "defaultMessage": "Edit artifact root",
+    "description": "Label for edit artifact root button in workspaces table"
+  },
   "ieY8lf": {
     "defaultMessage": "Evaluating {isTraces, select, true {traces} other {sessions}}...",
     "description": "Status text while evaluating traces or sessions"
@@ -6430,6 +6554,10 @@
   "imKpxw": {
     "defaultMessage": "ID",
     "description": "Label for the ID section"
+  },
+  "ioD6Ho": {
+    "defaultMessage": "Dark",
+    "description": "Dark theme label"
   },
   "iqlzHb": {
     "defaultMessage": "Loading API keys...",
@@ -6591,6 +6719,14 @@
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
   },
+  "k2bPN+": {
+    "defaultMessage": "Last used",
+    "description": "Badge for last used workspace"
+  },
+  "k8oXRo": {
+    "defaultMessage": "Enter description",
+    "description": "Placeholder for description input in edit modal"
+  },
   "kA+QJr": {
     "defaultMessage": "Overview",
     "description": "Run details page > tab selector > overview tab"
@@ -6747,6 +6883,10 @@
     "defaultMessage": "Run details",
     "description": "Compare table title on the compare runs page"
   },
+  "lIURTA": {
+    "defaultMessage": "Name",
+    "description": "Workspaces table name column header"
+  },
   "lJQEW4": {
     "defaultMessage": "Using controls above, select at least one \"group by\" column.",
     "description": "Experiment page > artifact compare view > empty state for no group by columns selected > title"
@@ -6766,6 +6906,10 @@
   "lNO3kK": {
     "defaultMessage": "No parameters to display.",
     "description": "Text shown when there are no parameters to display"
+  },
+  "lNv2QR": {
+    "defaultMessage": "Light",
+    "description": "Light theme label"
   },
   "lPNTq7": {
     "defaultMessage": "Metrics ({length})",
@@ -6830,6 +6974,10 @@
   "loe2Ov": {
     "defaultMessage": "Version {version}",
     "description": "A label for the version number in the prompt details page"
+  },
+  "lpEsIz": {
+    "defaultMessage": "We couldn't load your workspaces.",
+    "description": "Home page workspaces error message"
   },
   "ls3868": {
     "defaultMessage": "Guidelines",
@@ -7019,6 +7167,10 @@
     "defaultMessage": "Edit history",
     "description": "Title of a modal that shows the edit history of an assessment"
   },
+  "nAhHpm": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button text for create workspace modal"
+  },
   "nBKx6U": {
     "defaultMessage": "Edit endpoint name",
     "description": "Tooltip for edit endpoint name button"
@@ -7147,6 +7299,10 @@
     "defaultMessage": "Quality metrics computed by scorers.",
     "description": "Description for the scorer insights section"
   },
+  "o1dN9r": {
+    "defaultMessage": "Theme preference",
+    "description": "Theme settings title"
+  },
   "o21MFS": {
     "defaultMessage": "Invalid log value",
     "description": "Experiment tracking > runs charts > line chart configuration > invalid log value message"
@@ -7198,6 +7354,10 @@
   "oMP6X7": {
     "defaultMessage": "Structured Output",
     "description": "Filter option for structured JSON output support"
+  },
+  "oQO1tC": {
+    "defaultMessage": "Enter workspace name",
+    "description": "Input placeholder for workspace name in create workspace modal"
   },
   "oShuJS": {
     "defaultMessage": "Logged from",
@@ -7487,9 +7647,17 @@
     "defaultMessage": "Show less",
     "description": "Button to close alert description"
   },
+  "qa80t1": {
+    "defaultMessage": "Enable Usage Tracking in the Configuration tab to view usage metrics",
+    "description": "Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first"
+  },
   "qcYoo4": {
     "defaultMessage": "Please select sessions to run the judge",
     "description": "Tooltip message when no sessions are selected"
+  },
+  "qhOwHa": {
+    "defaultMessage": "Endpoints",
+    "description": "Sidebar link for gateway endpoints"
   },
   "qkRBUr": {
     "defaultMessage": "Line smoothing",
@@ -7879,6 +8047,10 @@
     "defaultMessage": "Value",
     "description": "Key-value tag editor modal > Value input label (required)"
   },
+  "tJ+7No": {
+    "defaultMessage": "Set description",
+    "description": "Label for set description button in workspaces table"
+  },
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
     "description": "Text for time in days since given date for MLflow views"
@@ -8159,6 +8331,10 @@
     "defaultMessage": "Add description",
     "description": "Run page > Overview > Description section > Add description button"
   },
+  "vqWexj": {
+    "defaultMessage": "Back to experiment list",
+    "description": "Tooltip for experiments button"
+  },
   "vwD2zW": {
     "defaultMessage": "Unified APIs",
     "description": "Unified APIs tab title"
@@ -8278,6 +8454,10 @@
   "wjOGl2": {
     "defaultMessage": "Columns",
     "description": "Evaluation review > evaluations list > filter dropdown button"
+  },
+  "wnN8R0": {
+    "defaultMessage": "Enter default artifact root URI",
+    "description": "Input placeholder for artifact root in create workspace modal"
   },
   "womPSY": {
     "defaultMessage": "Session",
@@ -8462,10 +8642,6 @@
   "xpwj4T": {
     "defaultMessage": "Presence Penalty",
     "description": "Label for presence penalty input"
-  },
-  "xq0Rde": {
-    "defaultMessage": "New",
-    "description": "Sidebar create popover button to create new experiment, model or prompt"
   },
   "xqc4yl": {
     "defaultMessage": "Cancel",
