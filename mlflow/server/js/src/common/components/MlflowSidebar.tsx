@@ -33,7 +33,7 @@ import { useAssistant } from '../../assistant/AssistantContext';
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { MlflowLogo } from './MlflowLogo';
-import { HomePageDocsUrl, GenAIDocsUrl, MLDocsUrl, Version } from '../constants';
+import { DOCS_ROOT, GenAIDocsUrl, MLDocsUrl, Version } from '../constants';
 import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
 import { MlflowSidebarExperimentItems } from './MlflowSidebarExperimentItems';
 import { MlflowSidebarGatewayItems } from './MlflowSidebarGatewayItems';
@@ -240,7 +240,7 @@ export function MlflowSidebar({
     ? workflowType === WorkflowType.GENAI
       ? GenAIDocsUrl
       : MLDocsUrl
-    : HomePageDocsUrl;
+    : DOCS_ROOT;
 
   return (
     <aside
