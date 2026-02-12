@@ -188,6 +188,8 @@ async def test_maybe_traced_gateway_call_basic(endpoint_config):
     gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
     assert gateway_span.attributes.get("endpoint_id") == "test-endpoint-id"
     assert gateway_span.attributes.get("endpoint_name") == "test-endpoint"
+    # Input should be unwrapped (not nested under "payload" key)
+    assert gateway_span.inputs == {"input": "test"}
     # No user metadata should be present in trace
     assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USERNAME) is None
     assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USER_ID) is None
