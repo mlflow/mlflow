@@ -122,6 +122,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   );
 
   const hasExportAction = Boolean(traceActions?.exportToEvals);
+  const hasEvaluateTracesAction = Boolean(traceActions?.evaluateTracesAction?.evaluateTraces);
   const hasEditTagsAction = shouldEnableTagGrouping() && Boolean(traceActions?.editTags);
   const hasDeleteAction = Boolean(traceActions?.deleteTracesAction);
 
@@ -129,9 +130,14 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
     showAddToEvaluationDatasetModal?.(selectedTraces);
   };
 
+  const handleEvaluateTraces = () => {
+    const traceIds = compact(selectedTraces.map((trace) => trace.fullTraceId ?? trace.traceInfo?.trace_id));
+    traceActions?.evaluateTracesAction?.evaluateTraces?.(experimentId, traceIds);
+  };
+
   const isEditTagsDisabled = selectedTraces.length > 1;
   const noTracesSelected = selectedTraces.length === 0;
-  const noActionsAvailable = !hasExportAction && !hasEditTagsAction && !hasDeleteAction;
+  const noActionsAvailable = !hasExportAction && !hasEvaluateTracesAction && !hasEditTagsAction && !hasDeleteAction;
   const canCompare = selectedTraces.length >= 2 && selectedTraces.length < 4;
 
   if (noActionsAvailable) {
@@ -188,7 +194,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
               <DropdownMenu.Separator />
             </>
           )}
-          {hasExportAction && (
+          {(hasExportAction || hasEvaluateTracesAction) && (
             <>
               <DropdownMenu.Group>
                 <DropdownMenu.Label>
@@ -197,15 +203,30 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                     description: 'Trace actions dropdown group label',
                   })}
                 </DropdownMenu.Label>
-                <DropdownMenu.Item
-                  componentId="mlflow.genai-traces-table.export-to-datasets"
-                  onClick={handleExportToDatasets}
-                >
-                  {intl.formatMessage({
-                    defaultMessage: 'Add to evaluation dataset',
-                    description: 'Add traces to evaluation dataset action',
-                  })}
-                </DropdownMenu.Item>
+                {hasEvaluateTracesAction && (
+                  <DropdownMenu.Item
+                    componentId="mlflow.genai-traces-table.evaluate-traces"
+                    onClick={handleEvaluateTraces}
+                    disabled={traceActions?.evaluateTracesAction?.isDisabled}
+                    disabledReason={traceActions?.evaluateTracesAction?.disabledReason}
+                  >
+                    {intl.formatMessage({
+                      defaultMessage: 'Evaluate traces',
+                      description: 'Evaluate traces action',
+                    })}
+                  </DropdownMenu.Item>
+                )}
+                {hasExportAction && (
+                  <DropdownMenu.Item
+                    componentId="mlflow.genai-traces-table.export-to-datasets"
+                    onClick={handleExportToDatasets}
+                  >
+                    {intl.formatMessage({
+                      defaultMessage: 'Add to evaluation dataset',
+                      description: 'Add traces to evaluation dataset action',
+                    })}
+                  </DropdownMenu.Item>
+                )}
               </DropdownMenu.Group>
             </>
           )}

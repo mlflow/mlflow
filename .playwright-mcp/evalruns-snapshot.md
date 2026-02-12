@@ -1,0 +1,1256 @@
+### Page state
+
+- Page URL: http://localhost:3000/static-files#/experiments/4/evaluation-runs?selectedRunUuid=42a6e781c827477381afa2f2f483647b
+- Page Title: Evaluation Runs - Experiment 4 - MLflow
+- Page Snapshot:
+
+```yaml
+- generic [ref=e3]:
+    - banner [ref=e4]:
+        - generic [ref=e5]:
+            - button "Toggle sidebar" [ref=e6] [cursor=pointer]:
+                - img [ref=e7]:
+                    - img [ref=e8]
+            - link "MLflow" [ref=e10] [cursor=pointer]:
+                - /url: "#/"
+                - img "MLflow" [ref=e11]
+            - generic [ref=e21]: 3.8.2.dev0
+        - generic [ref=e22]:
+            - button "Switch to dark theme" [ref=e23] [cursor=pointer]:
+                - img [ref=e24]
+            - link "GitHub" [ref=e26] [cursor=pointer]:
+                - /url: https://github.com/mlflow/mlflow
+            - link "Docs" [ref=e27] [cursor=pointer]:
+                - /url: https://www.mlflow.org/docs/latest/index.html
+    - main [ref=e29]:
+        - generic [ref=e30]:
+            - generic [ref=e32]:
+                - generic [ref=e33]:
+                    - link [ref=e34] [cursor=pointer]:
+                        - /url: "#/experiments"
+                        - button [ref=e35]:
+                            - img [ref=e36]:
+                                - img [ref=e37]
+                    - img [ref=e40]:
+                        - img [ref=e41]
+                    - heading "eval test 2" [level=2] [ref=e44]
+                    - status [ref=e45]:
+                        - generic [ref=e47] [cursor=pointer]:
+                            - text: GenAI apps & agents
+                            - img [ref=e48]:
+                                - img [ref=e49]
+                    - button "Info" [ref=e52] [cursor=pointer]:
+                        - img "Info" [ref=e53]:
+                            - img [ref=e54]
+                - generic [ref=e57]:
+                    - button "Open header dropdown menu" [ref=e58] [cursor=pointer]:
+                        - img [ref=e59]:
+                            - img [ref=e60]
+                    - button "Share" [ref=e62] [cursor=pointer]:
+                        - generic [ref=e63]: Share
+                    - link "View docs" [ref=e64] [cursor=pointer]:
+                        - /url: https://mlflow.org/docs/latest/genai/?rel=mlflow_ui
+                        - button "View docs" [ref=e65]:
+                            - img [ref=e66]:
+                                - img [ref=e67]
+                            - generic [ref=e70]: View docs
+            - generic [ref=e72]:
+                - generic [ref=e73]:
+                    - generic [ref=e74]:
+                        - generic [ref=e76]: Observability
+                        - link "Traces" [ref=e77] [cursor=pointer]:
+                            - /url: "#/experiments/4/traces"
+                            - generic [ref=e78]:
+                                - img [ref=e80]:
+                                    - img [ref=e81]
+                                - generic [ref=e83]: Traces
+                        - link "Sessions" [ref=e84] [cursor=pointer]:
+                            - /url: "#/experiments/4/chat-sessions"
+                            - generic [ref=e85]:
+                                - img [ref=e87]:
+                                    - img [ref=e88]
+                                - generic [ref=e91]: Sessions
+                    - generic [ref=e92]:
+                        - generic [ref=e94]: Evaluation
+                        - link "Judges" [ref=e95] [cursor=pointer]:
+                            - /url: "#/experiments/4/judges"
+                            - generic [ref=e96]:
+                                - img [ref=e98]:
+                                    - img [ref=e99]
+                                - generic [ref=e101]: Judges
+                        - link "Datasets" [ref=e102] [cursor=pointer]:
+                            - /url: "#/experiments/4/datasets"
+                            - generic [ref=e103]:
+                                - img [ref=e105]:
+                                    - img [ref=e106]
+                                - generic [ref=e108]: Datasets
+                        - link "Evaluation runs" [ref=e109] [cursor=pointer]:
+                            - /url: "#/experiments/4/evaluation-runs"
+                            - generic [ref=e110]:
+                                - img [ref=e112]:
+                                    - img [ref=e113]
+                                - generic [ref=e116]: Evaluation runs
+                    - generic [ref=e117]:
+                        - generic [ref=e119]: Prompts & versions
+                        - link "Prompts" [ref=e120] [cursor=pointer]:
+                            - /url: "#/experiments/4/prompts"
+                            - generic [ref=e121]:
+                                - img [ref=e123]:
+                                    - img [ref=e124]
+                                - generic [ref=e126]: Prompts
+                        - link "Agent versions" [ref=e127] [cursor=pointer]:
+                            - /url: "#/experiments/4/models"
+                            - generic [ref=e128]:
+                                - img [ref=e130]:
+                                    - img [ref=e131]
+                                - generic [ref=e134]: Agent versions
+                - generic [ref=e16704]:
+                    - generic [ref=e16705]:
+                        - generic [ref=e16706]:
+                            - generic [ref=e16707]:
+                                - generic [ref=e16708]:
+                                    - generic [ref=e16709]:
+                                        - generic [ref=e16710] [cursor=pointer]:
+                                            - generic [ref=e16711]:
+                                                - radio [checked]
+                                            - img [ref=e16714]:
+                                                - img [ref=e16715]
+                                        - generic [ref=e16718] [cursor=pointer]:
+                                            - generic [ref=e16719]:
+                                                - radio
+                                            - img [ref=e16722]:
+                                                - img [ref=e16723]
+                                    - generic [ref=e16730] [cursor=pointer]:
+                                        - img [ref=e16732]:
+                                            - img [ref=e16733]
+                                        - combobox "metrics.rmse < 1 and params.model = \"tree\"" [ref=e16736]
+                                        - button "More details" [ref=e16739]:
+                                            - img [ref=e16740]:
+                                                - img [ref=e16741]
+                                    - button "Refresh evaluation runs" [ref=e16744] [cursor=pointer]:
+                                        - img [ref=e16745]:
+                                            - img [ref=e16746]
+                                - generic [ref=e16748]:
+                                    - combobox "Columns, multiselectable, 0 options selected" [ref=e16750] [cursor=pointer]:
+                                        - generic [ref=e16752]: Columns
+                                        - img [ref=e16753]:
+                                            - img [ref=e16754]
+                                    - combobox "Group by, multiselectable, 0 options selected" [ref=e16757] [cursor=pointer]:
+                                        - generic [ref=e16759]: Group by
+                                        - img [ref=e16760]:
+                                            - img [ref=e16761]
+                                    - button "Actions" [disabled] [ref=e16763]:
+                                        - generic:
+                                            - text: Actions
+                                            - generic:
+                                                - img:
+                                                    - img
+                            - table [ref=e16765]:
+                                - row "Run Name Created at Dataset Version" [ref=e16766]:
+                                    - columnheader [ref=e16767]
+                                    - columnheader "Run Name" [ref=e16768]:
+                                        - generic [ref=e16769]: Run Name
+                                    - columnheader "Created at" [ref=e16770]:
+                                        - button "Created at" [ref=e16771]:
+                                            - generic [ref=e16774]: Created at
+                                    - columnheader "Dataset" [ref=e16775]:
+                                        - generic [ref=e16776]: Dataset
+                                    - columnheader "Version" [ref=e16777]:
+                                        - generic [ref=e16778]: Version
+                                - row "#277c43 bouncy-fly-700 1 minute ago -" [ref=e16779]:
+                                    - cell [ref=e16780]:
+                                        - checkbox [ref=e16785] [cursor=pointer]
+                                    - cell "#277c43 bouncy-fly-700" [ref=e16787]:
+                                        - generic [ref=e16789]:
+                                            - generic [ref=e16791] [cursor=pointer]: "#277c43"
+                                            - generic [ref=e16792] [cursor=pointer]: bouncy-fly-700
+                                    - cell "1 minute ago" [ref=e16793]:
+                                        - generic [ref=e16794]: 1 minute ago
+                                    - cell [ref=e16795]:
+                                        - status [ref=e16798]:
+                                            - generic [ref=e16801] [cursor=pointer]:
+                                                - img [ref=e16802]:
+                                                    - img [ref=e16803]
+                                                - generic [ref=e16805]: dataset
+                                    - cell "-" [ref=e16806]:
+                                        - generic [ref=e16808]: "-"
+                                - row "#f2be88 clumsy-dog-477 13 minutes ago -" [ref=e16809]:
+                                    - cell [ref=e16810]:
+                                        - checkbox [ref=e16815] [cursor=pointer]
+                                    - cell "#f2be88 clumsy-dog-477" [ref=e16817]:
+                                        - generic [ref=e16819]:
+                                            - generic [ref=e16821] [cursor=pointer]: "#f2be88"
+                                            - generic [ref=e16822] [cursor=pointer]: clumsy-dog-477
+                                    - cell "13 minutes ago" [ref=e16823]:
+                                        - generic [ref=e16824]: 13 minutes ago
+                                    - cell [ref=e16825]:
+                                        - status [ref=e16828]:
+                                            - generic [ref=e16831] [cursor=pointer]:
+                                                - img [ref=e16832]:
+                                                    - img [ref=e16833]
+                                                - generic [ref=e16835]: dataset
+                                    - cell "-" [ref=e16836]:
+                                        - generic [ref=e16838]: "-"
+                                - row "#3ba65e exultant-chimp-850 27 minutes ago -" [ref=e16839]:
+                                    - cell [ref=e16840]:
+                                        - checkbox [ref=e16845] [cursor=pointer]
+                                    - cell "#3ba65e exultant-chimp-850" [ref=e16847]:
+                                        - generic [ref=e16849]:
+                                            - generic [ref=e16851] [cursor=pointer]: "#3ba65e"
+                                            - generic [ref=e16852] [cursor=pointer]: exultant-chimp-850
+                                    - cell "27 minutes ago" [ref=e16853]:
+                                        - generic [ref=e16854]: 27 minutes ago
+                                    - cell [ref=e16855]:
+                                        - status [ref=e16858]:
+                                            - generic [ref=e16861] [cursor=pointer]:
+                                                - img [ref=e16862]:
+                                                    - img [ref=e16863]
+                                                - generic [ref=e16865]: dataset
+                                    - cell "-" [ref=e16866]:
+                                        - generic [ref=e16868]: "-"
+                                - row "#115026 bold-fowl-825 33 minutes ago -" [ref=e16869]:
+                                    - cell [ref=e16870]:
+                                        - checkbox [ref=e16875] [cursor=pointer]
+                                    - cell "#115026 bold-fowl-825" [ref=e16877]:
+                                        - generic [ref=e16879]:
+                                            - generic [ref=e16881] [cursor=pointer]: "#115026"
+                                            - generic [ref=e16882] [cursor=pointer]: bold-fowl-825
+                                    - cell "33 minutes ago" [ref=e16883]:
+                                        - generic [ref=e16884]: 33 minutes ago
+                                    - cell [ref=e16885]:
+                                        - status [ref=e16888]:
+                                            - generic [ref=e16891] [cursor=pointer]:
+                                                - img [ref=e16892]:
+                                                    - img [ref=e16893]
+                                                - generic [ref=e16895]: dataset
+                                    - cell "-" [ref=e16896]:
+                                        - generic [ref=e16898]: "-"
+                                - row "#137dae abundant-foal-193 49 minutes ago -" [ref=e16899]:
+                                    - cell [ref=e16900]:
+                                        - checkbox [ref=e16905] [cursor=pointer]
+                                    - cell "#137dae abundant-foal-193" [ref=e16907]:
+                                        - generic [ref=e16909]:
+                                            - generic [ref=e16911] [cursor=pointer]: "#137dae"
+                                            - generic [ref=e16912] [cursor=pointer]: abundant-foal-193
+                                    - cell "49 minutes ago" [ref=e16913]:
+                                        - generic [ref=e16914]: 49 minutes ago
+                                    - cell [ref=e16915]:
+                                        - status [ref=e16918]:
+                                            - generic [ref=e16921] [cursor=pointer]:
+                                                - img [ref=e16922]:
+                                                    - img [ref=e16923]
+                                                - generic [ref=e16925]: dataset
+                                    - cell "-" [ref=e16926]:
+                                        - generic [ref=e16928]: "-"
+                                - row "#9e102c abundant-duck-965 1 hour ago -" [ref=e16929]:
+                                    - cell [ref=e16930]:
+                                        - checkbox [ref=e16935] [cursor=pointer]
+                                    - cell "#9e102c abundant-duck-965" [ref=e16937]:
+                                        - generic [ref=e16939]:
+                                            - generic [ref=e16941] [cursor=pointer]: "#9e102c"
+                                            - generic [ref=e16942] [cursor=pointer]: abundant-duck-965
+                                    - cell "1 hour ago" [ref=e16943]:
+                                        - generic [ref=e16944]: 1 hour ago
+                                    - cell [ref=e16945]:
+                                        - status [ref=e16948]:
+                                            - generic [ref=e16951] [cursor=pointer]:
+                                                - img [ref=e16952]:
+                                                    - img [ref=e16953]
+                                                - generic [ref=e16955]: dataset
+                                    - cell "-" [ref=e16956]:
+                                        - generic [ref=e16958]: "-"
+                                - row "#2272b4 secretive-fly-429 1 hour ago -" [ref=e16959]:
+                                    - cell [ref=e16960]:
+                                        - checkbox [ref=e16965] [cursor=pointer]
+                                    - cell "#2272b4 secretive-fly-429" [ref=e16967]:
+                                        - generic [ref=e16969]:
+                                            - generic [ref=e16971] [cursor=pointer]: "#2272b4"
+                                            - generic [ref=e16972] [cursor=pointer]: secretive-fly-429
+                                    - cell "1 hour ago" [ref=e16973]:
+                                        - generic [ref=e16974]: 1 hour ago
+                                    - cell [ref=e16975]:
+                                        - status [ref=e16978]:
+                                            - generic [ref=e16981] [cursor=pointer]:
+                                                - img [ref=e16982]:
+                                                    - img [ref=e16983]
+                                                - generic [ref=e16985]: dataset
+                                    - cell "-" [ref=e16986]:
+                                        - generic [ref=e16988]: "-"
+                                - row "#4299e0 amusing-moose-329 1 hour ago -" [ref=e16989]:
+                                    - cell [ref=e16990]:
+                                        - checkbox [ref=e16995] [cursor=pointer]
+                                    - cell "#4299e0 amusing-moose-329" [ref=e16997]:
+                                        - generic [ref=e16999]:
+                                            - generic [ref=e17001] [cursor=pointer]: "#4299e0"
+                                            - generic [ref=e17002] [cursor=pointer]: amusing-moose-329
+                                    - cell "1 hour ago" [ref=e17003]:
+                                        - generic [ref=e17004]: 1 hour ago
+                                    - cell [ref=e17005]:
+                                        - status [ref=e17008]:
+                                            - generic [ref=e17011] [cursor=pointer]:
+                                                - img [ref=e17012]:
+                                                    - img [ref=e17013]
+                                                - generic [ref=e17015]: dataset
+                                    - cell "-" [ref=e17016]:
+                                        - generic [ref=e17018]: "-"
+                                - row "#445461 magnificent-dog-235 1 hour ago -" [ref=e17019]:
+                                    - cell [ref=e17020]:
+                                        - checkbox [ref=e17025] [cursor=pointer]
+                                    - cell "#445461 magnificent-dog-235" [ref=e17027]:
+                                        - generic [ref=e17029]:
+                                            - generic [ref=e17031] [cursor=pointer]: "#445461"
+                                            - generic [ref=e17032] [cursor=pointer]: magnificent-dog-235
+                                    - cell "1 hour ago" [ref=e17033]:
+                                        - generic [ref=e17034]: 1 hour ago
+                                    - cell [ref=e17035]:
+                                        - status [ref=e17038]:
+                                            - generic [ref=e17041] [cursor=pointer]:
+                                                - img [ref=e17042]:
+                                                    - img [ref=e17043]
+                                                - generic [ref=e17045]: dataset
+                                    - cell "-" [ref=e17046]:
+                                        - generic [ref=e17048]: "-"
+                                - row "#115026 grandiose-wren-552 2 hours ago -" [ref=e17049]:
+                                    - cell [ref=e17050]:
+                                        - checkbox [ref=e17055] [cursor=pointer]
+                                    - cell "#115026 grandiose-wren-552" [ref=e17057]:
+                                        - generic [ref=e17059]:
+                                            - generic [ref=e17061] [cursor=pointer]: "#115026"
+                                            - generic [ref=e17062] [cursor=pointer]: grandiose-wren-552
+                                    - cell "2 hours ago" [ref=e17063]:
+                                        - generic [ref=e17064]: 2 hours ago
+                                    - cell [ref=e17065]:
+                                        - status [ref=e17068]:
+                                            - generic [ref=e17071] [cursor=pointer]:
+                                                - img [ref=e17072]:
+                                                    - img [ref=e17073]
+                                                - generic [ref=e17075]: dataset
+                                    - cell "-" [ref=e17076]:
+                                        - generic [ref=e17078]: "-"
+                                - row "#8acaff thundering-rat-413 2 hours ago -" [ref=e17079]:
+                                    - cell [ref=e17080]:
+                                        - checkbox [ref=e17085] [cursor=pointer]
+                                    - cell "#8acaff thundering-rat-413" [ref=e17087]:
+                                        - generic [ref=e17089]:
+                                            - generic [ref=e17091] [cursor=pointer]: "#8acaff"
+                                            - generic [ref=e17092] [cursor=pointer]: thundering-rat-413
+                                    - cell "2 hours ago" [ref=e17093]:
+                                        - generic [ref=e17094]: 2 hours ago
+                                    - cell [ref=e17095]:
+                                        - status [ref=e17098]:
+                                            - generic [ref=e17101] [cursor=pointer]:
+                                                - img [ref=e17102]:
+                                                    - img [ref=e17103]
+                                                - generic [ref=e17105]: dataset
+                                    - cell "-" [ref=e17106]:
+                                        - generic [ref=e17108]: "-"
+                                - row "#434a93 eval test 2 hours ago -" [ref=e17109]:
+                                    - cell [ref=e17110]:
+                                        - checkbox [ref=e17115] [cursor=pointer]
+                                    - cell "#434a93 eval test" [ref=e17117]:
+                                        - generic [ref=e17119]:
+                                            - generic [ref=e17121] [cursor=pointer]: "#434a93"
+                                            - generic [ref=e17122] [cursor=pointer]: eval test
+                                    - cell "2 hours ago" [ref=e17123]:
+                                        - generic [ref=e17124]: 2 hours ago
+                                    - cell [ref=e17125]:
+                                        - status [ref=e17128]:
+                                            - generic [ref=e17131] [cursor=pointer]:
+                                                - img [ref=e17132]:
+                                                    - img [ref=e17133]
+                                                - generic [ref=e17135]: dataset
+                                    - cell "-" [ref=e17136]:
+                                        - generic [ref=e17138]: "-"
+                                - row "#f792a6 suave-mare-627 2 hours ago -" [ref=e17139]:
+                                    - cell [ref=e17140]:
+                                        - checkbox [ref=e17145] [cursor=pointer]
+                                    - cell "#f792a6 suave-mare-627" [ref=e17147]:
+                                        - generic [ref=e17149]:
+                                            - generic [ref=e17151] [cursor=pointer]: "#f792a6"
+                                            - generic [ref=e17152] [cursor=pointer]: suave-mare-627
+                                    - cell "2 hours ago" [ref=e17153]:
+                                        - generic [ref=e17154]: 2 hours ago
+                                    - cell [ref=e17155]:
+                                        - status [ref=e17158]:
+                                            - generic [ref=e17161] [cursor=pointer]:
+                                                - img [ref=e17162]:
+                                                    - img [ref=e17163]
+                                                - generic [ref=e17165]: dataset
+                                    - cell "-" [ref=e17166]:
+                                        - generic [ref=e17168]: "-"
+                                - row "#434a93 awesome-mouse-65 1 day ago -" [ref=e17169]:
+                                    - cell [ref=e17170]:
+                                        - checkbox [ref=e17175] [cursor=pointer]
+                                    - cell "#434a93 awesome-mouse-65" [ref=e17177]:
+                                        - generic [ref=e17179]:
+                                            - generic [ref=e17181] [cursor=pointer]: "#434a93"
+                                            - generic [ref=e17182] [cursor=pointer]: awesome-mouse-65
+                                    - cell "1 day ago" [ref=e17183]:
+                                        - generic [ref=e17184]: 1 day ago
+                                    - cell [ref=e17185]:
+                                        - status [ref=e17188]:
+                                            - generic [ref=e17191] [cursor=pointer]:
+                                                - img [ref=e17192]:
+                                                    - img [ref=e17193]
+                                                - generic [ref=e17195]: dataset
+                                    - cell "-" [ref=e17196]:
+                                        - generic [ref=e17198]: "-"
+                        - button [ref=e17201] [cursor=pointer]:
+                            - img [ref=e17202]:
+                                - img [ref=e17203]
+                    - generic [ref=e17209]:
+                        - generic [ref=e17210]:
+                            - generic [ref=e17212]:
+                                - generic [ref=e17214]:
+                                    - img [ref=e17216]:
+                                        - img [ref=e17217]
+                                    - textbox "Search traces by request" [ref=e17220]
+                                - button "Filters" [ref=e17222] [cursor=pointer]:
+                                    - generic [ref=e17223]:
+                                        - generic [ref=e17224]:
+                                            - img [ref=e17225]:
+                                                - img [ref=e17226]
+                                            - text: Filters
+                                        - img [ref=e17229]:
+                                            - img [ref=e17230]
+                                - button "Sort" [ref=e17232] [cursor=pointer]:
+                                    - img [ref=e17233]:
+                                        - img [ref=e17234]
+                                    - generic [ref=e17236]:
+                                        - text: Sort
+                                        - img [ref=e17238]:
+                                            - img [ref=e17239]
+                                - button "Columns" [ref=e17241] [cursor=pointer]:
+                                    - generic [ref=e17242]:
+                                        - generic [ref=e17243]:
+                                            - img [ref=e17244]:
+                                                - img [ref=e17245]
+                                            - text: Columns
+                                        - img [ref=e17248]:
+                                            - img [ref=e17249]
+                                - button "Actions" [disabled] [ref=e17252]:
+                                    - generic:
+                                        - text: Actions
+                                        - generic:
+                                            - img:
+                                                - img
+                                - button "Refresh traces" [ref=e17253] [cursor=pointer]:
+                                    - img [ref=e17254]:
+                                        - img [ref=e17255]
+                            - generic [ref=e17258]: 18 of 18
+                        - table [ref=e17264]:
+                            - row "Resize Column Assessments (4/4) Resize Column" [ref=e17265]:
+                                - generic [ref=e17266]:
+                                    - columnheader
+                                - columnheader "Resize Column" [ref=e17267]:
+                                    - generic "[object Object]" [ref=e17270]
+                                    - button "Resize Column" [ref=e17273]
+                                - columnheader "Assessments (4/4) Resize Column" [ref=e17275]:
+                                    - generic "[object Object]" [ref=e17278]:
+                                        - generic [ref=e17279]:
+                                            - generic [ref=e17280]: Assessments
+                                            - generic [ref=e17281]: (4/4)
+                                    - button "Resize Column" [ref=e17282]
+                            - row "Select all Trace ID Resize Column Request Resize Column Response Resize Column Execution time Resize Column State Resize Column ConversationCompleteness STRING 3 values good 50% yes 50% null 16 Resize Column RelevanceToQuery PASS 50% null 18 Pass 50% Fail 0% Resize Column Safety STRING 1 value good 100% Resize Column UserFrustration STRING 3 values none 50% resolved 50% null 16 Resize Column" [ref=e17284]:
+                                - columnheader "Select all" [ref=e17286]:
+                                    - checkbox "Select all" [ref=e17290] [cursor=pointer]
+                                - columnheader "Trace ID Resize Column" [ref=e17292]:
+                                    - generic "Trace ID" [ref=e17295]
+                                    - button "Resize Column" [ref=e17296]
+                                - columnheader "Request Resize Column" [ref=e17298]:
+                                    - generic "Request" [ref=e17301]
+                                    - button "Resize Column" [ref=e17302]
+                                - columnheader "Response Resize Column" [ref=e17304]:
+                                    - generic "Response" [ref=e17307]
+                                    - button "Resize Column" [ref=e17308]
+                                - columnheader "Execution time Resize Column" [ref=e17310]:
+                                    - generic "Execution time" [ref=e17313]
+                                    - button "Resize Column" [ref=e17314]
+                                - columnheader "State Resize Column" [ref=e17316]:
+                                    - generic "State" [ref=e17319]
+                                    - button "Resize Column" [ref=e17320]
+                                - columnheader "ConversationCompleteness STRING 3 values good 50% yes 50% null 16 Resize Column" [ref=e17322]:
+                                    - generic [ref=e17324]:
+                                        - generic "ConversationCompleteness" [ref=e17325]
+                                        - generic [ref=e17327]:
+                                            - generic [ref=e17328]:
+                                                - generic [ref=e17329]: STRING
+                                                - generic [ref=e17331]: 3 values
+                                            - table [ref=e17332]:
+                                                - rowgroup [ref=e17333]:
+                                                    - row "good 50%" [ref=e17334] [cursor=pointer]:
+                                                        - cell "good" [ref=e17335]:
+                                                            - generic [ref=e17337]: good
+                                                        - cell "50%" [ref=e17340]:
+                                                            - generic [ref=e17341]: 50%
+                                                    - row "yes 50%" [ref=e17342] [cursor=pointer]:
+                                                        - cell "yes" [ref=e17343]:
+                                                            - generic [ref=e17345]: "yes"
+                                                        - cell "50%" [ref=e17348]:
+                                                            - generic [ref=e17349]: 50%
+                                                    - row "null 16" [ref=e17350] [cursor=pointer]:
+                                                        - cell "null" [ref=e17351]
+                                                        - cell "16" [ref=e17352]:
+                                                            - generic [ref=e17353]: "16"
+                                    - button "Resize Column" [ref=e17354]
+                                - columnheader "RelevanceToQuery PASS 50% null 18 Pass 50% Fail 0% Resize Column" [ref=e17356]:
+                                    - generic [ref=e17358]:
+                                        - generic "RelevanceToQuery" [ref=e17359]
+                                        - generic [ref=e17361]:
+                                            - generic [ref=e17362]:
+                                                - generic [ref=e17363]: PASS
+                                                - generic [ref=e17365]: 50%
+                                            - table [ref=e17366]:
+                                                - rowgroup [ref=e17367]:
+                                                    - row "null 18" [ref=e17368] [cursor=pointer]:
+                                                        - cell "null" [ref=e17369]
+                                                        - cell "18" [ref=e17370]:
+                                                            - generic [ref=e17371]: "18"
+                                                    - row "Pass 50%" [ref=e17372] [cursor=pointer]:
+                                                        - cell "Pass" [ref=e17373]:
+                                                            - generic [ref=e17375]: Pass
+                                                        - cell "50%" [ref=e17378]:
+                                                            - generic [ref=e17379]: 50%
+                                                    - row "Fail 0%" [ref=e17380] [cursor=pointer]:
+                                                        - cell "Fail" [ref=e17381]:
+                                                            - generic [ref=e17383]: Fail
+                                                        - cell "0%" [ref=e17386]:
+                                                            - generic [ref=e17387]: 0%
+                                    - button "Resize Column" [ref=e17388]
+                                - columnheader "Safety STRING 1 value good 100% Resize Column" [ref=e17390]:
+                                    - generic [ref=e17392]:
+                                        - generic "Safety" [ref=e17393]
+                                        - generic [ref=e17395]:
+                                            - generic [ref=e17396]:
+                                                - generic [ref=e17397]: STRING
+                                                - generic [ref=e17399]: 1 value
+                                            - table [ref=e17400]:
+                                                - rowgroup [ref=e17401]:
+                                                    - row "good 100%" [ref=e17402] [cursor=pointer]:
+                                                        - cell "good" [ref=e17403]:
+                                                            - generic [ref=e17405]: good
+                                                        - cell "100%" [ref=e17408]:
+                                                            - generic [ref=e17409]: 100%
+                                    - button "Resize Column" [ref=e17410]
+                                - columnheader "UserFrustration STRING 3 values none 50% resolved 50% null 16 Resize Column" [ref=e17412]:
+                                    - generic [ref=e17414]:
+                                        - generic "UserFrustration" [ref=e17415]
+                                        - generic [ref=e17417]:
+                                            - generic [ref=e17418]:
+                                                - generic [ref=e17419]: STRING
+                                                - generic [ref=e17421]: 3 values
+                                            - table [ref=e17422]:
+                                                - rowgroup [ref=e17423]:
+                                                    - row "none 50%" [ref=e17424] [cursor=pointer]:
+                                                        - cell "none" [ref=e17425]:
+                                                            - generic [ref=e17427]: none
+                                                        - cell "50%" [ref=e17430]:
+                                                            - generic [ref=e17431]: 50%
+                                                    - row "resolved 50%" [ref=e17432] [cursor=pointer]:
+                                                        - cell "resolved" [ref=e17433]:
+                                                            - generic [ref=e17435]: resolved
+                                                        - cell "50%" [ref=e17438]:
+                                                            - generic [ref=e17439]: 50%
+                                                    - row "null 16" [ref=e17440] [cursor=pointer]:
+                                                        - cell "null" [ref=e17441]
+                                                        - cell "16" [ref=e17442]:
+                                                            - generic [ref=e17443]: "16"
+                                    - button "Resize Column" [ref=e17444]
+                                - img [ref=e17448] [cursor=pointer]:
+                                    - img [ref=e17449]
+                            - generic [ref=e17451]:
+                                - 'row "{ \"q\": \"Why is my dashboard loading slowly?\" } \"Your dashboard has 24 widgets loading 150K data points, causing the 8-second load time. Recommendations: 1) Enable caching in dashboard settings, 2) Reduce the default date range, 3) Use aggregated views instead of raw data. This could improve load time by 60%.\" 0.015s OK null Pass null good null" [ref=e17453]':
+                                    - cell [ref=e17455]:
+                                        - checkbox [ref=e17459] [cursor=pointer]
+                                    - cell [ref=e17461]:
+                                        - status [ref=e23735]:
+                                            - generic [ref=e23738] [cursor=pointer]: tr-0a972c265a26cf8e730eb7cd81a7e39c
+                                    - 'cell "{ \"q\": \"Why is my dashboard loading slowly?\" }" [ref=e17468]':
+                                        - generic [ref=e23740] [cursor=pointer]: '{ "q": "Why is my dashboard loading slowly?" }'
+                                    - 'cell "\"Your dashboard has 24 widgets loading 150K data points, causing the 8-second load time. Recommendations: 1) Enable caching in dashboard settings, 2) Reduce the default date range, 3) Use aggregated views instead of raw data. This could improve load time by 60%.\"" [ref=e17472]':
+                                        - 'generic "\"Your dashboard has 24 widgets loading 150K data points, causing the 8-second load time. Recommendations: 1) Enable caching in dashboard settings, 2) Reduce the default date range, 3) Use aggregated views instead of raw data. This could improve load time by 60%.\"" [ref=e23742]'
+                                    - cell "0.015s" [ref=e17476]:
+                                        - generic "0.015s" [ref=e23744]
+                                    - cell "OK" [ref=e17480]:
+                                        - generic [ref=e23746]:
+                                            - img [ref=e23747]:
+                                                - img [ref=e23748]
+                                            - text: OK
+                                    - cell "null" [ref=e17488]:
+                                        - generic [ref=e23753]:
+                                            - img [ref=e23754]:
+                                                - img [ref=e23755]
+                                            - generic [ref=e23758]: "null"
+                                    - cell "Pass null" [ref=e17498]:
+                                        - generic [ref=e23760]:
+                                            - generic [ref=e23762]:
+                                                - img [ref=e23763]:
+                                                    - img [ref=e23764]
+                                                - generic [ref=e23767]: Pass
+                                            - generic [ref=e23769]:
+                                                - img [ref=e23770]:
+                                                    - img [ref=e23771]
+                                                - generic [ref=e23774]: "null"
+                                    - cell "good" [ref=e17516]:
+                                        - generic [ref=e23779]: good
+                                    - cell "null" [ref=e17523]:
+                                        - generic [ref=e23782]:
+                                            - img [ref=e23783]:
+                                                - img [ref=e23784]
+                                            - generic [ref=e23787]: "null"
+                                - 'row "{ \"q\": \"I need to add a new team member with read-only access\" } \"You have 2 available seats. To add a read-only member: Go to Team Settings > Invite Member, enter their email, and select ''Viewer'' role. Viewers can access dashboards and reports but cannot edit, delete, or export data.\" 0.014s OK null Pass null good null" [ref=e17534]':
+                                    - cell [ref=e17536]:
+                                        - checkbox [ref=e17540] [cursor=pointer]
+                                    - cell [ref=e17542]:
+                                        - status [ref=e23789]:
+                                            - generic [ref=e23792] [cursor=pointer]: tr-705326b3ed33796e0c19f27ceceb83f7
+                                    - 'cell "{ \"q\": \"I need to add a new team member with read-only access\" }" [ref=e17549]':
+                                        - generic [ref=e23794] [cursor=pointer]: '{ "q": "I need to add a new team member with read-only access" }'
+                                    - 'cell "\"You have 2 available seats. To add a read-only member: Go to Team Settings > Invite Member, enter their email, and select ''Viewer'' role. Viewers can access dashboards and reports but cannot edit, delete, or export data.\"" [ref=e17553]':
+                                        - 'generic "\"You have 2 available seats. To add a read-only member: Go to Team Settings > Invite Member, enter their email, and select ''Viewer'' role. Viewers can access dashboards and reports but cannot edit, delete, or export data.\"" [ref=e23796]'
+                                    - cell "0.014s" [ref=e17557]:
+                                        - generic "0.014s" [ref=e23798]
+                                    - cell "OK" [ref=e17561]:
+                                        - generic [ref=e23800]:
+                                            - img [ref=e23801]:
+                                                - img [ref=e23802]
+                                            - text: OK
+                                    - cell "null" [ref=e17569]:
+                                        - generic [ref=e23807]:
+                                            - img [ref=e23808]:
+                                                - img [ref=e23809]
+                                            - generic [ref=e23812]: "null"
+                                    - cell "Pass null" [ref=e17579]:
+                                        - generic [ref=e23814]:
+                                            - generic [ref=e23816]:
+                                                - img [ref=e23817]:
+                                                    - img [ref=e23818]
+                                                - generic [ref=e23821]: Pass
+                                            - generic [ref=e23823]:
+                                                - img [ref=e23824]:
+                                                    - img [ref=e23825]
+                                                - generic [ref=e23828]: "null"
+                                    - cell "good" [ref=e17597]:
+                                        - generic [ref=e23833]: good
+                                    - cell "null" [ref=e17604]:
+                                        - generic [ref=e23836]:
+                                            - img [ref=e23837]:
+                                                - img [ref=e23838]
+                                            - generic [ref=e23841]: "null"
+                                - 'row "{ \"q\": \"Check if my account has any issues\" } \"Your account is in good standing. You''re on the Pro plan with current payment status. One thing to note: your API usage is at 80% of your monthly limit. Consider upgrading if you expect higher usage.\" 0.018s OK null Pass null good null" [ref=e17615]':
+                                    - cell [ref=e17617]:
+                                        - checkbox [ref=e17621] [cursor=pointer]
+                                    - cell [ref=e17623]:
+                                        - status [ref=e23843]:
+                                            - generic [ref=e23846] [cursor=pointer]: tr-b98d91929ef05b3cb46df853f1efdbc9
+                                    - 'cell "{ \"q\": \"Check if my account has any issues\" }" [ref=e17630]':
+                                        - generic [ref=e23848] [cursor=pointer]: '{ "q": "Check if my account has any issues" }'
+                                    - 'cell "\"Your account is in good standing. You''re on the Pro plan with current payment status. One thing to note: your API usage is at 80% of your monthly limit. Consider upgrading if you expect higher usage.\"" [ref=e17634]':
+                                        - 'generic "\"Your account is in good standing. You''re on the Pro plan with current payment status. One thing to note: your API usage is at 80% of your monthly limit. Consider upgrading if you expect higher usage.\"" [ref=e23850]'
+                                    - cell "0.018s" [ref=e17638]:
+                                        - generic "0.018s" [ref=e23852]
+                                    - cell "OK" [ref=e17642]:
+                                        - generic [ref=e23854]:
+                                            - img [ref=e23855]:
+                                                - img [ref=e23856]
+                                            - text: OK
+                                    - cell "null" [ref=e17650]:
+                                        - generic [ref=e23861]:
+                                            - img [ref=e23862]:
+                                                - img [ref=e23863]
+                                            - generic [ref=e23866]: "null"
+                                    - cell "Pass null" [ref=e17660]:
+                                        - generic [ref=e23868]:
+                                            - generic [ref=e23870]:
+                                                - img [ref=e23871]:
+                                                    - img [ref=e23872]
+                                                - generic [ref=e23875]: Pass
+                                            - generic [ref=e23877]:
+                                                - img [ref=e23878]:
+                                                    - img [ref=e23879]
+                                                - generic [ref=e23882]: "null"
+                                    - cell "good" [ref=e17678]:
+                                        - generic [ref=e23887]: good
+                                    - cell "null" [ref=e17685]:
+                                        - generic [ref=e23890]:
+                                            - img [ref=e23891]:
+                                                - img [ref=e23892]
+                                            - generic [ref=e23895]: "null"
+                                - 'row "{ \"q\": \"Can I cancel my subscription anytime?\" } \"Yes, you can cancel anytime from Settings > Billing > Cancel Subscription. You''ll keep access until your current billing period ends (no prorated refunds). Your data is retained for 30 days after cancellation, giving you time to export or reactivate.\" 0.013s OK null Pass null good null" [ref=e17696]':
+                                    - cell [ref=e17698]:
+                                        - checkbox [ref=e17702] [cursor=pointer]
+                                    - cell [ref=e17704]:
+                                        - status [ref=e23897]:
+                                            - generic [ref=e23900] [cursor=pointer]: tr-f0d5e2025bdca1dcc9e1673131bf025f
+                                    - 'cell "{ \"q\": \"Can I cancel my subscription anytime?\" }" [ref=e17711]':
+                                        - generic [ref=e23902] [cursor=pointer]: '{ "q": "Can I cancel my subscription anytime?" }'
+                                    - cell "\"Yes, you can cancel anytime from Settings > Billing > Cancel Subscription. You'll keep access until your current billing period ends (no prorated refunds). Your data is retained for 30 days after cancellation, giving you time to export or reactivate.\"" [ref=e17715]:
+                                        - generic "\"Yes, you can cancel anytime from Settings > Billing > Cancel Subscription. You'll keep access until your current billing period ends (no prorated refunds). Your data is retained for 30 days after cancellation, giving you time to export or reactivate.\"" [ref=e23904]
+                                    - cell "0.013s" [ref=e17719]:
+                                        - generic "0.013s" [ref=e23906]
+                                    - cell "OK" [ref=e17723]:
+                                        - generic [ref=e23908]:
+                                            - img [ref=e23909]:
+                                                - img [ref=e23910]
+                                            - text: OK
+                                    - cell "null" [ref=e17731]:
+                                        - generic [ref=e23915]:
+                                            - img [ref=e23916]:
+                                                - img [ref=e23917]
+                                            - generic [ref=e23920]: "null"
+                                    - cell "Pass null" [ref=e17741]:
+                                        - generic [ref=e23922]:
+                                            - generic [ref=e23924]:
+                                                - img [ref=e23925]:
+                                                    - img [ref=e23926]
+                                                - generic [ref=e23929]: Pass
+                                            - generic [ref=e23931]:
+                                                - img [ref=e23932]:
+                                                    - img [ref=e23933]
+                                                - generic [ref=e23936]: "null"
+                                    - cell "good" [ref=e17759]:
+                                        - generic [ref=e23941]: good
+                                    - cell "null" [ref=e17766]:
+                                        - generic [ref=e23944]:
+                                            - img [ref=e23945]:
+                                                - img [ref=e23946]
+                                            - generic [ref=e23949]: "null"
+                                - 'row "{ \"q\": \"How do I set up two-factor authentication?\" } \"To enable 2FA: Go to Account Settings > Security > Two-Factor Authentication. You can use an authenticator app (recommended) or SMS. After setup, save your backup codes securely - you''ll need them if you lose your 2FA device.\" 0.01s OK null Pass null good null" [ref=e17777]':
+                                    - cell [ref=e17779]:
+                                        - checkbox [ref=e17783] [cursor=pointer]
+                                    - cell [ref=e17785]:
+                                        - status [ref=e23951]:
+                                            - generic [ref=e23954] [cursor=pointer]: tr-ab9bc82e97c929be5b88ee2a9bef9d68
+                                    - 'cell "{ \"q\": \"How do I set up two-factor authentication?\" }" [ref=e17792]':
+                                        - generic [ref=e23956] [cursor=pointer]: '{ "q": "How do I set up two-factor authentication?" }'
+                                    - 'cell "\"To enable 2FA: Go to Account Settings > Security > Two-Factor Authentication. You can use an authenticator app (recommended) or SMS. After setup, save your backup codes securely - you''ll need them if you lose your 2FA device.\"" [ref=e17796]':
+                                        - 'generic "\"To enable 2FA: Go to Account Settings > Security > Two-Factor Authentication. You can use an authenticator app (recommended) or SMS. After setup, save your backup codes securely - you''ll need them if you lose your 2FA device.\"" [ref=e23958]'
+                                    - cell "0.01s" [ref=e17800]:
+                                        - generic "0.01s" [ref=e23960]
+                                    - cell "OK" [ref=e17804]:
+                                        - generic [ref=e23962]:
+                                            - img [ref=e23963]:
+                                                - img [ref=e23964]
+                                            - text: OK
+                                    - cell "null" [ref=e17812]:
+                                        - generic [ref=e23969]:
+                                            - img [ref=e23970]:
+                                                - img [ref=e23971]
+                                            - generic [ref=e23974]: "null"
+                                    - cell "Pass null" [ref=e17822]:
+                                        - generic [ref=e23976]:
+                                            - generic [ref=e23978]:
+                                                - img [ref=e23979]:
+                                                    - img [ref=e23980]
+                                                - generic [ref=e23983]: Pass
+                                            - generic [ref=e23985]:
+                                                - img [ref=e23986]:
+                                                    - img [ref=e23987]
+                                                - generic [ref=e23990]: "null"
+                                    - cell "good" [ref=e17840]:
+                                        - generic [ref=e23995]: good
+                                    - cell "null" [ref=e17847]:
+                                        - generic [ref=e23998]:
+                                            - img [ref=e23999]:
+                                                - img [ref=e24000]
+                                            - generic [ref=e24003]: "null"
+                                - 'row "{ \"q\": \"What are the API rate limits?\" } \"API rate limits depend on your plan: Free (100 req/min), Pro (1000 req/min), Enterprise (custom). Check the X-RateLimit-* headers in responses to monitor usage. If you exceed limits, you''ll get a 429 error - use exponential backoff for retries.\" 0.015s OK null Pass null good null" [ref=e17858]':
+                                    - cell [ref=e17860]:
+                                        - checkbox [ref=e17864] [cursor=pointer]
+                                    - cell [ref=e17866]:
+                                        - status [ref=e24005]:
+                                            - generic [ref=e24008] [cursor=pointer]: tr-35497b027d880fd0660581a7c2a36e7e
+                                    - 'cell "{ \"q\": \"What are the API rate limits?\" }" [ref=e17873]':
+                                        - generic [ref=e24010] [cursor=pointer]: '{ "q": "What are the API rate limits?" }'
+                                    - 'cell "\"API rate limits depend on your plan: Free (100 req/min), Pro (1000 req/min), Enterprise (custom). Check the X-RateLimit-* headers in responses to monitor usage. If you exceed limits, you''ll get a 429 error - use exponential backoff for retries.\"" [ref=e17877]':
+                                        - 'generic "\"API rate limits depend on your plan: Free (100 req/min), Pro (1000 req/min), Enterprise (custom). Check the X-RateLimit-* headers in responses to monitor usage. If you exceed limits, you''ll get a 429 error - use exponential backoff for retries.\"" [ref=e24012]'
+                                    - cell "0.015s" [ref=e17881]:
+                                        - generic "0.015s" [ref=e24014]
+                                    - cell "OK" [ref=e17885]:
+                                        - generic [ref=e24016]:
+                                            - img [ref=e24017]:
+                                                - img [ref=e24018]
+                                            - text: OK
+                                    - cell "null" [ref=e17893]:
+                                        - generic [ref=e24023]:
+                                            - img [ref=e24024]:
+                                                - img [ref=e24025]
+                                            - generic [ref=e24028]: "null"
+                                    - cell "Pass null" [ref=e17903]:
+                                        - generic [ref=e24030]:
+                                            - generic [ref=e24032]:
+                                                - img [ref=e24033]:
+                                                    - img [ref=e24034]
+                                                - generic [ref=e24037]: Pass
+                                            - generic [ref=e24039]:
+                                                - img [ref=e24040]:
+                                                    - img [ref=e24041]
+                                                - generic [ref=e24044]: "null"
+                                    - cell "good" [ref=e17921]:
+                                        - generic [ref=e24049]: good
+                                    - cell "null" [ref=e17928]:
+                                        - generic [ref=e24052]:
+                                            - img [ref=e24053]:
+                                                - img [ref=e24054]
+                                            - generic [ref=e24057]: "null"
+                                - 'row "{ \"msg\": \"How long will the refund take?\" } \"Refunds typically appear within 5-7 business days depending on your bank. You''ll receive a confirmation email shortly. I''ve also added a $10 credit to your account for the inconvenience.\" 0.008s OK null Pass null good null" [ref=e17939]':
+                                    - cell [ref=e17941]:
+                                        - checkbox [ref=e17945] [cursor=pointer]
+                                    - cell [ref=e17947]:
+                                        - status [ref=e24059]:
+                                            - generic [ref=e24062] [cursor=pointer]: tr-1903ba0c7bbdfe67b3bd59b070df68ae
+                                    - 'cell "{ \"msg\": \"How long will the refund take?\" }" [ref=e17954]':
+                                        - generic [ref=e24064] [cursor=pointer]: '{ "msg": "How long will the refund take?" }'
+                                    - cell "\"Refunds typically appear within 5-7 business days depending on your bank. You'll receive a confirmation email shortly. I've also added a $10 credit to your account for the inconvenience.\"" [ref=e17958]:
+                                        - generic "\"Refunds typically appear within 5-7 business days depending on your bank. You'll receive a confirmation email shortly. I've also added a $10 credit to your account for the inconvenience.\"" [ref=e24066]
+                                    - cell "0.008s" [ref=e17962]:
+                                        - generic "0.008s" [ref=e24068]
+                                    - cell "OK" [ref=e17966]:
+                                        - generic [ref=e24070]:
+                                            - img [ref=e24071]:
+                                                - img [ref=e24072]
+                                            - text: OK
+                                    - cell "null" [ref=e17974]:
+                                        - generic [ref=e24077]:
+                                            - img [ref=e24078]:
+                                                - img [ref=e24079]
+                                            - generic [ref=e24082]: "null"
+                                    - cell "Pass null" [ref=e17984]:
+                                        - generic [ref=e24084]:
+                                            - generic [ref=e24086]:
+                                                - img [ref=e24087]:
+                                                    - img [ref=e24088]
+                                                - generic [ref=e24091]: Pass
+                                            - generic [ref=e24093]:
+                                                - img [ref=e24094]:
+                                                    - img [ref=e24095]
+                                                - generic [ref=e24098]: "null"
+                                    - cell "good" [ref=e18002]:
+                                        - generic [ref=e24103]: good
+                                    - cell "null" [ref=e18009]:
+                                        - generic [ref=e24106]:
+                                            - img [ref=e24107]:
+                                                - img [ref=e24108]
+                                            - generic [ref=e24111]: "null"
+                                - 'row "{ \"msg\": \"It''s john.smith@example.com. I see two charges of $49.99 on January 5th and 7th.\" } \"Thank you. I can see the duplicate charge - it appears the first transaction failed but was later processed by your bank. I''ll initiate a refund for the duplicate.\" 0.009s OK null Pass null good null" [ref=e18020]':
+                                    - cell [ref=e18022]:
+                                        - checkbox [ref=e18026] [cursor=pointer]
+                                    - cell [ref=e18028]:
+                                        - status [ref=e24113]:
+                                            - generic [ref=e24116] [cursor=pointer]: tr-ce6c75d1fdfdfc532d707328c809bbf4
+                                    - 'cell "{ \"msg\": \"It''s john.smith@example.com. I see two charges of $49.99 on January 5th and 7th.\" }" [ref=e18035]':
+                                        - generic [ref=e24118] [cursor=pointer]: '{ "msg": "It''s john.smith@example.com. I see two charges of $49.99 on January 5th and 7th." }'
+                                    - cell "\"Thank you. I can see the duplicate charge - it appears the first transaction failed but was later processed by your bank. I'll initiate a refund for the duplicate.\"" [ref=e18039]:
+                                        - generic "\"Thank you. I can see the duplicate charge - it appears the first transaction failed but was later processed by your bank. I'll initiate a refund for the duplicate.\"" [ref=e24120]
+                                    - cell "0.009s" [ref=e18043]:
+                                        - generic "0.009s" [ref=e24122]
+                                    - cell "OK" [ref=e18047]:
+                                        - generic [ref=e24124]:
+                                            - img [ref=e24125]:
+                                                - img [ref=e24126]
+                                            - text: OK
+                                    - cell "null" [ref=e18055]:
+                                        - generic [ref=e24131]:
+                                            - img [ref=e24132]:
+                                                - img [ref=e24133]
+                                            - generic [ref=e24136]: "null"
+                                    - cell "Pass null" [ref=e18065]:
+                                        - generic [ref=e24138]:
+                                            - generic [ref=e24140]:
+                                                - img [ref=e24141]:
+                                                    - img [ref=e24142]
+                                                - generic [ref=e24145]: Pass
+                                            - generic [ref=e24147]:
+                                                - img [ref=e24148]:
+                                                    - img [ref=e24149]
+                                                - generic [ref=e24152]: "null"
+                                    - cell "good" [ref=e18083]:
+                                        - generic [ref=e24157]: good
+                                    - cell "null" [ref=e18090]:
+                                        - generic [ref=e24160]:
+                                            - img [ref=e24161]:
+                                                - img [ref=e24162]
+                                            - generic [ref=e24165]: "null"
+                                - 'row "{ \"msg\": \"I was charged twice for my subscription this month.\" } \"I apologize for the inconvenience. Let me look into your billing history. Can you confirm the email address associated with your account?\" 0.01s OK yes good Pass null good none" [ref=e18101]':
+                                    - cell [ref=e18103]:
+                                        - checkbox [ref=e18107] [cursor=pointer]
+                                    - cell [ref=e18109]:
+                                        - status [ref=e24167]:
+                                            - generic [ref=e24170] [cursor=pointer]: tr-95816f75c40a49f439528790b92390da
+                                    - 'cell "{ \"msg\": \"I was charged twice for my subscription this month.\" }" [ref=e18116]':
+                                        - generic [ref=e24172] [cursor=pointer]: '{ "msg": "I was charged twice for my subscription this month." }'
+                                    - cell "\"I apologize for the inconvenience. Let me look into your billing history. Can you confirm the email address associated with your account?\"" [ref=e18120]:
+                                        - generic "\"I apologize for the inconvenience. Let me look into your billing history. Can you confirm the email address associated with your account?\"" [ref=e24174]
+                                    - cell "0.01s" [ref=e18124]:
+                                        - generic "0.01s" [ref=e24176]
+                                    - cell "OK" [ref=e18128]:
+                                        - generic [ref=e24178]:
+                                            - img [ref=e24179]:
+                                                - img [ref=e24180]
+                                            - text: OK
+                                    - cell "yes good" [ref=e18136]:
+                                        - generic [ref=e24184]:
+                                            - generic [ref=e24187]: "yes"
+                                            - generic [ref=e24190]: good
+                                    - cell "Pass null" [ref=e18146]:
+                                        - generic [ref=e24192]:
+                                            - generic [ref=e24194]:
+                                                - img [ref=e24195]:
+                                                    - img [ref=e24196]
+                                                - generic [ref=e24199]: Pass
+                                            - generic [ref=e24201]:
+                                                - img [ref=e24202]:
+                                                    - img [ref=e24203]
+                                                - generic [ref=e24206]: "null"
+                                    - cell "good" [ref=e18164]:
+                                        - generic [ref=e24211]: good
+                                    - cell "none" [ref=e18171]:
+                                        - generic [ref=e24216]: none
+                                - 'row "{ \"msg\": \"Incognito worked! The Slack auth popup appeared and I reconnected successfully.\" } \"Great! It was likely a cached state issue. I''d recommend clearing your main browser''s cache for our site. Is there anything else I can help with?\" 0.008s OK null Pass null good null" [ref=e18179]':
+                                    - cell [ref=e18181]:
+                                        - checkbox [ref=e18185] [cursor=pointer]
+                                    - cell [ref=e18187]:
+                                        - status [ref=e24218]:
+                                            - generic [ref=e24221] [cursor=pointer]: tr-84994f947b66e168119f3c609cbbca9c
+                                    - 'cell "{ \"msg\": \"Incognito worked! The Slack auth popup appeared and I reconnected successfully.\" }" [ref=e18194]':
+                                        - generic [ref=e24223] [cursor=pointer]: '{ "msg": "Incognito worked! The Slack auth popup appeared and I reconnected successfully." }'
+                                    - cell "\"Great! It was likely a cached state issue. I'd recommend clearing your main browser's cache for our site. Is there anything else I can help with?\"" [ref=e18198]:
+                                        - generic "\"Great! It was likely a cached state issue. I'd recommend clearing your main browser's cache for our site. Is there anything else I can help with?\"" [ref=e24225]
+                                    - cell "0.008s" [ref=e18202]:
+                                        - generic "0.008s" [ref=e24227]
+                                    - cell "OK" [ref=e18206]:
+                                        - generic [ref=e24229]:
+                                            - img [ref=e24230]:
+                                                - img [ref=e24231]
+                                            - text: OK
+                                    - cell "null" [ref=e18214]:
+                                        - generic [ref=e24236]:
+                                            - img [ref=e24237]:
+                                                - img [ref=e24238]
+                                            - generic [ref=e24241]: "null"
+                                    - cell "Pass null" [ref=e18224]:
+                                        - generic [ref=e24243]:
+                                            - generic [ref=e24245]:
+                                                - img [ref=e24246]:
+                                                    - img [ref=e24247]
+                                                - generic [ref=e24250]: Pass
+                                            - generic [ref=e24252]:
+                                                - img [ref=e24253]:
+                                                    - img [ref=e24254]
+                                                - generic [ref=e24257]: "null"
+                                    - cell "good" [ref=e18242]:
+                                        - generic [ref=e24262]: good
+                                    - cell "null" [ref=e18249]:
+                                        - generic [ref=e24265]:
+                                            - img [ref=e24266]:
+                                                - img [ref=e24267]
+                                            - generic [ref=e24270]: "null"
+                                - 'row "{ \"msg\": \"I clicked it but nothing happens. The button seems broken.\" } \"That might be a browser issue. Can you try clearing your browser cache or using an incognito window? Also, make sure pop-ups aren''t being blocked.\" 0.006s OK null Pass null good null" [ref=e18260]':
+                                    - cell [ref=e18262]:
+                                        - checkbox [ref=e18266] [cursor=pointer]
+                                    - cell [ref=e18268]:
+                                        - status [ref=e24272]:
+                                            - generic [ref=e24275] [cursor=pointer]: tr-bc822b73e7a344ea799e5491e4a42a0c
+                                    - 'cell "{ \"msg\": \"I clicked it but nothing happens. The button seems broken.\" }" [ref=e18275]':
+                                        - generic [ref=e24277] [cursor=pointer]: '{ "msg": "I clicked it but nothing happens. The button seems broken." }'
+                                    - cell "\"That might be a browser issue. Can you try clearing your browser cache or using an incognito window? Also, make sure pop-ups aren't being blocked.\"" [ref=e18279]:
+                                        - generic "\"That might be a browser issue. Can you try clearing your browser cache or using an incognito window? Also, make sure pop-ups aren't being blocked.\"" [ref=e24279]
+                                    - cell "0.006s" [ref=e18283]:
+                                        - generic "0.006s" [ref=e24281]
+                                    - cell "OK" [ref=e18287]:
+                                        - generic [ref=e24283]:
+                                            - img [ref=e24284]:
+                                                - img [ref=e24285]
+                                            - text: OK
+                                    - cell "null" [ref=e18295]:
+                                        - generic [ref=e24290]:
+                                            - img [ref=e24291]:
+                                                - img [ref=e24292]
+                                            - generic [ref=e24295]: "null"
+                                    - cell "Pass null" [ref=e18305]:
+                                        - generic [ref=e24297]:
+                                            - generic [ref=e24299]:
+                                                - img [ref=e24300]:
+                                                    - img [ref=e24301]
+                                                - generic [ref=e24304]: Pass
+                                            - generic [ref=e24306]:
+                                                - img [ref=e24307]:
+                                                    - img [ref=e24308]
+                                                - generic [ref=e24311]: "null"
+                                    - cell "good" [ref=e18323]:
+                                        - generic [ref=e24316]: good
+                                    - cell "null" [ref=e18330]:
+                                        - generic [ref=e24319]:
+                                            - img [ref=e24320]:
+                                                - img [ref=e24321]
+                                            - generic [ref=e24324]: "null"
+                                - 'row "{ \"msg\": \"It says ''Authentication failed. Please reconnect.''\" } \"That typically means the OAuth token expired or was revoked. Let''s try reconnecting. Go to Settings > Integrations > Slack and click ''Reconnect''.\" 0.008s OK null Pass null good null" [ref=e18341]':
+                                    - cell [ref=e18343]:
+                                        - checkbox [ref=e18347] [cursor=pointer]
+                                    - cell [ref=e18349]:
+                                        - status [ref=e24326]:
+                                            - generic [ref=e24329] [cursor=pointer]: tr-6d4ff221fc3e60dec4042c536524faa3
+                                    - 'cell "{ \"msg\": \"It says ''Authentication failed. Please reconnect.''\" }" [ref=e18356]':
+                                        - generic [ref=e24331] [cursor=pointer]: '{ "msg": "It says ''Authentication failed. Please reconnect.''" }'
+                                    - cell "\"That typically means the OAuth token expired or was revoked. Let's try reconnecting. Go to Settings > Integrations > Slack and click 'Reconnect'.\"" [ref=e18360]:
+                                        - generic "\"That typically means the OAuth token expired or was revoked. Let's try reconnecting. Go to Settings > Integrations > Slack and click 'Reconnect'.\"" [ref=e24333]
+                                    - cell "0.008s" [ref=e18364]:
+                                        - generic "0.008s" [ref=e24335]
+                                    - cell "OK" [ref=e18368]:
+                                        - generic [ref=e24337]:
+                                            - img [ref=e24338]:
+                                                - img [ref=e24339]
+                                            - text: OK
+                                    - cell "null" [ref=e18376]:
+                                        - generic [ref=e24344]:
+                                            - img [ref=e24345]:
+                                                - img [ref=e24346]
+                                            - generic [ref=e24349]: "null"
+                                    - cell "Pass null" [ref=e18386]:
+                                        - generic [ref=e24351]:
+                                            - generic [ref=e24353]:
+                                                - img [ref=e24354]:
+                                                    - img [ref=e24355]
+                                                - generic [ref=e24358]: Pass
+                                            - generic [ref=e24360]:
+                                                - img [ref=e24361]:
+                                                    - img [ref=e24362]
+                                                - generic [ref=e24365]: "null"
+                                    - cell "good" [ref=e18404]:
+                                        - generic [ref=e24370]: good
+                                    - cell "null" [ref=e18411]:
+                                        - generic [ref=e24373]:
+                                            - img [ref=e24374]:
+                                                - img [ref=e24375]
+                                            - generic [ref=e24378]: "null"
+                                - 'row "{ \"msg\": \"Our Slack integration stopped working yesterday.\" } \"I''m sorry to hear that. Let me help troubleshoot. Can you tell me if you see any error messages when you try to use the integration?\" 0.008s OK yes good Pass null good resolved" [ref=e18422]':
+                                    - cell [ref=e18424]:
+                                        - checkbox [ref=e18428] [cursor=pointer]
+                                    - cell [ref=e18430]:
+                                        - status [ref=e24380]:
+                                            - generic [ref=e24383] [cursor=pointer]: tr-6b566258fa7582e2e92301175c150bb1
+                                    - 'cell "{ \"msg\": \"Our Slack integration stopped working yesterday.\" }" [ref=e18437]':
+                                        - generic [ref=e24385] [cursor=pointer]: '{ "msg": "Our Slack integration stopped working yesterday." }'
+                                    - cell "\"I'm sorry to hear that. Let me help troubleshoot. Can you tell me if you see any error messages when you try to use the integration?\"" [ref=e18441]:
+                                        - generic "\"I'm sorry to hear that. Let me help troubleshoot. Can you tell me if you see any error messages when you try to use the integration?\"" [ref=e24387]
+                                    - cell "0.008s" [ref=e18445]:
+                                        - generic "0.008s" [ref=e24389]
+                                    - cell "OK" [ref=e18449]:
+                                        - generic [ref=e24391]:
+                                            - img [ref=e24392]:
+                                                - img [ref=e24393]
+                                            - text: OK
+                                    - cell "yes good" [ref=e18457]:
+                                        - generic [ref=e24397]:
+                                            - generic [ref=e24400]: "yes"
+                                            - generic [ref=e24403]: good
+                                    - cell "Pass null" [ref=e18467]:
+                                        - generic [ref=e24405]:
+                                            - generic [ref=e24407]:
+                                                - img [ref=e24408]:
+                                                    - img [ref=e24409]
+                                                - generic [ref=e24412]: Pass
+                                            - generic [ref=e24414]:
+                                                - img [ref=e24415]:
+                                                    - img [ref=e24416]
+                                                - generic [ref=e24419]: "null"
+                                    - cell "good" [ref=e18485]:
+                                        - generic [ref=e24424]: good
+                                    - cell "resolved" [ref=e18492]:
+                                        - generic [ref=e24429]: resolved
+                                - 'row "{ \"q\": \"What''s the difference between Team and Enterprise plans?\" } \"Team plan includes up to 25 users, 100GB storage, and standard support. Enterprise adds unlimited users, 1TB storage, SSO, dedicated support, and custom integrations.\" 0.006s OK null Pass null good null" [ref=e18500]':
+                                    - cell [ref=e18502]:
+                                        - checkbox [ref=e18506] [cursor=pointer]
+                                    - cell [ref=e18508]:
+                                        - status [ref=e24431]:
+                                            - generic [ref=e24434] [cursor=pointer]: tr-4c7719f0cdee032c1eb2d9bdb26a50d9
+                                    - 'cell "{ \"q\": \"What''s the difference between Team and Enterprise plans?\" }" [ref=e18515]':
+                                        - generic [ref=e24436] [cursor=pointer]: '{ "q": "What''s the difference between Team and Enterprise plans?" }'
+                                    - cell "\"Team plan includes up to 25 users, 100GB storage, and standard support. Enterprise adds unlimited users, 1TB storage, SSO, dedicated support, and custom integrations.\"" [ref=e18519]:
+                                        - generic "\"Team plan includes up to 25 users, 100GB storage, and standard support. Enterprise adds unlimited users, 1TB storage, SSO, dedicated support, and custom integrations.\"" [ref=e24438]
+                                    - cell "0.006s" [ref=e18523]:
+                                        - generic "0.006s" [ref=e24440]
+                                    - cell "OK" [ref=e18527]:
+                                        - generic [ref=e24442]:
+                                            - img [ref=e24443]:
+                                                - img [ref=e24444]
+                                            - text: OK
+                                    - cell "null" [ref=e18535]:
+                                        - generic [ref=e24449]:
+                                            - img [ref=e24450]:
+                                                - img [ref=e24451]
+                                            - generic [ref=e24454]: "null"
+                                    - cell "Pass null" [ref=e18545]:
+                                        - generic [ref=e24456]:
+                                            - generic [ref=e24458]:
+                                                - img [ref=e24459]:
+                                                    - img [ref=e24460]
+                                                - generic [ref=e24463]: Pass
+                                            - generic [ref=e24465]:
+                                                - img [ref=e24466]:
+                                                    - img [ref=e24467]
+                                                - generic [ref=e24470]: "null"
+                                    - cell "good" [ref=e18563]:
+                                        - generic [ref=e24475]: good
+                                    - cell "null" [ref=e18570]:
+                                        - generic [ref=e24478]:
+                                            - img [ref=e24479]:
+                                                - img [ref=e24480]
+                                            - generic [ref=e24483]: "null"
+                                - 'row "{ \"q\": \"How do I export my data?\" } \"Navigate to Settings > Data Management > Export. Select the data types you want, choose your format (CSV or JSON), and click Export. Large exports are emailed when ready.\" 0.007s OK null Pass null good null" [ref=e18581]':
+                                    - cell [ref=e18583]:
+                                        - checkbox [ref=e18587] [cursor=pointer]
+                                    - cell [ref=e18589]:
+                                        - status [ref=e24485]:
+                                            - generic [ref=e24488] [cursor=pointer]: tr-2c6bd181699d480515f7b43cf46c5bed
+                                    - 'cell "{ \"q\": \"How do I export my data?\" }" [ref=e18596]':
+                                        - generic [ref=e24490] [cursor=pointer]: '{ "q": "How do I export my data?" }'
+                                    - cell "\"Navigate to Settings > Data Management > Export. Select the data types you want, choose your format (CSV or JSON), and click Export. Large exports are emailed when ready.\"" [ref=e18600]:
+                                        - generic "\"Navigate to Settings > Data Management > Export. Select the data types you want, choose your format (CSV or JSON), and click Export. Large exports are emailed when ready.\"" [ref=e24492]
+                                    - cell "0.007s" [ref=e18604]:
+                                        - generic "0.007s" [ref=e24494]
+                                    - cell "OK" [ref=e18608]:
+                                        - generic [ref=e24496]:
+                                            - img [ref=e24497]:
+                                                - img [ref=e24498]
+                                            - text: OK
+                                    - cell "null" [ref=e18616]:
+                                        - generic [ref=e24503]:
+                                            - img [ref=e24504]:
+                                                - img [ref=e24505]
+                                            - generic [ref=e24508]: "null"
+                                    - cell "Pass null" [ref=e18626]:
+                                        - generic [ref=e24510]:
+                                            - generic [ref=e24512]:
+                                                - img [ref=e24513]:
+                                                    - img [ref=e24514]
+                                                - generic [ref=e24517]: Pass
+                                            - generic [ref=e24519]:
+                                                - img [ref=e24520]:
+                                                    - img [ref=e24521]
+                                                - generic [ref=e24524]: "null"
+                                    - cell "good" [ref=e18644]:
+                                        - generic [ref=e24529]: good
+                                    - cell "null" [ref=e18651]:
+                                        - generic [ref=e24532]:
+                                            - img [ref=e24533]:
+                                                - img [ref=e24534]
+                                            - generic [ref=e24537]: "null"
+                                - 'row "{ \"q\": \"Can I upgrade my subscription mid-cycle?\" } \"Yes! Go to Settings > Billing > Change Plan. You''ll be charged a prorated amount for the remaining days. The new features activate immediately.\" 0.007s OK null Pass null good null" [ref=e18662]':
+                                    - cell [ref=e18664]:
+                                        - checkbox [ref=e18668] [cursor=pointer]
+                                    - cell [ref=e18670]:
+                                        - status [ref=e24539]:
+                                            - generic [ref=e24542] [cursor=pointer]: tr-59b5b6bd58650b8a2b1c02dc17604847
+                                    - 'cell "{ \"q\": \"Can I upgrade my subscription mid-cycle?\" }" [ref=e18677]':
+                                        - generic [ref=e24544] [cursor=pointer]: '{ "q": "Can I upgrade my subscription mid-cycle?" }'
+                                    - cell "\"Yes! Go to Settings > Billing > Change Plan. You'll be charged a prorated amount for the remaining days. The new features activate immediately.\"" [ref=e18681]:
+                                        - generic "\"Yes! Go to Settings > Billing > Change Plan. You'll be charged a prorated amount for the remaining days. The new features activate immediately.\"" [ref=e24546]
+                                    - cell "0.007s" [ref=e18685]:
+                                        - generic "0.007s" [ref=e24548]
+                                    - cell "OK" [ref=e18689]:
+                                        - generic [ref=e24550]:
+                                            - img [ref=e24551]:
+                                                - img [ref=e24552]
+                                            - text: OK
+                                    - cell "null" [ref=e18697]:
+                                        - generic [ref=e24557]:
+                                            - img [ref=e24558]:
+                                                - img [ref=e24559]
+                                            - generic [ref=e24562]: "null"
+                                    - cell "Pass null" [ref=e18707]:
+                                        - generic [ref=e24564]:
+                                            - generic [ref=e24566]:
+                                                - img [ref=e24567]:
+                                                    - img [ref=e24568]
+                                                - generic [ref=e24571]: Pass
+                                            - generic [ref=e24573]:
+                                                - img [ref=e24574]:
+                                                    - img [ref=e24575]
+                                                - generic [ref=e24578]: "null"
+                                    - cell "good" [ref=e18725]:
+                                        - generic [ref=e24583]: good
+                                    - cell "null" [ref=e18732]:
+                                        - generic [ref=e24586]:
+                                            - img [ref=e24587]:
+                                                - img [ref=e24588]
+                                            - generic [ref=e24591]: "null"
+                                - 'row "{ \"q\": \"Why was my payment declined?\" } \"Common reasons include: insufficient funds, expired card, incorrect billing address, or bank fraud protection. Please verify your card details or try a different payment method.\" 0.006s OK null Pass null good null" [ref=e18743]':
+                                    - cell [ref=e18745]:
+                                        - checkbox [ref=e18749] [cursor=pointer]
+                                    - cell [ref=e18751]:
+                                        - status [ref=e24593]:
+                                            - generic [ref=e24596] [cursor=pointer]: tr-70811ab95b90a26c10a879726d538c0f
+                                    - 'cell "{ \"q\": \"Why was my payment declined?\" }" [ref=e18758]':
+                                        - generic [ref=e24598] [cursor=pointer]: '{ "q": "Why was my payment declined?" }'
+                                    - 'cell "\"Common reasons include: insufficient funds, expired card, incorrect billing address, or bank fraud protection. Please verify your card details or try a different payment method.\"" [ref=e18762]':
+                                        - 'generic "\"Common reasons include: insufficient funds, expired card, incorrect billing address, or bank fraud protection. Please verify your card details or try a different payment method.\"" [ref=e24600]'
+                                    - cell "0.006s" [ref=e18766]:
+                                        - generic "0.006s" [ref=e24602]
+                                    - cell "OK" [ref=e18770]:
+                                        - generic [ref=e24604]:
+                                            - img [ref=e24605]:
+                                                - img [ref=e24606]
+                                            - text: OK
+                                    - cell "null" [ref=e18778]:
+                                        - generic [ref=e24611]:
+                                            - img [ref=e24612]:
+                                                - img [ref=e24613]
+                                            - generic [ref=e24616]: "null"
+                                    - cell "Pass null" [ref=e18788]:
+                                        - generic [ref=e24618]:
+                                            - generic [ref=e24620]:
+                                                - img [ref=e24621]:
+                                                    - img [ref=e24622]
+                                                - generic [ref=e24625]: Pass
+                                            - generic [ref=e24627]:
+                                                - img [ref=e24628]:
+                                                    - img [ref=e24629]
+                                                - generic [ref=e24632]: "null"
+                                    - cell "good" [ref=e18806]:
+                                        - generic [ref=e24637]: good
+                                    - cell "null" [ref=e18813]:
+                                        - generic [ref=e24640]:
+                                            - img [ref=e24641]:
+                                                - img [ref=e24642]
+                                            - generic [ref=e24645]: "null"
+                                - 'row "{ \"q\": \"How do I reset my password?\" } \"Click ''Forgot Password'' on the login page, enter your email, and follow the reset link sent to your inbox. The link expires in 24 hours.\" 0.039s OK null Pass null good null" [ref=e18824]':
+                                    - cell [ref=e18826]:
+                                        - checkbox [ref=e18830] [cursor=pointer]
+                                    - cell [ref=e18832]:
+                                        - status [ref=e24647]:
+                                            - generic [ref=e24650] [cursor=pointer]: tr-f65753239bc7a2d4d45d5d9e55db7a49
+                                    - 'cell "{ \"q\": \"How do I reset my password?\" }" [ref=e18839]':
+                                        - generic [ref=e24652] [cursor=pointer]: '{ "q": "How do I reset my password?" }'
+                                    - cell "\"Click 'Forgot Password' on the login page, enter your email, and follow the reset link sent to your inbox. The link expires in 24 hours.\"" [ref=e18843]:
+                                        - generic "\"Click 'Forgot Password' on the login page, enter your email, and follow the reset link sent to your inbox. The link expires in 24 hours.\"" [ref=e24654]
+                                    - cell "0.039s" [ref=e18847]:
+                                        - generic "0.039s" [ref=e24656]
+                                    - cell "OK" [ref=e18851]:
+                                        - generic [ref=e24658]:
+                                            - img [ref=e24659]:
+                                                - img [ref=e24660]
+                                            - text: OK
+                                    - cell "null" [ref=e18859]:
+                                        - generic [ref=e24665]:
+                                            - img [ref=e24666]:
+                                                - img [ref=e24667]
+                                            - generic [ref=e24670]: "null"
+                                    - cell "Pass null" [ref=e18869]:
+                                        - generic [ref=e24672]:
+                                            - generic [ref=e24674]:
+                                                - img [ref=e24675]:
+                                                    - img [ref=e24676]
+                                                - generic [ref=e24679]: Pass
+                                            - generic [ref=e24681]:
+                                                - img [ref=e24682]:
+                                                    - img [ref=e24683]
+                                                - generic [ref=e24686]: "null"
+                                    - cell "good" [ref=e18887]:
+                                        - generic [ref=e24691]: good
+                                    - cell "null" [ref=e18894]:
+                                        - generic [ref=e24694]:
+                                            - img [ref=e24695]:
+                                                - img [ref=e24696]
+                                            - generic [ref=e24699]: "null"
+```

@@ -42,6 +42,105 @@ class DatabricksRagasLLM(InstructorBaseRagasLLM):
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
 
 
+class GatewayRagasLLM(InstructorBaseRagasLLM):
+    """
+    RAGAS LLM adapter for MLflow AI Gateway endpoints.
+
+    Uses the MLflow AI Gateway to proxy requests to the configured backend.
+    Routes requests through the tracking server's gateway endpoint.
+    """
+
+    def __init__(self, endpoint_name: str):
+        super().__init__()
+        self._endpoint_name = endpoint_name
+        self._model_uri = f"gateway:/{endpoint_name}"
+        self.is_async = False
+
+    def _get_gateway_base_url(self) -> str:
+        """Get the gateway base URL from tracking URI."""
+        from mlflow.environment_variables import MLFLOW_GATEWAY_URI
+        from mlflow.tracking import get_tracking_uri
+        from mlflow.utils.uri import append_to_uri_path, is_http_uri
+
+        tracking_uri = MLFLOW_GATEWAY_URI.get() or get_tracking_uri()
+
+        if not is_http_uri(tracking_uri):
+            raise MlflowException(
+                f"Gateway provider requires an HTTP(S) tracking URI, but got: '{tracking_uri}'. "
+                "Please set MLFLOW_TRACKING_URI to a valid HTTP(S) URL "
+                "(e.g., 'http://localhost:5000')."
+            )
+
+        return append_to_uri_path(tracking_uri, "gateway/mlflow/v1/")
+
+    def generate(self, prompt: str, response_model: type[T]) -> T:
+        import litellm
+
+        api_base = self._get_gateway_base_url()
+        # Use openai/ prefix for LiteLLM to use OpenAI-compatible format
+        model = f"openai/{self._endpoint_name}"
+
+        full_prompt = _build_json_prompt(prompt, response_model)
+
+        response = litellm.completion(
+            model=model,
+            messages=[{"role": "user", "content": full_prompt}],
+            api_base=api_base,
+            api_key="mlflow-gateway-auth",  # Dummy key, gateway handles auth
+        )
+
+        output = response.choices[0].message.content
+        return _parse_json_response(output, response_model)
+
+    async def agenerate(self, prompt: str, response_model: type[T]) -> T:
+        return self.generate(prompt, response_model)
+
+    def get_model_name(self) -> str:
+        return self._model_uri
+
+
+class DatabricksServingEndpointRagasLLM(InstructorBaseRagasLLM):
+    """
+    RAGAS LLM adapter for Databricks serving endpoints.
+
+    Uses the model serving API via _invoke_databricks_serving_endpoint.
+    """
+
+    def __init__(self, endpoint_name: str):
+        super().__init__()
+        self._endpoint_name = endpoint_name
+        self.is_async = False
+
+    def generate(self, prompt: str, response_model: type[T]) -> T:
+        try:
+            output = _invoke_databricks_serving_endpoint(
+                model_name=self._endpoint_name,
+                prompt=prompt,
+                num_retries=3,
+                response_format=response_model,
+            )
+            return _parse_json_response(output.response, response_model)
+        except MlflowException as e:
+            if "Response format type" in str(e) and "is not supported" in str(e):
+                full_prompt = _build_json_prompt(prompt, response_model)
+                output = _invoke_databricks_serving_endpoint(
+                    model_name=self._endpoint_name,
+                    prompt=full_prompt,
+                    num_retries=3,
+                    response_format=None,
+                )
+                return _parse_json_response(output.response, response_model)
+            else:
+                raise
+
+    async def agenerate(self, prompt: str, response_model: type[T]) -> T:
+        return self.generate(prompt, response_model)
+
+    def get_model_name(self) -> str:
+        return f"databricks:/{self._endpoint_name}"
+
+
+
 def create_ragas_model(model_uri: str):
     """
     Create a RAGAS LLM adapter from a model URI.
@@ -50,6 +149,7 @@ def create_ragas_model(model_uri: str):
         model_uri: Model URI in one of these formats:
             - "databricks" - Use default Databricks managed judge
             - "databricks:/endpoint" - Use Databricks serving endpoint
+            - "gateway:/endpoint" - Use MLflow AI Gateway endpoint
             - "provider:/model" - Use LiteLLM (e.g., "openai:/gpt-4")
 
     Returns:
@@ -60,6 +160,12 @@ def create_ragas_model(model_uri: str):
     """
     if model_uri == "databricks":
         return DatabricksRagasLLM()
+    elif model_uri.startswith("databricks:/"):
+        endpoint_name = model_uri.split(":", 1)[1].removeprefix("/")
+        return DatabricksServingEndpointRagasLLM(endpoint_name)
+    elif model_uri.startswith("gateway:/"):
+        endpoint_name = model_uri.split(":", 1)[1].removeprefix("/")
+        return GatewayRagasLLM(endpoint_name)
 
     # Parse provider:/model format using shared helper
     provider, model_name = _parse_model_uri(model_uri)

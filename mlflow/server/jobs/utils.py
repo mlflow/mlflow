@@ -234,7 +234,7 @@ def _exec_job_in_subproc(
         "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH": transient_error_classes_file,
     }
 
-    if workspace:
+    if MLFLOW_ENABLE_WORKSPACES.get() and workspace:
         job_env[MLFLOW_WORKSPACE.name] = workspace
 
     with subprocess.Popen(
@@ -307,7 +307,15 @@ def _exec_job(
     """
     from mlflow.server.handlers import _get_job_store
 
-    workspace_ctx = WorkspaceContext(workspace) if workspace else nullcontext()
+    # Only enter WorkspaceContext when workspaces are enabled. The workspace field is always
+    # "default" in single-tenant mode (stamped by _with_workspace_field), but entering
+    # WorkspaceContext sets MLFLOW_WORKSPACE in os.environ which leaks to subprocesses and
+    # causes the server to reject requests with a workspace header it doesn't expect.
+    workspace_ctx = (
+        WorkspaceContext(workspace)
+        if workspace and MLFLOW_ENABLE_WORKSPACES.get()
+        else nullcontext()
+    )
     with workspace_ctx:
         job_store = _get_job_store()
 

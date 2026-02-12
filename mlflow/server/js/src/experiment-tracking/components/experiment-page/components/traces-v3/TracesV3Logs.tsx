@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isEmpty as isEmptyFn } from 'lodash';
-import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
+import { Button, Empty, ParagraphSkeleton, DangerIcon, Typography } from '@databricks/design-system';
 import type {
   TracesTableColumn,
   TraceActions,
@@ -41,13 +41,15 @@ import {
 } from '@databricks/web-shared/genai-traces-table';
 import {
   GenAiTraceTableRowSelectionProvider,
+  useGenAiTraceTableRowSelection,
+  useHasRowSelectionContext,
   useIsInsideGenAiTraceTableRowSelectionProvider,
 } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
-import { useIntl } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
@@ -56,6 +58,7 @@ import { checkColumnContents } from './utils/columnUtils';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
+import { CreateEvaluationRunFromTracesDrawer } from './CreateEvaluationRunFromTracesDrawer';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import { useRunScorerInTracesViewConfiguration } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 
@@ -124,8 +127,11 @@ const TracesV3LogsImpl = React.memo(
     // If so, we won't create our own provider to avoid shadowing the parent's selection state
     const hasExternalProvider = useIsInsideGenAiTraceTableRowSelectionProvider();
 
-    // Row selection state - lifted to provide shared state via context
-    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+    // Check if we're already inside a row selection context (e.g., from SelectTracesModal)
+    const hasExistingContext = useHasRowSelectionContext();
+
+    // Row selection state - use existing context if available, otherwise create local state
+    const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
     useRegisterSelectedIds('selectedTraceIds', rowSelection);
 
     const traceSearchLocations = useMemo(
@@ -268,17 +274,29 @@ const TracesV3LogsImpl = React.memo(
 
     const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
 
+    const [isCreateEvalDrawerOpen, setIsCreateEvalDrawerOpen] = useState(false);
+    const [evalDrawerTraceIds, setEvalDrawerTraceIds] = useState<string[]>([]);
+
+    const openCreateEvalDrawer = useCallback((_experimentId: string, traceIds: string[]) => {
+      setEvalDrawerTraceIds(traceIds);
+      setIsCreateEvalDrawerOpen(true);
+    }, []);
+
     const traceActions: TraceActions = useMemo(() => {
       if (disableActions) {
         return {
           deleteTracesAction: undefined,
           exportToEvals: undefined,
+          evaluateTracesAction: undefined,
           editTags: undefined,
         };
       }
       return {
         deleteTracesAction,
         exportToEvals: true,
+        evaluateTracesAction: {
+          evaluateTraces: openCreateEvalDrawer,
+        },
         // Enable unified tags modal if V4 APIs is enabled
         editTags: shouldUseTracesV4API()
           ? {
@@ -297,6 +315,7 @@ const TracesV3LogsImpl = React.memo(
       showEditTagsModalForTrace,
       EditTagsModal,
       disableActions,
+      openCreateEvalDrawer,
     ]);
 
     const countInfo = useMemo(() => {
@@ -443,6 +462,14 @@ const TracesV3LogsImpl = React.memo(
             {renderMainContent()}
           </div>
         </GenAITracesTableProvider>
+
+        {isCreateEvalDrawerOpen && (
+          <CreateEvaluationRunFromTracesDrawer
+            experimentId={experimentId}
+            traceIds={evalDrawerTraceIds}
+            onClose={() => setIsCreateEvalDrawerOpen(false)}
+          />
+        )}
       </ModelTraceExplorerContextProvider>
     );
 

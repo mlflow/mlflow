@@ -20,6 +20,15 @@ export const useGenAiTraceTableRowSelection = () => {
 };
 
 /**
+ * Returns true if there is an existing GenAiTraceTableRowSelectionProvider in the component tree.
+ * Use this to avoid creating nested providers.
+ */
+export const useHasRowSelectionContext = () => {
+  const context = useContext(GenAiTraceTableRowSelectionContext);
+  return context !== null;
+};
+
+/**
  * Hook to check if we're inside a GenAiTraceTableRowSelectionProvider.
  * Useful for components that need to conditionally create their own provider.
  */

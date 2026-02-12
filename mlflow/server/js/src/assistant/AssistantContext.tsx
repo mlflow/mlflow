@@ -12,6 +12,8 @@ import { useAssistantPageContextActions } from './AssistantPageContext';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
 
+const ASSISTANT_BUTTON_DISMISSED_KEY = 'mlflow.assistant.buttonDismissed';
+
 /**
  * Check if the server is running locally (localhost or 127.0.0.1).
  */
@@ -34,6 +36,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     key: 'mlflow.assistant.panelOpen',
     version: 1,
     initialValue: isLocalServer,
+  });
+  const [isButtonDismissed, setIsButtonDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(ASSISTANT_BUTTON_DISMISSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
   });
 
   // Chat state
@@ -166,6 +175,15 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const closePanel = useCallback(() => {
     setIsPanelOpen(false);
   }, [setIsPanelOpen]);
+
+  const dismissButton = useCallback(() => {
+    setIsButtonDismissed(true);
+    try {
+      localStorage.setItem(ASSISTANT_BUTTON_DISMISSED_KEY, 'true');
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
 
   const reset = useCallback(() => {
     setSessionId(null);
@@ -420,6 +438,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const value: AssistantAgentContextType = {
     // State
     isPanelOpen,
+    isButtonDismissed,
     sessionId,
     messages,
     isStreaming,
@@ -432,6 +451,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     // Actions
     openPanel,
     closePanel,
+    dismissButton,
     sendMessage: handleSendMessage,
     regenerateLastMessage,
     reset,
@@ -446,6 +466,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 // Default disabled state when no provider is present
 const disabledAssistantContext: AssistantAgentContextType = {
   isPanelOpen: false,
+  isButtonDismissed: false,
   sessionId: null,
   messages: [],
   isStreaming: false,
@@ -457,6 +478,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   isLocalServer: false,
   openPanel: () => {},
   closePanel: () => {},
+  dismissButton: () => {},
   sendMessage: () => {},
   regenerateLastMessage: () => {},
   reset: () => {},

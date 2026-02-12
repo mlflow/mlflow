@@ -108,11 +108,6 @@ def resolve_workspace_for_request_if_enabled(
             )
         return None
 
-    # The server-features endpoint must remain reachable even if the workspace header points to a
-    # missing workspace, so skip workspace resolution entirely for this route.
-    if path.rstrip("/").endswith("/mlflow/server-features"):
-        return None
-
     try:
         return resolve_workspace_from_header(header_value)
     except MlflowException:

@@ -186,7 +186,9 @@ module.exports = function () {
     devServer: {
       ...(useProxyServer && {
         hot: true,
-        https: true,
+        // Default to HTTPS (self-signed) but allow disabling for automation (e.g. Playwright)
+        // by setting `HTTPS=false`.
+        https: process.env.HTTPS !== 'false',
         proxy: [
           // Heads up src/setupProxy.js is indirectly referenced by CRA
           // and also defines proxies.

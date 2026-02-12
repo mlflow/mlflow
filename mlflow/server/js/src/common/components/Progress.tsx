@@ -28,6 +28,8 @@ const styles = {
     height: theme.spacing.sm,
     flex: 1,
     borderRadius: theme.spacing.sm,
+    border: `1px solid ${theme.colors.border}`,
+    overflow: 'hidden',
   }),
   progressTrack: (theme: Theme) => ({
     backgroundColor: theme.colors.primary,
