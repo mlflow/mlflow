@@ -105,7 +105,6 @@ const MlflowRootRoute = () => {
   useDocumentTitle({ title: routeTitle });
 
   const [showSidebar, setShowSidebar] = useState(true);
-  const { theme } = useDesignSystemTheme();
   const { experimentId } = useParams();
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 

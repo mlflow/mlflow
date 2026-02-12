@@ -1,7 +1,5 @@
 import { ArrowLeftIcon, BeakerIcon, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useGetExperimentQuery } from '../../experiment-tracking/hooks/useExperimentQuery';
-import type { Location } from '../utils/RoutingUtils';
-import { matchPath } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
