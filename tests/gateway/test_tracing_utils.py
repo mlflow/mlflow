@@ -218,6 +218,8 @@ async def test_maybe_traced_gateway_call_with_user_metadata(endpoint_config):
 
     assert gateway_span.attributes.get("endpoint_id") == "test-endpoint-id"
     assert gateway_span.attributes.get("endpoint_name") == "test-endpoint"
+    # Input should be unwrapped (not nested under "payload" key)
+    assert gateway_span.inputs == {"input": "test"}
     # User metadata should be in trace info, not span attributes
     assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USERNAME) == "alice"
     assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USER_ID) == "123"
@@ -274,6 +276,9 @@ async def test_maybe_traced_gateway_call_with_output_reducer(endpoint_config):
 
     span_name_to_span = {span.name: span for span in trace.data.spans}
     gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
+
+    # Input should be unwrapped (not nested under "payload" key)
+    assert gateway_span.inputs == {"messages": [{"role": "user", "content": "hi"}]}
 
     # The output should be the reduced aggregated response, not raw chunks
     output = gateway_span.outputs
