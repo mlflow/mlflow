@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow-skinny"
-version = "3.9.1.dev0"
+version = "3.10.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README_SKINNY.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -25,7 +25,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-  "cachetools<7,>=5.0.0",
+  "cachetools<8,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
   "databricks-sdk<1,>=0.20.0",
@@ -35,7 +35,7 @@ dependencies = [
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-proto<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
-  "packaging<26",
+  "packaging<27",
   "protobuf<7,>=3.12.0",
   "pydantic<3,>=2.0.0",
   "python-dotenv<2,>=0.19.0",
@@ -62,7 +62,6 @@ extras = [
   "azureml-core>=1.2.0",
   "pysftp",
   "kubernetes",
-  "virtualenv",
   "prometheus-flask-exporter",
 ]
 db = ["PyMySQL", "psycopg2-binary", "pymssql"]
@@ -101,7 +100,7 @@ mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.3.15,<=1.2.3"]
+langchain = ["langchain>=0.3.19,<=1.2.9"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]

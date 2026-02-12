@@ -12,6 +12,8 @@ import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
+import { LazyTraceCostBreakdownChart } from './components/LazyTraceCostBreakdownChart';
+import { LazyTraceCostOverTimeChart } from './components/LazyTraceCostOverTimeChart';
 import { AssessmentChartsSection } from './components/AssessmentChartsSection';
 import { ToolCallStatistics } from './components/ToolCallStatistics';
 import { ToolCallChartsSection } from './components/ToolCallChartsSection';
@@ -149,7 +151,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </div>
 
         <OverviewChartProvider
-          experimentId={experimentId}
+          experimentIds={[experimentId]}
           startTimeMs={startTimeMs}
           endTimeMs={endTimeMs}
           timeIntervalSeconds={timeIntervalSeconds}
@@ -170,6 +172,12 @@ const ExperimentGenAIOverviewPageImpl = () => {
               <ChartGrid>
                 <LazyTraceTokenUsageChart />
                 <LazyTraceTokenStatsChart />
+              </ChartGrid>
+
+              {/* Cost Breakdown and Cost Over Time charts - side by side */}
+              <ChartGrid>
+                <LazyTraceCostBreakdownChart />
+                <LazyTraceCostOverTimeChart />
               </ChartGrid>
             </TabContentContainer>
           </Tabs.Content>

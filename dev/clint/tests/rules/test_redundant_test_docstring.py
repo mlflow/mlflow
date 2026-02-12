@@ -171,13 +171,11 @@ class TestDataProcessingValidation:
     assert len(violations) == 2
 
     func_violation = violations[0]
-    assert "test_data_processing_validation" in func_violation.rule.message
-    assert "single-line docstring" in func_violation.rule.message
     assert "rarely provide meaningful context" in func_violation.rule.message
+    assert "Consider removing it" in func_violation.rule.message
 
     class_violation = violations[1]
-    assert "TestDataProcessingValidation" in class_violation.rule.message
-    assert "Test class" in class_violation.rule.message
+    assert "rarely provide meaningful context" in class_violation.rule.message
     assert "Consider removing it" in class_violation.rule.message
 
 
@@ -191,8 +189,7 @@ def test_something():
     violations = lint_file(Path("test_module.py"), code, config, index_path)
     assert len(violations) == 1
     assert isinstance(violations[0].rule, RedundantTestDocstring)
-    assert violations[0].rule.is_module_docstring
-    assert "single-line docstring" in violations[0].rule.message
+    assert "rarely provide meaningful context" in violations[0].rule.message
 
 
 def test_module_multiline_docstrings_are_allowed(index_path: Path) -> None:

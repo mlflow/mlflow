@@ -10,6 +10,7 @@ import { ModelTraceExplorerChatTab } from './ModelTraceExplorerChatTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
+import { SpanModelCostBadge } from './SpanModelCostBadge';
 import type { ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
 import { getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerBadge } from '../ModelTraceExplorerBadge';
@@ -85,6 +86,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
       value={activeTab}
       onValueChange={(tab: string) => setActiveTab(tab as ModelTraceExplorerTab)}
     >
+      <SpanModelCostBadge activeSpan={activeSpan} />
       {!displayReadOnlyAssessments && (
         <div
           css={{

@@ -8,11 +8,26 @@ import { useUpdateEndpointMutation } from './useUpdateEndpointMutation';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
 import { useUpdateModelDefinitionMutation } from './useUpdateModelDefinitionMutation';
 import { useCreateSecret } from './useCreateSecret';
+import { MlflowService } from '../../experiment-tracking/sdk/MlflowService';
 import { getReadableErrorMessage } from '../utils/errorUtils';
 import GatewayRoutes from '../routes';
 import type { Endpoint } from '../types';
 
 export { getReadableErrorMessage };
+
+/**
+ * Get or create an experiment with the given name.
+ * First tries to fetch an existing experiment, then creates one if not found.
+ */
+async function getOrCreateExperiment(experimentName: string): Promise<string> {
+  try {
+    const existingExperiment = await MlflowService.getExperimentByName({ experiment_name: experimentName });
+    return existingExperiment.experiment.experimentId;
+  } catch (error: unknown) {
+    const response = (await MlflowService.createExperiment({ name: experimentName })) as { experiment_id: string };
+    return response.experiment_id;
+  }
+}
 
 export interface TrafficSplitModel {
   modelDefinitionId?: string;
@@ -50,6 +65,8 @@ export interface EditEndpointFormData {
   name: string;
   trafficSplitModels: TrafficSplitModel[];
   fallbackModels: FallbackModel[];
+  usageTracking: boolean;
+  experimentId: string;
 }
 
 export interface UseEditEndpointFormResult {
@@ -79,6 +96,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
       name: '',
       trafficSplitModels: [],
       fallbackModels: [],
+      usageTracking: false,
+      experimentId: '',
     },
   });
 
@@ -122,6 +141,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
             },
             fallbackOrder: idx + 1,
           })),
+        usageTracking: endpoint.usage_tracking ?? false,
+        experimentId: endpoint.experiment_id ?? '',
       });
     }
   }, [endpoint, form]);
@@ -248,12 +269,26 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
               }
             : undefined;
 
+        // If usage tracking is enabled and no experiment is selected, create one
+        let experimentId: string | undefined;
+        if (values.usageTracking) {
+          if (values.experimentId) {
+            experimentId = values.experimentId;
+          } else {
+            // Auto-create experiment with name 'gateway/{endpoint_name}'
+            const endpointName = values.name || endpoint.name || 'endpoint';
+            experimentId = await getOrCreateExperiment(`gateway/${endpointName}`);
+          }
+        }
+
         await updateEndpoint({
           endpointId: endpoint.endpoint_id,
           name: values.name || undefined,
           model_configs: modelConfigs,
           routing_strategy: routingStrategy,
           fallback_config: fallbackConfig,
+          usage_tracking: values.usageTracking,
+          experiment_id: experimentId,
         });
 
         navigate(GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id));
@@ -317,12 +352,16 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
   }, [trafficSplitModels, fallbackModels]);
 
   const name = form.watch('name');
+  const usageTracking = form.watch('usageTracking');
 
   const hasChanges = useMemo(() => {
     if (!endpoint) return false;
 
     const originalName = endpoint.name ?? '';
     if (name !== originalName) return true;
+
+    const originalUsageTracking = endpoint.usage_tracking ?? false;
+    if (usageTracking !== originalUsageTracking) return true;
 
     const originalPrimaryMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'PRIMARY') ?? [];
     const originalFallbackMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'FALLBACK') ?? [];
@@ -389,7 +428,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     });
 
     return trafficSplitChanged || fallbackChanged;
-  }, [endpoint, name, trafficSplitModels, fallbackModels]);
+  }, [endpoint, name, usageTracking, trafficSplitModels, fallbackModels]);
 
   const { data: existingEndpoints } = useEndpointsQuery();
 

@@ -7,6 +7,13 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
   push:
     branches:
       - master
@@ -137,6 +144,9 @@ jobs:
               tests/store/tracking/test_sqlalchemy_store_query_trace_metrics.py \
               tests/store/tracking/test_gateway_sql_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
+              tests/store/model_registry/test_sqlalchemy_workspace_store.py \
+              tests/store/workspace/test_sqlalchemy_store.py \
+              tests/store/tracking/test_sqlalchemy_workspace_store.py \
               tests/db
               RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
           done
@@ -177,13 +187,11 @@ jobs:
           java-version: 11
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
+          uv sync --no-dev
       - name: Run tests
+        working-directory: mlflow/java
         run: |
-          cd mlflow/java
-          mvn clean package -q
+          uv run --no-dev mvn clean package -q
 
   flavors:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -265,7 +273,7 @@ jobs:
           uv sync --extra extras --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
-            torch transformers pyspark langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
+            torch transformers pyspark langchain langchain-experimental shap lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -292,7 +300,7 @@ jobs:
           uv sync --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas arize-phoenix-evals
+            deepeval ragas arize-phoenix-evals trulens trulens-providers-litellm guardrails-ai
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run GenAI Tests (OSS)
@@ -374,11 +382,6 @@ jobs:
           git clone https://github.com/cdarlint/winutils /tmp/winutils
       - name: Run python tests
         env:
-          # Starting from SQLAlchemy version 2.0, `QueuePool` is the default connection pool
-          # when creating an `Engine`. `QueuePool` prevents the removal of temporary database
-          # files created during tests on Windows as it keeps the DB connection open until
-          # it's explicitly disposed.
-          MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           HADOOP_HOME: /tmp/winutils/hadoop-3.2.2
           # Use non-GUI matplotlib backend since Tkinter may not be installed properly on Windows runners

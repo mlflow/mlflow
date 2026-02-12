@@ -315,7 +315,11 @@ export interface EvaluateTracesState {
   latestEvaluation: JudgeEvaluationResult[] | null;
   isLoading: boolean;
   error: Error | null;
-  reset: () => void;
+  /**
+   * Reset/cancel evaluations. If requestKey is provided, cancels only that evaluation.
+   * Otherwise, cancels all running evaluations.
+   */
+  reset: (requestKey?: string) => void;
   /**
    * Results of all evaluations
    */
@@ -598,7 +602,8 @@ export function useEvaluateTraces({
     [queryClient, getTraceIdsForEvaluation, onScorerFinished],
   );
 
-  const reset = useCallback(() => {
+  // In sync mode, reset just clears state (no job-based cancellation)
+  const reset = useCallback((_requestKey?: string) => {
     setData(null);
     setError(null);
     setIsLoading(false);

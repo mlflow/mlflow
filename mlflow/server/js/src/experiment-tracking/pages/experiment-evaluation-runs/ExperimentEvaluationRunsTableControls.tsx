@@ -88,6 +88,7 @@ export const ExperimentEvaluationRunsTableControls = ({
   compareToRunUuid,
   isComparisonMode,
   setIsComparisonMode,
+  enableImprovedComparison,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -108,6 +109,7 @@ export const ExperimentEvaluationRunsTableControls = ({
   compareToRunUuid?: string;
   isComparisonMode: boolean;
   setIsComparisonMode: (isComparisonMode: boolean) => void;
+  enableImprovedComparison?: boolean;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -126,13 +128,11 @@ export const ExperimentEvaluationRunsTableControls = ({
     [selectedColumns],
   );
 
-  const isCompareEnabled = selectedRunUuids.length >= 1;
+  const isCompareEnabled = selectedRunUuids.length === 2;
 
   const handleCompareClick = useCallback(() => {
-    if (selectedRunUuids.length >= 1) {
-      if (selectedRunUuids.length >= 2) {
-        onCompare(selectedRunUuids[0], selectedRunUuids[1]);
-      }
+    if (selectedRunUuids.length === 2) {
+      onCompare(selectedRunUuids[0], selectedRunUuids[1]);
       setIsComparisonMode(true);
     }
   }, [selectedRunUuids, onCompare, setIsComparisonMode]);
@@ -267,35 +267,42 @@ export const ExperimentEvaluationRunsTableControls = ({
           runs={runs}
         />
 
-        <Tooltip
-          componentId="mlflow.eval-runs.compare-button.tooltip"
-          content={
-            isCompareEnabled ? (
-              <FormattedMessage
-                defaultMessage="Compare selected runs"
-                description="Tooltip for the compare button when enabled"
-              />
-            ) : (
-              <FormattedMessage
-                defaultMessage="Select up to 2 runs to compare"
-                description="Tooltip for the compare button when disabled"
-              />
-            )
-          }
-        >
-          <Button
-            componentId="mlflow.eval-runs.compare-button"
-            onClick={handleCompareClick}
-            disabled={!isCompareEnabled}
+        {/* Compare button - only enabled when feature flag is on, hidden in charts mode */}
+        {enableImprovedComparison && viewMode !== ExperimentEvaluationRunsPageMode.CHARTS && (
+          <Tooltip
+            componentId="mlflow.eval-runs.compare-button.tooltip"
+            content={
+              isCompareEnabled ? (
+                <FormattedMessage
+                  defaultMessage="Compare selected runs"
+                  description="Tooltip for the compare button when enabled"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Select up to 2 runs to compare"
+                  description="Tooltip for the compare button when disabled"
+                />
+              )
+            }
           >
-            <FormattedMessage defaultMessage="Compare" description="Compare runs button label" />
-          </Button>
-        </Tooltip>
+            <Button
+              componentId="mlflow.eval-runs.compare-button"
+              onClick={handleCompareClick}
+              disabled={!isCompareEnabled}
+            >
+              <FormattedMessage defaultMessage="Compare" description="Compare runs button label" />
+            </Button>
+          </Tooltip>
+        )}
 
         <ExperimentEvaluationRunsTableActions
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
           refetchRuns={refetchRuns}
+          onCompare={onCompare}
+          selectedRunUuid={selectedRunUuid}
+          compareToRunUuid={compareToRunUuid}
+          enableImprovedComparison={enableImprovedComparison}
         />
       </div>
     </div>

@@ -1,7 +1,10 @@
+import cProfile
 import inspect
+import io
 import json
 import os
 import posixpath
+import pstats
 import re
 import shutil
 import subprocess
@@ -11,6 +14,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
@@ -21,13 +25,20 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_TRACKING_URI,
+    MLFLOW_WORKSPACE,
+    MLFLOW_WORKSPACE_STORE_URI,
+)
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.provider import get_current_otel_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.utils import workspace_context, workspace_utils
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
@@ -80,6 +91,14 @@ def pytest_addoption(parser):
         default=os.getenv("CI", "false").lower() == "true",
         help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
     )
+    parser.addoption(
+        "--profile",
+        default=None,
+        help=(
+            "Comma-separated list of test nodeids to profile "
+            "(e.g., 'tests/foo.py::test_bar,tests/baz.py')"
+        ),
+    )
 
 
 def pytest_configure(config: pytest.Config):
@@ -96,6 +115,19 @@ def pytest_configure(config: pytest.Config):
     labels = fetch_pr_labels() or []
     if "fail-fast" in labels:
         config.option.maxfail = 1
+
+    # Populate _profile_tests from CLI option and PR description
+    global _profile_tests
+    _profile_tests = set()
+
+    # Add tests from CLI --profile option
+    if profile_option := config.getoption("--profile"):
+        for nodeid in profile_option.split(","):
+            if nodeid := nodeid.strip():
+                _profile_tests.add(nodeid)
+
+    # Add tests from PR description
+    _profile_tests.update(fetch_profile_tests())
 
     # Register SQLAlchemy LegacyAPIWarning filter only if sqlalchemy is available
     try:
@@ -140,6 +172,16 @@ class TestResult:
 
 
 _test_results: list[TestResult] = []
+
+
+@dataclass
+class ProfileResult:
+    nodeid: str
+    stats: pstats.Stats
+
+
+_profile_tests: set[str] = set()
+_profile_results: list[ProfileResult] = []
 
 
 def _to_gb(b: int) -> str:
@@ -211,9 +253,63 @@ _RESOURCE_HEAVY_TESTS: dict[str, str] = {}  # test nodeid -> resource usage delt
 _RESOURCE_USAGE = ResourceUsage()
 
 
+def _should_profile_test(nodeid: str) -> bool:
+    if not _profile_tests:
+        return False
+
+    # Check for exact match first
+    if nodeid in _profile_tests:
+        return True
+
+    # Check for partial matches (e.g., file path matches)
+    for pattern in _profile_tests:
+        if nodeid.startswith(pattern):
+            return True
+
+    return False
+
+
+def _format_profile_stats(stats: pstats.Stats) -> str:
+    stream = io.StringIO()
+    stats.stream = stream
+    stats.sort_stats(pstats.SortKey.CUMULATIVE)
+    stats.print_stats(50)  # Print top 50 functions
+    return stream.getvalue()
+
+
+def fetch_profile_tests() -> set[str]:
+    """
+    Returns the set of test nodeids to profile from the current pull request description.
+    Parses <!-- profile: --> markers from PR body.
+    """
+    if "GITHUB_ACTIONS" not in os.environ:
+        return set()
+
+    if os.environ.get("GITHUB_EVENT_NAME") != "pull_request":
+        return set()
+
+    with open(os.environ["GITHUB_EVENT_PATH"]) as f:
+        pr_data = json.load(f)
+        pr_body = pr_data["pull_request"]["body"] or ""
+
+        # Match <!-- profile: ... --> blocks, supporting multiline content
+        pattern = r"<!--\s*profile:\s*(.*?)\s*-->"
+        matches = re.findall(pattern, pr_body, re.DOTALL)
+
+        nodeids = set()
+        for match in matches:
+            # Split by newlines and filter out empty lines
+            for line in match.strip().split("\n"):
+                if line := line.strip():
+                    nodeids.add(line)
+
+        return nodeids
+
+
 def pytest_sessionstart(session):
     # Clear duration tracking state at the start of each session
     _test_results.clear()
+    _profile_results.clear()
     _RESOURCE_HEAVY_TESTS.clear()
     _RESOURCE_USAGE.snapshot()
 
@@ -338,6 +434,10 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
             should_rerun = True
             attempts = flaky_marker.kwargs.get("attempts", 3)
 
+    # Check if we should profile this test
+    should_profile = _should_profile_test(item.nodeid)
+    profiler = cProfile.Profile() if should_profile else None
+
     item.execution_count = 0
     need_to_run = True
     total_duration = 0.0
@@ -346,7 +446,10 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
         item.ihook.pytest_runtest_logstart(nodeid=item.nodeid, location=item.location)
         item.execution_count += 1
         start = time.perf_counter()
-        reports = runtestprotocol(item, nextitem=nextitem, log=False)
+
+        with profiler or nullcontext():
+            reports = runtestprotocol(item, nextitem=nextitem, log=False)
+
         total_duration += time.perf_counter() - start
 
         for report in reports:
@@ -366,6 +469,11 @@ def pytest_runtest_protocol(item: pytest.Item, nextitem: pytest.Item | None):
             need_to_run = False
 
         item.ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
+
+    # Store profile results
+    if profiler:
+        stats = pstats.Stats(profiler)
+        _profile_results.append(ProfileResult(nodeid=item.nodeid, stats=stats))
 
     _test_results.append(
         TestResult(path=item.path, test_name=item.name, execution_time=total_duration)
@@ -510,6 +618,23 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.write("\n\n::endgroup::\n")
         terminalreporter.write("\n")
 
+    # Display profile results
+    if _profile_results:
+        terminalreporter.write("\n")
+        header = "profile results"
+        terminalreporter.write_sep("=", header)
+        terminalreporter.write(f"::group::{header}\n\n")
+
+        for profile_result in _profile_results:
+            terminalreporter.write(f"\nProfile for: {profile_result.nodeid}\n")
+            terminalreporter.write("-" * 80 + "\n")
+            formatted_stats = _format_profile_stats(profile_result.stats)
+            terminalreporter.write(formatted_stats)
+            terminalreporter.write("\n")
+
+        terminalreporter.write("::endgroup::\n")
+        terminalreporter.write("\n")
+
     if (
         # `uv run` was used to run tests
         "UV" in os.environ
@@ -537,15 +662,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.section("command to run failed tests")
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
-
-        if summary_path := os.environ.get("GITHUB_STEP_SUMMARY"):
-            summary_path = Path(summary_path).resolve()
-            with summary_path.open("a") as f:
-                f.write("## Failed tests\n")
-                f.write("Run the following command to run the failed tests:\n")
-                f.write("```bash\n")
-                f.write(" ".join(["pytest"] + ids) + "\n")
-                f.write("```\n\n")
 
         # If some tests failed at installing mlflow, we suggest using `--serve-wheel` flag.
         # Some test cases try to install mlflow via pip e.g. model loading. They pins
@@ -620,6 +736,8 @@ def remote_backend_for_tracing_sdk_test():
                 "--directory",
                 # Install from the dev version
                 mlflow_root,
+                "--with",
+                "setuptools<82",  # setuptools 82+ removed pkg_resources
                 "mlflow",
                 "server",
                 "--port",
@@ -669,6 +787,45 @@ def tracking_uri_mock(db_uri: str, request: pytest.FixtureRequest) -> Iterator[s
             yield db_uri
     else:
         yield None
+
+
+@pytest.fixture(autouse=True)
+def disable_workspace_mode_by_default(monkeypatch):
+    """
+    Ensure tests default to single-tenant mode regardless of the outer environment.
+    Individual tests can still opt in by setting ``MLFLOW_ENABLE_WORKSPACES`` explicitly.
+    """
+
+    for env_var in (
+        MLFLOW_ENABLE_WORKSPACES,
+        MLFLOW_WORKSPACE,
+        MLFLOW_WORKSPACE_STORE_URI,
+    ):
+        monkeypatch.delenv(env_var.name, raising=False)
+
+    if workspace_context is not None:
+        workspace_context.clear_server_request_workspace()
+
+    if workspace_utils is not None:
+        workspace_utils.set_workspace_store_uri(None)
+
+    yield
+
+    # Clear env vars at teardown to prevent leaking to subprocess servers.
+    # monkeypatch only tracks changes made through itself, so direct os.environ
+    # modifications (or those made by other code) would otherwise persist.
+    for env_var in (
+        MLFLOW_ENABLE_WORKSPACES,
+        MLFLOW_WORKSPACE,
+        MLFLOW_WORKSPACE_STORE_URI,
+    ):
+        os.environ.pop(env_var.name, None)
+
+    if workspace_context is not None:
+        workspace_context.clear_server_request_workspace()
+
+    if workspace_utils is not None:
+        workspace_utils.set_workspace_store_uri(None)
 
 
 @pytest.fixture(autouse=True)
@@ -1046,8 +1203,32 @@ def clear_engine_map():
         )
         from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-        SqlAlchemyStore._engine_map.clear()
-        ModelRegistrySqlAlchemyStore._engine_map.clear()
-        SqlAlchemyJobStore._engine_map.clear()
+        for store_class in [
+            SqlAlchemyStore,
+            ModelRegistrySqlAlchemyStore,
+            SqlAlchemyJobStore,
+        ]:
+            with store_class._engine_map_lock:
+                while store_class._engine_map:
+                    _, engine = store_class._engine_map.popitem()
+                    engine.dispose()
     except ImportError:
         pass
+
+
+@pytest.fixture
+def mock_litellm_cost():
+    """
+    Mock litellm.cost_per_token to calculate cost based on token counts.
+
+    Uses cost of 1.0 per input token and 2.0 per output token.
+    Returns (input_cost, output_cost) based on the token counts passed.
+    """
+
+    def calculate_cost(model, prompt_tokens, completion_tokens):
+        input_cost = prompt_tokens * 1.0
+        output_cost = completion_tokens * 2.0
+        return (input_cost, output_cost)
+
+    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost) as mock_cost:
+        yield mock_cost

@@ -16,7 +16,6 @@ from mlflow.prompt.registry_utils import PromptCache as PromptCache
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.annotations import experimental
 
 
 @contextmanager
@@ -264,7 +263,6 @@ def delete_prompt_alias(name: str, alias: str) -> None:
         return registry_api.delete_prompt_alias(name=name, alias=alias)
 
 
-@experimental(version="3.5.0")
 @require_prompt_registry
 def get_prompt_tags(name: str) -> Prompt:
     """Get a prompt's metadata from the MLflow Prompt Registry.
@@ -276,7 +274,6 @@ def get_prompt_tags(name: str) -> Prompt:
         return MlflowClient().get_prompt(name=name).tags
 
 
-@experimental(version="3.5.0")
 @require_prompt_registry
 def set_prompt_tag(name: str, key: str, value: str) -> None:
     """Set a tag on a prompt in the MLflow Prompt Registry.
@@ -290,7 +287,6 @@ def set_prompt_tag(name: str, key: str, value: str) -> None:
         MlflowClient().set_prompt_tag(name=name, key=key, value=value)
 
 
-@experimental(version="3.5.0")
 @require_prompt_registry
 def delete_prompt_tag(name: str, key: str) -> None:
     """Delete a tag from a prompt in the MLflow Prompt Registry.
@@ -303,7 +299,6 @@ def delete_prompt_tag(name: str, key: str) -> None:
         MlflowClient().delete_prompt_tag(name=name, key=key)
 
 
-@experimental(version="3.5.0")
 @require_prompt_registry
 def set_prompt_version_tag(name: str, version: str | int, key: str, value: str) -> None:
     """Set a tag on a prompt version in the MLflow Prompt Registry.
@@ -318,7 +313,6 @@ def set_prompt_version_tag(name: str, version: str | int, key: str, value: str) 
         MlflowClient().set_prompt_version_tag(name=name, version=version, key=key, value=value)
 
 
-@experimental(version="3.5.0")
 @require_prompt_registry
 def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
     """Delete a tag from a prompt version in the MLflow Prompt Registry.
@@ -332,7 +326,6 @@ def delete_prompt_version_tag(name: str, version: str | int, key: str) -> None:
         MlflowClient().delete_prompt_version_tag(name=name, version=version, key=key)
 
 
-@experimental(version="3.8.0")
 @require_prompt_registry
 def set_prompt_model_config(
     name: str,
@@ -394,7 +387,6 @@ def set_prompt_model_config(
         )
 
 
-@experimental(version="3.8.0")
 @require_prompt_registry
 def delete_prompt_model_config(name: str, version: str | int) -> None:
     """Delete the model configuration from a specific prompt version.

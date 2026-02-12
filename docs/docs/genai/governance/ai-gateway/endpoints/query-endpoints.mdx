@@ -398,17 +398,17 @@ print(result.final_output)
 
 ## Using Gateway Endpoints with MLflow Judges
 
-AI Gateway endpoints can be used as the backing LLM for MLflow's [LLM-as-a-Judge scorers](/genai/eval-monitor/scorers/llm-judge/). This allows you to run judge evaluations through the gateway, benefiting from centralized API key management and cost tracking.
+AI Gateway endpoints can be used as the backing LLM for MLflow's [LLM Judges](/genai/eval-monitor/scorers/#llms-as-judges). This allows you to run judge evaluations through the gateway, benefiting from centralized API key management and cost tracking.
 
 To use a gateway endpoint as a judge model, use the `gateway:/` prefix followed by your endpoint name:
 
 <Tabs>
-<TabItem value="predefined" label="Predefined Scorers" default>
+<TabItem value="built-in" label="Built-in Judges" default>
 
 ```python
 from mlflow.genai.scorers import Correctness
 
-# Use a gateway endpoint for the Correctness scorer
+# Use a gateway endpoint for the Correctness judge
 scorer = Correctness(model="gateway:/my-chat-endpoint")
 ```
 
@@ -435,4 +435,4 @@ coherence_judge = make_judge(
 </TabItem>
 </Tabs>
 
-For more details on creating and using LLM judges, see the [LLM-as-a-Judge documentation](/genai/eval-monitor/scorers/llm-judge/).
+For more details on creating and using LLM judges, see the [LLM Judges documentation](/genai/eval-monitor/scorers/#llms-as-judges).

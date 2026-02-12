@@ -32,7 +32,7 @@ describe('ToolLatencyChart', () => {
   ];
 
   const defaultContextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,

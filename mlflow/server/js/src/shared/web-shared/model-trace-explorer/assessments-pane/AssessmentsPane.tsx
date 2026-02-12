@@ -16,6 +16,7 @@ import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesCont
 export const AssessmentsPane = ({
   assessments,
   traceId,
+  sessionId,
   activeSpanId,
   className,
   assessmentsTitleOverride,
@@ -24,6 +25,7 @@ export const AssessmentsPane = ({
 }: {
   assessments: Assessment[];
   traceId: string;
+  sessionId?: string;
   activeSpanId?: string;
   className?: string;
   assessmentsTitleOverride?: (count?: number) => JSX.Element;
@@ -110,11 +112,12 @@ export const AssessmentsPane = ({
         enableRunScorer={
           enableRunScorer &&
           isEvaluatingTracesInDetailsViewEnabled() &&
-          Boolean(runJudgeConfiguration.renderRunJudgeButton)
+          Boolean(runJudgeConfiguration.renderRunJudgeModal)
         }
         feedbacks={feedbacks}
         activeSpanId={activeSpanId}
         traceId={traceId}
+        sessionId={sessionId}
       />
       <Spacer size="sm" shrinks={false} />
       <AssessmentsPaneExpectationsSection expectations={expectations} activeSpanId={activeSpanId} traceId={traceId} />

@@ -38,7 +38,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
 
   const handleSwitchProvider = (targetProvider: ModelProvider) => {
     setModelProvider(targetProvider);
-    setValue('model', '', { shouldValidate: true });
+    setValue('model', '', { shouldValidate: true, shouldDirty: true });
     // Toggle automatic evaluation based on model provider:
     // - Disable when switching to non-gateway model (automatic evaluation only works with gateway)
     // - Re-enable when switching back to gateway model
@@ -122,7 +122,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
               currentEndpointName={currentEndpointName}
               onEndpointSelect={(endpointName) => {
                 const modelValue = formatGatewayModelFromEndpoint(endpointName);
-                setValue('model', modelValue, { shouldValidate: true });
+                setValue('model', modelValue, { shouldValidate: true, shouldDirty: true });
                 onUserSelect?.('model', modelValue);
               }}
               disabled={isReadOnly}

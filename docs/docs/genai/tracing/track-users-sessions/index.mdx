@@ -3,7 +3,7 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Search, TrendingUp } from "lucide-react";
+import { Search, TrendingUp, MessageSquare } from "lucide-react";
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Track Users & Sessions
@@ -265,6 +265,13 @@ curl -X POST http://localhost:8000/chat \
 ## Next Steps
 
 <TilesGrid>
+  <TileCard
+    icon={MessageSquare}
+    title="Evaluate Conversations"
+    description="Assess multi-turn session quality with conversation-level scorers"
+    href="/genai/eval-monitor/running-evaluation/multi-turn"
+    linkText="Evaluate sessions →"
+  />
   <TileCard
     icon={Search}
     title="Search Traces"
