@@ -9,6 +9,11 @@ import {
 } from './core/api';
 import { flushTraces } from './core/provider';
 import { MlflowClient } from './clients';
+import {
+  getTracingContextHeadersForHttpRequest,
+  withTracingContextFromHeaders,
+  withTracingContextFromHeadersAsync,
+} from './core/distributed';
 
 export {
   getLastActiveTraceId,
@@ -20,6 +25,10 @@ export {
   trace,
   withSpan,
   MlflowClient,
+  // Distributed tracing
+  getTracingContextHeadersForHttpRequest,
+  withTracingContextFromHeaders,
+  withTracingContextFromHeadersAsync,
 };
 
 // Export entities

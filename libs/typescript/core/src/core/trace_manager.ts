@@ -15,10 +15,17 @@ import {
 class _Trace {
   info: TraceInfo;
   spanDict: Map<string, LiveSpan>;
+  /**
+   * Flag to indicate if this trace was propagated from a remote parent.
+   * Remote traces are registered to allow child spans to find their parent trace,
+   * but should not be exported to the backend (only the originating service exports).
+   */
+  isRemoteTrace: boolean;
 
-  constructor(info: TraceInfo) {
+  constructor(info: TraceInfo, isRemoteTrace: boolean = false) {
     this.info = info;
     this.spanDict = new Map<string, LiveSpan>();
+    this.isRemoteTrace = isRemoteTrace;
   }
 
   /**
@@ -100,9 +107,10 @@ export class InMemoryTraceManager {
    * Register a new trace info object to the in-memory trace registry.
    * @param otelTraceId The OpenTelemetry trace ID for the new trace
    * @param traceInfo The trace info object to be stored
+   * @param isRemoteTrace Whether this trace was propagated from a remote parent
    */
-  registerTrace(otelTraceId: string, traceInfo: TraceInfo): void {
-    this._traces.set(traceInfo.traceId, new _Trace(traceInfo));
+  registerTrace(otelTraceId: string, traceInfo: TraceInfo, isRemoteTrace: boolean = false): void {
+    this._traces.set(traceInfo.traceId, new _Trace(traceInfo, isRemoteTrace));
     this._otelIdToMlflowTraceId.set(otelTraceId, traceInfo.traceId);
   }
 
@@ -152,6 +160,11 @@ export class InMemoryTraceManager {
   /**
    * Pop trace data for the given OpenTelemetry trace ID and return it as
    * a ready-to-publish Trace object.
+   *
+   * For remote traces (those propagated from a different service), this method
+   * only performs cleanup without returning a trace for export, since the
+   * originating service is responsible for exporting the complete trace.
+   *
    * @param otelTraceId The OpenTelemetry trace ID
    */
   popTrace(otelTraceId: string): Trace | null {
@@ -165,6 +178,13 @@ export class InMemoryTraceManager {
     const trace = this._traces.get(mlflowTraceId);
     if (trace) {
       this._traces.delete(mlflowTraceId);
+
+      // Remote traces should not be exported - they are only registered
+      // to allow child spans to find their parent trace context
+      if (trace.isRemoteTrace) {
+        return null;
+      }
+
       return trace.toMlflowTrace();
     }
     console.debug(`Tried to pop trace ${otelTraceId} but trace not found.`);
