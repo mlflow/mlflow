@@ -427,7 +427,7 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
     const expectedAssessmentFilter = "AND feedback.`overall` = 'success' ";
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
@@ -1300,7 +1300,7 @@ describe('useSearchMlflowTraces', () => {
     const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
     const expectedFilter = "feedback.`overall_assessment` = 'pass'";
-    expect(JSON.parse(body).filter).toContain(expectedFilter);
+    expect(body.filter).toContain(expectedFilter);
 
     expect(result.current.data).toHaveLength(1);
     expect(result.current.data?.[0].trace_id).toBe('trace_1');
@@ -1348,7 +1348,7 @@ describe('useSearchMlflowTraces', () => {
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
 
     const expectedFilter = "span.attributes.mlflow.spanInputs ILIKE '%test query%'";
-    expect(JSON.parse(body).filter).toBe(expectedFilter);
+    expect(body.filter).toBe(expectedFilter);
   });
 
   it('uses server-side assessment filters when applicable', async () => {

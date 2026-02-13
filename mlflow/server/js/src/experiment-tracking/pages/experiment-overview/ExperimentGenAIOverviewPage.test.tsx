@@ -14,6 +14,7 @@ jest.mock('../../../common/utils/FetchUtils', () => ({
   fetchOrFail: jest.fn(),
   getAjaxUrl: (url: string) => url,
 }));
+
 const mockFetchOrFail = jest.mocked(fetchOrFail);
 
 describe('ExperimentGenAIOverviewPage', () => {
@@ -36,7 +37,7 @@ describe('ExperimentGenAIOverviewPage', () => {
         <DesignSystemProvider>
           <TestRouter
             history={history}
-            routes={[testRoute(<ExperimentGenAIOverviewPage />, `/experiments/:experimentId/overview`)]}
+            routes={[testRoute(<ExperimentGenAIOverviewPage />, `/experiments/:experimentId/overview/:overviewTab?`)]}
             initialEntries={[initialUrl]}
           />
         </DesignSystemProvider>

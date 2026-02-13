@@ -4,8 +4,6 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { TracesV3Logs } from './TracesV3Logs';
 
-// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
-jest.setTimeout(30000);
 import { IntlProvider } from '@databricks/i18n';
 import { QueryClient, QueryClientProvider, type UseMutateAsyncFunction } from '@databricks/web-shared/query-client';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -31,7 +29,7 @@ import { TestRouter, testRoute, waitForRoutesToBeRendered } from '@mlflow/mlflow
 
 // Overriding default timeout for OSS tests
 // eslint-disable-next-line no-restricted-syntax
-jest.setTimeout(15000);
+jest.setTimeout(30000);
 
 // Mock all external dependencies
 jest.mock('@databricks/web-shared/genai-traces-table', () => {
@@ -40,6 +38,8 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => {
   );
   return {
     ...actual,
+    useExperimentVersionsQuery: jest.fn(),
+    useGenAiExperimentRunsForComparison: jest.fn(),
     useMlflowTracesTableMetadata: jest.fn(),
     useSearchMlflowTraces: jest.fn(),
     useSelectedColumns: jest.fn(),

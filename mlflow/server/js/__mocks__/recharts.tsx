@@ -5,6 +5,17 @@ export const ResponsiveContainer = ({ children }: { children?: React.ReactNode }
   <div data-testid="responsive-container">{children}</div>
 );
 
+export const PieChart = ({ children }: { children?: React.ReactNode }) => <div data-testid="pie-chart">{children}</div>;
+
+export const Pie = ({ children, data }: { children?: React.ReactNode; data?: unknown[] }) => (
+  <div data-testid="pie" data-count={data?.length || 0}>
+    {children}
+  </div>
+);
+
+export const Cell = () => <div data-testid="cell" />;
+export const Sector = () => <div data-testid="sector" />;
+
 export const LineChart = ({ children, data }: { children?: React.ReactNode; data?: unknown[] }) => (
   <div data-testid="line-chart" data-count={data?.length || 0}>
     {children}

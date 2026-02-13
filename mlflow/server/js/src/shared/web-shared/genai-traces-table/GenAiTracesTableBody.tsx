@@ -492,8 +492,9 @@ export const GenAiTracesTableBody = React.memo(
               toggleAllRowsSelectedHandler={table.getToggleAllRowsSelectedHandler}
               setColumnSizing={table.setColumnSizing}
             />
-
-            {isGroupedBySession ? (
+            {isTableLoading ? (
+              <GenAITracesTableBodySkeleton table={table} />
+            ) : isGroupedBySession ? (
               <MemoizedGenAiTracesTableSessionGroupedRows
                 rows={rows}
                 groupedRows={groupedRows}
