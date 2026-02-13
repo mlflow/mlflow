@@ -426,7 +426,7 @@ class Linter(ast.NodeVisitor):
         if (
             isinstance(node.body[0], ast.Expr)
             and isinstance(node.body[0].value, ast.Constant)
-            and isinstance(node.body[0].value.s, str)
+            and isinstance(node.body[0].value.value, str)
         ):
             return node.body[0].value
         return None
@@ -497,8 +497,8 @@ class Linter(ast.NodeVisitor):
     def _redundant_test_docstring(
         self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
     ) -> None:
-        if rule := rules.RedundantTestDocstring.check(node, self.path.name):
-            self._check(Range.from_node(node), rule)
+        if docstring_node := rules.RedundantTestDocstring.check(node, self.path.name):
+            self._check(Range.from_node(docstring_node), rules.RedundantTestDocstring())
 
     def visit(self, node: ast.AST) -> None:
         super().visit(node)
@@ -506,8 +506,8 @@ class Linter(ast.NodeVisitor):
             self.prev_stmt = node
 
     def visit_Module(self, node: ast.Module) -> None:
-        if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
-            self._check(Range(Position(0, 0)), rule)
+        if docstring_node := rules.RedundantTestDocstring.check_module(node, self.path.name):
+            self._check(Range.from_node(docstring_node), rules.RedundantTestDocstring())
         self.generic_visit(node)
 
     def _is_in_test(self) -> bool:

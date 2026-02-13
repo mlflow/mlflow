@@ -1,6 +1,7 @@
 import os
 import pickle
 import types
+from unittest import mock
 
 import cloudpickle
 import numpy as np
@@ -344,3 +345,24 @@ def test_streamable_model_save_load(tmp_path, model_path):
     assert isinstance(stream_result, types.GeneratorType)
 
     assert list(stream_result) == ["test1", "test2"]
+
+
+def test_log_loader_module_model_does_not_emit_pickle_warning(sklearn_knn_model, tmp_path):
+    sk_model_path = tmp_path / "knn.pkl"
+    with open(sk_model_path, "wb") as f:
+        pickle.dump(sklearn_knn_model, f)
+
+    with mlflow.start_run(), mock.patch("mlflow.pyfunc._logger.warning") as mock_log_warning:
+        mlflow.pyfunc.log_model(
+            name="pyfunc_model",
+            data_path=sk_model_path,
+            loader_module=__name__,
+            code_paths=[__file__],
+        )
+
+    warning_messages = [args[0] for args, _ in mock_log_warning.call_args_list if args]
+    assert not any(
+        "Passing a Python object as `python_model` causes it to be serialized using CloudPickle"
+        in msg
+        for msg in warning_messages
+    )

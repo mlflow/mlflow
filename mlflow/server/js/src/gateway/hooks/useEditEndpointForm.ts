@@ -353,7 +353,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
 
   const name = form.watch('name');
   const usageTracking = form.watch('usageTracking');
-  const experimentId = form.watch('experimentId');
 
   const hasChanges = useMemo(() => {
     if (!endpoint) return false;
@@ -363,9 +362,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
 
     const originalUsageTracking = endpoint.usage_tracking ?? false;
     if (usageTracking !== originalUsageTracking) return true;
-
-    const originalExperimentId = endpoint.experiment_id ?? '';
-    if (experimentId !== originalExperimentId) return true;
 
     const originalPrimaryMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'PRIMARY') ?? [];
     const originalFallbackMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'FALLBACK') ?? [];
@@ -432,7 +428,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     });
 
     return trafficSplitChanged || fallbackChanged;
-  }, [endpoint, name, usageTracking, experimentId, trafficSplitModels, fallbackModels]);
+  }, [endpoint, name, usageTracking, trafficSplitModels, fallbackModels]);
 
   const { data: existingEndpoints } = useEndpointsQuery();
 
