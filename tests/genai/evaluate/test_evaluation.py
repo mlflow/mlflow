@@ -1638,3 +1638,82 @@ def test_no_rate_limit_backward_compat():
 
     assert result.metrics["exact_match/mean"] == 1.0
     assert result.metrics["is_concise/mean"] == 1.0
+
+
+# ===================== Retry & Adaptive Rate Limiting Tests =====================
+
+
+def test_predict_retries_on_429(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_RETRIES", "3")
+
+    # Start counting after validation (first call is the pre-flight check)
+    call_count = 0
+
+    def flaky_predict(q):
+        nonlocal call_count
+        call_count += 1
+        if call_count > 1 and call_count < 4:
+            raise Exception("429 Too Many Requests")
+        return "answer"
+
+    data = [{"inputs": {"q": "Q1"}}]
+    result = mlflow.genai.evaluate(data=data, predict_fn=flaky_predict, scorers=[always_pass])
+
+    # 1 validation + 1 fail + 1 fail + 1 success = 4 total
+    assert call_count == 4
+    assert result.metrics["always_pass/mean"] == 1.0
+
+
+def test_scorer_retries_on_429(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_RETRIES", "3")
+
+    attempts = []
+
+    @scorer
+    def flaky_scorer(outputs):
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise Exception("rate limit exceeded")
+        return True
+
+    data = [{"inputs": {"q": "Q1"}, "outputs": "a"}]
+    result = mlflow.genai.evaluate(data=data, scorers=[flaky_scorer])
+
+    assert len(attempts) == 3
+    assert result.metrics["flaky_scorer/mean"] == 1.0
+
+
+def test_adaptive_rate_reduces_on_429(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "auto")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_RETRIES", "3")
+
+    rate_after_throttle = []
+
+    original_report_throttle = RPSRateLimiter.report_throttle
+
+    def spy_report_throttle(self):
+        original_report_throttle(self)
+        rate_after_throttle.append(self._rps)
+
+    # First call is the pre-flight validation check — let it pass
+    call_count = 0
+
+    def flaky_predict(q):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise Exception("429 Too Many Requests")
+        return "answer"
+
+    data = [{"inputs": {"q": f"Q{i}"}} for i in range(3)]
+
+    with mock.patch.object(RPSRateLimiter, "report_throttle", spy_report_throttle):
+        result = mlflow.genai.evaluate(data=data, predict_fn=flaky_predict, scorers=[always_pass])
+
+    assert result.metrics["always_pass/mean"] == 1.0
+    # At least one throttle event observed, and the rate was reduced
+    assert len(rate_after_throttle) >= 1
+    assert rate_after_throttle[0] < 10.0  # auto starts at 10 rps

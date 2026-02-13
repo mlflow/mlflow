@@ -1,9 +1,11 @@
 import base64
+import contextlib
 import json
 import logging
 import random
 import time
 import warnings
+from contextvars import ContextVar
 from functools import lru_cache
 from typing import Any, Callable
 
@@ -42,6 +44,25 @@ from mlflow.utils.request_utils import (
 from mlflow.utils.string_utils import strip_suffix
 
 _logger = logging.getLogger(__name__)
+
+# Generic ContextVar to disable HTTP-layer 429 retries. When True,
+# _retry_databricks_sdk_call_with_exponential_backoff skips retrying on 429 so
+# that rate-limit errors propagate immediately to the caller's own retry logic.
+_DISABLE_429_RETRY = ContextVar("_DISABLE_429_RETRY", default=False)
+
+
+@contextlib.contextmanager
+def disable_429_retry():
+    token = _DISABLE_429_RETRY.set(True)
+    try:
+        yield
+    finally:
+        _DISABLE_429_RETRY.reset(token)
+
+
+def is_429_retry_disabled() -> bool:
+    return _DISABLE_429_RETRY.get()
+
 
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
@@ -441,6 +462,9 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
         DatabricksError: If all retries are exhausted or non-retryable error occurs
     """
     from databricks.sdk.errors import STATUS_CODE_MAPPING, DatabricksError
+
+    if is_429_retry_disabled():
+        retry_codes = frozenset(c for c in retry_codes if c != 429)
 
     start_time = time.time()
     attempt = 0

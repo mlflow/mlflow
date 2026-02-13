@@ -488,9 +488,15 @@ def _get_litellm_retry_policy(num_retries: int) -> "litellm.RetryPolicy":
     """
     from litellm import RetryPolicy
 
+    from mlflow.genai.evaluation.rate_limiter import is_eval_retry_active
+
+    # When the evaluate pipeline owns retry logic, disable litellm's rate-limit retries
+    # so 429 errors bubble up to call_with_retry() for AIMD adaptation.
+    rate_limit_retries = 0 if is_eval_retry_active() else num_retries
+
     return RetryPolicy(
         TimeoutErrorRetries=num_retries,
-        RateLimitErrorRetries=num_retries,
+        RateLimitErrorRetries=rate_limit_retries,
         InternalServerErrorRetries=num_retries,
         ContentPolicyViolationErrorRetries=num_retries,
         # We don't retry on errors that are unlikely to be transient
