@@ -210,7 +210,7 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     if isinstance(lgb_model, lgb.Booster):
         model_data_subpath = "model.lgb"
-    elif serialization_format == "skops":
+    elif serialization_format == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS:
         model_data_subpath = "model.skops"
     else:
         model_data_subpath = "model.pkl"

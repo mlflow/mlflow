@@ -105,6 +105,7 @@ _SklearnTrainingSession = _get_new_training_session_class()
 _PICKLE_MODEL_DATA_SUBPATH = "model.pkl"
 _SKOPS_MODEL_DATA_SUBPATH = "model.skops"
 
+
 def _gen_estimators_to_patch():
     from mlflow.sklearn.utils import (
         _all_estimators,
