@@ -44,7 +44,7 @@ pip install 'mlflow[genai]' google-generativeai
 </TabItem>
 <TabItem value="typescript" label="JS / TS">
 ```bash
-npm install mlflow-gemini @google/generative-ai
+npm install @mlflow/gemini @google/generative-ai
 ```
 </TabItem>
 </Tabs>
@@ -88,7 +88,7 @@ npm install mlflow-gemini @google/generative-ai
 
     ```typescript
     import { GoogleGenerativeAI } from "@google/generative-ai";
-    import { tracedGemini } from "mlflow-gemini";
+    import { tracedGemini } from "@mlflow/gemini";
 
     // Wrap the Gemini client with the tracedGemini function
     const genAI = tracedGemini(new GoogleGenerativeAI(process.env.GOOGLE_API_KEY));
@@ -178,7 +178,7 @@ To request support for additional APIs, please open a [feature request](https://
   <TabItem value="typescript" label="JS / TS">
     ```typescript
     import { GoogleGenAI } from "@google/genai";
-    import { tracedGemini } from "mlflow-gemini";
+    import { tracedGemini } from "@mlflow/gemini";
 
     const client = tracedGemini(new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }));
 
@@ -286,7 +286,7 @@ for span in trace.data.spans:
   <TabItem value="typescript" label="JS / TS">
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 // After your Gemini call completes, flush and fetch the trace
 await mlflow.flushTraces();

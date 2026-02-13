@@ -44,7 +44,7 @@ pip install 'mlflow[genai]' openai
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
 ```bash
-npm install mlflow-openai openai
+npm install @mlflow/openai openai
 ```
   </TabItem>
 </Tabs>
@@ -94,7 +94,7 @@ npm install mlflow-openai openai
 
     ```typescript
     import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+    import { tracedOpenAI } from "@mlflow/openai";
 
     // Wrap the OpenAI client and point to FireworksAI endpoint
     const client = tracedOpenAI(
@@ -176,7 +176,7 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
   <TabItem value="typescript" label="JS / TS">
     ```typescript
     import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+    import { tracedOpenAI } from "@mlflow/openai";
 
     // Configure OpenAI client for FireworksAI
     const client = tracedOpenAI(

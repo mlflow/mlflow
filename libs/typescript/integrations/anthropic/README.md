@@ -2,17 +2,17 @@
 
 Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with Anthropic to automatically trace your Claude API calls.
 
-| Package                | NPM                                                                                                                                               | Description                                     |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| [mlflow-anthropic](./) | [![npm package](https://img.shields.io/npm/v/mlflow-tracing-anthropic?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-anthropic) | Auto-instrumentation integration for Anthropic. |
+| Package                  | NPM                                                                                                                                         | Description                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| [@mlflow/anthropic](./)  | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fanthropic?style=flat-square)](https://www.npmjs.com/package/@mlflow/anthropic)     | Auto-instrumentation integration for Anthropic. |
 
 ## Installation
 
 ```bash
-npm install mlflow-anthropic
+npm install @mlflow/anthropic
 ```
 
-The package includes the [`mlflow-tracing`](https://github.com/mlflow/mlflow/tree/main/libs/typescript) package and `@anthropic-ai/sdk` package as peer dependencies. Depending on your package manager, you may need to install these two packages separately.
+The package includes the [`@mlflow/core`](https://github.com/mlflow/mlflow/tree/main/libs/typescript) package and `@anthropic-ai/sdk` package as peer dependencies. Depending on your package manager, you may need to install these two packages separately.
 
 ## Quickstart
 
@@ -28,7 +28,7 @@ Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one
 Instantiate MLflow SDK in your application:
 
 ```typescript
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 
 mlflow.init({
   trackingUri: 'http://localhost:5000',
@@ -40,7 +40,7 @@ Create a trace for Anthropic Claude:
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { tracedAnthropic } from 'mlflow-anthropic';
+import { tracedAnthropic } from '@mlflow/anthropic';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const client = tracedAnthropic(anthropic);

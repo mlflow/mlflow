@@ -8,7 +8,7 @@ import {
   SpanType,
   type TokenUsage,
   type LiveSpan,
-} from 'mlflow-tracing';
+} from '@mlflow/core';
 
 const SUPPORTED_MODULES = ['models'];
 const SUPPORTED_METHODS = ['generateContent'];

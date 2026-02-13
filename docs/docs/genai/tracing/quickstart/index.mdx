@@ -50,7 +50,7 @@ pip install --upgrade 'mlflow[genai]' openai>=1.0.0
 
 <TabItem value="typescript" label="TypeScript(OpenAI)" default>
 ```bash
-npm install mlflow-openai
+npm install @mlflow/openai
 ```
 </TabItem>
 </Tabs>
@@ -101,8 +101,8 @@ client.chat.completions.create(
 <TabItem value="typescript" label="TypeScript(OpenAI)">
 
 ```typescript
-import { init } from "mlflow-tracing";
-import { tracedOpenAI } from "mlflow-openai";
+import { init } from "@mlflow/core";
+import { tracedOpenAI } from "@mlflow/openai";
 import { OpenAI } from "openai";
 
 init({
@@ -206,7 +206,7 @@ Many GenAI applications maintain multi-turn conversations with users. MLflow pro
   </TabItem>
   <TabItem value="typescript" label="TypeScript">
     ```typescript
-    import * as mlflow from "mlflow-tracing";
+    import * as mlflow from "@mlflow/core";
 
     const chatCompletion = mlflow.trace(
         (message: Array<Record<string, any>>, userId: string, sessionId: string) => {
