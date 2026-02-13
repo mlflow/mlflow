@@ -2,11 +2,12 @@ import { Global } from '@emotion/react';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { ResizableBox } from 'react-resizable';
 import { ExperimentViewRunsTableResizerHandle } from '../../components/experiment-page/components/runs/ExperimentViewRunsTableResizer';
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import invariant from 'invariant';
 import { ExperimentEvaluationDatasetsListTable } from './components/ExperimentEvaluationDatasetsListTable';
 import { ExperimentEvaluationDatasetRecordsTable } from './components/ExperimentEvaluationDatasetRecordsTable';
+import type { EvaluationDataset } from './types';
 import { ExperimentEvaluationDatasetsPageWrapper } from './ExperimentEvaluationDatasetsPageWrapper';
 import { ExperimentEvaluationDatasetsEmptyState } from './components/ExperimentEvaluationDatasetsEmptyState';
 import { useSelectedDatasetBySearchParam } from './hooks/useSelectedDatasetBySearchParam';
@@ -25,32 +26,6 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
   const [searchFilter, setSearchFilter] = useState('');
 
   invariant(experimentId, 'Experiment ID must be defined');
-
-  const {
-    data: datasets,
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-    fetchNextPage,
-    hasNextPage,
-  } = useSearchEvaluationDatasets({ experimentId, nameFilter: searchFilter });
-
-  // Auto-select the first dataset when:
-  // - No dataset is currently selected, OR
-  // - The selected dataset is no longer in the list (e.g., was deleted / not in search)
-  const datasetIds = useMemo(() => datasets?.map((d) => d.dataset_id) ?? [], [datasets]);
-  useEffect(() => {
-    if (datasets?.length && (!selectedDatasetId || !datasetIds.includes(selectedDatasetId))) {
-      setSelectedDatasetId(datasets[0].dataset_id);
-    }
-  }, [datasets, selectedDatasetId, datasetIds, setSelectedDatasetId]);
-
-  // Derive selected dataset from datasets and selectedDatasetId
-  const selectedDataset = useMemo(() => {
-    if (!datasets?.length || !selectedDatasetId) return undefined;
-    return datasets.find((d) => d.dataset_id === selectedDatasetId);
-  }, [datasets, selectedDatasetId]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'row', flex: 1, minHeight: '0px' }}>
@@ -80,18 +55,10 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
       >
         <div css={{ display: datasetListHidden ? 'none' : 'flex', flex: 1, minWidth: 0 }}>
           <ExperimentEvaluationDatasetsListTable
+            setIsLoading={setIsDatasetsLoading}
             experimentId={experimentId}
-            datasets={datasets}
-            isLoading={isLoading}
-            isFetching={isFetching}
-            error={error}
-            refetch={refetch}
-            fetchNextPage={fetchNextPage}
-            hasNextPage={hasNextPage}
-            selectedDatasetId={selectedDatasetId}
-            setSelectedDatasetId={setSelectedDatasetId}
-            searchFilter={searchFilter}
-            setSearchFilter={setSearchFilter}
+            selectedDataset={selectedDataset}
+            setSelectedDataset={setSelectedDataset}
           />
         </div>
       </ResizableBox>
@@ -104,7 +71,9 @@ const ExperimentEvaluationDatasetsPageImpl = () => {
           overflow: 'hidden',
         }}
       >
-        {!isLoading && !selectedDataset && <ExperimentEvaluationDatasetsEmptyState experimentId={experimentId} />}
+        {!isDatasetsLoading && !selectedDataset && (
+          <ExperimentEvaluationDatasetsEmptyState experimentId={experimentId} />
+        )}
         {selectedDataset && <ExperimentEvaluationDatasetRecordsTable dataset={selectedDataset} />}
       </div>
       {dragging && (

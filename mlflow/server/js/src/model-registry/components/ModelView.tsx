@@ -161,7 +161,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
         itemName: (
           <FormattedMessage
             defaultMessage="Delete"
-            // eslint-disable-next-line max-len
             description="Text for disabled delete button due to active versions on model view page header"
           />
         ),

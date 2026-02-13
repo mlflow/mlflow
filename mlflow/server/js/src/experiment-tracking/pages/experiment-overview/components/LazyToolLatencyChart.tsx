@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { OverviewChartLoadingState } from './OverviewChartComponents';
 
 const ToolLatencyChart = React.lazy(() =>

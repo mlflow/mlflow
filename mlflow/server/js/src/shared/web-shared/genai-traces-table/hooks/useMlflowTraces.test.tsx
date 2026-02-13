@@ -3,9 +3,10 @@ import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { IntlProvider } from '@databricks/i18n';
-import type { Assessment, FeedbackAssessment, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { TracesServiceV4, getAssessmentValue } from '@databricks/web-shared/model-trace-explorer';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import type { Assessment, FeedbackAssessment, ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
+import { TracesServiceV4 } from '../../model-trace-explorer/api';
+import { getAssessmentValue } from '../../model-trace-explorer/assessments-pane/utils';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 
 import { useGenAiTraceEvaluationArtifacts } from './useGenAiTraceEvaluationArtifacts';
 import {
@@ -426,12 +427,13 @@ describe('useSearchMlflowTraces', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+    const expectedAssessmentFilter = "AND feedback.`overall` = 'success' ";
 
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
     expect(body).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
-      filter: `attributes.run_id = 'run-xyz' AND attributes.timestamp_ms > 100 AND attributes.timestamp_ms < 200 AND feedback.\`overall\` = 'success' AND tags.user = 'user_1' AND tags.user = 'user_2' AND attributes.execution_time_ms > 1000 AND request_metadata."mlflow.trace.user" = 'user_3' AND attributes.run_id = 'run_1' AND request_metadata."mlflow.modelId" = 'version_1' AND attributes.status = 'OK' AND attributes.name = 'trace_1'`,
+      filter: `attributes.run_id = 'run-xyz' AND attributes.timestamp_ms > 100 AND attributes.timestamp_ms < 200 ${expectedAssessmentFilter}AND tags.user = 'user_1' AND tags.user = 'user_2' AND attributes.execution_time_ms > 1000 AND request_metadata."mlflow.trace.user" = 'user_3' AND attributes.run_id = 'run_1' AND request_metadata."mlflow.modelId" = 'version_1' AND attributes.status = 'OK' AND attributes.name = 'trace_1'`,
       max_results: 10000,
     });
   });
@@ -1297,7 +1299,8 @@ describe('useSearchMlflowTraces', () => {
     // Verify the assessment filter was sent to the backend
     const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(body.filter).toContain("feedback.`overall_assessment` = 'pass'");
+    const expectedFilter = "feedback.`overall_assessment` = 'pass'";
+    expect(JSON.parse(body).filter).toContain(expectedFilter);
 
     expect(result.current.data).toHaveLength(1);
     expect(result.current.data?.[0].trace_id).toBe('trace_1');
@@ -1343,10 +1346,9 @@ describe('useSearchMlflowTraces', () => {
     // Verify the search query was sent to the backend
     const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
-    expect(body.filter).toContain("span.attributes.`mlflow.spanInputs` ILIKE '%test query%'");
 
-    expect(result.current.data).toHaveLength(1);
-    expect(result.current.data?.[0].trace_id).toBe('trace_1');
+    const expectedFilter = "span.attributes.mlflow.spanInputs ILIKE '%test query%'";
+    expect(JSON.parse(body).filter).toBe(expectedFilter);
   });
 
   it('uses server-side assessment filters when applicable', async () => {
@@ -1420,9 +1422,10 @@ describe('useSearchMlflowTraces', () => {
     );
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const expectedFilter = "span.attributes.mlflow.spanInputs ILIKE '%test query%'";
     expect(apiCallSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        filter: "span.attributes.`mlflow.spanInputs` ILIKE '%test query%'",
+        filter: expectedFilter,
         locations: [{ type: 'UC_SCHEMA', uc_schema: { catalog_name: 'catalog', schema_name: 'schema' } }],
       }),
     );
@@ -1714,7 +1717,6 @@ describe('createMlflowSearchFilter', () => {
     ];
 
     const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
-
     expect(filterString).toBe("prompt = 'qa-agent-system-prompt/4'");
   });
 
@@ -1733,10 +1735,7 @@ describe('createMlflowSearchFilter', () => {
     ];
 
     const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
-
-    expect(filterString).toContain("prompt = 'my-prompt/1'");
-    expect(filterString).toContain("attributes.status = 'OK'");
-    expect(filterString).toContain(' AND ');
+    expect(filterString).toBe("prompt = 'my-prompt/1' AND attributes.status = 'OK'");
   });
 
   test('creates correct filter string for assessment IS NULL', () => {

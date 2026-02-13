@@ -10,7 +10,7 @@ import { ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope } from './const
 import { LLM_TEMPLATE, isGuidelinesTemplate } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
-import { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
 import { isDirectModel } from '../../../gateway/utils/gatewayUtils';
 
@@ -162,7 +162,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   // Determine tooltip message based on why the button is disabled
   const runScorerDisabledReason = useMemo(() => {
-    if (!modelValue) {
+    if (isScorerModelSelectionEnabled() && !modelValue) {
       return intl.formatMessage({
         defaultMessage: 'Please select a model to run the judge',
         description: 'Tooltip message when model is not selected',

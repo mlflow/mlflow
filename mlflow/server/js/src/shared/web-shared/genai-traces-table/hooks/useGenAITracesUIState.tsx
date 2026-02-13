@@ -1,7 +1,7 @@
 import { isNil } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useLocalStorage } from '@databricks/web-shared/hooks';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 import { useColumnsURL } from './useColumnsURL';
 import {
@@ -10,7 +10,7 @@ import {
   STATE_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
 } from './useTableColumns';
-import { shoudlEnableURLPersistenceForSortAndColumns } from '../../model-trace-explorer/FeatureUtils';
+import { shouldEnableTracesTableStatePersistence } from '../../model-trace-explorer/FeatureUtils';
 import type { TracesTableColumn } from '../types';
 import { TracesTableColumnType } from '../types';
 
@@ -80,7 +80,11 @@ export const useGenAITracesUIStateColumns = (
   hiddenColumns: string[];
   toggleColumns: (cols: TracesTableColumn[]) => void;
 } => {
-  const enableURLPersistence = shoudlEnableURLPersistenceForSortAndColumns();
+  const enableURLPersistence = shouldEnableTracesTableStatePersistence();
+
+  const storageKey = storageKeyPrefix
+    ? `${LOCAL_STORAGE_KEY}-${storageKeyPrefix}-${experimentId}-${runUuid}`
+    : `${LOCAL_STORAGE_KEY}-${experimentId}-${runUuid}`;
 
   const storageKey = storageKeyPrefix
     ? `${LOCAL_STORAGE_KEY}-${storageKeyPrefix}-${experimentId}-${runUuid}`

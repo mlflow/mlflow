@@ -13,8 +13,8 @@ import {
 } from '@databricks/web-shared/genai-traces-table';
 import { INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID } from '@databricks/web-shared/genai-traces-table/hooks/useTableColumns';
 import { TracesV3DateSelector } from './experiment-page/components/traces-v3/TracesV3DateSelector';
+import type { MonitoringFilters } from '../hooks/useMonitoringFilters';
 import {
-  MonitoringFilters,
   MonitoringFiltersUpdateContext,
   useMonitoringFilters,
   useMonitoringFiltersTimeRange,

@@ -94,8 +94,8 @@ export function useLegendHighlight(defaultOpacity = 1, dimmedOpacity = 0.2) {
     [hoveredItem, defaultOpacity, dimmedOpacity],
   );
 
-  const handleLegendMouseEnter = useCallback((data: { value: string }) => {
-    setHoveredItem(data.value);
+  const handleLegendMouseEnter = useCallback((data: { value: string | undefined }) => {
+    setHoveredItem(data.value ?? null);
   }, []);
 
   const handleLegendMouseLeave = useCallback(() => {
@@ -219,7 +219,11 @@ export function getLineDotStyle(color: string) {
  * @param count - Number to format
  * @returns Formatted string (e.g., "1.50M", "15.00K", "1.50K", "500")
  */
-export function formatCount(count: number): string {
+export function formatCount(count: number | undefined): string {
+  if (isNil(count)) {
+    return '0';
+  }
+
   if (count >= 1_000_000) {
     return `${(count / 1_000_000).toFixed(2)}M`;
   }
@@ -233,7 +237,11 @@ export function formatCount(count: number): string {
  * Formats latency in milliseconds to a human-readable string
  * @param ms - Latency in milliseconds
  */
-export function formatLatency(ms: number): string {
+export function formatLatency(ms: number | undefined): string {
+  if (isNil(ms)) {
+    return '';
+  }
+
   if (ms < 1000) {
     return `${ms.toFixed(2)}ms`;
   }

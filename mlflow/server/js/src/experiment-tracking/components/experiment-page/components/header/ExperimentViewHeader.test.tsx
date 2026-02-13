@@ -1,15 +1,18 @@
 import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { ExperimentViewHeader, ExperimentViewHeaderSkeleton } from './ExperimentViewHeader';
-import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { renderWithIntl, act, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import type { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { BrowserRouter, MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { BrowserRouter, createMLflowRoutePath, MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { TestRouter, setupTestRouter, testRoute } from '../../../../../common/utils/RoutingTestUtils';
+
+const mockNavigate = jest.fn();
 
 const mockNavigate = jest.fn();
 
@@ -23,6 +26,16 @@ jest.mock('@databricks/design-system', () => {
   };
 });
 
+jest.mock('../../../../../common/utils/FeatureUtils', () => {
+  return {
+    ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
+      '../../../../../common/utils/FeatureUtils',
+    ),
+    shouldEnableExperimentPageSideTabs: jest.fn().mockReturnValue(true),
+    shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(false),
+  };
+});
+
 jest.mock('../../../../../common/utils/RoutingUtils', () => {
   const actual = jest.requireActual<typeof import('../../../../../common/utils/RoutingUtils')>(
     '../../../../../common/utils/RoutingUtils',
@@ -30,15 +43,6 @@ jest.mock('../../../../../common/utils/RoutingUtils', () => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
-  };
-});
-
-jest.mock('../../../../../common/utils/FeatureUtils', () => {
-  return {
-    ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
-      '../../../../../common/utils/FeatureUtils',
-    ),
-    shouldEnableWorkflowBasedNavigation: () => false,
   };
 });
 
@@ -56,11 +60,13 @@ describe('ExperimentViewHeader', () => {
 
   const setEditing = jest.fn();
 
+  const { history } = setupTestRouter();
+
   beforeEach(() => {
     mockNavigate.mockClear();
   });
 
-  const renderComponent = (experiment = defaultExperiment, initialPath?: string) => {
+  const renderComponent = (experiment = defaultExperiment, initialPath = '/') => {
     const mockStore = configureStore([thunk, promiseMiddleware()]);
     const queryClient = new QueryClient();
     const Router = initialPath ? MemoryRouter : BrowserRouter;
@@ -68,19 +74,21 @@ describe('ExperimentViewHeader', () => {
 
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
-        <Router {...routerProps}>
-          <DesignSystemProvider>
-            <Provider
-              store={mockStore({
-                entities: {
-                  experimentsById: {},
-                },
-              })}
-            >
-              <ExperimentViewHeader experiment={experiment} setEditing={setEditing} />
-            </Provider>
-          </DesignSystemProvider>
-        </Router>
+        <DesignSystemProvider>
+          <Provider
+            store={mockStore({
+              entities: {
+                experimentsById: {},
+              },
+            })}
+          >
+            <TestRouter
+              routes={[testRoute(<ExperimentViewHeader experiment={experiment} setEditing={setEditing} />, '*')]}
+              initialEntries={[initialPath]}
+              history={history}
+            />
+          </Provider>
+        </DesignSystemProvider>
       </QueryClientProvider>,
     );
   };
@@ -113,23 +121,27 @@ describe('ExperimentViewHeader', () => {
 
   describe('back button navigation', () => {
     it('navigates to /experiments from experiment tab pages', async () => {
-      await act(async () => {
-        renderComponent(defaultExperiment, '/experiments/1/traces');
+      renderComponent(defaultExperiment, '/experiments/1/traces');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('experiment-view-header-back-button')).toBeInTheDocument();
       });
 
       await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('/experiments');
+      expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments'));
     });
 
     it('navigates to parent path from deeper pages like session details', async () => {
-      await act(async () => {
-        renderComponent(defaultExperiment, '/experiments/1/chat-sessions/session_1');
+      renderComponent(defaultExperiment, '/experiments/1/chat-sessions/session_1');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('experiment-view-header-back-button')).toBeInTheDocument();
       });
 
       await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('/experiments/1/chat-sessions');
+      expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments/1/chat-sessions'));
     });
   });
 });

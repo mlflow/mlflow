@@ -28,7 +28,7 @@ import type {
   TableFilterOptions,
 } from './types';
 import { shouldEnableSessionGrouping, shouldEnableTagGrouping } from './utils/FeatureUtils';
-import type { ModelTraceInfoV3 } from '../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 interface CountInfo {
   currentCount?: number;
@@ -81,6 +81,10 @@ interface GenAITracesTableToolbarProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
 
+  // Session grouping
+  isGroupedBySession?: boolean;
+  forceGroupBySession?: boolean;
+  onToggleSessionGrouping?: () => void;
   // Additional elements to render in the toolbar
   addons?: React.ReactNode;
 
@@ -115,6 +119,9 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       metadataError,
       onRefresh,
       isRefreshing,
+      isGroupedBySession,
+      forceGroupBySession,
+      onToggleSessionGrouping,
       addons,
       isGroupedBySession,
       forceGroupBySession,
@@ -129,6 +136,10 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       },
       [setTableSort],
     );
+
+    // When using V4 APIs, we want users to be able to change filters while the traces are being loaded or there is an error
+    const shouldDisplayErrorState = Boolean(metadataError && !usesV4APIs);
+    const shouldDisplayLoadingState = isMetadataLoading && !usesV4APIs;
 
     return (
       <div
@@ -154,8 +165,8 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             experimentId={experimentId}
             tableFilterOptions={tableFilterOptions}
             allColumns={allColumns}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
+            isLoading={shouldDisplayLoadingState}
+            isError={shouldDisplayErrorState}
             usesV4APIs={usesV4APIs}
           />
           <EvaluationsOverviewSortDropdown
@@ -163,8 +174,8 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             columns={selectedColumns}
             onChange={onSortChange}
             enableGrouping={shouldEnableTagGrouping()}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
+            isLoading={shouldDisplayLoadingState}
+            isError={shouldDisplayErrorState}
           />
 
           <EvaluationsOverviewColumnSelectorGrouped
@@ -172,8 +183,8 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             selectedColumns={selectedColumns}
             toggleColumns={toggleColumns}
             setSelectedColumns={setSelectedColumns}
-            isMetadataLoading={isMetadataLoading}
-            metadataError={metadataError}
+            isLoading={shouldDisplayLoadingState}
+            isError={shouldDisplayErrorState}
           />
           {traceActions && (
             <GenAITracesTableActions

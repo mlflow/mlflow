@@ -22,9 +22,9 @@ import {
   extractExpectations,
   type RetrievalContext,
 } from '../../utils/TraceUtils';
-import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
+import type { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
-import { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { ScorerEvaluation, ScorerFinishedEvent, useEvaluateTracesAsync } from './useEvaluateTracesAsync';
 import { TrackingJobStatus } from '../../../common/hooks/useGetTrackingServerJobStatus';
 

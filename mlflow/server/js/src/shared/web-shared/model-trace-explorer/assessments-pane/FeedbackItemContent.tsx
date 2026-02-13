@@ -1,15 +1,16 @@
 import { isEmpty, isNil } from 'lodash';
 import { useState } from 'react';
 
-import { Typography, useDesignSystemTheme, NewWindowIcon } from '@databricks/design-system';
+import { FileDocumentIcon, Typography, useDesignSystemTheme, NewWindowIcon } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
+import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 
 import { AssessmentDisplayValue } from './AssessmentDisplayValue';
 import { FeedbackErrorItem } from './FeedbackErrorItem';
 import { FeedbackHistoryModal } from './FeedbackHistoryModal';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
-import type { FeedbackAssessment } from '../ModelTrace.types';
+import type { FeedbackAssessment, RetrieverDocument } from '../ModelTrace.types';
+import { getAssessmentDocumentIndex, isChunkRelevanceAssessment } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { Link, useParams } from '../RoutingUtils';
 import {
@@ -37,6 +38,15 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
   // the summary view displays all assessments regardless of span, so
   // we need some way to indicate which span an assessment is associated with.
   const showAssociatedSpan = activeView === 'summary' && associatedSpan && !showSessionTag;
+
+  const documentPreview = useMemo(() => {
+    if (!isChunkRelevanceAssessment(feedback) || !associatedSpan?.outputs) return null;
+    const documentIndex = getAssessmentDocumentIndex(feedback);
+    if (documentIndex === undefined) return null;
+    const outputs = associatedSpan.outputs as RetrieverDocument[];
+    if (!Array.isArray(outputs) || documentIndex >= outputs.length) return null;
+    return outputs[documentIndex]?.page_content ?? null;
+  }, [feedback, associatedSpan]);
 
   const judgeTraceId = feedback.metadata?.[MLFLOW_ASSESSMENT_SCORER_TRACE_ID];
   const judgeTraceHref = judgeTraceId && experimentId ? getJudgeTraceHref(experimentId, judgeTraceId) : undefined;
@@ -96,6 +106,31 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
           />
         </div>
       )}
+      {documentPreview && (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage
+              defaultMessage="Doc"
+              description="Label for the document preview in a chunk relevance assessment"
+            />
+          </Typography.Text>
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.xs,
+              padding: theme.spacing.xs,
+              borderRadius: theme.borders.borderRadiusSm,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
+          >
+            <FileDocumentIcon css={{ flexShrink: 0, color: theme.colors.textSecondary }} />
+            <Typography.Text ellipsis size="sm" css={{ color: theme.colors.textSecondary }}>
+              {documentPreview}
+            </Typography.Text>
+          </div>
+        </div>
+      )}
       {isNil(feedback.feedback.error) && (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <Typography.Text size="sm" color="secondary">
@@ -140,7 +175,7 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
             />
           </Typography.Text>
           <div css={{ '& > div:last-of-type': { marginBottom: 0 } }}>
-            <GenAIMarkdownRenderer>{feedback.rationale}</GenAIMarkdownRenderer>
+            <GenAIMarkdownRenderer compact>{feedback.rationale}</GenAIMarkdownRenderer>
           </div>
         </div>
       )}

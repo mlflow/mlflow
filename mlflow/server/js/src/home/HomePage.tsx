@@ -8,7 +8,8 @@ import type { SearchExperimentsApiResponse } from '../experiment-tracking/types'
 import { CreateExperimentModal } from '../experiment-tracking/components/modals/CreateExperimentModal';
 import { useInvalidateExperimentList } from '../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
 import { FeaturesSection } from './components/features';
-import { LogTracesDrawer } from './components/LogTracesDrawer';
+// Loaders and lazy imports for expensive components
+import LogTracesDrawerLoader from './components/LogTracesDrawerLoader';
 import { TelemetryInfoAlert } from '../telemetry/TelemetryInfoAlert';
 
 const ExperimentsHomeView = React.lazy(() => import('./components/ExperimentsHomeView'));
@@ -74,7 +75,7 @@ const HomePage = () => {
         onClose={handleCloseCreateModal}
         onExperimentCreated={handleExperimentCreated}
       />
-      <LogTracesDrawer />
+      <LogTracesDrawerLoader />
     </ScrollablePageWrapper>
   );
 };

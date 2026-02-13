@@ -3,12 +3,9 @@ import { useMemo } from 'react';
 
 import { Drawer, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import {
-  CompareModelTraceExplorer,
-  ModelTraceExplorerSkeleton,
-  useGetTracesById,
-} from '@databricks/web-shared/model-trace-explorer';
-import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
+import { CompareModelTraceExplorer } from '../../model-trace-explorer/CompareModelTraceExplorer';
+import { ModelTraceExplorerSkeleton } from '../../model-trace-explorer/ModelTraceExplorerSkeleton';
+import { useGetTracesById } from '../../model-trace-explorer/hooks/useGetTracesById';
 
 // prettier-ignore
 export const GenAITraceComparisonModal = ({

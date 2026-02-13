@@ -24,9 +24,14 @@ import {
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
+import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { GenericNetworkRequestError } from '@mlflow/mlflow/src/shared/web-shared/errors/PredefinedErrors';
 import { TestRouter, testRoute, waitForRoutesToBeRendered } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
+
+// Overriding default timeout for OSS tests
+// eslint-disable-next-line no-restricted-syntax
+jest.setTimeout(15000);
 
 // Mock all external dependencies
 jest.mock('@databricks/web-shared/genai-traces-table', () => {
@@ -532,6 +537,72 @@ describe('TracesV3Logs', () => {
           }),
         );
       });
+    });
+  });
+
+  describe('Empty state behavior', () => {
+    beforeEach(() => {
+      jest.mocked(TracesV3EmptyState).mockClear();
+    });
+
+    it('should not show empty state while fetching even if data is empty', async () => {
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: true,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: true,
+        error: null,
+      } as any);
+
+      renderComponent();
+      await waitForRoutesToBeRendered();
+
+      expect(TracesV3EmptyState).not.toHaveBeenCalled();
+    });
+
+    it('should show empty state when not loading and not fetching', async () => {
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: true,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+
+      renderComponent();
+      await waitForRoutesToBeRendered();
+
+      expect(TracesV3EmptyState).toHaveBeenCalled();
     });
   });
 });

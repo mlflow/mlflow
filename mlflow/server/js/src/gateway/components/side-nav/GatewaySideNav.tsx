@@ -17,6 +17,10 @@ const FULL_WIDTH_CLASS_NAME = 'gateway-side-nav-full-width';
 
 export type GatewayTab = 'endpoints' | 'usage' | 'api-keys';
 
+type GatewaySideNavComponentId =
+  | 'mlflow.gateway.side-nav.endpoints.tooltip'
+  | 'mlflow.gateway.side-nav.api-keys.tooltip';
+
 interface GatewaySideNavProps {
   activeTab: GatewayTab;
 }
@@ -26,12 +30,14 @@ const navItems: Array<{
   label: React.ReactNode;
   icon: React.ReactNode;
   to: string;
+  componentId: GatewaySideNavComponentId;
 }> = [
   {
     tab: 'endpoints',
     label: <FormattedMessage defaultMessage="Endpoints" description="Gateway side nav > Endpoints tab" />,
     icon: <ChainIcon />,
     to: GatewayRoutes.gatewayPageRoute,
+    componentId: 'mlflow.gateway.side-nav.endpoints.tooltip',
   },
   {
     tab: 'usage',
@@ -44,6 +50,7 @@ const navItems: Array<{
     label: <FormattedMessage defaultMessage="API Keys" description="Gateway side nav > API Keys tab" />,
     icon: <KeyIcon />,
     to: GatewayRoutes.apiKeysPageRoute,
+    componentId: 'mlflow.gateway.side-nav.api-keys.tooltip',
   },
 ];
 
@@ -97,12 +104,7 @@ export const GatewaySideNav = ({ activeTab }: GatewaySideNavProps) => {
                 ':hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
               }}
             >
-              <Tooltip
-                componentId={`mlflow.gateway.side-nav.${item.tab}.tooltip`}
-                content={item.label}
-                side="right"
-                delayDuration={0}
-              >
+              <Tooltip componentId={item.componentId} content={item.label} side="right" delayDuration={0}>
                 <span className={COLLAPSED_CLASS_NAME}>{item.icon}</span>
               </Tooltip>
               <span className={FULL_WIDTH_CLASS_NAME}>{item.icon}</span>

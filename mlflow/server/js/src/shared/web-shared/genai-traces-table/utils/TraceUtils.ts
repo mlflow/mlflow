@@ -8,12 +8,12 @@ import type {
   ModelTraceSpan,
   ModelTraceInfoV3,
   RetrieverDocument,
-} from '@databricks/web-shared/model-trace-explorer';
+} from '../../model-trace-explorer/ModelTrace.types';
 import {
   createTraceV4LongIdentifier,
-  getAssessmentValue,
-  ModelTraceSpanType,
-} from '@databricks/web-shared/model-trace-explorer';
+} from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import { getAssessmentValue } from '../../model-trace-explorer/assessments-pane/utils';
+import { ModelTraceSpanType } from '../../model-trace-explorer/ModelTrace.types';
 
 import { doesTraceSupportV4API } from './TraceLocationUtils';
 import {

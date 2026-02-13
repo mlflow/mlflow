@@ -14,7 +14,7 @@ import { useIntl } from '@databricks/i18n';
 import type { TracesTableColumn } from '../types';
 
 /**
- * Component for column selector in MLflow monitoring traces view. Allows user to control which assessments show up in table to prevent too much clutter.
+ * Component for column selector in MlFlow monitoring traces view. Allows user to control which assessments show up in table to prevent too much clutter.
  */
 export const EvaluationsOverviewColumnSelector = ({
   columns,

@@ -1,14 +1,14 @@
-import type { RowSelectionState, Updater } from '@tanstack/react-table';
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import type { Assessment, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { AssessmentSchemaContextProvider } from '@databricks/web-shared/model-trace-explorer';
+import type { Assessment, ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
+import { AssessmentSchemaContextProvider } from '../model-trace-explorer/contexts/AssessmentSchemaContext';
 
 import { computeEvaluationsComparison } from './GenAiTracesTable.utils';
 import { GenAiTracesTableBody } from './GenAiTracesTableBody';
 import { useActiveEvaluation } from './hooks/useActiveEvaluation';
+import { useGenAiTraceTableRowSelection } from './hooks/useGenAiTraceTableRowSelection';
 import type { GetTraceFunction } from './hooks/useGetTrace';
 import type {
   AssessmentFilter,
@@ -21,7 +21,6 @@ import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '.
 import { sortAssessmentInfos } from './utils/AggregationUtils';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './utils/TraceUtils';
-import { useGenAiTraceTableRowSelection } from './hooks/useGenAiTraceTableRowSelection';
 
 interface GenAITracesTableBodyContainerProps {
   // Experiment metadata
@@ -85,7 +84,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       allColumns,
       getRunColor,
       enableRowSelection = true,
-      displayLoadingOverlay = false,
+      isTableLoading = false,
       isGroupedBySession,
     } = props;
     const { theme } = useDesignSystemTheme();
@@ -252,7 +251,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 getTrace={getTrace}
                 onTraceTagsEdit={onTraceTagsEdit}
                 enableGrouping={shouldEnableTagGrouping()}
-                displayLoadingOverlay={displayLoadingOverlay}
+                isTableLoading={isTableLoading}
                 isGroupedBySession={isGroupedBySession}
               />
             </AssessmentSchemaContextProvider>

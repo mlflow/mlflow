@@ -26,6 +26,10 @@ jest.mock('../../../../common/contexts/WorkflowTypeContext', () => ({
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
 
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  shouldEnableExperimentOverviewTab: jest.fn().mockReturnValue(true),
+}));
+
 describe('useNavigateToExperimentPageTab', () => {
   const server = setupServer(
     // Mock the tracking store info endpoint - default to non-FileStore
