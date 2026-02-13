@@ -285,7 +285,7 @@ const generateJsonBody = (data: any) => {
   } else {
     throw new Error(
       // Reported during ESLint upgrade
-      // eslint-disable-next-line max-len
+
       'Unexpected type of input. The REST api payload type must be either an object or a string, got ' + typeof data,
     );
   }
