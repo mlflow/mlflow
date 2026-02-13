@@ -329,7 +329,6 @@ export const EditEndpointFormRenderer = ({
                     <Link
                       to={`/experiments/${experimentId}/traces`}
                       css={{
-                        fontSize: theme.typography.fontSizeSm,
                         color: theme.colors.actionPrimaryBackgroundDefault,
                         textDecoration: 'none',
                         '&:hover': {

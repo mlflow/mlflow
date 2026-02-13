@@ -1162,6 +1162,14 @@ MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES = _EnvironmentVariable(
 #: (default: ``60``)
 MLFLOW_WEBHOOK_CACHE_TTL = _EnvironmentVariable("MLFLOW_WEBHOOK_CACHE_TTL", int, 60)
 
+#: Whether to allow webhook URLs that resolve to private/internal IP addresses.
+#: When set to ``true``, SSRF protection is disabled and webhooks can target
+#: localhost, private IPs, and cloud metadata endpoints.
+#: This should only be enabled for local development. (default: ``false``)
+_MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS", False
+)
+
 
 #: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
 #: data will be collected. (default: ``False``)
