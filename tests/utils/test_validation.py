@@ -453,6 +453,9 @@ def test_validate_webhook_url_rejects_invalid_input(url, expected_match):
         ("https://internal.corp/hook", "172.16.0.1"),
         ("https://internal.corp/hook", "192.168.1.1"),
         ("https://metadata.internal/hook", "169.254.169.254"),
+        ("https://cgnat.internal/hook", "100.64.0.1"),
+        ("https://ipv6-loopback.internal/hook", "::1"),
+        ("https://ipv6-private.internal/hook", "fc00::1"),
     ],
 )
 def test_validate_webhook_url_rejects_private_ips(url, resolved_ip):
@@ -460,7 +463,7 @@ def test_validate_webhook_url_rejects_private_ips(url, resolved_ip):
         "mlflow.utils.validation.socket.getaddrinfo",
         side_effect=_mock_getaddrinfo(resolved_ip),
     ):
-        with pytest.raises(MlflowException, match="must not resolve to a private"):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
             _validate_webhook_url(url)
 
 
@@ -481,7 +484,7 @@ def test_validate_webhook_url_rejects_if_any_resolved_address_is_private():
         ]
 
     with patch("mlflow.utils.validation.socket.getaddrinfo", side_effect=multi_resolve):
-        with pytest.raises(MlflowException, match="must not resolve to a private"):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
             _validate_webhook_url("https://dual-homed.example.com/hook")
 
 

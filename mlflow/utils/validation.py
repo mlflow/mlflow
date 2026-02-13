@@ -755,11 +755,16 @@ def _validate_webhook_url(url: str) -> None:
             ) from e
 
         for addr_info in addr_infos:
-            ip = ipaddress.ip_address(addr_info[4][0])
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            try:
+                ip = ipaddress.ip_address(addr_info[4][0])
+            except ValueError as e:
                 raise MlflowException.invalid_parameter_value(
-                    f"Webhook URL must not resolve to a private, loopback, link-local, "
-                    f"or reserved IP address. {hostname!r} resolves to {ip}."
+                    f"Webhook URL hostname {hostname!r} resolved to an invalid IP address: {e}"
+                ) from e
+            if not ip.is_global:
+                raise MlflowException.invalid_parameter_value(
+                    f"Webhook URL must not resolve to a non-public IP address. "
+                    f"{hostname!r} resolves to {ip}."
                 )
 
 

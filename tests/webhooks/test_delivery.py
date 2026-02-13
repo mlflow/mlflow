@@ -118,4 +118,4 @@ def test_test_webhook_rejects_private_ip():
     result = send_test_webhook(webhook)
 
     assert result.success is False
-    assert "must not resolve to a private" in result.error_message
+    assert "must not resolve to a non-public" in result.error_message
