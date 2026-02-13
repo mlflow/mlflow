@@ -1,6 +1,6 @@
 {
   "name": "mlflow-gemini",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Gemini integration package for MLflow Tracing",
   "repository": {
     "type": "git",
@@ -37,7 +37,7 @@
     "format:check": "prettier --check ."
   },
   "peerDependencies": {
-    "mlflow-tracing": "^0.1.2",
+    "mlflow-tracing": "^0.1.3",
     "@google/genai": "^1.22.0"
   },
   "devDependencies": {

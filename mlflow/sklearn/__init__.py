@@ -17,7 +17,6 @@ import logging
 import os
 import pickle
 import shutil
-import warnings
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
@@ -266,13 +265,12 @@ def save_model(
         )
 
     if serialization_format != SERIALIZATION_FORMAT_SKOPS and not is_in_databricks_runtime():
-        warnings.warn(
+        _logger.warning(
             "Saving scikit-learn models in the pickle or cloudpickle format requires exercising "
             "caution because these formats rely on Python's object serialization mechanism, "
-            "which can execute arbitrary code during deserialization."
-            "The recommended safe alternative is the 'skops' format.",
-            FutureWarning,
-            stacklevel=2,
+            "which can execute arbitrary code during deserialization. "
+            "The recommended safe alternative is the 'skops' format. "
+            "For more information, see: https://scikit-learn.org/stable/model_persistence.html",
         )
 
     _validate_and_prepare_target_save_path(path)

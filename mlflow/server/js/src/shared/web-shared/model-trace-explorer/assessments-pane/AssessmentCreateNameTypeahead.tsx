@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   FormUI,
@@ -57,11 +57,14 @@ export const AssessmentCreateNameTypeahead = ({
   const formOnChange = useCallback(
     (newSelectedItem: AssessmentSchema | null) => {
       setSelectedItem(newSelectedItem);
-      handleChangeSchema(newSelectedItem);
       setNameError(null);
     },
-    [handleChangeSchema, setNameError],
+    [setNameError],
   );
+
+  useEffect(() => {
+    handleChangeSchema(selectedItem);
+  }, [handleChangeSchema, selectedItem]);
 
   const comboboxState = useComboboxState<AssessmentSchema | null>({
     componentId: 'shared.model-trace-explorer.assessment-name-typeahead',

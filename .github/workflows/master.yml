@@ -7,6 +7,13 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
   push:
     branches:
       - master
@@ -121,7 +128,8 @@ jobs:
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
           docker images --digests
-          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
+          # TODO: Remove DOCKER_BUILDKIT=0 once https://github.com/moby/buildkit/pull/6477 is available in the runner image
+          DOCKER_BUILDKIT=0 ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
       - name: Run tests
         run: |
           set +e
@@ -137,6 +145,9 @@ jobs:
               tests/store/tracking/test_sqlalchemy_store_query_trace_metrics.py \
               tests/store/tracking/test_gateway_sql_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
+              tests/store/model_registry/test_sqlalchemy_workspace_store.py \
+              tests/store/workspace/test_sqlalchemy_store.py \
+              tests/store/tracking/test_sqlalchemy_workspace_store.py \
               tests/db
               RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
           done
