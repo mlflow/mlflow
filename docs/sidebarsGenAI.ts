@@ -949,6 +949,11 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Traffic Routing & Fallbacks',
         },
         {
+          type: 'doc',
+          id: 'governance/ai-gateway/usage-tracking',
+          label: 'Usage Tracking',
+        },
+        {
           type: 'category',
           label: 'Gateway Server (Legacy)',
           items: [
