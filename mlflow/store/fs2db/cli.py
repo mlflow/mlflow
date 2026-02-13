@@ -52,4 +52,4 @@ def migrate_filestore(source: str, target: str, verify: bool, progress: bool) ->
     if verify:
         from mlflow.store.fs2db._verify import verify_migration
 
-        verify_migration(Path(source), target)
+        verify_migration(target)
