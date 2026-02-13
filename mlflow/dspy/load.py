@@ -85,6 +85,8 @@ def _load_model(model_uri, dst_path=None):
         if os.path.exists(model_config_file):
             with open(model_config_file) as f:
                 model_config = json.load(f)
+        else:
+            model_config = None
 
         if task == "llm/v1/chat":
             loaded_wrapper = DspyChatModelWrapper(model, dspy_settings, model_config)
