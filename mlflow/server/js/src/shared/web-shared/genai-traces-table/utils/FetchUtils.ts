@@ -109,7 +109,13 @@ export const fetchAPI = async (url: string, options: Omit<RequestInit, 'body'> &
     try {
       const responseBody = await response.text();
       if (responseBody) {
-        errorMessage += ` - ${responseBody}`;
+        // Limit response body to 10KB to prevent memory issues
+        const maxBodyLength = 10 * 1024; // 10KB
+        if (responseBody.length > maxBodyLength) {
+          errorMessage += ` - ${responseBody.substring(0, maxBodyLength)}... (truncated)`;
+        } else {
+          errorMessage += ` - ${responseBody}`;
+        }
       }
     } catch {
       // If we can't read the body, just use the status message

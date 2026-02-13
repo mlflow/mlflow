@@ -113,5 +113,29 @@ describe('fetchAPI error handling', () => {
 
       expect(mockResponse.text).toHaveBeenCalled();
     });
+
+    it('should truncate large response bodies to prevent memory issues', async () => {
+      // Create a response body larger than 10KB
+      const largeResponseBody = 'y'.repeat(15 * 1024); // 15KB
+
+      const mockResponse = {
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: jest.fn(() => Promise.resolve(largeResponseBody)),
+      };
+
+      const mockFetch = jest.fn(() => Promise.resolve(mockResponse));
+      global.fetch = mockFetch as any;
+
+      await expect(
+        fetchAPI('/api/2.0/mlflow/runs/create', {
+          method: 'POST',
+          body: { experiment_id: '1' },
+        }),
+      ).rejects.toThrow(/HTTP 500: Internal Server Error - y{10240}\.\.\. \(truncated\)/);
+
+      expect(mockResponse.text).toHaveBeenCalled();
+    });
   });
 });
