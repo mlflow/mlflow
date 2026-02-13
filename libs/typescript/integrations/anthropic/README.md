@@ -2,9 +2,9 @@
 
 Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with Anthropic to automatically trace your Claude API calls.
 
-| Package                  | NPM                                                                                                                                         | Description                                     |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| [@mlflow/anthropic](./)  | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fanthropic?style=flat-square)](https://www.npmjs.com/package/@mlflow/anthropic)     | Auto-instrumentation integration for Anthropic. |
+| Package                 | NPM                                                                                                                                     | Description                                     |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| [@mlflow/anthropic](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fanthropic?style=flat-square)](https://www.npmjs.com/package/@mlflow/anthropic) | Auto-instrumentation integration for Anthropic. |
 
 ## Installation
 

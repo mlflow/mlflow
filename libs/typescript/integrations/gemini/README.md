@@ -2,9 +2,9 @@
 
 Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with Gemini to automatically trace your Claude API calls.
 
-| Package              | NPM                                                                                                                                   | Description                                  |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| [@mlflow/gemini](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fgemini?style=flat-square)](https://www.npmjs.com/package/@mlflow/gemini)     | Auto-instrumentation integration for Gemini. |
+| Package              | NPM                                                                                                                               | Description                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| [@mlflow/gemini](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fgemini?style=flat-square)](https://www.npmjs.com/package/@mlflow/gemini) | Auto-instrumentation integration for Gemini. |
 
 ## Installation
 

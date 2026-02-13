@@ -23,10 +23,10 @@ MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com
 
 ## Packages
 
-| Package                                      | NPM                                                                                                                                         | Description                                                |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [@mlflow/core](./core)                       | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fcore?style=flat-square)](https://www.npmjs.com/package/@mlflow/core)               | The core tracing functionality and manual instrumentation. |
-| [@mlflow/openai](./integrations/openai)      | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai)           | Auto-instrumentation integration for OpenAI.               |
+| Package                                 | NPM                                                                                                                               | Description                                                |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [@mlflow/core](./core)                  | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fcore?style=flat-square)](https://www.npmjs.com/package/@mlflow/core)     | The core tracing functionality and manual instrumentation. |
+| [@mlflow/openai](./integrations/openai) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai) | Auto-instrumentation integration for OpenAI.               |
 
 ## Installation
 

@@ -2,9 +2,9 @@
 
 Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with OpenAI to automatically trace your OpenAI API calls.
 
-| Package               | NPM                                                                                                                                   | Description                                  |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| [@mlflow/openai](./)  | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai)     | Auto-instrumentation integration for OpenAI. |
+| Package              | NPM                                                                                                                               | Description                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| [@mlflow/openai](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai) | Auto-instrumentation integration for OpenAI. |
 
 ## Installation
 

@@ -2,9 +2,9 @@
 
 This is the core package of the [MLflow Typescript SDK](https://github.com/mlflow/mlflow/tree/main/libs/typescript). It is a skinny package that includes the core tracing functionality and manual instrumentation.
 
-| Package             | NPM                                                                                                                                 | Description                                                |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [@mlflow/core](./)  | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fcore?style=flat-square)](https://www.npmjs.com/package/@mlflow/core)       | The core tracing functionality and manual instrumentation. |
+| Package            | NPM                                                                                                                           | Description                                                |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [@mlflow/core](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fcore?style=flat-square)](https://www.npmjs.com/package/@mlflow/core) | The core tracing functionality and manual instrumentation. |
 
 ## Installation
 
