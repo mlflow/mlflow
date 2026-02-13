@@ -131,7 +131,9 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
           borderLeft: `1px solid ${theme.colors.border}`,
           borderRight: `1px solid ${theme.colors.border}`,
           borderTop: `1px solid ${theme.colors.border}`,
+          borderBottom: filteredEndpoints.length === 0 ? `1px solid ${theme.colors.border}` : 'none',
           borderRadius: theme.general.borderRadiusBase,
+          overflow: 'hidden',
         }}
       >
         <TableRow isHeader>
