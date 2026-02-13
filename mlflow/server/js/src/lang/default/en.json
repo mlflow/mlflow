@@ -2250,6 +2250,10 @@
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in scatter chart configurator in compare runs chart config modal"
   },
+  "DbyFAV": {
+    "defaultMessage": "Judges",
+    "description": "Feature card title for judges"
+  },
   "DcGPfO": {
     "defaultMessage": "Row height",
     "description": "Label for the row height radio group"
@@ -8230,6 +8234,10 @@
   "uoJWOm": {
     "defaultMessage": "Overall",
     "description": "Evaluation results > known type of evaluation result assessment > overall assessment."
+  },
+  "upTu57": {
+    "defaultMessage": "Create and register LLM judges to automatically evaluate your application's outputs. Use built-in judges or define custom ones with natural language instructions.",
+    "description": "Feature card summary for judges"
   },
   "uq6CTI": {
     "defaultMessage": "No profile available",
