@@ -238,5 +238,5 @@ def get_endpoint_config(
             models=model_configs,
             routing_strategy=endpoint_entity.routing_strategy,
             fallback_config=endpoint_entity.fallback_config,
-            experiment_id=sql_endpoint.experiment_id,
+            experiment_id=endpoint_entity.experiment_id,
         )

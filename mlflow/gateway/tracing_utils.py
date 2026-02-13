@@ -11,6 +11,12 @@ from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.constant import TraceMetadataKey
 
 
+def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
+    """Unwrap single-argument inputs so trace shows the request body directly"""
+    if len(args) == 1 and not kwargs and (span := mlflow.get_current_active_span()):
+        span.set_inputs(args[0])
+
+
 def maybe_traced_gateway_call(
     func: Callable[..., Any],
     endpoint_config: GatewayEndpointConfig,
@@ -59,14 +65,15 @@ def maybe_traced_gateway_call(
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             mlflow.update_current_trace(metadata=combined_metadata)
+            _maybe_unwrap_single_arg_input(args, kwargs)
             async for item in func(*args, **kwargs):
                 yield item
-
     elif inspect.iscoroutinefunction(func):
 
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             mlflow.update_current_trace(metadata=combined_metadata)
+            _maybe_unwrap_single_arg_input(args, kwargs)
             return await func(*args, **kwargs)
 
     else:
@@ -74,6 +81,7 @@ def maybe_traced_gateway_call(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             mlflow.update_current_trace(metadata=combined_metadata)
+            _maybe_unwrap_single_arg_input(args, kwargs)
             return func(*args, **kwargs)
 
     return mlflow.trace(wrapper, **trace_kwargs)

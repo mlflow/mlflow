@@ -355,10 +355,6 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
-  "0NbqZr": {
-    "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces in an MLflow experiment. This allows you to monitor usage, debug issues, and analyze performance.",
-    "description": "Usage tracking description"
-  },
   "0Qu0bD": {
     "defaultMessage": "Endpoints",
     "description": "Endpoints using this key column header"
@@ -734,10 +730,6 @@
     "defaultMessage": "Download data",
     "description": "String for the download csv button to download metrics from this run offline in a CSV format"
   },
-  "3UM+1S": {
-    "defaultMessage": "Select an existing experiment or leave blank to auto-create one named 'gateway/[endpoint_name]'.",
-    "description": "Experiment selector help text"
-  },
   "3VURvw": {
     "defaultMessage": "No metrics or parameters available",
     "description": "Message displayed when no metrics or params are available in the compare runs chart configure modal"
@@ -929,6 +921,10 @@
   "5+bcQe": {
     "defaultMessage": "No endpoints created",
     "description": "Empty state title for endpoints list"
+  },
+  "513m15": {
+    "defaultMessage": "Select your workflow type. This changes the tabs that are visible in the navigation sidebar.",
+    "description": "Tooltip for workflow switch"
   },
   "53b+wP": {
     "defaultMessage": "Step",
@@ -1241,10 +1237,6 @@
   "757GVc": {
     "defaultMessage": "Cancel",
     "description": "experiment page > description modal > cancel button"
-  },
-  "76S52o": {
-    "defaultMessage": "Experiment",
-    "description": "Label for experiment selector"
   },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
@@ -1581,6 +1573,10 @@
   "9G21RV": {
     "defaultMessage": "All endpoints",
     "description": "All endpoints option"
+  },
+  "9Gg0Q8": {
+    "defaultMessage": "Chat sessions",
+    "description": "Label for the chat sessions tab in the MLflow experiment navbar"
   },
   "9HXup+": {
     "defaultMessage": "Toggle visibility of runs",
@@ -3342,6 +3338,10 @@
     "defaultMessage": "avg per trace",
     "description": "Subtitle for average tokens per trace"
   },
+  "MZCW9F": {
+    "defaultMessage": "Labeling schemas",
+    "description": "Label for the labeling schemas tab in the MLflow experiment navbar"
+  },
   "MZNjYJ": {
     "defaultMessage": "Actions ({count})",
     "description": "Actions dropdown button label with count of selected sessions"
@@ -3772,6 +3772,10 @@
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
+  },
+  "PmPV+3": {
+    "defaultMessage": "Models",
+    "description": "Label for the versions tab in the MLflow experiment navbar"
   },
   "Pne4Lp": {
     "defaultMessage": "Maximum of {max} sessions can be selected",
@@ -6831,6 +6835,10 @@
     "defaultMessage": "{count, plural, one { # trace } other { # traces }} will be deleted.",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message title"
   },
+  "knEhQp": {
+    "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.",
+    "description": "Usage tracking description"
+  },
   "knJfuf": {
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
@@ -7106,10 +7114,6 @@
   "mmz4aA": {
     "defaultMessage": "Delete {numRuns, plural, =1 {1 run} other {# runs}}",
     "description": "Delete evaluation runs modal title"
-  },
-  "mowpxw": {
-    "defaultMessage": "GitHub",
-    "description": "Sidebar link for GitHub page"
   },
   "mpHsCg": {
     "defaultMessage": "Size:",
@@ -7651,6 +7655,10 @@
     "defaultMessage": "Show less",
     "description": "Button to close alert description"
   },
+  "qa80t1": {
+    "defaultMessage": "Enable Usage Tracking in the Configuration tab to view usage metrics",
+    "description": "Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first"
+  },
   "qcYoo4": {
     "defaultMessage": "Please select sessions to run the judge",
     "description": "Tooltip message when no sessions are selected"
@@ -7778,6 +7786,10 @@
   "rNkAcB": {
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
+  },
+  "rPbiUM": {
+    "defaultMessage": "Labeling sessions",
+    "description": "Label for the labeling sessions tab in the MLflow experiment navbar"
   },
   "rRaThb": {
     "defaultMessage": "Select a provider first",
@@ -8522,6 +8534,10 @@
   "x2+7hZ": {
     "defaultMessage": "Are you sure you want to delete the prompt version?",
     "description": "A content for the delete prompt version confirmation modal"
+  },
+  "x5ukxr": {
+    "defaultMessage": "Runs",
+    "description": "Label for the training runs tab in the MLflow experiment navbar"
   },
   "x6rkyu": {
     "defaultMessage": "Response",

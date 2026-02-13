@@ -7,8 +7,6 @@ import {
   GearIcon,
   HomeIcon,
   ModelsIcon,
-  SegmentedControlGroup,
-  SegmentedControlButton,
   Tag,
   TextBoxIcon,
   Typography,
@@ -18,7 +16,6 @@ import {
   SidebarCollapseIcon,
   SidebarExpandIcon,
   InfoBookIcon,
-  CodeIcon,
   Tooltip,
   NewWindowIcon,
 } from '@databricks/design-system';
@@ -36,7 +33,7 @@ import { useAssistant } from '../../assistant/AssistantContext';
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { MlflowLogo } from './MlflowLogo';
-import { HomePageDocsUrl, Version } from '../constants';
+import { DOCS_ROOT, GenAIDocsUrl, MLDocsUrl, Version } from '../constants';
 import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
 import { MlflowSidebarExperimentItems } from './MlflowSidebarExperimentItems';
 import { MlflowSidebarGatewayItems } from './MlflowSidebarGatewayItems';
@@ -138,16 +135,20 @@ export function MlflowSidebar({
 
   const menuItems: MenuItemWithNested[] = useMemo(
     () => [
-      {
-        key: 'home',
-        icon: <HomeIcon />,
-        linkProps: {
-          to: ExperimentTrackingRoutes.rootRoute,
-          isActive: isHomeActive,
-          children: <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />,
-        },
-        componentId: 'mlflow.sidebar.home_tab_link',
-      },
+      ...(!showNestedExperimentItems
+        ? [
+            {
+              key: 'home',
+              icon: <HomeIcon />,
+              linkProps: {
+                to: ExperimentTrackingRoutes.rootRoute,
+                isActive: isHomeActive,
+                children: <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />,
+              },
+              componentId: 'mlflow.sidebar.home_tab_link',
+            },
+          ]
+        : []),
       {
         key: 'experiments',
         icon: <BeakerIcon />,
@@ -234,10 +235,17 @@ export function MlflowSidebar({
   // Only show workspace-specific menu items when: workspaces are disabled OR a workspace is selected
   const showWorkspaceMenuItems = !workspacesEnabled || workspaceFromUrl !== null;
 
+  // Select appropriate docs URL based on workflow type
+  const docsUrl = enableWorkflowBasedNavigation
+    ? workflowType === WorkflowType.GENAI
+      ? GenAIDocsUrl
+      : MLDocsUrl
+    : DOCS_ROOT;
+
   return (
     <aside
       css={{
-        width: showSidebar ? 190 : 36,
+        width: showSidebar ? 190 : theme.spacing.lg + theme.spacing.md,
         flexShrink: 0,
         padding: theme.spacing.sm,
         paddingRight: 0,
@@ -246,24 +254,24 @@ export function MlflowSidebar({
         gap: theme.spacing.md,
       }}
     >
-      <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div css={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         {showSidebar && (
-          <Link to={ExperimentTrackingRoutes.rootRoute}>
-            <MlflowLogo
-              css={{
-                display: 'block',
-                height: theme.spacing.lg,
-                color: theme.colors.textPrimary,
-                marginLeft: -(theme.spacing.sm + theme.spacing.xs),
-                marginRight: -theme.spacing.lg,
-              }}
-            />
-          </Link>
-        )}
-        {showSidebar && (
-          <Typography.Text size="sm" color="secondary">
-            {Version}
-          </Typography.Text>
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+            <Link to={ExperimentTrackingRoutes.rootRoute}>
+              <MlflowLogo
+                css={{
+                  display: 'block',
+                  height: theme.spacing.lg,
+                  color: theme.colors.textPrimary,
+                  marginLeft: -(theme.spacing.sm + theme.spacing.xs),
+                  marginRight: -theme.spacing.lg,
+                }}
+              />
+            </Link>
+            <Typography.Text size="sm" css={{ paddingLeft: theme.spacing.sm }} color="secondary">
+              {Version}
+            </Typography.Text>
+          </div>
         )}
         <Button
           componentId="mlflow_header.toggle_sidebar_button"
@@ -273,11 +281,31 @@ export function MlflowSidebar({
         />
       </div>
       {workspacesEnabled && showSidebar && <WorkspaceSelector />}
+      {workspacesEnabled && !showWorkspaceMenuItems && (
+        <MlflowSidebarLink
+          key="mlflow.sidebar.workspace_home_link"
+          to={ExperimentTrackingRoutes.rootRoute}
+          componentId="mlflow.sidebar.workspace_home_link"
+          isActive={isHomeActive}
+          icon={<HomeIcon />}
+          collapsed={!showSidebar}
+        >
+          <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />
+        </MlflowSidebarLink>
+      )}
       {enableWorkflowBasedNavigation && showWorkspaceMenuItems && showSidebar && (
         <MlflowSidebarWorkflowSwitch workflowType={workflowType} setWorkflowType={setWorkflowType} />
       )}
 
-      <nav css={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+      <nav
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          height: '100%',
+          overflow: 'auto',
+        }}
+      >
         <ul
           css={{
             listStyleType: 'none',
@@ -290,6 +318,7 @@ export function MlflowSidebar({
               ({ key, icon, linkProps, componentId, nestedItems }) =>
                 nestedItems ?? (
                   <MlflowSidebarLink
+                    key={componentId}
                     to={linkProps.to}
                     componentId={componentId}
                     isActive={linkProps.isActive}
@@ -303,70 +332,59 @@ export function MlflowSidebar({
         </ul>
         <div>
           {isLocalServer && (
-            <div
-              css={{
-                padding: 2,
-                marginBottom: theme.spacing.xs,
-                borderRadius: theme.borders.borderRadiusMd,
-                background:
-                  'linear-gradient(90deg, rgba(232, 72, 85, 0.7), rgba(155, 93, 229, 0.7), rgba(67, 97, 238, 0.7))',
-              }}
+            <Tooltip
+              componentId="mlflow.sidebar.assistant_tooltip"
+              content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
+              open={isAssistantHovered && !showSidebar}
+              side="right"
+              delayDuration={0}
             >
-              <Tooltip
-                componentId="mlflow.sidebar.assistant_tooltip"
-                content={<FormattedMessage defaultMessage="Assistant" description="Tooltip for assistant button" />}
-                open={isAssistantHovered && !showSidebar}
-                side="right"
-                delayDuration={0}
+              <div
+                role="button"
+                tabIndex={0}
+                aria-pressed={isPanelOpen}
+                css={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.sm,
+                  paddingInline: showSidebar ? theme.spacing.sm : theme.spacing.xs,
+                  paddingBlock: theme.spacing.sm,
+                  borderRadius: theme.borders.borderRadiusMd - 2,
+                  justifyContent: showSidebar ? 'flex-start' : 'center',
+                  cursor: 'pointer',
+                  color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
+                  '&:hover': {
+                    color: theme.colors.actionLinkHover,
+                    backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                  },
+                }}
+                onClick={handleAssistantToggle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleAssistantToggle();
+                  }
+                }}
+                onMouseEnter={() => setIsAssistantHovered(true)}
+                onMouseLeave={() => setIsAssistantHovered(false)}
               >
-                <div
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={isPanelOpen}
-                  css={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: theme.spacing.sm,
-                    paddingInline: showSidebar ? theme.spacing.md : 0,
-                    paddingBlock: theme.spacing.xs,
-                    borderRadius: theme.borders.borderRadiusMd - 2,
-                    justifyContent: showSidebar ? 'flex-start' : 'center',
-                    cursor: 'pointer',
-                    background: theme.colors.backgroundSecondary,
-                    color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
-                  }}
-                  onClick={handleAssistantToggle}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      handleAssistantToggle();
-                    }
-                  }}
-                  onMouseEnter={() => setIsAssistantHovered(true)}
-                  onMouseLeave={() => setIsAssistantHovered(false)}
-                >
-                  <AssistantSparkleIcon isHovered={isAssistantHovered} />
-                  {showSidebar && (
-                    <>
-                      <Typography.Text color="primary">
-                        <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
-                      </Typography.Text>
-                      <Tag
-                        componentId="mlflow.sidebar.assistant_beta_tag"
-                        color="turquoise"
-                        css={{ marginLeft: 'auto' }}
-                      >
-                        Beta
-                      </Tag>
-                    </>
-                  )}
-                </div>
-              </Tooltip>
-            </div>
+                <AssistantSparkleIcon isHovered={isAssistantHovered} />
+                {showSidebar && (
+                  <>
+                    <Typography.Text color="primary">
+                      <FormattedMessage defaultMessage="Assistant" description="Sidebar button for AI assistant" />
+                    </Typography.Text>
+                    <Tag componentId="mlflow.sidebar.assistant_beta_tag" color="turquoise" css={{ marginLeft: 'auto' }}>
+                      Beta
+                    </Tag>
+                  </>
+                )}
+              </div>
+            </Tooltip>
           )}
           <MlflowSidebarLink
             disableWorkspacePrefix
             css={{ paddingBlock: theme.spacing.sm }}
-            to={HomePageDocsUrl}
+            to={docsUrl}
             componentId="mlflow.sidebar.docs_link"
             isActive={() => false}
             icon={<InfoBookIcon />}
@@ -375,21 +393,6 @@ export function MlflowSidebar({
           >
             <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
               <FormattedMessage defaultMessage="Docs" description="Sidebar link for docs page" />
-              <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
-            </span>
-          </MlflowSidebarLink>
-          <MlflowSidebarLink
-            disableWorkspacePrefix
-            css={{ paddingBlock: theme.spacing.sm }}
-            to="https://github.com/mlflow/mlflow"
-            componentId="mlflow.sidebar.github_link"
-            isActive={() => false}
-            icon={<CodeIcon />}
-            collapsed={!showSidebar}
-            openInNewTab
-          >
-            <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-              <FormattedMessage defaultMessage="GitHub" description="Sidebar link for GitHub page" />
               <NewWindowIcon css={{ fontSize: theme.typography.fontSizeBase }} />
             </span>
           </MlflowSidebarLink>

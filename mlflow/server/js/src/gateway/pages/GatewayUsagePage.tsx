@@ -120,7 +120,7 @@ export const GatewayUsagePage = () => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
-          marginBottom: theme.spacing.md,
+          marginBottom: theme.spacing.sm,
         }}
       >
         <div>
@@ -138,7 +138,12 @@ export const GatewayUsagePage = () => {
 
       {/* Charts */}
       {isLoadingEndpoints || experimentIds.length > 0 ? (
-        <GatewayChartsPanel experimentIds={experimentIds} showTokenStats additionalControls={endpointSelector} />
+        <GatewayChartsPanel
+          experimentIds={experimentIds}
+          showTokenStats
+          additionalControls={endpointSelector}
+          hideTooltipLinks
+        />
       ) : (
         <div
           css={{
