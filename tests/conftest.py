@@ -1029,6 +1029,13 @@ def enable_mlflow_testing():
         yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def disable_uv_auto_detect():
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+        yield
+
+
 @pytest.fixture(scope="session", autouse=not IS_TRACING_SDK_ONLY)
 def serve_wheel(request, tmp_path_factory):
     """
