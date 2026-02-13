@@ -13,9 +13,9 @@ import importlib
 import itertools
 import logging
 import os
+import warnings
 from functools import partial
 from typing import Any
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -443,7 +443,7 @@ def save_model(
         warnings.warn(
             "`export_model` argument is deprecated. "
             "Please set `serialization_format` argument instead.",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         serialization_format = "pt2"
