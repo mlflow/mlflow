@@ -668,7 +668,7 @@ def verify_migration(source: Path, target_uri: str) -> None:
         )
 
         mlruns = _resolve_mlruns(source)
-        src = MlflowClient(tracking_uri=str(mlruns))
+        src = MlflowClient(tracking_uri=mlruns.as_uri())
         dst = MlflowClient(tracking_uri=target_uri)
 
         print()
