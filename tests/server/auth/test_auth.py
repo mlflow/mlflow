@@ -2444,14 +2444,14 @@ def test_get_online_scoring_configs_with_auth(client, monkeypatch):
             },
             auth=(username, password),
         )
-        scorer_name = response.json()["name"]
+        scorer_id = response.json()["scorer_id"]
 
         # Test the online scoring configs endpoint (GET)
         # This should not raise a TypeError as it did before when the endpoint
         # was incorrectly included in AFTER_REQUEST_HANDLERS
         response = requests.get(
             url=client.tracking_uri + "/ajax-api/3.0/mlflow/scorers/online-configs",
-            params={"scorer_ids": f"{experiment_id}.{scorer_name}"},
+            params={"scorer_ids": scorer_id},
             auth=(username, password),
         )
 
