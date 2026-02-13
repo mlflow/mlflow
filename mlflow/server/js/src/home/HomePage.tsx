@@ -52,7 +52,7 @@ const HomePage = () => {
         padding: theme.spacing.md,
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing.lg,
+        gap: theme.spacing.md,
         height: 'min-content',
       }}
     >

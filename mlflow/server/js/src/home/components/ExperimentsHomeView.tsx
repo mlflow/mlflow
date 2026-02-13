@@ -69,6 +69,7 @@ export const ExperimentsHomeView = ({
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: theme.spacing.md,
+          paddingRight: theme.spacing.sm,
         }}
       >
         <Typography.Title level={3} css={{ margin: 0 }}>
@@ -81,6 +82,7 @@ export const ExperimentsHomeView = ({
       <div
         css={{
           border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.borders.borderRadiusMd,
           overflow: 'hidden',
           backgroundColor: theme.colors.backgroundPrimary,
         }}

@@ -37,11 +37,14 @@ export const FeaturesSection = () => {
     const classHeader = `.${clsPrefix}-header`;
     const classArrow = `.${clsPrefix}-arrow`;
     const classHeaderText = `.${clsPrefix}-header-text`;
+    const classContentBox = `.${clsPrefix}-content-box`;
 
     return {
       [classHeader]: {
         display: 'flex !important',
         alignItems: 'center',
+        paddingLeft: '0 !important',
+        paddingRight: '0 !important',
       },
       [classArrow]: {
         position: 'static !important',
@@ -53,6 +56,10 @@ export const FeaturesSection = () => {
       [classHeaderText]: {
         order: 0,
         flex: 'none',
+      },
+      [classContentBox]: {
+        paddingLeft: '0 !important',
+        paddingRight: '0 !important',
       },
     };
   }, [theme, getPrefixedClassName]);
@@ -76,16 +83,22 @@ export const FeaturesSection = () => {
             </Typography.Title>
           }
         >
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          <div css={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <LaunchDemoCard />
-            <Typography.Text bold color="secondary">
-              <FormattedMessage defaultMessage="Explore Features" description="Feature cards section title" />
-            </Typography.Text>
             <div
               css={{
                 display: 'flex',
-                flexWrap: 'wrap',
                 gap: theme.spacing.sm,
+                overflowX: 'auto',
+                paddingBottom: theme.spacing.xs,
+                scrollbarWidth: 'thin',
+                '&::-webkit-scrollbar': {
+                  height: 4,
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: theme.colors.borderDecorative,
+                  borderRadius: 2,
+                },
               }}
             >
               {featureDefinitions.map((feature) => (
