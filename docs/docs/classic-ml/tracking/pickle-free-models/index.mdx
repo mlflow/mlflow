@@ -66,7 +66,7 @@ See <APILink fn="mlflow.sklearn.log_model" /> and <APILink fn="mlflow.sklearn.sa
 
 ## Pickle-free format for PyTorch model
 
-When saving a PyTorch model, saving with `serialization_format="skops"` uses `torch.export.save` and stores the model as a traced graph instead of pickle serialization format.
+When saving a PyTorch model, saving with `serialization_format="pt2"` uses `torch.export.save` and stores the model as a traced graph instead of pickle serialization format.
 
 Requirements:
 
