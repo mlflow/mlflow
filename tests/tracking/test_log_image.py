@@ -147,7 +147,10 @@ def test_log_image_numpy_raises_exception_for_invalid_array_data_type():
 def test_log_image_numpy_raises_exception_for_invalid_array_shape():
     import numpy as np
 
-    with mlflow.start_run(), pytest.raises(ValueError, match="`image` must be a 2D or 3D array"):
+    with (
+        mlflow.start_run(),
+        pytest.raises(ValueError, match="`image` must be a 2D or 3D array"),
+    ):
         mlflow.log_image(np.zeros((1,), dtype=np.uint8), "image.png")
 
 
@@ -159,18 +162,22 @@ def test_log_image_numpy_raises_exception_for_invalid_channel_length():
 
 
 def test_log_image_raises_exception_for_unsupported_image_object_type():
-    with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported image object type"):
+    with (
+        mlflow.start_run(),
+        pytest.raises(TypeError, match="Unsupported image object type"),
+    ):
         mlflow.log_image("not_image", "image.png")
 
 
-def test_log_image_with_steps():
+@pytest.mark.parametrize("filename_sep", ["%", "+"])
+def test_log_image_with_steps(filename_sep):
     import numpy as np
     from PIL import Image
 
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
-        mlflow.log_image(image, key="dog", step=0, synchronous=True)
+        mlflow.log_image(image, key="dog", step=0, synchronous=True, filename_sep=filename_sep)
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
@@ -180,7 +187,7 @@ def test_log_image_with_steps():
         # .png file for the image and .webp file for compressed image
         assert len(files) == 2
         for file in files:
-            assert file.startswith("dog%step%0")
+            assert file.startswith(f"dog{filename_sep}step{filename_sep}0")
             logged_path = os.path.join(run_artifact_dir, file)
             if file.endswith(".png"):
                 loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
@@ -188,20 +195,25 @@ def test_log_image_with_steps():
             elif file.endswith(".json"):
                 with open(logged_path) as f:
                     metadata = json.load(f)
-                    assert metadata["filepath"].startswith("images/dog%step%0")
+                    assert metadata["filepath"].startswith(
+                        f"images/dog{filename_sep}step{filename_sep}0"
+                    )
                     assert metadata["key"] == "dog"
                     assert metadata["step"] == 0
                     assert metadata["timestamp"] <= get_current_time_millis()
 
 
-def test_log_image_with_timestamp():
+@pytest.mark.parametrize("filename_sep", ["%", "+"])
+def test_log_image_with_timestamp(filename_sep):
     import numpy as np
     from PIL import Image
 
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
-        mlflow.log_image(image, key="dog", timestamp=100, synchronous=True)
+        mlflow.log_image(
+            image, key="dog", timestamp=100, synchronous=True, filename_sep=filename_sep
+        )
 
         logged_path = "images/"
         artifact_uri = mlflow.get_artifact_uri(logged_path)
@@ -211,7 +223,7 @@ def test_log_image_with_timestamp():
         # .png file for the image, and .webp file for compressed image
         assert len(files) == 2
         for file in files:
-            assert file.startswith("dog%step%0")
+            assert file.startswith(f"dog{filename_sep}step{filename_sep}0")
             logged_path = os.path.join(run_artifact_dir, file)
             if file.endswith(".png"):
                 loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
@@ -219,7 +231,9 @@ def test_log_image_with_timestamp():
             elif file.endswith(".json"):
                 with open(logged_path) as f:
                     metadata = json.load(f)
-                    assert metadata["filepath"].startswith("images/dog%step%0")
+                    assert metadata["filepath"].startswith(
+                        f"images/dog{filename_sep}step{filename_sep}0"
+                    )
                     assert metadata["key"] == "dog"
                     assert metadata["step"] == 0
                     assert metadata["timestamp"] == 100
