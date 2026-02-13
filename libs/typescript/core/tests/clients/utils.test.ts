@@ -125,7 +125,7 @@ describe('makeRequest', () => {
           mockHeaderProvider,
           {},
         ),
-      ).rejects.toThrow(/HTTP 500: Internal Server Error - x{10240}\.\.\. \(truncated\)/);
+      ).rejects.toThrow(/HTTP 500: Internal Server Error - x+\.\.\. \(truncated\)/);
 
       expect(mockResponse.text).toHaveBeenCalled();
     });

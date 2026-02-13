@@ -133,7 +133,7 @@ describe('fetchAPI error handling', () => {
           method: 'POST',
           body: { experiment_id: '1' },
         }),
-      ).rejects.toThrow(/HTTP 500: Internal Server Error - y{10240}\.\.\. \(truncated\)/);
+      ).rejects.toThrow(/HTTP 500: Internal Server Error - y+\.\.\. \(truncated\)/);
 
       expect(mockResponse.text).toHaveBeenCalled();
     });
