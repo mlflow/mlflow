@@ -1237,7 +1237,7 @@ def test_save_and_load_exported_model(sequential_model, model_path, data, sequen
     mlflow.pytorch.save_model(
         sequential_model,
         model_path,
-        serialization_format='pt2',
+        serialization_format="pt2",
         input_example=input_example,
     )
 
@@ -1271,7 +1271,7 @@ def test_exported_model_infer_dynamic_dim(tmp_path):
     mlflow.pytorch.save_model(
         origin_model,
         save_path1,
-        serialization_format='pt2',
+        serialization_format="pt2",
         input_example=input_example,
     )
 
@@ -1291,7 +1291,7 @@ def test_exported_model_infer_dynamic_dim(tmp_path):
     mlflow.pytorch.save_model(
         origin_model,
         save_path2,
-        serialization_format='pt2',
+        serialization_format="pt2",
         input_example=input_example,
         signature=ModelSignature(
             inputs=Schema([TensorSpec(np.dtype("float32"), (3, -1, 5))]),
@@ -1317,7 +1317,7 @@ def test_load_exported_model_check_device_mismatch(sequential_model, model_path)
     mlflow.pytorch.save_model(
         sequential_model,
         model_path,
-        serialization_format='pt2',
+        serialization_format="pt2",
         input_example=torch.randn(3, 4).numpy(),
     )
 

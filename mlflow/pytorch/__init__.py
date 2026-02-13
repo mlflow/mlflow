@@ -466,8 +466,7 @@ def save_model(
     if serialization_format == "pt2":
         if Version(torch.__version__) < Version("2.4"):
             raise MlflowException(
-                "If `serialization_format` is set to 'pt2', "
-                "`torch` package version must be >= 2.4."
+                "If `serialization_format` is set to 'pt2', `torch` package version must be >= 2.4."
             )
 
         if isinstance(pytorch_model, torch.jit.ScriptModule):
