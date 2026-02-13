@@ -9,6 +9,12 @@ from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 
 
+def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
+    """Unwrap single-argument inputs so trace shows the request body directly"""
+    if len(args) == 1 and not kwargs and (span := mlflow.get_current_active_span()):
+        span.set_inputs(args[0])
+
+
 def maybe_traced_gateway_call(
     func: Callable[..., Any],
     endpoint_config: GatewayEndpointConfig,
@@ -43,15 +49,13 @@ def maybe_traced_gateway_call(
         "trace_destination": MlflowExperimentLocation(endpoint_config.experiment_id),
     }
 
-    if not metadata:
-        return mlflow.trace(func, **trace_kwargs)
-
-    # Wrap function to set metadata inside the trace context
     if inspect.isasyncgenfunction(func):
 
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            mlflow.update_current_trace(metadata=metadata)
+            _maybe_unwrap_single_arg_input(args, kwargs)
+            if metadata:
+                mlflow.update_current_trace(metadata=metadata)
             async for item in func(*args, **kwargs):
                 yield item
 
@@ -59,14 +63,18 @@ def maybe_traced_gateway_call(
 
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            mlflow.update_current_trace(metadata=metadata)
+            _maybe_unwrap_single_arg_input(args, kwargs)
+            if metadata:
+                mlflow.update_current_trace(metadata=metadata)
             return await func(*args, **kwargs)
 
     else:
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            mlflow.update_current_trace(metadata=metadata)
+            _maybe_unwrap_single_arg_input(args, kwargs)
+            if metadata:
+                mlflow.update_current_trace(metadata=metadata)
             return func(*args, **kwargs)
 
     return mlflow.trace(wrapper, **trace_kwargs)
