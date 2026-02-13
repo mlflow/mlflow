@@ -216,8 +216,8 @@ def log_model(
         serialization_format: The serialization format that is used to save the PyTorch model.
             The value can be "pickle" or "pt2". If set it to "pickle", the PyTorch model is saved
             by "pickle" or "cloudpickle", depends on 'pickle_module' param setting.
-            If set it to "pt2", the model is saved by`torch.export.save`, this saving format
-            exports the model  as a traced graph, this is a safer serialization format,
+            If set it to "pt2", the model is saved by `torch.export.save`, this saving format
+            exports the model as a traced graph, this is a safer serialization format,
             it prevents executing arbitrary code during deserialization, if using the "pt2" format,
             the `input_example` is required (because PyTorch traces the model graph by virtually
             executing `model.forward` with the provided example input) and only the `Tensor` type
@@ -370,8 +370,8 @@ def save_model(
         serialization_format: The serialization format that is used to save the PyTorch model.
             The value can be "pickle" or "pt2". If set it to "pickle", the PyTorch model is saved
             by "pickle" or "cloudpickle", depends on 'pickle_module' param setting.
-            If set it to "pt2", the model is saved by`torch.export.save`, this saving format
-            exports the model  as a traced graph, this is a safer serialization format,
+            If set it to "pt2", the model is saved by `torch.export.save`, this saving format
+            exports the model as a traced graph, this is a safer serialization format,
             it prevents executing arbitrary code during deserialization, if using the "pt2" format,
             the `input_example` is required (because PyTorch traces the model graph by virtually
             executing `model.forward` with the provided example input) and only the `Tensor` type
@@ -429,6 +429,11 @@ def save_model(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
+    if serialization_format not in ["pickle", "pt2"]:
+        raise MlflowException.invalid_parameter_value(
+            "The `serialization_format` param value must be one of 'pickle' or 'pt2'."
+        )
+
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
 
     if not isinstance(pytorch_model, torch.nn.Module):
@@ -461,7 +466,8 @@ def save_model(
     if serialization_format == "pt2":
         if Version(torch.__version__) < Version("2.4"):
             raise MlflowException(
-                "If `serialization_format` is set to 'pt2', `torch` package version must be >= 2.4"
+                "If `serialization_format` is set to 'pt2', "
+                "`torch` package version must be >= 2.4."
             )
 
         if isinstance(pytorch_model, torch.jit.ScriptModule):
