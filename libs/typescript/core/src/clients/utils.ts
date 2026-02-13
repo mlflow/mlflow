@@ -32,8 +32,8 @@ export async function makeRequest<T>(
       try {
         const responseBody = await response.text();
         if (responseBody) {
-          // Limit response body to 10KB to prevent memory issues
-          const maxBodyLength = 10 * 1024; // 10KB
+          // Limit response body to 1000 characters to prevent memory issues
+          const maxBodyLength = 1000;
           if (responseBody.length > maxBodyLength) {
             errorMessage += ` - ${responseBody.substring(0, maxBodyLength)}... (truncated)`;
           } else {

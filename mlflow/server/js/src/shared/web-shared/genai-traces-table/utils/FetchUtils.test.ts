@@ -115,8 +115,8 @@ describe('fetchAPI error handling', () => {
     });
 
     it('should truncate large response bodies to prevent memory issues', async () => {
-      // Create a response body larger than 10KB
-      const largeResponseBody = 'y'.repeat(15 * 1024); // 15KB
+      // Create a response body larger than 1000 characters
+      const largeResponseBody = 'y'.repeat(1500); // 1500 characters
 
       const mockResponse = {
         ok: false,
