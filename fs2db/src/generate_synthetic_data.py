@@ -17,6 +17,7 @@ import os
 import uuid
 import warnings
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from packaging.version import Version
@@ -373,8 +374,9 @@ def main() -> None:
     output = os.path.abspath(args.output)
     os.makedirs(output, exist_ok=True)
 
-    os.environ["MLFLOW_TRACKING_URI"] = output
-    mlflow.set_tracking_uri(output)
+    tracking_uri = Path(output).as_uri()
+    os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
+    mlflow.set_tracking_uri(tracking_uri)
 
     warnings.filterwarnings(
         "ignore", message=".*Inferred schema contains integer.*", category=UserWarning
