@@ -863,7 +863,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         yield_stream,
         endpoint_config,
         user_metadata,
-        request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_STREAM_GENERATE_CONTENT,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
     )
     return StreamingResponse(
         safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
