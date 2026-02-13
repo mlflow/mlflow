@@ -620,7 +620,6 @@ def my_other_complex_function(x, y):
 # Correct order for web framework: @mlflow.trace is NOT outermost
 @another_web_framework_decorator  # e.g., @app.route("/mypath") from Flask
 @mlflow.trace(name="my_decorated_function_correct_order")
-# @simple_timing_decorator
 def my_web_framework_function(x, y):
     # Function logic here
     time.sleep(0.1)  # Simulate work
@@ -630,7 +629,6 @@ def my_web_framework_function(x, y):
 # Incorrect order for web framework: @mlflow.trace is outermost
 @mlflow.trace(name="my_decorated_function_incorrect_order")
 @another_web_framework_decorator  # e.g., @app.route("/mypath") from Flask
-# @simple_timing_decorator
 def my_other_web_framework_function(x, y):
     time.sleep(0.1)
     return x * y
