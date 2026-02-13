@@ -11,7 +11,7 @@ from queue import Empty, Full, Queue
 
 import requests
 
-from mlflow.environment_variables import MLFLOW_WORKSPACE, _MLFLOW_TELEMETRY_SESSION_ID
+from mlflow.environment_variables import _MLFLOW_TELEMETRY_SESSION_ID, MLFLOW_WORKSPACE
 from mlflow.telemetry.constant import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
