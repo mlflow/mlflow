@@ -145,6 +145,42 @@ def test_log_batch_with_numpy_array(tracking_client_log_batch):
     assert run_data.tags == expected_tags
 
 
+def test_log_model_metrics_applies_cap_and_batching(tracking_client_log_batch):
+    client, run_id = tracking_client_log_batch
+    metrics = [Metric(key=f"metric{i}", value=float(i), timestamp=12345 + i, step=0) for i in range(5)]
+
+    with mock.patch.object(client, "log_batch") as log_batch_mock:
+        logged_count, skipped_count = client.log_model_metrics(
+            run_id=run_id,
+            metrics=metrics,
+            max_metrics_per_model=3,
+            batch_size=2,
+        )
+
+    assert logged_count == 3
+    assert skipped_count == 2
+    assert log_batch_mock.call_count == 2
+    assert len(log_batch_mock.call_args_list[0].kwargs["metrics"]) == 2
+    assert len(log_batch_mock.call_args_list[1].kwargs["metrics"]) == 1
+
+
+def test_log_model_metrics_allows_disabling_metric_copying(tracking_client_log_batch):
+    client, run_id = tracking_client_log_batch
+    metrics = [Metric(key=f"metric{i}", value=float(i), timestamp=12345 + i, step=0) for i in range(4)]
+
+    with mock.patch.object(client, "log_batch") as log_batch_mock:
+        logged_count, skipped_count = client.log_model_metrics(
+            run_id=run_id,
+            metrics=metrics,
+            max_metrics_per_model=0,
+            batch_size=2,
+        )
+
+    assert logged_count == 0
+    assert skipped_count == len(metrics)
+    log_batch_mock.assert_not_called()
+
+
 def test_link_traces_to_run_validation():
     client = newTrackingServiceClient()
 

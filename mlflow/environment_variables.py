@@ -1056,6 +1056,19 @@ _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
     "_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
 )
 
+#: Maximum number of metrics to copy from a run to a logged model when calling
+#: ``Model.log(step=...)``. Set to ``0`` to disable logged-model metric copying.
+#: (default: ``1000``)
+_MLFLOW_LOG_LOGGED_MODEL_METRICS_MAX_PER_MODEL = _EnvironmentVariable(
+    "_MLFLOW_LOG_LOGGED_MODEL_METRICS_MAX_PER_MODEL", int, 1000
+)
+
+#: Maximum number of metrics per request when copying run metrics to a logged model.
+#: (default: ``100``)
+_MLFLOW_LOG_LOGGED_MODEL_METRICS_BATCH_SIZE = _EnvironmentVariable(
+    "_MLFLOW_LOG_LOGGED_MODEL_METRICS_BATCH_SIZE", int, 100
+)
+
 #: A boolean flag that enables printing URLs for logged and registered models when
 #: they are created.
 #: (default: ``True``)
