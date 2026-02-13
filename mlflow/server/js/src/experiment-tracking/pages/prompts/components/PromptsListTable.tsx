@@ -161,6 +161,7 @@ export const PromptsListTable = ({
             button={
               <Button
                 componentId="mlflow.prompts.list.table.create_prompt"
+                data-testid="create-prompt-empty-state-button"
                 onClick={onCreatePrompt}
                 type="primary"
                 icon={<PlusIcon />}

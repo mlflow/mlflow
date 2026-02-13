@@ -84,7 +84,12 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
         title={<FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />}
         buttons={
           showCreationButtons && (
-            <Button componentId={componentIds.create} type="primary" onClick={openCreateVersionModal}>
+            <Button
+              componentId={componentIds.create}
+              data-testid="create-prompt-button"
+              type="primary"
+              onClick={openCreateVersionModal}
+            >
               <FormattedMessage
                 defaultMessage="Create prompt"
                 description="Label for the create prompt button on the registered prompts page"
