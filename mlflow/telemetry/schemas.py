@@ -70,7 +70,7 @@ class TelemetryInfo:
     tracking_uri_scheme: str | None = None
     is_localhost: bool | None = None
     installation_id: str | None = None
-    is_workspace_enabled: bool | None = None
+    ws_enabled: bool | None = None
 
 
 @dataclass

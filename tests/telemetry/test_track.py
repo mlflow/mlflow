@@ -75,14 +75,14 @@ def test_backend_store_info(tmp_path, mock_telemetry_client: TelemetryClient, mo
         mock_telemetry_client._update_backend_store()
     assert mock_telemetry_client.info["tracking_uri_scheme"] == "file"
 
-    # Verify is_workspace_enabled reflects MLFLOW_WORKSPACE env var
+    # Verify ws_enabled reflects MLFLOW_WORKSPACE env var
     monkeypatch.delenv("MLFLOW_WORKSPACE", raising=False)
     mock_telemetry_client._update_backend_store()
-    assert mock_telemetry_client.info["is_workspace_enabled"] is False
+    assert mock_telemetry_client.info["ws_enabled"] is False
 
     monkeypatch.setenv("MLFLOW_WORKSPACE", "my-workspace")
     mock_telemetry_client._update_backend_store()
-    assert mock_telemetry_client.info["is_workspace_enabled"] is True
+    assert mock_telemetry_client.info["ws_enabled"] is True
 
 
 @pytest.mark.parametrize(

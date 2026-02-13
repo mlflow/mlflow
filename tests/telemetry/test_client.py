@@ -1024,7 +1024,7 @@ def test_is_workspace_enabled_included_in_telemetry_info(
     mock_telemetry_client.add_record(record)
     mock_telemetry_client.flush()
     data = [req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event"][0]
-    assert data["is_workspace_enabled"] is True
+    assert data["ws_enabled"] is True
 
 
 def test_is_workspace_disabled_included_in_telemetry_info(
@@ -1039,4 +1039,4 @@ def test_is_workspace_disabled_included_in_telemetry_info(
     mock_telemetry_client.add_record(record)
     mock_telemetry_client.flush()
     data = [req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event"][0]
-    assert data["is_workspace_enabled"] is False
+    assert data["ws_enabled"] is False

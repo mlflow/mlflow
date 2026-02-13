@@ -400,7 +400,7 @@ class TelemetryClient:
                 self.info["tracking_uri_scheme"] = scheme
             if is_localhost is not None:
                 self.info["is_localhost"] = is_localhost
-            self.info["is_workspace_enabled"] = bool(MLFLOW_WORKSPACE.get())
+            self.info["ws_enabled"] = bool(MLFLOW_WORKSPACE.get())
         except Exception as e:
             _log_error(f"Failed to update backend store: {e}")
 
