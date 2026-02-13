@@ -120,7 +120,7 @@ export const GatewayUsagePage = () => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
-          marginBottom: theme.spacing.md,
+          marginBottom: theme.spacing.sm,
         }}
       >
         <div>
