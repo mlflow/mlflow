@@ -24,13 +24,13 @@ from mlflow.genai.evaluation.session_utils import (
     get_first_trace_in_session,
 )
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.genai.scorers.online import (
     OnlineScorer,
     OnlineScoringConfig,
     OnlineSessionScoringProcessor,
     OnlineTraceScoringProcessor,
 )
+from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
