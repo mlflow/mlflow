@@ -18,8 +18,15 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
     An exporter implementation that logs the traces to Databricks Unity Catalog table.
     """
 
-    def __init__(self, tracking_uri: str | None = None) -> None:
+    def __init__(
+        self,
+        tracking_uri: str | None = None,
+        spans_table_name: str | None = None,
+    ) -> None:
         super().__init__(tracking_uri)
+
+        # If spans_table_name is provided, use it directly; otherwise use the registry
+        self._spans_table_name = spans_table_name
 
         # Track if we've raised an error for span export to avoid raising it multiple times.
         self._has_raised_span_export_error = False
@@ -37,11 +44,12 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
         Args:
             spans: Sequence of ReadableSpan objects to export.
         """
-        location = get_active_spans_table_name()
+        # Use provided spans_table_name or fall back to registry lookup
+        location = self._spans_table_name or get_active_spans_table_name()
 
         if not location:
             # this should not happen since this exporter is only used when a destination
-            # is set to UCSchemaLocation
+            # is set to UCSchemaLocation or spans_table_name is provided
             _logger.debug("No active spans table name found. Skipping span export.")
             return
 

@@ -13,7 +13,7 @@ from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import UCSchemaLocation
+from mlflow.entities.trace_location import UCSchemaLocation, UcTablePrefixLocation
 from mlflow.environment_variables import (
     _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE,
     MLFLOW_SEARCH_TRACES_MAX_THREADS,
@@ -700,10 +700,10 @@ class TracingClient:
 
     def _set_experiment_trace_location(
         self,
-        location: UCSchemaLocation,
+        location: UCSchemaLocation | UcTablePrefixLocation,
         experiment_id: str,
         sql_warehouse_id: str | None = None,
-    ) -> UCSchemaLocation:
+    ) -> UCSchemaLocation | UcTablePrefixLocation:
         if is_databricks_uri(self.tracking_uri):
             return self.store.set_experiment_trace_location(
                 experiment_id=str(experiment_id),
@@ -715,11 +715,55 @@ class TracingClient:
         )
 
     def _unset_experiment_trace_location(
-        self, experiment_id: str, location: UCSchemaLocation
+        self, experiment_id: str, location: UCSchemaLocation | UcTablePrefixLocation
     ) -> None:
         if is_databricks_uri(self.tracking_uri):
             self.store.unset_experiment_trace_location(str(experiment_id), location)
         else:
             raise MlflowException(
                 "Clearing storage location is not supported on non-Databricks backends."
+            )
+
+    def get_trace_uc_storage_location(self, location_id: str):
+        """
+        Fetch a UcTablePrefixLocation from the backend.
+
+        Args:
+            location_id: The trace storage location ID.
+
+        Returns:
+            The UcTablePrefixLocation object.
+
+        Raises:
+            MlflowException: If not using a Databricks tracking URI.
+        """
+        if is_databricks_uri(self.tracking_uri):
+            return self.store.get_trace_uc_storage_location(location_id)
+        else:
+            raise MlflowException(
+                "Fetching trace UC storage location is only supported on Databricks backends."
+            )
+
+    def create_uc_table_prefix_location(self, location):
+        """
+        Create a UC table prefix storage location.
+
+        This registers the location with the backend and returns a filled-in
+        UcTablePrefixLocation with the table names populated.
+
+        Args:
+            location: The UcTablePrefixLocation with catalog, schema, and table_prefix.
+
+        Returns:
+            The filled-in UcTablePrefixLocation with spans_table_name, logs_table_name,
+            and metrics_table_name populated.
+
+        Raises:
+            MlflowException: If not using a Databricks tracking URI.
+        """
+        if is_databricks_uri(self.tracking_uri):
+            return self.store.create_uc_table_prefix_location(location)
+        else:
+            raise MlflowException(
+                "Creating UC table prefix location is only supported on Databricks backends."
             )
