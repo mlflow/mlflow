@@ -76,7 +76,7 @@ Requirements:
 
 Note:
 
-This graph-based PyTorch model format does not allow the loaded model weights to transfer between different devices. E.g., if the model weights are in GPU device when saving, then the loaded model must load weights to the same GPU device.
+This graph-based PyTorch model format does not allow the loaded model weights to transfer between different devices. For example, if the model is saved with weights on GPU device 0, the loaded model must also load the weights onto GPU device 0. The weights cannot be transferred to a different device (for example, CPU or a different GPU) after loading.
 
 ```python
 import mlflow
