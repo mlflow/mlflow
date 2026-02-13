@@ -7,6 +7,7 @@ module.exports = async ({ github, context }) => {
     /_pb2(_grpc)?\.py$/,
     /^uv\.lock$/,
     /package-lock\.json$/,
+    /yarn\.lock$/,
     /^docs\/api_reference\/source\/rest-api\.rst$/,
   ];
 
