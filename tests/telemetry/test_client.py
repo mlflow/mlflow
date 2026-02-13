@@ -1010,3 +1010,33 @@ def test_is_localhost_uri_returns_none_on_parse_error():
     # by mocking urlparse to raise
     with mock.patch("urllib.parse.urlparse", side_effect=ValueError("Invalid URI")):
         assert _is_localhost_uri("http://localhost") is None
+
+
+def test_is_workspace_enabled_included_in_telemetry_info(
+    mock_telemetry_client: TelemetryClient, mock_requests, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_WORKSPACE", "my-workspace")
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    data = [req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event"][0]
+    assert data["is_workspace_enabled"] is True
+
+
+def test_is_workspace_disabled_included_in_telemetry_info(
+    mock_telemetry_client: TelemetryClient, mock_requests, monkeypatch
+):
+    monkeypatch.delenv("MLFLOW_WORKSPACE", raising=False)
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    data = [req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event"][0]
+    assert data["is_workspace_enabled"] is False

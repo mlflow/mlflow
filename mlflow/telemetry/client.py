@@ -11,7 +11,7 @@ from queue import Empty, Full, Queue
 
 import requests
 
-from mlflow.environment_variables import _MLFLOW_TELEMETRY_SESSION_ID
+from mlflow.environment_variables import MLFLOW_WORKSPACE, _MLFLOW_TELEMETRY_SESSION_ID
 from mlflow.telemetry.constant import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
@@ -400,6 +400,7 @@ class TelemetryClient:
                 self.info["tracking_uri_scheme"] = scheme
             if is_localhost is not None:
                 self.info["is_localhost"] = is_localhost
+            self.info["is_workspace_enabled"] = bool(MLFLOW_WORKSPACE.get())
         except Exception as e:
             _log_error(f"Failed to update backend store: {e}")
 
