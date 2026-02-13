@@ -1,3 +1,4 @@
+import { fetchAPI } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import type { ModelTrace, ModelTraceData } from '../ModelTrace.types';
 import { getAjaxUrl } from '../ModelTraceExplorer.request.utils';
 

@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { TIME_BUCKET_DIMENSION_KEY, type MetricDataPoint } from '@databricks/web-shared/model-trace-explorer';
 import { useDesignSystemTheme, type DesignSystemThemeInterface } from '@databricks/design-system';
+import { isNil } from 'lodash';
 
 /**
  * Props for the active shape renderer in pie charts.
@@ -301,9 +302,9 @@ export interface ChartZoomState<T> {
   /** Right boundary of current selection (index or value) */
   refAreaRight: string | number | null;
   /** Handler for mouse down event - starts selection */
-  handleMouseDown: (e: { activeLabel?: string }) => void;
+  handleMouseDown: (e: { activeLabel?: string | number }) => void;
   /** Handler for mouse move event - updates selection */
-  handleMouseMove: (e: { activeLabel?: string }) => void;
+  handleMouseMove: (e: { activeLabel?: string | number }) => void;
   /** Handler for mouse up event - completes zoom */
   handleMouseUp: () => void;
   /** Reset zoom to show all data */
@@ -341,7 +342,7 @@ export function useChartZoom<T>(data: T[], labelKey: keyof T): ChartZoomState<T>
     }
   }, [data]);
 
-  const handleMouseDown = useCallback((e: { activeLabel?: string }) => {
+  const handleMouseDown = useCallback((e: { activeLabel?: string | number }) => {
     if (e.activeLabel) {
       setRefAreaLeft(e.activeLabel);
       setRefAreaRight(e.activeLabel);
@@ -350,7 +351,7 @@ export function useChartZoom<T>(data: T[], labelKey: keyof T): ChartZoomState<T>
   }, []);
 
   const handleMouseMove = useCallback(
-    (e: { activeLabel?: string }) => {
+    (e: { activeLabel?: string | number }) => {
       if (isSelecting && e.activeLabel) {
         setRefAreaRight(e.activeLabel);
       }

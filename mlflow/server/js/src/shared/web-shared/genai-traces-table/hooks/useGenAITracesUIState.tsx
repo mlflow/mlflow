@@ -86,10 +86,6 @@ export const useGenAITracesUIStateColumns = (
     ? `${LOCAL_STORAGE_KEY}-${storageKeyPrefix}-${experimentId}-${runUuid}`
     : `${LOCAL_STORAGE_KEY}-${experimentId}-${runUuid}`;
 
-  const storageKey = storageKeyPrefix
-    ? `${LOCAL_STORAGE_KEY}-${storageKeyPrefix}-${experimentId}-${runUuid}`
-    : `${LOCAL_STORAGE_KEY}-${experimentId}-${runUuid}`;
-
   const [columnState, setColumnState] = useLocalStorage<GenAITracesUIState | undefined>({
     key: storageKey,
     version: LOCAL_STORAGE_VERSION,

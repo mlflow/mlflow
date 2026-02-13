@@ -6,6 +6,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { CompareModelTraceExplorer } from '../../model-trace-explorer/CompareModelTraceExplorer';
 import { ModelTraceExplorerSkeleton } from '../../model-trace-explorer/ModelTraceExplorerSkeleton';
 import { useGetTracesById } from '../../model-trace-explorer/hooks/useGetTracesById';
+import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 
 // prettier-ignore
 export const GenAITraceComparisonModal = ({

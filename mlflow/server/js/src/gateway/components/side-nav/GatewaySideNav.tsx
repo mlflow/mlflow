@@ -19,7 +19,8 @@ export type GatewayTab = 'endpoints' | 'usage' | 'api-keys';
 
 type GatewaySideNavComponentId =
   | 'mlflow.gateway.side-nav.endpoints.tooltip'
-  | 'mlflow.gateway.side-nav.api-keys.tooltip';
+  | 'mlflow.gateway.side-nav.api-keys.tooltip'
+  | 'mlflow.gateway.side-nav.usage.tooltip';
 
 interface GatewaySideNavProps {
   activeTab: GatewayTab;
@@ -44,6 +45,7 @@ const navItems: Array<{
     label: <FormattedMessage defaultMessage="Usage" description="Gateway side nav > Usage tab" />,
     icon: <ChartLineIcon />,
     to: GatewayRoutes.usagePageRoute,
+    componentId: 'mlflow.gateway.side-nav.usage.tooltip',
   },
   {
     tab: 'api-keys',

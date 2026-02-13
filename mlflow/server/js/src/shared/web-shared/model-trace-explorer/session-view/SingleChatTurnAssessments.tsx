@@ -76,6 +76,7 @@ export const SingleChatTurnAssessments = ({
       <Overflow
         noMargin
         css={{ gap: theme.spacing.sm, width: '100%', minWidth: 0, maxWidth: '100%' }}
+        // @ts-expect-error - not detected as a valid prop but works
         visibleItemsCount={ASSESSMENT_DISPLAY_LIMIT}
       >
         {assessmentGroups.map((assessments) => {

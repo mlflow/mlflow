@@ -1,0 +1,108 @@
+diff --git a/es/Dialog.js b/es/Dialog.js
+index 888b0896f77d00cb0e8c61edfe73b8f0dce407d4..78222f425b5b2c1db86ce9748e77866f8c400167 100644
+--- a/es/Dialog.js
++++ b/es/Dialog.js
+@@ -12,7 +12,7 @@ import KeyCode from 'rc-util/es/KeyCode';
+ import contains from 'rc-util/es/Dom/contains';
+ import Animate from 'rc-animate';
+ import LazyRenderBox from './LazyRenderBox';
+-var uuid = 0;
++var uuid = 500;
+ /* eslint react/no-is-mounted:0 */
+ function getScroll(w, top) {
+     var ret = w['page' + (top ? 'Y' : 'X') + 'Offset'];
+@@ -105,6 +105,17 @@ var Dialog = function (_React$Component) {
+             if (props.visible) {
+                 if (e.keyCode === KeyCode.TAB) {
+                     var activeElement = document.activeElement;
++
++                    // FEINF-1134: Fix active element detection in shadow DOM
++                    while(
++                        activeElement &&
++                        activeElement.shadowRoot &&
++                        activeElement.shadowRoot.activeElement &&
++                        activeElement.shadowRoot.activeElement !== activeElement
++                    ){
++                        activeElement = activeElement.shadowRoot.activeElement;
++                    }
++
+                     var sentinelStart = _this.sentinelStart;
+                     if (e.shiftKey) {
+                         if (activeElement === sentinelStart) {
+@@ -263,8 +274,20 @@ var Dialog = function (_React$Component) {
+     };
+ 
+     Dialog.prototype.tryFocus = function tryFocus() {
+-        if (!contains(this.wrap, document.activeElement)) {
+-            this.lastOutSideFocusNode = document.activeElement;
++        var activeElement = document.activeElement;
++
++        // FEINF-1134: Fix active element detection in shadow DOM
++        while(
++            activeElement &&
++            activeElement.shadowRoot &&
++            activeElement.shadowRoot.activeElement &&
++            activeElement.shadowRoot.activeElement !== activeElement
++        ){
++            activeElement = activeElement.shadowRoot.activeElement;
++        }
++
++        if (!contains(this.wrap, activeElement)) {
++            this.lastOutSideFocusNode = activeElement;
+             this.sentinelStart.focus();
+         }
+     };
+diff --git a/lib/Dialog.js b/lib/Dialog.js
+index 24602f0917f54c1f2f76fd1787544d5760d3deaa..3a7483476a99d1824158549bbfd31ffcfc8a8afb 100644
+--- a/lib/Dialog.js
++++ b/lib/Dialog.js
+@@ -38,7 +38,7 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
+ 
+ function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+ 
+-var uuid = 0;
++var uuid = 500;
+ /* eslint react/no-is-mounted:0 */
+ function getScroll(w, top) {
+     var ret = w['page' + (top ? 'Y' : 'X') + 'Offset'];
+@@ -131,6 +131,17 @@ var Dialog = function (_React$Component) {
+             if (props.visible) {
+                 if (e.keyCode === _KeyCode2['default'].TAB) {
+                     var activeElement = document.activeElement;
++
++                    // FEINF-1134: Fix active element detection in shadow DOM
++                    while(
++                        activeElement &&
++                        activeElement.shadowRoot &&
++                        activeElement.shadowRoot.activeElement &&
++                        activeElement.shadowRoot.activeElement !== activeElement
++                    ){
++                        activeElement = activeElement.shadowRoot.activeElement;
++                    }
++
+                     var sentinelStart = _this.sentinelStart;
+                     if (e.shiftKey) {
+                         if (activeElement === sentinelStart) {
+@@ -289,8 +300,20 @@ var Dialog = function (_React$Component) {
+     };
+ 
+     Dialog.prototype.tryFocus = function tryFocus() {
+-        if (!(0, _contains2['default'])(this.wrap, document.activeElement)) {
+-            this.lastOutSideFocusNode = document.activeElement;
++        var activeElement = document.activeElement;
++
++        // FEINF-1134: Fix active element detection in shadow DOM
++        while(
++            activeElement &&
++            activeElement.shadowRoot &&
++            activeElement.shadowRoot.activeElement &&
++            activeElement.shadowRoot.activeElement !== activeElement
++        ){
++            activeElement = activeElement.shadowRoot.activeElement;
++        }
++
++        if (!(0, _contains2['default'])(this.wrap, activeElement)) {
++            this.lastOutSideFocusNode = activeElement;
+             this.sentinelStart.focus();
+         }
+     };

@@ -55,7 +55,7 @@ import {
   shouldUseTracesV4API,
   shouldUseLongRunningTracesAPI,
 } from '../utils/FeatureUtils';
-import { fetchFn, getAjaxUrl } from '../utils/FetchUtils';
+import { fetchAPI, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import {
   convertTraceInfoV3ToRunEvalEntry,

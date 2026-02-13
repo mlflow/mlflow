@@ -85,13 +85,9 @@ interface GenAITracesTableToolbarProps {
   isGroupedBySession?: boolean;
   forceGroupBySession?: boolean;
   onToggleSessionGrouping?: () => void;
+
   // Additional elements to render in the toolbar
   addons?: React.ReactNode;
-
-  // Session grouping
-  isGroupedBySession?: boolean;
-  forceGroupBySession?: boolean;
-  onToggleSessionGrouping?: () => void;
 }
 
 export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITracesTableToolbarProps>> = React.memo(
@@ -123,9 +119,6 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       forceGroupBySession,
       onToggleSessionGrouping,
       addons,
-      isGroupedBySession,
-      forceGroupBySession,
-      onToggleSessionGrouping,
     } = props;
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();

@@ -826,6 +826,10 @@
     "defaultMessage": "Value (optional)",
     "description": "Key-value tag editor modal > Value input label"
   },
+  "4Bl01p": {
+    "defaultMessage": "Click to expand session and see individual trace details",
+    "description": "Tooltip for pass/fail aggregated cell in session header"
+  },
   "4CNVbz": {
     "defaultMessage": "API key name",
     "description": "Label for API key name input"
@@ -1441,6 +1445,10 @@
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
+  },
+  "8Pb2Gx": {
+    "defaultMessage": "PASS",
+    "description": "Label for an aggregate display showing how many assessments have passed or failed"
   },
   "8Uwpjw": {
     "defaultMessage": "Create run",
@@ -3466,10 +3474,6 @@
     "defaultMessage": "Clear filters",
     "description": "Button to clear filters in the tags filter popover for experiments page search by tags"
   },
-  "NRNNnk": {
-    "defaultMessage": "Click to expand",
-    "description": "Tooltip for expandable session cell"
-  },
   "NU5iHM": {
     "defaultMessage": "Value",
     "description": "Label for the value column in the logged model details metrics table"
@@ -3597,10 +3601,6 @@
   "OH7hV5": {
     "defaultMessage": "Value",
     "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
-  },
-  "OLZyxe": {
-    "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
-    "description": "Error count in tooltip"
   },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
@@ -4396,10 +4396,6 @@
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in contour plot comparison in MLflow"
   },
-  "UGqg24": {
-    "defaultMessage": "Error",
-    "description": "Label shown when all assessments have errors"
-  },
   "UI3HSV": {
     "defaultMessage": "Select",
     "description": "Select button"
@@ -4543,6 +4539,10 @@
   "VGJhVI": {
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
+  },
+  "VHuRTt": {
+    "defaultMessage": "Doc",
+    "description": "Label for the document preview in a chunk relevance assessment"
   },
   "VMTV4I": {
     "defaultMessage": "Getting Started",
@@ -6447,10 +6447,6 @@
     "defaultMessage": "Params",
     "description": "Experiment page > group by runs control > params section label"
   },
-  "iBIflN": {
-    "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
-    "description": "Tooltip showing error count"
-  },
   "iC2Owx": {
     "defaultMessage": "Stop sequences: {stopSequences}",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > stop sequences parameter"
@@ -7078,6 +7074,10 @@
   "mYcueV": {
     "defaultMessage": "The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported.",
     "description": "Warning banner shown on the Overview tab when using FileStore backend"
+  },
+  "mZtok7": {
+    "defaultMessage": "Linked prompts",
+    "description": "Label for the linked prompts view tab in the model trace explorer"
   },
   "md81Lo": {
     "defaultMessage": "Error",

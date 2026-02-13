@@ -115,7 +115,7 @@ export const TraceCostBreakdownChart: React.FC = () => {
 
   // Custom legend handlers that also update activeIndex to show tooltip
   const onLegendMouseEnter = useCallback(
-    (data: { value: string }) => {
+    (data: { value: string | undefined }) => {
       handleLegendMouseEnter(data);
       const index = chartData.findIndex((entry) => entry.name === data.value);
       if (index !== -1) {
@@ -191,7 +191,6 @@ export const TraceCostBreakdownChart: React.FC = () => {
                 paddingAngle={PIE_PADDING_ANGLE}
                 dataKey="value"
                 nameKey="name"
-                activeIndex={activeIndex}
                 activeShape={renderActiveShape}
                 onMouseEnter={onPieEnter}
                 onMouseLeave={onPieLeave}

@@ -290,7 +290,6 @@ const RunViewEvaluationsTabInner = ({
   }, [deleteTracesAction, showEditTagsModalForTrace, EditTagsModal]);
 
   const isTableLoading = traceInfosLoading || compareToRunLoading;
-  const displayLoadingOverlay = false;
 
   const selectedRunColor = getRunColor(runUuid);
   const compareToRunColor = compareToRunUuid ? getRunColor(compareToRunUuid) : undefined;
@@ -405,7 +404,7 @@ const RunViewEvaluationsTabInner = ({
                     currentTraceInfoV3={traceInfos || []}
                     compareToTraceInfoV3={compareToRunData}
                     onTraceTagsEdit={showEditTagsModalForTrace}
-                    displayLoadingOverlay={displayLoadingOverlay}
+                    isTableLoading={isTableLoading}
                     isGroupedBySession={isGroupedBySession}
                   />
                 </ContextProviders>

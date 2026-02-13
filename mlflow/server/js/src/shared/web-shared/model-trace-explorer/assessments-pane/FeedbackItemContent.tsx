@@ -1,5 +1,5 @@
 import { isEmpty, isNil } from 'lodash';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { FileDocumentIcon, Typography, useDesignSystemTheme, NewWindowIcon } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';

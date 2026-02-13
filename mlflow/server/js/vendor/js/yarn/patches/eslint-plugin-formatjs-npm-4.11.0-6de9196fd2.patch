@@ -1,0 +1,47 @@
+diff --git a/rules/enforce-default-message.js b/rules/enforce-default-message.js
+index 1faecf24c9150779cdcdac6a3bbde45e32eff3e2..1c47910c9ce48da444990922ae0508b36e268f5f 100644
+--- a/rules/enforce-default-message.js
++++ b/rules/enforce-default-message.js
+@@ -10,7 +10,7 @@ function checkNode(context, node) {
+                 context.report({
+                     node: messageNode,
+                     message: `"defaultMessage" must be:
+-- a string literal or
++- a string literal (no concatenated strings) or
+ - template literal without variable`,
+                 });
+             }
+diff --git a/util.js b/util.js
+index af47fe653d7dee8ccc0a5dba0eabc5638677e12a..2130111b9c9e1d1f6d84976f49974441c1d45ee1 100644
+--- a/util.js
++++ b/util.js
+@@ -15,17 +15,19 @@ function isTemplateLiteralWithoutVar(node) {
+     return node.type === 'TemplateLiteral' && node.quasis.length === 1;
+ }
+ function staticallyEvaluateStringConcat(node) {
+-    if (!isStringLiteral(node.right)) {
+-        return ['', false];
+-    }
+-    if (isStringLiteral(node.left)) {
+-        return [String(node.left.value) + node.right.value, true];
+-    }
+-    if (node.left.type === 'BinaryExpression') {
+-        const [result, isStaticallyEvaluatable] = staticallyEvaluateStringConcat(node.left);
+-        return [result + node.right.value, isStaticallyEvaluatable];
+-    }
++    // Don't allow "x" + "y" because it's not supported by SWC plugin https://github.com/swc-project/plugins/issues/446
+     return ['', false];
++    // if (!isStringLiteral(node.right)) {
++    //     return ['', false];
++    // }
++    // if (isStringLiteral(node.left)) {
++    //     return [String(node.left.value) + node.right.value, true];
++    // }
++    // if (node.left.type === 'BinaryExpression') {
++    //     const [result, isStaticallyEvaluatable] = staticallyEvaluateStringConcat(node.left);
++    //     return [result + node.right.value, isStaticallyEvaluatable];
++    // }
++    // return ['', false];
+ }
+ function isIntlFormatMessageCall(node) {
+     return (node.type === 'CallExpression' &&

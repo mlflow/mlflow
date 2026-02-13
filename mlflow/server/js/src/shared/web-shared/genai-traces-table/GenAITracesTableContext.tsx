@@ -2,10 +2,10 @@ import type { Table } from '@tanstack/react-table';
 import { compact, isUndefined } from 'lodash';
 import React, { createContext, useCallback, useMemo, useState } from 'react';
 
-import { useModelTraceExplorerContext } from '../model-trace-explorer';
 import type { EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { ModelTraceExplorerPreferencesProvider } from '../model-trace-explorer/ModelTraceExplorerPreferencesContext';
 import { useModelTraceExplorerContext } from '../model-trace-explorer/ModelTraceExplorerContext';
+import { GetTraceFunction } from './hooks/useGetTrace';
 
 type TraceRow = EvalTraceComparisonEntry & { multiline?: boolean };
 
@@ -39,7 +39,8 @@ export const GenAITracesTableContext = createContext<GenAITracesTableContextValu
 interface GenAITracesTableProviderProps {
   children: React.ReactNode;
   experimentId?: string;
-  isGroupedBySession?: boolean;
+  getTrace?: GetTraceFunction;
+  isGroupedBySession: boolean;
 }
 
 export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITracesTableProviderProps>> = ({

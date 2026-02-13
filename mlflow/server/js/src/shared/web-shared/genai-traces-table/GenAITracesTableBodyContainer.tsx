@@ -55,7 +55,7 @@ interface GenAITracesTableBodyContainerProps {
   /**
    * Whether to display a loading overlay over the table
    */
-  displayLoadingOverlay?: boolean;
+  isTableLoading?: boolean;
 
   /**
    * Whether to group traces by session

@@ -1,4 +1,4 @@
-import type { Row, SortingState } from '@tanstack/react-table';
+import type { Row, RowSelectionState, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import React, { useEffect, useMemo, useState } from 'react';
 
