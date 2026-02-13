@@ -30,7 +30,7 @@ jest.setTimeout(60000); // Larger timeout for integration testing
 describe('useNavigateToExperimentPageTab', () => {
   const server = setupServer(
     // Mock the tracking store info endpoint - default to non-FileStore
-    rest.get('/server-info', (_req, res, ctx) => {
+    rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
       return res(ctx.json({ store_type: 'SqlAlchemyStore', workspaces_enabled: false }));
     }),
   );
@@ -132,7 +132,7 @@ describe('useNavigateToExperimentPageTab', () => {
     (useWorkflowType as jest.Mock).mockReturnValue({ workflowType: WorkflowType.GENAI });
     // Override the default mock to return FileStore
     server.use(
-      rest.get('/server-info', (_req, res, ctx) => {
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
         return res(ctx.json({ store_type: 'FileStore', workspaces_enabled: false }));
       }),
     );

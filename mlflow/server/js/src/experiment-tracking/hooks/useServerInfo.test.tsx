@@ -20,7 +20,7 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
 describe('useServerInfo', () => {
   describe('when backend returns FileStore', () => {
     setupServer(
-      rest.get('/server-info', (_req, res, ctx) => {
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
         return res(ctx.json({ store_type: 'FileStore', workspaces_enabled: false }));
       }),
     );
@@ -38,7 +38,7 @@ describe('useServerInfo', () => {
 
   describe('when backend returns SqlAlchemyStore', () => {
     setupServer(
-      rest.get('/server-info', (_req, res, ctx) => {
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
         return res(ctx.json({ store_type: 'SqlAlchemyStore', workspaces_enabled: false }));
       }),
     );
@@ -56,7 +56,7 @@ describe('useServerInfo', () => {
 
   describe('when backend returns an error', () => {
     setupServer(
-      rest.get('/server-info', (_req, res, ctx) => {
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
         return res(ctx.status(500));
       }),
     );
@@ -74,7 +74,7 @@ describe('useServerInfo', () => {
 
   describe('when endpoint does not exist (404)', () => {
     setupServer(
-      rest.get('/server-info', (_req, res, ctx) => {
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
         return res(ctx.status(404));
       }),
     );
@@ -94,7 +94,7 @@ describe('useServerInfo', () => {
 describe('useIsFileStore', () => {
   describe('when backend uses FileStore', () => {
     setupServer(
-      rest.get('/server-info', (_req, res, ctx) => {
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
         return res(ctx.json({ store_type: 'FileStore', workspaces_enabled: false }));
       }),
     );
@@ -110,7 +110,7 @@ describe('useIsFileStore', () => {
 
   describe('when backend uses SqlAlchemyStore', () => {
     setupServer(
-      rest.get('/server-info', (_req, res, ctx) => {
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
         return res(ctx.json({ store_type: 'SqlAlchemyStore', workspaces_enabled: false }));
       }),
     );

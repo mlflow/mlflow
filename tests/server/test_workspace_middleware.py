@@ -117,14 +117,14 @@ def test_fastapi_workspace_middleware_handles_missing_header(monkeypatch):
 def test_server_info_workspaces_enabled(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     client = flask_app.test_client()
-    resp = client.get("/server-info")
+    resp = client.get("/api/3.0/mlflow/server-info")
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["workspaces_enabled"] is True
 
     # Disable workspaces and ensure the endpoint reflects the change.
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
-    resp = client.get("/server-info")
+    resp = client.get("/api/3.0/mlflow/server-info")
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["workspaces_enabled"] is False
@@ -141,7 +141,7 @@ def test_server_info_skips_workspace_resolution(monkeypatch):
     )
 
     client = flask_app.test_client()
-    resp = client.get("/server-info", headers={WORKSPACE_HEADER_NAME: "missing"})
+    resp = client.get("/api/3.0/mlflow/server-info", headers={WORKSPACE_HEADER_NAME: "missing"})
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["workspaces_enabled"] is True

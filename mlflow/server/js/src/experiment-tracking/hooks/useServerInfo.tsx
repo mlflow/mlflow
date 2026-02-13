@@ -27,7 +27,7 @@ async function fetchServerInfo(): Promise<ServerInfoResponse> {
       cookieString = document.cookie || '';
     }
 
-    const response = await fetch(getAjaxUrl('server-info'), {
+    const response = await fetch(getAjaxUrl('ajax-api/3.0/mlflow/server-info'), {
       method: 'GET',
       headers: {
         ...getDefaultHeaders(cookieString),

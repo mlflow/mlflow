@@ -2183,7 +2183,7 @@ AFTER_REQUEST_HANDLERS = {
     if handler is not None
     and "/graphql" not in http_path
     and "/scorers/online-config" not in http_path
-    and "/server-info" not in http_path
+    and "/mlflow/server-info" not in http_path
     and http_path not in _AJAX_GATEWAY_PATHS
 }
 

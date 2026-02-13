@@ -110,7 +110,7 @@ def resolve_workspace_for_request_if_enabled(
 
     # The server-info endpoint must remain reachable even if the workspace header points to a
     # missing workspace, so skip workspace resolution entirely for this route.
-    if path.rstrip("/").endswith("/server-info"):
+    if path.rstrip("/").endswith("/mlflow/server-info"):
         return None
 
     try:

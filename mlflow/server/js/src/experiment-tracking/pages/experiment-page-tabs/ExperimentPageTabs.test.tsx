@@ -308,7 +308,7 @@ describe('ExperimentLoggedModelListPage', () => {
           ),
         ),
       ),
-      rest.get('/server-info', (req, res, ctx) =>
+      rest.get('/ajax-api/3.0/mlflow/server-info', (req, res, ctx) =>
         res(ctx.json({ store_type: 'SqlAlchemyStore', workspaces_enabled: false })),
       ),
     );
