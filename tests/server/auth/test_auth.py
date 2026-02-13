@@ -2427,11 +2427,6 @@ def test_gateway_endpoint_invocation_requires_use_permission(fastapi_client, mon
 
 
 def test_get_online_scoring_configs_with_auth(client, monkeypatch):
-    """
-    Test that the /ajax-api/3.0/mlflow/scorers/online-configs endpoint works with basic-auth.
-    This is a regression test for the TypeError that occurred when the endpoint was incorrectly
-    included in AFTER_REQUEST_HANDLERS.
-    """
     username, password = create_user(client.tracking_uri)
 
     with User(username, password, monkeypatch):
