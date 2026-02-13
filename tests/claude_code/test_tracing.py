@@ -2,6 +2,7 @@ import importlib
 import json
 import logging
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -12,6 +13,7 @@ from mlflow.claude_code.tracing import (
     get_hook_response,
     parse_timestamp_to_ns,
     process_transcript,
+    read_transcript,
     setup_logging,
 )
 from mlflow.entities.span import SpanType
@@ -292,3 +294,59 @@ def test_process_transcript_tracks_token_usage(mock_transcript_file_with_usage):
     assert trace.info.token_usage["input_tokens"] == 150
     assert trace.info.token_usage["output_tokens"] == 25
     assert trace.info.token_usage["total_tokens"] == 175
+
+
+def test_read_transcript_ignores_incomplete_last_line(tmp_path):
+    transcript_path = tmp_path / "partial_transcript.jsonl"
+    transcript_path.write_text(
+        json.dumps(DUMMY_TRANSCRIPT[0]) + "\n" + '{"type":"assistant","message":{"role":"assistant"}',
+        encoding="utf-8",
+    )
+
+    transcript = read_transcript(str(transcript_path))
+    assert len(transcript) == 1
+    assert transcript[0]["type"] == "user"
+
+
+def test_process_transcript_retries_until_user_message():
+    transcript_without_user = [
+        {
+            "type": "assistant",
+            "message": {"role": "assistant", "content": [{"type": "text", "text": "Working..."}]},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        }
+    ]
+    transcript_with_user = [
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Hello"},
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Hi there!"}],
+            },
+            "timestamp": "2025-01-15T10:00:02.000Z",
+        },
+    ]
+
+    with (
+        pytest.MonkeyPatch.context() as monkeypatch,
+        mock.patch.object(
+            tracing_module,
+            "read_transcript",
+            side_effect=[transcript_without_user, transcript_with_user],
+        ) as read_transcript_mock,
+    ):
+        monkeypatch.setattr(tracing_module.time, "sleep", lambda _: None)
+        trace = process_transcript(
+            "unused-path",
+            "retry-session",
+            transcript_read_retries=1,
+            transcript_read_delay_ms=0,
+        )
+
+    assert trace is not None
+    assert read_transcript_mock.call_count == 2

@@ -3,8 +3,11 @@ import json
 import pytest
 
 from mlflow.claude_code.config import (
+    MLFLOW_TRANSCRIPT_READ_DELAY_MS,
+    MLFLOW_TRANSCRIPT_READ_RETRIES,
     MLFLOW_TRACING_ENABLED,
     get_env_var,
+    get_int_env_var,
     get_tracing_status,
     load_claude_config,
     save_claude_config,
@@ -113,6 +116,18 @@ def test_get_env_var_default_when_not_found(tmp_path, monkeypatch):
     assert result == "default_value"
 
 
+def test_get_int_env_var_returns_default_for_invalid_value(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(MLFLOW_TRANSCRIPT_READ_RETRIES, "not-an-int")
+    assert get_int_env_var(MLFLOW_TRANSCRIPT_READ_RETRIES, default=3) == 3
+
+
+def test_get_int_env_var_reads_non_negative_value(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(MLFLOW_TRANSCRIPT_READ_RETRIES, "7")
+    assert get_int_env_var(MLFLOW_TRANSCRIPT_READ_RETRIES, default=3) == 7
+
+
 def test_get_tracing_status_enabled(temp_settings_path):
     # Create settings with tracing enabled
     config_data = {"environment": {MLFLOW_TRACING_ENABLED: "true"}}
@@ -122,6 +137,22 @@ def test_get_tracing_status_enabled(temp_settings_path):
     status = get_tracing_status(temp_settings_path)
     assert status.enabled is True
     assert hasattr(status, "tracking_uri")
+
+
+def test_get_tracing_status_parses_transcript_settings(temp_settings_path):
+    config_data = {
+        "environment": {
+            MLFLOW_TRACING_ENABLED: "true",
+            MLFLOW_TRANSCRIPT_READ_RETRIES: "9",
+            MLFLOW_TRANSCRIPT_READ_DELAY_MS: "125",
+        }
+    }
+    with open(temp_settings_path, "w") as f:
+        json.dump(config_data, f)
+
+    status = get_tracing_status(temp_settings_path)
+    assert status.transcript_read_retries == 9
+    assert status.transcript_read_delay_ms == 125
 
 
 def test_get_tracing_status_disabled(temp_settings_path):
@@ -183,3 +214,17 @@ def test_setup_environment_config_experiment_id_precedence(temp_settings_path):
     assert env_vars[MLFLOW_TRACING_ENABLED] == "true"
     assert env_vars["MLFLOW_TRACKING_URI"] == new_tracking_uri
     assert env_vars["MLFLOW_EXPERIMENT_ID"] == new_experiment_id
+
+
+def test_setup_environment_config_sets_transcript_retry_settings(temp_settings_path):
+    setup_environment_config(
+        temp_settings_path,
+        tracking_uri="test://localhost",
+        transcript_read_retries=8,
+        transcript_read_delay_ms=250,
+    )
+
+    config = json.loads(temp_settings_path.read_text())
+    env_vars = config["environment"]
+    assert env_vars[MLFLOW_TRANSCRIPT_READ_RETRIES] == "8"
+    assert env_vars[MLFLOW_TRANSCRIPT_READ_DELAY_MS] == "250"

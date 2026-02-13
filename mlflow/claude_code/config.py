@@ -20,6 +20,8 @@ ENVIRONMENT_FIELD = "environment"
 # MLflow environment variable constants
 MLFLOW_HOOK_IDENTIFIER = "mlflow.claude_code.hooks"
 MLFLOW_TRACING_ENABLED = "MLFLOW_CLAUDE_TRACING_ENABLED"
+MLFLOW_TRANSCRIPT_READ_RETRIES = "MLFLOW_CLAUDE_TRANSCRIPT_READ_RETRIES"
+MLFLOW_TRANSCRIPT_READ_DELAY_MS = "MLFLOW_CLAUDE_TRANSCRIPT_READ_DELAY_MS"
 
 
 @dataclass
@@ -30,7 +32,19 @@ class TracingStatus:
     tracking_uri: str | None = None
     experiment_id: str | None = None
     experiment_name: str | None = None
+    transcript_read_retries: int | None = None
+    transcript_read_delay_ms: int | None = None
     reason: str | None = None
+
+
+def _parse_optional_non_negative_int(raw_value: str | None) -> int | None:
+    if raw_value is None:
+        return None
+    try:
+        value = int(raw_value)
+        return value if value >= 0 else None
+    except ValueError:
+        return None
 
 
 def load_claude_config(settings_path: Path) -> dict[str, Any]:
@@ -84,6 +98,12 @@ def get_tracing_status(settings_path: Path) -> TracingStatus:
         tracking_uri=env_vars.get(MLFLOW_TRACKING_URI.name),
         experiment_id=env_vars.get(MLFLOW_EXPERIMENT_ID.name),
         experiment_name=env_vars.get(MLFLOW_EXPERIMENT_NAME.name),
+        transcript_read_retries=_parse_optional_non_negative_int(
+            env_vars.get(MLFLOW_TRANSCRIPT_READ_RETRIES)
+        ),
+        transcript_read_delay_ms=_parse_optional_non_negative_int(
+            env_vars.get(MLFLOW_TRANSCRIPT_READ_DELAY_MS)
+        ),
     )
 
 
@@ -120,11 +140,23 @@ def get_env_var(var_name: str, default: str = "") -> str:
     return default
 
 
+def get_int_env_var(var_name: str, default: int) -> int:
+    """Get non-negative integer environment variable with a fallback default."""
+    raw_value = get_env_var(var_name, str(default))
+    try:
+        value = int(raw_value)
+        return value if value >= 0 else default
+    except ValueError:
+        return default
+
+
 def setup_environment_config(
     settings_path: Path,
     tracking_uri: str | None = None,
     experiment_id: str | None = None,
     experiment_name: str | None = None,
+    transcript_read_retries: int | None = None,
+    transcript_read_delay_ms: int | None = None,
 ) -> None:
     """Set up MLflow environment variables in Claude settings.
 
@@ -153,5 +185,15 @@ def setup_environment_config(
     elif experiment_name:
         config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_NAME.name] = experiment_name
         config[ENVIRONMENT_FIELD].pop(MLFLOW_EXPERIMENT_ID.name, None)
+
+    if transcript_read_retries is not None:
+        if transcript_read_retries < 0:
+            raise ValueError("transcript_read_retries must be >= 0")
+        config[ENVIRONMENT_FIELD][MLFLOW_TRANSCRIPT_READ_RETRIES] = str(transcript_read_retries)
+
+    if transcript_read_delay_ms is not None:
+        if transcript_read_delay_ms < 0:
+            raise ValueError("transcript_read_delay_ms must be >= 0")
+        config[ENVIRONMENT_FIELD][MLFLOW_TRANSCRIPT_READ_DELAY_MS] = str(transcript_read_delay_ms)
 
     save_claude_config(settings_path, config)

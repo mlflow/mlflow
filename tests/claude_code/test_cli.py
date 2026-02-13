@@ -23,6 +23,8 @@ def test_trace_command_help(runner):
     assert "Set up Claude Code tracing" in result.output
     assert "--tracking-uri" in result.output
     assert "--experiment-id" in result.output
+    assert "--transcript-read-retries" in result.output
+    assert "--transcript-read-delay-ms" in result.output
     assert "--disable" in result.output
     assert "--status" in result.output
 
@@ -38,4 +40,4 @@ def test_trace_disable_with_no_config(runner):
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude", "--disable"])
         assert result.exit_code == 0
-        # Should handle gracefully even if no config exists
+        assert "No Claude configuration found" in result.output
