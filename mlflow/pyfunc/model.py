@@ -95,6 +95,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uv_utils import copy_uv_project_files, get_python_version_from_uv_project
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -1033,6 +1034,9 @@ def _save_model_with_class_artifacts_params(
     streamable=None,
     model_code_path=None,
     infer_code_paths=False,
+    uv_project_path=None,
+    uv_groups=None,
+    uv_extras=None,
 ):
     """
     Args:
@@ -1072,6 +1076,10 @@ def _save_model_with_class_artifacts_params(
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
     """
+    # Capture original working directory for UV project detection
+    # This must be done before any operations that might change cwd
+    original_cwd = Path.cwd()
+
     if mlflow_model is None:
         mlflow_model = Model()
 
@@ -1213,13 +1221,17 @@ def _save_model_with_class_artifacts_params(
             )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
-            inferred_reqs = mlflow.models.infer_pip_requirements(
+            # Infer requirements from model or UV project (either/or, not merged)
+            # - If UV project detected: uses uv export (complete lockfile)
+            # - Otherwise: infers dependencies by capturing imported packages
+            default_reqs = mlflow.models.infer_pip_requirements(
                 path,
                 mlflow.pyfunc.FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
+                uv_groups=uv_groups,
+                uv_extras=uv_extras,
             )
-            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
@@ -1240,7 +1252,20 @@ def _save_model_with_class_artifacts_params(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    # Copy UV project files (uv.lock and pyproject.toml) if detected
+    uv_source_dir = uv_project_path or original_cwd
+    copy_uv_project_files(dest_dir=path, source_dir=uv_source_dir)
+
+    # Use UV project's Python version if available, otherwise use current
+    if uv_python_version := get_python_version_from_uv_project(uv_source_dir):
+        python_env = _PythonEnv(
+            python=uv_python_version,
+            build_dependencies=_PythonEnv.get_current_build_dependencies(),
+            dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
+        )
+        python_env.to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    else:
+        _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 def _load_context_model_and_signature(model_path: str, model_config: dict[str, Any] | None = None):
