@@ -318,8 +318,8 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
         if file_path.parts[0] != "mlflow":
             continue
 
-        # Ignore private modules
-        if any(part.startswith("_") for part in file_path.parts):
+        # Ignore private modules (but not __init__.py)
+        if any(part.startswith("_") and part != "__init__.py" for part in file_path.parts):
             continue
 
         base_content = get_file_content_at_revision(file_path, base_branch)
