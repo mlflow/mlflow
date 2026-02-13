@@ -190,6 +190,7 @@ export const ExperimentListTable = ({
               onCreateExperiment ? (
                 <Button
                   componentId="mlflow.experiment_list_table.create_experiment"
+                  data-testid="create-experiment-table-empty-state-button"
                   onClick={onCreateExperiment}
                   type="primary"
                   icon={<PlusIcon />}
