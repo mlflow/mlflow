@@ -368,11 +368,6 @@ const sidebarsClassicML: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'tracking/pickle-free-models/index',
-              label: 'Pickle-Free Model format',
-            },
-            {
-              type: 'doc',
               id: 'tracking/tracking-api/index',
               label: 'Tracking APIs',
             },
@@ -394,6 +389,11 @@ const sidebarsClassicML: SidebarsConfig = {
               type: 'doc',
               id: 'community-model-flavors/index',
               label: 'Community-Managed Model Integrations',
+            },
+            {
+              type: 'doc',
+              id: 'tracking/pickle-free-models/index',
+              label: 'Pickle-Free Model format',
             },
           ],
         },
