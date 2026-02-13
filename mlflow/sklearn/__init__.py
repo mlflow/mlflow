@@ -101,7 +101,8 @@ SUPPORTED_SERIALIZATION_FORMATS = [
 _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
 
-_MODEL_DATA_SUBPATH = "model.pkl"
+_PICKLE_MODEL_DATA_SUBPATH = "model.pkl"
+_SKOPS_MODEL_DATA_SUBPATH = "model.skops"
 
 
 def _gen_estimators_to_patch():
@@ -291,7 +292,10 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_subpath = _MODEL_DATA_SUBPATH
+    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
+        model_data_subpath = _SKOPS_MODEL_DATA_SUBPATH
+    else:
+        model_data_subpath = _PICKLE_MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
     _save_model(
         sk_model=sk_model,
