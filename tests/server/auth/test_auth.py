@@ -2424,3 +2424,44 @@ def test_gateway_endpoint_invocation_requires_use_permission(fastapi_client, mon
             json={"secret_id": secret_id},
             auth=(user1, password1),
         ).raise_for_status()
+
+
+def test_get_online_scoring_configs_with_auth(client, monkeypatch):
+    """
+    Test that the /ajax-api/3.0/mlflow/scorers/online-configs endpoint works with basic-auth.
+    This is a regression test for the TypeError that occurred when the endpoint was incorrectly
+    included in AFTER_REQUEST_HANDLERS.
+    """
+    username, password = create_user(client.tracking_uri)
+
+    with User(username, password, monkeypatch):
+        experiment_id = client.create_experiment("test_experiment")
+
+        # Register a scorer
+        scorer_json = '{"name": "test_scorer", "type": "pyfunc"}'
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/scorers/register",
+            json_payload={
+                "experiment_id": experiment_id,
+                "name": "test_scorer",
+                "serialized_scorer": scorer_json,
+            },
+            auth=(username, password),
+        )
+        scorer_name = response.json()["name"]
+
+        # Test the online scoring configs endpoint (GET)
+        # This should not raise a TypeError as it did before when the endpoint
+        # was incorrectly included in AFTER_REQUEST_HANDLERS
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/scorers/online-configs",
+            params={"scorer_ids": f"{experiment_id}.{scorer_name}"},
+            auth=(username, password),
+        )
+
+        # Should return 200 (not 500 with TypeError)
+        assert response.status_code == 200
+        data = response.json()
+        assert "configs" in data
+        assert isinstance(data["configs"], list)
