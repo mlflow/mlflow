@@ -208,7 +208,12 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    model_data_subpath = "model.lgb" if isinstance(lgb_model, lgb.Booster) else "model.pkl"
+    if isinstance(lgb_model, lgb.Booster):
+        model_data_subpath = "model.lgb"
+    elif serialization_format == "skops":
+        model_data_subpath = "model.skops"
+    else:
+        model_data_subpath = "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
