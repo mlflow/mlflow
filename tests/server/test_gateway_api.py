@@ -2775,7 +2775,7 @@ async def test_openai_passthrough_streaming_captures_chunks(store: SqlAlchemySto
     )
     assert (
         trace.info.request_metadata.get(TraceMetadataKey.GATEWAY_REQUEST_TYPE)
-        == GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_STREAM_GENERATE_CONTENT
+        == GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT
     )
 
     gateway_span = next(
