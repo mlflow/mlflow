@@ -8,6 +8,8 @@ import {
   getTracesFilteredUrl,
   createAssessmentEqualsFilter,
   createAssessmentExistsFilter,
+  createSpanNameEqualsFilter,
+  createSpanStatusEqualsFilter,
   ScrollableTooltip,
 } from './OverviewChartComponents';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
@@ -111,6 +113,30 @@ describe('createAssessmentExistsFilter', () => {
   it('should create correct filter string format', () => {
     const filter = createAssessmentExistsFilter('quality');
     expect(filter).toBe('ASSESSMENT::IS NOT NULL::::quality');
+  });
+});
+
+describe('createSpanNameEqualsFilter', () => {
+  it('should create correct filter string format', () => {
+    const filter = createSpanNameEqualsFilter('my_tool');
+    expect(filter).toBe('span.name::=::my_tool');
+  });
+
+  it('should handle tool names with special characters', () => {
+    const filter = createSpanNameEqualsFilter('get_weather_data');
+    expect(filter).toBe('span.name::=::get_weather_data');
+  });
+});
+
+describe('createSpanStatusEqualsFilter', () => {
+  it('should create correct filter string for ERROR status', () => {
+    const filter = createSpanStatusEqualsFilter('ERROR');
+    expect(filter).toBe('span.status::=::ERROR');
+  });
+
+  it('should create correct filter string for OK status', () => {
+    const filter = createSpanStatusEqualsFilter('OK');
+    expect(filter).toBe('span.status::=::OK');
   });
 });
 

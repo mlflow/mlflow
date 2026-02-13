@@ -2479,6 +2479,7 @@ def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
 
 def test_delete_prompt_with_no_versions(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
+    mlflow.set_experiment("test_delete_prompt_with_no_versions")
 
     # Create prompt and version, then delete version
     client.register_prompt(name="empty_prompt", template="Hello {{name}}!")

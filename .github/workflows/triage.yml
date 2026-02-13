@@ -1,0 +1,77 @@
+name: triage
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    paths:
+      - .github/workflows/triage.yml
+      - .github/workflows/triage.py
+      - .github/workflows/triage.md
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Test job: runs on PR changes against a fixed set of issues
+  test:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions: {}
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            .github/workflows/triage.py
+            .github/workflows/triage.md
+          sparse-checkout-cone-mode: false
+
+      - run: python .github/workflows/triage.py test
+
+  # Main job: runs on new bug issues
+  # Comments are only posted for area/uiux bugs; other bugs are triaged silently for observation.
+  triage:
+    if: >-
+      github.event_name == 'issues'
+      && contains(github.event.issue.labels.*.name, 'bug')
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: .github/workflows/triage.py
+          sparse-checkout-cone-mode: false
+
+      - name: Triage issue
+        id: triage
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          result=$(python .github/workflows/triage.py triage --title "$ISSUE_TITLE" --body "$ISSUE_BODY")
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+
+      - name: Comment and label if info needed
+        if: >-
+          fromJSON(steps.triage.outputs.result).comment
+          && contains(github.event.issue.labels.*.name, 'area/uiux')
+        env:
+          COMMENT: ${{ fromJSON(steps.triage.outputs.result).comment }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "$COMMENT
+
+          ---
+          [Workflow run]($RUN_URL)"
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "needs author feedback"

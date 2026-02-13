@@ -25,6 +25,9 @@ class TraceMetadataKey:
     # Gateway-specific metadata keys
     GATEWAY_ENDPOINT_ID = "mlflow.gateway.endpointId"
     GATEWAY_REQUEST_TYPE = "mlflow.gateway.requestType"
+    # Store the user ID/name from authentication
+    AUTH_USER_ID = "mlflow.auth.userId"
+    AUTH_USERNAME = "mlflow.auth.username"
 
 
 class TraceTagKey:
@@ -101,10 +104,6 @@ class SpanAttributeKey:
     # within an active span. Stored as a JSON list of {"name": "...", "version": "..."} objects,
     # same format as LINKED_PROMPTS_TAG_KEY in traces.
     LINKED_PROMPTS = "mlflow.linkedPrompts"
-    # Provider name for LLM provider spans (e.g., "OpenAI", "Anthropic")
-    MODEL_PROVIDER = "mlflow.llm.provider"
-    # Model name for LLM provider spans (e.g., "gpt-4", "claude-3-opus")
-    MODEL = "mlflow.llm.model"
 
 
 class AssessmentMetadataKey:
@@ -205,6 +204,13 @@ class SpanMetricKey:
 
     SPAN_COUNT = "span_count"
     LATENCY = "latency"
+    INPUT_COST = "input_cost"
+    OUTPUT_COST = "output_cost"
+    TOTAL_COST = "total_cost"
+
+    @classmethod
+    def cost_keys(cls) -> list[str]:
+        return [cls.INPUT_COST, cls.OUTPUT_COST, cls.TOTAL_COST]
 
 
 class SpanMetricDimensionKey:
@@ -215,6 +221,8 @@ class SpanMetricDimensionKey:
     SPAN_NAME = "span_name"
     SPAN_TYPE = "span_type"
     SPAN_STATUS = "span_status"
+    SPAN_MODEL_NAME = "span_model_name"
+    SPAN_MODEL_PROVIDER = "span_model_provider"
 
 
 class AssessmentMetricKey:

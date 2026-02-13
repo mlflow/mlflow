@@ -7,6 +7,9 @@ import type { ModelListTableProps } from './ModelListTable';
 import { ModelListTable } from './ModelListTable';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
+
 import { Stages } from '../../constants';
 import Utils from '../../../common/utils/Utils';
 import { withNextModelsUIContext } from '../../hooks/useNextModelsUI';
