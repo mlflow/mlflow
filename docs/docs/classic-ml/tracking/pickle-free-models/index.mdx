@@ -90,7 +90,7 @@ with mlflow.start_run():
     mlflow.pytorch.log_model(
         sequential_model,
         name="model",
-        serialization_format="skops",
+        serialization_format="pt2",
         input_example=input_example,
     )
 ```
