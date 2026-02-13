@@ -24,6 +24,7 @@ from mlflow.genai.discovery import (
     _format_analysis_for_clustering,
     _generate_scorer_instructions,
     _get_existing_score,
+    _has_session_ids,
     _IdentifiedIssue,
     _IssueClusteringResult,
     _partition_by_existing_scores,
@@ -69,6 +70,7 @@ def _make_trace(
     execution_duration=500,
     spans=None,
     assessments=None,
+    tags=None,
 ):
     info = MagicMock(spec=TraceInfo)
     info.trace_id = trace_id
@@ -76,6 +78,7 @@ def _make_trace(
     info.response_preview = response_preview
     info.execution_duration = execution_duration
     info.assessments = assessments or []
+    info.tags = tags or {}
 
     data = MagicMock(spec=TraceData)
     data.spans = spans or [_make_mock_span()]
@@ -370,11 +373,12 @@ def test_extract_failing_traces_no_failures():
 
 
 def test_compute_frequencies():
+    # False = issue detected (fail), True = clean (pass)
     df = pd.DataFrame(
         {
-            "issue_a/value": [True, True, True, False, False, False, False, False, False, False],
+            "issue_a/value": [False, False, False, True, True, True, True, True, True, True],
             "issue_a/rationale": ["r1", "r2", "r3"] + ["ok"] * 7,
-            "issue_b/value": [True, False, False, False, False, False, False, False, False, False],
+            "issue_b/value": [False, True, True, True, True, True, True, True, True, True],
             "issue_b/rationale": ["r1"] + ["ok"] * 9,
         }
     )
@@ -475,19 +479,49 @@ def test_partition_by_existing_scores():
     assert needs_scoring[0].info.trace_id == "unscored"
 
 
+# ---- _has_session_ids ----
+
+
+def test_has_session_ids_true():
+    trace = _make_trace()
+    trace.info.tags = {"mlflow.trace.session_id": "session-1"}
+    assert _has_session_ids([trace]) is True
+
+
+def test_has_session_ids_false():
+    trace = _make_trace()
+    trace.info.tags = {}
+    assert _has_session_ids([trace]) is False
+
+
+def test_has_session_ids_mixed():
+    t1 = _make_trace(trace_id="t-1")
+    t1.info.tags = {}
+    t2 = _make_trace(trace_id="t-2")
+    t2.info.tags = {"mlflow.trace.session_id": "session-1"}
+    assert _has_session_ids([t1, t2]) is True
+
+
 # ---- _build_default_satisfaction_scorer ----
 
 
-def test_build_default_satisfaction_scorer():
+@pytest.mark.parametrize(
+    ("use_conversation", "expected_var"),
+    [
+        (True, "{{ conversation }}"),
+        (False, "{{ trace }}"),
+    ],
+)
+def test_build_default_satisfaction_scorer(use_conversation, expected_var):
     with patch("mlflow.genai.discovery.make_judge", return_value=MagicMock()) as mock_make_judge:
-        _build_default_satisfaction_scorer("openai:/gpt-4")
+        _build_default_satisfaction_scorer("openai:/gpt-4", use_conversation=use_conversation)
 
     mock_make_judge.assert_called_once()
     call_kwargs = mock_make_judge.call_args[1]
     assert call_kwargs["name"] == _DEFAULT_SCORER_NAME
     assert call_kwargs["feedback_value_type"] is bool
     assert call_kwargs["model"] == "openai:/gpt-4"
-    assert "{{ conversation }}" in call_kwargs["instructions"]
+    assert expected_var in call_kwargs["instructions"]
 
 
 # ---- discover_issues (integration) ----
@@ -538,6 +572,7 @@ def test_discover_issues_all_traces_pass():
             "mlflow.genai.discovery.mlflow.genai.evaluate",
             side_effect=[test_eval, triage_eval],
         ),
+        patch("mlflow.genai.discovery.mlflow.MlflowClient"),
     ):
         result = discover_issues()
 
@@ -599,9 +634,10 @@ def test_discover_issues_full_pipeline():
         detection_instructions="Check the {{ trace }} execution duration"
     )
 
+    # False = issue detected (fail), True = clean (pass)
     validation_df = pd.DataFrame(
         {
-            "slow_response/value": [True] * 3 + [False] * 7,
+            "slow_response/value": [False] * 3 + [True] * 7,
             "slow_response/rationale": ["slow"] * 3 + ["fast"] * 7,
         }
     )
@@ -618,6 +654,7 @@ def test_discover_issues_full_pipeline():
             "mlflow.genai.discovery.get_chat_completions_with_structured_output",
             side_effect=[deep_analysis_result, clustering_result, scorer_instructions_result],
         ),
+        patch("mlflow.genai.discovery.mlflow.MlflowClient"),
     ):
         result = discover_issues(sample_size=10)
 
@@ -689,6 +726,7 @@ def test_discover_issues_low_frequency_issues_discarded():
             "mlflow.genai.discovery.get_chat_completions_with_structured_output",
             side_effect=[deep_analysis_result, clustering_result],
         ),
+        patch("mlflow.genai.discovery.mlflow.MlflowClient"),
     ):
         result = discover_issues(sample_size=5)
 
@@ -746,6 +784,7 @@ def test_discover_issues_custom_satisfaction_scorer():
             "mlflow.genai.discovery.mlflow.genai.evaluate",
             side_effect=[test_eval, triage_eval],
         ) as mock_eval,
+        patch("mlflow.genai.discovery.mlflow.MlflowClient"),
     ):
         discover_issues(satisfaction_scorer=custom_scorer)
 
