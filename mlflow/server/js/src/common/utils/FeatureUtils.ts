@@ -173,7 +173,7 @@ export const shouldEnableWorkflowBasedNavigation = () => {
  */
 export const shouldEnableImprovedEvalRunsComparison = () => {
   return false;
-}
+};
 
 export const isScorerModelSelectionEnabled = () => {
   return true;

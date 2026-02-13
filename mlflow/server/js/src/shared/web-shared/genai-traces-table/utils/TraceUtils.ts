@@ -9,9 +9,7 @@ import type {
   ModelTraceInfoV3,
   RetrieverDocument,
 } from '../../model-trace-explorer/ModelTrace.types';
-import {
-  createTraceV4LongIdentifier,
-} from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import { createTraceV4LongIdentifier } from '../../model-trace-explorer/ModelTraceExplorer.utils';
 import { getAssessmentValue } from '../../model-trace-explorer/assessments-pane/utils';
 import { ModelTraceSpanType } from '../../model-trace-explorer/ModelTrace.types';
 

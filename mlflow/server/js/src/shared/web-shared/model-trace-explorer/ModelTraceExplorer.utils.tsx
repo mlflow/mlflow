@@ -54,7 +54,7 @@ import {
   normalizeOpenAIResponsesOutput,
   normalizeOpenAIAgentInput,
   normalizeOpenAIAgentOutput,
-  normalizeOpenAIResponsesStreamingOutput
+  normalizeOpenAIResponsesStreamingOutput,
 } from './chat-utils/openai';
 import { normalizeLangchainChatInput, normalizeLangchainChatResult } from './chat-utils/langchain';
 import { normalizeLlamaIndexChatInput, normalizeLlamaIndexChatResponse } from './chat-utils/llamaindex';
@@ -64,10 +64,7 @@ import { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from './chat-ut
 import { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from './chat-utils/pydanticai';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 import { getSpanAttribute } from '../genai-traces-table/utils/TraceUtils';
-import {
-  normalizeMistralChatInput,
-  normalizeMistralChatOutput,
-} from './chat-utils/mistral';
+import { normalizeMistralChatInput, normalizeMistralChatOutput } from './chat-utils/mistral';
 import {
   normalizeVoltAgentChatInput,
   normalizeVoltAgentChatOutput,

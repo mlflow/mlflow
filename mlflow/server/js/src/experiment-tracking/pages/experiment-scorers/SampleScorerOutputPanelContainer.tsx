@@ -11,7 +11,10 @@ import { LLM_TEMPLATE, isGuidelinesTemplate } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
-import { isEvaluatingSessionsInScorersEnabled, isScorerModelSelectionEnabled } from '../../../common/utils/FeatureUtils';
+import {
+  isEvaluatingSessionsInScorersEnabled,
+  isScorerModelSelectionEnabled,
+} from '../../../common/utils/FeatureUtils';
 import { isDirectModel } from '../../../gateway/utils/gatewayUtils';
 
 interface SampleScorerOutputPanelContainerProps {
