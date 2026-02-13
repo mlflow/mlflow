@@ -674,21 +674,18 @@ def process_transcript(
 
 
 def _find_sdk_user_prompt(messages: list[Any]) -> str | None:
-    """Find the first actual user prompt (not tool results) from SDK messages."""
-    from claude_agent_sdk.types import TextBlock, ToolResultBlock, UserMessage
+    from claude_agent_sdk.types import TextBlock, UserMessage
 
     for msg in messages:
-        if not isinstance(msg, UserMessage):
-            continue
-        if msg.tool_use_result is not None:
+        if not isinstance(msg, UserMessage) or msg.tool_use_result is not None:
             continue
         content = msg.content
-        if isinstance(content, list):
-            if all(isinstance(block, ToolResultBlock) for block in content):
-                continue
-            text = "\n".join(b.text for b in content if isinstance(b, TextBlock))
-        elif isinstance(content, str):
+        if isinstance(content, str):
             text = content
+        elif isinstance(content, list):
+            text = "\n".join(
+                block.text for block in content if isinstance(block, TextBlock)
+            )
         else:
             continue
         if text and text.strip():
@@ -699,8 +696,15 @@ def _find_sdk_user_prompt(messages: list[Any]) -> str | None:
 def process_sdk_messages(
     messages: list[Any], session_id: str | None = None
 ) -> mlflow.entities.Trace | None:
-    """Process SDK Message objects into an MLflow trace, analogous to process_transcript
-    for CLI-format transcripts.
+    """Build an MLflow trace from Claude Agent SDK message objects.
+
+    Args:
+        messages: List of SDK message objects (UserMessage, AssistantMessage,
+            ResultMessage, etc.) captured during a conversation.
+        session_id: Optional session identifier; defaults to a timestamp-based ID.
+
+    Returns:
+        MLflow Trace if successful, None if no user prompt is found or processing fails.
     """
     from claude_agent_sdk.types import (
         AssistantMessage,
@@ -725,11 +729,9 @@ def process_sdk_messages(
             session_id = f"claude-sdk-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         get_logger().log(
-            CLAUDE_TRACING_LEVEL, "Creating MLflow trace from SDK messages for session: %s",
-            session_id,
+            CLAUDE_TRACING_LEVEL, "Creating MLflow trace for session: %s", session_id,
         )
 
-        # Build tool_use_id → result content map from UserMessages containing ToolResultBlocks
         tool_result_map: dict[str, str] = {}
         for msg in messages:
             if isinstance(msg, UserMessage) and isinstance(msg.content, list):
@@ -763,13 +765,13 @@ def process_sdk_messages(
             if not isinstance(msg, AssistantMessage) or not msg.content:
                 continue
 
-            text_blocks = [b for b in msg.content if isinstance(b, TextBlock)]
-            tool_use_blocks = [b for b in msg.content if isinstance(b, ToolUseBlock)]
+            text_blocks = [block for block in msg.content if isinstance(block, TextBlock)]
+            tool_use_blocks = [block for block in msg.content if isinstance(block, ToolUseBlock)]
             span_time_ns += int(100 * NANOSECONDS_PER_MS)
 
             if text_blocks and not tool_use_blocks:
                 llm_call_num += 1
-                text = "\n".join(b.text for b in text_blocks)
+                text = "\n".join(block.text for block in text_blocks)
                 if text.strip():
                     final_response = text
                 llm_span = mlflow.start_span_no_context(

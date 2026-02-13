@@ -1,5 +1,6 @@
 import sys
 from dataclasses import dataclass
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -27,18 +28,14 @@ def test_anthropic_autolog_without_claude_sdk():
 
 
 def _make_mock_options(hooks=None):
-    """Create a mock ClaudeAgentOptions with real hooks dict."""
-
     @dataclass
     class FakeOptions:
-        hooks: dict | None = None
+        hooks: dict[str, Any] | None = None
 
     return FakeOptions(hooks=hooks)
 
 
 def _make_mock_hook_matcher(**kwargs):
-    """Create a simple mock for HookMatcher that stores its arguments."""
-
     class FakeHookMatcher:
         def __init__(self, hooks=None):
             self.hooks = hooks or []

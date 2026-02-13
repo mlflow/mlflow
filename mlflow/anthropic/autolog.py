@@ -19,20 +19,27 @@ _logger = logging.getLogger(__name__)
 
 
 def patched_claude_sdk_init(original, self, options=None):
-    """Patched __init__ that wraps query/receive_messages to capture messages and adds
-    a closure-based Stop hook that builds an MLflow trace from accumulated messages.
+    """Wrap query/receive_messages to capture messages and inject a Stop hook
+    that builds an MLflow trace from the accumulated conversation.
+
+    Args:
+        original: The original ``ClaudeSDKClient.__init__`` method.
+        self: The ``ClaudeSDKClient`` instance being initialized.
+        options: Optional ``ClaudeAgentOptions`` forwarded to the original init.
+
+    Returns:
+        The result of the original ``__init__`` call.
     """
     try:
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
         from claude_agent_sdk.types import UserMessage
 
-        # Call original init first so the instance is fully initialized
-        result = original(self, options if options is not None else ClaudeAgentOptions())
+        result = original(self, options)
 
         messages_buffer: list[Any] = []
 
-        # Wrap query to capture user prompts (query() sends the prompt but doesn't
-        # echo it back through receive_messages)
+        # query() sends the prompt to the CLI subprocess but doesn't echo it
+        # back through receive_messages, so we capture it here
         original_query = self.query
 
         @functools.wraps(original_query)
@@ -43,7 +50,6 @@ def patched_claude_sdk_init(original, self, options=None):
 
         self.query = wrapped_query
 
-        # Wrap receive_messages at the instance level to capture response messages
         original_receive_messages = self.receive_messages
 
         @functools.wraps(original_receive_messages)
@@ -54,7 +60,6 @@ def patched_claude_sdk_init(original, self, options=None):
 
         self.receive_messages = wrapped_receive_messages
 
-        # Create a closure-based Stop hook that uses the captured messages
         async def _sdk_stop_hook(input_data, tool_use_id, context):
             from mlflow.claude_code.hooks import get_hook_response
             from mlflow.utils.autologging_utils import autologging_is_disabled
@@ -80,21 +85,18 @@ def patched_claude_sdk_init(original, self, options=None):
             finally:
                 messages_buffer.clear()
 
-        # Inject the closure hook into options on the already-initialized client
         if self.options is None:
             self.options = ClaudeAgentOptions()
         if self.options.hooks is None:
             self.options.hooks = {}
-        if "Stop" not in self.options.hooks:
-            self.options.hooks["Stop"] = []
-
-        self.options.hooks["Stop"].append(HookMatcher(hooks=[_sdk_stop_hook]))
+        self.options.hooks.setdefault("Stop", []).append(
+            HookMatcher(hooks=[_sdk_stop_hook])
+        )
 
         return result
 
     except Exception as e:
         _logger.debug("Error in patched_claude_sdk_init: %s", e, exc_info=True)
-        # Fall back to original behavior if patching fails
         return original(self, options)
 
 
