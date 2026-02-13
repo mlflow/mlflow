@@ -79,7 +79,9 @@ def _load_model(model_uri, dst_path=None):
             os.path.join(local_model_path, _MODEL_DATA_PATH, _DSPY_SETTINGS_FILE_NAME)
         )
 
-        model_config_file = os.path.join(local_model_path, _MODEL_DATA_PATH, _MODEL_CONFIG_FILE_NAME)
+        model_config_file = os.path.join(
+            local_model_path, _MODEL_DATA_PATH, _MODEL_CONFIG_FILE_NAME
+        )
         if os.path.exists(model_config_file):
             with open(model_config_file) as f:
                 model_config = json.load(f)
