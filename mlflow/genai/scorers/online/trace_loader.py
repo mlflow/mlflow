@@ -3,8 +3,10 @@
 import logging
 
 from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
+from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 
 _logger = logging.getLogger(__name__)
 
@@ -58,9 +60,6 @@ class OnlineTraceLoader:
         Returns:
             List of Trace objects with span data loaded from the artifact repo.
         """
-        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-        from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
-
         trace_infos = self._tracking_store.batch_get_trace_infos(trace_ids)
 
         traces = []

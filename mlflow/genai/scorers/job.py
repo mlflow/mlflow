@@ -24,6 +24,7 @@ from mlflow.genai.evaluation.session_utils import (
     get_first_trace_in_session,
 )
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.genai.scorers.online import (
     OnlineScorer,
     OnlineScoringConfig,
@@ -191,8 +192,6 @@ def _fetch_traces_batch(
     Raises:
         MlflowException: If any trace IDs are not found.
     """
-    from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
-
     loader = OnlineTraceLoader(tracking_store)
     traces = loader.fetch_traces(trace_ids)
     trace_map = {t.info.trace_id: t for t in traces}
