@@ -19,9 +19,8 @@ This directory contains files to test MLflow tracking operations using the follo
 service=mlflow-sqlite
 ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)" $service
 
-# Build all services (build base image first to avoid race conditions)
-./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)" base
-./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
+# Build all services (COMPOSE_PARALLEL_LIMIT=1 avoids race conditions on base image)
+COMPOSE_PARALLEL_LIMIT=1 ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
 ```
 
 ## Run Services
