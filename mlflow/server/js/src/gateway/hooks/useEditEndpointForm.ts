@@ -261,7 +261,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
           routing_strategy: routingStrategy,
           fallback_config: fallbackConfig,
           usage_tracking: values.usageTracking,
-          experiment_id: values.experimentId || undefined,
         });
 
         navigate(GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id));

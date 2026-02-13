@@ -134,7 +134,6 @@ export function useCreateEndpointForm({
           },
         ],
         usage_tracking: values.usageTracking,
-        experiment_id: values.experimentId || undefined,
       });
 
       onSuccess?.(endpointResponse.endpoint);
