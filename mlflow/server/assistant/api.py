@@ -24,7 +24,7 @@ from mlflow.assistant.providers.base import (
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
-from mlflow.server.assistant.session import SessionManager
+from mlflow.server.assistant.session import SessionManager, terminate_session_process
 
 # TODO: Hardcoded provider until supporting multiple providers
 _provider = ClaudeCodeProvider()
@@ -87,6 +87,14 @@ class ConfigResponse(BaseModel):
 class ConfigUpdateRequest(BaseModel):
     providers: dict[str, Any] | None = None
     projects: dict[str, Any] | None = None
+
+
+class SessionPatchRequest(BaseModel):
+    status: Literal["cancelled"]
+
+
+class SessionPatchResponse(BaseModel):
+    message: str
 
 
 # Skills-related models
@@ -171,6 +179,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
             prompt=pending_message.content,
             tracking_uri=tracking_uri,
             session_id=session.provider_session_id,
+            mlflow_session_id=session_id,
             cwd=session.working_dir,
             context=session.context,
         ):
@@ -190,6 +199,34 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@assistant_router.patch("/sessions/{session_id}")
+async def patch_session(session_id: str, request: SessionPatchRequest) -> SessionPatchResponse:
+    """
+    Update session status.
+
+    Currently supports cancelling an active session, which terminates
+    the running assistant process.
+
+    Args:
+        session_id: The session ID
+        request: SessionPatchRequest with status to set
+
+    Returns:
+        SessionPatchResponse indicating success
+    """
+    session = SessionManager.load(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if request.status == "cancelled":
+        terminated = terminate_session_process(session_id)
+        msg = "Session cancelled and process terminated" if terminated else "Session cancelled"
+        return SessionPatchResponse(message=msg)
+
+    # This branch is unreachable due to Literal type, but satisfies type checker
+    raise HTTPException(status_code=400, detail=f"Unknown status: {request.status}")
 
 
 @assistant_router.get("/providers/{provider}/health")

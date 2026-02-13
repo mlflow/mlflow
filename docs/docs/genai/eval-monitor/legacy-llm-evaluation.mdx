@@ -41,7 +41,7 @@ MLflow 3 displays the evaluation results with intuitive visualizations. Each pre
 
 ##### 2. More powerful and flexible LLM-as-a-Judge
 
-A rich set of built-in [LLM-as-a-Judge](/genai/eval-monitor/scorers/llm-judge) scorers and a flexible toolset to build your own LLM-as-a-Judge supports you to evaluate various aspects of your LLM applications. Furthermore, the new [Agents-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/agentic-overview) capability evaluates complex trace with minimum context window consumption and boilerplate code.
+A rich set of built-in [LLM Judges](/genai/eval-monitor/scorers/llm-judge/custom-judges) and a flexible toolset to build your own LLM-as-a-Judge supports you to evaluate various aspects of your LLM applications. Furthermore, the new [Agents-as-a-Judge](/genai/eval-monitor/scorers/llm-judge/custom-judges) capability evaluates complex trace with minimum context window consumption and boilerplate code.
 
 ##### 3. Integration with other MLflow GenAI capabilities
 
@@ -245,12 +245,12 @@ The new evaluation API supports a rich set of built-in and custom LLM-as-a-Judge
   <tr>
     <td>Retrieval metrics</td>
     <td><APILink fn="mlflow.metrics.precision_at_k">`precision_at_k`</APILink>, <APILink fn="mlflow.metrics.recall_at_k">`recall_at_k`</APILink>, <APILink fn="mlflow.metrics.ndcg_at_k">`ndcg_at_k`</APILink></td>
-    <td>Use the new [built-in retrieval metrics](/genai/eval-monitor/scorers/llm-judge/predefined/#available-scorers) or define a custom code-based scorer.</td>
+    <td>Use the new [built-in retrieval metrics](/genai/eval-monitor/scorers/llm-judge/predefined/#available-judges) or define a custom code-based scorer.</td>
   </tr>
   <tr>
     <td>Built-in LLM-as-a-Judge metrics</td>
     <td><APILink fn="mlflow.metrics.genai.answer_similarity">`answer_similarity`</APILink>, <APILink fn="mlflow.metrics.genai.answer_correctness">`answer_correctness`</APILink>, <APILink fn="mlflow.metrics.genai.answer_relevance">`answer_relevance`</APILink>, <APILink fn="mlflow.metrics.genai.relevance">`relevance`</APILink>, <APILink fn="mlflow.metrics.genai.faithfulness">`faithfulness`</APILink></td>
-    <td>Use the new [built-in LLM scorers](http://localhost:3000/genai/eval-monitor/scorers/llm-judge/predefined/#available-scorers). If the metric is not supported out of the box, define a custom LLM-as-a-Judge scorer using the <APILink fn="mlflow.genai.judges.make_judge">`make_judge`</APILink> API, following the example below.</td>
+    <td>Use the new [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined/#available-judges). If the metric is not supported out of the box, define a custom LLM-as-a-Judge scorer using the <APILink fn="mlflow.genai.judges.make_judge">`make_judge`</APILink> API, following the example below.</td>
   </tr>
   <tr>
     <td>Custom LLM-as-a-Judge metrics</td>
@@ -280,7 +280,7 @@ answer_similarity = make_judge(
 mlflow.genai.evaluate(scorers=[answer_similarity, ...])
 ```
 
-See the [LLM-as-a-Judge Scorers](/genai/eval-monitor/scorers/llm-judge) guide for more details.
+See the [LLM Judges](/genai/eval-monitor/scorers/#llms-as-judges) guide for more details.
 
 #### Example of custom heuristic metrics
 

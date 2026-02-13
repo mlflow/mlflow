@@ -16,7 +16,6 @@ import { DatasetSourceTypes, RunEntity } from '../../types';
 import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
-import { FormattedMessage } from 'react-intl';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
@@ -108,7 +107,8 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     return <div>-</div>;
   }
 
-  const openDatasetDrawer = () => {
+  const openDatasetDrawer = (e: React.MouseEvent) => {
+    e.stopPropagation();
     (meta as any).setSelectedDatasetWithRun({
       datasetWithTags: { dataset: displayedDataset },
       runData: {
@@ -267,5 +267,13 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
   const runStatus = row.original.info.status;
   const Icon = isRowHidden(runUuid, rowIndex, runStatus) ? VisibleOffIcon : VisibleIcon;
 
-  return <Icon onClick={() => toggleRowVisibility(runUuid)} css={{ cursor: 'pointer' }} />;
+  return (
+    <Icon
+      onClick={(e: React.MouseEvent) => {
+        e.stopPropagation();
+        toggleRowVisibility(runUuid);
+      }}
+      css={{ cursor: 'pointer' }}
+    />
+  );
 };

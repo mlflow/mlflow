@@ -61,6 +61,9 @@ export const RootAssistantLayout = ({ children }: { children: ReactNode }) => {
       >
         <div css={{ flex: 1, minWidth: 0, display: 'flex' }}>{children}</div>
 
+        {/* data-assistant-ui marks this as part of the assistant UI so that
+            AssistantAwareDrawer can identify clicks on assistant elements and
+            prevent the drawer from closing. See AssistantAwareDrawer.tsx. */}
         {showPanel && (
           <div
             data-assistant-ui="true"

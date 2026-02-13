@@ -1675,6 +1675,7 @@ class SearchTraceUtils(SearchUtils):
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_METADATA_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
+    VALID_ASSESSMENT_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
@@ -1884,10 +1885,10 @@ class SearchTraceUtils(SearchUtils):
                     "Assessment field name cannot be empty",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+            if comparator not in cls.VALID_ASSESSMENT_COMPARATORS:
                 raise MlflowException(
                     f"assessment.{key_name} comparator '{comparator}' not one of "
-                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'",
+                    f"'{cls.VALID_ASSESSMENT_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True

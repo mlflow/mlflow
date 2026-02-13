@@ -40,6 +40,8 @@ from mlflow.utils.request_utils import (
     cloud_storage_http_request,  # noqa: F401
 )
 from mlflow.utils.string_utils import strip_suffix
+from mlflow.utils.workspace_context import get_request_workspace
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -55,6 +57,22 @@ _ARMERIA_OK = "200 OK"
 _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
     "The 'retry_after_secs' parameter of DatabricksError is deprecated"
 )
+
+
+def _should_include_workspace_header(endpoint: str) -> bool:
+    """
+    Determine whether to attach the workspace header for a given endpoint.
+
+    Workspace administration endpoints encode the workspace in the path, so the header is redundant
+    (and ignored) for those calls. Other endpoints derive isolation from this header when
+    workspaces are enabled.
+    """
+
+    if not endpoint:
+        return True
+
+    normalized = endpoint if endpoint.startswith("/") else f"/{endpoint}"
+    return "/mlflow/workspaces" not in normalized
 
 
 def http_request(
@@ -118,6 +136,10 @@ def http_request(
     headers = dict(**resolve_request_headers())
     if extra_headers:
         headers = dict(**headers, **extra_headers)
+
+    workspace = get_request_workspace()
+    if workspace and _should_include_workspace_header(endpoint):
+        headers.setdefault(WORKSPACE_HEADER_NAME, workspace)
 
     if traffic_id := _MLFLOW_DATABRICKS_TRAFFIC_ID.get():
         headers["x-databricks-traffic-id"] = traffic_id
@@ -301,7 +323,11 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
     return verify_rest_response(response, endpoint)
 
 
-def verify_rest_response(response, endpoint):
+def verify_rest_response(
+    response,
+    endpoint,
+    expected_status: int = 200,
+):
     """Verify the return code and format, raise exception if the request was not successful."""
     # Handle Armeria-specific response case where response text is "200 OK"
     # v1/traces endpoint might return empty response
@@ -309,19 +335,23 @@ def verify_rest_response(response, endpoint):
         response._content = b"{}"  # Update response content to be an empty JSON dictionary
         return response
 
-    # Handle non-200 status codes
-    if response.status_code != 200:
+    # Handle non-expected status codes
+    if response.status_code != expected_status:
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
         else:
             base_msg = (
                 f"API request to endpoint {endpoint} "
-                f"failed with error code {response.status_code} != 200"
+                f"failed with error code {response.status_code} "
+                f"!= {expected_status}"
             )
             raise MlflowException(
                 f"{base_msg}. Response body: '{response.text}'",
                 error_code=get_error_code(response.status_code),
             )
+
+    if response.status_code == 204:
+        return response
 
     # Skip validation for endpoints (e.g. DBFS file-download API) which may return a non-JSON
     # response
@@ -344,7 +374,7 @@ def _validate_max_retries(max_retries):
             "Cannot be negative.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if max_retries >= max_retry_limit:
+    if max_retries > max_retry_limit:
         raise MlflowException(
             message=f"The configured max_retries value ({max_retries}) is "
             f"in excess of the maximum allowable retries ({max_retry_limit})",
@@ -368,7 +398,7 @@ def _validate_backoff_factor(backoff_factor):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if backoff_factor >= max_backoff_factor_limit:
+    if backoff_factor > max_backoff_factor_limit:
         raise MlflowException(
             message=f"The configured backoff_factor value ({backoff_factor}) is in excess "
             "of the maximum allowable backoff_factor limit "
@@ -573,6 +603,7 @@ def call_endpoint(
     response_proto,
     extra_headers=None,
     retry_timeout_seconds=None,
+    expected_status: int = 200,
 ):
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:
@@ -593,7 +624,14 @@ def call_endpoint(
         call_kwargs["json"] = json_body
         response = http_request(**call_kwargs)
 
-    response = verify_rest_response(response, endpoint)
+    response = verify_rest_response(
+        response,
+        endpoint,
+        expected_status=expected_status,
+    )
+    if response.status_code == 204:
+        return response_proto
+
     response_to_parse = response.text
     try:
         js_dict = json.loads(response_to_parse)

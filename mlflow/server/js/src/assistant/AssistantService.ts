@@ -10,7 +10,7 @@ import type {
   HealthCheckResult,
   InstallSkillsResponse,
 } from './types';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
@@ -56,7 +56,9 @@ const processContentBlocks = (
  * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
  */
 export const checkProviderHealth = async (provider: string): Promise<HealthCheckResult> => {
-  const response = await fetch(`${API_BASE}/providers/${provider}/health`);
+  const response = await fetch(`${API_BASE}/providers/${provider}/health`, {
+    headers: { ...getDefaultHeaders(document.cookie) },
+  });
   if (response.ok) {
     return { ok: true };
   }
@@ -68,7 +70,9 @@ export const checkProviderHealth = async (provider: string): Promise<HealthCheck
  * Get the assistant configuration.
  */
 export const getConfig = async (): Promise<AssistantConfig> => {
-  const response = await fetch(`${API_BASE}/config`);
+  const response = await fetch(`${API_BASE}/config`, {
+    headers: { ...getDefaultHeaders(document.cookie) },
+  });
   if (!response.ok) {
     throw new Error(`Failed to get config: ${response.statusText}`);
   }
@@ -82,7 +86,7 @@ export const getConfig = async (): Promise<AssistantConfig> => {
 export const updateConfig = async (config: AssistantConfigUpdate): Promise<AssistantConfig> => {
   const response = await fetch(`${API_BASE}/config`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getDefaultHeaders(document.cookie) },
     body: JSON.stringify(config),
   });
   if (!response.ok) {
@@ -100,24 +104,58 @@ export const createEventSource = (sessionId: string): EventSource => {
 };
 
 /**
+ * Cancel an active session by terminating the backend process.
+ */
+export const cancelSession = async (sessionId: string): Promise<{ message: string }> => {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getDefaultHeaders(document.cookie),
+    },
+    body: JSON.stringify({ status: 'cancelled' }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to cancel session');
+  }
+
+  return response.json();
+};
+
+export interface SendMessageStreamCallbacks {
+  onMessage: (text: string) => void;
+  onError: (error: string) => void;
+  onDone: () => void;
+  onStatus?: (status: string) => void;
+  onSessionId?: (sessionId: string) => void;
+  onToolUse?: (tools: ToolUseInfo[]) => void;
+  onInterrupted?: () => void;
+}
+
+export interface SendMessageStreamResult {
+  eventSource: EventSource | null;
+}
+
+/**
  * Send a message and get the response stream via SSE.
  * First POSTs to /message to initiate, then connects to SSE endpoint.
+ * Returns the EventSource so caller can close it if needed (e.g., on cancel).
  */
 export const sendMessageStream = async (
   request: MessageRequest,
-  onMessage: (text: string) => void,
-  onError: (error: string) => void,
-  onDone: () => void,
-  onStatus?: (status: string) => void,
-  onSessionId?: (sessionId: string) => void,
-  onToolUse?: (tools: ToolUseInfo[]) => void,
-): Promise<void> => {
+  callbacks: SendMessageStreamCallbacks,
+): Promise<SendMessageStreamResult> => {
+  const { onMessage, onError, onDone, onStatus, onSessionId, onToolUse, onInterrupted } = callbacks;
+
   try {
     // Step 1: POST the message to initiate processing
+    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
     const response = await fetch(`${API_BASE}/message`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getDefaultHeaders(document.cookie),
       },
       body: JSON.stringify(request),
     });
@@ -125,7 +163,7 @@ export const sendMessageStream = async (
     if (!response.ok) {
       const error = await response.text();
       onError(`Failed to send message: ${error}`);
-      return;
+      return { eventSource: null };
     }
 
     // Step 2: Get the session_id from the response
@@ -134,7 +172,7 @@ export const sendMessageStream = async (
 
     if (!sessionId) {
       onError('No session_id returned from server');
-      return;
+      return { eventSource: null };
     }
 
     // Notify caller of the session ID
@@ -182,6 +220,17 @@ export const sendMessageStream = async (
     });
 
     // Listen for 'done' event (completion)
+    eventSource.addEventListener('done', () => {
+      onDone();
+      eventSource.close();
+    });
+
+    // Listen for 'interrupted' event (cancelled by user)
+    eventSource.addEventListener('interrupted', () => {
+      onInterrupted?.();
+      eventSource.close();
+    });
+
     eventSource.addEventListener('done', (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -208,14 +257,18 @@ export const sendMessageStream = async (
           onError('Connection error');
         }
       } else if (eventSource.readyState === EventSource.CLOSED) {
-        onError('Connection closed');
+        // Connection closed - this can happen after cancel, don't report as error
+        return;
       } else {
         onError('Connection error');
       }
       eventSource.close();
     });
+
+    return { eventSource };
   } catch (error) {
     onError(error instanceof Error ? error.message : 'Unknown error');
+    return { eventSource: null };
   }
 };
 
@@ -233,7 +286,7 @@ export const installSkills = async (
 ): Promise<InstallSkillsResponse> => {
   const response = await fetch(`${API_BASE}/skills/install`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getDefaultHeaders(document.cookie) },
     body: JSON.stringify({
       type,
       custom_path: customPath,

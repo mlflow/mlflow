@@ -182,6 +182,7 @@ async def test_completions_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -195,6 +196,7 @@ async def test_completions_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -208,6 +210,7 @@ async def test_completions_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
         ]
 
@@ -523,6 +526,7 @@ async def test_chat_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -540,6 +544,7 @@ async def test_chat_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -557,6 +562,11 @@ async def test_chat_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "chat.completion.chunk",
+                "usage": {
+                    "prompt_tokens": 17,
+                    "completion_tokens": 200,
+                    "total_tokens": 217,
+                },
             },
         ]
 

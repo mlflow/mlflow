@@ -20,11 +20,12 @@ import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
 import { Alert, CursorPagination, Spacer as DuBoisSpacer, Spacer, Typography } from '@databricks/design-system';
-import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
+import { shouldShowModelsNextUI, shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
 import { ModelListFilters } from './model-list/ModelListFilters';
 import { ModelListTable } from './model-list/ModelListTable';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
+import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 
 const NAME_COLUMN_INDEX = 'name';
 const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
@@ -155,6 +156,11 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
 
     // Check if showing empty state (no models, no filters, not loading, no error)
     const isEmptyState = !loading && !error && !models.length && !isFiltered;
+    // Only show creation buttons when: workspaces are disabled OR a workspace is selected
+    const workspacesEnabled = shouldEnableWorkspaces();
+    const searchParams = new URLSearchParams(window.location.search);
+    const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
+    const showCreationButtons = !isEmptyState && (!workspacesEnabled || workspaceFromUrl !== null);
 
     const title = (
       <FormattedMessage
@@ -166,7 +172,7 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
       <>
         <Spacer shrinks={false} />
         <PageHeader title={title} spacerSize="xs">
-          {!isEmptyState && <CreateModelButton />}
+          {showCreationButtons && <CreateModelButton />}
         </PageHeader>
         <Spacer />
         <ModelListFilters
@@ -211,17 +217,3 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
 }
 
 export const ModelListView = withNextModelsUIContext(injectIntl<'intl', ModelListViewImplProps>(ModelListViewImpl));
-
-const styles = {
-  nameSearchBox: {
-    width: '446px',
-  },
-  searchFlexBar: {
-    marginBottom: '24px',
-  },
-  questionMark: {
-    marginLeft: 4,
-    cursor: 'pointer',
-    color: '#888',
-  },
-};

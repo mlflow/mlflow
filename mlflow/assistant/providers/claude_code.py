@@ -29,6 +29,7 @@ from mlflow.assistant.types import (
     ToolResultBlock,
     ToolUseBlock,
 )
+from mlflow.server.assistant.session import clear_process_pid, save_process_pid
 
 _logger = logging.getLogger(__name__)
 
@@ -332,6 +333,7 @@ class ClaudeCodeProvider(AssistantProvider):
         prompt: str,
         tracking_uri: str,
         session_id: str | None = None,
+        mlflow_session_id: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
@@ -342,6 +344,7 @@ class ClaudeCodeProvider(AssistantProvider):
             prompt: The prompt to send to Claude
             tracking_uri: MLflow tracking server URI for the assistant to use
             session_id: Claude session ID for resume
+            mlflow_session_id: MLflow session ID for PID tracking (enables cancellation)
             cwd: Working directory for Claude Code CLI
             context: Additional context for the assistant, such as information from
                 the current UI page the user is viewing (e.g., experimentId, traceId)
@@ -409,26 +412,40 @@ class ClaudeCodeProvider(AssistantProvider):
                 env={**os.environ.copy(), "MLFLOW_TRACKING_URI": tracking_uri},
             )
 
-            async for line in process.stdout:
-                line_str = line.decode("utf-8").strip()
-                if not line_str:
-                    continue
+            # Save PID for cancellation support
+            if mlflow_session_id and process.pid:
+                save_process_pid(mlflow_session_id, process.pid)
 
-                try:
-                    data = json.loads(line_str)
-
-                    if self._should_filter_out_message(data):
+            try:
+                async for line in process.stdout:
+                    line_str = line.decode("utf-8").strip()
+                    if not line_str:
                         continue
 
-                    if msg := self._parse_message_to_event(data):
-                        yield msg
+                    try:
+                        data = json.loads(line_str)
 
-                except json.JSONDecodeError:
-                    # Non-JSON output, treat as plain text
-                    yield Event.from_message(Message(role="user", content=line_str))
+                        if self._should_filter_out_message(data):
+                            continue
+
+                        if msg := self._parse_message_to_event(data):
+                            yield msg
+
+                    except json.JSONDecodeError:
+                        # Non-JSON output, treat as plain text
+                        yield Event.from_message(Message(role="user", content=line_str))
+            finally:
+                # Clear PID when done (regardless of how we exit)
+                if mlflow_session_id:
+                    clear_process_pid(mlflow_session_id)
 
             # Wait for process to complete
             await process.wait()
+
+            # Check if killed by interrupt (SIGKILL = -9)
+            if process.returncode == -9:
+                yield Event.from_interrupted()
+                return
 
             if process.returncode != 0:
                 stderr = await process.stderr.read()

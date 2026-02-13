@@ -25,8 +25,15 @@ import {
   useChartYAxisProps,
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
+  getTracesFilteredUrl,
+  getTracesFilteredByTimeRangeUrl,
+  createAssessmentExistsFilter,
+  createAssessmentEqualsFilter,
 } from './OverviewChartComponents';
 import { getLineDotStyle } from '../utils/chartUtils';
+import { useOverviewChartContext } from '../OverviewChartContext';
+import { useMonitoringFilters } from '../../../hooks/useMonitoringFilters';
+import { useNavigate } from '../../../../common/utils/RoutingUtils';
 
 /** Local component for chart panel with label */
 const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElement }> = ({ label, children }) => {
@@ -59,15 +66,68 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
+  const [monitoringFilters] = useMonitoringFilters();
+  const navigate = useNavigate();
 
   // Use provided color or default to green
   const chartLineColor = lineColor || theme.colors.green500;
 
   const distributionTooltipFormatter = useCallback((value: number) => [value, 'count'] as [number, string], []);
 
+  // Handle click on tooltip link to navigate to traces filtered by this assessment score
+  const handleViewTraces = useCallback(
+    (scoreValue: string | undefined) => {
+      if (!scoreValue) return;
+      const url = getTracesFilteredUrl(experimentIds[0], monitoringFilters, [
+        createAssessmentEqualsFilter(assessmentName, scoreValue),
+      ]);
+      navigate(url);
+    },
+    [experimentIds, assessmentName, monitoringFilters, navigate],
+  );
+
   const timeSeriestooltipFormatter = useCallback(
     (value: number) => [value.toFixed(2), assessmentName] as [string, string],
     [assessmentName],
+  );
+
+  // Handle click on time series tooltip link to navigate to traces filtered by time AND assessment exists
+  const handleViewTimeSeriesTraces = useCallback(
+    (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
+      if (dataPoint?.timestampMs === undefined) return;
+      const url = getTracesFilteredByTimeRangeUrl(experimentIds[0], dataPoint.timestampMs, timeIntervalSeconds, [
+        createAssessmentExistsFilter(assessmentName),
+      ]);
+      navigate(url);
+    },
+    [experimentIds, timeIntervalSeconds, assessmentName, navigate],
+  );
+
+  const timeSeriestooltipContent = (
+    <ScrollableTooltip
+      formatter={timeSeriestooltipFormatter}
+      linkConfig={{
+        componentId: 'mlflow.overview.quality.assessment_timeseries.view_traces_link',
+        onLinkClick: handleViewTimeSeriesTraces,
+      }}
+    />
+  );
+
+  const distributionTooltipContent = (
+    <ScrollableTooltip
+      formatter={distributionTooltipFormatter}
+      linkConfig={{
+        componentId: 'mlflow.overview.quality.assessment.view_traces_link',
+        linkText: (
+          <FormattedMessage
+            defaultMessage="View traces with this score"
+            description="Link text to navigate to traces filtered by assessment score"
+          />
+        ),
+        onLinkClick: handleViewTraces,
+      }}
+    />
   );
 
   // Fetch and process all chart data using the custom hook
@@ -119,7 +179,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
             <XAxis type="number" allowDecimals={false} {...xAxisProps} />
             <YAxis type="category" dataKey="name" {...yAxisProps} width={60} />
             <Tooltip
-              content={<ScrollableTooltip formatter={distributionTooltipFormatter} />}
+              content={distributionTooltipContent}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
             />
             <Legend {...scrollableLegendProps} />
@@ -141,7 +201,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
-                content={<ScrollableTooltip formatter={timeSeriestooltipFormatter} />}
+                content={timeSeriestooltipContent}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Legend {...scrollableLegendProps} />

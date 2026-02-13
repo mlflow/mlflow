@@ -54,6 +54,47 @@ deny_github_token_env_var contains msg if {
 	msg := "Use GH_TOKEN instead of GITHUB_TOKEN for environment variable names."
 }
 
+deny_github_token_shorthand contains msg if {
+	some job in input.jobs
+	some step in job.steps
+	some key, value in step["with"]
+	contains_github_token(value)
+	msg := sprintf(
+		"Use secrets.GITHUB_TOKEN instead of github.token for consistency (found in step with.%s).",
+		[key],
+	)
+}
+
+deny_github_token_shorthand contains msg if {
+	some job in input.jobs
+	some step in job.steps
+	some key, value in step.env
+	contains_github_token(value)
+	msg := sprintf(
+		"Use secrets.GITHUB_TOKEN instead of github.token for consistency (found in step env.%s).",
+		[key],
+	)
+}
+
+deny_github_token_shorthand contains msg if {
+	some job in input.jobs
+	some key, value in job.env
+	contains_github_token(value)
+	msg := sprintf(
+		"Use secrets.GITHUB_TOKEN instead of github.token for consistency (found in job env.%s).",
+		[key],
+	)
+}
+
+deny_github_token_shorthand contains msg if {
+	some key, value in input.env
+	contains_github_token(value)
+	msg := sprintf(
+		"Use secrets.GITHUB_TOKEN instead of github.token for consistency (found in top-level env.%s).",
+		[key],
+	)
+}
+
 deny_jobs_without_timeout contains msg if {
 	jobs := jobs_without_timeout(input.jobs)
 	count(jobs) > 0
@@ -110,7 +151,23 @@ deny_scheduled_workflow_without_repo_check contains msg if {
 	msg := "Scheduled workflows must have at least one job with 'if: github.repository == ...' condition"
 }
 
+deny_push_without_branches contains msg if {
+	"push" in object.keys(input["true"])
+	not is_object(input["true"].push)
+	msg := "Push trigger must have a branches filter to avoid running on every branch."
+}
+
+deny_push_without_branches contains msg if {
+	is_object(input["true"].push)
+	not input["true"].push.branches
+	msg := "Push trigger must have a branches filter to avoid running on every branch."
+}
+
 ###########################   RULE HELPERS   ##################################
+contains_github_token(value) if {
+	regex.match(`\$\{\{\s*github\.token\s*\}\}`, value)
+}
+
 jobs_without_permissions(jobs) := {job_id |
 	some job_id, job in jobs
 	not job.permissions

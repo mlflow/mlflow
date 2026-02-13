@@ -27,8 +27,15 @@ import { useUpdateExperimentTags } from './experiment-page/hooks/useUpdateExperi
 import { useSearchFilter } from './experiment-page/hooks/useSearchFilter';
 import { TagFilter, useTagsFilter } from './experiment-page/hooks/useTagsFilter';
 import { ExperimentListViewTagsFilter } from './experiment-page/components/ExperimentListViewTagsFilter';
+import { shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
+import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
+import { useSearchParams } from '../../common/utils/RoutingUtils';
 
 export const ExperimentListView = () => {
+  const [searchParams] = useSearchParams();
+  const workspacesEnabled = shouldEnableWorkspaces();
+  const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
+
   const [searchFilter, setSearchFilter] = useSearchFilter();
   const { tagsFilter, setTagsFilter, isTagsFilterOpen, setIsTagsFilterOpen } = useTagsFilter();
 
@@ -84,6 +91,8 @@ export const ExperimentListView = () => {
     .map(([key, _]) => key);
 
   const isEmptyState = !isLoading && !error && !experiments?.length && !searchFilter && !tagsFilter.length;
+  // creation is disabled if workspaces are enabled and a workspace is not selected
+  const showCreationButtons = !isEmptyState && (!workspacesEnabled || workspaceFromUrl !== null);
 
   const pushExperimentRoute = () => {
     const route = Routes.getCompareExperimentsPageRoute(checkedKeys);
@@ -96,7 +105,7 @@ export const ExperimentListView = () => {
       <Header
         title={<FormattedMessage defaultMessage="Experiments" description="Header title for the experiments page" />}
         buttons={
-          !isEmptyState ? (
+          showCreationButtons ? (
             <>
               <Button
                 componentId="mlflow.experiment_list_view.new_experiment_button"

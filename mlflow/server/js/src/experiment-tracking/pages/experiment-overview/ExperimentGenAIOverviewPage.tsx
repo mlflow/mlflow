@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { useIsFileStore } from '../../hooks/useServerInfo';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
@@ -11,6 +12,8 @@ import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
+import { LazyTraceCostBreakdownChart } from './components/LazyTraceCostBreakdownChart';
+import { LazyTraceCostOverTimeChart } from './components/LazyTraceCostOverTimeChart';
 import { AssessmentChartsSection } from './components/AssessmentChartsSection';
 import { ToolCallStatistics } from './components/ToolCallStatistics';
 import { ToolCallChartsSection } from './components/ToolCallChartsSection';
@@ -29,6 +32,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
   const { theme } = useDesignSystemTheme();
   const [activeTab, setActiveTab] = useOverviewTab();
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
+  const isFileStore = useIsFileStore();
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -77,6 +81,19 @@ const ExperimentGenAIOverviewPageImpl = () => {
         overflow: 'hidden',
       }}
     >
+      {isFileStore && (
+        <Alert
+          componentId="mlflow.experiment.overview.filestore-warning"
+          type="warning"
+          css={{ marginBottom: theme.spacing.sm }}
+          message={
+            <FormattedMessage
+              defaultMessage="The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported."
+              description="Warning banner shown on the Overview tab when using FileStore backend"
+            />
+          }
+        />
+      )}
       <Tabs.Root
         componentId="mlflow.experiment.overview.tabs"
         value={activeTab}
@@ -134,7 +151,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </div>
 
         <OverviewChartProvider
-          experimentId={experimentId}
+          experimentIds={[experimentId]}
           startTimeMs={startTimeMs}
           endTimeMs={endTimeMs}
           timeIntervalSeconds={timeIntervalSeconds}
@@ -155,6 +172,12 @@ const ExperimentGenAIOverviewPageImpl = () => {
               <ChartGrid>
                 <LazyTraceTokenUsageChart />
                 <LazyTraceTokenStatsChart />
+              </ChartGrid>
+
+              {/* Cost Breakdown and Cost Over Time charts - side by side */}
+              <ChartGrid>
+                <LazyTraceCostBreakdownChart />
+                <LazyTraceCostOverTimeChart />
               </ChartGrid>
             </TabContentContainer>
           </Tabs.Content>

@@ -23,6 +23,7 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.protos.service_pb2 import GatewayModelLinkageType as ProtoGatewayModelLinkageType
 from mlflow.protos.service_pb2 import RoutingStrategy as ProtoRoutingStrategy
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 class GatewayResourceType(str, Enum):
@@ -178,6 +179,7 @@ class GatewayModelDefinition(_MlflowObject):
         last_updated_at: Timestamp (milliseconds) when the model definition was last updated.
         created_by: User ID who created the model definition.
         last_updated_by: User ID who last updated the model definition.
+        workspace: Workspace that owns the model definition.
     """
 
     model_definition_id: str
@@ -190,6 +192,10 @@ class GatewayModelDefinition(_MlflowObject):
     last_updated_at: int
     created_by: str | None = None
     last_updated_by: str | None = None
+    workspace: str | None = None
+
+    def __post_init__(self):
+        self.workspace = resolve_entity_workspace_name(self.workspace)
 
     def to_proto(self):
         proto = ProtoGatewayModelDefinition()
@@ -337,6 +343,9 @@ class GatewayEndpoint(_MlflowObject):
         last_updated_by: User ID who last updated the endpoint.
         routing_strategy: Routing strategy for the endpoint (e.g., "FALLBACK").
         fallback_config: Fallback configuration entity (if routing_strategy is FALLBACK).
+        experiment_id: ID of the MLflow experiment where traces for this endpoint are logged.
+        usage_tracking: Whether usage tracking is enabled for this endpoint.
+        workspace: Workspace that owns the endpoint.
     """
 
     endpoint_id: str
@@ -349,6 +358,12 @@ class GatewayEndpoint(_MlflowObject):
     last_updated_by: str | None = None
     routing_strategy: RoutingStrategy | None = None
     fallback_config: FallbackConfig | None = None
+    experiment_id: str | None = None
+    usage_tracking: bool = False
+    workspace: str | None = None
+
+    def __post_init__(self):
+        self.workspace = resolve_entity_workspace_name(self.workspace)
 
     def to_proto(self):
         proto = ProtoGatewayEndpoint()
@@ -367,6 +382,11 @@ class GatewayEndpoint(_MlflowObject):
         if self.fallback_config:
             proto.fallback_config.CopyFrom(self.fallback_config.to_proto())
 
+        if self.experiment_id is not None:
+            proto.experiment_id = self.experiment_id
+
+        proto.usage_tracking = self.usage_tracking
+
         return proto
 
     @classmethod
@@ -379,6 +399,12 @@ class GatewayEndpoint(_MlflowObject):
         fallback_config = None
         if proto.HasField("fallback_config"):
             fallback_config = FallbackConfig.from_proto(proto.fallback_config)
+
+        experiment_id = None
+        if proto.HasField("experiment_id"):
+            experiment_id = proto.experiment_id or None
+
+        usage_tracking = proto.usage_tracking if proto.HasField("usage_tracking") else False
 
         return cls(
             endpoint_id=proto.endpoint_id,
@@ -393,6 +419,8 @@ class GatewayEndpoint(_MlflowObject):
             last_updated_by=proto.last_updated_by or None,
             routing_strategy=routing_strategy,
             fallback_config=fallback_config,
+            experiment_id=experiment_id,
+            usage_tracking=usage_tracking,
         )
 
 

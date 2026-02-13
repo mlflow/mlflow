@@ -161,6 +161,9 @@ class AgentServer:
 
             The timeout for the proxy request is specified by the CHAT_PROXY_TIMEOUT_SECONDS
             environment variable (defaults to 300.0 seconds).
+
+            For streaming responses (SSE), the proxy streams chunks as they arrive
+            rather than buffering the entire response.
             """
             for route in self.app.routes:
                 if hasattr(route, "path_regex") and route.path_regex.match(request.url.path):
@@ -180,18 +183,45 @@ class AgentServer:
             try:
                 body = await request.body() if request.method in ["POST", "PUT", "PATCH"] else None
                 target_url = f"http://localhost:{self.chat_app_port}/{path}"
-                proxy_response = await self.proxy_client.request(
+
+                # Build and send request with streaming enabled
+                req = self.proxy_client.build_request(
                     method=request.method,
                     url=target_url,
                     params=dict(request.query_params),
                     headers={k: v for k, v in request.headers.items() if k.lower() != "host"},
                     content=body,
                 )
-                return Response(
-                    proxy_response.content,
-                    proxy_response.status_code,
-                    headers=dict(proxy_response.headers),
-                )
+                proxy_response = await self.proxy_client.send(req, stream=True)
+
+                # Check if this is a streaming response (SSE)
+                content_type = proxy_response.headers.get("content-type", "")
+                if "text/event-stream" in content_type:
+                    # Stream SSE responses chunk by chunk
+                    async def stream_generator():
+                        try:
+                            async for chunk in proxy_response.aiter_bytes():
+                                yield chunk
+                        except Exception as e:
+                            logger.error(f"Streaming error: {e}")
+                            raise
+                        finally:
+                            await proxy_response.aclose()
+
+                    return StreamingResponse(
+                        stream_generator(),
+                        status_code=proxy_response.status_code,
+                        headers=dict(proxy_response.headers),
+                    )
+                else:
+                    # Non-streaming response - read fully then close
+                    content = await proxy_response.aread()
+                    await proxy_response.aclose()
+                    return Response(
+                        content,
+                        proxy_response.status_code,
+                        headers=dict(proxy_response.headers),
+                    )
             except httpx.ConnectError:
                 return Response("Service unavailable", status_code=503, media_type="text/plain")
             except Exception as e:

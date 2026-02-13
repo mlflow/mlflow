@@ -5,19 +5,6 @@ CREATE TABLE alembic_version (
 )
 
 
-CREATE TABLE endpoints (
-	endpoint_id VARCHAR(36) NOT NULL,
-	name VARCHAR(255),
-	created_by VARCHAR(255),
-	created_at BIGINT NOT NULL,
-	last_updated_by VARCHAR(255),
-	last_updated_at BIGINT NOT NULL,
-	routing_strategy VARCHAR(64),
-	fallback_config_json TEXT,
-	PRIMARY KEY (endpoint_id)
-)
-
-
 CREATE TABLE entity_associations (
 	association_id VARCHAR(36) NOT NULL,
 	source_type VARCHAR(36) NOT NULL,
@@ -39,6 +26,7 @@ CREATE TABLE evaluation_datasets (
 	last_update_time BIGINT,
 	created_by VARCHAR(255),
 	last_updated_by VARCHAR(255),
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	PRIMARY KEY (dataset_id)
 )
 
@@ -50,8 +38,10 @@ CREATE TABLE experiments (
 	lifecycle_stage VARCHAR(32),
 	creation_time BIGINT,
 	last_update_time BIGINT,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	PRIMARY KEY (experiment_id),
-	CONSTRAINT experiments_lifecycle_stage CHECK ((`lifecycle_stage` in (_utf8mb4'active',_utf8mb4'deleted')))
+	CONSTRAINT experiments_lifecycle_stage CHECK ((`lifecycle_stage` in (_utf8mb4'active',_utf8mb4'deleted'))),
+	CONSTRAINT uq_experiments_workspace_name UNIQUE (workspace, name)
 )
 
 
@@ -84,6 +74,7 @@ CREATE TABLE jobs (
 	result TEXT,
 	retry_count INTEGER NOT NULL,
 	last_update_time BIGINT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	PRIMARY KEY (id)
 )
 
@@ -93,7 +84,8 @@ CREATE TABLE registered_models (
 	creation_time BIGINT,
 	last_updated_time BIGINT,
 	description VARCHAR(5000),
-	PRIMARY KEY (name)
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	PRIMARY KEY (workspace, name)
 )
 
 
@@ -111,7 +103,9 @@ CREATE TABLE secrets (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
-	PRIMARY KEY (secret_id)
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	PRIMARY KEY (secret_id),
+	CONSTRAINT uq_secrets_workspace_secret_name UNIQUE (workspace, secret_name)
 )
 
 
@@ -125,7 +119,16 @@ CREATE TABLE webhooks (
 	creation_timestamp BIGINT,
 	last_updated_timestamp BIGINT,
 	deleted_timestamp BIGINT,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	PRIMARY KEY (webhook_id)
+)
+
+
+CREATE TABLE workspaces (
+	name VARCHAR(63) NOT NULL,
+	description TEXT,
+	default_artifact_root TEXT,
+	PRIMARY KEY (name)
 )
 
 
@@ -143,26 +146,21 @@ CREATE TABLE datasets (
 )
 
 
-CREATE TABLE endpoint_bindings (
+CREATE TABLE endpoints (
 	endpoint_id VARCHAR(36) NOT NULL,
-	resource_type VARCHAR(50) NOT NULL,
-	resource_id VARCHAR(255) NOT NULL,
-	created_at BIGINT NOT NULL,
+	name VARCHAR(255),
 	created_by VARCHAR(255),
-	last_updated_at BIGINT NOT NULL,
+	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
-	display_name VARCHAR(255),
-	PRIMARY KEY (endpoint_id, resource_type, resource_id),
-	CONSTRAINT fk_endpoint_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
-)
-
-
-CREATE TABLE endpoint_tags (
-	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
-	endpoint_id VARCHAR(36) NOT NULL,
-	PRIMARY KEY (key, endpoint_id),
-	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+	last_updated_at BIGINT NOT NULL,
+	routing_strategy VARCHAR(64),
+	fallback_config_json TEXT,
+	experiment_id INTEGER,
+	usage_tracking TINYINT DEFAULT '0' NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	PRIMARY KEY (endpoint_id),
+	CONSTRAINT fk_endpoints_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE SET NULL,
+	CONSTRAINT uq_endpoints_workspace_name UNIQUE (workspace, name)
 )
 
 
@@ -232,8 +230,10 @@ CREATE TABLE model_definitions (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	PRIMARY KEY (model_definition_id),
-	CONSTRAINT fk_model_definitions_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE SET NULL
+	CONSTRAINT fk_model_definitions_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE SET NULL,
+	CONSTRAINT uq_model_definitions_workspace_name UNIQUE (workspace, name)
 )
 
 
@@ -251,8 +251,9 @@ CREATE TABLE model_versions (
 	status_message VARCHAR(500),
 	run_link VARCHAR(500),
 	storage_location VARCHAR(500),
-	PRIMARY KEY (name, version),
-	CONSTRAINT model_versions_ibfk_1 FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	PRIMARY KEY (workspace, name, version),
+	CONSTRAINT fk_model_versions_registered_models FOREIGN KEY(workspace, name) REFERENCES registered_models (workspace, name) ON UPDATE CASCADE
 )
 
 
@@ -260,8 +261,9 @@ CREATE TABLE registered_model_aliases (
 	alias VARCHAR(256) NOT NULL,
 	version INTEGER NOT NULL,
 	name VARCHAR(256) NOT NULL,
-	PRIMARY KEY (name, alias),
-	CONSTRAINT registered_model_alias_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON DELETE CASCADE ON UPDATE CASCADE
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	PRIMARY KEY (workspace, name, alias),
+	CONSTRAINT fk_registered_model_aliases_registered_models FOREIGN KEY(workspace, name) REFERENCES registered_models (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -269,8 +271,9 @@ CREATE TABLE registered_model_tags (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(5000),
 	name VARCHAR(256) NOT NULL,
-	PRIMARY KEY (key, name),
-	CONSTRAINT registered_model_tags_ibfk_1 FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	PRIMARY KEY (workspace, key, name),
+	CONSTRAINT fk_registered_model_tags_registered_models FOREIGN KEY(workspace, name) REFERENCES registered_models (workspace, name) ON UPDATE CASCADE
 )
 
 
@@ -351,6 +354,20 @@ CREATE TABLE assessments (
 )
 
 
+CREATE TABLE endpoint_bindings (
+	endpoint_id VARCHAR(36) NOT NULL,
+	resource_type VARCHAR(50) NOT NULL,
+	resource_id VARCHAR(255) NOT NULL,
+	created_at BIGINT NOT NULL,
+	created_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	display_name VARCHAR(255),
+	PRIMARY KEY (endpoint_id, resource_type, resource_id),
+	CONSTRAINT fk_endpoint_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE endpoint_model_mappings (
 	mapping_id VARCHAR(36) NOT NULL,
 	endpoint_id VARCHAR(36) NOT NULL,
@@ -363,6 +380,15 @@ CREATE TABLE endpoint_model_mappings (
 	PRIMARY KEY (mapping_id),
 	CONSTRAINT fk_endpoint_model_mappings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_endpoint_model_mappings_model_definition_id FOREIGN KEY(model_definition_id) REFERENCES model_definitions (model_definition_id)
+)
+
+
+CREATE TABLE endpoint_tags (
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	endpoint_id VARCHAR(36) NOT NULL,
+	PRIMARY KEY (key, endpoint_id),
+	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
 
 
@@ -438,8 +464,9 @@ CREATE TABLE model_version_tags (
 	value TEXT,
 	name VARCHAR(256) NOT NULL,
 	version INTEGER NOT NULL,
-	PRIMARY KEY (key, name, version),
-	CONSTRAINT model_version_tags_ibfk_1 FOREIGN KEY(name, version) REFERENCES model_versions (name, version) ON UPDATE CASCADE
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	PRIMARY KEY (workspace, key, name, version),
+	CONSTRAINT fk_model_version_tags_model_versions FOREIGN KEY(workspace, name, version) REFERENCES model_versions (workspace, name, version) ON UPDATE CASCADE
 )
 
 
@@ -486,6 +513,7 @@ CREATE TABLE spans (
 	end_time_unix_nano BIGINT,
 	duration_ns BIGINT GENERATED ALWAYS AS (((`end_time_unix_nano` - `start_time_unix_nano`))) STORED,
 	content LONGTEXT NOT NULL,
+	dimension_attributes JSON,
 	PRIMARY KEY (trace_id, span_id),
 	CONSTRAINT fk_spans_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_spans_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
@@ -525,4 +553,14 @@ CREATE TABLE trace_tags (
 	request_id VARCHAR(50) NOT NULL,
 	PRIMARY KEY (key, request_id),
 	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE span_metrics (
+	trace_id VARCHAR(50) NOT NULL,
+	span_id VARCHAR(50) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value DOUBLE,
+	PRIMARY KEY (trace_id, span_id, key),
+	CONSTRAINT fk_span_metrics_span FOREIGN KEY(trace_id, span_id) REFERENCES spans (trace_id, span_id) ON DELETE CASCADE
 )

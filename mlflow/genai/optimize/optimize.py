@@ -216,6 +216,7 @@ def optimize_prompts(
         raise MlflowException("Only text prompts can be optimized")
 
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
+    target_prompts_model_config = {prompt.name: prompt.model_config for prompt in target_prompts}
 
     with (
         prompt_optimization_autolog(
@@ -232,7 +233,11 @@ def optimize_prompts(
         )
 
         optimized_prompts = [
-            register_prompt(name=prompt_name, template=prompt)
+            register_prompt(
+                name=prompt_name,
+                template=prompt,
+                model_config=target_prompts_model_config.get(prompt_name),
+            )
             for prompt_name, prompt in optimizer_output.optimized_prompts.items()
         ]
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import json
 import logging
@@ -9,7 +11,7 @@ import uuid
 import warnings
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, NamedTuple, TypedDict
+from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
 
 from mlflow.entities import (
     Assessment,
@@ -123,6 +125,9 @@ from mlflow.utils.validation import (
     _validate_tag_name,
 )
 from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
+
+if TYPE_CHECKING:
+    from mlflow.entities.model_registry.prompt_version import PromptVersion
 
 _logger = logging.getLogger(__name__)
 
@@ -1001,11 +1006,13 @@ class FileStore(AbstractStore):
         experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
         run_dirs = list_all(
             experiment_dir,
-            filter_func=lambda x: all(
-                os.path.basename(os.path.normpath(x)) != reservedFolderName
-                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-            )
-            and os.path.isdir(x),
+            filter_func=lambda x: (
+                all(
+                    os.path.basename(os.path.normpath(x)) != reservedFolderName
+                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                )
+                and os.path.isdir(x)
+            ),
             full_path=True,
         )
         run_infos = []
@@ -1586,11 +1593,13 @@ class FileStore(AbstractStore):
             experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
             run_dirs = list_all(
                 experiment_dir,
-                filter_func=lambda x: all(
-                    os.path.basename(os.path.normpath(x)) != reservedFolderName
-                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-                )
-                and os.path.isdir(x),
+                filter_func=lambda x: (
+                    all(
+                        os.path.basename(os.path.normpath(x)) != reservedFolderName
+                        for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                    )
+                    and os.path.isdir(x)
+                ),
                 full_path=True,
             )
             for run_dir in run_dirs:
@@ -2460,11 +2469,13 @@ class FileStore(AbstractStore):
                 continue
             model_dirs = list_all(
                 models_folder,
-                filter_func=lambda path: all(
-                    os.path.basename(os.path.normpath(path)) != reservedFolderName
-                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-                )
-                and os.path.isdir(path),
+                filter_func=lambda path: (
+                    all(
+                        os.path.basename(os.path.normpath(path)) != reservedFolderName
+                        for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                    )
+                    and os.path.isdir(path)
+                ),
                 full_path=True,
             )
             for m_dir in model_dirs:
@@ -2686,11 +2697,13 @@ class FileStore(AbstractStore):
             return []
         model_dirs = list_all(
             models_folder,
-            filter_func=lambda x: all(
-                os.path.basename(os.path.normpath(x)) != reservedFolderName
-                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-            )
-            and os.path.isdir(x),
+            filter_func=lambda x: (
+                all(
+                    os.path.basename(os.path.normpath(x)) != reservedFolderName
+                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                )
+                and os.path.isdir(x)
+            ),
             full_path=True,
         )
         models = []
@@ -2875,3 +2888,24 @@ class FileStore(AbstractStore):
             "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
             error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
         )
+
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
+        """
+        raise MlflowException(
+            "Linking prompts to traces is not supported in FileStore. "
+            "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
+            error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+        )
+
+    # Trace metrics API is not supported in FileStore, override the
+    # abstract method to raise an explicit error.
+
+    @filestore_not_supported
+    def query_trace_metrics(self, *args, **kwargs):
+        pass

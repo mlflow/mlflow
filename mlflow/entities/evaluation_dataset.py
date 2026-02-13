@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 SESSION_IDENTIFIER_FIELDS = frozenset({"goal"})
-SESSION_INPUT_FIELDS = frozenset({"persona", "goal", "context"})
+SESSION_INPUT_FIELDS = frozenset({"persona", "goal", "context", "simulation_guidelines"})
 SESSION_ALLOWED_COLUMNS = SESSION_INPUT_FIELDS | {"expectations", "tags", "source"}
 
 
@@ -449,6 +449,37 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             return DatasetGranularity.SESSION
 
         return DatasetGranularity.UNKNOWN
+
+    def delete_records(self, record_ids: list[str]) -> int:
+        """
+        Delete specific records from the dataset.
+
+        Args:
+            record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+
+        Example:
+            .. code-block:: python
+
+                # Get record IDs to delete
+                df = dataset.to_df()
+                record_ids_to_delete = df["dataset_record_id"].tolist()[:2]
+
+                # Delete the records
+                deleted_count = dataset.delete_records(record_ids_to_delete)
+                print(f"Deleted {deleted_count} records")
+        """
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        tracking_store = _get_store()
+        deleted_count = tracking_store.delete_dataset_records(
+            dataset_id=self.dataset_id,
+            dataset_record_ids=record_ids,
+        )
+        self._records = None  # Clear cached records
+        return deleted_count
 
     @record_usage_event(DatasetToDataFrameEvent)
     def to_df(self) -> "pd.DataFrame":
