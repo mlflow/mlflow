@@ -149,7 +149,7 @@ export const PromptsListTable = ({
                   link: (content: any) => (
                     <Typography.Link
                       componentId="mlflow.prompts.list.table.learn_more_link"
-                      href="https://mlflow.org/docs/latest/llms/prompt-engineering/index.html"
+                      href="https://mlflow.org/docs/latest/genai/prompt-registry/"
                       openInNewTab
                     >
                       {content}
