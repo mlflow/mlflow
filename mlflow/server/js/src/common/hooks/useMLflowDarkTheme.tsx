@@ -92,5 +92,11 @@ export const useMLflowDarkTheme = (): MLflowDarkThemeResult => {
     localStorage.setItem(databricksDarkModePrefLocalStorageKey, isDarkTheme ? 'dark' : 'light');
   }, [themePreference, isDarkTheme]);
 
-  return { isDarkTheme, setIsDarkTheme, ThemeGlobalStyles: DarkModeStylesComponent, setUseSystemTheme, themePreference };
+  return {
+    isDarkTheme,
+    setIsDarkTheme,
+    ThemeGlobalStyles: DarkModeStylesComponent,
+    setUseSystemTheme,
+    themePreference,
+  };
 };

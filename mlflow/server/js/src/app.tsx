@@ -32,8 +32,7 @@ export function MLFlowRoot() {
   const queryClient = useMemo(() => new QueryClient(), []);
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const { isDarkTheme, setIsDarkTheme, ThemeGlobalStyles, setUseSystemTheme, themePreference } =
-    useMLflowDarkTheme();
+  const { isDarkTheme, setIsDarkTheme, ThemeGlobalStyles, setUseSystemTheme, themePreference } = useMLflowDarkTheme();
 
   const logObservabilityEvent = useCallback((event: any) => {
     telemetryClient.logEvent(event);
