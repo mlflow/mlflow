@@ -75,7 +75,7 @@ run_local(
     target_uri="modal",
     name="test-model",
     model_uri="runs:/<run_id>/model",
-    config={"gpu": "T4"}
+    config={"gpu": "T4"},
 )
 ```
 
@@ -104,7 +104,7 @@ deployment = client.create_deployment(
         "gpu": "T4",
         "memory": 2048,
         "min_containers": 1,
-    }
+    },
 )
 
 print(f"Deployed to: {deployment['endpoint_url']}")
@@ -140,7 +140,7 @@ client = get_deploy_client("modal")
 # Standard predictions
 predictions = client.predict(
     deployment_name="my-classifier",
-    inputs={"feature1": [1, 2, 3], "feature2": [4, 5, 6]}
+    inputs={"feature1": [1, 2, 3], "feature2": [4, 5, 6]},
 )
 
 # Streaming predictions (for LLM models)
@@ -183,6 +183,7 @@ The following configuration options are available when creating a deployment:
 | `extra_pip_packages` | list     | []      | Additional pip packages to install                                                                                                                                   |
 
 For detailed information on these options, see the Modal documentation:
+
 - [GPU configuration](https://modal.com/docs/guide/gpu) - GPU types, multi-GPU, dedicated GPUs
 - [CPU and memory](https://modal.com/docs/guide/resources) - Resource allocation
 - [Timeouts](https://modal.com/docs/guide/timeouts) - Request and startup timeouts
@@ -198,19 +199,19 @@ See [Modal's GPU documentation](https://modal.com/docs/guide/gpu) for the full l
 
 ```python
 # Single GPU
-config={"gpu": "T4"}  # Cost-effective for inference
+config = {"gpu": "T4"}  # Cost-effective for inference
 
 # High-performance GPU
-config={"gpu": "H100"}  # Best for large models
+config = {"gpu": "H100"}  # Best for large models
 
 # Multi-GPU for large models
-config={"gpu": "H100:8"}  # 8x H100 GPUs
+config = {"gpu": "H100:8"}  # 8x H100 GPUs
 
 # Dedicated GPU (no sharing)
-config={"gpu": "H100!"}
+config = {"gpu": "H100!"}
 
 # Fallback list (uses first available)
-config={"gpu": ["H100", "A100", "A10"]}
+config = {"gpu": ["H100", "A100", "A10"]}
 ```
 
 ### High-Throughput Deployment
@@ -228,7 +229,7 @@ client.create_deployment(
         "batch_wait_ms": 50,
         "min_containers": 2,
         "max_containers": 20,
-    }
+    },
 )
 ```
 
@@ -277,9 +278,9 @@ modal profile list
 For large models that take longer to load, increase the startup timeout:
 
 ```python
-config={
+config = {
     "startup_timeout": 600,  # 10 minutes for model loading
-    "timeout": 300,          # 5 minutes for inference requests
+    "timeout": 300,  # 5 minutes for inference requests
 }
 ```
 
@@ -288,7 +289,7 @@ config={
 If the model fails with import errors, add missing packages:
 
 ```python
-config={
+config = {
     "extra_pip_packages": ["missing-package>=1.0"],
 }
 ```
