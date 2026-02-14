@@ -307,125 +307,24 @@ def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict
 def _reconstruct_conversation_messages(
     transcript: list[dict[str, Any]], end_idx: int
 ) -> list[dict[str, Any]]:
-    """Reconstruct conversation messages in OpenAI format for LLM span inputs.
+    """Collect conversation messages from the transcript in native Anthropic format.
 
-    This function builds the message array that represents what was sent to the LLM.
-    It processes the transcript up to (but not including) end_idx to build the context.
+    The transcript's `message` field is already in Anthropic format
+    ({"role": "...", "content": ...}), so we just collect them directly.
 
     Args:
         transcript: List of conversation entries from Claude Code transcript
         end_idx: Index to stop at (exclusive) - typically the current assistant response
 
     Returns:
-        List of messages in format [{"role": "system"|"user"|"assistant"|"tool", "content": "..."}]
+        List of messages in Anthropic format
     """
     messages = []
-
     for i in range(end_idx):
-        entry = transcript[i]
-        entry_type = entry.get(MESSAGE_FIELD_TYPE)
-        msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
-
-        # Check for system role explicitly
-        if msg.get("role") == "system":
-            _process_system_entry(msg, messages)
-        elif entry_type == MESSAGE_TYPE_USER:
-            _process_user_entry(msg, messages)
-        elif entry_type == MESSAGE_TYPE_ASSISTANT:
-            _process_assistant_entry(msg, messages)
-
+        msg = transcript[i].get(MESSAGE_FIELD_MESSAGE, {})
+        if msg.get("role") and msg.get(MESSAGE_FIELD_CONTENT):
+            messages.append(msg)
     return messages
-
-
-def _process_system_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> None:
-    """Process a system entry from the transcript.
-
-    Args:
-        msg: The message object from the entry
-        messages: The messages list to append to
-    """
-    if content := msg.get(MESSAGE_FIELD_CONTENT):
-        text_content = extract_text_content(content)
-        if text_content.strip():
-            messages.append({"role": "system", "content": text_content})
-
-
-def _process_user_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> None:
-    """Process a user entry from the transcript and add appropriate messages.
-
-    User entries can contain:
-    - Regular user messages (text)
-    - Tool results from previous tool calls
-
-    Args:
-        msg: The message object from the entry
-        messages: The messages list to append to
-    """
-    content = msg.get(MESSAGE_FIELD_CONTENT, [])
-
-    # Handle list content (typical structure)
-    if isinstance(content, list):
-        # Use a buffer to preserve original message ordering
-        message_buffer = []
-        current_text_parts = []
-
-        for part in content:
-            if not isinstance(part, dict):
-                continue
-
-            part_type = part.get(MESSAGE_FIELD_TYPE)
-
-            if part_type == CONTENT_TYPE_TOOL_RESULT:
-                # If we have accumulated text, add it as a user message first
-                if current_text_parts:
-                    if combined_text := "\n".join(current_text_parts).strip():
-                        message_buffer.append({"role": "user", "content": combined_text})
-                    current_text_parts = []
-
-                # Extract tool result information
-                tool_id = part.get("tool_use_id")
-
-                # Add tool results with proper "tool" role
-                if result_content := part.get("content"):
-                    tool_msg = {
-                        "role": "tool",
-                        "content": result_content,
-                    }
-                    if tool_id:
-                        tool_msg["tool_use_id"] = tool_id
-                    message_buffer.append(tool_msg)
-
-            elif part_type == CONTENT_TYPE_TEXT:
-                # Accumulate text content
-                if text := part.get(CONTENT_TYPE_TEXT):
-                    current_text_parts.append(text)
-
-        # Add any remaining text content as user message
-        if current_text_parts:
-            if combined_text := "\n".join(current_text_parts).strip():
-                message_buffer.append({"role": "user", "content": combined_text})
-
-        # Add all messages in order to preserve sequence
-        messages.extend(message_buffer)
-
-    # Handle string content (simpler format)
-    elif isinstance(content, str) and content.strip():
-        messages.append({"role": "user", "content": content})
-
-
-def _process_assistant_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> None:
-    """Process an assistant entry from the transcript and add to messages.
-
-    Assistant entries represent previous LLM responses that are part of the conversation context.
-
-    Args:
-        msg: The message object from the entry
-        messages: The messages list to append to
-    """
-    if content := msg.get(MESSAGE_FIELD_CONTENT):
-        text_content = extract_text_content(content)
-        if text_content.strip():
-            messages.append({"role": "assistant", "content": text_content})
 
 
 def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
@@ -495,13 +394,19 @@ def _create_llm_and_tool_spans(
                 },
                 attributes={
                     "model": msg.get("model", "unknown"),
+                    SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
                 },
             )
 
             # Set token usage using the standardized CHAT_USAGE attribute
             _set_token_usage_attribute(llm_span, usage)
 
-            llm_span.set_outputs({"response": text_content})
+            # Output in Anthropic response format for Chat UI rendering
+            llm_span.set_outputs({
+                "type": "message",
+                "role": "assistant",
+                "content": content,
+            })
             llm_span.end(end_time_ns=timestamp_ns + duration_ns)
 
         # Create tool spans with proportional timing and actual results
