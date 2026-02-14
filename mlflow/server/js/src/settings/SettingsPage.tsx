@@ -12,8 +12,8 @@ const SettingsPage = () => {
   const intl = useIntl();
   const [isCleaningDemo, setIsCleaningDemo] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const { setIsDarkTheme } = useDarkThemeContext();
-  const isDarkTheme = theme.isDarkMode;
+  const { isDarkTheme, setIsDarkTheme, setUseSystemTheme, themePreference } = useDarkThemeContext();
+  const isSystemTheme = themePreference === 'system';
 
   const [isTelemetryEnabled, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,
@@ -67,23 +67,37 @@ const SettingsPage = () => {
           </Typography.Title>
           <Typography.Text>
             <FormattedMessage
-              defaultMessage="Select your theme preference between light and dark."
+              defaultMessage="Theme follows your system preference by default. Toggle to override, or switch back to system."
               description="Description for the theme setting in the settings page"
             />
           </Typography.Text>
         </div>
-        <Switch
-          componentId="mlflow.settings.theme.toggle-switch"
-          checked={isDarkTheme}
-          onChange={handleThemeToggle}
-          label={
-            isDarkTheme
-              ? intl.formatMessage({ defaultMessage: 'Dark', description: 'Dark theme label' })
-              : intl.formatMessage({ defaultMessage: 'Light', description: 'Light theme label' })
-          }
-          activeLabel={intl.formatMessage({ defaultMessage: 'Dark', description: 'Dark theme label' })}
-          inactiveLabel={intl.formatMessage({ defaultMessage: 'Light', description: 'Light theme label' })}
-        />
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+          <Switch
+            componentId="mlflow.settings.theme.toggle-switch"
+            checked={isDarkTheme}
+            onChange={handleThemeToggle}
+            label={
+              isDarkTheme
+                ? intl.formatMessage({ defaultMessage: 'Dark', description: 'Dark theme label' })
+                : intl.formatMessage({ defaultMessage: 'Light', description: 'Light theme label' })
+            }
+            activeLabel={intl.formatMessage({ defaultMessage: 'Dark', description: 'Dark theme label' })}
+            inactiveLabel={intl.formatMessage({ defaultMessage: 'Light', description: 'Light theme label' })}
+          />
+          <Button
+            componentId="mlflow.settings.theme.use-system"
+            type="tertiary"
+            onClick={setUseSystemTheme}
+            disabled={isSystemTheme}
+          >
+            <FormattedMessage
+              defaultMessage="Use system{current, select, true { (active)} other {}}"
+              description="Use system theme button label, shows (active) when system preference is being followed"
+              values={{ current: String(isSystemTheme) }}
+            />
+          </Button>
+        </div>
       </div>
 
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 600 }}>
