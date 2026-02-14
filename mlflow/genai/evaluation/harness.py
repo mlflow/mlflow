@@ -245,18 +245,24 @@ class _PredictSubmitter:
         eval_items: list[EvalItem],
         predict_fn: Callable[..., Any] | None,
         run_id: str | None,
-        predict_pool: ThreadPoolExecutor,
-        predict_limiter: RateLimiter,
         max_retries: int,
+        rps: float | None,
+        adaptive: bool,
+        max_rps_multiplier: float,
+        pool_workers: int,
         score_workers: int,
     ):
         self._eval_items = eval_items
         self._predict_fn = predict_fn
         self._run_id = run_id
-        self._pool = predict_pool
-        self._limiter = predict_limiter
         self._max_retries = max_retries
 
+        self._limiter = _make_rate_limiter(
+            rps, adaptive=adaptive, max_rps_multiplier=max_rps_multiplier
+        )
+        self._pool = ThreadPoolExecutor(
+            max_workers=pool_workers, thread_name_prefix="MlflowGenAIEvalPredict"
+        )
         self._in_flight = threading.Semaphore(backpressure_buffer(score_workers))
         self._queue: queue.Queue[tuple[Future, int] | None] = queue.Queue()
         self._futures: dict[Future, int] = {}
@@ -266,12 +272,19 @@ class _PredictSubmitter:
         self._thread: threading.Thread | None = None
 
     @property
+    def limiter(self) -> RateLimiter:
+        return self._limiter
+
+    @property
     def predict_times(self) -> list[float]:
         return self._times
 
     @property
     def pending_count(self) -> int:
         return len(self._futures)
+
+    def shutdown(self) -> None:
+        self._pool.shutdown(wait=False, cancel_futures=True)
 
     def start(self) -> None:
         self._thread = threading.Thread(
@@ -355,22 +368,32 @@ class _ScoreSubmitter:
         multi_turn_scorers: list[Scorer],
         session_groups: dict,
         run_id: str | None,
-        score_pool: ThreadPoolExecutor,
-        scorer_limiter: RateLimiter,
         max_retries: int,
+        rps: float | None,
+        adaptive: bool,
+        max_rps_multiplier: float,
+        pool_workers: int,
     ):
         self._eval_items = eval_items
         self._single_turn_scorers = single_turn_scorers
         self._multi_turn_scorers = multi_turn_scorers
         self._session_groups = session_groups
         self._run_id = run_id
-        self._pool = score_pool
-        self._limiter = scorer_limiter
         self._max_retries = max_retries
 
+        self._limiter = _make_rate_limiter(
+            rps, adaptive=adaptive, max_rps_multiplier=max_rps_multiplier
+        )
+        self._pool = ThreadPoolExecutor(
+            max_workers=pool_workers, thread_name_prefix="MlflowGenAIEvalScore"
+        )
         self._futures: dict[Future, int] = {}
         self._times: list[float] = []
         self._time_lock = threading.Lock()
+
+    @property
+    def limiter(self) -> RateLimiter:
+        return self._limiter
 
     @property
     def score_times(self) -> list[float]:
@@ -379,6 +402,9 @@ class _ScoreSubmitter:
     @property
     def pending_count(self) -> int:
         return len(self._futures)
+
+    def shutdown(self) -> None:
+        self._pool.shutdown(wait=False, cancel_futures=True)
 
     def submit(self, idx: int) -> Future:
         _logger.debug(f"Predict completed for item {idx}, submitting score")
@@ -435,26 +461,34 @@ def _run_pipeline(
     multi_turn_scorers: list[Scorer],
     session_groups: dict,
     run_id: str | None,
-    predict_limiter: RateLimiter,
-    scorer_limiter: RateLimiter,
-    max_retries: int,
-    predict_pool: ThreadPoolExecutor,
-    score_pool: ThreadPoolExecutor,
     progress_bar,
     multi_turn_assessments: dict,
 ) -> tuple[list[float], list[float]]:
     """Run the predict→score pipeline and multi-turn scoring.
 
+    Creates rate limiters and thread pools from environment variables,
+    runs the pipelined predict→score loop, then multi-turn scoring.
     Returns (predict_times, score_times) for reporting.
     """
+    predict_rps, predict_adaptive = _parse_rate_limit(MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get())
+    num_scorers = len(single_turn_scorers) + len(multi_turn_scorers)
+    scorer_rps, scorer_adaptive = _get_scorer_rate_config(
+        predict_rps, predict_adaptive, num_scorers
+    )
+    upper_multiplier = MLFLOW_GENAI_EVAL_RATE_LIMIT_UPPER_MULTIPLIER.get()
+    max_retries = MLFLOW_GENAI_EVAL_MAX_RETRIES.get()
+    predict_workers, score_workers = _get_pool_sizes(predict_rps, scorer_rps)
+
     predictor = _PredictSubmitter(
         eval_items,
         predict_fn,
         run_id,
-        predict_pool,
-        predict_limiter,
         max_retries,
-        score_pool._max_workers,
+        rps=predict_rps,
+        adaptive=predict_adaptive,
+        max_rps_multiplier=upper_multiplier,
+        pool_workers=predict_workers,
+        score_workers=score_workers,
     )
     scorer = _ScoreSubmitter(
         eval_items,
@@ -462,57 +496,64 @@ def _run_pipeline(
         multi_turn_scorers,
         session_groups,
         run_id,
-        score_pool,
-        scorer_limiter,
         max_retries,
+        rps=scorer_rps,
+        adaptive=scorer_adaptive,
+        max_rps_multiplier=upper_multiplier,
+        pool_workers=score_workers,
     )
-    heartbeat = _Heartbeat(predict_limiter, scorer_limiter, len(eval_items), progress_bar)
 
-    predictor.start()
-    pending: set[Future] = set()
-    items_predicted = 0
-    items_scored = 0
+    try:
+        heartbeat = _Heartbeat(predictor.limiter, scorer.limiter, len(eval_items), progress_bar)
 
-    while items_scored < len(eval_items):
-        pending.update(predictor.drain(block=not pending))
-        predictor.check_error()
-        if not pending:
-            continue
+        predictor.start()
+        pending: set[Future] = set()
+        items_predicted = 0
+        items_scored = 0
 
-        heartbeat.tick(
-            {
-                "predicted": items_predicted,
-                "scored": items_scored,
-                "pending": len(pending),
-                "predict_pending": predictor.pending_count,
-                "score_pending": scorer.pending_count,
-            }
-        )
-        _logger.debug(
-            f"Pipeline loop: waiting on {len(pending)} pending futures "
-            f"({predictor.pending_count} predict, {scorer.pending_count} score), "
-            f"scored={items_scored}/{len(eval_items)}"
-        )
+        while items_scored < len(eval_items):
+            pending.update(predictor.drain(block=not pending))
+            predictor.check_error()
+            if not pending:
+                continue
 
-        done, pending = wait(pending, timeout=15, return_when=FIRST_COMPLETED)
-        for future in done:
-            if predictor.owns(future):
-                idx = predictor.on_complete(future)
-                items_predicted += 1
-                pending.add(scorer.submit(idx))
-            else:
-                idx, result = scorer.on_complete(future)
-                _logger.debug(f"Score completed for item {idx}")
-                eval_results[idx] = result
-                predictor.release_slot()
-                items_scored += 1
-                if progress_bar:
-                    progress_bar.update(1)
+            heartbeat.tick(
+                {
+                    "predicted": items_predicted,
+                    "scored": items_scored,
+                    "pending": len(pending),
+                    "predict_pending": predictor.pending_count,
+                    "score_pending": scorer.pending_count,
+                }
+            )
+            _logger.debug(
+                f"Pipeline loop: waiting on {len(pending)} pending futures "
+                f"({predictor.pending_count} predict, {scorer.pending_count} score), "
+                f"scored={items_scored}/{len(eval_items)}"
+            )
 
-    predictor.join()
-    scorer.run_multi_turn(multi_turn_assessments, progress_bar)
+            done, pending = wait(pending, timeout=15, return_when=FIRST_COMPLETED)
+            for future in done:
+                if predictor.owns(future):
+                    idx = predictor.on_complete(future)
+                    items_predicted += 1
+                    pending.add(scorer.submit(idx))
+                else:
+                    idx, result = scorer.on_complete(future)
+                    _logger.debug(f"Score completed for item {idx}")
+                    eval_results[idx] = result
+                    predictor.release_slot()
+                    items_scored += 1
+                    if progress_bar:
+                        progress_bar.update(1)
 
-    return predictor.predict_times, scorer.score_times
+        predictor.join()
+        scorer.run_multi_turn(multi_turn_assessments, progress_bar)
+
+        return predictor.predict_times, scorer.score_times
+    finally:
+        predictor.shutdown()
+        scorer.shutdown()
 
 
 @context.eval_context
@@ -539,31 +580,6 @@ def run(
     session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
     total_tasks = len(eval_items) + len(session_groups)
 
-    predict_rps, predict_adaptive = _parse_rate_limit(MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get())
-    num_scorers = len(single_turn_scorers) + len(multi_turn_scorers)
-    scorer_rps, scorer_adaptive = _get_scorer_rate_config(
-        predict_rps, predict_adaptive, num_scorers
-    )
-    upper_multiplier = MLFLOW_GENAI_EVAL_RATE_LIMIT_UPPER_MULTIPLIER.get()
-    predict_limiter = _make_rate_limiter(
-        predict_rps, adaptive=predict_adaptive, max_rps_multiplier=upper_multiplier
-    )
-    scorer_limiter = _make_rate_limiter(
-        scorer_rps, adaptive=scorer_adaptive, max_rps_multiplier=upper_multiplier
-    )
-    max_retries = MLFLOW_GENAI_EVAL_MAX_RETRIES.get()
-
-    predict_workers, score_workers = _get_pool_sizes(predict_rps, scorer_rps)
-
-    predict_pool = ThreadPoolExecutor(
-        max_workers=predict_workers,
-        thread_name_prefix="MlflowGenAIEvalPredict",
-    )
-    score_pool = ThreadPoolExecutor(
-        max_workers=score_workers,
-        thread_name_prefix="MlflowGenAIEvalScore",
-    )
-
     progress_bar = (
         tqdm(
             total=total_tasks,
@@ -589,18 +605,10 @@ def run(
             multi_turn_scorers=multi_turn_scorers,
             session_groups=session_groups,
             run_id=run_id,
-            predict_limiter=predict_limiter,
-            scorer_limiter=scorer_limiter,
-            max_retries=max_retries,
-            predict_pool=predict_pool,
-            score_pool=score_pool,
             progress_bar=progress_bar,
             multi_turn_assessments=multi_turn_assessments,
         )
     finally:
-        predict_pool.shutdown(wait=False, cancel_futures=True)
-        score_pool.shutdown(wait=False, cancel_futures=True)
-
         predict_total = sum(predict_times)
         score_total = sum(score_times)
         total_thread_time = predict_total + score_total
