@@ -21,6 +21,7 @@ describe('useGetTrace', () => {
   };
 
   beforeEach(() => {
+    jest.useFakeTimers();
     queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -31,6 +32,8 @@ describe('useGetTrace', () => {
   });
 
   afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
@@ -116,14 +119,15 @@ describe('useGetTrace', () => {
         expect(result.current.isSuccess).toBe(true);
       });
 
-      // Polling should eventually stop due to max retry count (not run forever)
-      // Wait a few seconds to verify polling occurs but is bounded
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      // Advance timers to simulate polling attempts
+      jest.advanceTimersByTime(3000);
 
-      const callCount = mockGetTrace.mock.calls.length;
-      // Should have polled more than once (initial + retries) but not indefinitely
-      expect(callCount).toBeGreaterThan(1);
-      expect(callCount).toBeLessThanOrEqual(61); // 1 initial + max 60 retries
+      await waitFor(() => {
+        const callCount = mockGetTrace.mock.calls.length;
+        // Should have polled more than once (initial + retries) but not indefinitely
+        expect(callCount).toBeGreaterThan(1);
+        expect(callCount).toBeLessThanOrEqual(61); // 1 initial + max 60 retries
+      });
     });
 
     test('should reset poll counter when traceId changes', async () => {
@@ -169,10 +173,13 @@ describe('useGetTrace', () => {
         expect(result.current.isSuccess).toBe(true);
       });
 
-      // Let trace A poll for a bit
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const callsForTraceA = mockGetTrace.mock.calls.filter((c) => c[0] === 'trace-A').length;
-      expect(callsForTraceA).toBeGreaterThan(1);
+      // Advance timers to let trace A poll for a bit
+      jest.advanceTimersByTime(2000);
+
+      await waitFor(() => {
+        const callsForTraceA = mockGetTrace.mock.calls.filter((c: any) => c[0] === 'trace-A').length;
+        expect(callsForTraceA).toBeGreaterThan(1);
+      });
 
       // Switch to trace B - poll counter should reset
       currentTraceInfo = traceInfoB;
@@ -182,12 +189,14 @@ describe('useGetTrace', () => {
         expect(mockGetTrace).toHaveBeenCalledWith('trace-B', traceInfoB);
       });
 
-      // Let trace B poll for a bit
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const callsForTraceB = mockGetTrace.mock.calls.filter((c) => c[0] === 'trace-B').length;
+      // Advance timers to let trace B poll for a bit
+      jest.advanceTimersByTime(2000);
 
-      // Trace B should get its own full set of polling attempts (not reduced by trace A's count)
-      expect(callsForTraceB).toBeGreaterThan(1);
+      await waitFor(() => {
+        const callsForTraceB = mockGetTrace.mock.calls.filter((c: any) => c[0] === 'trace-B').length;
+        // Trace B should get its own full set of polling attempts (not reduced by trace A's count)
+        expect(callsForTraceB).toBeGreaterThan(1);
+      });
     });
 
     test('should not poll when trace state is ERROR', async () => {
@@ -210,8 +219,8 @@ describe('useGetTrace', () => {
         expect(result.current.isSuccess).toBe(true);
       });
 
-      // Wait a bit to ensure no additional calls are made
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Advance timers to ensure no additional calls are made
+      jest.advanceTimersByTime(1500);
 
       expect(mockGetTrace).toHaveBeenCalledTimes(1);
     });
