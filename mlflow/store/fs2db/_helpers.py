@@ -1,0 +1,110 @@
+from collections.abc import Iterator
+from dataclasses import dataclass, fields
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+META_YAML = "meta.yaml"
+
+
+@dataclass
+class MigrationStats:
+    experiments: int = 0
+    experiment_tags: int = 0
+    runs: int = 0
+    params: int = 0
+    tags: int = 0
+    metrics: int = 0
+    latest_metrics: int = 0
+    datasets: int = 0
+    inputs: int = 0
+    input_tags: int = 0
+    outputs: int = 0
+    traces: int = 0
+    trace_tags: int = 0
+    trace_metadata: int = 0
+    assessments: int = 0
+    logged_models: int = 0
+    logged_model_params: int = 0
+    logged_model_tags: int = 0
+    logged_model_metrics: int = 0
+    registered_models: int = 0
+    registered_model_tags: int = 0
+    registered_model_aliases: int = 0
+    model_versions: int = 0
+    model_version_tags: int = 0
+
+    def items(self) -> Iterator[tuple[str, int]]:
+        for f in fields(self):
+            val = getattr(self, f.name)
+            if val > 0:
+                yield f.name, val
+
+
+def safe_read_yaml(root: Path, file_name: str) -> dict[str, Any] | None:
+    try:
+        return yaml.safe_load((root / file_name).read_text())
+    except Exception:
+        return None
+
+
+def list_subdirs(path: Path) -> list[str]:
+    if not path.is_dir():
+        return []
+    return sorted(d.name for d in path.iterdir() if d.is_dir())
+
+
+def list_files(path: Path) -> list[str]:
+    if not path.is_dir():
+        return []
+    return sorted(f.name for f in path.iterdir() if f.is_file())
+
+
+def read_tag_files(tag_dir: Path) -> dict[str, str]:
+    result = {}
+    if not tag_dir.is_dir():
+        return result
+    for p in tag_dir.rglob("*"):
+        if not p.is_file():
+            continue
+        key = p.relative_to(tag_dir).as_posix()
+        result[key] = (tag_dir / key).read_text()
+    return result
+
+
+def read_metric_lines(metrics_dir: Path) -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {}
+    if not metrics_dir.is_dir():
+        return result
+    for p in metrics_dir.rglob("*"):
+        if not p.is_file():
+            continue
+        key = p.relative_to(metrics_dir).as_posix()
+        result[key] = (metrics_dir / key).read_text().splitlines()
+    return result
+
+
+def list_experiment_ids(root: Path) -> list[str]:
+    if not root.is_dir():
+        return []
+    result = []
+    for d in sorted(root.iterdir(), key=lambda p: p.name):
+        if not d.is_dir():
+            continue
+        try:
+            int(d.name)
+        except ValueError:
+            continue
+        result.append(d.name)
+    return result
+
+
+def for_each_experiment(mlruns: Path) -> Iterator[tuple[Path, str]]:
+    """Yield (exp_dir, exp_id) for all experiments in both mlruns and .trash."""
+    for exp_id in list_experiment_ids(mlruns):
+        yield mlruns / exp_id, exp_id
+
+    trash_dir = mlruns / ".trash"
+    for exp_id in list_experiment_ids(trash_dir):
+        yield trash_dir / exp_id, exp_id
