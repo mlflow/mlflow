@@ -13,8 +13,10 @@ from mlflow.gateway.utils import (
     is_valid_endpoint_name,
     parse_sse_lines,
     resolve_route_url,
+    safe_stream,
     set_gateway_uri,
     stream_sse_data,
+    to_sse_error_chunk,
     translate_http_exception,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -337,3 +339,72 @@ async def test_handle_incomplete_chunks_no_newline():
 
     results = [chunk async for chunk in handle_incomplete_chunks(mock_stream())]
     assert results == [b"no newline at all"]
+
+
+def test_to_sse_error_chunk():
+    error = ValueError("Something went wrong")
+    result = to_sse_error_chunk(error)
+    assert (
+        result == 'data: {"error": {"message": "Something went wrong", "type": "ValueError"}}\n\n'
+    )
+
+
+def test_to_sse_error_chunk_with_custom_exception():
+    class CustomError(Exception):
+        pass
+
+    error = CustomError("Custom error message")
+    result = to_sse_error_chunk(error)
+    assert (
+        result == 'data: {"error": {"message": "Custom error message", "type": "CustomError"}}\n\n'
+    )
+
+
+@pytest.mark.asyncio
+async def test_safe_stream_passes_through_chunks():
+    async def mock_stream():
+        yield "chunk1"
+        yield "chunk2"
+        yield "chunk3"
+
+    results = [chunk async for chunk in safe_stream(mock_stream())]
+    assert results == ["chunk1", "chunk2", "chunk3"]
+
+
+@pytest.mark.asyncio
+async def test_safe_stream_catches_exception_and_yields_error_chunk():
+    async def mock_stream():
+        yield "chunk1"
+        raise RuntimeError("Stream failed")
+
+    results = [chunk async for chunk in safe_stream(mock_stream())]
+    assert len(results) == 2
+    assert results[0] == "chunk1"
+    assert '"error"' in results[1]
+    assert '"message": "Stream failed"' in results[1]
+    assert '"type": "RuntimeError"' in results[1]
+
+
+@pytest.mark.asyncio
+async def test_safe_stream_as_bytes():
+    async def mock_stream():
+        yield b"chunk1"
+        raise ValueError("Bytes stream failed")
+
+    results = [chunk async for chunk in safe_stream(mock_stream(), as_bytes=True)]
+    assert len(results) == 2
+    assert results[0] == b"chunk1"
+    assert isinstance(results[1], bytes)
+    assert b'"error"' in results[1]
+    assert b'"message": "Bytes stream failed"' in results[1]
+    assert b'"type": "ValueError"' in results[1]
+
+
+@pytest.mark.asyncio
+async def test_safe_stream_no_exception():
+    async def mock_stream():
+        yield "data1"
+        yield "data2"
+
+    results = [chunk async for chunk in safe_stream(mock_stream())]
+    assert results == ["data1", "data2"]

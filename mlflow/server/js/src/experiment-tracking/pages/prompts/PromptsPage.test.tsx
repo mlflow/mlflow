@@ -105,10 +105,10 @@ describe('PromptsPage', () => {
 
     renderTestComponent();
     await waitFor(() => {
-      expect(screen.getByText('Prompts')).toBeInTheDocument();
+      expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByText('Create prompt'));
+    await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -148,10 +148,10 @@ describe('PromptsPage', () => {
 
     renderTestComponent();
     await waitFor(() => {
-      expect(screen.getByText('Prompts')).toBeInTheDocument();
+      expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByText('Create prompt'));
+    await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -281,10 +281,10 @@ describe('PromptsPage', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Prompts')).toBeInTheDocument();
+        expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
       });
 
-      await userEvent.click(screen.getByText('Create prompt'));
+      await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
       await waitFor(() => {
         expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -347,10 +347,10 @@ describe('PromptsPage', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Prompts')).toBeInTheDocument();
+        expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
       });
 
-      await userEvent.click(screen.getByText('Create prompt'));
+      await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
       await waitFor(() => {
         expect(screen.getByRole('dialog')).toBeInTheDocument();

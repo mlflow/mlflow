@@ -459,11 +459,9 @@ Traces are stored in your MLflow tracking backend:
 
 **Local filesystem**: When using `mlflow server` locally, traces are stored in the `mlruns` directory
 
-**Remote tracking server**: When using a remote MLflow server, traces are stored in the configured backend (database + artifact store)
+**Remote tracking server**: When using a remote MLflow server, traces are stored in the configured backend database
 
-**Database**: Trace metadata is stored in the MLflow tracking database
-
-**Artifact store**: Large trace data may be stored in the artifact store (filesystem, S3, etc.)
+**Database**: Both trace metadata (`TraceInfo`) and span data (`TraceData`) are stored in the MLflow tracking database. Trace metadata is stored in the `trace_info` table, while individual spans are stored in the `spans` table with their content serialized as JSON
 
 ## Integration and Compatibility
 

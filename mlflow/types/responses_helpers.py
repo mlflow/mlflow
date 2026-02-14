@@ -370,7 +370,7 @@ class Message(Status):
 
 class FunctionCallOutput(Status):
     call_id: str
-    output: str
+    output: str | list[dict[str, Any]]
     type: str = "function_call_output"
 
 

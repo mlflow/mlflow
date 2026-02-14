@@ -33,6 +33,15 @@ jest.mock('../../../../../common/utils/RoutingUtils', () => {
   };
 });
 
+jest.mock('../../../../../common/utils/FeatureUtils', () => {
+  return {
+    ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
+      '../../../../../common/utils/FeatureUtils',
+    ),
+    shouldEnableWorkflowBasedNavigation: () => false,
+  };
+});
+
 describe('ExperimentViewHeader', () => {
   const defaultExperiment: ExperimentEntity = {
     experimentId: '123',

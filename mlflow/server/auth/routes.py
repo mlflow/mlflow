@@ -20,6 +20,10 @@ CREATE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/create", 
 GET_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/get", version=3)
 UPDATE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/update", version=3)
 DELETE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/delete", version=3)
+LIST_WORKSPACE_PERMISSIONS = _get_rest_path(
+    "/mlflow/workspaces/<workspace_name>/permissions", version=3
+)
+LIST_USER_WORKSPACE_PERMISSIONS = _get_rest_path("/mlflow/workspace-permissions", version=3)
 
 # Flask routes (not part of Protobuf API)
 GET_ARTIFACT = _add_static_prefix("/get-artifact")

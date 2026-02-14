@@ -20,7 +20,7 @@ from mlflow.demo.base import (
     DemoResult,
 )
 from mlflow.demo.data import EXPECTED_ANSWERS
-from mlflow.demo.generators.traces import DEMO_VERSION_TAG, TracesDemoGenerator
+from mlflow.demo.generators.traces import DEMO_TRACE_TYPE_TAG, DEMO_VERSION_TAG, TracesDemoGenerator
 from mlflow.entities.assessment import AssessmentSource, Feedback
 from mlflow.entities.trace import Trace
 from mlflow.entities.view_type import ViewType
@@ -49,8 +49,9 @@ def _suppress_evaluation_output():
             os.environ["TQDM_DISABLE"] = original_tqdm_disable
 
 
-DEMO_DATASET_V1_NAME = "demo-baseline-dataset"
-DEMO_DATASET_V2_NAME = "demo-improved-dataset"
+DEMO_DATASET_TRACE_LEVEL_NAME = "demo-trace-level-dataset"
+DEMO_DATASET_BASELINE_SESSION_NAME = "demo-baseline-session-dataset"
+DEMO_DATASET_IMPROVED_SESSION_NAME = "demo-improved-session-dataset"
 
 
 def _get_relevance_rationale(is_relevant: bool) -> str:
@@ -89,13 +90,12 @@ def _create_quality_aware_scorer(
     """Create a deterministic scorer that simulates quality-aware evaluation.
 
     The scorer detects response quality based on content characteristics:
-    - Longer, more detailed responses (v2) get evaluated with higher pass rates
-    - Shorter, less detailed responses (v1) get evaluated with lower pass rates
+    - Longer, more detailed responses get evaluated with higher pass rates
+    - Shorter, less detailed responses get evaluated with lower pass rates
 
     This simulates the real-world scenario where improved model outputs
     naturally score better when evaluated by the same scorers.
     """
-    # Threshold for "high quality" response detection (v2 responses are more detailed)
     quality_threshold = 400
 
     @scorer(name=name)
@@ -103,8 +103,6 @@ def _create_quality_aware_scorer(
         content = str(inputs) + str(outputs)
         output_str = str(outputs)
 
-        # Determine effective pass rate based on response quality
-        # V2 responses are more detailed/longer, so they score better
         if len(output_str) > quality_threshold:
             effective_pass_rate = improved_pass_rate
         else:
@@ -137,18 +135,17 @@ SCORER_PASS_RATES = {
 
 
 class EvaluationDemoGenerator(BaseDemoGenerator):
-    """Generates demo evaluation data comparing baseline and improved model outputs.
+    """Generates demo evaluation data.
 
     Creates:
     - Ground truth expectations on all demo traces
-    - Two datasets: baseline (v1 traces) and improved (v2 traces)
-    - Two evaluation runs using the SAME scorers on different datasets
+    - Three datasets and evaluation runs, each in a single mode:
+      - trace-level-evaluation: non-session traces (v1 + v2 combined)
+      - baseline-session-evaluation: v1 session traces
+      - improved-session-evaluation: v2 session traces
 
-    The same quality-aware scorers evaluate both datasets:
-    - V1 traces have shorter, less detailed responses → lower scores
-    - V2 traces have longer, more detailed responses → higher scores
-
-    This demonstrates how improving your model/prompts leads to better evaluation results.
+    Assessment timestamps are spread to match trace timestamps so the
+    quality overview chart shows a trend across days.
     """
 
     name = DemoFeature.EVALUATION
@@ -163,37 +160,56 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
         experiment_id = experiment.experiment_id
 
-        v1_traces = self._fetch_demo_traces(experiment_id, "v1")
-        v2_traces = self._fetch_demo_traces(experiment_id, "v2")
+        # Fetch traces split by session vs non-session
+        v1_non_session = self._fetch_demo_traces(experiment_id, "v1", session=False)
+        v2_non_session = self._fetch_demo_traces(experiment_id, "v2", session=False)
+        v1_session = self._fetch_demo_traces(experiment_id, "v1", session=True)
+        v2_session = self._fetch_demo_traces(experiment_id, "v2", session=True)
 
-        self._add_expectations_to_traces(v1_traces)
-        self._add_expectations_to_traces(v2_traces)
+        all_traces = v1_non_session + v2_non_session + v1_session + v2_session
+        self._add_expectations_to_traces(all_traces)
 
-        v1_traces_with_expectations = self._fetch_demo_traces(experiment_id, "v1")
-        v2_traces_with_expectations = self._fetch_demo_traces(experiment_id, "v2")
+        # Re-fetch to include expectations
+        v1_non_session = self._fetch_demo_traces(experiment_id, "v1", session=False)
+        v2_non_session = self._fetch_demo_traces(experiment_id, "v2", session=False)
+        v1_session = self._fetch_demo_traces(experiment_id, "v1", session=True)
+        v2_session = self._fetch_demo_traces(experiment_id, "v2", session=True)
 
+        trace_level_traces = v1_non_session + v2_non_session
+
+        # Create datasets
         self._create_evaluation_dataset(
-            v1_traces_with_expectations, experiment_id, DEMO_DATASET_V1_NAME
+            trace_level_traces, experiment_id, DEMO_DATASET_TRACE_LEVEL_NAME
         )
         self._create_evaluation_dataset(
-            v2_traces_with_expectations, experiment_id, DEMO_DATASET_V2_NAME
+            v1_session, experiment_id, DEMO_DATASET_BASELINE_SESSION_NAME
+        )
+        self._create_evaluation_dataset(
+            v2_session, experiment_id, DEMO_DATASET_IMPROVED_SESSION_NAME
         )
 
-        v1_run_id = self._create_evaluation_run(
-            traces=v1_traces_with_expectations,
+        # Create evaluation runs
+        trace_level_run_id = self._create_evaluation_run(
+            traces=trace_level_traces,
             experiment_id=experiment_id,
-            run_name="baseline-evaluation",
+            run_name="trace-level-evaluation",
         )
 
-        v2_run_id = self._create_evaluation_run(
-            traces=v2_traces_with_expectations,
+        baseline_session_run_id = self._create_evaluation_run(
+            traces=v1_session,
             experiment_id=experiment_id,
-            run_name="improved-evaluation",
+            run_name="baseline-session-evaluation",
+        )
+
+        improved_session_run_id = self._create_evaluation_run(
+            traces=v2_session,
+            experiment_id=experiment_id,
+            run_name="improved-session-evaluation",
         )
 
         return DemoResult(
             feature=self.name,
-            entity_ids=[v1_run_id, v2_run_id],
+            entity_ids=[trace_level_run_id, baseline_session_run_id, improved_session_run_id],
             navigation_url=f"#/experiments/{experiment_id}/evaluation-runs",
         )
 
@@ -229,7 +245,6 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
             )
             for run in runs:
                 try:
-                    # Restore if deleted, then delete again to ensure consistent state
                     if run.info.lifecycle_stage == "deleted":
                         client.restore_run(run.info.run_id)
                     client.delete_run(run.info.run_id)
@@ -238,13 +253,25 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         except Exception:
             _logger.debug("Failed to delete evaluation demo runs", exc_info=True)
 
-        self._delete_demo_dataset(experiment.experiment_id, DEMO_DATASET_V1_NAME)
-        self._delete_demo_dataset(experiment.experiment_id, DEMO_DATASET_V2_NAME)
+        for name in [
+            DEMO_DATASET_TRACE_LEVEL_NAME,
+            DEMO_DATASET_BASELINE_SESSION_NAME,
+            DEMO_DATASET_IMPROVED_SESSION_NAME,
+        ]:
+            self._delete_demo_dataset(experiment.experiment_id, name)
 
-    def _fetch_demo_traces(self, experiment_id: str, version: Literal["v1", "v2"]) -> list[Trace]:
+    def _fetch_demo_traces(
+        self,
+        experiment_id: str,
+        version: Literal["v1", "v2"],
+        session: bool | None = None,
+    ) -> list[Trace]:
+        filter_parts = [f"metadata.`{DEMO_VERSION_TAG}` = '{version}'"]
+        operator = "=" if session else "!="
+        filter_parts.append(f"metadata.`{DEMO_TRACE_TYPE_TAG}` {operator} 'session'")
         return mlflow.search_traces(
             locations=[experiment_id],
-            filter_string=f"metadata.`{DEMO_VERSION_TAG}` = '{version}'",
+            filter_string=" AND ".join(filter_parts),
             max_results=100,
             return_type="list",
         )

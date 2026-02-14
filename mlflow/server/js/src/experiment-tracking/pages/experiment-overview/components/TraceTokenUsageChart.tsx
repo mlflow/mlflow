@@ -24,7 +24,7 @@ export const TraceTokenUsageChart: React.FC = () => {
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight(0.8, 0.2);
-  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process token usage chart data
   const { chartData, totalTokens, totalInputTokens, totalOutputTokens, isLoading, error, hasData } =
@@ -70,7 +70,7 @@ export const TraceTokenUsageChart: React.FC = () => {
                   <ScrollableTooltip
                     formatter={tooltipFormatter}
                     linkConfig={{
-                      experimentId,
+                      experimentId: experimentIds[0],
                       timeIntervalSeconds,
                       componentId: 'mlflow.overview.usage.token_usage.view_traces_link',
                     }}

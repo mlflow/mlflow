@@ -1,4 +1,4 @@
-"""Generate improved PR title using AI."""
+"""Generate improved PR or issue title using AI."""
 # ruff: noqa: T201
 
 import argparse
@@ -150,19 +150,56 @@ def call_anthropic_api(prompt: str) -> str:
     return str(content["title"])
 
 
+def get_issue_info(repo: str, number: str) -> tuple[str, str]:
+    """Return (title, body)."""
+    print("Fetching issue information...", file=sys.stderr)
+    output = run_gh("issue", "view", number, "--repo", repo, "--json", "title,body")
+    data = json.loads(output)
+    return data["title"], data.get("body") or ""
+
+
+def build_issue_prompt(title: str, body: str) -> str:
+    body = body.strip() or "(No description provided)"
+    return f"""\
+Rewrite the issue title to be more descriptive and follow the guidelines below.
+
+## Current Issue Title
+{title}
+
+## Issue Description
+{body}
+
+## Guidelines for a good issue title:
+1. Clearly describe the problem or feature request (e.g., "`load_model` fails with `KeyError`
+   when model has nested flavors", "Support custom metric types in autologging")
+2. Be specific about what the issue is about
+3. Keep it concise (aim for 72 characters or less, 100 characters maximum)
+4. Do not include issue numbers in the title
+5. Focus on the problem or feature request
+6. Use proper capitalization (capitalize first letter, no period at end)
+7. Use backticks for code/file references (e.g., `ClassName`, `function_name`, `module.path`)
+
+Rewrite the issue title following these guidelines."""
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate improved PR title using AI")
+    parser = argparse.ArgumentParser(description="Generate improved PR or issue title using AI")
     parser.add_argument("--repo", required=True, help="Repository (owner/name)")
-    parser.add_argument("--pr-number", required=True, help="Pull request number")
+    parser.add_argument("--number", required=True, help="PR or issue number")
+    parser.add_argument("--type", required=True, choices=["pr", "issue"], help="Type: pr or issue")
     args = parser.parse_args()
 
-    title, body, head_sha, head_ref = get_pr_info(args.repo, args.pr_number)
-    print(f"Original title: {title}", file=sys.stderr)
+    if args.type == "pr":
+        title, body, head_sha, head_ref = get_pr_info(args.repo, args.number)
+        print(f"Original title: {title}", file=sys.stderr)
+        diff = get_pr_diff(args.repo, args.number, body, head_sha, head_ref)
+        prompt = build_prompt(title, body, diff)
+    else:
+        title, body = get_issue_info(args.repo, args.number)
+        print(f"Original title: {title}", file=sys.stderr)
+        prompt = build_issue_prompt(title, body)
 
-    diff = get_pr_diff(args.repo, args.pr_number, body, head_sha, head_ref)
-    prompt = build_prompt(title, body, diff)
     new_title = call_anthropic_api(prompt)
-
     print(new_title)
 
 

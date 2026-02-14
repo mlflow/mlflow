@@ -34,7 +34,7 @@ describe('TraceCostBreakdownChart', () => {
   ];
 
   const defaultContextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,

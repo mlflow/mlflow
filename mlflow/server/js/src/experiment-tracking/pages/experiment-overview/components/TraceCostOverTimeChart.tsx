@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   useDesignSystemTheme,
   ChartLineIcon,
@@ -13,6 +13,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceCostOverTimeChartData } from '../hooks/useTraceCostOverTimeChartData';
+import { useTraceCostDimension } from '../hooks/useTraceCostDimension';
+import { CostDimensionToggle } from './CostDimensionToggle';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -36,57 +38,76 @@ export const TraceCostOverTimeChart: React.FC = () => {
   const { getChartColor } = useChartColors();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight(0.8, 0.2);
 
+  const { dimension, setDimension } = useTraceCostDimension();
+
   // Fetch and process cost over time chart data
-  const { chartData, modelNames, totalCost, isLoading, error, hasData } = useTraceCostOverTimeChartData();
+  const { chartData, dimensionValues, totalCost, isLoading, error, hasData } = useTraceCostOverTimeChartData(dimension);
 
-  // Model selection state - null means all models selected (default), array means specific selection
-  const [selectedModels, setSelectedModels] = useState<string[] | null>(null);
+  // Selection state - null means all selected (default), array means specific selection
+  const [selectedItems, setSelectedItems] = useState<string[] | null>(null);
 
-  // Compute which models to display
-  const isAllSelected = selectedModels === null;
-  const displayedModels = isAllSelected ? modelNames : selectedModels.filter((model) => modelNames.includes(model));
+  // Reset selection when dimension changes
+  useEffect(() => {
+    setSelectedItems(null);
+  }, [dimension]);
+
+  // Compute which items to display
+  const isAllSelected = selectedItems === null;
+  const displayedItems = isAllSelected
+    ? dimensionValues
+    : selectedItems.filter((item) => dimensionValues.includes(item));
 
   const handleSelectAllToggle = useCallback(() => {
-    // Toggle: if all selected -> select none, if not all -> select all
-    setSelectedModels(isAllSelected ? [] : null);
+    setSelectedItems(isAllSelected ? [] : null);
   }, [isAllSelected]);
 
-  const handleModelToggle = useCallback(
-    (modelName: string) => {
-      setSelectedModels((prev) => {
+  const handleItemToggle = useCallback(
+    (itemName: string) => {
+      setSelectedItems((prev) => {
         if (prev === null) {
-          // Switching from "all" to specific - deselect this one model
-          return modelNames.filter((m) => m !== modelName);
+          return dimensionValues.filter((m) => m !== itemName);
         }
-        const newSelection = prev.includes(modelName) ? prev.filter((m) => m !== modelName) : [...prev, modelName];
-        // If all models are now selected, switch back to "all" state
-        return newSelection.length === modelNames.length ? null : newSelection;
+        const newSelection = prev.includes(itemName) ? prev.filter((m) => m !== itemName) : [...prev, itemName];
+        return newSelection.length === dimensionValues.length ? null : newSelection;
       });
     },
-    [modelNames],
+    [dimensionValues],
   );
 
-  const modelSelectorLabel = useMemo(() => {
+  const selectorLabel = useMemo(() => {
+    const allLabel =
+      dimension === 'model'
+        ? intl.formatMessage({
+            defaultMessage: 'All models',
+            description: 'Label for selector when all models are selected',
+          })
+        : intl.formatMessage({
+            defaultMessage: 'All providers',
+            description: 'Label for selector when all providers are selected',
+          });
+
     if (isAllSelected) {
-      return intl.formatMessage({
-        defaultMessage: 'All models',
-        description: 'Label for model selector when all models are selected',
-      });
+      return allLabel;
     }
-    if (displayedModels.length === 0) {
-      return intl.formatMessage({
-        defaultMessage: 'No models selected',
-        description: 'Label for model selector when no models are selected',
-      });
+    if (displayedItems.length === 0) {
+      return dimension === 'model'
+        ? intl.formatMessage({
+            defaultMessage: 'No models selected',
+            description: 'Label for selector when no models are selected',
+          })
+        : intl.formatMessage({
+            defaultMessage: 'No providers selected',
+            description: 'Label for selector when no providers are selected',
+          });
     }
     return intl.formatMessage(
       {
         defaultMessage: '{count} selected',
-        description: 'Label for model selector showing count of selected models',
+        description: 'Label for selector showing count of selected items',
       },
-      { count: displayedModels.length },
+      { count: displayedItems.length },
     );
-  }, [isAllSelected, displayedModels, intl]);
+  }, [isAllSelected, displayedItems, intl, dimension]);
 
   const tooltipFormatter = useCallback(
     (value: number, name: string) => [formatCostUSD(value), name] as [string, string],
@@ -117,16 +138,21 @@ export const TraceCostOverTimeChart: React.FC = () => {
             <FormattedMessage defaultMessage="Total Cost" description="Subtitle for the cost over time chart total" />
           }
         />
-        {/* Model selector dropdown */}
-        {hasData && modelNames.length > 0 && (
-          <div css={{ flexShrink: 0 }}>
+        <div css={{ display: 'flex', gap: theme.spacing.sm, flexShrink: 0 }}>
+          <CostDimensionToggle
+            componentId="mlflow.overview.usage.trace_cost_over_time.dimension"
+            value={dimension}
+            onChange={setDimension}
+          />
+          {/* Item selector dropdown */}
+          {hasData && dimensionValues.length > 0 && (
             <DialogCombobox
-              componentId="mlflow.overview.usage.trace_cost_over_time.model_selector"
-              label={modelSelectorLabel}
+              componentId="mlflow.overview.usage.trace_cost_over_time.item_selector"
+              label={selectorLabel}
               multiSelect
               value={[]}
             >
-              <DialogComboboxTrigger allowClear={false} css={{ minWidth: 120 }} data-testid="model-selector-dropdown" />
+              <DialogComboboxTrigger allowClear={false} css={{ minWidth: 120 }} data-testid="item-selector-dropdown" />
               <DialogComboboxContent maxHeight={300} align="end">
                 <DialogComboboxOptionList>
                   <DialogComboboxOptionListSearch>
@@ -138,30 +164,30 @@ export const TraceCostOverTimeChart: React.FC = () => {
                     >
                       <FormattedMessage
                         defaultMessage="Select All"
-                        description="Option to select all models in the model selector"
+                        description="Option to select all items in the selector"
                       />
                     </DialogComboboxOptionListCheckboxItem>
-                    {modelNames.map((modelName) => (
+                    {dimensionValues.map((itemName) => (
                       <DialogComboboxOptionListCheckboxItem
-                        key={modelName}
-                        value={modelName}
-                        checked={isAllSelected || displayedModels.includes(modelName)}
-                        onChange={() => handleModelToggle(modelName)}
+                        key={itemName}
+                        value={itemName}
+                        checked={isAllSelected || displayedItems.includes(itemName)}
+                        onChange={() => handleItemToggle(itemName)}
                       >
-                        {modelName}
+                        {itemName}
                       </DialogComboboxOptionListCheckboxItem>
                     ))}
                   </DialogComboboxOptionListSearch>
                 </DialogComboboxOptionList>
               </DialogComboboxContent>
             </DialogCombobox>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Chart */}
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
-        {hasData && displayedModels.length > 0 ? (
+        {hasData && displayedItems.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
@@ -170,18 +196,18 @@ export const TraceCostOverTimeChart: React.FC = () => {
                 content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
               />
-              {displayedModels.map((modelName) => {
-                const originalIndex = modelNames.indexOf(modelName);
+              {displayedItems.map((itemName) => {
+                const originalIndex = dimensionValues.indexOf(itemName);
                 return (
                   <Line
-                    key={modelName}
+                    key={itemName}
                     type="monotone"
-                    dataKey={modelName}
+                    dataKey={itemName}
                     stroke={getChartColor(originalIndex)}
-                    strokeOpacity={getOpacity(modelName)}
+                    strokeOpacity={getOpacity(itemName)}
                     strokeWidth={2}
                     dot={getLineDotStyle(getChartColor(originalIndex))}
-                    name={modelName}
+                    name={itemName}
                   />
                 );
               })}

@@ -10,6 +10,7 @@ MLflow Authentication provides Python and REST API for managing users and permis
 
 - <APILink fn="mlflow.server.auth">MLflow Authentication Python API</APILink>
 - <Link to="/api_reference/auth/rest-api.html" target="_blank"><span>MLflow Authentication REST API</span></Link>
+- <Link to="/self-hosting/workspaces/permissions">Workspace Permissions</Link>
 
 ![](/images/auth_signup_form.png)
 
@@ -108,7 +109,8 @@ The available permissions are:
 
 The default permission for all users is `READ`. It can be changed in the [configuration](#configuration) file.
 
-Permissions can be granted on individual resources for each user.
+Permissions can be granted on individual resources for each user. For workspace-wide access
+controls, see [Workspace Permissions](/self-hosting/workspaces/permissions).
 Supported resources include `Experiment`, `Registered Model`, and `Scorer`.
 To access an API endpoint, an user must have the required permission.
 Otherwise, a `403 Forbidden` response will be returned.
@@ -1283,6 +1285,7 @@ auth_client.update_user_admin(username="user1", is_admin=True)
 
 MLflow provides <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">REST APIs</Link>
 and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink> to manage users and permissions.
+For workspace-scoped permissions, see <Link to="/self-hosting/workspaces/permissions">Workspace Permissions</Link>.
 To instantiate `AuthServiceClient`, it is recommended that you use <APILink fn="mlflow.server.get_app_client" />.
 
 ```bash title="Example"
@@ -1428,6 +1431,10 @@ Authentication configuration is located at `mlflow/server/auth/basic_auth.ini`:
     <tr>
       <td>`default_permission`</td>
       <td>Default permission on all resources</td>
+    </tr>
+    <tr>
+      <td>`grant_default_workspace_access`</td>
+      <td>When workspaces are enabled: if `false`, the `default` workspace ignores `default_permission` and new users need explicit workspace ACLs; if `true`, the `default` workspace inherits `default_permission` for all users (pre-workspaces behavior).</td>
     </tr>
     <tr>
       <td>`database_uri`</td>

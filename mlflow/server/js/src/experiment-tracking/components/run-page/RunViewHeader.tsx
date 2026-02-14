@@ -86,7 +86,6 @@ export const RunViewHeader = ({
       <Link to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}>
         <FormattedMessage
           defaultMessage="Displaying Runs from {numExperiments} Experiments"
-          // eslint-disable-next-line max-len
           description="Breadcrumb nav item to link to the compare-experiments page on compare runs page"
           values={{
             numExperiments: comparedExperimentIds.length,

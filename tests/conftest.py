@@ -25,13 +25,20 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_TRACKING_URI,
+    MLFLOW_WORKSPACE,
+    MLFLOW_WORKSPACE_STORE_URI,
+)
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.provider import get_current_otel_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.utils import workspace_context, workspace_utils
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
@@ -729,6 +736,8 @@ def remote_backend_for_tracing_sdk_test():
                 "--directory",
                 # Install from the dev version
                 mlflow_root,
+                "--with",
+                "setuptools<82",  # setuptools 82+ removed pkg_resources
                 "mlflow",
                 "server",
                 "--port",
@@ -778,6 +787,45 @@ def tracking_uri_mock(db_uri: str, request: pytest.FixtureRequest) -> Iterator[s
             yield db_uri
     else:
         yield None
+
+
+@pytest.fixture(autouse=True)
+def disable_workspace_mode_by_default(monkeypatch):
+    """
+    Ensure tests default to single-tenant mode regardless of the outer environment.
+    Individual tests can still opt in by setting ``MLFLOW_ENABLE_WORKSPACES`` explicitly.
+    """
+
+    for env_var in (
+        MLFLOW_ENABLE_WORKSPACES,
+        MLFLOW_WORKSPACE,
+        MLFLOW_WORKSPACE_STORE_URI,
+    ):
+        monkeypatch.delenv(env_var.name, raising=False)
+
+    if workspace_context is not None:
+        workspace_context.clear_server_request_workspace()
+
+    if workspace_utils is not None:
+        workspace_utils.set_workspace_store_uri(None)
+
+    yield
+
+    # Clear env vars at teardown to prevent leaking to subprocess servers.
+    # monkeypatch only tracks changes made through itself, so direct os.environ
+    # modifications (or those made by other code) would otherwise persist.
+    for env_var in (
+        MLFLOW_ENABLE_WORKSPACES,
+        MLFLOW_WORKSPACE,
+        MLFLOW_WORKSPACE_STORE_URI,
+    ):
+        os.environ.pop(env_var.name, None)
+
+    if workspace_context is not None:
+        workspace_context.clear_server_request_workspace()
+
+    if workspace_utils is not None:
+        workspace_utils.set_workspace_store_uri(None)
 
 
 @pytest.fixture(autouse=True)

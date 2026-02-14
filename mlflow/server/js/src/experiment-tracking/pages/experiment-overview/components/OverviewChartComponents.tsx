@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTelemetry';
 import { useNavigate } from '../../../../common/utils/RoutingUtils';
+import { OverviewChartContext } from '../OverviewChartContext';
 import Routes from '../../../routes';
 import { ExperimentPageTabName } from '../../../constants';
 import {
@@ -323,6 +324,7 @@ interface ScrollableTooltipProps {
 export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
+  const hideTooltipLinks = useContext(OverviewChartContext)?.hideTooltipLinks;
 
   if (!active || !payload?.length) {
     return null;
@@ -333,7 +335,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
   const hasCustomLinkClick = linkConfig?.onLinkClick !== undefined;
   const hasTimeBasedNavigation =
     linkConfig?.experimentId && linkConfig?.timeIntervalSeconds && dataPoint?.timestampMs !== undefined;
-  const showLink = linkConfig && (hasCustomLinkClick || hasTimeBasedNavigation);
+  const showLink = !hideTooltipLinks && linkConfig && (hasCustomLinkClick || hasTimeBasedNavigation);
 
   const handleLinkClick = () => {
     if (hasCustomLinkClick) {

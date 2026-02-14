@@ -1,3 +1,5 @@
+import json
+
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from mlflow.types.responses import ResponsesAgentStreamEvent, output_to_responses_items_stream
@@ -363,3 +365,29 @@ def test_output_to_responses_items_stream_langchain_multiple_tool_calls_unique_i
     ]
     result = list(output_to_responses_items_stream(messages))
     assert result == expected
+
+
+def test_output_to_responses_items_stream_langchain_non_string_tool_content():
+    mcp_content_blocks = [{"type": "text", "text": "result from mcp tool"}]
+
+    messages = [
+        AIMessage(
+            content="Calling tools",
+            id="ai-1",
+            tool_calls=[
+                {"name": "mcp_tool", "args": {}, "id": "call-1", "type": "tool_call"},
+            ],
+        ),
+        ToolMessage(
+            content=mcp_content_blocks,
+            name="mcp_tool",
+            id="tool-1",
+            tool_call_id="call-1",
+        ),
+    ]
+
+    result = list(output_to_responses_items_stream(messages))
+
+    tool_outputs = [r for r in result if r.item.get("type") == "function_call_output"]
+    assert len(tool_outputs) == 1
+    assert tool_outputs[0].item["output"] == json.dumps(mcp_content_blocks)

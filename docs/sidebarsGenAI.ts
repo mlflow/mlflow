@@ -550,9 +550,19 @@ const sidebarsGenAI: SidebarsConfig = {
               label: 'Evaluate Traces',
             },
             {
-              type: 'doc',
-              id: 'eval-monitor/running-evaluation/multi-turn',
+              type: 'category',
               label: 'Evaluate Conversations',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/running-evaluation/conversation-simulation',
+                  label: 'Conversation Simulation',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/running-evaluation/multi-turn',
+              },
             },
           ],
         },
@@ -759,6 +769,11 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'datasets/conversation-simulation',
+              label: 'Conversation Simulation',
+            },
+            {
+              type: 'doc',
               id: 'datasets/end-to-end-workflow',
               label: 'End-to-End Workflow',
             },
@@ -932,6 +947,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'governance/ai-gateway/traffic-routing-fallbacks',
           label: 'Traffic Routing & Fallbacks',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/usage-tracking',
+          label: 'Usage Tracking',
         },
         {
           type: 'category',

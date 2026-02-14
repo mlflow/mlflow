@@ -7,12 +7,28 @@ for users.
 
 import click
 
+from mlflow.environment_variables import MLFLOW_WORKSPACE
+from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import (
     DEFAULT_ARTIFACTS_URI,
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
     DEFAULT_TRACKING_URI,
 )
 from mlflow.utils.uri import is_local_uri
+
+
+def assert_server_workspace_env_unset() -> None:
+    """
+    Ensure the server is not started with ``MLFLOW_WORKSPACE`` set.
+
+    ``MLFLOW_WORKSPACE`` is a client-only setting used for propagating workspace across threads.
+    Server isolation relies on per-request ContextVars and must not fall back to the env var.
+    """
+    if workspace := MLFLOW_WORKSPACE.get_raw():
+        raise MlflowException.invalid_parameter_value(
+            f"{MLFLOW_WORKSPACE.name}={workspace} is client-only. Unset it before starting the "
+            + "server."
+        )
 
 
 def resolve_default_artifact_root(
@@ -30,7 +46,7 @@ def resolve_default_artifact_root(
     return default_artifact_root
 
 
-def _is_default_backend_store_uri(backend_store_uri: str) -> bool:
+def _is_default_backend_store_uri(backend_store_uri: str | None) -> bool:
     """Utility function to validate if the configured backend store uri location is set as the
     default value for MLflow server.
 
@@ -42,10 +58,21 @@ def _is_default_backend_store_uri(backend_store_uri: str) -> bool:
         bool True if the default value is set.
 
     """
-    return backend_store_uri == DEFAULT_TRACKING_URI
+    if backend_store_uri is None:
+        return False
+    return backend_store_uri in {DEFAULT_TRACKING_URI, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}
 
 
-def artifacts_only_config_validation(artifacts_only: bool, backend_store_uri: str) -> None:
+def artifacts_only_config_validation(
+    artifacts_only: bool,
+    backend_store_uri: str,
+    enable_workspaces: bool = False,
+) -> None:
+    if artifacts_only and enable_workspaces:
+        # Workspace mode relies on a workspace provider to resolve the default workspace and seed
+        # request context. Artifact-only servers never load that stack, so they cannot determine
+        # the active workspace safely. This decision can be revisited in the future.
+        raise click.UsageError("--enable-workspaces cannot be combined with --artifacts-only.")
     if artifacts_only and not _is_default_backend_store_uri(backend_store_uri):
         msg = (
             "You are starting a tracking server in `--artifacts-only` mode and have provided a "

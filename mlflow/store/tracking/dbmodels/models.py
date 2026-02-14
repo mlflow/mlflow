@@ -74,6 +74,7 @@ from mlflow.store.db.base_sql_model import Base
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 SourceTypes = [
     SourceType.to_string(SourceType.NOTEBOOK),
@@ -107,10 +108,20 @@ class SqlExperiment(Base):
     """
     Experiment ID: `Integer`. *Primary Key* for ``experiment`` table.
     """
-    name = Column(String(256), unique=True, nullable=False)
+    name = Column(String(256), nullable=False)
     """
-    Experiment name: `String` (limit 256 characters). Defined as *Unique* and *Non null* in
-                     table schema.
+    Experiment name: `String` (limit 256 characters). Unique *within a workspace* (enforced by
+                     the ``workspace`` + ``name`` constraint) and *Non null* in the table schema.
+    """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace identifier for this experiment: `String` (limit 63 characters). Defaults to
+    ``'default'`` when not explicitly provided.
     """
     artifact_location = Column(String(256), nullable=True)
     """
@@ -137,6 +148,7 @@ class SqlExperiment(Base):
             name="experiments_lifecycle_stage",
         ),
         PrimaryKeyConstraint("experiment_id", name="experiment_pk"),
+        UniqueConstraint("workspace", "name", name="uq_experiments_workspace_name"),
     )
 
     def __repr__(self):
@@ -157,6 +169,7 @@ class SqlExperiment(Base):
             tags=[t.to_mlflow_entity() for t in self.tags],
             creation_time=self.creation_time,
             last_update_time=self.last_update_time,
+            workspace=self.workspace,
         )
 
 
@@ -1384,6 +1397,16 @@ class SqlEvaluationDataset(Base):
     *Primary Key* for ``evaluation_datasets`` table.
     """
 
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace name that scopes this dataset.
+    """
+
     name = Column(String(255), nullable=False)
     """
     Dataset name: `String` (limit 255 characters). *Non null* in table schema.
@@ -1438,6 +1461,7 @@ class SqlEvaluationDataset(Base):
         PrimaryKeyConstraint("dataset_id", name="evaluation_datasets_pk"),
         Index("index_evaluation_datasets_name", "name"),
         Index("index_evaluation_datasets_created_time", "created_time"),
+        Index("idx_evaluation_datasets_workspace", "workspace"),
     )
 
     def to_mlflow_entity(self):
@@ -2124,6 +2148,16 @@ class SqlJob(Base):
     Job parameters: `Text`.
     """
 
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace identifier for this job: `String` (limit 63 characters). Defaults to ``'default'``.
+    """
+
     timeout = Column(sa.types.Float(precision=53), nullable=True)
     """
     Job execution timeout in seconds: `Float`
@@ -2154,6 +2188,7 @@ class SqlJob(Base):
         Index(
             "index_jobs_name_status_creation_time",
             "job_name",
+            "workspace",
             "status",
             "creation_time",
         ),
@@ -2182,6 +2217,7 @@ class SqlJob(Base):
             result=self.result,
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
+            workspace=self.workspace,
         )
 
 
@@ -2267,10 +2303,20 @@ class SqlGatewaySecret(Base):
     """
     Last update timestamp: `BigInteger`.
     """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("secret_id", name="secrets_pk"),
-        Index("unique_secret_name", "secret_name", unique=True),
+        UniqueConstraint("workspace", "secret_name", name="uq_secrets_workspace_secret_name"),
+        Index("idx_secrets_workspace", "workspace"),
     )
 
     def __repr__(self):
@@ -2290,6 +2336,7 @@ class SqlGatewaySecret(Base):
             last_updated_at=self.last_updated_at,
             provider=self.provider,
             auth_config=json.loads(self.auth_config) if self.auth_config else None,
+            workspace=self.workspace,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
         )
@@ -2350,10 +2397,20 @@ class SqlGatewayEndpoint(Base):
     Usage tracking: `Boolean`. Whether usage tracking is enabled for this endpoint.
     When true, traces will be logged for endpoint invocations.
     """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
-        Index("unique_endpoint_name", "name", unique=True),
+        UniqueConstraint("workspace", "name", name="uq_endpoints_workspace_name"),
+        Index("idx_endpoints_workspace", "workspace"),
     )
 
     def __repr__(self):
@@ -2390,6 +2447,7 @@ class SqlGatewayEndpoint(Base):
             fallback_config=fallback_config,
             experiment_id=str(self.experiment_id) if self.experiment_id is not None else None,
             usage_tracking=self.usage_tracking,
+            workspace=self.workspace,
         )
 
 
@@ -2445,6 +2503,15 @@ class SqlGatewayModelDefinition(Base):
     """
     Last update timestamp: `BigInteger`.
     """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
 
     secret = relationship("SqlGatewaySecret")
     """
@@ -2454,9 +2521,10 @@ class SqlGatewayModelDefinition(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("model_definition_id", name="model_definitions_pk"),
-        Index("unique_model_definition_name", "name", unique=True),
+        UniqueConstraint("workspace", "name", name="uq_model_definitions_workspace_name"),
         Index("index_model_definitions_secret_id", "secret_id"),
         Index("index_model_definitions_provider", "provider"),
+        Index("idx_model_definitions_workspace", "workspace"),
     )
 
     def __repr__(self):
@@ -2474,6 +2542,7 @@ class SqlGatewayModelDefinition(Base):
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            workspace=self.workspace,
         )
 
 

@@ -61,7 +61,7 @@ async def send_stream_request(
     headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]
 ) -> AsyncGenerator[bytes, None]:
     """
-    Send an HTTP request to a specific URL path with given headers and payload.
+    Send a streaming HTTP request to a specific URL path with given headers and payload.
 
     Args:
         headers: The headers to include in the request.
@@ -69,13 +69,26 @@ async def send_stream_request(
         path: The specific path of the URL to which the request will be sent.
         payload: The payload (or data) to be included in the request.
 
-    Returns:
-        The server's response as a JSON object.
+    Yields:
+        Bytes from the server's streaming response.
 
     Raises:
         HTTPException if the HTTP request fails.
     """
+    import aiohttp
+    from fastapi import HTTPException
+
     async with _aiohttp_post(headers, base_url, path, payload) as response:
+        try:
+            response.raise_for_status()
+        except aiohttp.ClientResponseError as e:
+            try:
+                error_body = await response.json()
+                detail = error_body.get("error", {}).get("message", e.message)
+            except Exception:
+                detail = e.message
+            raise HTTPException(status_code=e.status, detail=detail)
+
         async for line in response.content:
             yield line
 

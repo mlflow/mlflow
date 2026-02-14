@@ -10,7 +10,7 @@ import os
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, Any, Callable, Generator, Literal
+from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, ParamSpec, TypeVar, overload
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
@@ -80,6 +80,33 @@ def _set_sampling_ratio_override(sampling_ratio_override: float | None):
 # This is necessary for evaluation harness to access generated traces during
 # evaluation using the dataset row ID (evaluation request ID).
 _EVAL_REQUEST_ID_TO_TRACE_ID = TTLCache(maxsize=10000, ttl=3600)
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+@overload
+def trace(
+    func: Callable[_P, _R],
+    name: str | None = None,
+    span_type: str = SpanType.UNKNOWN,
+    attributes: dict[str, Any] | None = None,
+    output_reducer: Callable[[list[Any]], Any] | None = None,
+    trace_destination: TraceLocationBase | None = None,
+    sampling_ratio_override: float | None = None,
+) -> Callable[_P, _R]: ...
+
+
+@overload
+def trace(
+    func: None = None,
+    name: str | None = None,
+    span_type: str = SpanType.UNKNOWN,
+    attributes: dict[str, Any] | None = None,
+    output_reducer: Callable[[list[Any]], Any] | None = None,
+    trace_destination: TraceLocationBase | None = None,
+    sampling_ratio_override: float | None = None,
+) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]: ...
 
 
 def trace(

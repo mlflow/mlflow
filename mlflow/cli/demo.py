@@ -6,7 +6,6 @@ import time
 import webbrowser
 from collections.abc import Generator
 from pathlib import Path
-from urllib.parse import quote
 
 import click
 
@@ -151,8 +150,13 @@ def _run_with_existing_server(
     else:
         click.echo("  Demo data already exists (skipped generation).")
 
-    encoded_experiment = quote(DEMO_EXPERIMENT_NAME, safe="")
-    experiment_url = f"{tracking_uri.rstrip('/')}/#/experiments/{encoded_experiment}/overview"
+    experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    if experiment is None:
+        raise click.ClickException(
+            f"Demo experiment '{DEMO_EXPERIMENT_NAME}' not found. "
+            "This should not happen after generating demo data."
+        )
+    experiment_url = f"{tracking_uri.rstrip('/')}/#/experiments/{experiment.experiment_id}/overview"
 
     click.echo()
     click.secho(f"View the demo at: {experiment_url}", fg="green", bold=True)
@@ -164,6 +168,7 @@ def _run_with_existing_server(
 
 
 def _run_with_new_server(port: int | None, no_browser: bool, debug: bool, refresh: bool) -> None:
+    import mlflow
     from mlflow.demo import generate_all_demos
     from mlflow.demo.base import DEMO_EXPERIMENT_NAME
     from mlflow.server import _run_server
@@ -207,8 +212,13 @@ def _run_with_new_server(port: int | None, no_browser: bool, debug: bool, refres
     if results:
         click.echo(f"  Generated: {', '.join(r.feature for r in results)}")
 
-    encoded_experiment = quote(DEMO_EXPERIMENT_NAME, safe="")
-    experiment_url = f"http://127.0.0.1:{port}/#/experiments/{encoded_experiment}/overview"
+    experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    if experiment is None:
+        raise click.ClickException(
+            f"Demo experiment '{DEMO_EXPERIMENT_NAME}' not found. "
+            "This should not happen after generating demo data."
+        )
+    experiment_url = f"http://127.0.0.1:{port}/#/experiments/{experiment.experiment_id}/overview"
 
     if not no_browser:
 

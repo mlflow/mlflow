@@ -72,6 +72,15 @@ jobs:
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
           fetch-depth: 100
+      - name: Verify head SHA
+        env:
+          EXPECTED_SHA: ${{ needs.check-comment.outputs.head_sha }}
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          if [[ "$actual_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::HEAD has changed since the /autoformat comment (expected $EXPECTED_SHA, got $actual_sha). Please re-comment /autoformat."
+            exit 1
+          fi
       - name: Check diff
         id: diff
         env:
@@ -207,6 +216,16 @@ jobs:
           # code using `GITHUB_TOKEN`, that won't trigger new workflow runs on the PR.
           # A personal access token is required to trigger new workflow runs.
           token: ${{ steps.app-token.outputs.token }}
+
+      - name: Verify head SHA
+        env:
+          EXPECTED_SHA: ${{ needs.check-comment.outputs.head_sha }}
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          if [[ "$actual_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::HEAD has changed since the /autoformat comment (expected $EXPECTED_SHA, got $actual_sha). Please re-comment /autoformat."
+            exit 1
+          fi
 
       - name: Merge base branch
         env:

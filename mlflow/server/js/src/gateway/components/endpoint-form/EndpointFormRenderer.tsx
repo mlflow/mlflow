@@ -212,19 +212,11 @@ export const EndpointFormRenderer = ({
               <Controller
                 control={form.control}
                 name="usageTracking"
-                render={({ field: usageTrackingField }) => (
-                  <Controller
-                    control={form.control}
-                    name="experimentId"
-                    render={({ field: experimentIdField }) => (
-                      <UsageTrackingConfigurator
-                        value={usageTrackingField.value}
-                        onChange={usageTrackingField.onChange}
-                        experimentId={experimentIdField.value ?? ''}
-                        onExperimentIdChange={experimentIdField.onChange}
-                        componentIdPrefix="mlflow.gateway.create-endpoint.usage-tracking"
-                      />
-                    )}
+                render={({ field }) => (
+                  <UsageTrackingConfigurator
+                    value={field.value}
+                    onChange={field.onChange}
+                    componentIdPrefix="mlflow.gateway.create-endpoint.usage-tracking"
                   />
                 )}
               />

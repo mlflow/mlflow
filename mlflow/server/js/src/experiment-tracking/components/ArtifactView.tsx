@@ -128,7 +128,6 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           <label>
             <FormattedMessage
               defaultMessage="Full Path:"
-              // eslint-disable-next-line max-len
               description="Label to display the full path of where the artifact of the experiment runs is located"
             />
           </label>{' '}

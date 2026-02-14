@@ -31,7 +31,7 @@ describe('useToolUsageChartData', () => {
   ];
 
   const contextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,

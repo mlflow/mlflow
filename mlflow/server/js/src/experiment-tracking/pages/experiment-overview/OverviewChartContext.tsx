@@ -5,16 +5,19 @@ import React, { createContext, useContext, useMemo } from 'react';
  * This eliminates prop drilling through intermediate components.
  */
 export interface OverviewChartContextValue {
-  experimentId: string;
+  /** Array of experiment IDs to query metrics for */
+  experimentIds: string[];
   startTimeMs?: number;
   endTimeMs?: number;
   /** Time interval in seconds for grouping metrics by time bucket */
   timeIntervalSeconds: number;
   /** Pre-computed array of timestamp (ms) for all time buckets in the range */
   timeBuckets: number[];
+  /** When true, hides "View traces for this period" links in chart tooltips */
+  hideTooltipLinks?: boolean;
 }
 
-const OverviewChartContext = createContext<OverviewChartContextValue | null>(null);
+export const OverviewChartContext = createContext<OverviewChartContextValue | null>(null);
 
 interface OverviewChartProviderProps extends OverviewChartContextValue {
   children: React.ReactNode;
@@ -26,21 +29,23 @@ interface OverviewChartProviderProps extends OverviewChartContextValue {
  */
 export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
   children,
-  experimentId,
+  experimentIds,
   startTimeMs,
   endTimeMs,
   timeIntervalSeconds,
   timeBuckets,
+  hideTooltipLinks,
 }) => {
   const value = useMemo(
     () => ({
-      experimentId,
+      experimentIds,
       startTimeMs,
       endTimeMs,
       timeIntervalSeconds,
       timeBuckets,
+      hideTooltipLinks,
     }),
-    [experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets],
+    [experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, hideTooltipLinks],
   );
 
   return <OverviewChartContext.Provider value={value}>{children}</OverviewChartContext.Provider>;

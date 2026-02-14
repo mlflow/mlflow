@@ -13,12 +13,22 @@ import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
 
-// Helper to create a cost data point with time bucket
-const createCostDataPoint = (timeBucket: string, modelName: string, cost: number) => ({
+// Helper to create a cost data point with time bucket grouped by model
+const createModelCostDataPoint = (timeBucket: string, modelName: string, cost: number) => ({
   metric_name: SpanMetricKey.TOTAL_COST,
   dimensions: {
     time_bucket: timeBucket,
     [SpanDimensionKey.MODEL_NAME]: modelName,
+  },
+  values: { [AggregationType.SUM]: cost },
+});
+
+// Helper to create a cost data point with time bucket grouped by provider
+const createProviderCostDataPoint = (timeBucket: string, provider: string, cost: number) => ({
+  metric_name: SpanMetricKey.TOTAL_COST,
+  dimensions: {
+    time_bucket: timeBucket,
+    [SpanDimensionKey.MODEL_PROVIDER]: provider,
   },
   values: { [AggregationType.SUM]: cost },
 });
@@ -36,7 +46,7 @@ describe('useTraceCostOverTimeChartData', () => {
   ];
 
   const contextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -91,7 +101,7 @@ describe('useTraceCostOverTimeChartData', () => {
 
       expect(result.current.isLoading).toBe(true);
       expect(result.current.chartData).toHaveLength(3); // Time buckets are pre-filled
-      expect(result.current.modelNames).toHaveLength(0);
+      expect(result.current.dimensionValues).toHaveLength(0);
       expect(result.current.totalCost).toBe(0);
       expect(result.current.hasData).toBe(false);
     });
@@ -126,7 +136,7 @@ describe('useTraceCostOverTimeChartData', () => {
       });
 
       expect(result.current.hasData).toBe(false);
-      expect(result.current.modelNames).toHaveLength(0);
+      expect(result.current.dimensionValues).toHaveLength(0);
       expect(result.current.totalCost).toBe(0);
     });
   });
@@ -134,9 +144,9 @@ describe('useTraceCostOverTimeChartData', () => {
   describe('data transformation', () => {
     it('should calculate total cost correctly', async () => {
       setupTraceMetricsHandler([
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-3.5-turbo', 0.03),
-        createCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.02),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-3.5-turbo', 0.03),
+        createModelCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.02),
       ]);
 
       const { result } = renderHook(() => useTraceCostOverTimeChartData(), {
@@ -153,10 +163,10 @@ describe('useTraceCostOverTimeChartData', () => {
 
     it('should extract unique model names sorted alphabetically', async () => {
       setupTraceMetricsHandler([
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
-        createCostDataPoint('2025-12-22T10:00:00Z', 'claude-3', 0.03),
-        createCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.02),
-        createCostDataPoint('2025-12-22T11:00:00Z', 'gpt-3.5', 0.01),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'claude-3', 0.03),
+        createModelCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.02),
+        createModelCostDataPoint('2025-12-22T11:00:00Z', 'gpt-3.5', 0.01),
       ]);
 
       const { result } = renderHook(() => useTraceCostOverTimeChartData(), {
@@ -167,13 +177,13 @@ describe('useTraceCostOverTimeChartData', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(result.current.modelNames).toEqual(['claude-3', 'gpt-3.5', 'gpt-4']);
+      expect(result.current.dimensionValues).toEqual(['claude-3', 'gpt-3.5', 'gpt-4']);
     });
 
     it('should fill all time buckets with data', async () => {
       setupTraceMetricsHandler([
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
-        createCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.03),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
+        createModelCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.03),
       ]);
 
       const { result } = renderHook(() => useTraceCostOverTimeChartData(), {
@@ -190,9 +200,9 @@ describe('useTraceCostOverTimeChartData', () => {
 
     it('should fill missing time buckets with zero values', async () => {
       setupTraceMetricsHandler([
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
         // No data for 11:00:00
-        createCostDataPoint('2025-12-22T12:00:00Z', 'gpt-4', 0.03),
+        createModelCostDataPoint('2025-12-22T12:00:00Z', 'gpt-4', 0.03),
       ]);
 
       const { result } = renderHook(() => useTraceCostOverTimeChartData(), {
@@ -209,9 +219,9 @@ describe('useTraceCostOverTimeChartData', () => {
 
     it('should fill missing models with zero values for each time bucket', async () => {
       setupTraceMetricsHandler([
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
-        createCostDataPoint('2025-12-22T10:00:00Z', 'claude-3', 0.03),
-        createCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.02),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'claude-3', 0.03),
+        createModelCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.02),
         // claude-3 missing for 11:00:00
       ]);
 
@@ -234,9 +244,9 @@ describe('useTraceCostOverTimeChartData', () => {
 
     it('should handle single model correctly', async () => {
       setupTraceMetricsHandler([
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
-        createCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.03),
-        createCostDataPoint('2025-12-22T12:00:00Z', 'gpt-4', 0.02),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
+        createModelCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.03),
+        createModelCostDataPoint('2025-12-22T12:00:00Z', 'gpt-4', 0.02),
       ]);
 
       const { result } = renderHook(() => useTraceCostOverTimeChartData(), {
@@ -247,7 +257,7 @@ describe('useTraceCostOverTimeChartData', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(result.current.modelNames).toEqual(['gpt-4']);
+      expect(result.current.dimensionValues).toEqual(['gpt-4']);
       expect(result.current.chartData[0]['gpt-4']).toBe(0.05);
       expect(result.current.chartData[1]['gpt-4']).toBe(0.03);
       expect(result.current.chartData[2]['gpt-4']).toBe(0.02);
@@ -256,9 +266,9 @@ describe('useTraceCostOverTimeChartData', () => {
 
     it('should handle multiple models at same time bucket', async () => {
       setupTraceMetricsHandler([
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
-        createCostDataPoint('2025-12-22T10:00:00Z', 'claude-3', 0.03),
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-3.5', 0.02),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'claude-3', 0.03),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-3.5', 0.02),
       ]);
 
       const { result } = renderHook(() => useTraceCostOverTimeChartData(), {
@@ -276,7 +286,7 @@ describe('useTraceCostOverTimeChartData', () => {
 
     it('should handle missing cost values as zero', async () => {
       setupTraceMetricsHandler([
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.05),
         {
           metric_name: SpanMetricKey.TOTAL_COST,
           dimensions: {
@@ -300,8 +310,8 @@ describe('useTraceCostOverTimeChartData', () => {
 
     it('should handle very small costs correctly', async () => {
       setupTraceMetricsHandler([
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.000001),
-        createCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.000002),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 0.000001),
+        createModelCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 0.000002),
       ]);
 
       const { result } = renderHook(() => useTraceCostOverTimeChartData(), {
@@ -319,8 +329,8 @@ describe('useTraceCostOverTimeChartData', () => {
 
     it('should handle large costs correctly', async () => {
       setupTraceMetricsHandler([
-        createCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 1000.5),
-        createCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 500.25),
+        createModelCostDataPoint('2025-12-22T10:00:00Z', 'gpt-4', 1000.5),
+        createModelCostDataPoint('2025-12-22T11:00:00Z', 'gpt-4', 500.25),
       ]);
 
       const { result } = renderHook(() => useTraceCostOverTimeChartData(), {
@@ -357,27 +367,6 @@ describe('useTraceCostOverTimeChartData', () => {
       });
 
       expect(capturedBody.aggregations).toContainEqual({ aggregation_type: AggregationType.SUM });
-    });
-
-    it('should request MODEL_NAME dimension', async () => {
-      let capturedBody: any = null;
-
-      server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
-          capturedBody = await req.json();
-          return res(ctx.json({ data_points: [] }));
-        }),
-      );
-
-      renderHook(() => useTraceCostOverTimeChartData(), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(capturedBody).not.toBeNull();
-      });
-
-      expect(capturedBody.dimensions).toContain(SpanDimensionKey.MODEL_NAME);
     });
 
     it('should use SPANS view type', async () => {
@@ -484,6 +473,129 @@ describe('useTraceCostOverTimeChartData', () => {
       });
 
       expect(capturedBody.experiment_ids).toContain(testExperimentId);
+    });
+
+    it('should request MODEL_NAME dimension by default', async () => {
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
+      renderHook(() => useTraceCostOverTimeChartData(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(capturedBody).not.toBeNull();
+      });
+
+      expect(capturedBody.dimensions).toContain(SpanDimensionKey.MODEL_NAME);
+      expect(capturedBody.dimensions).not.toContain(SpanDimensionKey.MODEL_PROVIDER);
+    });
+
+    it('should request MODEL_PROVIDER dimension when provider is specified', async () => {
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
+      renderHook(() => useTraceCostOverTimeChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(capturedBody).not.toBeNull();
+      });
+
+      expect(capturedBody.dimensions).toContain(SpanDimensionKey.MODEL_PROVIDER);
+      expect(capturedBody.dimensions).not.toContain(SpanDimensionKey.MODEL_NAME);
+    });
+  });
+
+  describe('provider dimension', () => {
+    it('should extract unique provider names sorted alphabetically', async () => {
+      setupTraceMetricsHandler([
+        createProviderCostDataPoint('2025-12-22T10:00:00Z', 'openai', 0.05),
+        createProviderCostDataPoint('2025-12-22T10:00:00Z', 'anthropic', 0.03),
+        createProviderCostDataPoint('2025-12-22T11:00:00Z', 'openai', 0.02),
+        createProviderCostDataPoint('2025-12-22T11:00:00Z', 'cohere', 0.01),
+      ]);
+
+      const { result } = renderHook(() => useTraceCostOverTimeChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.dimensionValues).toEqual(['anthropic', 'cohere', 'openai']);
+    });
+
+    it('should group cost data by provider and time', async () => {
+      setupTraceMetricsHandler([
+        createProviderCostDataPoint('2025-12-22T10:00:00Z', 'openai', 0.05),
+        createProviderCostDataPoint('2025-12-22T10:00:00Z', 'anthropic', 0.03),
+        createProviderCostDataPoint('2025-12-22T11:00:00Z', 'openai', 0.02),
+      ]);
+
+      const { result } = renderHook(() => useTraceCostOverTimeChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.chartData[0]['openai']).toBe(0.05);
+      expect(result.current.chartData[0]['anthropic']).toBe(0.03);
+      expect(result.current.chartData[1]['openai']).toBe(0.02);
+      expect(result.current.chartData[1]['anthropic']).toBe(0);
+    });
+
+    it('should calculate total cost across all providers', async () => {
+      setupTraceMetricsHandler([
+        createProviderCostDataPoint('2025-12-22T10:00:00Z', 'openai', 0.05),
+        createProviderCostDataPoint('2025-12-22T10:00:00Z', 'anthropic', 0.03),
+        createProviderCostDataPoint('2025-12-22T11:00:00Z', 'openai', 0.02),
+      ]);
+
+      const { result } = renderHook(() => useTraceCostOverTimeChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.totalCost).toBeCloseTo(0.1, 10);
+    });
+
+    it('should fill missing providers with zero values', async () => {
+      setupTraceMetricsHandler([
+        createProviderCostDataPoint('2025-12-22T10:00:00Z', 'openai', 0.05),
+        createProviderCostDataPoint('2025-12-22T10:00:00Z', 'anthropic', 0.03),
+        createProviderCostDataPoint('2025-12-22T11:00:00Z', 'openai', 0.02),
+        // anthropic missing for 11:00:00
+      ]);
+
+      const { result } = renderHook(() => useTraceCostOverTimeChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.chartData[1]['anthropic']).toBe(0);
     });
   });
 });

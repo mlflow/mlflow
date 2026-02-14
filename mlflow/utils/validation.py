@@ -2,11 +2,13 @@
 Utilities for validating user inputs such as metric names and parameter names.
 """
 
+import ipaddress
 import json
 import logging
 import numbers
 import posixpath
 import re
+import socket
 import urllib.parse
 from typing import Any
 
@@ -14,6 +16,7 @@ from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
 from mlflow.entities.webhook import WebhookEvent
 from mlflow.environment_variables import (
+    _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS,
     _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_TRUNCATE_LONG_VALUES,
@@ -736,6 +739,33 @@ def _validate_webhook_url(url: str) -> None:
             f"Invalid webhook URL scheme: {parsed_url.scheme!r}. "
             f"Allowed schemes are: {', '.join(schemes)}."
         )
+
+    hostname = parsed_url.hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL must include a hostname: {url!r}"
+        )
+
+    if not _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS.get():
+        try:
+            addr_infos = socket.getaddrinfo(hostname, None)
+        except socket.gaierror as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Cannot resolve webhook URL hostname {hostname!r}: {e}"
+            ) from e
+
+        for addr_info in addr_infos:
+            try:
+                ip = ipaddress.ip_address(addr_info[4][0])
+            except ValueError as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Webhook URL hostname {hostname!r} resolved to an invalid IP address: {e}"
+                ) from e
+            if not ip.is_global:
+                raise MlflowException.invalid_parameter_value(
+                    f"Webhook URL must not resolve to a non-public IP address. "
+                    f"{hostname!r} resolves to {ip}."
+                )
 
 
 def _validate_webhook_events(events: list[WebhookEvent]) -> None:

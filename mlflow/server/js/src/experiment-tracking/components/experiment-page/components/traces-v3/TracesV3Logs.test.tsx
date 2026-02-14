@@ -3,6 +3,9 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TracesV3Logs } from './TracesV3Logs';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 import { IntlProvider } from '@databricks/i18n';
 import { QueryClient, QueryClientProvider, type UseMutateAsyncFunction } from '@databricks/web-shared/query-client';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -73,6 +76,10 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService', () => ({
 // Mock the empty state component to avoid deep dependency issues
 jest.mock('./TracesV3EmptyState', () => ({
   TracesV3EmptyState: jest.fn(() => null),
+}));
+
+jest.mock('../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal', () => ({
+  ExportTracesToDatasetModal: jest.fn(() => null),
 }));
 
 const renderComponent = (props = {}) => {

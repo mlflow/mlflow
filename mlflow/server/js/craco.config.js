@@ -251,7 +251,6 @@ module.exports = function () {
           const validNodeModulesRoots = ['mlflow/web/js'];
 
           // prettier-ignore
-          // eslint-disable-next-line max-len
           return `(${validNodeModulesRoots.join('|')})\\/node_modules\\/((?!(${transpileModules.join('|')})).)+(js|jsx|mjs|cjs|ts|tsx|json)$`;
         };
 

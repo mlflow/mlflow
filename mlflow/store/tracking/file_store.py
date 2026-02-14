@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import json
 import logging
@@ -9,7 +11,7 @@ import uuid
 import warnings
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, NamedTuple, TypedDict
+from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
 
 from mlflow.entities import (
     Assessment,
@@ -46,7 +48,6 @@ from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_DIR
 from mlflow.exceptions import MissingConfigException, MlflowException
-from mlflow.genai.prompts import PromptVersion
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -124,6 +125,9 @@ from mlflow.utils.validation import (
     _validate_tag_name,
 )
 from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
+
+if TYPE_CHECKING:
+    from mlflow.entities.model_registry.prompt_version import PromptVersion
 
 _logger = logging.getLogger(__name__)
 

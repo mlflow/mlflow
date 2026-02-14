@@ -151,7 +151,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </div>
 
         <OverviewChartProvider
-          experimentId={experimentId}
+          experimentIds={[experimentId]}
           startTimeMs={startTimeMs}
           endTimeMs={endTimeMs}
           timeIntervalSeconds={timeIntervalSeconds}
