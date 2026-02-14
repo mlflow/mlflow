@@ -223,9 +223,9 @@ describe('WorkspaceUtils', () => {
       expect(isGlobalRoute('/')).toBe(false);
     });
 
-    it('returns true for settings path (always global)', () => {
-      expect(isGlobalRoute('/settings')).toBe(true);
-      expect(isGlobalRoute('/settings/general')).toBe(true);
+    it('returns false for settings path (workspace-scoped)', () => {
+      expect(isGlobalRoute('/settings')).toBe(false);
+      expect(isGlobalRoute('/settings/general')).toBe(false);
     });
 
     it('returns false for workspace-scoped paths', () => {
@@ -236,7 +236,6 @@ describe('WorkspaceUtils', () => {
 
     it('ignores query params and hash', () => {
       expect(isGlobalRoute('/?workspace=default')).toBe(false);
-      expect(isGlobalRoute('/settings?tab=general#section')).toBe(true);
     });
   });
 
@@ -358,9 +357,9 @@ describe('WorkspaceUtils', () => {
       expect(prefixRouteWithWorkspace('/?workspace=old')).toBe('/?workspace=old');
     });
 
-    it('removes workspace param for global routes (settings)', () => {
-      expect(prefixRouteWithWorkspace('/settings')).toBe('/settings');
-      expect(prefixRouteWithWorkspace('/settings?workspace=old')).toBe('/settings');
+    it('adds workspace param for settings route', () => {
+      expect(prefixRouteWithWorkspace('/settings')).toBe('/settings?workspace=default');
+      expect(prefixRouteWithWorkspace('/settings?workspace=old')).toBe('/settings?workspace=old');
     });
 
     it('uses different workspace when set', () => {
@@ -407,8 +406,8 @@ describe('WorkspaceUtils', () => {
       expect(appendWorkspaceSearchParams('/')).toBe('/');
     });
 
-    it('returns always-global routes unchanged (settings)', () => {
-      expect(appendWorkspaceSearchParams('/settings')).toBe('/settings');
+    it('adds workspace param to settings route', () => {
+      expect(appendWorkspaceSearchParams('/settings')).toBe('/settings?workspace=default');
     });
 
     it('returns pathname without workspace when feature disabled', () => {
