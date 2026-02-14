@@ -420,3 +420,515 @@ async def test_bedrock_request_response(
 def test_amazon_bedrock_model_provider(model_name, expected):
     provider = AmazonBedrockModelProvider.of_str(model_name)
     assert provider == expected
+
+
+# Converse API Test Fixtures and Tests
+
+
+_DEFAULT_BEDROCK_CHAT_MODEL = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+
+
+def bedrock_chat_config_dict(model_name=_DEFAULT_BEDROCK_CHAT_MODEL):
+    return {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": model_name,
+            "config": {"aws_config": {"aws_region": "us-east-1"}},
+        },
+    }
+
+
+def make_bedrock_chat_config(model_name=_DEFAULT_BEDROCK_CHAT_MODEL):
+    return EndpointConfig(**bedrock_chat_config_dict(model_name=model_name))
+
+
+@pytest.fixture
+def bedrock_chat_config():
+    return make_bedrock_chat_config()
+
+
+def make_converse_stream(text_chunks, stop_reason="end_turn", usage=None, metrics=None):
+    events = [
+        {"messageStart": {"role": "assistant"}},
+        {
+            "contentBlockStart": {
+                "contentBlockIndex": 0,
+                "start": {"text": ""},
+            }
+        },
+    ]
+    events.extend(
+        {
+            "contentBlockDelta": {
+                "contentBlockIndex": 0,
+                "delta": {"text": text},
+            }
+        }
+        for text in text_chunks
+    )
+    events.append({"contentBlockStop": {"contentBlockIndex": 0}})
+    events.append({"messageStop": {"stopReason": stop_reason}})
+    metadata = {}
+    if usage is not None:
+        metadata["usage"] = usage
+    if metrics is not None:
+        metadata["metrics"] = metrics
+    if metadata:
+        events.append({"metadata": metadata})
+    return events
+
+
+def converse_chat_response():
+    return {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [{"text": "Hello! How can I assist you today?"}],
+            }
+        },
+        "stopReason": "end_turn",
+        "usage": {
+            "inputTokens": 10,
+            "outputTokens": 12,
+            "totalTokens": 22,
+        },
+        "metrics": {"latencyMs": 551},
+    }
+
+
+def parsed_converse_chat_response():
+    return {
+        "id": None,
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "Hello! How can I assist you today?",
+                    "refusal": None,
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 12, "total_tokens": 22},
+    }
+
+
+converse_api_test_fixtures = [
+    {
+        "name": "basic_chat",
+        "config": bedrock_chat_config_dict(),
+        "request": {
+            "messages": [{"role": "user", "content": "Hello"}],
+        },
+        "expected_converse_request": {
+            "messages": [{"role": "user", "content": [{"text": "Hello"}]}],
+        },
+        "response": converse_chat_response(),
+        "expected": parsed_converse_chat_response(),
+    },
+    {
+        "name": "chat_with_params",
+        "config": bedrock_chat_config_dict(),
+        "request": {
+            "messages": [{"role": "user", "content": "Tell me a joke"}],
+            "temperature": 0.8,
+            "max_tokens": 500,
+            "top_p": 0.9,
+            "stop": ["END"],
+        },
+        "expected_converse_request": {
+            "messages": [{"role": "user", "content": [{"text": "Tell me a joke"}]}],
+            "inferenceConfig": {
+                "temperature": 0.8,
+                "maxTokens": 500,
+                "topP": 0.9,
+                "stopSequences": ["END"],
+            },
+        },
+        "response": converse_chat_response(),
+        "expected": parsed_converse_chat_response(),
+    },
+    {
+        "name": "chat_with_system_message",
+        "config": bedrock_chat_config_dict(),
+        "request": {
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Hello"},
+            ],
+        },
+        "expected_converse_request": {
+            "system": [{"text": "You are a helpful assistant."}],
+            "messages": [{"role": "user", "content": [{"text": "Hello"}]}],
+        },
+        "response": converse_chat_response(),
+        "expected": parsed_converse_chat_response(),
+    },
+    {
+        "name": "multi_turn_conversation",
+        "config": bedrock_chat_config_dict(),
+        "request": {
+            "messages": [
+                {"role": "user", "content": "What is 2+2?"},
+                {"role": "assistant", "content": "2+2 equals 4."},
+                {"role": "user", "content": "And what is 3+3?"},
+            ],
+        },
+        "expected_converse_request": {
+            "messages": [
+                {"role": "user", "content": [{"text": "What is 2+2?"}]},
+                {"role": "assistant", "content": [{"text": "2+2 equals 4."}]},
+                {"role": "user", "content": [{"text": "And what is 3+3?"}]},
+            ],
+        },
+        "response": converse_chat_response(),
+        "expected": parsed_converse_chat_response(),
+    },
+]
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    converse_api_test_fixtures,
+    ids=[f["name"] for f in converse_api_test_fixtures],
+)
+def test_chat_to_model_transformation(fixture):
+    from mlflow.gateway.providers.bedrock import ConverseAdapter
+
+    config = EndpointConfig(**fixture["config"])
+    payload = fixture["request"]
+
+    result = ConverseAdapter.chat_to_model(payload, config)
+
+    assert result["messages"] == fixture["expected_converse_request"]["messages"]
+
+    if "inferenceConfig" in fixture["expected_converse_request"]:
+        assert result["inferenceConfig"] == fixture["expected_converse_request"]["inferenceConfig"]
+
+
+def test_chat_to_model_uses_max_completion_tokens(bedrock_chat_config):
+    from mlflow.gateway.providers.bedrock import ConverseAdapter
+
+    payload = {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_completion_tokens": 123,
+    }
+
+    result = ConverseAdapter.chat_to_model(payload, bedrock_chat_config)
+
+    assert "inferenceConfig" in result
+    assert result["inferenceConfig"]["maxTokens"] == 123
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    converse_api_test_fixtures,
+    ids=[f["name"] for f in converse_api_test_fixtures],
+)
+def test_model_to_chat_transformation(fixture):
+    from mlflow.gateway.providers.bedrock import ConverseAdapter
+
+    config = EndpointConfig(**fixture["config"])
+
+    with mock.patch("time.time", return_value=1677858242):
+        result = ConverseAdapter.model_to_chat(fixture["response"], config)
+
+    result_dict = jsonable_encoder(result)
+
+    assert result_dict["object"] == "chat.completion"
+    assert result_dict["model"] == config.model.name
+    assert len(result_dict["choices"]) == 1
+
+    choice = result_dict["choices"][0]
+    expected_choice = fixture["expected"]["choices"][0]
+    assert choice["message"]["role"] == expected_choice["message"]["role"]
+    assert choice["message"]["content"] == expected_choice["message"]["content"]
+
+    assert choice["finish_reason"] == expected_choice["finish_reason"]
+
+    assert result_dict["usage"] == fixture["expected"]["usage"]
+
+
+def test_model_to_chat_multiple_text_blocks(bedrock_chat_config):
+    from mlflow.gateway.providers.bedrock import ConverseAdapter
+
+    response = {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {"text": "First part"},
+                    {"text": "Second part"},
+                ],
+            }
+        },
+        "stopReason": "end_turn",
+        "usage": {"inputTokens": 10, "outputTokens": 20, "totalTokens": 30},
+    }
+
+    with mock.patch("time.time", return_value=1677858242):
+        result = ConverseAdapter.model_to_chat(response, bedrock_chat_config)
+
+    result_dict = jsonable_encoder(result)
+    assert result_dict["choices"][0]["message"]["content"] == "First partSecond part"
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_basic(bedrock_chat_config):
+    from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
+    from mlflow.gateway.schemas import chat
+
+    with mock.patch.object(AmazonBedrockProvider, "get_bedrock_client") as mock_client:
+        mock_stream = make_converse_stream(
+            ["Hello! ", "How can I help you?"],
+            usage={"inputTokens": 10, "outputTokens": 8, "totalTokens": 18},
+        )
+
+        mock_client.return_value.converse_stream.return_value = {"stream": iter(mock_stream)}
+
+        provider = AmazonBedrockProvider(bedrock_chat_config)
+
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hello")])
+
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload) if chunk]
+
+        assert len(chunks) > 0, "Should receive streaming chunks"
+
+        text_chunks = [c for c in chunks if c["choices"][0].get("delta", {}).get("content")]
+
+        assert len(text_chunks) == 2, "Should receive two text delta chunks"
+        assert text_chunks[0]["choices"][0]["delta"]["content"] == "Hello! "
+        assert text_chunks[1]["choices"][0]["delta"]["content"] == "How can I help you?"
+
+        final_chunk = chunks[-1]
+        assert final_chunk["choices"][0]["finish_reason"] == "stop"
+
+
+def test_system_message_with_content_parts_raises_error(bedrock_chat_config):
+    from mlflow.gateway.exceptions import AIGatewayException
+    from mlflow.gateway.providers.bedrock import ConverseAdapter
+
+    payload = {
+        "messages": [
+            {
+                "role": "system",
+                "content": [
+                    {"type": "text", "text": "You are a helpful assistant."},
+                ],
+            },
+            {"role": "user", "content": "Hello"},
+        ],
+    }
+
+    with pytest.raises(
+        AIGatewayException, match="System message content must be a string"
+    ) as exc_info:
+        ConverseAdapter.chat_to_model(payload, bedrock_chat_config)
+
+    assert exc_info.value.status_code == 422
+    assert "Bedrock Converse API does not support content parts" in str(exc_info.value.detail)
+
+
+@pytest.mark.parametrize(
+    "part",
+    [
+        {
+            "type": "input_audio",
+            "input_audio": {"data": "base64data", "format": "wav"},
+        }
+    ],
+    ids=["input_audio"],
+)
+def test_unsupported_content_part_types_raise_error(bedrock_chat_config, part):
+    from mlflow.gateway.exceptions import AIGatewayException
+    from mlflow.gateway.providers.bedrock import ConverseAdapter
+
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Hello"},
+                    part,
+                ],
+            }
+        ],
+    }
+
+    part_type = part["type"]
+    with pytest.raises(
+        AIGatewayException, match=f"Unsupported content part type: '{part_type}'"
+    ) as exc_info:
+        ConverseAdapter.chat_to_model(payload, bedrock_chat_config)
+
+    assert exc_info.value.status_code == 422
+    assert "Converse API currently only supports 'text' content parts" in str(exc_info.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_streaming_include_usage_not_supported(bedrock_chat_config):
+    from mlflow.gateway.exceptions import AIGatewayException
+    from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
+    from mlflow.gateway.schemas import chat
+
+    with mock.patch.object(AmazonBedrockProvider, "get_bedrock_client"):
+        provider = AmazonBedrockProvider(bedrock_chat_config)
+
+        payload = chat.RequestPayload(
+            messages=[chat.RequestMessage(role="user", content="Hello")],
+            stream_options={"include_usage": True},
+        )
+
+        with pytest.raises(
+            AIGatewayException, match="stream_options.include_usage is not supported"
+        ) as exc_info:
+            async for _ in provider.chat_stream(payload):
+                pass
+
+        assert exc_info.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_streaming_omits_usage_when_stream_options_not_enabled(bedrock_chat_config):
+    from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
+    from mlflow.gateway.schemas import chat
+
+    with mock.patch.object(AmazonBedrockProvider, "get_bedrock_client") as mock_client:
+        mock_stream = make_converse_stream(
+            ["Hello! How can I help you today?"],
+            usage={"inputTokens": 10, "outputTokens": 12, "totalTokens": 22},
+            metrics={"latencyMs": 551},
+        )
+
+        mock_client.return_value.converse_stream.return_value = {"stream": iter(mock_stream)}
+
+        provider = AmazonBedrockProvider(bedrock_chat_config)
+
+        payload = chat.RequestPayload(
+            messages=[chat.RequestMessage(role="user", content="Hello")],
+        )
+
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload) if chunk]
+
+        chunks_with_usage = [c for c in chunks if c.get("usage")]
+        assert len(chunks_with_usage) == 0, "Usage should not be emitted without include_usage"
+
+
+def test_n_parameter_accepts_one():
+    from mlflow.gateway.providers.bedrock import ConverseAdapter
+
+    config = make_bedrock_chat_config(model_name="anthropic.claude-3-sonnet-20240229-v1:0")
+    payload_n1 = {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "n": 1,
+    }
+    result = ConverseAdapter.chat_to_model(payload_n1, config)
+    assert "messages" in result
+
+
+@pytest.mark.parametrize("n", [2, 3])
+def test_n_parameter_rejects_non_one(n):
+    from mlflow.gateway.exceptions import AIGatewayException
+    from mlflow.gateway.providers.bedrock import ConverseAdapter
+
+    config = make_bedrock_chat_config(model_name="anthropic.claude-3-sonnet-20240229-v1:0")
+    payload = {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "n": n,
+    }
+    with pytest.raises(AIGatewayException, match="'n' must be '1'") as exc_info:
+        ConverseAdapter.chat_to_model(payload, config)
+
+    assert exc_info.value.status_code == 422
+    assert "Bedrock Converse API" in str(exc_info.value.detail)
+
+
+def test_n_parameter_defaults_to_one():
+    from mlflow.gateway.providers.bedrock import ConverseAdapter
+
+    config = make_bedrock_chat_config(model_name="anthropic.claude-3-sonnet-20240229-v1:0")
+    payload = {
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+    result = ConverseAdapter.chat_to_model(payload, config)
+    assert "messages" in result
+
+
+def test_tool_calling_not_yet_supported(bedrock_chat_config):
+    from mlflow.gateway.exceptions import AIGatewayException
+    from mlflow.gateway.providers.bedrock import ConverseAdapter
+
+    payload_with_tools = {
+        "messages": [{"role": "user", "content": "What's the weather?"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get weather information",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            }
+        ],
+    }
+    with pytest.raises(AIGatewayException, match="Tool calling is not yet supported") as exc_info:
+        ConverseAdapter.chat_to_model(payload_with_tools, bedrock_chat_config)
+    assert exc_info.value.status_code == 422
+
+    payload_with_tool_choice = {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "tool_choice": "auto",
+    }
+    with pytest.raises(AIGatewayException, match="tool_choice is not yet supported") as exc_info:
+        ConverseAdapter.chat_to_model(payload_with_tool_choice, bedrock_chat_config)
+    assert exc_info.value.status_code == 422
+
+
+def test_tool_messages_not_yet_supported(bedrock_chat_config):
+    from mlflow.gateway.exceptions import AIGatewayException
+    from mlflow.gateway.providers.bedrock import ConverseAdapter
+
+    payload_with_tool_role = {
+        "messages": [
+            {"role": "user", "content": "What's the weather?"},
+            {
+                "role": "tool",
+                "tool_call_id": "call_123",
+                "content": '{"temperature": 72}',
+            },
+        ],
+    }
+    with pytest.raises(
+        AIGatewayException, match=r"Tool result messages \(role='tool'\).*not yet supported"
+    ) as exc_info:
+        ConverseAdapter.chat_to_model(payload_with_tool_role, bedrock_chat_config)
+    assert exc_info.value.status_code == 422
+
+    payload_with_tool_calls = {
+        "messages": [
+            {"role": "user", "content": "What's the weather?"},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_123",
+                        "type": "function",
+                        "function": {
+                            "name": "get_weather",
+                            "arguments": '{"location": "Tokyo"}',
+                        },
+                    }
+                ],
+            },
+        ],
+    }
+    with pytest.raises(AIGatewayException, match="tool_calls are not yet supported") as exc_info:
+        ConverseAdapter.chat_to_model(payload_with_tool_calls, bedrock_chat_config)
+    assert exc_info.value.status_code == 422
