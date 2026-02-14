@@ -18,6 +18,63 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 _logger = logging.getLogger(__name__)
 
 
+def _wrap_query(client, messages_buffer: list[Any]) -> None:
+    from claude_agent_sdk.types import UserMessage
+
+    # query() sends the prompt to the CLI subprocess but doesn't echo it
+    # back through receive_messages, so we capture it here
+    original_query = client.query
+
+    @functools.wraps(original_query)
+    async def wrapped_query(prompt, *args, **kwargs):
+        if isinstance(prompt, str):
+            messages_buffer.append(UserMessage(content=prompt))
+        return await original_query(prompt, *args, **kwargs)
+
+    client.query = wrapped_query
+
+
+def _wrap_receive_messages(client, messages_buffer: list[Any]) -> None:
+    original_receive_messages = client.receive_messages
+
+    @functools.wraps(original_receive_messages)
+    async def wrapped_receive_messages(*args, **kwargs):
+        async for message in original_receive_messages(*args, **kwargs):
+            messages_buffer.append(message)
+            yield message
+
+    client.receive_messages = wrapped_receive_messages
+
+
+def _make_stop_hook(messages_buffer: list[Any]):
+    async def _sdk_stop_hook(input_data, tool_use_id, context):
+        from mlflow.claude_code.hooks import get_hook_response
+        from mlflow.utils.autologging_utils import autologging_is_disabled
+
+        if autologging_is_disabled("anthropic"):
+            return get_hook_response()
+
+        try:
+            from mlflow.claude_code.tracing import process_sdk_messages
+
+            session_id = input_data.get("session_id")
+            trace = process_sdk_messages(list(messages_buffer), session_id)
+
+            if trace is not None:
+                return get_hook_response()
+            return get_hook_response(
+                error="Failed to process SDK messages, check "
+                ".claude/mlflow/claude_tracing.log for details",
+            )
+        except Exception as e:
+            _logger.debug("Error in SDK stop hook: %s", e, exc_info=True)
+            return get_hook_response(error=str(e))
+        finally:
+            messages_buffer.clear()
+
+    return _sdk_stop_hook
+
+
 def patched_claude_sdk_init(original, self, options=None):
     """Wrap query/receive_messages to capture messages and inject a Stop hook
     that builds an MLflow trace from the accumulated conversation.
@@ -32,64 +89,20 @@ def patched_claude_sdk_init(original, self, options=None):
     """
     try:
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
-        from claude_agent_sdk.types import UserMessage
 
         result = original(self, options)
 
         messages_buffer: list[Any] = []
-
-        # query() sends the prompt to the CLI subprocess but doesn't echo it
-        # back through receive_messages, so we capture it here
-        original_query = self.query
-
-        @functools.wraps(original_query)
-        async def wrapped_query(prompt, *args, **kwargs):
-            if isinstance(prompt, str):
-                messages_buffer.append(UserMessage(content=prompt))
-            return await original_query(prompt, *args, **kwargs)
-
-        self.query = wrapped_query
-
-        original_receive_messages = self.receive_messages
-
-        @functools.wraps(original_receive_messages)
-        async def wrapped_receive_messages(*args, **kwargs):
-            async for message in original_receive_messages(*args, **kwargs):
-                messages_buffer.append(message)
-                yield message
-
-        self.receive_messages = wrapped_receive_messages
-
-        async def _sdk_stop_hook(input_data, tool_use_id, context):
-            from mlflow.claude_code.hooks import get_hook_response
-            from mlflow.utils.autologging_utils import autologging_is_disabled
-
-            if autologging_is_disabled("anthropic"):
-                return get_hook_response()
-
-            try:
-                from mlflow.claude_code.tracing import process_sdk_messages
-
-                session_id = input_data.get("session_id")
-                trace = process_sdk_messages(list(messages_buffer), session_id)
-
-                if trace is not None:
-                    return get_hook_response()
-                return get_hook_response(
-                    error="Failed to process SDK messages, check "
-                    ".claude/mlflow/claude_tracing.log for details",
-                )
-            except Exception as e:
-                _logger.debug("Error in SDK stop hook: %s", e, exc_info=True)
-                return get_hook_response(error=str(e))
-            finally:
-                messages_buffer.clear()
+        _wrap_query(self, messages_buffer)
+        _wrap_receive_messages(self, messages_buffer)
 
         if self.options is None:
             self.options = ClaudeAgentOptions()
         if self.options.hooks is None:
             self.options.hooks = {}
-        self.options.hooks.setdefault("Stop", []).append(HookMatcher(hooks=[_sdk_stop_hook]))
+        self.options.hooks.setdefault("Stop", []).append(
+            HookMatcher(hooks=[_make_stop_hook(messages_buffer)])
+        )
 
         return result
 

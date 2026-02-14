@@ -538,6 +538,7 @@ def _finalize_trace(
     end_time_ns: int,
 ) -> mlflow.entities.Trace:
     try:
+        # Set trace previews and metadata for UI display
         with InMemoryTraceManager.get_instance().get_trace(parent_span.trace_id) as in_memory_trace:
             if user_prompt:
                 in_memory_trace.info.request_preview = user_prompt[:MAX_PREVIEW_LENGTH]
@@ -652,6 +653,7 @@ def process_transcript(
         final_response = find_final_assistant_response(transcript, last_user_idx + 1)
         user_prompt_text = extract_text_content(last_user_prompt)
 
+        # Calculate end time based on last entry or use default duration
         last_entry = transcript[-1] if transcript else last_user_entry
         conv_end_ns = parse_timestamp_to_ns(last_entry.get(MESSAGE_FIELD_TIMESTAMP))
         if not conv_end_ns or conv_end_ns <= conv_start_ns:
@@ -693,10 +695,107 @@ def _find_sdk_user_prompt(messages: list[Any]) -> str | None:
     return None
 
 
+def _build_tool_result_map(messages: list[Any]) -> dict[str, str]:
+    """Map tool_use_id to its result content so tool spans can show outputs."""
+    from claude_agent_sdk.types import ToolResultBlock, UserMessage
+
+    tool_result_map: dict[str, str] = {}
+    for msg in messages:
+        if isinstance(msg, UserMessage) and isinstance(msg.content, list):
+            for block in msg.content:
+                if isinstance(block, ToolResultBlock):
+                    result = block.content
+                    if isinstance(result, list):
+                        result = str(result)
+                    tool_result_map[block.tool_use_id] = result or ""
+    return tool_result_map
+
+
+def _find_result_message(messages: list[Any]):
+    from claude_agent_sdk.types import ResultMessage
+
+    return next((msg for msg in messages if isinstance(msg, ResultMessage)), None)
+
+
+def _create_sdk_child_spans(
+    messages: list[Any],
+    parent_span,
+    tool_result_map: dict[str, str],
+    conv_start_ns: int,
+) -> str | None:
+    """
+    Create LLM and tool child spans under ``parent_span`` from AssistantMessages.
+
+    Iterates through SDK messages and creates a child span for each assistant
+    response: text-only responses become LLM spans, tool use blocks become TOOL
+    spans with their results looked up from ``tool_result_map``.
+
+    Args:
+        messages: Full list of SDK message objects from the conversation.
+        parent_span: The root AGENT span to attach children to.
+        tool_result_map: Mapping of tool_use_id to result content, built by
+            ``_build_tool_result_map``.
+        conv_start_ns: Conversation start time in nanoseconds, used as the
+            baseline for synthetic span timestamps.
+
+    Returns:
+        The final assistant text response (for trace preview), or None if no
+        text responses were found.
+    """
+    from claude_agent_sdk.types import AssistantMessage, TextBlock, ToolUseBlock
+
+    llm_call_num = 0
+    final_response = None
+    span_time_ns = conv_start_ns
+
+    for msg in messages:
+        if not isinstance(msg, AssistantMessage) or not msg.content:
+            continue
+
+        text_blocks = [block for block in msg.content if isinstance(block, TextBlock)]
+        tool_use_blocks = [block for block in msg.content if isinstance(block, ToolUseBlock)]
+        span_time_ns += int(100 * NANOSECONDS_PER_MS)
+
+        # Text-only responses become LLM spans
+        if text_blocks and not tool_use_blocks:
+            llm_call_num += 1
+            text = "\n".join(block.text for block in text_blocks)
+            if text.strip():
+                final_response = text
+            llm_span = mlflow.start_span_no_context(
+                name=f"llm_call_{llm_call_num}",
+                parent_span=parent_span,
+                span_type=SpanType.LLM,
+                start_time_ns=span_time_ns,
+                inputs={"model": getattr(msg, "model", "unknown")},
+                attributes={"model": getattr(msg, "model", "unknown")},
+            )
+            llm_span.set_outputs({"response": text})
+            llm_span.end(end_time_ns=span_time_ns + int(500 * NANOSECONDS_PER_MS))
+
+        # Tool use blocks each become a tool span
+        for idx, tool_block in enumerate(tool_use_blocks):
+            tool_start_ns = span_time_ns + idx * int(10 * NANOSECONDS_PER_MS)
+            tool_span = mlflow.start_span_no_context(
+                name=f"tool_{tool_block.name}",
+                parent_span=parent_span,
+                span_type=SpanType.TOOL,
+                start_time_ns=tool_start_ns,
+                inputs=tool_block.input,
+                attributes={"tool_name": tool_block.name, "tool_id": tool_block.id},
+            )
+            tool_result = tool_result_map.get(tool_block.id, "No result found")
+            tool_span.set_outputs({"result": tool_result})
+            tool_span.end(end_time_ns=tool_start_ns + int(500 * NANOSECONDS_PER_MS))
+
+    return final_response
+
+
 def process_sdk_messages(
     messages: list[Any], session_id: str | None = None
 ) -> mlflow.entities.Trace | None:
-    """Build an MLflow trace from Claude Agent SDK message objects.
+    """
+    Build an MLflow trace from Claude Agent SDK message objects.
 
     Args:
         messages: List of SDK message objects (UserMessage, AssistantMessage,
@@ -706,15 +805,6 @@ def process_sdk_messages(
     Returns:
         MLflow Trace if successful, None if no user prompt is found or processing fails.
     """
-    from claude_agent_sdk.types import (
-        AssistantMessage,
-        ResultMessage,
-        TextBlock,
-        ToolResultBlock,
-        ToolUseBlock,
-        UserMessage,
-    )
-
     try:
         if not messages:
             get_logger().warning("Empty messages list, skipping")
@@ -725,8 +815,14 @@ def process_sdk_messages(
             get_logger().warning("No user prompt found in SDK messages")
             return None
 
-        if not session_id:
-            session_id = f"claude-sdk-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        result_msg = _find_result_message(messages)
+
+        # Prefer the SDK's own session_id, fall back to caller arg, then generate one
+        session_id = (
+            (result_msg.session_id if result_msg else None)
+            or session_id
+            or f"claude-sdk-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
 
         get_logger().log(
             CLAUDE_TRACING_LEVEL,
@@ -734,15 +830,7 @@ def process_sdk_messages(
             session_id,
         )
 
-        tool_result_map: dict[str, str] = {}
-        for msg in messages:
-            if isinstance(msg, UserMessage) and isinstance(msg.content, list):
-                for block in msg.content:
-                    if isinstance(block, ToolResultBlock):
-                        result = block.content
-                        if isinstance(result, list):
-                            result = str(result)
-                        tool_result_map[block.tool_use_id] = result or ""
+        tool_result_map = _build_tool_result_map(messages)
 
         conv_start_ns = int(datetime.now().timestamp() * NANOSECONDS_PER_S)
         parent_span = mlflow.start_span_no_context(
@@ -752,64 +840,19 @@ def process_sdk_messages(
             span_type=SpanType.AGENT,
         )
 
-        llm_call_num = 0
-        final_response = None
-        result_usage = None
-        span_time_ns = conv_start_ns
+        final_response = _create_sdk_child_spans(
+            messages, parent_span, tool_result_map, conv_start_ns
+        )
 
-        for msg in messages:
-            if isinstance(msg, ResultMessage):
-                result_usage = msg.usage
-                if msg.session_id:
-                    session_id = msg.session_id
-                continue
-
-            if not isinstance(msg, AssistantMessage) or not msg.content:
-                continue
-
-            text_blocks = [block for block in msg.content if isinstance(block, TextBlock)]
-            tool_use_blocks = [block for block in msg.content if isinstance(block, ToolUseBlock)]
-            span_time_ns += int(100 * NANOSECONDS_PER_MS)
-
-            if text_blocks and not tool_use_blocks:
-                llm_call_num += 1
-                text = "\n".join(block.text for block in text_blocks)
-                if text.strip():
-                    final_response = text
-                llm_span = mlflow.start_span_no_context(
-                    name=f"llm_call_{llm_call_num}",
-                    parent_span=parent_span,
-                    span_type=SpanType.LLM,
-                    start_time_ns=span_time_ns,
-                    inputs={"model": getattr(msg, "model", "unknown")},
-                    attributes={"model": getattr(msg, "model", "unknown")},
-                )
-                llm_span.set_outputs({"response": text})
-                llm_span.end(end_time_ns=span_time_ns + int(500 * NANOSECONDS_PER_MS))
-
-            for idx, tool_block in enumerate(tool_use_blocks):
-                tool_start_ns = span_time_ns + idx * int(10 * NANOSECONDS_PER_MS)
-                tool_span = mlflow.start_span_no_context(
-                    name=f"tool_{tool_block.name}",
-                    parent_span=parent_span,
-                    span_type=SpanType.TOOL,
-                    start_time_ns=tool_start_ns,
-                    inputs=tool_block.input,
-                    attributes={"tool_name": tool_block.name, "tool_id": tool_block.id},
-                )
-                tool_result = tool_result_map.get(tool_block.id, "No result found")
-                tool_span.set_outputs({"result": tool_result})
-                tool_span.end(end_time_ns=tool_start_ns + int(500 * NANOSECONDS_PER_MS))
-
-        if result_usage:
-            _set_token_usage_attribute(parent_span, result_usage)
+        if result_msg and result_msg.usage:
+            _set_token_usage_attribute(parent_span, result_msg.usage)
 
         return _finalize_trace(
             parent_span,
             user_prompt,
             final_response,
             session_id,
-            span_time_ns + int(1 * NANOSECONDS_PER_S),
+            conv_start_ns + int(1 * NANOSECONDS_PER_S),
         )
 
     except Exception as e:
