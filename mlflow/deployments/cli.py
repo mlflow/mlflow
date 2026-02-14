@@ -5,6 +5,7 @@ from inspect import signature
 import click
 
 from mlflow.deployments import interface
+from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.utils import cli_args
 from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
 
@@ -121,6 +122,7 @@ def commands():
 
 
 @commands.command("create")
+@mlflow_mcp(tool_name="create_deployment")
 @optional_endpoint_param
 @parse_custom_arguments
 @deployment_name
@@ -151,6 +153,7 @@ def create_deployment(flavor, model_uri, target, name, config, endpoint):
 
 
 @commands.command("update")
+@mlflow_mcp(tool_name="update_deployment")
 @optional_endpoint_param
 @parse_custom_arguments
 @deployment_name
@@ -193,6 +196,7 @@ def update_deployment(flavor, model_uri, target, name, config, endpoint):
 
 
 @commands.command("delete")
+@mlflow_mcp(tool_name="delete_deployment")
 @optional_endpoint_param
 @parse_custom_arguments
 @deployment_name
@@ -220,6 +224,7 @@ def delete_deployment(target, name, config, endpoint):
 
 
 @commands.command("list")
+@mlflow_mcp(tool_name="list_deployments")
 @optional_endpoint_param
 @target_details
 def list_deployment(target, endpoint):
@@ -238,6 +243,7 @@ def list_deployment(target, endpoint):
 
 
 @commands.command("get")
+@mlflow_mcp(tool_name="get_deployment")
 @optional_endpoint_param
 @deployment_name
 @target_details
@@ -269,6 +275,7 @@ def target_help(target):
 
 
 @commands.command("run-local")
+@mlflow_mcp(tool_name="run_deployment_locally")
 @parse_custom_arguments
 @deployment_name
 @target_details
@@ -292,6 +299,7 @@ def predictions_to_json(raw_predictions, output):
 
 
 @commands.command("predict")
+@mlflow_mcp(tool_name="predict_with_deployment")
 @click.option(
     "--name",
     "name",
@@ -328,6 +336,7 @@ def predict(target, name, input_path, output_path, endpoint):
 
 
 @commands.command("explain")
+@mlflow_mcp(tool_name="explain_deployment")
 @click.option(
     "--name",
     "name",
@@ -372,6 +381,7 @@ def explain(target, name, input_path, output_path, endpoint):
 
 
 @commands.command("create-endpoint")
+@mlflow_mcp(tool_name="create_deployment_endpoint")
 @click.option(
     "--config",
     "-C",
@@ -397,6 +407,7 @@ def create_endpoint(target, name, config):
 
 
 @commands.command("update-endpoint")
+@mlflow_mcp(tool_name="update_deployment_endpoint")
 @click.option(
     "--config",
     "-C",
@@ -422,6 +433,7 @@ def update_endpoint(target, endpoint, config):
 
 
 @commands.command("delete-endpoint")
+@mlflow_mcp(tool_name="delete_deployment_endpoint")
 @required_endpoint_param
 @target_details
 def delete_endpoint(target, endpoint):
@@ -434,6 +446,7 @@ def delete_endpoint(target, endpoint):
 
 
 @commands.command("list-endpoints")
+@mlflow_mcp(tool_name="list_deployment_endpoints")
 @target_details
 def list_endpoints(target):
     """
@@ -445,6 +458,7 @@ def list_endpoints(target):
 
 
 @commands.command("get-endpoint")
+@mlflow_mcp(tool_name="get_deployment_endpoint")
 @required_endpoint_param
 @target_details
 def get_endpoint(target, endpoint):
