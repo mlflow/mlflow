@@ -11,7 +11,7 @@ import {
   TokenUsage,
   LiveSpan,
   withSpan,
-} from 'mlflow-tracing';
+} from '@mlflow/core';
 
 const SUPPORTED_MODULES = ['Messages'];
 const SUPPORTED_METHODS = ['create', 'stream'];

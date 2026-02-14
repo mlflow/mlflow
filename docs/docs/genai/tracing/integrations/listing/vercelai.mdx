@@ -102,7 +102,7 @@ Run the application and view traces in MLflow UI. The UI is available at the tra
 If you are using other Node.js frameworks, set the OpenTelemetry Node SDK and OTLP exporter manually to export traces to MLflow.
 
 ```typescript title="main.ts"
-import { init } from "mlflow-tracing";
+import { init } from "@mlflow/core";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { NodeSDK } from '@opentelemetry/sdk-node';
