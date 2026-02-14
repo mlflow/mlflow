@@ -1,5 +1,7 @@
 import base64
+import json
 import logging
+import time
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
@@ -13,6 +15,8 @@ from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
+    MLFLOW_SEARCH_TRACES_POLL_INTERVAL,
+    MLFLOW_SEARCH_TRACES_TIMEOUT,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException, RestException
@@ -58,7 +62,7 @@ from mlflow.utils.databricks_tracing_utils import (
     uc_schema_location_to_proto,
 )
 from mlflow.utils.databricks_utils import get_databricks_workspace_client_config
-from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     _V4_REST_API_PATH_PREFIX,
@@ -323,6 +327,75 @@ class DatabricksTracingRestStore(RestStore):
             return
         return super().delete_trace_tag(trace_id, key)
 
+    def _search_traces_long_running(
+        self,
+        req_body: str,
+    ) -> tuple[list[TraceInfo], str | None]:
+        """
+        Execute search using the async long-running API with polling.
+
+        Args:
+            req_body: JSON request body for the search.
+
+        Returns:
+            Tuple of (list of TraceInfo, next_page_token).
+        """
+        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/search-long-running"
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint=endpoint,
+            method="POST",
+            json=json.loads(req_body),
+        )
+        verify_rest_response(response, endpoint)
+        operation = response.json()
+
+        operation_name = operation.get("name")
+        if not operation_name:
+            raise MlflowException(
+                "SearchTracesLongRunning returned an operation without a name.",
+                error_code=INTERNAL_ERROR,
+            )
+
+        poll_interval = MLFLOW_SEARCH_TRACES_POLL_INTERVAL.get()
+        timeout = MLFLOW_SEARCH_TRACES_TIMEOUT.get()
+        start_time = time.time()
+
+        while not operation.get("done", False):
+            elapsed = time.time() - start_time
+            if elapsed > timeout:
+                raise MlflowException(
+                    f"Search traces operation timed out after {timeout} seconds. "
+                    f"Operation name: {operation_name}",
+                    error_code=INTERNAL_ERROR,
+                )
+
+            time.sleep(poll_interval)
+            operation = self._get_search_operation(operation_name)
+
+        if "error" in operation:
+            error = operation["error"]
+            raise MlflowException(
+                message=error.get("message", "Search traces operation failed"),
+                error_code=error.get("error_code", INTERNAL_ERROR),
+            )
+
+        response_proto = SearchTraces.Response()
+        parse_dict(operation.get("response", {}), response_proto)
+        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.trace_infos]
+        return trace_infos, response_proto.next_page_token or None
+
+    def _get_search_operation(self, operation_name: str) -> dict[str, Any]:
+        """Poll for operation status."""
+        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/search/operations/{operation_name}"
+        response = http_request(
+            host_creds=self.get_host_creds(),
+            endpoint=endpoint,
+            method="GET",
+        )
+        verify_rest_response(response, endpoint)
+        return response.json()
+
     def search_traces(
         self,
         experiment_ids: list[str] | None = None,
@@ -383,23 +456,22 @@ class DatabricksTracingRestStore(RestStore):
         )
         req_body = message_to_json(request)
         try:
-            response_proto = self._call_endpoint(
-                SearchTraces,
-                req_body,
-                endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/search",
-            )
+            return self._search_traces_long_running(req_body)
         except MlflowException as e:
-            # There are 2 expected failure cases:
-            # 1. Server does not support SearchTracesV4 API yet.
-            # 2. Server supports V4 API but the experiment location is not supported yet.
-            # For these known cases, MLflow fallback to V3 API.
+            # There are 3 expected failure cases:
+            # 1. Server does not support SearchTracesLongRunning API yet.
+            # 2. Server supports the API but the experiment location is not supported yet.
+            # 3. Server does not support UC schema locations yet.
+            # For these known cases, MLflow falls back to V3 API.
             if e.error_code == ErrorCode.Name(ENDPOINT_NOT_FOUND):
                 if contain_uc_schemas:
                     raise MlflowException.invalid_parameter_value(
                         "Searching traces in UC tables is not supported yet. Only experiment IDs "
                         "are supported for searching traces."
                     )
-                _logger.debug("SearchTracesV4 API is not available yet. Falling back to V3 API.")
+                _logger.debug(
+                    "SearchTracesLongRunning API is not available yet. Falling back to V3 API."
+                )
             elif (
                 e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
                 and "locations not yet supported" in e.message
@@ -421,9 +493,6 @@ class DatabricksTracingRestStore(RestStore):
                 order_by=order_by,
                 page_token=page_token,
             )
-
-        trace_infos = [TraceInfo.from_proto(t) for t in response_proto.trace_infos]
-        return trace_infos, response_proto.next_page_token or None
 
     def _search_unified_traces(
         self,
