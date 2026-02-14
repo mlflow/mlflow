@@ -56,7 +56,7 @@ _logger = logging.getLogger(__name__)
 
 USER_DEFINED_ASSESSMENT_NAME_KEY = "_user_defined_assessment_name"
 PGBAR_FORMAT = (
-    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
+    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}]{postfix}"
 )
 
 
