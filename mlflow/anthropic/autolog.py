@@ -1,3 +1,4 @@
+import functools
 import logging
 from typing import Any
 
@@ -17,34 +18,96 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 _logger = logging.getLogger(__name__)
 
 
-def patched_claude_sdk_init(original, self, options=None):
-    """Patched __init__ that adds MLflow tracing hook to ClaudeSDKClient.
+def _wrap_query(client, messages_buffer: list[Any]) -> None:
+    from claude_agent_sdk.types import UserMessage
 
-    The hook handler checks autologging_is_disabled() at runtime, so hooks
-    are always injected but become no-ops when autologging is disabled.
+    # query() sends the prompt to the CLI subprocess but doesn't echo it
+    # back through receive_messages, so we capture it here
+    original_query = client.query
+
+    @functools.wraps(original_query)
+    async def wrapped_query(prompt, *args, **kwargs):
+        if isinstance(prompt, str):
+            messages_buffer.append(UserMessage(content=prompt))
+        return await original_query(prompt, *args, **kwargs)
+
+    client.query = wrapped_query
+
+
+def _wrap_receive_messages(client, messages_buffer: list[Any]) -> None:
+    original_receive_messages = client.receive_messages
+
+    @functools.wraps(original_receive_messages)
+    async def wrapped_receive_messages(*args, **kwargs):
+        async for message in original_receive_messages(*args, **kwargs):
+            messages_buffer.append(message)
+            yield message
+
+    client.receive_messages = wrapped_receive_messages
+
+
+def _make_stop_hook(messages_buffer: list[Any]):
+    async def _sdk_stop_hook(input_data, tool_use_id, context):
+        from mlflow.claude_code.hooks import get_hook_response
+        from mlflow.utils.autologging_utils import autologging_is_disabled
+
+        if autologging_is_disabled("anthropic"):
+            return get_hook_response()
+
+        try:
+            from mlflow.claude_code.tracing import process_sdk_messages
+
+            session_id = input_data.get("session_id")
+            trace = process_sdk_messages(list(messages_buffer), session_id)
+
+            if trace is not None:
+                return get_hook_response()
+            return get_hook_response(
+                error="Failed to process SDK messages, check "
+                ".claude/mlflow/claude_tracing.log for details",
+            )
+        except Exception as e:
+            _logger.debug("Error in SDK stop hook: %s", e, exc_info=True)
+            return get_hook_response(error=str(e))
+        finally:
+            messages_buffer.clear()
+
+    return _sdk_stop_hook
+
+
+def patched_claude_sdk_init(original, self, options=None):
+    """Wrap query/receive_messages to capture messages and inject a Stop hook
+    that builds an MLflow trace from the accumulated conversation.
+
+    Args:
+        original: The original ``ClaudeSDKClient.__init__`` method.
+        self: The ``ClaudeSDKClient`` instance being initialized.
+        options: Optional ``ClaudeAgentOptions`` forwarded to the original init.
+
+    Returns:
+        The result of the original ``__init__`` call.
     """
     try:
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
-        from mlflow.claude_code.hooks import sdk_stop_hook_handler
+        result = original(self, options)
 
-        # Create options if not provided
-        if options is None:
-            options = ClaudeAgentOptions()
+        messages_buffer: list[Any] = []
+        _wrap_query(self, messages_buffer)
+        _wrap_receive_messages(self, messages_buffer)
 
-        if options.hooks is None:
-            options.hooks = {}
-        if "Stop" not in options.hooks:
-            options.hooks["Stop"] = []
+        if self.options is None:
+            self.options = ClaudeAgentOptions()
+        if self.options.hooks is None:
+            self.options.hooks = {}
+        self.options.hooks.setdefault("Stop", []).append(
+            HookMatcher(hooks=[_make_stop_hook(messages_buffer)])
+        )
 
-        options.hooks["Stop"].append(HookMatcher(hooks=[sdk_stop_hook_handler]))
-
-        # Call original init with modified options
-        return original(self, options)
+        return result
 
     except Exception as e:
         _logger.debug("Error in patched_claude_sdk_init: %s", e, exc_info=True)
-        # Fall back to original behavior if patching fails
         return original(self, options)
 
 
