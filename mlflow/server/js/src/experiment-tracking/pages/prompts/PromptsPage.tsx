@@ -112,10 +112,7 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
                 >
                   <TextBoxIcon />
                 </span>
-                <FormattedMessage
-                  defaultMessage="Prompts"
-                  description="Header title for the registered prompts page"
-                />
+                <FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />
               </span>
             }
             buttons={createButton}
