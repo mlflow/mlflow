@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Interpolation, Theme } from '@emotion/react';
 import {
+  BeakerIcon,
   Button,
   TableFilterLayout,
   TableFilterInput,
@@ -101,7 +102,21 @@ export const ExperimentListView = () => {
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
       <Header
-        title={<FormattedMessage defaultMessage="Experiments" description="Header title for the experiments page" />}
+        title={
+          <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <span
+              css={{
+                display: 'flex',
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                padding: theme.spacing.sm,
+              }}
+            >
+              <BeakerIcon />
+            </span>
+            <FormattedMessage defaultMessage="Experiments" description="Header title for the experiments page" />
+          </span>
+        }
         buttons={
           <>
             {showCreationButtons && (

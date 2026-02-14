@@ -1,6 +1,6 @@
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { usePromptsListQuery } from './hooks/usePromptsListQuery';
-import { Alert, Button, Header, Spacer } from '@databricks/design-system';
+import { Alert, Button, Header, Spacer, TextBoxIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useState } from 'react';
 import { PromptsListFilters } from './components/PromptsListFilters';
@@ -53,6 +53,7 @@ const EXPERIMENT_COMPONENT_IDS: PromptsListComponentIds = {
 };
 
 const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
+  const { theme } = useDesignSystemTheme();
   const [searchParams] = useSearchParams();
   const workspacesEnabled = shouldEnableWorkspaces();
   const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
@@ -91,7 +92,22 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
           <Spacer shrinks={false} />
           <Header
             title={
-              <FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />
+              <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                <span
+                  css={{
+                    display: 'flex',
+                    borderRadius: theme.borders.borderRadiusSm,
+                    backgroundColor: theme.colors.backgroundSecondary,
+                    padding: theme.spacing.sm,
+                  }}
+                >
+                  <TextBoxIcon />
+                </span>
+                <FormattedMessage
+                  defaultMessage="Prompts"
+                  description="Header title for the registered prompts page"
+                />
+              </span>
             }
             buttons={createButton}
           />
