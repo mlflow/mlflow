@@ -75,29 +75,40 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName, experimentId)),
   });
 
+  const createButton = showCreationButtons && (
+    <Button componentId={componentIds.create} type="primary" onClick={openCreateVersionModal}>
+      <FormattedMessage
+        defaultMessage="Create prompt"
+        description="Label for the create prompt button on the registered prompts page"
+      />
+    </Button>
+  );
+
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Spacer shrinks={false} />
-      <Header
-        title={<FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />}
-        buttons={
-          showCreationButtons && (
-            <Button componentId={componentIds.create} type="primary" onClick={openCreateVersionModal}>
-              <FormattedMessage
-                defaultMessage="Create prompt"
-                description="Label for the create prompt button on the registered prompts page"
-              />
-            </Button>
-          )
-        }
-      />
-      <Spacer shrinks={false} />
+      {!experimentId && (
+        <>
+          <Spacer shrinks={false} />
+          <Header
+            title={
+              <FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />
+            }
+            buttons={createButton}
+          />
+          <Spacer shrinks={false} />
+        </>
+      )}
       <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <PromptsListFilters
-          searchFilter={searchFilter}
-          onSearchFilterChange={setSearchFilter}
-          componentId={componentIds.search}
-        />
+        <div css={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+          <div css={{ flex: 1 }}>
+            <PromptsListFilters
+              searchFilter={searchFilter}
+              onSearchFilterChange={setSearchFilter}
+              componentId={componentIds.search}
+            />
+          </div>
+          {experimentId && createButton}
+        </div>
         {error?.message && (
           <>
             <Alert type="error" message={error.message} componentId={componentIds.error} closable={false} />
