@@ -34,6 +34,7 @@ export enum PageId {
   runPageDirect = 'mlflow.experiment.run.details.direct',
   compareRuns = 'mlflow.experiment.run.compare',
   metricPage = 'mlflow.metric.details',
+  experimentPrompt = 'mlflow.experiment.prompt',
 }
 
 // Route path definitions (used in defining route elements)

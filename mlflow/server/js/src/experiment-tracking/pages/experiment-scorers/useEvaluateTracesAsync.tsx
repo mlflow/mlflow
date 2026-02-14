@@ -11,7 +11,8 @@ import {
 } from './useEvaluateTraces.common';
 import { TrackingJobStatus } from '../../../common/hooks/useGetTrackingServerJobStatus';
 import { compact, uniq, zipObject } from 'lodash';
-import { SessionForEvaluation, useGetSessionsForEvaluation } from './useGetSessionsForEvaluation';
+import type { SessionForEvaluation } from './useGetSessionsForEvaluation';
+import { useGetSessionsForEvaluation } from './useGetSessionsForEvaluation';
 import { ScorerEvaluationScope } from './constants';
 import { parseJSONSafe } from '../../../common/utils/TagUtils';
 

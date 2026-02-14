@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { ChevronDownIcon, ChevronRightIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
+import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 
 const STRING_TRUNCATION_LIMIT = 400;
 

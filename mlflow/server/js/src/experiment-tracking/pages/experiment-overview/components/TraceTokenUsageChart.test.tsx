@@ -8,6 +8,7 @@ import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create an input tokens data point
 const createInputTokensDataPoint = (timeBucket: string, sum: number) => ({
@@ -81,7 +82,7 @@ describe('TraceTokenUsageChart', () => {
   // Helper to setup MSW handler for trace metrics endpoint with routing based on metric_name
   const setupTraceMetricsHandler = (inputDataPoints: any[], outputDataPoints: any[], totalDataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
         const metricName = body.metric_name;
         if (metricName === TraceMetricKey.INPUT_TOKENS) {

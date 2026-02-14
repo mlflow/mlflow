@@ -3,7 +3,7 @@ import type { VirtualItem } from '@tanstack/react-virtual';
 import React, { useCallback, useMemo } from 'react';
 
 import { Button, ChevronDownIcon, ChevronRightIcon, TableRow } from '@databricks/design-system';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 import { SessionHeaderCell } from './cellRenderers/SessionHeaderCellRenderers';
 import { GenAiTracesTableBodyRow } from './GenAiTracesTableBodyRows';
@@ -15,6 +15,7 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   groupedRows: GroupedTraceTableRowData[];
   isComparing: boolean;
   enableRowSelection?: boolean;
+  // eslint-disable-next-line react/no-unused-prop-types
   rowSelectionState: RowSelectionState | undefined;
   virtualItems: VirtualItem<Element>[];
   virtualizerTotalSize: number;
@@ -32,6 +33,7 @@ interface GenAiTracesTableSessionGroupedRowsProps {
 interface SessionHeaderRowProps {
   sessionId: string;
   otherSessionId?: string;
+  // eslint-disable-next-line react/no-unused-prop-types
   traceCount: number;
   traces: ModelTraceInfoV3[];
   otherTraces?: ModelTraceInfoV3[];
@@ -128,9 +130,18 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
 
         // Render trace row using the existing renderer, providing it
         // with a reference to the actual tanstack table row.
-        const row = evaluationToRowMap.get(groupedRow.data);
+        let row = evaluationToRowMap.get(groupedRow.data);
         if (!row) {
-          return null;
+          // Bug in React 18: for some reason, `evaluationToRowMap` loses the row reference when the table is re-rendered.
+          // This is a workaround to find the row by matching the trace IDs.
+          row = rows.find(
+            ({ original }) =>
+              original.currentRunValue?.traceInfo?.trace_id === groupedRow.data.currentRunValue?.traceInfo?.trace_id &&
+              original.otherRunValue?.traceInfo?.trace_id === groupedRow.data.otherRunValue?.traceInfo?.trace_id,
+          );
+          if (!row) {
+            return null;
+          }
         }
 
         const exportableTrace = row.original.currentRunValue && !isComparing;

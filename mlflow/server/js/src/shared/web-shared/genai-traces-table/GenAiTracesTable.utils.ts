@@ -17,15 +17,15 @@ import {
   USER_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   TOKENS_COLUMN_ID,
-  LINKED_PROMPTS_COLUMN_ID,
   SIMULATION_GOAL_COLUMN_ID,
   SIMULATION_PERSONA_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
 } from './hooks/useTableColumns';
 import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { TracesTableColumnGroup, TracesTableColumnType } from './types';
 import { getTraceInfoInputs, shouldUseTraceInfoV3 } from './utils/TraceUtils';
 import { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from './utils/SessionGroupingUtils';
-import type { ModelTraceInfoV3 } from '../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 const GROUP_PRIORITY = [
   TracesTableColumnGroup.INFO,
@@ -180,6 +180,10 @@ export const getTraceInfoValueWithColId = (traceInfo: ModelTraceInfoV3, colId: s
       return traceInfo.trace_id;
     case SESSION_COLUMN_ID:
       return traceInfo.tags?.['mlflow.trace.session'];
+    case SIMULATION_GOAL_COLUMN_ID:
+      return traceInfo.trace_metadata?.['mlflow.simulation.goal'];
+    case SIMULATION_PERSONA_COLUMN_ID:
+      return traceInfo.trace_metadata?.['mlflow.simulation.persona'];
     case LINKED_PROMPTS_COLUMN_ID:
       return traceInfo.tags?.['mlflow.linkedPrompts'];
     case SIMULATION_GOAL_COLUMN_ID:

@@ -4,15 +4,13 @@ import { useForm } from 'react-hook-form';
 
 import { Alert, Button, Modal, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import {
-  TagAssignmentKey,
-  TagAssignmentLabel,
-  TagAssignmentRemoveButton,
-  TagAssignmentRoot,
-  TagAssignmentRow,
-  TagAssignmentValue,
-  useTagAssignmentForm,
-} from '@databricks/web-shared/unified-tagging';
+import { TagAssignmentKey } from '../../unified-tagging/components/TagAssignmentKey';
+import { TagAssignmentLabel } from '../../unified-tagging/components/TagAssignmentLabel';
+import { TagAssignmentRemoveButton } from '../../unified-tagging/components/TagAssignmentRemoveButton';
+import { TagAssignmentRoot } from '../../unified-tagging/components/TagAssignmentRoot';
+import { TagAssignmentRow } from '../../unified-tagging/components/TagAssignmentRow';
+import { TagAssignmentValue } from '../../unified-tagging/components/TagAssignmentValue';
+import { useTagAssignmentForm } from '../../unified-tagging/hooks/useTagAssignmentForm';
 
 import { useUpdateTraceTagsMutation } from './useUpdateTraceTagsMutation';
 import type { ModelTrace } from '../ModelTrace.types';

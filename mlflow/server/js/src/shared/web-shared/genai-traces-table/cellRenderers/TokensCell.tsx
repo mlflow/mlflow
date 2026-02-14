@@ -1,6 +1,7 @@
 import { HoverCard, Tag, Typography } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import { getTraceTokenUsage, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { getTraceTokenUsage } from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 
 import { NullCell } from './NullCell';
 import { StackedComponents } from './StackedComponents';

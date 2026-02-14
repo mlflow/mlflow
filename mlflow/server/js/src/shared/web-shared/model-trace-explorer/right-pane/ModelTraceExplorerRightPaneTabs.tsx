@@ -43,7 +43,6 @@ function ModelTraceExplorerRightPaneTabsImpl({
   const {
     assessmentsPaneExpanded,
     assessmentsPaneEnabled,
-    isInComparisonView,
     updatePaneSizeRatios,
     getPaneSizeRatios,
     readOnly: displayReadOnlyAssessments,
@@ -177,7 +176,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
     />
   );
 
-  return !isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded ? (
+  return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
       initialRatio={getPaneSizeRatios().detailsSidebar}
       paneWidth={paneWidth}

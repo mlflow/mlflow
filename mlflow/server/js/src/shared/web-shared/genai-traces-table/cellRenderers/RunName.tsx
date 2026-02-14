@@ -1,6 +1,6 @@
 import { ParagraphSkeleton } from '@databricks/design-system';
-import type { NetworkRequestError } from '@databricks/web-shared/errors';
-import { useQuery } from '@databricks/web-shared/query-client';
+import type { NetworkRequestError } from '../../errors/PredefinedErrors';
+import { useQuery } from '../../query-client/queryClient';
 
 import { ErrorCell } from './ErrorCell';
 import { NullCell } from './NullCell';

@@ -4,12 +4,8 @@ import { FormattedMessage } from '@databricks/i18n';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 
 export const AssessmentPaneToggle = () => {
-  const { assessmentsPaneExpanded, setAssessmentsPaneExpanded, assessmentsPaneEnabled, isInComparisonView } =
+  const { assessmentsPaneExpanded, setAssessmentsPaneExpanded, assessmentsPaneEnabled } =
     useModelTraceExplorerViewState();
-
-  if (isInComparisonView) {
-    return null;
-  }
 
   return (
     <Button

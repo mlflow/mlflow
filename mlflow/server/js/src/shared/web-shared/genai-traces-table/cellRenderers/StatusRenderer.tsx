@@ -4,7 +4,7 @@ import { CheckCircleIcon, ClockIcon, useDesignSystemTheme, XCircleIcon } from '@
 import { useIntl, defineMessage } from '@databricks/i18n';
 
 import { NullCell } from './NullCell';
-import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 
 export const ExperimentViewTracesStatusLabels = {
   STATE_UNSPECIFIED: null,

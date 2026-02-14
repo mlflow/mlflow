@@ -1,8 +1,8 @@
 import { describe, it, expect } from '@jest/globals';
 import { uniq } from 'lodash';
 
-import type { ModelTraceInfoV3, ModelTraceLocationMlflowExperiment } from '@databricks/web-shared/model-trace-explorer';
-import { ModelTraceSpanType } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3, ModelTraceLocationMlflowExperiment } from '../../model-trace-explorer/ModelTrace.types';
+import { ModelTraceSpanType } from '../../model-trace-explorer/ModelTrace.types';
 
 import {
   getRetrievedContextFromTrace,

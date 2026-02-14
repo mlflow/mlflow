@@ -1,13 +1,9 @@
 import { isNil } from 'lodash';
 import { useCallback, useMemo } from 'react';
 
-import {
-  type ModelTraceInfoV3,
-  isV3ModelTraceInfo,
-  isV4TraceId,
-  type ModelTrace,
-} from '@databricks/web-shared/model-trace-explorer';
-import { useQuery } from '@databricks/web-shared/query-client';
+import type { ModelTraceInfoV3, ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
+import { isV3ModelTraceInfo, isV4TraceId } from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import { useQuery } from '../../query-client/queryClient';
 
 import { createTraceLocationForExperiment, createTraceLocationForUCSchema } from '../utils/TraceLocationUtils';
 import { formatTraceId } from '../utils/TraceUtils';

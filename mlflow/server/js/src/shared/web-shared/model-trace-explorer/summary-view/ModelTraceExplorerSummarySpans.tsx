@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { SegmentedControlButton, SegmentedControlGroup, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -10,7 +10,7 @@ import type { ModelTraceExplorerRenderMode, ModelTraceSpanNode } from '../ModelT
 import { createListFromObject, getSpanExceptionEvents } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
-import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
+import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
 
 export const SUMMARY_SPANS_MIN_WIDTH = 400;
 
@@ -24,8 +24,22 @@ export const ModelTraceExplorerSummarySpans = ({
   hideRenderModeSelector?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [renderMode, setRenderMode] = useState<ModelTraceExplorerRenderMode>('default');
+  const preferences = useModelTraceExplorerPreferences();
+  const [renderMode, setRenderModeInternal] = useState<ModelTraceExplorerRenderMode>(preferences.renderMode);
   const { readOnly } = useModelTraceExplorerViewState();
+
+  useEffect(() => {
+    setRenderModeInternal(preferences.renderMode);
+  }, [preferences.renderMode]);
+
+  const setRenderMode = useCallback(
+    (mode: ModelTraceExplorerRenderMode) => {
+      setRenderModeInternal(mode);
+      preferences.setRenderMode(mode);
+    },
+    [preferences],
+  );
+
   const rootInputs = rootNode.inputs;
   const rootOutputs = rootNode.outputs;
   const chatMessageFormat = rootNode.chatMessageFormat;
@@ -107,6 +121,7 @@ export const ModelTraceExplorerSummarySpans = ({
         data={outputList}
         renderMode={renderMode}
         chatMessageFormat={chatMessageFormat ?? 'openai'}
+        assessments={rootNode.assessments}
       />
     </div>
   );

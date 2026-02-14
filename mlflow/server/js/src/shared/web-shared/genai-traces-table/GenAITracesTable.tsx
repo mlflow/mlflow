@@ -21,7 +21,7 @@ import {
   WarningIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 import { GenAITracesTableActions } from './GenAITracesTableActions';
 import { computeEvaluationsComparison } from './GenAiTracesTable.utils';

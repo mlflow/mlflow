@@ -18,6 +18,7 @@ import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create a data point with time bucket and status
 const createDataPoint = (timeBucket: string, status: string, count: number) => ({
@@ -81,7 +82,7 @@ describe('ToolErrorRateChart', () => {
   // Helper to setup MSW handler for the trace metrics endpoint
   const setupTraceMetricsHandler = (dataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
         return res(ctx.json({ data_points: dataPoints }));
       }),
     );
@@ -96,7 +97,7 @@ describe('ToolErrorRateChart', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -111,7 +112,7 @@ describe('ToolErrorRateChart', () => {
   describe('error state', () => {
     it('should render error state when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error: 'API Error' }));
         }),
       );
@@ -259,7 +260,7 @@ describe('ToolErrorRateChart', () => {
       let capturedBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBody = await req.json();
           return res(ctx.json({ data_points: [] }));
         }),

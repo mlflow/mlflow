@@ -1,10 +1,10 @@
 import { Button } from '@databricks/design-system';
 
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage } from '@databricks/i18n';
 import { useState } from 'react';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { SelectTracesModal } from '../../components/SelectTracesModal';
-import { ScorerFormData } from './utils/scorerTransformUtils';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { useFormContext } from 'react-hook-form';
 import { MAX_SELECTED_ITEM_COUNT, ScorerEvaluationScope } from './constants';
 import { SelectSessionsModal } from '../../components/SelectSessionsModal';

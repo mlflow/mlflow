@@ -69,7 +69,7 @@ interface OverviewChartCardProps {
 /**
  * Common wrapper for overview chart cards with consistent styling
  */
-export const OverviewChartCard: React.FC<OverviewChartCardProps> = ({ children, height = DEFAULT_CHART_HEIGHT }) => {
+const OverviewChartCard: React.FC<OverviewChartCardProps> = ({ children, height = DEFAULT_CHART_HEIGHT }) => {
   const { theme } = useDesignSystemTheme();
 
   return (

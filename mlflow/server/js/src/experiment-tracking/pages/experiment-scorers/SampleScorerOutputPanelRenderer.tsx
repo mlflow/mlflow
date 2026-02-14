@@ -17,12 +17,13 @@ import type { Assessment, ModelTrace } from '@databricks/web-shared/model-trace-
 import { COMPONENT_ID_PREFIX, BUTTON_VARIANT, type ButtonVariant, ScorerEvaluationScope } from './constants';
 import { SampleScorerTracesToEvaluatePicker } from './SampleScorerTracesToEvaluatePicker';
 import { useFormContext } from 'react-hook-form';
-import { ScorerFormData } from './utils/scorerTransformUtils';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { ExperimentSingleChatConversation } from '../experiment-chat-sessions/single-chat-view/ExperimentSingleChatConversation';
-import { SimplifiedAssessmentView } from '../../../shared/web-shared/model-trace-explorer/right-pane/SimplifiedAssessmentView';
+import { SimplifiedAssessmentView } from '@databricks/web-shared/model-trace-explorer';
 import { compact } from 'lodash';
-import { isSessionJudgeEvaluationResult, JudgeEvaluationResult } from './useEvaluateTraces.common';
+import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { isSessionJudgeEvaluationResult } from './useEvaluateTraces.common';
 
 /**
  * Run scorer button component.

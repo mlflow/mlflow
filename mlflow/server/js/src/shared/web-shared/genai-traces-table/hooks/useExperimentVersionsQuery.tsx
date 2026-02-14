@@ -1,4 +1,4 @@
-import { useQuery } from '@databricks/web-shared/query-client';
+import { useQuery } from '../../query-client/queryClient';
 
 import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 

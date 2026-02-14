@@ -23,3 +23,6 @@ export const SPAN_ATTRIBUTE_COST_KEY = 'mlflow.llm.cost';
 // Query parameter for selected trace ID in session pages
 export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
 export const ASSESSMENT_SESSION_METADATA_KEY = 'mlflow.trace.session';
+
+// Key used in assessment metadata to indicate which document (by index) the assessment references
+export const MLFLOW_SPAN_OUTPUT_KEY = 'span_output_key';

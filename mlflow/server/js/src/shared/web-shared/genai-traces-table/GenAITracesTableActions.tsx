@@ -11,7 +11,8 @@ import { GenAiDeleteTraceModal } from './components/GenAiDeleteTraceModal';
 import type { RunEvaluationTracesDataEntry, TraceActions } from './types';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, getRowIdFromTrace } from './utils/TraceUtils';
-import { shouldUseUnifiedModelTraceComparisonUI, type ModelTraceInfoV3 } from '../model-trace-explorer';
+import { shouldUseUnifiedModelTraceComparisonUI } from '../model-trace-explorer/FeatureUtils';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 interface GenAITracesTableActionsProps {
   experimentId: string;

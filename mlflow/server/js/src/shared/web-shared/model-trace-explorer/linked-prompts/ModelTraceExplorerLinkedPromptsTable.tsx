@@ -15,8 +15,8 @@ import {
   SearchIcon,
 } from '@databricks/design-system';
 import { useIntl, FormattedMessage } from '@databricks/i18n';
-import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
-import { CodeSnippet } from '@databricks/web-shared/snippet';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '../../react-table/useReactTable';
+import { CodeSnippet } from '../../snippet/CodeSnippet';
 
 import { Link, generatePath } from '../RoutingUtils';
 

@@ -27,7 +27,7 @@ import type {
 } from './types';
 import { TracesTableColumnType } from './types';
 import { timeSinceStr } from './utils/DisplayUtils';
-import type { ModelTraceInfoV3 } from '../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 const DEFAULT_ASSESSMENT_CELL_WIDTH_PX = 120;
 const DEFAULT_ASSESSMENTS_CELL_WIDTH_COMPARE_PX = 120;
