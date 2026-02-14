@@ -37,6 +37,7 @@ from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT,
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
     MLFLOW_GENAI_EVAL_MAX_RETRIES,
     MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS,
@@ -197,20 +198,22 @@ def _get_pool_sizes(
 
 
 class _Heartbeat:
-    """Periodic heartbeat logger for the pipeline loop."""
+    """Periodic debug-level heartbeat for the pipeline loop.
+
+    Only active when ``MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT`` is set to True.
+    """
 
     def __init__(
         self,
         predict_limiter: RateLimiter,
         scorer_limiter: RateLimiter,
         total_items: int,
-        progress_bar=None,
         interval_secs: float = 15,
     ):
+        self._enabled = MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT.get()
         self._predict_limiter = predict_limiter
         self._scorer_limiter = scorer_limiter
         self._total = total_items
-        self._progress_bar = progress_bar
         self._interval = interval_secs
         self._last_time = time.monotonic()
 
@@ -220,21 +223,25 @@ class _Heartbeat:
         return f"{rps:.1f}" if rps is not None else "off"
 
     def tick(self, stats: dict) -> None:
+        if not self._enabled:
+            return
         now = time.monotonic()
         if now - self._last_time < self._interval:
             return
         self._last_time = now
-        msg = (
-            f"[heartbeat] predicted={stats['predicted']}/{self._total}, "
-            f"scored={stats['scored']}/{self._total}, "
-            f"pending={stats['pending']} "
-            f"({stats['predict_pending']} predict, {stats['score_pending']} score), "
-            f"rate: predict={self._format_rps(self._predict_limiter)} rps, "
-            f"score={self._format_rps(self._scorer_limiter)} rps"
+        _logger.debug(
+            "[heartbeat] predicted=%d/%d, scored=%d/%d, pending=%d "
+            "(%d predict, %d score), rate: predict=%s rps, score=%s rps",
+            stats["predicted"],
+            self._total,
+            stats["scored"],
+            self._total,
+            stats["pending"],
+            stats["predict_pending"],
+            stats["score_pending"],
+            self._format_rps(self._predict_limiter),
+            self._format_rps(self._scorer_limiter),
         )
-        _logger.info(msg)
-        if self._progress_bar:
-            self._progress_bar.write(msg)
 
 
 class _PredictSubmitter:
@@ -301,6 +308,14 @@ class _PredictSubmitter:
         self._pool.shutdown(wait=False, cancel_futures=True)
 
     def start(self) -> None:
+        """Submit all eval items to the predict pool from a background thread.
+
+        Each submission blocks on the backpressure semaphore to bound the number
+        of predicted-but-not-yet-scored items. Completed futures are placed on
+        ``self._queue`` for the main loop to drain. A None sentinel signals
+        that all items have been submitted (or an error occurred).
+        """
+
         self._thread = threading.Thread(
             target=self._submit_all, daemon=True, name="MlflowGenAIEvalSubmit"
         )
@@ -311,13 +326,6 @@ class _PredictSubmitter:
             self._thread.join()
 
     def _submit_all(self) -> None:
-        """Submit all eval items to the predict pool from a background thread.
-
-        Each submission blocks on the backpressure semaphore to bound the number
-        of predicted-but-not-yet-scored items. Completed futures are placed on
-        ``self._queue`` for the main loop to drain. A None sentinel signals
-        that all items have been submitted (or an error occurred).
-        """
         try:
             for i, eval_item in enumerate(self._eval_items):
                 _logger.debug(f"Submit thread: waiting for backpressure slot (item {i})")
@@ -540,7 +548,7 @@ def _run_pipeline(
     )
 
     try:
-        heartbeat = _Heartbeat(predictor.limiter, scorer.limiter, len(eval_items), progress_bar)
+        heartbeat = _Heartbeat(predictor.limiter, scorer.limiter, len(eval_items))
 
         predictor.start()
         pending: set[Future] = set()

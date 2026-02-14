@@ -750,6 +750,13 @@ MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
     "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", False
 )
 
+#: Enable periodic heartbeat logging during mlflow.genai.evaluate. When True, pipeline
+#: progress (predicted/scored counts, pending futures, current rate limits) is logged at
+#: DEBUG level every 15 seconds. Useful for diagnosing throughput issues. (default: ``False``)
+MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT = _BooleanEnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT", False
+)
+
 #: Timeout in seconds for async predict functions in mlflow.genai.evaluate. When an async
 #: function is passed as predict_fn, it will be wrapped with asyncio.run() with this timeout.
 #: (default: ``300``)
