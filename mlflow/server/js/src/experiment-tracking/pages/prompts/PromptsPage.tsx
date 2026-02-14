@@ -85,8 +85,10 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
     </Button>
   );
 
+  const Wrapper = experimentId ? 'div' : ScrollablePageWrapper;
+
   return (
-    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <Wrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
       {!experimentId && (
         <>
           <Spacer shrinks={false} />
@@ -148,7 +150,7 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
       </div>
       {EditTagsModal}
       {CreatePromptModal}
-    </ScrollablePageWrapper>
+    </Wrapper>
   );
 };
 
