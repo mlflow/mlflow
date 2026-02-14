@@ -538,9 +538,7 @@ def _finalize_trace(
     end_time_ns: int,
 ) -> mlflow.entities.Trace:
     try:
-        with InMemoryTraceManager.get_instance().get_trace(
-            parent_span.trace_id
-        ) as in_memory_trace:
+        with InMemoryTraceManager.get_instance().get_trace(parent_span.trace_id) as in_memory_trace:
             if user_prompt:
                 in_memory_trace.info.request_preview = user_prompt[:MAX_PREVIEW_LENGTH]
             if final_response:
@@ -660,7 +658,11 @@ def process_transcript(
             conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)
 
         return _finalize_trace(
-            parent_span, user_prompt_text, final_response, session_id, conv_end_ns,
+            parent_span,
+            user_prompt_text,
+            final_response,
+            session_id,
+            conv_end_ns,
         )
 
     except Exception as e:
@@ -683,9 +685,7 @@ def _find_sdk_user_prompt(messages: list[Any]) -> str | None:
         if isinstance(content, str):
             text = content
         elif isinstance(content, list):
-            text = "\n".join(
-                block.text for block in content if isinstance(block, TextBlock)
-            )
+            text = "\n".join(block.text for block in content if isinstance(block, TextBlock))
         else:
             continue
         if text and text.strip():
@@ -729,7 +729,9 @@ def process_sdk_messages(
             session_id = f"claude-sdk-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         get_logger().log(
-            CLAUDE_TRACING_LEVEL, "Creating MLflow trace for session: %s", session_id,
+            CLAUDE_TRACING_LEVEL,
+            "Creating MLflow trace for session: %s",
+            session_id,
         )
 
         tool_result_map: dict[str, str] = {}
@@ -803,7 +805,10 @@ def process_sdk_messages(
             _set_token_usage_attribute(parent_span, result_usage)
 
         return _finalize_trace(
-            parent_span, user_prompt, final_response, session_id,
+            parent_span,
+            user_prompt,
+            final_response,
+            session_id,
             span_time_ns + int(1 * NANOSECONDS_PER_S),
         )
 

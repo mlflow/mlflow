@@ -173,14 +173,18 @@ async def test_closure_stop_hook_calls_process_sdk_messages():
 
     with (
         patch(
-            "mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False,
+            "mlflow.utils.autologging_utils.autologging_is_disabled",
+            return_value=False,
         ),
         patch(
-            "mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock(),
+            "mlflow.claude_code.tracing.process_sdk_messages",
+            return_value=MagicMock(),
         ) as mock_process,
     ):
         result = await stop_hook_fn(
-            {"session_id": "test-session"}, None, None,
+            {"session_id": "test-session"},
+            None,
+            None,
         )
 
     mock_process.assert_called_once()
@@ -226,10 +230,12 @@ async def test_closure_stop_hook_clears_buffer():
     # Verify buffer has messages before hook runs
     with (
         patch(
-            "mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False,
+            "mlflow.utils.autologging_utils.autologging_is_disabled",
+            return_value=False,
         ),
         patch(
-            "mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock(),
+            "mlflow.claude_code.tracing.process_sdk_messages",
+            return_value=MagicMock(),
         ) as mock_process,
     ):
         await stop_hook_fn({"session_id": "s1"}, None, None)
@@ -242,10 +248,12 @@ async def test_closure_stop_hook_clears_buffer():
     # (verified by calling the hook again without consuming new messages)
     with (
         patch(
-            "mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False,
+            "mlflow.utils.autologging_utils.autologging_is_disabled",
+            return_value=False,
         ),
         patch(
-            "mlflow.claude_code.tracing.process_sdk_messages", return_value=None,
+            "mlflow.claude_code.tracing.process_sdk_messages",
+            return_value=None,
         ) as mock_process,
     ):
         await stop_hook_fn({"session_id": "s2"}, None, None)
@@ -276,7 +284,8 @@ async def test_closure_stop_hook_skips_when_autologging_disabled():
 
     with (
         patch(
-            "mlflow.utils.autologging_utils.autologging_is_disabled", return_value=True,
+            "mlflow.utils.autologging_utils.autologging_is_disabled",
+            return_value=True,
         ),
         patch(
             "mlflow.claude_code.tracing.process_sdk_messages",

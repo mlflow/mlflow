@@ -89,9 +89,7 @@ def patched_claude_sdk_init(original, self, options=None):
             self.options = ClaudeAgentOptions()
         if self.options.hooks is None:
             self.options.hooks = {}
-        self.options.hooks.setdefault("Stop", []).append(
-            HookMatcher(hooks=[_sdk_stop_hook])
-        )
+        self.options.hooks.setdefault("Stop", []).append(HookMatcher(hooks=[_sdk_stop_hook]))
 
         return result
 
