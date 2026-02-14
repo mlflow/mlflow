@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import queue
-import sys
 import threading
 import time
 import traceback
@@ -20,13 +19,24 @@ except ImportError:
     # If tqdm is not installed, we don't show a progress bar
     tqdm = None
 
+# Optional dependencies — imported eagerly in the main thread so that worker
+# threads never trigger first-time imports (which can deadlock under Python's
+# per-module import lock when many threads import simultaneously).
+try:
+    import litellm  # noqa: F401
+except ImportError:
+    pass
+try:
+    from databricks.sdk import WorkspaceClient  # noqa: F401
+except ImportError:
+    pass
+
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
-    MLFLOW_GENAI_EVAL_DUMP_THREAD_STACKS,
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
     MLFLOW_GENAI_EVAL_MAX_RETRIES,
     MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS,
@@ -74,52 +84,6 @@ from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 _logger = logging.getLogger(__name__)
 
-_EVAL_THREAD_PREFIXES = ("MlflowGenAIEvalPredict", "MlflowGenAIEvalScore", "MlflowGenAIEvalSubmit")
-
-
-def _dump_eval_thread_stacks(progress_bar=None) -> None:
-    """Log stack traces for all evaluation threads to help diagnose hangs."""
-    frames = sys._current_frames()
-    thread_map = {t.ident: t.name for t in threading.enumerate()}
-    full_lines = []
-    summary = {}  # (thread_prefix, location) → count
-    for tid, frame in frames.items():
-        name = thread_map.get(tid, f"Thread-{tid}")
-        if not any(name.startswith(p) for p in _EVAL_THREAD_PREFIXES):
-            continue
-        # Full stack for the log file.
-        tb = "".join(traceback.format_stack(frame))
-        full_lines.append(f"--- {name} (tid={tid}) ---\n{tb}")
-        # For the compact summary, show the innermost (current) frame plus
-        # the nearest mlflow/ caller to give context.
-        inner = f"{frame.f_code.co_filename.split('/')[-1]}:{frame.f_lineno}:{frame.f_code.co_name}"
-        # Walk up the stack to find the nearest mlflow/ frame.
-        mlflow_frame = None
-        f = frame.f_back
-        while f is not None:
-            if "mlflow/" in f.f_code.co_filename:
-                mlflow_frame = f
-                break
-            f = f.f_back
-        if mlflow_frame and mlflow_frame is not frame:
-            caller = (
-                f"{mlflow_frame.f_code.co_filename.split('/')[-1]}"
-                f":{mlflow_frame.f_lineno}:{mlflow_frame.f_code.co_name}"
-            )
-            loc = f"{inner} <- {caller}"
-        else:
-            loc = inner
-        prefix = name.rsplit("_", 1)[0]
-        key = (prefix, loc)
-        summary[key] = summary.get(key, 0) + 1
-    if full_lines:
-        _logger.info(f"[thread-dump] {len(full_lines)} eval threads:\n" + "\n".join(full_lines))
-    if summary and progress_bar:
-        lines = [f"[thread-dump] {len(full_lines)} eval threads:"]
-        for (prefix, loc), cnt in sorted(summary.items()):
-            lines.append(f"  {cnt:3d}× {prefix}: {loc}")
-        progress_bar.write("\n".join(lines))
-
 
 def _log_multi_turn_assessments_to_traces(
     multi_turn_assessments: dict[str, list[Feedback]],
@@ -154,9 +118,6 @@ def _log_multi_turn_assessments_to_traces(
             _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
 
 
-_AUTO_PREDICT_RPS = 10.0
-
-
 def _parse_rate_limit(raw: str | None) -> tuple[float | None, bool]:
     """Parse a rate-limit env var into (rps_or_none, adaptive).
 
@@ -165,10 +126,11 @@ def _parse_rate_limit(raw: str | None) -> tuple[float | None, bool]:
         (rps, True)            when "auto"
         (rps, False)           when a fixed numeric value
     """
+    auto_initial_rps = 10.0
     if raw is None:
         return None, False
     if raw.strip().lower() == "auto":
-        return _AUTO_PREDICT_RPS, True
+        return auto_initial_rps, True
     rate = float(raw)
     if rate <= 0:
         return None, False
@@ -184,37 +146,23 @@ def _make_rate_limiter(
 
 
 def _pool_size(rps: float | None) -> int:
-    """Derive thread count from rate limit assuming ~2s avg LLM latency, capped at [10, 500].
+    """Derive thread count from rate limit, capped at [10, 500].
 
+    Assumes each LLM call takes about ``_AVG_LLM_LATENCY_SECS`` seconds on
+    average, so we need ``rps * latency`` threads to keep the pipeline busy.
     The rate limiter handles queueing — threads that can't get a token just
     block in acquire(). The HTTP connection pool is auto-sized to match.
     """
+    avg_llm_latency_secs = 2
     if not rps:
         return 10
-    return min(500, max(10, int(rps * 2)))
+    return min(500, max(10, int(rps * avg_llm_latency_secs)))
 
 
 def backpressure_buffer(score_workers: int) -> int:
     """Max items that may be predicted but not yet scored, bounding memory usage."""
-    return 2 * score_workers
-
-
-def _warmup_imports():
-    """Force-import lazy-loaded modules to prevent import lock deadlocks in worker threads.
-
-    When many threads simultaneously trigger first-time imports (e.g. ``import litellm``
-    or databricks SDK auth modules), they contend on Python's per-module import lock and
-    can deadlock.  Importing once in the main thread puts the modules in ``sys.modules``
-    so that subsequent ``import`` statements in worker threads are instant no-ops.
-    """
-    try:
-        import litellm  # noqa: F401
-    except ImportError:
-        pass
-    try:
-        from databricks.sdk import WorkspaceClient  # noqa: F401
-    except ImportError:
-        pass
+    backpressure_multiplier = 2
+    return backpressure_multiplier * score_workers
 
 
 @context.eval_context
@@ -278,10 +226,6 @@ def run(
     else:
         predict_workers = _pool_size(predict_rps)
         score_workers = _pool_size(scorer_rps)
-
-    # Force-import commonly lazy-loaded modules in the main thread to avoid import lock
-    # deadlocks when many worker threads trigger first-time imports simultaneously.
-    _warmup_imports()
 
     predict_pool = ThreadPoolExecutor(
         max_workers=predict_workers,
@@ -419,8 +363,6 @@ def run(
                 _logger.info(msg)
                 if progress_bar:
                     progress_bar.write(msg)
-                if MLFLOW_GENAI_EVAL_DUMP_THREAD_STACKS.get():
-                    _dump_eval_thread_stacks(progress_bar)
 
             _logger.debug(
                 f"Pipeline loop: waiting on {len(pending)} pending futures "

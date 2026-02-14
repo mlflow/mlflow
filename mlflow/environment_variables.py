@@ -694,8 +694,8 @@ MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT = _EnvironmentVariable(
 
 #: Maximum scorer calls per second during mlflow.genai.evaluate. A token-bucket
 #: rate limiter throttles individual scorer invocations across all worker threads.
-#: When not set, auto-derived from predict rate × num_scorers. Accepts ``auto``,
-#: a positive number, or ``0`` to disable. (default: auto-derived)
+#: Accepted values: ``auto`` (auto-derived from predict rate x num_scorers),
+#: a positive number (fixed rate), or ``0`` to disable. (default: ``auto``)
 MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", str, None
 )
@@ -703,9 +703,7 @@ MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT = _EnvironmentVariable(
 #: Maximum number of retries for rate-limit (429) errors during evaluate.
 #: Applies to both predict_fn and scorer calls. Set to 0 to disable retries.
 #: (default: ``3``)
-MLFLOW_GENAI_EVAL_MAX_RETRIES = _EnvironmentVariable(
-    "MLFLOW_GENAI_EVAL_MAX_RETRIES", int, 3
-)
+MLFLOW_GENAI_EVAL_MAX_RETRIES = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_RETRIES", int, 3)
 
 #: Multiplier for the adaptive rate limiter ceiling. When rate limiting is set to
 #: ``auto``, the rate can climb up to ``initial_rps * multiplier`` on sustained
@@ -713,12 +711,6 @@ MLFLOW_GENAI_EVAL_MAX_RETRIES = _EnvironmentVariable(
 #: (default: ``5``)
 MLFLOW_GENAI_EVAL_RATE_LIMIT_UPPER_MULTIPLIER = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_RATE_LIMIT_UPPER_MULTIPLIER", float, 5.0
-)
-
-#: When True, dump stack traces for evaluation threads in each heartbeat.
-#: Useful for diagnosing hangs. (default: ``false``)
-MLFLOW_GENAI_EVAL_DUMP_THREAD_STACKS = _BooleanEnvironmentVariable(
-    "MLFLOW_GENAI_EVAL_DUMP_THREAD_STACKS", False
 )
 
 #: Maximum number of workers to use for running conversation simulations in parallel.

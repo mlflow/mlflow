@@ -7,31 +7,29 @@ import contextlib
 import logging
 import threading
 import time
-from contextvars import ContextVar
 from typing import Callable
 
 _logger = logging.getLogger(__name__)
 
-# ContextVar that signals the evaluate pipeline owns retry logic for rate-limit errors.
-# When True, downstream adapters (e.g. litellm) should disable their own 429 retries
-# so that errors bubble up to call_with_retry().
-_EVAL_RETRY_ACTIVE = ContextVar("_EVAL_RETRY_ACTIVE", default=False)
-
 
 @contextlib.contextmanager
 def eval_retry_context():
+    """Disable downstream 429 retries so errors bubble up to call_with_retry().
+
+    Sets flags on both the HTTP-layer retry (rest_utils) and the litellm
+    adapter so that rate-limit errors propagate to the evaluate pipeline's
+    own retry/AIMD logic.
+    """
+    from mlflow.genai.judges.adapters.litellm_adapter import disable_litellm_rate_limit_retries
     from mlflow.utils.rest_utils import disable_429_retry
 
-    token = _EVAL_RETRY_ACTIVE.set(True)
+    litellm_flag = disable_litellm_rate_limit_retries()
+    litellm_token = litellm_flag.set(True)
     try:
         with disable_429_retry():
             yield
     finally:
-        _EVAL_RETRY_ACTIVE.reset(token)
-
-
-def is_eval_retry_active() -> bool:
-    return _EVAL_RETRY_ACTIVE.get()
+        litellm_flag.reset(litellm_token)
 
 
 def is_rate_limit_error(exc: BaseException) -> bool:
