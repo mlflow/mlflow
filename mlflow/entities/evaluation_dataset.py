@@ -332,7 +332,13 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             if "source" in record:
                 continue
 
-            if "expectations" in record and record["expectations"]:
+            input_keys = set(record.get("inputs", {}).keys())
+            if input_keys & SESSION_IDENTIFIER_FIELDS and input_keys <= SESSION_INPUT_FIELDS:
+                record["source"] = {
+                    "source_type": DatasetRecordSourceType.SESSION.value,
+                    "source_data": {},
+                }
+            elif "expectations" in record and record["expectations"]:
                 record["source"] = {
                     "source_type": DatasetRecordSourceType.HUMAN.value,
                     "source_data": {},
@@ -372,6 +378,27 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                     f"Invalid input schema: cannot mix session fields {list(session_fields)} "
                     f"with other fields {list(other_fields)}. "
                     f"Consider placing {list(other_fields)} fields inside 'context'."
+                )
+
+            source = record.get("source")
+            source_type_raw = source.get("source_type") if isinstance(source, dict) else None
+            source_type = source_type_raw.upper() if source_type_raw else None
+            if (
+                source_type == DatasetRecordSourceType.SESSION
+                and record_type != DatasetGranularity.SESSION
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    "SESSION source type can only be used with session-granularity inputs "
+                    "(must include 'goal' and optionally 'persona', 'context')."
+                )
+            if (
+                record_type == DatasetGranularity.SESSION
+                and source_type
+                and source_type != DatasetRecordSourceType.SESSION
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    f"Session-granularity inputs require SESSION source type, "
+                    f"but got '{source_type}'."
                 )
 
             granularity_counts[record_type] = granularity_counts.get(record_type, 0) + 1

@@ -716,6 +716,102 @@ def test_to_df_includes_source_column():
     assert df["source"].iloc[0] == source
 
 
+def test_validate_schema_session_source_with_session_inputs():
+    dataset = EvaluationDataset(
+        dataset_id="d1",
+        name="test",
+        digest="abc",
+        created_time=0,
+        last_update_time=0,
+    )
+    # Should not raise
+    dataset._validate_schema(
+        [
+            {
+                "inputs": {"goal": "Find articles", "persona": "Student"},
+                "source": {"source_type": "SESSION", "source_data": {"session_id": "s1"}},
+            },
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    ("records", "error_pattern"),
+    [
+        (
+            [
+                {
+                    "inputs": {"question": "What is MLflow?"},
+                    "source": {"source_type": "SESSION", "source_data": {"session_id": "s1"}},
+                },
+            ],
+            "SESSION source type can only be used with session",
+        ),
+        (
+            [
+                {
+                    "inputs": {"goal": "Find articles", "persona": "Student"},
+                    "source": {"source_type": "TRACE", "source_data": {"trace_id": "t1"}},
+                },
+            ],
+            "Session-granularity inputs require SESSION source",
+        ),
+        (
+            [
+                {
+                    "inputs": {"goal": "Find articles"},
+                    "source": {"source_type": "SESSION", "source_data": {"session_id": "s1"}},
+                },
+                {
+                    "inputs": {"question": "What is MLflow?"},
+                    "source": {"source_type": "TRACE", "source_data": {"trace_id": "t1"}},
+                },
+            ],
+            "All records must use the same granularity",
+        ),
+        (
+            [
+                {
+                    "inputs": {"goal": "Find articles", "question": "extra"},
+                    "source": {"source_type": "SESSION", "source_data": {"session_id": "s1"}},
+                },
+            ],
+            "cannot mix session fields",
+        ),
+    ],
+)
+def test_validate_schema_source_granularity_errors(records, error_pattern):
+    dataset = EvaluationDataset(
+        dataset_id="d1",
+        name="test",
+        digest="abc",
+        created_time=0,
+        last_update_time=0,
+    )
+    with pytest.raises(MlflowException, match=error_pattern):
+        dataset._validate_schema(records)
+
+
+def test_validate_schema_trace_row_into_existing_session_dataset():
+    dataset = EvaluationDataset(
+        dataset_id="d1",
+        name="test",
+        digest="abc",
+        created_time=0,
+        last_update_time=0,
+        schema='{"inputs": {"goal": "str", "persona": "str"}}',
+    )
+    with pytest.raises(MlflowException, match="existing dataset uses session.*Cannot mix"):
+        dataset._validate_schema(
+            [
+                {
+                    "inputs": {"question": "Trace row"},
+                    "source": {"source_type": "TRACE", "source_data": {"trace_id": "t1"}},
+                },
+            ]
+        )
+
+
 def test_delete_records():
     dataset = EvaluationDataset(
         dataset_id="dataset123",

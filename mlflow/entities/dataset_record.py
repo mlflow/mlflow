@@ -49,6 +49,8 @@ class DatasetRecord(_MlflowObject):
             if not self.source_id:
                 if self.source.source_type == DatasetRecordSourceType.TRACE:
                     self.source_id = self.source.source_data.get("trace_id")
+                elif self.source.source_type == DatasetRecordSourceType.SESSION:
+                    self.source_id = self.source.source_data.get("session_id")
                 else:
                     self.source_id = self.source.source_data.get("source_id")
             if not self.source_type:

@@ -95,6 +95,8 @@ message DatasetRecordSource {
     DOCUMENT = 3;
     // Record from code/computation.
     CODE = 4;
+    // Record from a session (group of traces).
+    SESSION = 5;
   }
 
   // The type of the source.

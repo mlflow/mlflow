@@ -50,6 +50,7 @@ class DatasetRecordSourceType(str, Enum):
     HUMAN = "HUMAN"
     DOCUMENT = "DOCUMENT"
     CODE = "CODE"
+    SESSION = "SESSION"
 
     @staticmethod
     def _parse(source_type: str) -> str:

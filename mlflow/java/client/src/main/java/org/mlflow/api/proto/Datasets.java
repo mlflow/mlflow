@@ -6151,6 +6151,14 @@ public final class Datasets {
        * <code>CODE = 4;</code>
        */
       CODE(4),
+      /**
+       * <pre>
+       * Record from a session (group of traces).
+       * </pre>
+       *
+       * <code>SESSION = 5;</code>
+       */
+      SESSION(5),
       ;
 
       /**
@@ -6189,6 +6197,14 @@ public final class Datasets {
        * <code>CODE = 4;</code>
        */
       public static final int CODE_VALUE = 4;
+      /**
+       * <pre>
+       * Record from a session (group of traces).
+       * </pre>
+       *
+       * <code>SESSION = 5;</code>
+       */
+      public static final int SESSION_VALUE = 5;
 
 
       public final int getNumber() {
@@ -6216,6 +6232,7 @@ public final class Datasets {
           case 2: return HUMAN;
           case 3: return DOCUMENT;
           case 4: return CODE;
+          case 5: return SESSION;
           default: return null;
         }
       }
@@ -6949,13 +6966,13 @@ public final class Datasets {
       "w.datasets.DatasetRecordSource.SourceTyp" +
       "e\022\024\n\014created_time\030\t \001(\003\022\030\n\020last_update_t" +
       "ime\030\n \001(\003\022\022\n\ncreated_by\030\013 \001(\t\022\027\n\017last_up" +
-      "dated_by\030\014 \001(\t\022\017\n\007outputs\030\r \001(\t\"\311\001\n\023Data" +
+      "dated_by\030\014 \001(\t\022\017\n\007outputs\030\r \001(\t\"\326\001\n\023Data" +
       "setRecordSource\022D\n\013source_type\030\001 \001(\0162/.m" +
       "lflow.datasets.DatasetRecordSource.Sourc" +
-      "eType\022\023\n\013source_data\030\002 \001(\t\"W\n\nSourceType" +
+      "eType\022\023\n\013source_data\030\002 \001(\t\"d\n\nSourceType" +
       "\022\033\n\027SOURCE_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE\020\001" +
-      "\022\t\n\005HUMAN\020\002\022\014\n\010DOCUMENT\020\003\022\010\n\004CODE\020\004B\031\n\024o" +
-      "rg.mlflow.api.proto\220\001\001"
+      "\022\t\n\005HUMAN\020\002\022\014\n\010DOCUMENT\020\003\022\010\n\004CODE\020\004\022\013\n\007S" +
+      "ESSION\020\005B\031\n\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
