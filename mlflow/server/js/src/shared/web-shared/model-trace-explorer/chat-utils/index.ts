@@ -22,3 +22,4 @@ export {
   normalizeVoltAgentChatOutput,
   synthesizeVoltAgentChatMessages,
 } from './voltagent';
+export { normalizeStrandsChatInput, normalizeStrandsChatOutput, synthesizeStrandsChatMessages } from './strands';
