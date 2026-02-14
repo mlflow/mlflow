@@ -3338,6 +3338,51 @@ def test_log_batch_same_metrics_repeated_multiple_reqs(store: SqlAlchemyStore):
     _verify_logged(store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
 
 
+def test_log_batch_duplicate_metrics_across_key_batches(store: SqlAlchemyStore):
+    """Test that duplicate metric detection works correctly when metric keys span multiple
+    batches (batches of 100 keys). Previously, _insert_metrics was called inside the
+    per-batch loop, causing metrics from unqueried batches to be inserted prematurely,
+    which could raise an unhandled IntegrityError.
+    See https://github.com/mlflow/mlflow/issues/19144
+    """
+    run = _run_factory(store)
+    # Create >100 unique metric keys so they span multiple key batches
+    num_keys = 150
+    metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    # Log the metrics once
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    _verify_logged(store, run.info.run_id, params=[], metrics=metrics, tags=[])
+    # Log the same metrics again (all duplicates) — this should not raise
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    _verify_logged(store, run.info.run_id, params=[], metrics=metrics, tags=[])
+
+
+def test_log_batch_duplicate_metrics_mixed_with_new_across_key_batches(store: SqlAlchemyStore):
+    # Test logging a mix of duplicate and new metrics when keys span multiple batches.
+    run = _run_factory(store)
+    num_keys = 150
+    # Log initial metrics
+    initial_metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    store.log_batch(run.info.run_id, params=[], metrics=initial_metrics, tags=[])
+    # Log a mix: some duplicates from the initial batch + some new metrics
+    duplicate_metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    new_metrics = [
+        Metric(key=f"metric-{i}", value=float(i + num_keys), timestamp=2, step=1)
+        for i in range(num_keys)
+    ]
+    mixed_metrics = duplicate_metrics + new_metrics
+    store.log_batch(run.info.run_id, params=[], metrics=mixed_metrics, tags=[])
+    _verify_logged(
+        store, run.info.run_id, params=[], metrics=initial_metrics + new_metrics, tags=[]
+    )
+
+
 def test_log_batch_null_metrics(store: SqlAlchemyStore):
     run = _run_factory(store)
 
