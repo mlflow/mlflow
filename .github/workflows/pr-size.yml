@@ -6,6 +6,7 @@ on:
     types:
       - opened
       - closed
+      - ready_for_review
 
 defaults:
   run:
@@ -13,6 +14,7 @@ defaults:
 
 jobs:
   label-pr-size:
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-slim
     permissions:
       pull-requests: write
