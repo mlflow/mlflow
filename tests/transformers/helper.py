@@ -41,15 +41,23 @@ def load_small_qa_pipeline():
 @flaky()
 def load_small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
-    feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
-        architecture, low_cpu_mem_usage=True
-    )
     model = transformers.MobileNetV2ForImageClassification.from_pretrained(
         architecture, low_cpu_mem_usage=True
     )
-    return transformers.pipeline(
-        task="image-classification", model=model, feature_extractor=feature_extractor
-    )
+    if IS_NEW_FEATURE_EXTRACTION_API:
+        image_processor = transformers.AutoImageProcessor.from_pretrained(
+            architecture, low_cpu_mem_usage=True
+        )
+        return transformers.pipeline(
+            task="image-classification", model=model, image_processor=image_processor
+        )
+    else:
+        feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
+            architecture, low_cpu_mem_usage=True
+        )
+        return transformers.pipeline(
+            task="image-classification", model=model, feature_extractor=feature_extractor
+        )
 
 
 @prefetch
@@ -86,7 +94,7 @@ def load_small_conversational_model():
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             "microsoft/DialoGPT-small", low_cpu_mem_usage=True
         )
-        model = transformers.AutoModelWithLMHead.from_pretrained(
+        model = transformers.AutoModelForCausalLM.from_pretrained(
             "satvikag/chatbot", low_cpu_mem_usage=True
         )
         return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
@@ -116,7 +124,7 @@ def load_text2text_generation_pipeline():
 def load_text_generation_pipeline():
     task = "text-generation"
     architecture = "distilgpt2"
-    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
+    model = transformers.AutoModelForCausalLM.from_pretrained(architecture)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         architecture, chat_template=CHAT_TEMPLATE
     )

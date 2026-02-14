@@ -191,17 +191,16 @@ def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
 def test_pipeline_construction_from_base_vision_model(small_vision_model):
     model = {"model": small_vision_model.model, "tokenizer": small_vision_model.tokenizer}
     if IS_NEW_FEATURE_EXTRACTION_API:
-        model.update({"image_processor": small_vision_model.feature_extractor})
+        model.update({"image_processor": small_vision_model.image_processor})
     else:
         model.update({"feature_extractor": small_vision_model.feature_extractor})
     generated = _build_pipeline_from_model_input(model, task="image-classification")
     assert isinstance(generated, type(small_vision_model))
     assert isinstance(generated.tokenizer, type(small_vision_model.tokenizer))
     if IS_NEW_FEATURE_EXTRACTION_API:
-        compare_type = generated.image_processor
+        assert isinstance(generated.image_processor, type(small_vision_model.image_processor))
     else:
-        compare_type = generated.feature_extractor
-    assert isinstance(compare_type, transformers.MobileNetV2ImageProcessor)
+        assert isinstance(generated.feature_extractor, transformers.MobileNetV2ImageProcessor)
 
 
 def test_saving_with_invalid_dict_as_model(model_path):
@@ -3309,7 +3308,7 @@ def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, 
     local_repo_path = tmp_path / "local_repo"
     text_generation_pipeline.save_pretrained(local_repo_path)
 
-    locally_loaded_model = transformers.AutoModelWithLMHead.from_pretrained(local_repo_path)
+    locally_loaded_model = transformers.AutoModelForCausalLM.from_pretrained(local_repo_path)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         local_repo_path, chat_template=CHAT_TEMPLATE
     )
@@ -3469,9 +3468,7 @@ HF_COMMIT_HASH_PATTERN = re.compile(r"^[a-z0-9]{40}$")
         (
             "small_vision_model",
             image_url,
-            {"feature_extractor", "image_processor"}
-            if IS_NEW_FEATURE_EXTRACTION_API
-            else {"feature_extractor"},
+            {"image_processor"} if IS_NEW_FEATURE_EXTRACTION_API else {"feature_extractor"},
         ),
         (
             "component_multi_modal",
@@ -3630,7 +3627,7 @@ def local_checkpoint_path(tmp_path):
     """
     Fixture to create a local model checkpoint for testing fine-tuning scenario.
     """
-    model = transformers.AutoModelWithLMHead.from_pretrained("distilgpt2")
+    model = transformers.AutoModelForCausalLM.from_pretrained("distilgpt2")
 
     class DummyDataset(torch.utils.data.Dataset):
         def __getitem__(self, idx):

@@ -69,6 +69,14 @@ def fill_mask_pipeline():
 
 @pytest.fixture
 def text2text_generation_pipeline():
+    import transformers
+
+    if Version(transformers.__version__).major >= 5:
+        pytest.skip(
+            reason="Text2TextGenerationPipeline was removed in transformers 5.0. "
+            "See https://github.com/huggingface/transformers/blob/main/MIGRATION_GUIDE_V5.md"
+        )
+
     return load_text2text_generation_pipeline()
 
 
@@ -81,7 +89,12 @@ def text_generation_pipeline():
 def translation_pipeline():
     import transformers
 
-    if Version(transformers.__version__) > Version("4.44.2"):
+    if Version(transformers.__version__).major >= 5:
+        pytest.skip(
+            reason="TranslationPipeline was removed in transformers 5.0. "
+            "See https://github.com/huggingface/transformers/blob/main/MIGRATION_GUIDE_V5.md"
+        )
+    elif Version(transformers.__version__) > Version("4.44.2"):
         pytest.skip(
             reason="This multi-task pipeline has a loading issue with Transformers 4.45.x. "
             "See https://github.com/huggingface/transformers/issues/33398 for more details."
@@ -99,7 +112,12 @@ def text_classification_pipeline():
 def summarizer_pipeline():
     import transformers
 
-    if Version(transformers.__version__) > Version("4.44.2"):
+    if Version(transformers.__version__).major >= 5:
+        pytest.skip(
+            reason="SummarizationPipeline was removed in transformers 5.0. "
+            "See https://github.com/huggingface/transformers/blob/main/MIGRATION_GUIDE_V5.md"
+        )
+    elif Version(transformers.__version__) > Version("4.44.2"):
         pytest.skip(
             reason="This multi-task pipeline has a loading issue with Transformers 4.45.x. "
             "See https://github.com/huggingface/transformers/issues/33398 for more details."
