@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import (
@@ -33,34 +34,51 @@ from mlflow.tracing.utils import (
 
 _logger = logging.getLogger(__name__)
 
+# Thread-local storage for recursion guard
+_processing_local = threading.local()
+
 
 class StrandsSpanProcessor(SimpleSpanProcessor):
     def __init__(self):
         self.span_exporter = SpanExporter()
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
-        tracer = _get_tracer(__name__)
-        if isinstance(tracer, NoOpTracer):
+        # Recursion guard - prevent infinite loop with shared provider
+        if getattr(_processing_local, "in_on_start", False):
             return
+        _processing_local.in_on_start = True
+        try:
+            tracer = _get_tracer(__name__)
+            if isinstance(tracer, NoOpTracer):
+                return
 
-        tracer.span_processor.on_start(span, parent_context)
-        trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
-        mlflow_span = create_mlflow_span(span, trace_id)
-        InMemoryTraceManager.get_instance().register_span(mlflow_span)
+            tracer.span_processor.on_start(span, parent_context)
+            trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+            mlflow_span = create_mlflow_span(span, trace_id)
+            InMemoryTraceManager.get_instance().register_span(mlflow_span)
+        finally:
+            _processing_local.in_on_start = False
 
     def on_end(self, span: OTelReadableSpan) -> None:
-        mlflow_span = get_mlflow_span_for_otel_span(span)
-        if mlflow_span is None:
-            _logger.debug("Span not found in the map. Skipping end.")
+        # Recursion guard - prevent infinite loop with shared provider
+        if getattr(_processing_local, "in_on_end", False):
             return
-        with _bypass_attribute_guard(mlflow_span._span):
-            _set_span_type(mlflow_span, span)
-            _set_inputs_outputs(mlflow_span, span)
-            if model := span.attributes.get("gen_ai.request.model"):
-                mlflow_span.set_attribute(SpanAttributeKey.MODEL, model)
-            _set_token_usage(mlflow_span, span)
-        tracer = _get_tracer(__name__)
-        tracer.span_processor.on_end(span)
+        _processing_local.in_on_end = True
+        try:
+            mlflow_span = get_mlflow_span_for_otel_span(span)
+            if mlflow_span is None:
+                _logger.debug("Span not found in the map. Skipping end.")
+                return
+            with _bypass_attribute_guard(mlflow_span._span):
+                _set_span_type(mlflow_span, span)
+                _set_inputs_outputs(mlflow_span, span)
+                if model := span.attributes.get("gen_ai.request.model"):
+                    mlflow_span.set_attribute(SpanAttributeKey.MODEL, model)
+                _set_token_usage(mlflow_span, span)
+            tracer = _get_tracer(__name__)
+            tracer.span_processor.on_end(span)
+        finally:
+            _processing_local.in_on_end = False
 
 
 def setup_strands_tracing():
