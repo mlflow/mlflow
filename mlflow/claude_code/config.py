@@ -15,7 +15,9 @@ from mlflow.environment_variables import (
 # Configuration field constants
 HOOK_FIELD_HOOKS = "hooks"
 HOOK_FIELD_COMMAND = "command"
-ENVIRONMENT_FIELD = "environment"
+ENVIRONMENT_FIELD = "env"
+LEGACY_ENVIRONMENT_FIELD = "environment"
+ENVIRONMENT_FIELDS = (ENVIRONMENT_FIELD, LEGACY_ENVIRONMENT_FIELD)
 
 # MLflow environment variable constants
 MLFLOW_HOOK_IDENTIFIER = "mlflow.claude_code.hooks"
@@ -63,6 +65,39 @@ def save_claude_config(settings_path: Path, config: dict[str, Any]) -> None:
         json.dump(config, f, indent=2)
 
 
+def get_environment_field_name(config: dict[str, Any]) -> str | None:
+    """Return the first configured environment field name in priority order."""
+    for field in ENVIRONMENT_FIELDS:
+        if isinstance(config.get(field), dict):
+            return field
+    return None
+
+
+def get_environment_vars(config: dict[str, Any]) -> dict[str, Any]:
+    """Return merged environment variables from canonical + legacy keys.
+
+    Canonical ``env`` values take precedence over legacy ``environment`` values.
+    """
+    env_vars: dict[str, Any] = {}
+    legacy_env_vars = config.get(LEGACY_ENVIRONMENT_FIELD)
+    if isinstance(legacy_env_vars, dict):
+        env_vars.update(legacy_env_vars)
+
+    canonical_env_vars = config.get(ENVIRONMENT_FIELD)
+    if isinstance(canonical_env_vars, dict):
+        env_vars.update(canonical_env_vars)
+
+    return env_vars
+
+
+def ensure_environment_vars(config: dict[str, Any]) -> dict[str, Any]:
+    """Ensure environment variables are stored under the canonical ``env`` key."""
+    env_vars = get_environment_vars(config)
+    config[ENVIRONMENT_FIELD] = env_vars
+    config.pop(LEGACY_ENVIRONMENT_FIELD, None)
+    return env_vars
+
+
 def get_tracing_status(settings_path: Path) -> TracingStatus:
     """Get current tracing status from Claude settings.
 
@@ -76,7 +111,7 @@ def get_tracing_status(settings_path: Path) -> TracingStatus:
         return TracingStatus(enabled=False, reason="No configuration found")
 
     config = load_claude_config(settings_path)
-    env_vars = config.get(ENVIRONMENT_FIELD, {})
+    env_vars = get_environment_vars(config)
     enabled = env_vars.get(MLFLOW_TRACING_ENABLED) == "true"
 
     return TracingStatus(
@@ -105,7 +140,7 @@ def get_env_var(var_name: str, default: str = "") -> str:
         settings_path = Path(".claude/settings.json")
         if settings_path.exists():
             config = load_claude_config(settings_path)
-            env_vars = config.get(ENVIRONMENT_FIELD, {})
+            env_vars = get_environment_vars(config)
             value = env_vars.get(var_name)
             if value is not None:
                 return value
@@ -135,23 +170,21 @@ def setup_environment_config(
         experiment_name: MLflow experiment name
     """
     config = load_claude_config(settings_path)
-
-    if ENVIRONMENT_FIELD not in config:
-        config[ENVIRONMENT_FIELD] = {}
+    env_vars = ensure_environment_vars(config)
 
     # Always enable tracing
-    config[ENVIRONMENT_FIELD][MLFLOW_TRACING_ENABLED] = "true"
+    env_vars[MLFLOW_TRACING_ENABLED] = "true"
 
     # Set tracking URI
     if tracking_uri:
-        config[ENVIRONMENT_FIELD][MLFLOW_TRACKING_URI.name] = tracking_uri
+        env_vars[MLFLOW_TRACKING_URI.name] = tracking_uri
 
     # Set experiment configuration (ID takes precedence over name)
     if experiment_id:
-        config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_ID.name] = experiment_id
-        config[ENVIRONMENT_FIELD].pop(MLFLOW_EXPERIMENT_NAME.name, None)
+        env_vars[MLFLOW_EXPERIMENT_ID.name] = experiment_id
+        env_vars.pop(MLFLOW_EXPERIMENT_NAME.name, None)
     elif experiment_name:
-        config[ENVIRONMENT_FIELD][MLFLOW_EXPERIMENT_NAME.name] = experiment_name
-        config[ENVIRONMENT_FIELD].pop(MLFLOW_EXPERIMENT_ID.name, None)
+        env_vars[MLFLOW_EXPERIMENT_NAME.name] = experiment_name
+        env_vars.pop(MLFLOW_EXPERIMENT_ID.name, None)
 
     save_claude_config(settings_path, config)

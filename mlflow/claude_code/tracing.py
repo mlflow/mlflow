@@ -12,8 +12,11 @@ import dateutil.parser
 
 import mlflow
 from mlflow.claude_code.config import (
+    LEGACY_ENVIRONMENT_FIELD,
     MLFLOW_TRACING_ENABLED,
     get_env_var,
+    get_environment_field_name,
+    load_claude_config,
 )
 from mlflow.entities import SpanType
 from mlflow.environment_variables import (
@@ -96,6 +99,15 @@ def setup_mlflow() -> None:
     """Configure MLflow tracking URI and experiment."""
     if not is_tracing_enabled():
         return
+
+    settings_config = load_claude_config(Path(".claude/settings.json"))
+    if get_environment_field_name(settings_config) == LEGACY_ENVIRONMENT_FIELD:
+        get_logger().log(
+            CLAUDE_TRACING_LEVEL,
+            "Detected legacy Claude settings key `%s`; run `mlflow autolog claude` to migrate to `%s`.",
+            LEGACY_ENVIRONMENT_FIELD,
+            "env",
+        )
 
     # Get tracking URI from environment/settings
     mlflow.set_tracking_uri(get_env_var(MLFLOW_TRACKING_URI.name))
