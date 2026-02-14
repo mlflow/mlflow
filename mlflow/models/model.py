@@ -16,6 +16,8 @@ import mlflow
 from mlflow.entities import LoggedModel, LoggedModelOutput, Metric
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.environment_variables import (
+    _MLFLOW_LOG_LOGGED_MODEL_METRICS_BATCH_SIZE,
+    _MLFLOW_LOG_LOGGED_MODEL_METRICS_MAX_PER_MODEL,
     MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
     MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
 )
@@ -1132,7 +1134,28 @@ class Model:
                         if metric.step == step and metric.model_id is None
                     ]
                 )
-            client.log_batch(run_id=run_id, metrics=metrics_for_step)
+            if not metrics_for_step:
+                return
+
+            max_metrics_per_model = _MLFLOW_LOG_LOGGED_MODEL_METRICS_MAX_PER_MODEL.get()
+            batch_size = _MLFLOW_LOG_LOGGED_MODEL_METRICS_BATCH_SIZE.get()
+            logged_count, skipped_count = client.log_model_metrics(
+                run_id=run_id,
+                metrics=metrics_for_step,
+                max_metrics_per_model=max_metrics_per_model,
+                batch_size=batch_size,
+            )
+            if skipped_count > 0:
+                _logger.warning(
+                    "Skipped %s metric(s) while linking run metrics to logged model %s "
+                    "at step=%s. Logged %s metric(s). Set `%s` to control this cap "
+                    "(0 disables metric linking).",
+                    skipped_count,
+                    model_id,
+                    step,
+                    logged_count,
+                    _MLFLOW_LOG_LOGGED_MODEL_METRICS_MAX_PER_MODEL.name,
+                )
 
         # Only one of Auth policy and resources should be defined
 
@@ -1188,9 +1211,19 @@ class Model:
                     client.log_outputs(
                         run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
                     )
-                    log_model_metrics_for_step(
-                        client=client, model_id=model.model_id, run_id=run_id, step=step
-                    )
+                    try:
+                        log_model_metrics_for_step(
+                            client=client, model_id=model.model_id, run_id=run_id, step=step
+                        )
+                    except MlflowException as e:
+                        _logger.warning(
+                            "Failed to link run metrics to logged model %s at step=%s "
+                            "(run_id=%s): %s",
+                            model.model_id,
+                            step,
+                            run_id,
+                            e,
+                        )
 
                 if prompts is not None:
                     # Convert to URIs for serialization

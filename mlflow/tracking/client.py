@@ -2686,6 +2686,21 @@ class MlflowClient:
             run_id, metrics, params, tags, synchronous=synchronous
         )
 
+    def log_model_metrics(
+        self,
+        run_id: str,
+        metrics: list[Metric],
+        max_metrics_per_model: int | None = None,
+        batch_size: int | None = None,
+    ) -> tuple[int, int]:
+        """Log metrics for a logged model with optional cap and batching."""
+        return self._tracking_client.log_model_metrics(
+            run_id=run_id,
+            metrics=metrics,
+            max_metrics_per_model=max_metrics_per_model,
+            batch_size=batch_size,
+        )
+
     def log_inputs(
         self,
         run_id: str,

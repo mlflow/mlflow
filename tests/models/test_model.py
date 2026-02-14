@@ -185,6 +185,46 @@ def test_model_log_with_active_run(tmp_path):
     assert model_info.run_id == run.info.run_id
 
 
+def test_model_log_ignores_metric_linking_failures():
+    with (
+        mlflow.start_run(),
+        mock.patch(
+            "mlflow.models.model.mlflow.MlflowClient.log_model_metrics",
+            side_effect=MlflowException("metric limit reached"),
+        ),
+    ):
+        mlflow.log_metric("metric", 1.0, step=0)
+        model_info = Model.log("model", TestFlavor, step=0)
+
+    assert model_info.model_id is not None
+
+
+def test_model_log_uses_metric_linking_env_settings(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_LOG_LOGGED_MODEL_METRICS_MAX_PER_MODEL", "7")
+    monkeypatch.setenv("_MLFLOW_LOG_LOGGED_MODEL_METRICS_BATCH_SIZE", "3")
+    captured = {}
+
+    def capture_log_model_metrics(
+        self, run_id, metrics, max_metrics_per_model=None, batch_size=None
+    ):
+        captured["max_metrics_per_model"] = max_metrics_per_model
+        captured["batch_size"] = batch_size
+        return len(metrics), 0
+
+    with (
+        mlflow.start_run(),
+        mock.patch(
+            "mlflow.models.model.mlflow.MlflowClient.log_model_metrics",
+            autospec=True,
+            side_effect=capture_log_model_metrics,
+        ),
+    ):
+        mlflow.log_metric("metric", 1.0, step=0)
+        Model.log("model", TestFlavor, step=0)
+
+    assert captured == {"max_metrics_per_model": 7, "batch_size": 3}
+
+
 def test_model_log_inactive_run_id(tmp_path):
     experiment_id = mlflow.create_experiment("test", artifact_location=str(tmp_path))
     run = mlflow.MlflowClient().create_run(experiment_id=experiment_id)

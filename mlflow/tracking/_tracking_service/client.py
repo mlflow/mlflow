@@ -593,6 +593,39 @@ class TrackingServiceClient:
             # Merge all the run operations into a single run operations object
             return get_combined_run_operations(run_operations_list)
 
+    def log_model_metrics(
+        self,
+        run_id: str,
+        metrics: list[Metric],
+        max_metrics_per_model: int | None = None,
+        batch_size: int | None = None,
+    ) -> tuple[int, int]:
+        """Log metrics associated with a logged model in bounded-size batches.
+
+        Returns:
+            A tuple of ``(logged_count, skipped_count)``.
+        """
+        if not metrics:
+            return (0, 0)
+
+        if max_metrics_per_model is not None and max_metrics_per_model >= 0:
+            capped_metrics = metrics[:max_metrics_per_model]
+        else:
+            capped_metrics = metrics
+        skipped_count = len(metrics) - len(capped_metrics)
+        if not capped_metrics:
+            return (0, skipped_count)
+
+        if batch_size is None:
+            effective_batch_size = MAX_METRICS_PER_BATCH
+        else:
+            effective_batch_size = max(1, min(batch_size, MAX_METRICS_PER_BATCH))
+
+        for metrics_batch in chunk_list(capped_metrics, chunk_size=effective_batch_size):
+            self.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
+
+        return (len(capped_metrics), skipped_count)
+
     @record_usage_event(LogDatasetEvent)
     def log_inputs(
         self,
