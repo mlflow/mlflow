@@ -252,6 +252,20 @@ class _PredictSubmitter:
         pool_workers: int,
         score_workers: int,
     ):
+        """
+        Args:
+            eval_items: Items to evaluate — each will be submitted for prediction.
+            predict_fn: User-provided function that produces outputs from inputs.
+                When None, predictions are skipped and existing traces are used.
+            run_id: MLflow run ID for trace/assessment logging.
+            max_retries: Max 429-retry attempts per predict call.
+            rps: Requests-per-second for the predict rate limiter, or None to disable.
+            adaptive: Whether the rate limiter uses AIMD to adapt to 429 signals.
+            max_rps_multiplier: AIMD ceiling as a multiple of the initial rps.
+            pool_workers: Number of threads in the predict pool.
+            score_workers: Number of score-pool threads, used to size the
+                backpressure buffer that bounds predicted-but-not-yet-scored items.
+        """
         self._eval_items = eval_items
         self._predict_fn = predict_fn
         self._run_id = run_id
@@ -297,6 +311,13 @@ class _PredictSubmitter:
             self._thread.join()
 
     def _submit_all(self) -> None:
+        """Submit all eval items to the predict pool from a background thread.
+
+        Each submission blocks on the backpressure semaphore to bound the number
+        of predicted-but-not-yet-scored items. Completed futures are placed on
+        ``self._queue`` for the main loop to drain. A None sentinel signals
+        that all items have been submitted (or an error occurred).
+        """
         try:
             for i, eval_item in enumerate(self._eval_items):
                 _logger.debug(f"Submit thread: waiting for backpressure slot (item {i})")
@@ -350,11 +371,13 @@ class _PredictSubmitter:
         return future in self._futures
 
     def on_complete(self, future: Future) -> int:
+        """Finalize a completed predict future: propagate exceptions and return its item index."""
         idx = self._futures.pop(future)
         future.result()  # propagate exceptions
         return idx
 
     def release_slot(self) -> None:
+        """Release one backpressure slot, allowing the submit thread to enqueue another predict."""
         self._in_flight.release()
 
 
@@ -374,6 +397,21 @@ class _ScoreSubmitter:
         max_rps_multiplier: float,
         pool_workers: int,
     ):
+        """
+        Args:
+            eval_items: Items to evaluate — indexed by position for score dispatch.
+            single_turn_scorers: Scorers applied to each item individually.
+            multi_turn_scorers: Scorers applied to session groups after the
+                single-turn pipeline completes.
+            session_groups: Mapping of session_id to ordered list of eval items
+                for multi-turn scoring.
+            run_id: MLflow run ID for trace/assessment logging.
+            max_retries: Max 429-retry attempts per scorer call.
+            rps: Requests-per-second for the scorer rate limiter, or None to disable.
+            adaptive: Whether the rate limiter uses AIMD to adapt to 429 signals.
+            max_rps_multiplier: AIMD ceiling as a multiple of the initial rps.
+            pool_workers: Number of threads in the score pool.
+        """
         self._eval_items = eval_items
         self._single_turn_scorers = single_turn_scorers
         self._multi_turn_scorers = multi_turn_scorers
@@ -407,6 +445,7 @@ class _ScoreSubmitter:
         self._pool.shutdown(wait=False, cancel_futures=True)
 
     def submit(self, idx: int) -> Future:
+        """Submit a score task for eval item *idx* and return the future."""
         _logger.debug(f"Predict completed for item {idx}, submitting score")
         future = self._pool.submit(
             self._timed_score,
@@ -425,9 +464,6 @@ class _ScoreSubmitter:
         with self._time_lock:
             self._times.append(time.monotonic() - start)
         return result
-
-    def owns(self, future: Future) -> bool:
-        return future in self._futures
 
     def on_complete(self, future: Future) -> tuple[int, EvalResult]:
         idx = self._futures.pop(future)
