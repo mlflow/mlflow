@@ -3,8 +3,11 @@ import json
 import pytest
 
 from mlflow.claude_code.config import (
+    ENVIRONMENT_FIELD,
+    LEGACY_ENVIRONMENT_FIELD,
     MLFLOW_TRACING_ENABLED,
     get_env_var,
+    get_environment_field_name,
     get_tracing_status,
     load_claude_config,
     save_claude_config,
@@ -72,7 +75,7 @@ def test_get_env_var_from_os_environment_when_no_settings(tmp_path, monkeypatch)
 def test_get_env_var_settings_takes_precedence_over_os_env(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACING_ENABLED, "os_value")
 
-    config_data = {"environment": {MLFLOW_TRACING_ENABLED: "settings_value"}}
+    config_data = {ENVIRONMENT_FIELD: {MLFLOW_TRACING_ENABLED: "settings_value"}}
     claude_settings_path = tmp_path / ".claude" / "settings.json"
     claude_settings_path.parent.mkdir(parents=True, exist_ok=True)
     with open(claude_settings_path, "w") as f:
@@ -86,7 +89,7 @@ def test_get_env_var_settings_takes_precedence_over_os_env(tmp_path, monkeypatch
 def test_get_env_var_falls_back_to_os_env_when_not_in_settings(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACING_ENABLED, "os_value")
 
-    config_data = {"environment": {"OTHER_VAR": "other_value"}}
+    config_data = {ENVIRONMENT_FIELD: {"OTHER_VAR": "other_value"}}
     claude_settings_path = tmp_path / ".claude" / "settings.json"
     claude_settings_path.parent.mkdir(parents=True, exist_ok=True)
     with open(claude_settings_path, "w") as f:
@@ -113,9 +116,22 @@ def test_get_env_var_default_when_not_found(tmp_path, monkeypatch):
     assert result == "default_value"
 
 
+def test_get_env_var_reads_legacy_environment_field(tmp_path, monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_ENABLED, "os_value")
+    config_data = {LEGACY_ENVIRONMENT_FIELD: {MLFLOW_TRACING_ENABLED: "legacy_settings_value"}}
+    claude_settings_path = tmp_path / ".claude" / "settings.json"
+    claude_settings_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(claude_settings_path, "w") as f:
+        json.dump(config_data, f)
+
+    monkeypatch.chdir(tmp_path)
+    result = get_env_var(MLFLOW_TRACING_ENABLED, "default")
+    assert result == "legacy_settings_value"
+
+
 def test_get_tracing_status_enabled(temp_settings_path):
     # Create settings with tracing enabled
-    config_data = {"environment": {MLFLOW_TRACING_ENABLED: "true"}}
+    config_data = {ENVIRONMENT_FIELD: {MLFLOW_TRACING_ENABLED: "true"}}
     with open(temp_settings_path, "w") as f:
         json.dump(config_data, f)
 
@@ -126,7 +142,7 @@ def test_get_tracing_status_enabled(temp_settings_path):
 
 def test_get_tracing_status_disabled(temp_settings_path):
     # Create settings with tracing disabled
-    config_data = {"environment": {MLFLOW_TRACING_ENABLED: "false"}}
+    config_data = {ENVIRONMENT_FIELD: {MLFLOW_TRACING_ENABLED: "false"}}
     with open(temp_settings_path, "w") as f:
         json.dump(config_data, f)
 
@@ -153,16 +169,17 @@ def test_setup_environment_config_new_file(temp_settings_path):
     # Verify configuration contents
     config = json.loads(temp_settings_path.read_text())
 
-    env_vars = config["environment"]
+    env_vars = config[ENVIRONMENT_FIELD]
     assert env_vars[MLFLOW_TRACING_ENABLED] == "true"
     assert env_vars["MLFLOW_TRACKING_URI"] == tracking_uri
     assert env_vars["MLFLOW_EXPERIMENT_ID"] == experiment_id
+    assert get_environment_field_name(config) == ENVIRONMENT_FIELD
 
 
 def test_setup_environment_config_experiment_id_precedence(temp_settings_path):
     # Create existing config with different experiment ID
     existing_config = {
-        "environment": {
+        LEGACY_ENVIRONMENT_FIELD: {
             MLFLOW_TRACING_ENABLED: "true",
             "MLFLOW_EXPERIMENT_ID": "old_id",
             "MLFLOW_TRACKING_URI": "old_uri",
@@ -179,7 +196,26 @@ def test_setup_environment_config_experiment_id_precedence(temp_settings_path):
     # Verify configuration was updated
     config = json.loads(temp_settings_path.read_text())
 
-    env_vars = config["environment"]
+    env_vars = config[ENVIRONMENT_FIELD]
     assert env_vars[MLFLOW_TRACING_ENABLED] == "true"
     assert env_vars["MLFLOW_TRACKING_URI"] == new_tracking_uri
     assert env_vars["MLFLOW_EXPERIMENT_ID"] == new_experiment_id
+    assert LEGACY_ENVIRONMENT_FIELD not in config
+
+
+def test_setup_environment_config_migrates_when_both_env_keys_exist(temp_settings_path):
+    existing_config = {
+        ENVIRONMENT_FIELD: {"PREFERRED": "value"},
+        LEGACY_ENVIRONMENT_FIELD: {MLFLOW_TRACING_ENABLED: "false", "LEGACY": "value"},
+    }
+    with open(temp_settings_path, "w") as f:
+        json.dump(existing_config, f)
+
+    setup_environment_config(temp_settings_path)
+
+    config = json.loads(temp_settings_path.read_text())
+    env_vars = config[ENVIRONMENT_FIELD]
+    assert env_vars["PREFERRED"] == "value"
+    assert env_vars["LEGACY"] == "value"
+    assert env_vars[MLFLOW_TRACING_ENABLED] == "true"
+    assert LEGACY_ENVIRONMENT_FIELD not in config
