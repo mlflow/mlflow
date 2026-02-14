@@ -36,22 +36,33 @@ export const normalizeOpenAIChatInput = (obj: any): ModelTraceChatMessage[] | nu
 };
 
 // normalize the OpenAI chat response format (object with 'choices' key)
+// Also handles LiteLLM responses with reasoning_content
 export const normalizeOpenAIChatResponse = (obj: any): ModelTraceChatMessage[] | null => {
   if (isModelTraceChoices(obj)) {
-    return obj.map((choice) => ({
-      ...choice.message,
-      tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-    }));
+    return obj.map((choice: any) => {
+      const message = choice.message;
+      const reasoningContent = get(message, 'reasoning_content');
+      return {
+        ...message,
+        tool_calls: message.tool_calls?.map(prettyPrintToolCall),
+        ...(reasoningContent && isString(reasoningContent) && { reasoning: reasoningContent }),
+      };
+    });
   }
 
   if (!isModelTraceChatResponse(obj)) {
     return null;
   }
 
-  return obj.choices.map((choice) => ({
-    ...choice.message,
-    tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-  }));
+  return obj.choices.map((choice: any) => {
+    const message = choice.message;
+    const reasoningContent = get(message, 'reasoning_content');
+    return {
+      ...message,
+      tool_calls: message.tool_calls?.map(prettyPrintToolCall),
+      ...(reasoningContent && isString(reasoningContent) && { reasoning: reasoningContent }),
+    };
+  });
 };
 
 const isOpenAIResponsesInputMessage = (obj: unknown): obj is OpenAIResponsesInputMessage => {
