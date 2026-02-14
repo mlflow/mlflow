@@ -21,7 +21,7 @@ from mlflow.demo.base import (
 )
 from mlflow.demo.data import EXPECTED_ANSWERS
 from mlflow.demo.generators.traces import DEMO_TRACE_TYPE_TAG, DEMO_VERSION_TAG, TracesDemoGenerator
-from mlflow.entities.assessment import AssessmentSource, Feedback
+from mlflow.entities.assessment import AssessmentSource, Expectation, Feedback
 from mlflow.entities.trace import Trace
 from mlflow.entities.view_type import ViewType
 from mlflow.genai.datasets import create_dataset, delete_dataset, search_datasets
@@ -281,6 +281,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         for trace in traces:
             trace_id = trace.info.trace_id
+            trace_timestamp_ms = trace.info.timestamp_ms
 
             root_span = next((span for span in trace.data.spans if span.parent_id is None), None)
             if root_span is None:
@@ -291,8 +292,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
             if expected_answer := self._find_expected_answer(query):
                 try:
-                    mlflow.log_expectation(
-                        trace_id=trace_id,
+                    expectation = Expectation(
                         name="expected_response",
                         value=expected_answer,
                         source=AssessmentSource(
@@ -300,7 +300,11 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
                             source_id="demo_annotator",
                         ),
                         metadata={"demo": "true"},
+                        trace_id=trace_id,
+                        create_time_ms=trace_timestamp_ms,
+                        last_update_time_ms=trace_timestamp_ms,
                     )
+                    mlflow.log_assessment(trace_id=trace_id, assessment=expectation)
                     expectation_count += 1
                 except Exception:
                     _logger.debug("Failed to log expectation for trace %s", trace_id, exc_info=True)
@@ -387,4 +391,39 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         client.set_tag(result.run_id, "mlflow.runName", run_name)
         client.log_param(result.run_id, "demo", "true")
 
+        # Spread feedback assessment timestamps to match trace timestamps so the
+        # quality overview chart shows a trend across days instead of a single dot.
+        self._spread_assessment_timestamps(traces)
+
         return result.run_id
+
+    def _spread_assessment_timestamps(self, traces: list[Trace]) -> None:
+        """Update feedback assessment timestamps to match their trace timestamps.
+
+        By default, assessments created by mlflow.genai.evaluate() get the current
+        timestamp. For demo purposes, we backdate them to match the trace timestamps
+        so the quality overview chart shows data spread across multiple days.
+        """
+        from mlflow.store.tracking.dbmodels.models import SqlAssessments
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        store = _get_store()
+        if not hasattr(store, "ManagedSessionMaker"):
+            return
+
+        # Re-fetch traces to get the assessments that were just logged
+        updated_traces = [mlflow.get_trace(t.info.trace_id) for t in traces]
+
+        with store.ManagedSessionMaker() as session:
+            for trace in updated_traces:
+                trace_timestamp_ms = trace.info.timestamp_ms
+                for assessment in trace.info.assessments:
+                    if assessment.feedback is not None:
+                        session.query(SqlAssessments).filter(
+                            SqlAssessments.assessment_id == assessment.assessment_id
+                        ).update(
+                            {
+                                SqlAssessments.created_timestamp: trace_timestamp_ms,
+                                SqlAssessments.last_updated_timestamp: trace_timestamp_ms,
+                            }
+                        )
