@@ -851,6 +851,7 @@ class Model:
         resources=None,
         auth_policy=None,
         prompts=None,
+        env_pack=None,
         **kwargs,
     ) -> ModelInfo:
         """
@@ -875,6 +876,7 @@ class Model:
             resources: {{ resources }}
             auth_policy: {{ auth_policy }}
             prompts: {{ prompts }}
+            env_pack: {{ env_pack }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:
@@ -886,6 +888,11 @@ class Model:
 
         if resources is not None and auth_policy is not None:
             raise ValueError("Only one of `resources`, and `auth_policy` can be specified.")
+
+        if env_pack is not None and registered_model_name is None:
+            raise MlflowException.invalid_parameter_value(
+                "`env_pack` can only be specified when `registered_model_name` is also provided."
+            )
 
         from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
 
@@ -1034,6 +1041,7 @@ class Model:
                     registered_model_name,
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
+                    env_pack=env_pack,
                 )
 
             model_info = mlflow_model.get_model_info()
@@ -1066,6 +1074,7 @@ class Model:
         tags: dict[str, Any] | None = None,
         step: int = 0,
         model_id: str | None = None,
+        env_pack=None,
         **kwargs,
     ) -> ModelInfo:
         """
@@ -1095,6 +1104,7 @@ class Model:
             tags: {{ tags }}
             step: {{ step }}
             model_id: {{ model_id }}
+            env_pack: {{ env_pack }}
             kwargs: Extra args passed to the model flavor.
 
         Returns:
@@ -1138,6 +1148,11 @@ class Model:
 
         if resources is not None and auth_policy is not None:
             raise ValueError("Only one of `resources`, and `auth_policy` can be specified.")
+
+        if env_pack is not None and registered_model_name is None:
+            raise MlflowException.invalid_parameter_value(
+                "`env_pack` can only be specified when `registered_model_name` is also provided."
+            )
 
         registered_model = None
         with TempDir() as tmp:
@@ -1359,6 +1374,7 @@ class Model:
                     registered_model_name,
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
+                    env_pack=env_pack,
                 )
             model_info = mlflow_model.get_model_info(model)
             if registered_model is not None:
