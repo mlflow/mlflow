@@ -35,7 +35,6 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     return numExperiments > 1 ? (
       <FormattedMessage
         defaultMessage="Comparing {numRuns} Runs from {numExperiments} Experiments"
-        // eslint-disable-next-line max-len
         description="Breadcrumb title for compare runs page with multiple experiments"
         values={{ numRuns, numExperiments }}
       />
@@ -71,7 +70,6 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     return (
       <FormattedMessage
         defaultMessage="Displaying Runs from {numExperiments} Experiments"
-        // eslint-disable-next-line max-len
         description="Breadcrumb nav item to link to the compare-experiments page on compare runs page"
         values={{ numExperiments }}
       />

@@ -4488,3 +4488,149 @@ def test_query_span_metrics_input_output_cost_by_provider(store: SqlAlchemyStore
         "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai"},
         "values": {"SUM": 0.02},
     }
+
+
+def test_query_span_metrics_count_by_span_status_and_model_provider(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_count_by_status_and_provider")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different statuses and model providers
+    spans = [
+        # OpenAI OK spans
+        create_test_span(
+            "trace1",
+            "openai_ok_1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            status=trace_api.StatusCode.OK,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "openai"},
+        ),
+        create_test_span(
+            "trace1",
+            "openai_ok_2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            status=trace_api.StatusCode.OK,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "openai"},
+        ),
+        # OpenAI ERROR span
+        create_test_span(
+            "trace1",
+            "openai_error",
+            span_id=3,
+            span_type="LLM",
+            start_ns=1200000000,
+            status=trace_api.StatusCode.ERROR,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "openai"},
+        ),
+        # Anthropic OK span
+        create_test_span(
+            "trace1",
+            "anthropic_ok",
+            span_id=4,
+            span_type="LLM",
+            start_ns=1300000000,
+            status=trace_api.StatusCode.OK,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "anthropic"},
+        ),
+        # Anthropic ERROR spans
+        create_test_span(
+            "trace1",
+            "anthropic_error_1",
+            span_id=5,
+            span_type="LLM",
+            start_ns=1400000000,
+            status=trace_api.StatusCode.ERROR,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "anthropic"},
+        ),
+        create_test_span(
+            "trace1",
+            "anthropic_error_2",
+            span_id=6,
+            span_type="LLM",
+            start_ns=1500000000,
+            status=trace_api.StatusCode.ERROR,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "anthropic"},
+        ),
+        # Spans WITHOUT model provider - these should NOT appear in results
+        create_test_span(
+            "trace1",
+            "no_provider_ok_1",
+            span_id=7,
+            span_type="CHAIN",
+            start_ns=1600000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "no_provider_ok_2",
+            span_id=8,
+            span_type="CHAIN",
+            start_ns=1700000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "no_provider_error",
+            span_id=9,
+            span_type="CHAIN",
+            start_ns=1800000000,
+            status=trace_api.StatusCode.ERROR,
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[SpanMetricDimensionKey.SPAN_STATUS, SpanMetricDimensionKey.SPAN_MODEL_PROVIDER],
+    )
+
+    # Results should be sorted by dimensions: first by status, then by provider.
+    # Spans without model provider (None value) are filtered out.
+    assert len(result) == 4
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_STATUS: "ERROR",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic",
+        },
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_STATUS: "ERROR",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai",
+        },
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_STATUS: "OK",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic",
+        },
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[3]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_STATUS: "OK",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai",
+        },
+        "values": {"COUNT": 2},
+    }

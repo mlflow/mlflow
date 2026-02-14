@@ -8,6 +8,13 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
   workflow_dispatch:
     inputs:
       repository:
@@ -155,7 +162,8 @@ jobs:
           fi
       - name: Install mlflow & test dependencies
         run: |
-          pip install -U pip wheel setuptools
+          # setuptools 82.0.0 removed pkg_resources, this breaking change breaks some packages like transformers
+          pip install -U pip wheel "setuptools<82"
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
           if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
             pip install libs/tracing

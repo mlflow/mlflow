@@ -26,10 +26,8 @@ import GatewayRoutes from '../routes';
 import { shouldEnableWorkflowBasedNavigation } from '../../common/utils/FeatureUtils';
 
 const GatewayPageTitle = () => {
-  const { theme } = useDesignSystemTheme();
   return (
-    <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
-      <CloudModelIcon />
+    <span>
       <FormattedMessage defaultMessage="AI Gateway" description="Header title for the AI Gateway configuration page" />
     </span>
   );
