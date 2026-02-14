@@ -110,6 +110,7 @@ def evaluate_session_level_scorers(
         session_items: List of EvalItem objects from the same session
         multi_turn_scorers: List of multi-turn scorer instances
         scorer_rate_limiter: Rate limiter to throttle scorer invocations.
+        max_retries: Max 429-retry attempts per scorer call.
 
     Returns:
         dict: {first_trace_id: [feedback1, feedback2, ...]}

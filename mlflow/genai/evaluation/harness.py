@@ -26,10 +26,15 @@ try:
     import litellm  # noqa: F401
 except ImportError:
     pass
-try:
-    from databricks.sdk import WorkspaceClient  # noqa: F401
-except ImportError:
-    pass
+
+
+def _warmup_databricks_sdk() -> None:
+    """Import databricks.sdk in the main thread to avoid import-lock deadlocks in workers."""
+    try:
+        import databricks.sdk  # noqa: F401
+    except ImportError:
+        pass
+
 
 import mlflow
 from mlflow.entities import SpanType
@@ -222,7 +227,7 @@ class _Heartbeat:
         rps = limiter.current_rps
         return f"{rps:.1f}" if rps is not None else "off"
 
-    def tick(self, stats: dict) -> None:
+    def tick(self, stats: dict[str, int]) -> None:
         if not self._enabled:
             return
         now = time.monotonic()
@@ -397,7 +402,7 @@ class _ScoreSubmitter:
         eval_items: list[EvalItem],
         single_turn_scorers: list[Scorer],
         multi_turn_scorers: list[Scorer],
-        session_groups: dict,
+        session_groups: dict[str, list[EvalItem]],
         run_id: str | None,
         max_retries: int,
         rps: float | None,
@@ -477,7 +482,9 @@ class _ScoreSubmitter:
         idx = self._futures.pop(future)
         return idx, future.result()
 
-    def run_multi_turn(self, multi_turn_assessments: dict, progress_bar) -> None:
+    def run_multi_turn(
+        self, multi_turn_assessments: dict[str, list[Feedback]], progress_bar
+    ) -> None:
         if not self._multi_turn_scorers or not self._session_groups:
             return
         futures = [
@@ -503,10 +510,10 @@ def _run_pipeline(
     predict_fn: Callable[..., Any] | None,
     single_turn_scorers: list[Scorer],
     multi_turn_scorers: list[Scorer],
-    session_groups: dict,
+    session_groups: dict[str, list[EvalItem]],
     run_id: str | None,
     progress_bar,
-    multi_turn_assessments: dict,
+    multi_turn_assessments: dict[str, list[Feedback]],
 ) -> tuple[list[float], list[float]]:
     """Run the predict→score pipeline and multi-turn scoring.
 
@@ -514,6 +521,8 @@ def _run_pipeline(
     runs the pipelined predict→score loop, then multi-turn scoring.
     Returns (predict_times, score_times) for reporting.
     """
+    _warmup_databricks_sdk()
+
     predict_rps, predict_adaptive = _parse_rate_limit(MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get())
     num_scorers = len(single_turn_scorers) + len(multi_turn_scorers)
     scorer_rps, scorer_adaptive = _get_scorer_rate_config(

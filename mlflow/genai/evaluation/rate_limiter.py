@@ -169,7 +169,7 @@ class NoOpRateLimiter(RateLimiter):
 
 
 def call_with_retry(
-    fn: Callable,
+    fn: Callable[[], object],
     rate_limiter: RateLimiter,
     max_retries: int,
     sleep: Callable[[float], None] = time.sleep,
