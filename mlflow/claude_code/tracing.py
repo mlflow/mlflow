@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -12,8 +13,11 @@ import dateutil.parser
 
 import mlflow
 from mlflow.claude_code.config import (
+    MLFLOW_TRANSCRIPT_READ_DELAY_MS,
+    MLFLOW_TRANSCRIPT_READ_RETRIES,
     MLFLOW_TRACING_ENABLED,
     get_env_var,
+    get_int_env_var,
 )
 from mlflow.entities import SpanType
 from mlflow.environment_variables import (
@@ -33,6 +37,8 @@ from mlflow.tracking.fluent import _get_trace_exporter
 NANOSECONDS_PER_MS = 1e6
 NANOSECONDS_PER_S = 1e9
 MAX_PREVIEW_LENGTH = 1000
+DEFAULT_TRANSCRIPT_READ_RETRIES = 5
+DEFAULT_TRANSCRIPT_READ_DELAY_MS = 100
 
 MESSAGE_TYPE_USER = "user"
 MESSAGE_TYPE_ASSISTANT = "assistant"
@@ -136,7 +142,38 @@ def read_transcript(transcript_path: str) -> list[dict[str, Any]]:
     """Read and parse a Claude Code conversation transcript from JSONL file."""
     with open(transcript_path, encoding="utf-8") as f:
         lines = f.readlines()
-        return [json.loads(line) for line in lines if line.strip()]
+
+    transcript = []
+    for idx, line in enumerate(lines):
+        if not line.strip():
+            continue
+        try:
+            transcript.append(json.loads(line))
+        except json.JSONDecodeError:
+            # Claude may still be writing the last JSONL line when hooks fire.
+            if idx == len(lines) - 1:
+                get_logger().log(
+                    CLAUDE_TRACING_LEVEL,
+                    "Ignoring incomplete trailing transcript line at %s",
+                    transcript_path,
+                )
+                continue
+            raise
+
+    return transcript
+
+
+def _read_transcript_with_retry(
+    transcript_path: str, transcript_read_retries: int, transcript_read_delay_ms: int
+) -> list[dict[str, Any]]:
+    transcript = []
+    for attempt in range(transcript_read_retries + 1):
+        transcript = read_transcript(transcript_path)
+        if transcript and find_last_user_message_index(transcript) is not None:
+            return transcript
+        if attempt < transcript_read_retries:
+            time.sleep(transcript_read_delay_ms / 1000)
+    return transcript
 
 
 def get_hook_response(error: str | None = None, **kwargs) -> dict[str, Any]:
@@ -566,7 +603,10 @@ def find_final_assistant_response(transcript: list[dict[str, Any]], start_idx: i
 
 
 def process_transcript(
-    transcript_path: str, session_id: str | None = None
+    transcript_path: str,
+    session_id: str | None = None,
+    transcript_read_retries: int | None = None,
+    transcript_read_delay_ms: int | None = None,
 ) -> mlflow.entities.Trace | None:
     """Process a Claude conversation transcript and create an MLflow trace with spans.
 
@@ -578,14 +618,38 @@ def process_transcript(
         MLflow trace object if successful, None if processing fails
     """
     try:
-        transcript = read_transcript(transcript_path)
+        transcript_read_retries = (
+            transcript_read_retries
+            if transcript_read_retries is not None
+            else get_int_env_var(
+                MLFLOW_TRANSCRIPT_READ_RETRIES,
+                default=DEFAULT_TRANSCRIPT_READ_RETRIES,
+            )
+        )
+        transcript_read_delay_ms = (
+            transcript_read_delay_ms
+            if transcript_read_delay_ms is not None
+            else get_int_env_var(
+                MLFLOW_TRANSCRIPT_READ_DELAY_MS,
+                default=DEFAULT_TRANSCRIPT_READ_DELAY_MS,
+            )
+        )
+        transcript = _read_transcript_with_retry(
+            transcript_path=transcript_path,
+            transcript_read_retries=transcript_read_retries,
+            transcript_read_delay_ms=transcript_read_delay_ms,
+        )
         if not transcript:
             get_logger().warning("Empty transcript, skipping")
             return None
 
         last_user_idx = find_last_user_message_index(transcript)
         if last_user_idx is None:
-            get_logger().warning("No user message found in transcript")
+            get_logger().warning(
+                "No user message found in transcript after %s retries (%sms delay)",
+                transcript_read_retries,
+                transcript_read_delay_ms,
+            )
             return None
 
         last_user_entry = transcript[last_user_idx]

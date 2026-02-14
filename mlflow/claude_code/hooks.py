@@ -12,6 +12,8 @@ from mlflow.claude_code.config import (
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_HOOK_IDENTIFIER,
+    MLFLOW_TRANSCRIPT_READ_DELAY_MS,
+    MLFLOW_TRANSCRIPT_READ_RETRIES,
     MLFLOW_TRACING_ENABLED,
     MLFLOW_TRACKING_URI,
     load_claude_config,
@@ -137,6 +139,8 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
             MLFLOW_TRACKING_URI,
             MLFLOW_EXPERIMENT_ID,
             MLFLOW_EXPERIMENT_NAME,
+            MLFLOW_TRANSCRIPT_READ_RETRIES,
+            MLFLOW_TRANSCRIPT_READ_DELAY_MS,
         ]
         for var in mlflow_vars:
             if var in config[ENVIRONMENT_FIELD]:
@@ -178,17 +182,19 @@ def _process_stop_hook(session_id: str | None, transcript_path: str | None) -> d
         CLAUDE_TRACING_LEVEL, "Stop hook: session=%s, transcript=%s", session_id, transcript_path
     )
 
+    if not transcript_path:
+        get_logger().warning("Stop hook called without transcript path for session=%s", session_id)
+        return get_hook_response()
+
     # Process the transcript and create MLflow trace
     trace = process_transcript(transcript_path, session_id)
 
-    if trace is not None:
-        return get_hook_response()
-    return get_hook_response(
-        error=(
-            "Failed to process transcript, please check .claude/mlflow/claude_tracing.log"
-            " for more details"
-        ),
-    )
+    if trace is None:
+        # Keep Claude execution unblocked if tracing cannot be completed.
+        get_logger().warning(
+            "Unable to create trace for session=%s. Continuing without trace.", session_id
+        )
+    return get_hook_response()
 
 
 def stop_hook_handler() -> None:

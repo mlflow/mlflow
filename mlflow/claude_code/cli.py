@@ -20,6 +20,16 @@ def commands():
 )
 @click.option("--experiment-id", "-e", help="MLflow experiment ID")
 @click.option("--experiment-name", "-n", help="MLflow experiment name")
+@click.option(
+    "--transcript-read-retries",
+    type=click.IntRange(min=0),
+    help="How many retries to read transcript before skipping trace creation.",
+)
+@click.option(
+    "--transcript-read-delay-ms",
+    type=click.IntRange(min=0),
+    help="Delay in milliseconds between transcript read retries.",
+)
 @click.option("--disable", is_flag=True, help="Disable Claude tracing in the specified directory")
 @click.option("--status", is_flag=True, help="Show current tracing status")
 def claude(
@@ -27,6 +37,8 @@ def claude(
     tracking_uri: str | None,
     experiment_id: str | None,
     experiment_name: str | None,
+    transcript_read_retries: int | None,
+    transcript_read_delay_ms: int | None,
     disable: bool,
     status: bool,
 ) -> None:
@@ -75,10 +87,24 @@ def claude(
     click.echo("✅ Claude Code hooks configured")
 
     # Set up environment variables
-    setup_environment_config(settings_file, tracking_uri, experiment_id, experiment_name)
+    setup_environment_config(
+        settings_file,
+        tracking_uri,
+        experiment_id,
+        experiment_name,
+        transcript_read_retries=transcript_read_retries,
+        transcript_read_delay_ms=transcript_read_delay_ms,
+    )
 
     # Show final status
-    _show_setup_status(target_dir, tracking_uri, experiment_id, experiment_name)
+    _show_setup_status(
+        target_dir,
+        tracking_uri,
+        experiment_id,
+        experiment_name,
+        transcript_read_retries,
+        transcript_read_delay_ms,
+    )
 
 
 def _handle_disable(settings_file: Path) -> None:
@@ -111,12 +137,19 @@ def _show_status(target_dir: Path, settings_file: Path) -> None:
     else:
         click.echo("🔬 Experiment: Default (experiment 0)")
 
+    if status.transcript_read_retries is not None:
+        click.echo(f"🕒 Transcript read retries: {status.transcript_read_retries}")
+    if status.transcript_read_delay_ms is not None:
+        click.echo(f"🕒 Transcript read delay: {status.transcript_read_delay_ms}ms")
+
 
 def _show_setup_status(
     target_dir: Path,
     tracking_uri: str | None,
     experiment_id: str | None,
     experiment_name: str | None,
+    transcript_read_retries: int | None,
+    transcript_read_delay_ms: int | None,
 ) -> None:
     """Show setup completion status."""
     current_dir = Path.cwd().resolve()
@@ -137,6 +170,11 @@ def _show_setup_status(
         click.echo(f"🔬 Experiment Name: {experiment_name}")
     else:
         click.echo("🔬 Experiment: Default (experiment 0)")
+
+    if transcript_read_retries is not None:
+        click.echo(f"🕒 Transcript read retries: {transcript_read_retries}")
+    if transcript_read_delay_ms is not None:
+        click.echo(f"🕒 Transcript read delay: {transcript_read_delay_ms}ms")
 
     # Show next steps
     click.echo("\n" + "=" * 30)

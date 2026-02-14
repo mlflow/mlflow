@@ -66,3 +66,19 @@ async def test_sdk_hook_handler_when_disabled():
         # Should return early without calling _process_stop_hook
         mock_process.assert_not_called()
         assert result == {"continue": True}
+
+
+def test_process_stop_hook_continues_when_trace_creation_fails():
+    from mlflow.claude_code.hooks import _process_stop_hook
+
+    with patch("mlflow.claude_code.hooks.process_transcript", return_value=None):
+        result = _process_stop_hook("session-1", "/tmp/transcript.jsonl")
+
+    assert result == {"continue": True}
+
+
+def test_process_stop_hook_continues_without_transcript_path():
+    from mlflow.claude_code.hooks import _process_stop_hook
+
+    result = _process_stop_hook("session-1", None)
+    assert result == {"continue": True}
