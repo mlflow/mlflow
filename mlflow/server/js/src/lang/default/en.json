@@ -5707,10 +5707,6 @@
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
   },
-  "d402vp": {
-    "defaultMessage": "Explore Features",
-    "description": "Feature cards section title"
-  },
   "d44IPd": {
     "defaultMessage": "Reopen review",
     "description": "Evaluation review > assessments > reopen review tooltip"
