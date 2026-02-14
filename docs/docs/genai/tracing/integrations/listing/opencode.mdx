@@ -1,0 +1,180 @@
+---
+sidebar_position: 10
+sidebar_label: OpenCode
+---
+
+import ImageBox from "@site/src/components/ImageBox";
+
+# Tracing OpenCode
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for [OpenCode](https://opencode.ai), a terminal-based agentic coding tool that supports multiple LLM providers including Claude, OpenAI, Google, and local models.
+
+<ImageBox src="/images/llms/opencode/opencode-tracing.png" alt="OpenCode Tracing" />
+
+After setting up the MLflow plugin, MLflow will automatically capture traces of your OpenCode conversations and log them to the specified MLflow experiment. The trace automatically captures information such as:
+
+- User prompts and assistant responses
+- Tool usage (file operations, bash commands, code edits, etc.)
+- Conversation timing and duration per turn
+- Token usage (input, output, and total tokens)
+- Session metadata including working directory and user
+
+## Setup
+
+OpenCode tracing is configured using the `@mlflow/opencode` plugin and environment variables.
+
+### Requirements
+
+- [OpenCode CLI](https://opencode.ai) installed
+- Node.js runtime (for the plugin)
+- The `@mlflow/opencode` and `mlflow-tracing` npm packages
+- An MLflow tracking server running
+
+### Step 1: Install the Plugin
+
+```bash
+npm install @mlflow/opencode mlflow-tracing
+```
+
+### Step 2: Configure OpenCode
+
+Add the plugin to your `opencode.json` file:
+
+```json
+{
+  "plugin": ["@mlflow/opencode"]
+}
+```
+
+### Step 3: Set Environment Variables
+
+Configure the MLflow connection using environment variables:
+
+```bash
+# Required: MLflow tracking server URI
+export MLFLOW_TRACKING_URI=http://localhost:5000
+
+# Required: Experiment ID
+export MLFLOW_EXPERIMENT_ID=123456
+```
+
+### Step 4: Start MLflow Server (if not already running)
+
+```bash
+# Start MLflow with SQLite backend
+mlflow server
+```
+
+### Step 5: Run OpenCode
+
+```bash
+# Run OpenCode normally - tracing happens automatically
+opencode
+```
+
+Traces will be automatically created when your OpenCode session becomes idle (after each conversation turn).
+
+## Configuration Reference
+
+The plugin is configured entirely via environment variables:
+
+| Environment Variable    | Required | Description                                                |
+| ----------------------- | -------- | ---------------------------------------------------------- |
+| `MLFLOW_TRACKING_URI`   | Yes      | MLflow tracking server URI (e.g., `http://localhost:5000`) |
+| `MLFLOW_EXPERIMENT_ID`  | Yes      | Experiment ID to log traces to                             |
+| `MLFLOW_OPENCODE_DEBUG` | No       | Set to `true` to enable debug logging to stderr            |
+
+### Configuration Examples
+
+```bash
+# Local development with SQLite
+export MLFLOW_TRACKING_URI=sqlite:///mlflow.db
+export MLFLOW_EXPERIMENT_ID=0
+
+# Remote MLflow server
+export MLFLOW_TRACKING_URI=http://mlflow.example.com:5000
+export MLFLOW_EXPERIMENT_ID=123456
+
+# Databricks MLflow
+export MLFLOW_TRACKING_URI=databricks
+export MLFLOW_EXPERIMENT_ID=123456789
+```
+
+## Token Usage
+
+MLflow automatically tracks the token usage for each LLM call within OpenCode conversations. The token usage for each LLM call is logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace is available in the Overview tab of the trace detail view.
+
+<ImageBox src="/images/llms/opencode/opencode-overview.png" alt="OpenCode Trace Overview" />
+
+## Troubleshooting
+
+### Debug Logging
+
+Enable debug logging to see detailed information about trace creation:
+
+```bash
+export MLFLOW_OPENCODE_DEBUG=true
+opencode
+```
+
+Debug output is written to stderr to avoid interfering with OpenCode's TUI.
+
+### Common Issues
+
+**Traces not appearing:**
+
+1. Verify environment variables are set correctly:
+
+   ```bash
+   echo $MLFLOW_TRACKING_URI
+   echo $MLFLOW_EXPERIMENT_ID
+   ```
+
+2. Check that the MLflow server is accessible:
+
+   ```bash
+   curl $MLFLOW_TRACKING_URI/api/2.0/mlflow/experiments/list
+   ```
+
+3. Enable debug logging to see any errors:
+   ```bash
+   export MLFLOW_OPENCODE_DEBUG=true
+   ```
+
+**Plugin not loading:**
+
+1. Verify the plugin is installed:
+
+   ```bash
+   npm ls @mlflow/opencode
+   ```
+
+2. Check that `opencode.json` contains the plugin:
+   ```json
+   {
+     "plugin": ["@mlflow/opencode"]
+   }
+   ```
+
+**Missing token usage:**
+
+Token usage is only available when the LLM provider reports it. Some providers or configurations may not include token counts in their responses.
+
+### Disable Tracing
+
+To stop automatic tracing, remove the plugin from your `opencode.json`:
+
+```json
+{
+  "plugin": []
+}
+```
+
+Or unset the environment variables:
+
+```bash
+unset MLFLOW_TRACKING_URI
+unset MLFLOW_EXPERIMENT_ID
+```
+
+Existing traces are preserved - disabling only stops new traces from being created.
