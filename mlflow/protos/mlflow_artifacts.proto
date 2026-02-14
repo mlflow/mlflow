@@ -134,6 +134,23 @@ service MlflowArtifactsService {
       rpc_doc_title: "Abort an Artifact Multipart Upload"
     };
   }
+
+  rpc getPresignedDownloadUrl(GetPresignedDownloadUrl) returns (GetPresignedDownloadUrl.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow-artifacts/presigned/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Presigned URL for Multipart Download"
+    };
+  }
 }
 
 message DownloadArtifact {
@@ -213,4 +230,17 @@ message MultipartUploadPart {
   optional string etag = 2;
 
   optional string url = 3;
+}
+
+message GetPresignedDownloadUrl {
+  message Response {
+    // The presigned URL for downloading the artifact directly from cloud storage.
+    optional string url = 1;
+
+    // Optional headers that must be included in the download request.
+    map<string, string> headers = 2;
+
+    // Optional size of the file in bytes.
+    optional int64 file_size = 3;
+  }
 }

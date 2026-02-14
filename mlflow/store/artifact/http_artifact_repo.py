@@ -1,6 +1,8 @@
 import logging
 import os
 import posixpath
+import time
+from concurrent.futures import as_completed
 
 import requests
 from requests import HTTPError
@@ -11,12 +13,18 @@ from mlflow.entities.multipart_upload import (
     MultipartUploadCredential,
     MultipartUploadPart,
 )
+from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
+    MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
+    MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
-from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
+from mlflow.exceptions import (
+    MlflowException,
+    _UnsupportedMultipartUploadException,
+)
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
@@ -24,8 +32,15 @@ from mlflow.store.artifact.artifact_repo import (
 )
 from mlflow.store.artifact.cloud_artifact_repo import _complete_futures, _compute_num_chunks
 from mlflow.utils.credentials import get_default_host_creds
-from mlflow.utils.file_utils import read_chunk, relative_path_to_artifact_path
+from mlflow.utils.file_utils import (
+    ArtifactProgressBar,
+    _yield_chunks,
+    read_chunk,
+    relative_path_to_artifact_path,
+    remove_on_error,
+)
 from mlflow.utils.mime_type_utils import _guess_mime_type
+from mlflow.utils.request_utils import download_chunk
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 from mlflow.utils.uri import validate_path_is_safe
 
@@ -34,6 +49,19 @@ _logger = logging.getLogger(__name__)
 
 class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     """Stores artifacts in a remote artifact storage using HTTP requests"""
+
+    def __init__(self, artifact_uri, tracking_uri=None, registry_uri=None, **kwargs):
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
+        # Lazy-initialized when _multipart_download is first used. Isolated from the
+        # inherited thread_pool to avoid deadlocks when a file-download task waits on
+        # chunk-download tasks. Not explicitly shut down (consistent with thread_pool).
+        self._chunk_thread_pool = None
+
+    @property
+    def chunk_thread_pool(self):
+        if self._chunk_thread_pool is None:
+            self._chunk_thread_pool = self._create_thread_pool()
+        return self._chunk_thread_pool
 
     @property
     def _host_creds(self):
@@ -100,6 +128,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         return sorted(file_infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
+        """Download a file by streaming through the tracking server."""
         endpoint = posixpath.join("/", remote_file_path)
         resp = http_request(self._host_creds, endpoint, "GET", stream=True)
         augmented_raise_for_status(resp)
@@ -108,12 +137,132 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             for chunk in resp.iter_content(chunk_size=chunk_size):
                 f.write(chunk)
 
+    def _multipart_download(
+        self, presigned_response, remote_file_path, local_path, file_size, chunk_size
+    ):
+        """
+        Download a file in parallel chunks using HTTP Range requests with presigned URLs.
+
+        Args:
+            presigned_response: PresignedDownloadUrlResponse containing URL and headers.
+            remote_file_path: Path to the remote file (for logging purposes).
+            local_path: Local path to save the downloaded file.
+            file_size: Size of the file in bytes.
+            chunk_size: Size of each chunk to download.
+        """
+        http_uri = presigned_response.url
+        headers = presigned_response.headers
+
+        with remove_on_error(local_path):
+            # Create file before parallel downloads so workers can seek to their positions
+            with open(local_path, "wb") as f:
+                f.truncate(file_size)
+
+            chunks = list(_yield_chunks(remote_file_path, file_size, chunk_size))
+            initial_pass = True
+            failed_downloads = []
+            max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get()
+            backoff_factor = MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get()
+            num_retries = max_retries
+
+            while initial_pass or failed_downloads:
+                if not initial_pass:
+                    if num_retries <= 0:
+                        raise MlflowException(
+                            f"Failed to download {len(failed_downloads)} chunk(s) for "
+                            f"{remote_file_path} after all retries exhausted."
+                        )
+                    _logger.info(
+                        f"Retrying {len(failed_downloads)} failed chunk(s) for {remote_file_path}. "
+                        f"Retries remaining: {num_retries}"
+                    )
+                    interval = backoff_factor * (2 ** (max_retries - num_retries))
+                    time.sleep(interval)
+                    try:
+                        new_presigned_response = self._get_presigned_download_url(remote_file_path)
+                        http_uri = new_presigned_response.url
+                        headers = new_presigned_response.headers
+                    except Exception as e:
+                        _logger.warning(
+                            f"Failed to refresh presigned URL: {e}. Using previous URL."
+                        )
+                    chunks_to_download = failed_downloads
+                    num_retries -= 1
+                    failed_downloads = []
+                else:
+                    chunks_to_download = chunks
+
+                futures = {
+                    self.chunk_thread_pool.submit(
+                        download_chunk,
+                        range_start=chunk.start,
+                        range_end=chunk.end,
+                        headers=headers,
+                        download_path=local_path,
+                        http_uri=http_uri,
+                    ): chunk
+                    for chunk in chunks_to_download
+                }
+
+                if initial_pass:
+                    pbar_ctx = ArtifactProgressBar.chunks(
+                        file_size, f"Downloading {remote_file_path}", chunk_size
+                    )
+                else:
+                    retry_total_bytes = sum(c.end - c.start + 1 for c in chunks_to_download)
+                    pbar_ctx = ArtifactProgressBar.chunks(
+                        retry_total_bytes,
+                        f"Retrying {remote_file_path}",
+                        chunk_size,
+                    )
+                with pbar_ctx as pbar:
+                    for future in as_completed(futures):
+                        chunk = futures[future]
+                        try:
+                            future.result()
+                            pbar.update()
+                        except Exception as e:
+                            log_msg = (
+                                f"Failed to download chunk {chunk.index} for {chunk.path}: {e}. "
+                                "The download of this chunk will be retried."
+                            )
+                            if not initial_pass:
+                                log_msg = (
+                                    f"Retry failed for chunk {chunk.index} of {chunk.path}: {e}"
+                                )
+                            _logger.debug(log_msg)
+                            failed_downloads.append(chunk)
+
+                initial_pass = False
+
+    def _get_presigned_download_url(self, remote_file_path):
+        """
+        Get a presigned URL for downloading an artifact directly from cloud storage.
+
+        Args:
+            remote_file_path: The path to the artifact relative to the artifact URI.
+
+        Returns:
+            PresignedDownloadUrlResponse containing the presigned URL and headers.
+
+        Raises:
+            HTTPError: If the server returns an error (e.g., 501 when presigned
+                downloads are not supported).
+        """
+        uri, endpoint = self._construct_artifact_uri_and_path(
+            "/mlflow-artifacts/presigned", remote_file_path
+        )
+        host_creds = get_default_host_creds(uri)
+        resp = http_request(host_creds, endpoint, "GET")
+        augmented_raise_for_status(resp)
+        return PresignedDownloadUrlResponse.from_dict(resp.json())
+
     def delete_artifacts(self, artifact_path=None):
         endpoint = posixpath.join("/", artifact_path) if artifact_path else "/"
         resp = http_request(self._host_creds, endpoint, "DELETE", stream=True)
         augmented_raise_for_status(resp)
 
-    def _construct_mpu_uri_and_path(self, base_endpoint, artifact_path):
+    def _construct_artifact_uri_and_path(self, base_endpoint, artifact_path):
         uri, path = self.artifact_uri.split("/mlflow-artifacts/artifacts", maxsplit=1)
         path = path.strip("/")
         endpoint = (
@@ -124,7 +273,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         return uri, endpoint
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
-        uri, endpoint = self._construct_mpu_uri_and_path(
+        uri, endpoint = self._construct_artifact_uri_and_path(
             "/mlflow-artifacts/mpu/create", artifact_path
         )
         host_creds = get_default_host_creds(uri)
@@ -137,7 +286,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         return CreateMultipartUploadResponse.from_dict(resp.json())
 
     def complete_multipart_upload(self, local_file, upload_id, parts=None, artifact_path=None):
-        uri, endpoint = self._construct_mpu_uri_and_path(
+        uri, endpoint = self._construct_artifact_uri_and_path(
             "/mlflow-artifacts/mpu/complete", artifact_path
         )
         host_creds = get_default_host_creds(uri)
@@ -150,7 +299,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         augmented_raise_for_status(resp)
 
     def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
-        uri, endpoint = self._construct_mpu_uri_and_path(
+        uri, endpoint = self._construct_artifact_uri_and_path(
             "/mlflow-artifacts/mpu/abort", artifact_path
         )
         host_creds = get_default_host_creds(uri)
