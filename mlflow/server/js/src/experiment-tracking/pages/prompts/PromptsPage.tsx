@@ -56,8 +56,6 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
   const [searchParams] = useSearchParams();
   const workspacesEnabled = shouldEnableWorkspaces();
   const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
-  // Only show creation buttons when: workspaces are disabled OR a workspace is selected
-  const showCreationButtons = !workspacesEnabled || workspaceFromUrl !== null;
 
   const [searchFilter, setSearchFilter] = useState('');
   const navigate = useNavigate();
@@ -75,6 +73,10 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName, experimentId)),
   });
 
+  const isEmptyState = !isLoading && !error && !data?.length && !searchFilter;
+  // Only show creation buttons when: workspaces are disabled OR a workspace is selected
+  const showCreationButtons = !isEmptyState && (!workspacesEnabled || workspaceFromUrl !== null);
+
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
@@ -82,7 +84,12 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
         title={<FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />}
         buttons={
           showCreationButtons && (
-            <Button componentId={componentIds.create} type="primary" onClick={openCreateVersionModal}>
+            <Button
+              componentId={componentIds.create}
+              data-testid="create-prompt-button"
+              type="primary"
+              onClick={openCreateVersionModal}
+            >
               <FormattedMessage
                 defaultMessage="Create prompt"
                 description="Label for the create prompt button on the registered prompts page"
@@ -115,6 +122,7 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
           onPreviousPage={onPreviousPage}
           onEditTags={showEditPromptTagsModal}
           experimentId={experimentId}
+          onCreatePrompt={openCreateVersionModal}
           paginationComponentId={componentIds.pagination}
           tableHeaderComponentId={componentIds.tableHeader}
         />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   CloudModelIcon,
   Empty,
@@ -49,6 +49,47 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
     onEndpointDeleted?.();
   };
 
+  const isFiltered = searchFilter.trim().length > 0 || filter.providers.length > 0;
+  const emptyState = useMemo(() => {
+    if (isFiltered && filteredEndpoints.length === 0) {
+      return (
+        <Empty
+          title={
+            <FormattedMessage
+              defaultMessage="No endpoints found"
+              description="Empty state title when filter returns no results"
+            />
+          }
+          description={null}
+        />
+      );
+    }
+
+    if (endpoints.length === 0) {
+      return (
+        <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Empty
+            image={<CloudModelIcon />}
+            title={
+              <FormattedMessage
+                defaultMessage="No endpoints created"
+                description="Empty state title for endpoints list"
+              />
+            }
+            description={
+              <FormattedMessage
+                defaultMessage='Use the "Create endpoint" button to create a new endpoint'
+                description="Empty state message for endpoints list explaining how to create"
+              />
+            }
+          />
+        </div>
+      );
+    }
+
+    return null;
+  }, [endpoints, filteredEndpoints, isFiltered]);
+
   if (isLoading || !endpoints) {
     return (
       <div
@@ -66,44 +107,6 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
       </div>
     );
   }
-
-  const isFiltered = searchFilter.trim().length > 0 || filter.providers.length > 0;
-
-  const getEmptyState = () => {
-    if (filteredEndpoints.length === 0 && isFiltered) {
-      return (
-        <Empty
-          title={
-            <FormattedMessage
-              defaultMessage="No endpoints found"
-              description="Empty state title when filter returns no results"
-            />
-          }
-          description={null}
-        />
-      );
-    }
-    if (endpoints.length === 0) {
-      return (
-        <Empty
-          image={<CloudModelIcon />}
-          title={
-            <FormattedMessage
-              defaultMessage="No endpoints created"
-              description="Empty state title for endpoints list"
-            />
-          }
-          description={
-            <FormattedMessage
-              defaultMessage='Use "Create endpoint" button to create a new endpoint'
-              description="Empty state message for endpoints list explaining how to create"
-            />
-          }
-        />
-      );
-    }
-    return null;
-  };
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -126,7 +129,8 @@ export const EndpointsList = ({ onEndpointDeleted }: EndpointsListProps) => {
 
       <Table
         scrollable
-        empty={getEmptyState()}
+        noMinHeight
+        empty={emptyState}
         css={{
           borderLeft: `1px solid ${theme.colors.border}`,
           borderRight: `1px solid ${theme.colors.border}`,

@@ -9,6 +9,7 @@ on:
       - ready_for_review
     paths:
       - .github/workflows/protos.yml
+      - dev/gen_rest_api.py
       - dev/generate_protos.py
       - dev/generate-protos.sh
       - dev/test-generate-protos.sh

@@ -1,4 +1,4 @@
-import { getWorkspacesEnabledSync } from '../../common/utils/ServerFeaturesContext';
+import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
 
 const WORKSPACE_STORAGE_KEY = 'mlflow.activeWorkspace';
 export const WORKSPACE_QUERY_PARAM = 'workspace';

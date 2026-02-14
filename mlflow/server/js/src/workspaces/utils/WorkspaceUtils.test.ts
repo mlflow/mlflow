@@ -12,11 +12,11 @@ import {
   WORKSPACE_NAME_MIN_LENGTH,
   WORKSPACE_NAME_MAX_LENGTH,
 } from './WorkspaceUtils';
-import { getWorkspacesEnabledSync } from '../../common/utils/ServerFeaturesContext';
+import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
 
-jest.mock('../../common/utils/ServerFeaturesContext', () => ({
-  ...jest.requireActual<typeof import('../../common/utils/ServerFeaturesContext')>(
-    '../../common/utils/ServerFeaturesContext',
+jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../../experiment-tracking/hooks/useServerInfo')>(
+    '../../experiment-tracking/hooks/useServerInfo',
   ),
   getWorkspacesEnabledSync: jest.fn(),
 }));

@@ -17,7 +17,7 @@ import {
 } from './common/utils/RoutingUtils';
 import { useWorkflowType, WorkflowType, WorkflowTypeProvider } from './common/contexts/WorkflowTypeContext';
 import { shouldEnableWorkflowBasedNavigation } from './common/utils/FeatureUtils';
-import { useWorkspacesEnabled } from './common/utils/ServerFeaturesContext';
+import { useWorkspacesEnabled } from './experiment-tracking/hooks/useServerInfo';
 
 // Route definition imports:
 import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/route-defs';

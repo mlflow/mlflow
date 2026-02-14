@@ -346,10 +346,11 @@ def test_version():
 
 def test_server_info():
     with app.test_client() as c:
-        response = c.get("/server-info")
+        response = c.get("/api/3.0/mlflow/server-info")
         assert response.status_code == 200
         data = response.get_json()
         assert data["store_type"] == "SqlStore"
+        assert data["workspaces_enabled"] is False
 
 
 def test_get_endpoints():
