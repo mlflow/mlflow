@@ -30,6 +30,7 @@ from mlflow.genai.scorers.online import (
     OnlineSessionScoringProcessor,
     OnlineTraceScoringProcessor,
 )
+from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -176,6 +177,11 @@ def _fetch_traces_batch(
     """
     Fetch traces in batch and return a mapping.
 
+    Attempts to load traces from the tracking store first. For any traces
+    whose span data is stored in an artifact repository (e.g. S3) rather
+    than in the tracking store, falls back to downloading from the artifact
+    repository.
+
     Args:
         trace_ids: List of trace IDs to fetch.
         tracking_store: The tracking store instance.
@@ -186,7 +192,8 @@ def _fetch_traces_batch(
     Raises:
         MlflowException: If any trace IDs are not found.
     """
-    traces = tracking_store.batch_get_traces(trace_ids)
+    loader = OnlineTraceLoader(tracking_store)
+    traces = loader.fetch_traces(trace_ids)
     trace_map = {t.info.trace_id: t for t in traces}
 
     if missing_ids := [tid for tid in trace_ids if tid not in trace_map]:
