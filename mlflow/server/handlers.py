@@ -1101,24 +1101,6 @@ def _ensure_artifact_root_available(workspace_artifact_root: str | None) -> None
 
 
 @catch_mlflow_exception
-def _server_features_handler():
-    """
-    Returns a dictionary containing the server features state.
-
-    This helps clients determine if workspaces are enabled.
-    """
-    response = Response(mimetype="application/json")
-    response.set_data(
-        json.dumps(
-            {
-                "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
-            }
-        )
-    )
-    return response
-
-
-@catch_mlflow_exception
 @_disable_if_workspaces_disabled
 def _list_workspaces_handler():
     _get_request_message(ListWorkspaces())
@@ -5035,6 +5017,7 @@ def _delete_gateway_endpoint_tag():
     return response
 
 
+@catch_mlflow_exception
 def _get_server_info():
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -5047,7 +5030,12 @@ def _get_server_info():
         store_type = "SqlStore"
     else:
         store_type = None
-    return jsonify({"store_type": store_type})
+    return jsonify(
+        {
+            "store_type": store_type,
+            "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
+        }
+    )
 
 
 @catch_mlflow_exception
@@ -5224,19 +5212,20 @@ def get_endpoints(get_handler=get_handler):
     Returns:
         List of tuples (path, handler, methods)
     """
-    server_feature_paths = [
-        (_path, _server_features_handler, ["GET"])
-        for _path in _get_paths("/mlflow/server-features", version=3)
-    ]
     return (
         get_service_endpoints(MlflowService, get_handler)
         + get_internal_online_scoring_endpoints()
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
-        + server_feature_paths
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
-        + [(_add_static_prefix("/server-info"), _get_server_info, ["GET"])]
+        # NB: Use _get_paths() (not _add_static_prefix()) so that the endpoint is reachable
+        # both at /api/3.0/mlflow/server-info (for the Python client, unaffected by static prefix)
+        # and at <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
+        + [
+            (_path, _get_server_info, ["GET"])
+            for _path in _get_paths("/mlflow/server-info", version=3)
+        ]
         + get_gateway_endpoints()
         + get_demo_endpoints()
     )
