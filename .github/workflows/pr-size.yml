@@ -103,8 +103,9 @@ jobs:
           # Add new size label (create label if it doesn't exist)
           if ! grep -qx "$size_label" <<< "$PR_LABELS"; then
             # Check if label exists, create if not
-            # Use gh label list without --search to get all labels, then grep for exact match
-            if ! gh label list --limit 1000 | grep -qx "$size_label"; then
+            # gh label list outputs: NAME<TAB>DESCRIPTION<TAB>COLOR
+            # Extract first field (label name) and check for exact match
+            if ! gh label list --limit 10000 | cut -f1 | grep -qx "$size_label"; then
               # Try to create label, capture error message if it fails
               if ! error_msg=$(gh label create "$size_label" --color "0075ca" --description "Auto-generated PR size label" 2>&1); then
                 echo "Warning: Failed to create label '$size_label': $error_msg"
