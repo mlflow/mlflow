@@ -103,8 +103,10 @@ jobs:
           # Add new size label (create label if it doesn't exist)
           if ! grep -qx "$size_label" <<< "$PR_LABELS"; then
             # Check if label exists, create if not
-            if ! gh label list --search "$size_label" | grep -q "^$size_label"; then
-              gh label create "$size_label" --color "0075ca" --description "Auto-generated PR size label" || true
+            if ! gh label list --search "$size_label" | grep -qx "$size_label"; then
+              if ! gh label create "$size_label" --color "0075ca" --description "Auto-generated PR size label" 2>&1; then
+                echo "Warning: Failed to create label '$size_label', it may already exist"
+              fi
             fi
             gh pr edit "$PR_NUMBER" --add-label "$size_label"
           fi
