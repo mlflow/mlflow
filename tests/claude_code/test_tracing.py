@@ -224,6 +224,10 @@ def test_process_transcript_creates_spans(mock_transcript_file):
     tool_span = tool_spans[0]
     assert tool_span.name == "tool_Bash"
 
+    # Verify LLM span names don't have numeric suffixes
+    for llm_span in llm_spans:
+        assert llm_span.name == "llm"
+
     # Verify LLM spans have MESSAGE_FORMAT set to "anthropic" for Chat UI rendering
     for llm_span in llm_spans:
         assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
