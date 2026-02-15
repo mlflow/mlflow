@@ -1,7 +1,7 @@
 context("Params")
 
 test_that("mlflow can read typed command line parameters", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
 
   mlflow_cli(
     "run",
@@ -15,16 +15,20 @@ test_that("mlflow can read typed command line parameters", {
     "-P", "my_str=XYZ"
   )
 
-  expect_true(dir.exists("mlruns"))
-  expect_true(dir.exists("mlruns/0"))
-  expect_true(file.exists("mlruns/0/meta.yaml"))
-
-  run_dir <- file.path("mlruns/0/", dir("mlruns/0/", pattern = "^[a-zA-Z0-9]+$")[[1]])
-  params_dir <- dir(file.path(run_dir, "params"))
-
-  expect_true("my_int" %in% params_dir)
-  expect_true("my_num" %in% params_dir)
-  expect_true("my_str" %in% params_dir)
+  # With SQLite backend, we no longer check for mlruns directory structure
+  # Instead, verify the run was logged by searching for runs
+  client <- mlflow_client()
+  runs <- mlflow_search_runs(experiment_ids = list("0"), client = client)
+  expect_true(nrow(runs) > 0)
+  
+  # Verify params were logged
+  if (nrow(runs) > 0) {
+    run <- runs[1, ]
+    params <- run$params[[1]]
+    expect_true("my_int" %in% params$key)
+    expect_true("my_num" %in% params$key)
+    expect_true("my_str" %in% params$key)
+  }
 })
 
 test_that("ml_param() type checking works", {

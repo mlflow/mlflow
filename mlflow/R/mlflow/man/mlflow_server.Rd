@@ -5,7 +5,8 @@
 \title{Run MLflow Tracking Server}
 \usage{
 mlflow_server(
-  file_store = "mlruns",
+  backend_store_uri = NULL,
+  file_store = NULL,
   default_artifact_root = NULL,
   host = "127.0.0.1",
   port = 5000,
@@ -15,7 +16,9 @@ mlflow_server(
 )
 }
 \arguments{
-\item{file_store}{The root of the backing file store for experiment and run data.}
+\item{backend_store_uri}{The URI for the backend store (e.g., 'sqlite:///path/to/mlflow.db' or a file path).}
+
+\item{file_store}{(Deprecated) Use backend_store_uri instead.}
 
 \item{default_artifact_root}{Local or S3 URI to store artifacts in, for newly created experiments.}
 
