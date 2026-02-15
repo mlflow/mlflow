@@ -7,11 +7,16 @@ from clint.rules import MultiAssign
 
 def test_multi_assign(index_path: Path) -> None:
     code = """
-# Bad
-x, y = 1, 2
+# Bad - non-constant values
+x, y = func1(), func2()
 
-# Good
+# Good - unpacking from function
 a, b = func()
+
+# Good - all constants (allowed)
+c, d = 1, 1
+e, f, g = 0, 0, 0
+h, i = "test", "test"
 """
     config = Config(select={MultiAssign.name})
     results = lint_file(Path("test.py"), code, config, index_path)

@@ -16,27 +16,17 @@ export const TraceTableGenericQuickstart = ({
   const content = getContent(baseComponentId);
   const code = getCodeSource();
   return (
-    <div>
-      <Typography.Text css={{ maxWidth: 800 }} color="secondary">
-        {content}
-      </Typography.Text>
-      <div css={{ position: 'relative', width: 'min-content' }}>
+    <div css={{ maxWidth: 600 }}>
+      <Typography.Text color="secondary">{content}</Typography.Text>
+      <div css={{ position: 'relative', maxWidth: '100%' }}>
         <CopyButton
-          componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_components_traces_quickstart_tracetablegenericquickstart_25"
+          componentId="mlflow.traces.empty_state_generic_quickstart.copy"
           css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
           showLabel={false}
           copyText={code}
           icon={<CopyIcon />}
         />
-        <CodeSnippet
-          showLineNumbers
-          theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
-          style={{
-            padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-            marginTop: theme.spacing.md,
-          }}
-          language="python"
-        >
+        <CodeSnippet showLineNumbers language="python" theme={theme.isDarkMode ? 'duotoneDark' : 'light'}>
           {code}
         </CodeSnippet>
       </div>

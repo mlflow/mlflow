@@ -317,7 +317,12 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
 
     scorers = validate_scorers(scorers)
 
-    # Handle ConversationSimulator: run simulation first, then evaluate the generated traces
+    # Handle ConversationSimulator: prepare for simulation, but run it inside the run context
+    # so that traces are logged to the correct run.
+    simulator = None
+    sim_predict_fn = None
+    precomputed_digest = None
+    precomputed_dataset_name = None
     if isinstance(data, ConversationSimulator):
         if predict_fn is None:
             raise MlflowException.invalid_parameter_value(
@@ -325,79 +330,17 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
                 "The simulator needs a predict function to generate conversations."
             )
 
+        # Compute digest from test cases BEFORE simulation. This ensures the same test cases
+        # produce the same digest regardless of LLM non-determinism in generated conversations.
+        precomputed_digest = data._compute_test_case_digest()
+        precomputed_dataset_name = data._get_dataset_name()
+
         # Wrap async predict_fn for synchronous execution during simulation
         sim_predict_fn = predict_fn
         if inspect.iscoroutinefunction(predict_fn):
             sim_predict_fn = _wrap_async_predict_fn(predict_fn)
 
-        all_trace_ids = data._simulate(sim_predict_fn)
-        logger.debug(
-            f"Simulation produced {len(all_trace_ids)} conversation(s) with "
-            f"{[len(ids) for ids in all_trace_ids]} trace(s) each"
-        )
-        flat_trace_ids = [tid for session_ids in all_trace_ids for tid in session_ids]
-
-        if not flat_trace_ids:
-            raise MlflowException.invalid_parameter_value(
-                "Simulation produced no traces. This may indicate that all conversations "
-                "failed during simulation. Check the logs above for error details."
-            )
-
-        data = [mlflow.get_trace(tid) for tid in flat_trace_ids]
-        # Set predict_fn to None since the simulation already invoked it for each conversation
-        # turn. The resulting traces contain all the prediction outputs, so the evaluation
-        # harness will use those traces directly rather than calling predict_fn again.
-        predict_fn = None
-
-    is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
-
-    # Validate session-level input if session-level scorers are present
-    validate_session_level_evaluation_inputs(scorers, predict_fn)
-
-    df = _convert_to_eval_set(data)
-
-    builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
-    valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
-
-    sample_input = df.iloc[0][InputDatasetColumn.INPUTS]
-
-    # Only check 'inputs' column when it is not derived from the trace object
-    if "trace" not in df.columns and not isinstance(sample_input, dict):
-        raise MlflowException.invalid_parameter_value(
-            "The 'inputs' column must be a dictionary of field names and values. "
-            "For example: {'query': 'What is MLflow?'}"
-        )
-
-    # If the input dataset is a managed dataset, we pass the original dataset
-    # to the evaluate function to preserve metadata like dataset name.
-    data = data if is_managed_dataset else df
-
-    if predict_fn:
-        predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
-
-    # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
-    # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
-    # one is not publicly documented, but we keep it for backward compatibility.
-    if "RAG_EVAL_MAX_WORKERS" in os.environ:
-        logger.warning(
-            "The `RAG_EVAL_MAX_WORKERS` environment variable is deprecated. "
-            f"Please use `{MLFLOW_GENAI_EVAL_MAX_WORKERS.name}` instead."
-        )
-        os.environ[MLFLOW_GENAI_EVAL_MAX_WORKERS.name] = os.environ["RAG_EVAL_MAX_WORKERS"]
-
-    if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
-        mlflow_dataset = data
-        df = data.to_df()
-    else:
-        # Use default name for evaluation dataset when converting from DataFrame
-        mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
-        df = data
-
-    try:
-        telemetry_data = _get_eval_data_size_and_fields(df)
-    except Exception:
-        _log_error("Failed to get evaluation data size and fields for GenAIEvaluateEvent")
-        telemetry_data = {}
+        simulator = data
 
     with (
         _start_run_or_reuse_active_run() as run_id,
@@ -405,6 +348,79 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # NB: Auto-logging should be enabled outside the thread pool to avoid race conditions.
         configure_autologging_for_evaluation(enable_tracing=True),
     ):
+        # Run simulation inside the run context so traces are logged to this run
+        if simulator is not None:
+            all_traces = simulator.simulate(sim_predict_fn)
+            logger.debug(
+                f"Simulation produced {len(all_traces)} conversation(s) with "
+                f"{[len(traces) for traces in all_traces]} trace(s) each"
+            )
+            data = [trace for traces in all_traces for trace in traces]
+
+            if not data:
+                raise MlflowException.invalid_parameter_value(
+                    "Simulation produced no traces. This may indicate that all conversations "
+                    "failed during simulation. Check the logs above for error details."
+                )
+            # Set predict_fn to None since the simulation already invoked it for each conversation
+            # turn. The resulting traces contain all the prediction outputs, so the evaluation
+            # harness will use those traces directly rather than calling predict_fn again.
+            predict_fn = None
+
+        is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
+
+        # Validate session-level input if session-level scorers are present
+        validate_session_level_evaluation_inputs(scorers, predict_fn)
+
+        df = _convert_to_eval_set(data)
+
+        builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
+        valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
+
+        sample_input = df.iloc[0][InputDatasetColumn.INPUTS]
+
+        # Only check 'inputs' column when it is not derived from the trace object
+        if "trace" not in df.columns and not isinstance(sample_input, dict):
+            raise MlflowException.invalid_parameter_value(
+                "The 'inputs' column must be a dictionary of field names and values. "
+                "For example: {'query': 'What is MLflow?'}"
+            )
+
+        # If the input dataset is a managed dataset, we pass the original dataset
+        # to the evaluate function to preserve metadata like dataset name.
+        data = data if is_managed_dataset else df
+
+        if predict_fn:
+            predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
+
+        # NB: The "RAG_EVAL_MAX_WORKERS" env var is used in the DBX agent harness, but is
+        # deprecated in favor of the new "MLFLOW_GENAI_EVAL_MAX_WORKERS" env var. The old
+        # one is not publicly documented, but we keep it for backward compatibility.
+        if "RAG_EVAL_MAX_WORKERS" in os.environ:
+            logger.warning(
+                "The `RAG_EVAL_MAX_WORKERS` environment variable is deprecated. "
+                f"Please use `{MLFLOW_GENAI_EVAL_MAX_WORKERS.name}` instead."
+            )
+            os.environ[MLFLOW_GENAI_EVAL_MAX_WORKERS.name] = os.environ["RAG_EVAL_MAX_WORKERS"]
+
+        if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
+            mlflow_dataset = data
+            df = data.to_df()
+        else:
+            # Use precomputed name from ConversationSimulator, or default "dataset" for
+            # other sources. Pass precomputed_digest if available (from ConversationSimulator).
+            dataset_name = precomputed_dataset_name or "dataset"
+            mlflow_dataset = mlflow.data.from_pandas(
+                df=data, name=dataset_name, digest=precomputed_digest
+            )
+            df = data
+
+        try:
+            telemetry_data = _get_eval_data_size_and_fields(df)
+        except Exception:
+            _log_error("Failed to get evaluation data size and fields for GenAIEvaluateEvent")
+            telemetry_data = {}
+
         _log_dataset_input(mlflow_dataset, run_id, model_id)
 
         # NB: Set this tag before run finishes to suppress the generic run URL printing.

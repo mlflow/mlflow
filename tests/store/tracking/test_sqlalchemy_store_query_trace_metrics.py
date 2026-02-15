@@ -3,6 +3,7 @@ import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
 
+import numpy as np
 import pytest
 from opentelemetry import trace as trace_api
 
@@ -16,15 +17,19 @@ from mlflow.entities import (
 )
 from mlflow.entities.assessment import AssessmentError
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricViewType,
+)
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
-from mlflow.store.db.db_types import POSTGRES
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
     AssessmentMetricKey,
+    SpanAttributeKey,
     SpanMetricDimensionKey,
     SpanMetricKey,
     TraceMetadataKey,
@@ -37,40 +42,6 @@ from mlflow.utils.time import get_current_time_millis
 from tests.store.tracking.test_sqlalchemy_store import create_test_span
 
 pytestmark = pytest.mark.notrackingurimock
-
-
-def _get_expected_percentile_value(
-    store: SqlAlchemyStore,
-    percentile_value: float,
-    min_val: float,
-    max_val: float,
-    values: list[float],
-) -> float:
-    """
-    Calculate expected percentile value based on database type.
-
-    PostgreSQL uses linear interpolation (PERCENTILE_CONT).
-    MySQL, SQLite, and MSSQL use min + (percentile_value / 100) * (max - min) approximation.
-    """
-    db_type = store._get_dialect()
-    # Convert percentile_value from 0-100 to 0-1 ratio
-    percentile_ratio = percentile_value / 100.0
-
-    if db_type == POSTGRES:
-        # Linear interpolation for PERCENTILE_CONT
-        # For a sorted list, percentile index = percentile_ratio * (n - 1)
-        sorted_values = sorted(values)
-        n = len(sorted_values)
-        index = percentile_ratio * (n - 1)
-        lower_idx = int(index)
-        upper_idx = min(lower_idx + 1, n - 1)
-        fraction = index - lower_idx
-        return sorted_values[lower_idx] + fraction * (
-            sorted_values[upper_idx] - sorted_values[lower_idx]
-        )
-    else:
-        # Approximation for MySQL, SQLite, and MSSQL
-        return min_val + percentile_ratio * (max_val - min_val)
 
 
 def test_query_trace_metrics_count_no_dimensions(store: SqlAlchemyStore):
@@ -338,11 +309,13 @@ def test_query_trace_metrics_latency_percentiles(
     )
 
     # Calculate expected values based on database type
-    expected_workflow_a = _get_expected_percentile_value(
-        store, percentile_value, 100.0, 300.0, [100.0, 200.0, 300.0]
+    expected_workflow_a = pytest.approx(
+        np.percentile([100.0, 200.0, 300.0], percentile_value),
+        abs=0.01,
     )
-    expected_workflow_b = _get_expected_percentile_value(
-        store, percentile_value, 100.0, 200.0, [100.0, 200.0]
+    expected_workflow_b = pytest.approx(
+        np.percentile([100.0, 200.0], percentile_value),
+        abs=0.01,
     )
 
     assert len(result) == 2
@@ -355,6 +328,52 @@ def test_query_trace_metrics_latency_percentiles(
         "metric_name": TraceMetricKey.LATENCY,
         "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_b"},
         "values": {f"P{percentile_value}": expected_workflow_b},
+    }
+
+
+def test_query_trace_metrics_latency_percentile_identical_values(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_latency_percentile_identical")
+
+    # All traces have the same duration - tests edge case where lower and upper
+    # interpolation points are the same
+    traces_data = [
+        ("trace1", "workflow_a", 50),
+        ("trace2", "workflow_a", 50),
+    ]
+
+    for trace_id, name, duration in traces_data:
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=duration,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: name},
+        )
+        store.start_trace(trace_info)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.LATENCY,
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.AVG),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=50),
+            MetricAggregation(aggregation_type=AggregationType.PERCENTILE, percentile_value=95),
+        ],
+        dimensions=[TraceMetricDimensionKey.TRACE_NAME],
+    )
+
+    # When all values are identical, any percentile should return that value
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.LATENCY,
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
+        "values": {
+            "AVG": 50.0,
+            "P50": pytest.approx(50.0, abs=0.01),
+            "P95": pytest.approx(50.0, abs=0.01),
+        },
     }
 
 
@@ -394,13 +413,17 @@ def test_query_trace_metrics_latency_multiple_aggregations(store: SqlAlchemyStor
 
     # Calculate expected percentile value based on database type
     values = [100.0, 200.0, 300.0, 400.0, 500.0]
-    expected_p95 = _get_expected_percentile_value(store, 95.0, 100.0, 500.0, values)
-    expected_p99 = _get_expected_percentile_value(store, 99.0, 100.0, 500.0, values)
+    expected_p95 = pytest.approx(np.percentile(values, 95.0), abs=0.01)
+    expected_p99 = pytest.approx(np.percentile(values, 99.0), abs=0.01)
 
     assert asdict(result[0]) == {
         "metric_name": TraceMetricKey.LATENCY,
         "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
-        "values": {"AVG": 300.0, "P95": expected_p95, "P99": expected_p99},
+        "values": {
+            "AVG": pytest.approx(300.0, abs=0.01),
+            "P95": expected_p95,
+            "P99": expected_p99,
+        },
     }
 
 
@@ -893,18 +916,8 @@ def test_query_trace_metrics_total_tokens_percentiles(traces_with_token_usage_se
     workflow_a_values = [150, 225, 300]
     workflow_b_values = [375, 450]
 
-    expected_workflow_a_values = {
-        f"P{p}": _get_expected_percentile_value(
-            store, p, min(workflow_a_values), max(workflow_a_values), workflow_a_values
-        )
-        for p in percentiles
-    }
-    expected_workflow_b_values = {
-        f"P{p}": _get_expected_percentile_value(
-            store, p, min(workflow_b_values), max(workflow_b_values), workflow_b_values
-        )
-        for p in percentiles
-    }
+    expected_workflow_a_values = {f"P{p}": np.percentile(workflow_a_values, p) for p in percentiles}
+    expected_workflow_b_values = {f"P{p}": np.percentile(workflow_b_values, p) for p in percentiles}
 
     assert len(result) == 2
     assert asdict(result[0]) == {
@@ -2098,8 +2111,9 @@ def test_query_span_metrics_latency_percentiles(
 
     # Calculate expected percentile value
     latency_values = [100.0, 200.0, 300.0, 400.0, 500.0]
-    expected_percentile = _get_expected_percentile_value(
-        store, percentile_value, 100.0, 500.0, latency_values
+    expected_percentile = pytest.approx(
+        np.percentile(latency_values, percentile_value),
+        abs=0.01,
     )
 
     assert len(result) == 1
@@ -2187,12 +2201,8 @@ def test_query_span_metrics_latency_percentiles_by_span_name(store: SqlAlchemySt
     gen_resp_values = [100.0, 200.0, 300.0]
     proc_input_values = [50.0, 150.0]
 
-    expected_gen_resp = _get_expected_percentile_value(
-        store, percentile_value, 100.0, 300.0, gen_resp_values
-    )
-    expected_proc_input = _get_expected_percentile_value(
-        store, percentile_value, 50.0, 150.0, proc_input_values
-    )
+    expected_gen_resp = np.percentile(gen_resp_values, percentile_value)
+    expected_proc_input = np.percentile(proc_input_values, percentile_value)
 
     assert len(result) == 2
     assert asdict(result[0]) == {
@@ -2277,14 +2287,14 @@ def test_query_span_metrics_latency_multiple_aggregations(store: SqlAlchemyStore
     )
 
     latency_values = [100.0, 200.0, 300.0, 400.0, 500.0]
-    expected_p50 = _get_expected_percentile_value(store, 50.0, 100.0, 500.0, latency_values)
-    expected_p95 = _get_expected_percentile_value(store, 95.0, 100.0, 500.0, latency_values)
+    expected_p50 = pytest.approx(np.percentile(latency_values, 50.0), abs=0.01)
+    expected_p95 = pytest.approx(np.percentile(latency_values, 95.0), abs=0.01)
 
     assert len(result) == 1
     assert asdict(result[0]) == {
         "metric_name": SpanMetricKey.LATENCY,
         "dimensions": {},
-        "values": {"AVG": 300.0, "P50": expected_p50, "P95": expected_p95},
+        "values": {"AVG": pytest.approx(300.0, abs=0.01), "P50": expected_p50, "P95": expected_p95},
     }
 
 
@@ -3094,15 +3104,11 @@ def test_query_assessment_value_percentiles(
     score_values = [10.0, 20.0, 30.0]
 
     expected_accuracy = pytest.approx(
-        _get_expected_percentile_value(
-            store, percentile_value, min(accuracy_values), max(accuracy_values), accuracy_values
-        ),
+        np.percentile(accuracy_values, percentile_value),
         abs=0.01,
     )
     expected_score = pytest.approx(
-        _get_expected_percentile_value(
-            store, percentile_value, min(score_values), max(score_values), score_values
-        ),
+        np.percentile(score_values, percentile_value),
         abs=0.01,
     )
 
@@ -3223,18 +3229,14 @@ def test_query_assessment_value_multiple_aggregations(store: SqlAlchemyStore):
     )
 
     values = [10.0, 20.0, 30.0, 40.0, 50.0]
-    expected_p50 = pytest.approx(
-        _get_expected_percentile_value(store, 50.0, 10.0, 50.0, values), abs=0.01
-    )
-    expected_p95 = pytest.approx(
-        _get_expected_percentile_value(store, 95.0, 10.0, 50.0, values), abs=0.01
-    )
+    expected_p50 = pytest.approx(np.percentile(values, 50.0), abs=0.01)
+    expected_p95 = pytest.approx(np.percentile(values, 95.0), abs=0.01)
 
     assert len(result) == 1
     assert asdict(result[0]) == {
         "metric_name": AssessmentMetricKey.ASSESSMENT_VALUE,
         "dimensions": {AssessmentMetricDimensionKey.ASSESSMENT_NAME: "score"},
-        "values": {"AVG": 30.0, "P50": expected_p50, "P95": expected_p95},
+        "values": {"AVG": pytest.approx(30.0, abs=0.01), "P50": expected_p50, "P95": expected_p95},
     }
 
 
@@ -3699,3 +3701,936 @@ def test_query_assessments_metrics_invalid_filters(
             aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
             filters=[filter_string],
         )
+
+
+def test_query_span_metrics_cost_sum(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_sum")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            "llm_call_1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.001,
+                    "output_cost": 0.002,
+                    "total_cost": 0.003,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "llm_call_2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.002,
+                    "output_cost": 0.003,
+                    "total_cost": 0.005,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "llm_call_3",
+            span_id=3,
+            span_type="LLM",
+            start_ns=1200000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.003,
+                    "output_cost": 0.004,
+                    "total_cost": 0.007,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {},
+        "values": {"SUM": 0.015},
+    }
+
+
+def test_query_span_metrics_cost_by_model_name(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_by_model")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            "gpt4_call_1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "gpt4_call_2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "claude_call",
+            span_id=3,
+            span_type="LLM",
+            start_ns=1200000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.005,
+                    "output_cost": 0.015,
+                    "total_cost": 0.02,
+                },
+                SpanAttributeKey.MODEL: "claude-3",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_NAME],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_NAME: "claude-3"},
+        "values": {"SUM": 0.02},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_NAME: "gpt-4"},
+        "values": {"SUM": 0.06},
+    }
+
+
+def test_query_span_metrics_cost_avg_by_model_name(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_avg_by_model")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            "gpt4_call_1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "gpt4_call_2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.02,
+                    "output_cost": 0.03,
+                    "total_cost": 0.05,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_NAME],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_NAME: "gpt-4"},
+        "values": {"AVG": 0.04},
+    }
+
+
+def test_query_span_metrics_cost_multiple_aggregations(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_multiple_agg")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            f"llm_call_{i}",
+            span_id=i,
+            span_type="LLM",
+            start_ns=1000000000 + i * 100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": i,
+                    "output_cost": i,
+                    "total_cost": 2 * i,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+            },
+        )
+        for i in range(1, 6)
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.SUM),
+            MetricAggregation(aggregation_type=AggregationType.AVG),
+        ],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {},
+        "values": {"SUM": 30.0, "AVG": 6.0},
+    }
+
+
+def test_query_span_metrics_input_output_cost(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_input_output_cost")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            "llm_call_1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.03,
+                    "total_cost": 0.04,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "llm_call_2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.02,
+                    "output_cost": 0.04,
+                    "total_cost": 0.06,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    input_result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.INPUT_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+    )
+    assert len(input_result) == 1
+    assert asdict(input_result[0]) == {
+        "metric_name": SpanMetricKey.INPUT_COST,
+        "dimensions": {},
+        "values": {"SUM": 0.03},
+    }
+
+    output_result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.OUTPUT_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+    )
+    assert len(output_result) == 1
+    assert asdict(output_result[0]) == {
+        "metric_name": SpanMetricKey.OUTPUT_COST,
+        "dimensions": {},
+        "values": {"SUM": 0.07},
+    }
+
+
+def test_query_span_metrics_cost_across_multiple_traces(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_multiple_traces")
+
+    for i in range(3):
+        trace_info = TraceInfo(
+            trace_id=f"trace{i}",
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "test_trace"},
+        )
+        store.start_trace(trace_info)
+
+        spans = [
+            create_test_span(
+                f"trace{i}",
+                "llm_call",
+                span_id=1,
+                span_type="LLM",
+                start_ns=1000000000,
+                attributes={
+                    SpanAttributeKey.LLM_COST: {
+                        "input_cost": 0.01,
+                        "output_cost": 0.02,
+                        "total_cost": 0.03,
+                    },
+                    SpanAttributeKey.MODEL: "gpt-4",
+                },
+            ),
+        ]
+        store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_NAME],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_NAME: "gpt-4"},
+        "values": {"SUM": 0.09},
+    }
+
+
+@pytest.mark.parametrize("percentile_value", [50, 90, 95, 99])
+def test_query_span_metrics_cost_percentiles(store: SqlAlchemyStore, percentile_value: float):
+    exp_id = store.create_experiment(f"test_span_cost_percentile_{percentile_value}")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            f"llm_call_{i}",
+            span_id=i,
+            span_type="LLM",
+            start_ns=1000000000 + i * 100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.005 * i,
+                    "output_cost": 0.005 * i,
+                    "total_cost": 0.01 * i,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+            },
+        )
+        for i in range(1, 11)
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[
+            MetricAggregation(
+                aggregation_type=AggregationType.PERCENTILE, percentile_value=percentile_value
+            )
+        ],
+    )
+
+    cost_values = [0.01 * i for i in range(1, 11)]
+    expected_percentile = pytest.approx(
+        np.percentile(cost_values, percentile_value),
+        abs=0.001,
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {},
+        "values": {f"P{percentile_value}": expected_percentile},
+    }
+
+
+def test_query_span_metrics_cost_by_model_provider(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_by_provider")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            "openai_call_1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "openai_call_2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.015,
+                    "output_cost": 0.025,
+                    "total_cost": 0.04,
+                },
+                SpanAttributeKey.MODEL: "gpt-4-turbo",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "anthropic_call",
+            span_id=3,
+            span_type="LLM",
+            start_ns=1200000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.005,
+                    "output_cost": 0.015,
+                    "total_cost": 0.02,
+                },
+                SpanAttributeKey.MODEL: "claude-3-5-sonnet",
+                SpanAttributeKey.MODEL_PROVIDER: "anthropic",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_PROVIDER],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic"},
+        "values": {"SUM": 0.02},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai"},
+        "values": {"SUM": 0.07},
+    }
+
+
+def test_query_span_metrics_cost_avg_by_model_provider(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_avg_by_provider")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            f"openai_call_{i}",
+            span_id=i,
+            span_type="LLM",
+            start_ns=1000000000 + i * 100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01 * i,
+                    "output_cost": 0.01 * i,
+                    "total_cost": 0.02 * i,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        )
+        for i in range(1, 4)
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.AVG)],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_PROVIDER],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai"},
+        "values": {"AVG": 0.04},
+    }
+
+
+def test_query_span_metrics_cost_by_model_name_and_provider(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_by_name_and_provider")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            "gpt4_call",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "gpt4_turbo_call",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.005,
+                    "output_cost": 0.015,
+                    "total_cost": 0.02,
+                },
+                SpanAttributeKey.MODEL: "gpt-4-turbo",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "claude_call",
+            span_id=3,
+            span_type="LLM",
+            start_ns=1200000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.008,
+                    "output_cost": 0.012,
+                    "total_cost": 0.02,
+                },
+                SpanAttributeKey.MODEL: "claude-3-5-sonnet",
+                SpanAttributeKey.MODEL_PROVIDER: "anthropic",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[
+            SpanMetricDimensionKey.SPAN_MODEL_NAME,
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+        ],
+    )
+
+    assert len(result) == 3
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_MODEL_NAME: "claude-3-5-sonnet",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic",
+        },
+        "values": {"SUM": 0.02},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_MODEL_NAME: "gpt-4",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai",
+        },
+        "values": {"SUM": 0.03},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_MODEL_NAME: "gpt-4-turbo",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai",
+        },
+        "values": {"SUM": 0.02},
+    }
+
+
+def test_query_span_metrics_input_output_cost_by_provider(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_input_output_cost_by_provider")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    spans = [
+        create_test_span(
+            "trace1",
+            "openai_call",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+        create_test_span(
+            "trace1",
+            "anthropic_call",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.005,
+                    "output_cost": 0.015,
+                    "total_cost": 0.02,
+                },
+                SpanAttributeKey.MODEL: "claude-3-5-sonnet",
+                SpanAttributeKey.MODEL_PROVIDER: "anthropic",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    # Test INPUT_COST
+    result_input = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.INPUT_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_PROVIDER],
+    )
+
+    assert len(result_input) == 2
+    assert asdict(result_input[0]) == {
+        "metric_name": SpanMetricKey.INPUT_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic"},
+        "values": {"SUM": 0.005},
+    }
+    assert asdict(result_input[1]) == {
+        "metric_name": SpanMetricKey.INPUT_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai"},
+        "values": {"SUM": 0.01},
+    }
+
+    # Test OUTPUT_COST
+    result_output = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.OUTPUT_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_PROVIDER],
+    )
+
+    assert len(result_output) == 2
+    assert asdict(result_output[0]) == {
+        "metric_name": SpanMetricKey.OUTPUT_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic"},
+        "values": {"SUM": 0.015},
+    }
+    assert asdict(result_output[1]) == {
+        "metric_name": SpanMetricKey.OUTPUT_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai"},
+        "values": {"SUM": 0.02},
+    }
+
+
+def test_query_span_metrics_count_by_span_status_and_model_provider(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_count_by_status_and_provider")
+
+    trace_info = TraceInfo(
+        trace_id="trace1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "test_trace"},
+    )
+    store.start_trace(trace_info)
+
+    # Create spans with different statuses and model providers
+    spans = [
+        # OpenAI OK spans
+        create_test_span(
+            "trace1",
+            "openai_ok_1",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            status=trace_api.StatusCode.OK,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "openai"},
+        ),
+        create_test_span(
+            "trace1",
+            "openai_ok_2",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            status=trace_api.StatusCode.OK,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "openai"},
+        ),
+        # OpenAI ERROR span
+        create_test_span(
+            "trace1",
+            "openai_error",
+            span_id=3,
+            span_type="LLM",
+            start_ns=1200000000,
+            status=trace_api.StatusCode.ERROR,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "openai"},
+        ),
+        # Anthropic OK span
+        create_test_span(
+            "trace1",
+            "anthropic_ok",
+            span_id=4,
+            span_type="LLM",
+            start_ns=1300000000,
+            status=trace_api.StatusCode.OK,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "anthropic"},
+        ),
+        # Anthropic ERROR spans
+        create_test_span(
+            "trace1",
+            "anthropic_error_1",
+            span_id=5,
+            span_type="LLM",
+            start_ns=1400000000,
+            status=trace_api.StatusCode.ERROR,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "anthropic"},
+        ),
+        create_test_span(
+            "trace1",
+            "anthropic_error_2",
+            span_id=6,
+            span_type="LLM",
+            start_ns=1500000000,
+            status=trace_api.StatusCode.ERROR,
+            attributes={SpanAttributeKey.MODEL_PROVIDER: "anthropic"},
+        ),
+        # Spans WITHOUT model provider - these should NOT appear in results
+        create_test_span(
+            "trace1",
+            "no_provider_ok_1",
+            span_id=7,
+            span_type="CHAIN",
+            start_ns=1600000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "no_provider_ok_2",
+            span_id=8,
+            span_type="CHAIN",
+            start_ns=1700000000,
+            status=trace_api.StatusCode.OK,
+        ),
+        create_test_span(
+            "trace1",
+            "no_provider_error",
+            span_id=9,
+            span_type="CHAIN",
+            start_ns=1800000000,
+            status=trace_api.StatusCode.ERROR,
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.SPAN_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[SpanMetricDimensionKey.SPAN_STATUS, SpanMetricDimensionKey.SPAN_MODEL_PROVIDER],
+    )
+
+    # Results should be sorted by dimensions: first by status, then by provider.
+    # Spans without model provider (None value) are filtered out.
+    assert len(result) == 4
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_STATUS: "ERROR",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic",
+        },
+        "values": {"COUNT": 2},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_STATUS: "ERROR",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai",
+        },
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[2]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_STATUS: "OK",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "anthropic",
+        },
+        "values": {"COUNT": 1},
+    }
+    assert asdict(result[3]) == {
+        "metric_name": SpanMetricKey.SPAN_COUNT,
+        "dimensions": {
+            SpanMetricDimensionKey.SPAN_STATUS: "OK",
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: "openai",
+        },
+        "values": {"COUNT": 2},
+    }

@@ -4,7 +4,9 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.entities.model_registry import PromptModelConfig
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import create_dataset
 from mlflow.genai.optimize.optimize import optimize_prompts
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
@@ -30,8 +32,9 @@ class MockPromptOptimizer(BasePromptOptimizer):
             # Simple optimization: add "Be precise and accurate. " prefix
             optimized_prompts[prompt_name] = f"Be precise and accurate. {template}"
 
-        # Verify the optimization by calling eval_fn
-        eval_fn(optimized_prompts, train_data)
+        # Verify the optimization by calling eval_fn (only if provided)
+        if eval_fn is not None:
+            eval_fn(optimized_prompts, train_data)
 
         return PromptOptimizerOutput(
             optimized_prompts=optimized_prompts,
@@ -412,3 +415,68 @@ def test_optimize_prompts_with_chat_prompt(
             optimizer=MockPromptOptimizer(),
             scorers=[equivalence],
         )
+
+
+def test_optimize_prompts_with_managed_evaluation_dataset(
+    sample_translation_prompt: PromptVersion,
+    sample_dataset: pd.DataFrame,
+):
+    # Create a `ManagedEvaluationDataset` and populate it with records from sample_dataset
+    managed_dataset = create_dataset(name="test_optimize_managed_dataset")
+    managed_dataset.merge_records(sample_dataset)
+
+    result = optimize_prompts(
+        predict_fn=sample_predict_fn,
+        train_data=managed_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
+        optimizer=MockPromptOptimizer(),
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 1
+    assert result.initial_eval_score == 0.5
+    assert result.final_eval_score == 0.9
+
+
+def test_optimize_prompts_preserves_model_config(sample_dataset: pd.DataFrame):
+    source_model_config = PromptModelConfig(
+        provider="openai",
+        model_name="gpt-4o",
+        temperature=0.7,
+        max_tokens=1000,
+    )
+
+    prompt_with_config = register_prompt(
+        name="test_prompt_with_model_config",
+        template="Translate the following text to {{language}}: {{input_text}}",
+        model_config=source_model_config,
+    )
+
+    assert prompt_with_config.model_config is not None
+
+    def predict_fn(input_text: str, language: str) -> str:
+        mlflow.genai.load_prompt(f"prompts:/{prompt_with_config.name}/1")
+        translations = {
+            ("Hello", "Spanish"): "Hola",
+            ("World", "French"): "Monde",
+            ("Goodbye", "Spanish"): "Adiós",
+        }
+        return translations.get((input_text, language), f"translated_{input_text}")
+
+    result = optimize_prompts(
+        predict_fn=predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[f"prompts:/{prompt_with_config.name}/{prompt_with_config.version}"],
+        optimizer=MockPromptOptimizer(),
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 1
+    optimized_prompt = result.optimized_prompts[0]
+
+    assert optimized_prompt.model_config["provider"] == "openai"
+    assert optimized_prompt.model_config["model_name"] == "gpt-4o"
+    assert optimized_prompt.model_config["temperature"] == 0.7
+    assert optimized_prompt.model_config["max_tokens"] == 1000

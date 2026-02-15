@@ -8,6 +8,7 @@ export interface TokenUsageChartDataPoint {
   name: string;
   inputTokens: number;
   outputTokens: number;
+  timestampMs: number;
 }
 
 export interface UseTraceTokenUsageChartDataResult {
@@ -35,14 +36,14 @@ export interface UseTraceTokenUsageChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Fetch input tokens over time
   const {
     data: inputTokensData,
     isLoading: isLoadingInput,
     error: inputError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -57,7 +58,7 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     isLoading: isLoadingOutput,
     error: outputError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -72,7 +73,7 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     isLoading: isLoadingTotal,
     error: totalError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -112,6 +113,7 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       inputTokens: inputTokensMap.get(timestampMs) || 0,
       outputTokens: outputTokensMap.get(timestampMs) || 0,
+      timestampMs,
     }));
   }, [timeBuckets, inputTokensMap, outputTokensMap, timeIntervalSeconds]);
 

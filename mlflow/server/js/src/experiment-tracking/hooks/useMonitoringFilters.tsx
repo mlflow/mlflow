@@ -108,17 +108,16 @@ export const useMonitoringFilters = () => {
   return [monitoringFilters, setMonitoringFilters, disableAutomaticInitialization] as const;
 };
 
-export const useMonitoringFiltersTimeRange = (referenceTime?: Date) => {
+export const useMonitoringFiltersTimeRange = () => {
   const [monitoringFilters] = useMonitoringFilters();
-  const [dateNow] = useState(() => referenceTime ?? new Date());
 
   return useMemo(() => {
-    const { startTime, endTime } = getAbsoluteStartEndTime(dateNow, monitoringFilters);
+    const { startTime, endTime } = monitoringFilters;
     return {
       startTime: startTime ? new Date(startTime).getTime().toString() : undefined,
       endTime: endTime ? new Date(endTime).getTime().toString() : undefined,
     };
-  }, [dateNow, monitoringFilters]);
+  }, [monitoringFilters]);
 };
 
 export function getAbsoluteStartEndTime(

@@ -17,7 +17,6 @@ import logging
 import os
 import pickle
 import shutil
-import warnings
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
@@ -57,7 +56,10 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     update_wrapper_extended,
 )
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -77,6 +79,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -98,7 +101,8 @@ SUPPORTED_SERIALIZATION_FORMATS = [
 _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
 
-_MODEL_DATA_SUBPATH = "model.pkl"
+_PICKLE_MODEL_DATA_SUBPATH = "model.pkl"
+_SKOPS_MODEL_DATA_SUBPATH = "model.skops"
 
 
 def _gen_estimators_to_patch():
@@ -182,6 +186,7 @@ def save_model(
     pyfunc_predict_fn="predict",
     metadata=None,
     skops_trusted_types=None,
+    extra_files=None,
 ):
     """
     Save a scikit-learn model to a path on the local file system. Produces a MLflow Model
@@ -200,12 +205,10 @@ def save_model(
         serialization_format: The format in which to serialize the model. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
             The "skops" format guarantees safe deserialization.
-            The "cloudpickle"
-            format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
-            provides better cross-system compatibility by identifying and
-            packaging code dependencies with the serialized model.
-            The default format is "cloudpickle", but in future MLflow version, the default format
-            will be changed to "skops" for safe deserialization.
+            The "cloudpickle" format, provides better cross-system compatibility by identifying and
+            packaging code dependencies with the serialized model, but requires exercising
+            caution because these formats rely on Python's object serialization mechanism,
+            which can execute arbitrary code during deserialization.
 
         signature: {{ signature }}
         input_example: {{ input_example }}
@@ -218,6 +221,7 @@ def save_model(
         metadata: {{ metadata }}
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
+        extra_files: {{ extra_files }}
 
     .. code-block:: python
         :caption: Example
@@ -262,13 +266,12 @@ def save_model(
         )
 
     if serialization_format != SERIALIZATION_FORMAT_SKOPS and not is_in_databricks_runtime():
-        warnings.warn(
+        _logger.warning(
             "Saving scikit-learn models in the pickle or cloudpickle format requires exercising "
             "caution because these formats rely on Python's object serialization mechanism, "
-            "which can execute arbitrary code during deserialization."
-            "The recommended safe alternative is the 'skops' format.",
-            FutureWarning,
-            stacklevel=2,
+            "which can execute arbitrary code during deserialization. "
+            "The recommended safe alternative is the 'skops' format. "
+            "For more information, see: https://scikit-learn.org/stable/model_persistence.html",
         )
 
     _validate_and_prepare_target_save_path(path)
@@ -289,7 +292,10 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_subpath = _MODEL_DATA_SUBPATH
+    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
+        model_data_subpath = _SKOPS_MODEL_DATA_SUBPATH
+    else:
+        model_data_subpath = _PICKLE_MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
     _save_model(
         sk_model=sk_model,
@@ -297,6 +303,8 @@ def save_model(
         serialization_format=serialization_format,
         skops_trusted_types=skops_trusted_types,
     )
+
+    extra_files_config = _copy_extra_files(extra_files, path)
 
     # `PyFuncModel` only works for sklearn models that define a predict function
 
@@ -322,6 +330,7 @@ def save_model(
         serialization_format=serialization_format,
         code=code_path_subdir,
         skops_trusted_types=skops_trusted_types,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -381,7 +390,7 @@ def log_model(
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
     metadata=None,
-    # New arguments
+    extra_files=None,
     params: dict[str, Any] | None = None,
     tags: dict[str, Any] | None = None,
     model_type: str | None = None,
@@ -389,6 +398,7 @@ def log_model(
     model_id: str | None = None,
     name: str | None = None,
     skops_trusted_types: list[str] | None = None,
+    **kwargs,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -406,12 +416,10 @@ def log_model(
         serialization_format: The format in which to serialize the model. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
             The "skops" format guarantees safe deserialization.
-            The "cloudpickle"
-            format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
-            provides better cross-system compatibility by identifying and
-            packaging code dependencies with the serialized model.
-            The default format is "cloudpickle", but in future MLflow version, the default format
-            will be changed to "skops" for safe deserialization.
+            The "cloudpickle" format, provides better cross-system compatibility by identifying and
+            packaging code dependencies with the serialized model, but requires exercising
+            caution because these formats rely on Python's object serialization mechanism,
+            which can execute arbitrary code during deserialization.
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -427,6 +435,7 @@ def log_model(
             are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
             ``"predict_joint_log_proba"``, and ``"score"``.
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
@@ -435,6 +444,7 @@ def log_model(
         name: {{ name }}
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
+        kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -480,12 +490,14 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         pyfunc_predict_fn=pyfunc_predict_fn,
         metadata=metadata,
+        extra_files=extra_files,
         params=params,
         tags=tags,
         model_type=model_type,
         step=step,
         model_id=model_id,
         skops_trusted_types=skops_trusted_types,
+        **kwargs,
     )
 
 
@@ -509,7 +521,11 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
         )
 
     if serialization_format != SERIALIZATION_FORMAT_SKOPS:
-        if not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get():
+        if (
+            not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+            and not is_in_databricks_runtime()
+            and not is_in_databricks_model_serving_environment()
+        ):
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this model is saved "
                 "in pickle format. To address this issue, you need to set environment variable "

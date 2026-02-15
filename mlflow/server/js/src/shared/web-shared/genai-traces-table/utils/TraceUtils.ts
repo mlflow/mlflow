@@ -218,7 +218,7 @@ const convertAssessmentV3Source = (assessment: Assessment): RunEvaluationResultA
   };
 };
 
-const convertFeedbackAssessmentToRunEvalAssessment = (
+export const convertFeedbackAssessmentToRunEvalAssessment = (
   assessment: FeedbackAssessment,
 ): RunEvaluationResultAssessment => {
   const assessmentValue = assessment.feedback?.value;

@@ -3,7 +3,7 @@ import subprocess
 import pytest
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="package", autouse=True)
 def build_mlflow_image():
     subprocess.check_call(
         [
@@ -18,7 +18,4 @@ def build_mlflow_image():
     )
     yield
     # Clean up the image after all tests complete
-    subprocess.run(
-        ["docker", "image", "rm", "mlflow-integration-test"],
-        check=False,
-    )
+    subprocess.check_call(["docker", "image", "rm", "-f", "mlflow-integration-test"])

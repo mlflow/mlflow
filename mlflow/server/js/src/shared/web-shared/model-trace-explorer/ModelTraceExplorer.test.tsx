@@ -359,7 +359,7 @@ describe('ModelTraceExplorer', () => {
 
     expect(screen.getByTestId('assessments-pane')).toBeInTheDocument();
 
-    const createButton = screen.getByText('Add new assessment');
+    const createButton = screen.getByText('Add feedback');
     await userEvent.click(createButton);
 
     // expect that the default assessment input type is boolean

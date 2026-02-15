@@ -1,6 +1,6 @@
 import type { Row, SortingState, RowSelectionState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import {
   Table,
@@ -163,6 +163,7 @@ export const GenAIChatSessionsTable = ({
   openLinksInNewTab = false,
   empty,
   toolbarAddons,
+  onRowSelectionChange,
 }: {
   experimentId: string;
   traces: ModelTraceInfoV3[];
@@ -175,12 +176,19 @@ export const GenAIChatSessionsTable = ({
   openLinksInNewTab?: boolean;
   empty?: React.ReactElement;
   toolbarAddons?: React.ReactNode;
+  onRowSelectionChange?: (rowSelection: RowSelectionState) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
 
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'sessionStartTime', desc: true }]);
   const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
+
+  // Notify parent of row selection changes
+  useEffect(() => {
+    onRowSelectionChange?.(rowSelection);
+  }, [rowSelection, onRowSelectionChange]);
+
   const { columnVisibility, setColumnVisibility } = useSessionsTableColumnVisibility({
     experimentId,
     columns,
@@ -234,7 +242,6 @@ export const GenAIChatSessionsTable = ({
         flex: 1,
         minHeight: 0,
         position: 'relative',
-        marginTop: theme.spacing.sm,
       }}
     >
       <GenAIChatSessionsToolbar
@@ -257,35 +264,37 @@ export const GenAIChatSessionsTable = ({
           enableRowSelection ? table.getIsAllRowsSelected() || table.getIsSomeRowsSelected() : undefined
         }
       >
-        <TableRow isHeader>
-          {enableRowSelection && (
-            <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
-              <TableRowSelectCell
-                componentId="mlflow.chat-sessions.table-header-checkbox"
-                checked={table.getIsAllRowsSelected()}
-                indeterminate={table.getIsSomeRowsSelected()}
-                onChange={table.getToggleAllRowsSelectedHandler()}
-              />
-            </div>
-          )}
-          {table.getLeafHeaders().map((header) => (
-            <TableHeader
-              key={header.id}
-              componentId="mlflow.chat-sessions.table-header"
-              header={header}
-              column={header.column}
-              sortable={header.column.getCanSort()}
-              css={{
-                cursor: header.column.getCanSort() ? 'pointer' : 'default',
-                flex: `calc(var(--col-${header.id}-size) / 100)`,
-              }}
-              sortDirection={header.column.getIsSorted() || 'none'}
-              onToggleSort={header.column.getToggleSortingHandler()}
-            >
-              {flexRender(header.column.columnDef.header, header.getContext())}
-            </TableHeader>
-          ))}
-        </TableRow>
+        {sessionTableRows.length > 0 && (
+          <TableRow isHeader>
+            {enableRowSelection && (
+              <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
+                <TableRowSelectCell
+                  componentId="mlflow.chat-sessions.table-header-checkbox"
+                  checked={table.getIsAllRowsSelected()}
+                  indeterminate={table.getIsSomeRowsSelected()}
+                  onChange={table.getToggleAllRowsSelectedHandler()}
+                />
+              </div>
+            )}
+            {table.getLeafHeaders().map((header) => (
+              <TableHeader
+                key={header.id}
+                componentId="mlflow.chat-sessions.table-header"
+                header={header}
+                column={header.column}
+                sortable={header.column.getCanSort()}
+                css={{
+                  cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                  flex: `calc(var(--col-${header.id}-size) / 100)`,
+                }}
+                sortDirection={header.column.getIsSorted() || 'none'}
+                onToggleSort={header.column.getToggleSortingHandler()}
+              >
+                {flexRender(header.column.columnDef.header, header.getContext())}
+              </TableHeader>
+            ))}
+          </TableRow>
+        )}
 
         {!isLoading &&
           table

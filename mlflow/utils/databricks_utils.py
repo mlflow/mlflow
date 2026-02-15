@@ -1202,6 +1202,7 @@ def _get_databricks_creds_config(tracking_uri):
     # configuration providers defined in legacy Databricks CLI python library to
     # read token values.
     profile, key_prefix = get_db_info_from_uri(tracking_uri)
+    profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
 
     config = None
 
@@ -1301,11 +1302,16 @@ class DatabricksRuntimeVersion(NamedTuple):
     is_client_image: bool
     major: int
     minor: int
+    is_gpu_image: bool
 
     @classmethod
     def parse(cls, databricks_runtime: str | None = None):
         dbr_version = databricks_runtime or get_databricks_runtime_version()
         try:
+            is_gpu_image = dbr_version.endswith("-gpu")
+            if is_gpu_image:
+                dbr_version = dbr_version[:-4]
+
             dbr_version_splits = dbr_version.split(".", maxsplit=2)
             if dbr_version_splits[0] == "client":
                 is_client_image = True
@@ -1315,7 +1321,7 @@ class DatabricksRuntimeVersion(NamedTuple):
                 is_client_image = False
                 major = int(dbr_version_splits[0])
                 minor = int(dbr_version_splits[1])
-            return cls(is_client_image, major, minor)
+            return cls(is_client_image, major, minor, is_gpu_image)
         except Exception:
             raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
 

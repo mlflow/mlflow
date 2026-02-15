@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { useIsFileStore } from '../../hooks/useServerInfo';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
@@ -11,6 +12,8 @@ import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
+import { LazyTraceCostBreakdownChart } from './components/LazyTraceCostBreakdownChart';
+import { LazyTraceCostOverTimeChart } from './components/LazyTraceCostOverTimeChart';
 import { AssessmentChartsSection } from './components/AssessmentChartsSection';
 import { ToolCallStatistics } from './components/ToolCallStatistics';
 import { ToolCallChartsSection } from './components/ToolCallChartsSection';
@@ -18,7 +21,8 @@ import { LazyToolUsageChart } from './components/LazyToolUsageChart';
 import { LazyToolLatencyChart } from './components/LazyToolLatencyChart';
 import { LazyToolPerformanceSummary } from './components/LazyToolPerformanceSummary';
 import { TabContentContainer, ChartGrid } from './components/OverviewLayoutComponents';
-import { calculateTimeInterval } from './hooks/useTraceMetricsQuery';
+import { TimeUnitSelector } from './components/TimeUnitSelector';
+import { TimeUnit, TIME_UNIT_SECONDS, calculateDefaultTimeUnit, isTimeUnitValid } from './utils/timeUtils';
 import { generateTimeBuckets } from './utils/chartUtils';
 import { OverviewChartProvider } from './OverviewChartContext';
 import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
@@ -27,6 +31,8 @@ const ExperimentGenAIOverviewPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
   const [activeTab, setActiveTab] = useOverviewTab();
+  const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
+  const isFileStore = useIsFileStore();
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -44,8 +50,21 @@ const ExperimentGenAIOverviewPageImpl = () => {
   const startTimeMs = startTime ? new Date(startTime).getTime() : undefined;
   const endTimeMs = endTime ? new Date(endTime).getTime() : undefined;
 
-  // Calculate time interval once for all charts
-  const timeIntervalSeconds = calculateTimeInterval(startTimeMs, endTimeMs);
+  // Calculate the default time unit for the current time range
+  const defaultTimeUnit = calculateDefaultTimeUnit(startTimeMs, endTimeMs);
+
+  // Auto-clear if selected time unit becomes invalid due to time range change
+  useEffect(() => {
+    if (selectedTimeUnit && !isTimeUnitValid(startTimeMs, endTimeMs, selectedTimeUnit)) {
+      setSelectedTimeUnit(null);
+    }
+  }, [startTimeMs, endTimeMs, selectedTimeUnit]);
+
+  // Use selected if valid, otherwise fall back to default
+  const effectiveTimeUnit = selectedTimeUnit ?? defaultTimeUnit;
+
+  // Use the effective time unit for time interval
+  const timeIntervalSeconds = TIME_UNIT_SECONDS[effectiveTimeUnit];
 
   // Generate all time buckets once for all charts
   const timeBuckets = useMemo(
@@ -62,6 +81,19 @@ const ExperimentGenAIOverviewPageImpl = () => {
         overflow: 'hidden',
       }}
     >
+      {isFileStore && (
+        <Alert
+          componentId="mlflow.experiment.overview.filestore-warning"
+          type="warning"
+          css={{ marginBottom: theme.spacing.sm }}
+          message={
+            <FormattedMessage
+              defaultMessage="The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported."
+              description="Warning banner shown on the Overview tab when using FileStore backend"
+            />
+          }
+        />
+      )}
       <Tabs.Root
         componentId="mlflow.experiment.overview.tabs"
         value={activeTab}
@@ -98,6 +130,16 @@ const ExperimentGenAIOverviewPageImpl = () => {
             gap: theme.spacing.sm,
           }}
         >
+          {/* Time unit selector for chart grouping */}
+          <TimeUnitSelector
+            value={effectiveTimeUnit}
+            onChange={setSelectedTimeUnit}
+            startTimeMs={startTimeMs}
+            endTimeMs={endTimeMs}
+            allowClear={selectedTimeUnit !== null && selectedTimeUnit !== defaultTimeUnit}
+            onClear={() => setSelectedTimeUnit(null)}
+          />
+
           {/*
            * Time range selector - exclude 'ALL' since charts require start_time_ms and end_time_ms
            * TODO: remove this once this is supported in backend
@@ -109,7 +151,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </div>
 
         <OverviewChartProvider
-          experimentId={experimentId}
+          experimentIds={[experimentId]}
           startTimeMs={startTimeMs}
           endTimeMs={endTimeMs}
           timeIntervalSeconds={timeIntervalSeconds}
@@ -131,6 +173,12 @@ const ExperimentGenAIOverviewPageImpl = () => {
                 <LazyTraceTokenUsageChart />
                 <LazyTraceTokenStatsChart />
               </ChartGrid>
+
+              {/* Cost Breakdown and Cost Over Time charts - side by side */}
+              <ChartGrid>
+                <LazyTraceCostBreakdownChart />
+                <LazyTraceCostOverTimeChart />
+              </ChartGrid>
             </TabContentContainer>
           </Tabs.Content>
 
@@ -149,14 +197,14 @@ const ExperimentGenAIOverviewPageImpl = () => {
               {/* Tool performance summary */}
               <LazyToolPerformanceSummary />
 
-              {/* Tool error rate charts - dynamically rendered based on available tools */}
-              <ToolCallChartsSection />
-
               {/* Tool usage and latency charts - side by side */}
               <ChartGrid>
                 <LazyToolUsageChart />
                 <LazyToolLatencyChart />
               </ChartGrid>
+
+              {/* Tool error rate charts - dynamically rendered based on available tools */}
+              <ToolCallChartsSection />
             </TabContentContainer>
           </Tabs.Content>
         </OverviewChartProvider>

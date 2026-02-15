@@ -1,11 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import {
-  WrenchIcon,
-  Typography,
-  useDesignSystemTheme,
-  SortAscendingIcon,
-  SortDescendingIcon,
-} from '@databricks/design-system';
+import React, { useMemo } from 'react';
+import { WrenchIcon, Typography } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useToolPerformanceSummaryData } from '../hooks/useToolPerformanceSummaryData';
 import {
@@ -16,19 +10,18 @@ import {
   OverviewChartContainer,
 } from './OverviewChartComponents';
 import { formatCount, formatLatency, useChartColors } from '../utils/chartUtils';
+import { useSortState, useSummaryTableStyles, SortableHeader, LinkableNameCell } from './SummaryTableComponents';
 
 type SortColumn = 'toolName' | 'totalCalls' | 'successRate' | 'avgLatency';
-type SortDirection = 'asc' | 'desc';
 
 /**
  * Tool Performance Summary component displaying per-tool metrics in a table-like view.
  * Shows tool name, call count, success rate, and average latency for each tool.
  */
 export const ToolPerformanceSummary: React.FC = () => {
-  const { theme } = useDesignSystemTheme();
   const { getChartColor } = useChartColors();
-  const [sortColumn, setSortColumn] = useState<SortColumn>('totalCalls');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const { sortColumn, sortDirection, handleSort } = useSortState<SortColumn>('totalCalls');
+  const { headerRowStyle, bodyRowStyle, cellStyle } = useSummaryTableStyles('minmax(80px, 2fr) 1fr 1fr 1fr');
 
   // Fetch tool performance data
   const { toolsData, isLoading, error, hasData } = useToolPerformanceSummaryData();
@@ -57,15 +50,6 @@ export const ToolPerformanceSummary: React.FC = () => {
     });
   }, [toolsData, sortColumn, sortDirection]);
 
-  const handleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('desc');
-    }
-  };
-
   if (isLoading) {
     return <OverviewChartLoadingState />;
   }
@@ -73,48 +57,6 @@ export const ToolPerformanceSummary: React.FC = () => {
   if (error) {
     return <OverviewChartErrorState />;
   }
-
-  // Common styles
-  const rowStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(80px, 2fr) 1fr 1fr 1fr',
-    gap: theme.spacing.lg,
-    borderBottom: `1px solid ${theme.colors.border}`,
-  } as const;
-
-  const cellStyle = { textAlign: 'center' } as const;
-
-  // Sortable header cell component
-  const SortableHeader = ({
-    column,
-    children,
-    centered,
-  }: {
-    column: SortColumn;
-    children: React.ReactNode;
-    centered?: boolean;
-  }) => (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => handleSort(column)}
-      onKeyDown={(e) => e.key === 'Enter' && handleSort(column)}
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: theme.spacing.xs,
-        cursor: 'pointer',
-        justifyContent: centered ? 'center' : 'flex-start',
-        color: theme.colors.textSecondary,
-        fontSize: theme.typography.fontSizeSm,
-        fontWeight: 600,
-        '&:hover': { color: theme.colors.textPrimary },
-      }}
-    >
-      {children}
-      {sortColumn === column && (sortDirection === 'asc' ? <SortAscendingIcon /> : <SortDescendingIcon />)}
-    </div>
-  );
 
   return (
     <OverviewChartContainer componentId="mlflow.charts.tool_performance_summary">
@@ -131,61 +73,57 @@ export const ToolPerformanceSummary: React.FC = () => {
       {hasData ? (
         <div css={{ display: 'flex', flexDirection: 'column' }}>
           {/* Table header */}
-          <div css={{ ...rowStyle, padding: `${theme.spacing.sm}px ${theme.spacing.lg}px ${theme.spacing.sm}px 0` }}>
-            <SortableHeader column="toolName">
+          <div css={headerRowStyle}>
+            <SortableHeader column="toolName" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort}>
               <FormattedMessage defaultMessage="Tool" description="Column header for tool name" />
             </SortableHeader>
-            <SortableHeader column="totalCalls" centered>
+            <SortableHeader
+              column="totalCalls"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+              centered
+            >
               <FormattedMessage defaultMessage="Calls" description="Column header for call count" />
             </SortableHeader>
-            <SortableHeader column="successRate" centered>
+            <SortableHeader
+              column="successRate"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+              centered
+            >
               <FormattedMessage defaultMessage="Success" description="Column header for success rate" />
             </SortableHeader>
-            <SortableHeader column="avgLatency" centered>
-              <FormattedMessage defaultMessage="Latency" description="Column header for average latency" />
+            <SortableHeader
+              column="avgLatency"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+              centered
+            >
+              <FormattedMessage defaultMessage="Latency (AVG)" description="Column header for average latency" />
             </SortableHeader>
           </div>
 
           {/* Scrollable table body */}
           <div css={{ maxHeight: 300, overflowY: 'auto' }}>
-            {sortedToolsData.map((tool, index) => (
-              <div
-                key={tool.toolName}
-                css={{
-                  ...rowStyle,
-                  padding: `${theme.spacing.md}px ${theme.spacing.lg}px ${theme.spacing.md}px 0`,
-                  alignItems: 'center',
-                  '&:last-child': { borderBottom: 'none' },
-                }}
-              >
-                {/* Tool name with color indicator */}
-                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                  <div
-                    css={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      backgroundColor: getChartColor(index),
-                      flexShrink: 0,
-                    }}
+            {sortedToolsData.map((tool, index) => {
+              const originalIndex = toolsData.findIndex((t) => t.toolName === tool.toolName);
+              const colorIndex = originalIndex === -1 ? index : originalIndex;
+              return (
+                <div key={tool.toolName} css={bodyRowStyle}>
+                  <LinkableNameCell
+                    name={tool.toolName}
+                    color={getChartColor(colorIndex)}
+                    scrollToElementId={`tool-chart-${tool.toolName}`}
                   />
-                  <Typography.Text
-                    css={{
-                      fontFamily: 'monospace',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {tool.toolName}
-                  </Typography.Text>
+                  <Typography.Text css={cellStyle}>{formatCount(tool.totalCalls)}</Typography.Text>
+                  <Typography.Text css={cellStyle}>{tool.successRate.toFixed(2)}%</Typography.Text>
+                  <Typography.Text css={cellStyle}>{formatLatency(tool.avgLatency)}</Typography.Text>
                 </div>
-
-                <Typography.Text css={cellStyle}>{formatCount(tool.totalCalls)}</Typography.Text>
-                <Typography.Text css={cellStyle}>{tool.successRate.toFixed(2)}%</Typography.Text>
-                <Typography.Text css={cellStyle}>{formatLatency(tool.avgLatency)}</Typography.Text>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ) : (

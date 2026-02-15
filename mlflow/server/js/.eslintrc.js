@@ -160,7 +160,7 @@ module.exports = {
     ],
     'no-with': 'warn',
     'no-whitespace-before-property': 'warn',
-    'react-hooks/exhaustive-deps': 'warn',
+    'react-hooks/exhaustive-deps': 'error',
     'require-yield': 'warn',
     'rest-spread-spacing': ['warn', 'never'],
     strict: ['warn', 'never'],
@@ -371,7 +371,6 @@ module.exports = {
           {
             name: 'emotion',
             message:
-              // eslint-disable-next-line max-len
               "Importing emotion is obsolete - please use css={...} prop in JSX elements now. For class names, you can import { ClassNames } from '@emotion/react' package.",
           },
         ],
@@ -379,7 +378,6 @@ module.exports = {
           {
             group: ['react-router*'],
             message:
-              // eslint-disable-next-line max-len
               'Please do not import from react-router libraries directly and use `src/common/utils/RoutingUtils` module instead.',
           },
         ],

@@ -189,7 +189,17 @@ export enum FilterOperator {
   LESS_THAN_OR_EQUALS = '<=',
   CONTAINS = 'CONTAINS',
   RLIKE = 'RLIKE',
+  IS_NULL = 'IS NULL',
+  IS_NOT_NULL = 'IS NOT NULL',
 }
+
+/**
+ * Helper to check if an operator is a null-type operator (IS NULL or IS NOT NULL).
+ * These operators don't require a value.
+ */
+export const isNullOperator = (operator: string): boolean => {
+  return operator === FilterOperator.IS_NULL || operator === FilterOperator.IS_NOT_NULL;
+};
 
 // operators that are not displayed in the filter popover, but are
 // still supported in the backend. eventually we should implement

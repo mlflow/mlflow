@@ -9,6 +9,9 @@ import {
   TableRow,
   TableSkeletonRows,
   useDesignSystemTheme,
+  Button,
+  PlusIcon,
+  Typography,
 } from '@databricks/design-system';
 import type { ColumnDef } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel } from '@tanstack/react-table';
@@ -20,6 +23,7 @@ import { PromptsListTableNameCell } from './PromptsListTableNameCell';
 import Utils from '../../../../common/utils/Utils';
 import { PromptsListTableVersionCell } from './PromptsListTableVersionCell';
 import type { PromptsTableMetadata } from '../utils';
+import type { PromptsListComponentId } from '../PromptsPage';
 import { first, isEmpty } from 'lodash';
 
 type PromptsTableColumnDef = ColumnDef<RegisteredPrompt>;
@@ -79,6 +83,9 @@ export const PromptsListTable = ({
   onPreviousPage,
   onEditTags,
   experimentId,
+  onCreatePrompt,
+  paginationComponentId,
+  tableHeaderComponentId,
 }: {
   prompts?: RegisteredPrompt[];
   error?: Error;
@@ -90,6 +97,9 @@ export const PromptsListTable = ({
   onPreviousPage: () => void;
   onEditTags: (editedEntity: RegisteredPrompt) => void;
   experimentId?: string;
+  onCreatePrompt: () => void;
+  paginationComponentId: PromptsListComponentId;
+  tableHeaderComponentId: PromptsListComponentId;
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = usePromptsTableColumns();
@@ -107,34 +117,60 @@ export const PromptsListTable = ({
     const isEmptyList = !isLoading && isEmpty(prompts);
     if (isEmptyList && isFiltered) {
       return (
-        <Empty
-          image={<NoIcon />}
-          title={
-            <FormattedMessage
-              defaultMessage="No prompts found"
-              description="Label for the empty state in the prompts table when no prompts are found"
-            />
-          }
-          description={null}
-        />
+        <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+          <Empty
+            image={<NoIcon />}
+            title={
+              <FormattedMessage
+                defaultMessage="No prompts found"
+                description="Label for the empty state in the prompts table when no prompts are found"
+              />
+            }
+            description={null}
+          />
+        </div>
       );
     }
     if (isEmptyList) {
       return (
-        <Empty
-          title={
-            <FormattedMessage
-              defaultMessage="No prompts created"
-              description="A header for the empty state in the prompts table"
-            />
-          }
-          description={
-            <FormattedMessage
-              defaultMessage='Use "Create prompt" button in order to create a new prompt'
-              description="Guidelines for the user on how to create a new prompt in the prompts list page"
-            />
-          }
-        />
+        <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+          <Empty
+            title={
+              <FormattedMessage
+                defaultMessage="Create prompt"
+                description="A header for the empty state in the prompts table"
+              />
+            }
+            description={
+              <FormattedMessage
+                defaultMessage="Create and manage prompts using MLflow. <link>Learn more</link>"
+                description="Guidelines for the user on how to create a new prompt in the prompts list page"
+                values={{
+                  link: (content: any) => (
+                    <Typography.Link
+                      componentId="mlflow.prompts.list.table.learn_more_link"
+                      href="https://mlflow.org/docs/latest/genai/prompt-registry/"
+                      openInNewTab
+                    >
+                      {content}
+                    </Typography.Link>
+                  ),
+                }}
+              />
+            }
+            button={
+              <Button
+                componentId="mlflow.prompts.list.table.create_prompt"
+                data-testid="create-prompt-empty-state-button"
+                onClick={onCreatePrompt}
+                type="primary"
+                icon={<PlusIcon />}
+              >
+                <FormattedMessage defaultMessage="Create prompt" description="Prompts empty state CTA" />
+              </Button>
+            }
+          />
+        </div>
       );
     }
 
@@ -150,14 +186,14 @@ export const PromptsListTable = ({
           hasPreviousPage={hasPreviousPage}
           onNextPage={onNextPage}
           onPreviousPage={onPreviousPage}
-          componentId="mlflow.prompts.list.pagination"
+          componentId={paginationComponentId}
         />
       }
       empty={getEmptyState()}
     >
       <TableRow isHeader>
         {table.getLeafHeaders().map((header) => (
-          <TableHeader componentId="mlflow.prompts.list.table.header" key={header.id}>
+          <TableHeader componentId={tableHeaderComponentId} key={header.id}>
             {flexRender(header.column.columnDef.header, header.getContext())}
           </TableHeader>
         ))}
