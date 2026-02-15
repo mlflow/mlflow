@@ -1,0 +1,88 @@
+name: Create Size Labels
+
+# This workflow creates the missing size/* labels for PR Size Labeling
+# Run this workflow once to set up the labels, then it can be deleted
+
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  create-labels:
+    runs-on: ubuntu-slim
+    permissions:
+      issues: write
+    timeout-minutes: 5
+    steps:
+      - name: Create missing size labels
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+
+            const labels = [
+              { name: 'size/XS', color: 'ededed', description: 'Extra-small PR (0-9 LoC)' },
+              { name: 'size/S', color: 'ededed', description: 'Small PR (10-49 LoC)' },
+              { name: 'size/M', color: 'ededed', description: 'Medium PR (50-199 LoC)' },
+              { name: 'size/L', color: 'ededed', description: 'Large PR (200-499 LoC)' },
+              { name: 'size/XL', color: 'ededed', description: 'Extra-large PR (500+ LoC)' },
+            ];
+
+            console.log('Creating/updating size/* labels...');
+
+            for (const label of labels) {
+              try {
+                // Try to get the label first
+                await github.rest.issues.getLabel({
+                  owner,
+                  repo,
+                  name: label.name,
+                });
+
+                // If it exists, update it
+                console.log(`Label ${label.name} exists, updating...`);
+                await github.rest.issues.updateLabel({
+                  owner,
+                  repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description,
+                });
+                console.log(`✓ Updated ${label.name}`);
+              } catch (error) {
+                if (error.status === 404) {
+                  // Label doesn't exist, create it
+                  console.log(`Label ${label.name} doesn't exist, creating...`);
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description,
+                  });
+                  console.log(`✓ Created ${label.name}`);
+                } else {
+                  console.error(`Error processing ${label.name}:`, error);
+                  throw error;
+                }
+              }
+            }
+
+            console.log('\nAll size/* labels have been created/updated successfully!');
+
+            // Verify the labels
+            console.log('\nVerifying labels...');
+            const allLabels = await github.rest.issues.listLabelsForRepo({
+              owner,
+              repo,
+              per_page: 100,
+            });
+
+            const sizeLabels = allLabels.data.filter(l => l.name.startsWith('size/'));
+            console.log('\nCurrent size/* labels:');
+            for (const label of sizeLabels) {
+              console.log(`- ${label.name}: ${label.description || '(no description)'}`);
+            }
