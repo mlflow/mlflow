@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-slim
     permissions:
       pull-requests: write
+      issues: write
     timeout-minutes: 5
     steps:
       - env:
@@ -94,10 +95,16 @@ jobs:
 
           # Update labels using gh CLI (existing labels from event payload)
           while read -r label; do
-            [[ "$label" == size/* && "$label" != "$size_label" ]] && \
-              gh pr edit "$PR_NUMBER" --remove-label "$label"
+            if [[ "$label" == size/* && "$label" != "$size_label" ]]; then
+              gh pr edit "$PR_NUMBER" --remove-label "$label" || true
+            fi
           done <<< "$PR_LABELS"
 
+          # Ensure the label exists before adding it
           if ! grep -qx "$size_label" <<< "$PR_LABELS"; then
+            if ! gh label list --search "$size_label" --limit 1 | grep -q "^${size_label}"; then
+              echo "Creating label: ${size_label}"
+              gh label create "$size_label" --color ededed --description "Pull request size: ${size_label#size/}"
+            fi
             gh pr edit "$PR_NUMBER" --add-label "$size_label"
           fi
