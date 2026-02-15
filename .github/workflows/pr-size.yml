@@ -93,11 +93,18 @@ jobs:
           echo "Label: ${size_label}"
 
           # Update labels using gh CLI (existing labels from event payload)
+          # Remove old size/* labels (ignore errors if label doesn't exist)
           while read -r label; do
-            [[ "$label" == size/* && "$label" != "$size_label" ]] && \
-              gh pr edit "$PR_NUMBER" --remove-label "$label"
+            if [[ "$label" == size/* && "$label" != "$size_label" ]]; then
+              gh pr edit "$PR_NUMBER" --remove-label "$label" 2>/dev/null || true
+            fi
           done <<< "$PR_LABELS"
 
+          # Add new size label (create label if it doesn't exist)
           if ! grep -qx "$size_label" <<< "$PR_LABELS"; then
+            # Check if label exists, create if not
+            if ! gh label list --search "$size_label" | grep -q "^$size_label"; then
+              gh label create "$size_label" --color "0075ca" --description "Auto-generated PR size label" || true
+            fi
             gh pr edit "$PR_NUMBER" --add-label "$size_label"
           fi
