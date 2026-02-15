@@ -304,26 +304,52 @@ def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict
     return tool_results
 
 
-def _reconstruct_conversation_messages(
-    transcript: list[dict[str, Any]], end_idx: int
+def _get_input_messages(
+    transcript: list[dict[str, Any]], current_idx: int
 ) -> list[dict[str, Any]]:
-    """Collect conversation messages from the transcript in native Anthropic format.
+    """Get all messages between the previous text-bearing assistant response and the current one.
 
-    The transcript's `message` field is already in Anthropic format
-    ({"role": "...", "content": ...}), so we just collect them directly.
+    Claude Code emits separate transcript entries for text and tool_use content.
+    A typical sequence looks like:
+        assistant [text]        ← previous LLM boundary (stop here)
+        assistant [tool_use]    ← include
+        user [tool_result]      ← include
+        assistant [tool_use]    ← include
+        user [tool_result]      ← include
+        assistant [text]        ← current (the span we're building inputs for)
+
+    We walk backward and collect everything, only stopping when we hit an
+    assistant entry that contains text content (which marks the previous LLM span).
 
     Args:
         transcript: List of conversation entries from Claude Code transcript
-        end_idx: Index to stop at (exclusive) - typically the current assistant response
+        current_idx: Index of the current assistant response
 
     Returns:
         List of messages in Anthropic format
     """
     messages = []
-    for i in range(end_idx):
-        msg = transcript[i].get(MESSAGE_FIELD_MESSAGE, {})
+    for i in range(current_idx - 1, -1, -1):
+        entry = transcript[i]
+        msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
+
+        # Stop at a previous assistant entry that has text content (previous LLM span)
+        if entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_ASSISTANT:
+            content = msg.get(MESSAGE_FIELD_CONTENT, [])
+            has_text = False
+            if isinstance(content, str):
+                has_text = bool(content.strip())
+            elif isinstance(content, list):
+                has_text = any(
+                    isinstance(p, dict) and p.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TEXT
+                    for p in content
+                )
+            if has_text:
+                break
+
         if msg.get("role") and msg.get(MESSAGE_FIELD_CONTENT):
             messages.append(msg)
+    messages.reverse()
     return messages
 
 
@@ -381,7 +407,7 @@ def _create_llm_and_tool_spans(
         llm_span = None
         if text_content and text_content.strip() and not tool_uses:
             llm_call_num += 1
-            conversation_messages = _reconstruct_conversation_messages(transcript, i)
+            messages = _get_input_messages(transcript, i)
 
             llm_span = mlflow.start_span_no_context(
                 name=f"llm_call_{llm_call_num}",
@@ -390,7 +416,7 @@ def _create_llm_and_tool_spans(
                 start_time_ns=timestamp_ns,
                 inputs={
                     "model": msg.get("model", "unknown"),
-                    "messages": conversation_messages,
+                    "messages": messages,
                 },
                 attributes={
                     "model": msg.get("model", "unknown"),
