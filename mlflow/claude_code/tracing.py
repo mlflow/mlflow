@@ -304,9 +304,7 @@ def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict
     return tool_results
 
 
-def _get_input_messages(
-    transcript: list[dict[str, Any]], current_idx: int
-) -> list[dict[str, Any]]:
+def _get_input_messages(transcript: list[dict[str, Any]], current_idx: int) -> list[dict[str, Any]]:
     """Get all messages between the previous text-bearing assistant response and the current one.
 
     Claude Code emits separate transcript entries for text and tool_use content.
@@ -382,7 +380,6 @@ def _create_llm_and_tool_spans(
     parent_span, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
     """Create LLM and tool spans for assistant responses with proper timing."""
-    llm_call_num = 0
     for i in range(start_idx, len(transcript)):
         entry = transcript[i]
         if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_ASSISTANT:
@@ -406,11 +403,10 @@ def _create_llm_and_tool_spans(
         # Only create LLM span if there's text content (no tools)
         llm_span = None
         if text_content and text_content.strip() and not tool_uses:
-            llm_call_num += 1
             messages = _get_input_messages(transcript, i)
 
             llm_span = mlflow.start_span_no_context(
-                name=f"llm_call_{llm_call_num}",
+                name="llm",
                 parent_span=parent_span,
                 span_type=SpanType.LLM,
                 start_time_ns=timestamp_ns,
@@ -428,11 +424,13 @@ def _create_llm_and_tool_spans(
             _set_token_usage_attribute(llm_span, usage)
 
             # Output in Anthropic response format for Chat UI rendering
-            llm_span.set_outputs({
-                "type": "message",
-                "role": "assistant",
-                "content": content,
-            })
+            llm_span.set_outputs(
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": content,
+                }
+            )
             llm_span.end(end_time_ns=timestamp_ns + duration_ns)
 
         # Create tool spans with proportional timing and actual results
