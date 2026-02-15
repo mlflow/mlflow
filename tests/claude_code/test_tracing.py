@@ -309,3 +309,159 @@ def test_process_transcript_tracks_token_usage(mock_transcript_file_with_usage):
     assert trace.info.token_usage["input_tokens"] == 150
     assert trace.info.token_usage["output_tokens"] == 25
     assert trace.info.token_usage["total_tokens"] == 175
+
+
+# Sample transcript with sub-agent (Task tool + progress entries)
+DUMMY_TRANSCRIPT_WITH_SUBAGENT = [
+    {
+        "type": "user",
+        "message": {"role": "user", "content": "Search the codebase for auth"},
+        "timestamp": "2025-01-15T10:00:00.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "I'll search for that."}],
+        },
+        "timestamp": "2025-01-15T10:00:01.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_task_001",
+                    "name": "Task",
+                    "input": {"prompt": "Search for auth", "subagent_type": "Explore"},
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:02.000Z",
+    },
+    # Sub-agent progress entries
+    {
+        "type": "progress",
+        "parentToolUseID": "toolu_task_001",
+        "toolUseID": "agent_msg_001",
+        "timestamp": "2025-01-15T10:00:03.000Z",
+        "data": {
+            "type": "agent_progress",
+            "agentId": "sub_1",
+            "prompt": "Search for auth",
+            "message": {
+                "type": "assistant",
+                "timestamp": "2025-01-15T10:00:03.000Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "tool_use", "id": "sub_tool_1", "name": "Grep", "input": {"pattern": "auth"}}
+                    ],
+                },
+            },
+        },
+    },
+    {
+        "type": "progress",
+        "parentToolUseID": "toolu_task_001",
+        "toolUseID": "agent_msg_001",
+        "timestamp": "2025-01-15T10:00:04.000Z",
+        "data": {
+            "type": "agent_progress",
+            "agentId": "sub_1",
+            "prompt": "Search for auth",
+            "message": {
+                "type": "user",
+                "message": {
+                    "role": "user",
+                    "content": [
+                        {"type": "tool_result", "tool_use_id": "sub_tool_1", "content": "auth.py:1: def auth()"}
+                    ],
+                },
+            },
+        },
+    },
+    {
+        "type": "progress",
+        "parentToolUseID": "toolu_task_001",
+        "toolUseID": "agent_msg_001",
+        "timestamp": "2025-01-15T10:00:05.000Z",
+        "data": {
+            "type": "agent_progress",
+            "agentId": "sub_1",
+            "prompt": "Search for auth",
+            "message": {
+                "type": "assistant",
+                "timestamp": "2025-01-15T10:00:05.000Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "Found auth.py with auth function."}],
+                },
+            },
+        },
+    },
+    # Tool result for the Task tool
+    {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "toolu_task_001", "content": "Found auth.py"}
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:06.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "I found the auth module."}],
+        },
+        "timestamp": "2025-01-15T10:00:07.000Z",
+    },
+]
+
+
+@pytest.fixture
+def mock_transcript_file_with_subagent(tmp_path):
+    transcript_path = tmp_path / "transcript_subagent.jsonl"
+    with open(transcript_path, "w") as f:
+        for entry in DUMMY_TRANSCRIPT_WITH_SUBAGENT:
+            f.write(json.dumps(entry) + "\n")
+    return str(transcript_path)
+
+
+def test_process_transcript_creates_subagent_spans(mock_transcript_file_with_subagent):
+    trace = process_transcript(mock_transcript_file_with_subagent, "test-session-subagent")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    # Find spans by type
+    agent_spans = [s for s in spans if s.span_type == SpanType.AGENT]
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
+
+    # Root agent + LLM spans for main conversation
+    assert len(agent_spans) == 1  # root
+    assert len(llm_spans) >= 3  # main LLM + sub-agent LLM
+
+    # tool_Task should exist with sub-agent spans nested under it
+    task_tools = [s for s in tool_spans if s.name == "tool_Task"]
+    assert len(task_tools) == 1
+    task_span = task_tools[0]
+
+    # Sub-agent spans should be children of tool_Task
+    children = [s for s in spans if s.parent_id == task_span.span_id]
+    assert len(children) > 0
+
+    # Should have sub-agent's LLM span and tool span as children
+    child_llm = [s for s in children if s.span_type == SpanType.LLM]
+    child_tool = [s for s in children if s.span_type == SpanType.TOOL]
+    assert len(child_llm) >= 1
+    assert len(child_tool) >= 1
+    assert child_tool[0].name == "tool_Grep"
+
+
