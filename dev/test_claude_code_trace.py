@@ -52,8 +52,23 @@ trace = process_transcript(transcript_path, "test-session")
 if trace:
     print(f"Trace ID: {trace.info.trace_id}")
     print(f"Spans: {len(trace.data.spans)}")
+
+    # Build children map for proper tree traversal
+    children_map: dict[str | None, list] = {}
     for span in trace.data.spans:
-        input_msgs = span.inputs.get("messages", []) if span.inputs else []
-        print(f"  - {span.name} ({span.span_type}) input_messages={len(input_msgs)}")
+        children_map.setdefault(span.parent_id, []).append(span)
+
+    def print_tree(parent_id, depth=0):
+        for span in children_map.get(parent_id, []):
+            indent = "  " * (depth + 1)
+            input_msgs = span.inputs.get("messages", []) if span.inputs else []
+            print(f"{indent}{span.name} ({span.span_type}) input_messages={len(input_msgs)}")
+            print_tree(span.span_id, depth + 1)
+
+    # Find root spans (no parent or parent not in trace)
+    span_ids = {s.span_id for s in trace.data.spans}
+    root_parents = {s.parent_id for s in trace.data.spans if s.parent_id not in span_ids}
+    for root_parent in root_parents:
+        print_tree(root_parent)
 else:
     print("Failed to create trace")
