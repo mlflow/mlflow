@@ -15,9 +15,21 @@ Only two size labels currently exist:
 
 Missing labels: `size/S`, `size/L`, `size/XL`
 
-## Solution
+## Solutions
 
-Run the provided script with appropriate permissions:
+Choose one of the following approaches to create the missing labels.
+
+### Option 1: Run the GitHub Actions Workflow (Recommended)
+
+Once the `.github/workflows/create-size-labels.yml` workflow is merged to the default branch:
+
+1. Go to Actions → Create Size Labels
+2. Click "Run workflow"
+3. The workflow will automatically create/update all size labels with proper descriptions
+
+This approach uses the `actions/github-script` action which has the necessary permissions.
+
+### Option 2: Run the Bash Script
 
 ```bash
 bash dev/create-size-labels.sh
@@ -28,7 +40,19 @@ bash dev/create-size-labels.sh
 - GitHub CLI (`gh`) installed and authenticated
 - Repository admin or write permissions for `mlflow/mlflow`
 
-## Manual Commands
+### Option 3: Run the Node.js Script
+
+```bash
+GITHUB_TOKEN=<your-token> GITHUB_REPOSITORY=mlflow/mlflow node dev/create-size-labels.js
+```
+
+**Prerequisites:**
+
+- Node.js installed
+- GitHub personal access token with `repo` scope and admin/write permissions
+- Repository admin or write permissions for `mlflow/mlflow`
+
+### Option 4: Manual Commands
 
 If you prefer to run commands manually:
 
