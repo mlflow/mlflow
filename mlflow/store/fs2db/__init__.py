@@ -97,6 +97,9 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
                 _migrate_assessments_for_experiment(session, exp_dir, stats)
                 _migrate_logged_models_for_experiment(session, exp_dir, int(exp_id), stats)
                 session.commit()
+                # Release ORM objects from the identity map to keep memory
+                # proportional to one experiment, not the entire FileStore.
+                session.expunge_all()
             except Exception:
                 session.rollback()
                 log(f"[{i}/{total}] Experiment {exp_id} FAILED — rolled back")
@@ -109,6 +112,7 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
                 log(f"[{j}/{len(models)}] Migrating model {model_dir.name}...")
                 _migrate_one_registered_model(session, model_dir, stats)
                 session.commit()
+                session.expunge_all()
             except Exception:
                 session.rollback()
                 log(f"[{j}/{len(models)}] Model {model_dir.name} FAILED — rolled back")
