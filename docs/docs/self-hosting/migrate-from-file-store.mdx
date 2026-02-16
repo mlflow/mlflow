@@ -8,7 +8,7 @@ MLflow's default backend store changed from file-based storage (`./mlruns`) to S
 
 ## Prerequisites
 
-- MLflow 3.x or later installed
+- MLflow 3.10 or later installed (`pip install "mlflow>=3.10"`)
 - Access to the `mlruns` directory (or wherever your FileStore data lives)
 
 ## Quick Start
@@ -70,41 +70,7 @@ cp -r ./mlruns ./mlruns.backup
 mlflow migrate-filestore --source ./mlruns --target sqlite:///mlflow.db
 ```
 
-The command prints progress for each experiment and model:
-
-```
-Source: ./mlruns
-Target: sqlite:///mlflow.db
-
-Initializing database schema...
-[1/5] Migrating experiment 123456789...
-[2/5] Migrating experiment 234567890...
-[3/5] Migrating experiment 345678901...
-[4/5] Migrating experiment 456789012...
-[5/5] Migrating experiment 567890123...
-[1/3] Migrating model my_model...
-[2/3] Migrating model other_model...
-[3/3] Migrating model prompt_qa...
-
-Migration completed successfully!
-
-==================================================
-Migration summary:
-==================================================
-  entity                       migrated      in DB
-  ------------------------- ---------- ----------
-  experiments                        5          5
-  runs                              42         42
-  metrics                         1200       1200
-  ...
-==================================================
-  source: ./mlruns
-  target: sqlite:///mlflow.db
-==================================================
-
-To start a server with the migrated data:
-  mlflow server --backend-store-uri sqlite:///mlflow.db
-```
+The command prints progress for each experiment and registered model, followed by a summary of migrated entity counts and actual database row counts.
 
 The migration is atomic — all data is committed in a single transaction at the end. If any error occurs, the entire migration is rolled back and the database remains empty, so you can safely re-run the command after fixing the issue. Entity types that don't exist in your FileStore (e.g., traces if you never used tracing) are automatically skipped.
 
@@ -121,7 +87,9 @@ Open the MLflow UI and confirm your experiments, runs, and models are present.
 ## Important Notes
 
 - **Target database must be empty.** The migration tool refuses to write to a database that already contains data to prevent conflicts. If the target file already exists, you will be prompted to overwrite it.
-- **Original IDs are preserved.** Experiment IDs, run UUIDs, and all timestamps are kept exactly as they were in the file store.
+- **Lossless.** Experiment IDs, run UUIDs, timestamps, and all metadata are preserved exactly as they were in the file store.
 - **Deleted items are included.** Experiments and runs in the `.trash` directory are migrated with their `deleted` lifecycle stage preserved.
 - **SQLite only.** The initial version supports SQLite as the target database. FileStore generates large experiment IDs that exceed the 32-bit integer limit enforced by PostgreSQL and MySQL, but SQLite handles them natively.
 - **Atomic migration.** The entire migration runs in a single transaction. If any error occurs, everything is rolled back and the database stays empty — no partial data is left behind.
+
+If you run into issues or have feedback, please comment on [GitHub issue #18534](https://github.com/mlflow/mlflow/issues/18534).
