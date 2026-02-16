@@ -1,3 +1,5 @@
+import math
+
 from mlflow.entities import Experiment, Run, ViewType
 from mlflow.tracking import MlflowClient
 
@@ -33,6 +35,7 @@ def test_experiments(clients: Clients) -> None:
         assert dst_exp.lifecycle_stage == src_exp.lifecycle_stage
         assert dst_exp.creation_time == src_exp.creation_time
         assert dst_exp.last_update_time == src_exp.last_update_time
+        assert dst_exp.artifact_location == src_exp.artifact_location
 
         src_tags = {k: v for k, v in src_exp.tags.items() if not k.startswith("mlflow.")}
         dst_tags = {k: v for k, v in dst_exp.tags.items() if not k.startswith("mlflow.")}
@@ -58,8 +61,18 @@ def test_runs(clients: Clients) -> None:
         assert dst_run.info.lifecycle_stage == src_run.info.lifecycle_stage
         assert dst_run.info.start_time == src_run.info.start_time
         assert dst_run.info.end_time == src_run.info.end_time
+        assert dst_run.info.run_name == src_run.info.run_name
         assert dst_run.data.params == src_run.data.params
         assert set(dst_run.data.metrics) == set(src_run.data.metrics)
+        for key, src_val in src_run.data.metrics.items():
+            dst_val = dst_run.data.metrics[key]
+            if math.isnan(src_val):
+                assert math.isnan(dst_val)
+            elif math.isinf(src_val):
+                # DB stores Inf as ±1.7976931348623157e308
+                assert math.copysign(1, dst_val) == math.copysign(1, src_val)
+            else:
+                assert dst_val == src_val
 
         src_tags = {k: v for k, v in src_run.data.tags.items() if not k.startswith("mlflow.")}
         dst_tags = {k: v for k, v in dst_run.data.tags.items() if not k.startswith("mlflow.")}
@@ -77,8 +90,17 @@ def test_dataset_inputs(clients: Clients) -> None:
         src_ds = src_run.inputs.dataset_inputs if src_run.inputs else []
         dst_ds = dst_run.inputs.dataset_inputs if dst_run.inputs else []
         assert len(dst_ds) == len(src_ds)
-        assert sorted(d.dataset.name for d in dst_ds) == sorted(d.dataset.name for d in src_ds)
-        assert sorted(d.dataset.digest for d in dst_ds) == sorted(d.dataset.digest for d in src_ds)
+
+        src_by_name = {d.dataset.name: d for d in src_ds}
+        dst_by_name = {d.dataset.name: d for d in dst_ds}
+        for name, src_di in src_by_name.items():
+            dst_di = dst_by_name[name]
+            assert dst_di.dataset.digest == src_di.dataset.digest
+            assert dst_di.dataset.source_type == src_di.dataset.source_type
+            assert dst_di.dataset.source == src_di.dataset.source
+            assert dst_di.dataset.schema == src_di.dataset.schema
+            assert dst_di.dataset.profile == src_di.dataset.profile
+            assert {t.key: t.value for t in dst_di.tags} == {t.key: t.value for t in src_di.tags}
 
 
 def test_model_inputs(clients: Clients) -> None:
@@ -130,7 +152,21 @@ def test_assessments(clients: Clients) -> None:
         src_assessments = src_trace.search_assessments(all=True)
         dst_assessments = dst_trace.search_assessments(all=True)
         assert len(dst_assessments) == len(src_assessments)
-        assert {a.name for a in dst_assessments} == {a.name for a in src_assessments}
+
+        src_by_name = {a.name: a for a in src_assessments}
+        dst_by_name = {a.name: a for a in dst_assessments}
+        for name, src_a in src_by_name.items():
+            dst_a = dst_by_name[name]
+            assert dst_a.source.source_type == src_a.source.source_type
+            assert dst_a.source.source_id == src_a.source.source_id
+            assert dst_a.rationale == src_a.rationale
+            assert dst_a.metadata == src_a.metadata
+            if src_a.feedback is not None:
+                assert dst_a.feedback is not None
+                assert dst_a.feedback.value == src_a.feedback.value
+            if src_a.expectation is not None:
+                assert dst_a.expectation is not None
+                assert dst_a.expectation.value == src_a.expectation.value
 
 
 def test_logged_models(clients: Clients) -> None:
@@ -146,6 +182,10 @@ def test_logged_models(clients: Clients) -> None:
         dst_model = dst_by_id[src_model.model_id]
         assert dst_model.name == src_model.name
         assert dst_model.creation_timestamp == src_model.creation_timestamp
+        assert dst_model.last_updated_timestamp == src_model.last_updated_timestamp
+        assert dst_model.status == src_model.status
+        assert dst_model.model_type == src_model.model_type
+        assert dst_model.source_run_id == src_model.source_run_id
         assert set(dst_model.tags) >= set(src_model.tags)
 
 
@@ -176,6 +216,7 @@ def test_registered_models(clients: Clients) -> None:
         assert dst_model.description == src_model.description
         assert dst_model.creation_timestamp == src_model.creation_timestamp
         assert dst_model.last_updated_timestamp == src_model.last_updated_timestamp
+        assert set(dst_model.tags) >= set(src_model.tags)
 
         src_versions = src.search_model_versions(f"name='{src_model.name}'")
         dst_versions = dst.search_model_versions(f"name='{dst_model.name}'")
@@ -198,6 +239,8 @@ def test_model_versions(clients: Clients) -> None:
             assert dst_mv.description == src_mv.description
             assert dst_mv.creation_timestamp == src_mv.creation_timestamp
             assert dst_mv.status == src_mv.status
+            assert dst_mv.source == src_mv.source
+            assert dst_mv.run_id == src_mv.run_id
             assert set(dst_mv.tags) >= set(src_mv.tags)
 
 
