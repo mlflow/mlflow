@@ -230,7 +230,10 @@ const ExperimentEvaluationRunsPageImpl = () => {
   // to the default state to avoid displaying columns that don't exist
   if (columnDifference.length > 0) {
     const metricColumns = uniqueColumns.filter((col) => col.startsWith(EvalRunsTableKeyedColumnPrefix.METRIC + '.'));
-    const defaultEnabledMetrics = new Set(metricColumns.slice(0, DEFAULT_VISIBLE_METRIC_COLUMNS));
+    // When flag is ON, limit default visible metrics to 5; when OFF, show all (original behavior)
+    const defaultEnabledMetrics = enableImprovedComparison
+      ? new Set(metricColumns.slice(0, DEFAULT_VISIBLE_METRIC_COLUMNS))
+      : new Set(metricColumns);
 
     setSelectedColumns({
       ...EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
