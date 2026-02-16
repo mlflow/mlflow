@@ -24,7 +24,7 @@ from mlflow.gateway.uc_function_utils import (
     parse_uc_functions,
     prepend_uc_functions,
 )
-from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
+from mlflow.gateway.utils import parse_sse_lines, stream_sse_data
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 if TYPE_CHECKING:
@@ -405,16 +405,7 @@ class OpenAIProvider(BaseProvider):
             payload=self.adapter_class.chat_to_model(payload, self.config),
         )
 
-        async for chunk in handle_incomplete_chunks(stream):
-            chunk = chunk.strip()
-            if not chunk:
-                continue
-
-            data = strip_sse_prefix(chunk.decode("utf-8"))
-            if data == "[DONE]":
-                return
-
-            resp = json.loads(data)
+        async for resp in stream_sse_data(stream):
             yield OpenAIAdapter.model_to_chat_streaming(resp, self.config)
 
     async def _send_chat_request(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
@@ -643,16 +634,7 @@ class OpenAIProvider(BaseProvider):
             payload=OpenAIAdapter.completion_to_model(payload, self.config),
         )
 
-        async for chunk in handle_incomplete_chunks(stream):
-            chunk = chunk.strip()
-            if not chunk:
-                continue
-
-            data = strip_sse_prefix(chunk.decode("utf-8"))
-            if data == "[DONE]":
-                return
-
-            resp = json.loads(data)
+        async for resp in stream_sse_data(stream):
             yield OpenAIAdapter.model_to_completions_streaming(resp, self.config)
 
     async def _completions(
@@ -683,6 +665,53 @@ class OpenAIProvider(BaseProvider):
         )
         return OpenAIAdapter.model_to_embeddings(resp, self.config)
 
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from OpenAI passthrough response.
+
+        OpenAI response format:
+        {
+            "usage": {
+                "prompt_tokens": int,
+                "completion_tokens": int,
+                "total_tokens": int
+            }
+        }
+        """
+        return self._extract_token_usage_from_dict(
+            result.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+        )
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        """
+        Extract token usage from OpenAI streaming chunks.
+
+        Handles two formats:
+        - Chat Completions API: data.usage with prompt_tokens/completion_tokens
+        - Responses API: data.response.usage with input_tokens/output_tokens
+
+        Returns:
+            A dictionary with token usage found in this chunk.
+        """
+        for data in parse_sse_lines(chunk):
+            # Chat Completions API format: usage at top level
+            if (
+                token_usage := self._extract_token_usage_from_dict(
+                    data.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+                )
+            ) or (
+                token_usage := self._extract_token_usage_from_dict(
+                    data.get("response", {}).get("usage"),
+                    "input_tokens",
+                    "output_tokens",
+                    "total_tokens",
+                )
+            ):
+                return token_usage
+        return {}
+
     async def _passthrough(
         self,
         action: PassthroughAction,
@@ -700,12 +729,19 @@ class OpenAIProvider(BaseProvider):
         supports_streaming = action != PassthroughAction.OPENAI_EMBEDDINGS
 
         if supports_streaming and payload_with_model.get("stream"):
-            return send_stream_request(
+            if self._enable_tracing and action == PassthroughAction.OPENAI_CHAT:
+                if payload_with_model.get("stream_options") is None:
+                    payload_with_model["stream_options"] = {"include_usage": True}
+                elif "include_usage" not in payload_with_model["stream_options"]:
+                    payload_with_model["stream_options"]["include_usage"] = True
+
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload_with_model,
             )
+            return self._stream_passthrough_with_usage(stream)
         else:
             return await send_request(
                 headers=request_headers,

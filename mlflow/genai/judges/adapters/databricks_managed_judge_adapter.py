@@ -245,6 +245,7 @@ def _run_databricks_agentic_loop(
     messages: list["litellm.Message"],
     trace: "Trace | None",
     on_final_answer: Callable[[str | None], T],
+    use_case: str | None = None,
 ) -> T:
     """
     Run an agentic loop with Databricks chat completions.
@@ -284,8 +285,22 @@ def _run_databricks_agentic_loop(
             user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
 
             llm_result = call_chat_completions(
-                user_prompt, system_prompt or "", tools=tools, model=_DATABRICKS_AGENTIC_JUDGE_MODEL
+                user_prompt,
+                system_prompt or "",
+                tools=tools,
+                model=_DATABRICKS_AGENTIC_JUDGE_MODEL,
+                use_case=use_case,
             )
+
+            # Surface API errors from the response before checking output_json,
+            # so users see the actual error (e.g. "Model context limit exceeded")
+            # instead of a misleading "Empty response" message.
+            error_code = getattr(llm_result, "error_code", None)
+            error_message = getattr(llm_result, "error_message", None)
+            if error_code or error_message:
+                raise MlflowException(
+                    f"Databricks judge API error (code={error_code}): {error_message}"
+                )
 
             output_json = llm_result.output_json
             if not output_json:
@@ -346,7 +361,7 @@ def _invoke_databricks_default_judge(
         def parse_judge_response(content: str | None) -> Feedback:
             return _parse_databricks_judge_response(content, assessment_name, trace)
 
-        return _run_databricks_agentic_loop(messages, trace, parse_judge_response)
+        return _run_databricks_agentic_loop(messages, trace, parse_judge_response, use_case)
 
     except Exception as e:
         _logger.debug(f"Failed to invoke Databricks judge: {e}", exc_info=True)

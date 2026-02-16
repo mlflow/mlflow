@@ -64,6 +64,7 @@ def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
                 "MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES": "3",
                 "MLFLOW_WEBHOOK_REQUEST_TIMEOUT": "10",
                 "MLFLOW_WEBHOOK_CACHE_TTL": "0",  # Disable caching for tests
+                "MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS": "true",  # Allow localhost in e2e tests
             }
         ),
     ) as prc:

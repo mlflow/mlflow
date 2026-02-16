@@ -217,7 +217,7 @@ const getExperimentPageRouteDefs = () => {
 export const getRouteDefs = () => [
   {
     path: RoutePaths.rootRoute,
-    element: createLazyRouteElement(() => import('../home/HomePage')),
+    element: createLazyRouteElement(() => import('../home/RootPage')),
     pageId: PageId.home,
     handle: {
       getPageTitle: () => 'Home',

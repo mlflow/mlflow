@@ -23,7 +23,6 @@ RUN apt install -y software-properties-common \
     && ln -s -f $(which python3.10) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
-RUN pip install virtualenv
 
 
 # Setup Java
@@ -33,7 +32,7 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 WORKDIR /opt/mlflow
 
 # Install MLflow
-RUN pip install mlflow==${{ MLFLOW_VERSION }}
+RUN pip install ${{ MLFLOW_INSTALL }}
 
 # Copy model to image and install dependencies
 COPY model_dir/model /opt/ml/model

@@ -19,6 +19,7 @@ from mlflow.entities import (
     GatewaySecretInfo,
     RoutingStrategy,
 )
+from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -60,6 +61,7 @@ from mlflow.utils.crypto import (
     _encrypt_secret,
     _mask_secret_value,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID, MLFLOW_EXPERIMENT_SOURCE_TYPE
 from mlflow.utils.time import get_current_time_millis
 
 
@@ -97,18 +99,19 @@ class SqlAlchemyGatewayStoreMixin:
             self._secret_cache = SecretCache(ttl_seconds=ttl, max_size=max_size)
         return self._secret_cache
 
-    def _get_or_create_experiment_id(self, experiment_name: str) -> str:
+    def _get_or_create_experiment_id(self, experiment_name: str, tags=None) -> str:
         """Get an existing experiment ID or create a new experiment if it doesn't exist.
 
         Args:
             experiment_name: Name of the experiment to get or create.
+            tags: Optional list of ExperimentTag instances to set on the experiment.
 
         Returns:
             The experiment ID.
         """
         try:
             # The class that inherits from this mixin must implement the create_experiment method
-            return self.create_experiment(experiment_name)
+            return self.create_experiment(experiment_name, tags=tags)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 experiment = self.get_experiment_by_name(experiment_name)
@@ -167,19 +170,21 @@ class SqlAlchemyGatewayStoreMixin:
                 secret_name=secret_name,
             )
 
-            sql_secret = SqlGatewaySecret(
-                secret_id=secret_id,
-                secret_name=secret_name,
-                encrypted_value=encrypted.encrypted_value,
-                wrapped_dek=encrypted.wrapped_dek,
-                masked_value=json.dumps(masked_value),
-                kek_version=encrypted.kek_version,
-                provider=provider,
-                auth_config=json.dumps(auth_config) if auth_config else None,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
+            sql_secret = self._with_workspace_field(
+                SqlGatewaySecret(
+                    secret_id=secret_id,
+                    secret_name=secret_name,
+                    encrypted_value=encrypted.encrypted_value,
+                    wrapped_dek=encrypted.wrapped_dek,
+                    masked_value=json.dumps(masked_value),
+                    kek_version=encrypted.kek_version,
+                    provider=provider,
+                    auth_config=json.dumps(auth_config) if auth_config else None,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
             )
 
             try:
@@ -314,7 +319,7 @@ class SqlAlchemyGatewayStoreMixin:
             List of Secret entities with metadata (encrypted values not included).
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewaySecret)
+            query = self._get_query(session, SqlGatewaySecret)
 
             if provider is not None:
                 query = query.filter(SqlGatewaySecret.provider == provider)
@@ -351,16 +356,18 @@ class SqlAlchemyGatewayStoreMixin:
             model_definition_id = f"d-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
-            sql_model_def = SqlGatewayModelDefinition(
-                model_definition_id=model_definition_id,
-                name=name,
-                secret_id=secret_id,
-                provider=provider,
-                model_name=model_name,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
+            sql_model_def = self._with_workspace_field(
+                SqlGatewayModelDefinition(
+                    model_definition_id=model_definition_id,
+                    name=name,
+                    secret_id=secret_id,
+                    provider=provider,
+                    model_name=model_name,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
             )
 
             try:
@@ -433,7 +440,7 @@ class SqlAlchemyGatewayStoreMixin:
             List of GatewayModelDefinition entities with metadata.
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayModelDefinition)
+            query = self._get_query(session, SqlGatewayModelDefinition)
 
             if provider is not None:
                 query = query.filter(SqlGatewayModelDefinition.provider == provider)
@@ -587,7 +594,7 @@ class SqlAlchemyGatewayStoreMixin:
             all_model_def_ids = {config.model_definition_id for config in model_configs}
 
             existing_model_defs = (
-                session.query(SqlGatewayModelDefinition.model_definition_id)
+                self._get_query(session, SqlGatewayModelDefinition)
                 .filter(SqlGatewayModelDefinition.model_definition_id.in_(all_model_def_ids))
                 .all()
             )
@@ -603,7 +610,13 @@ class SqlAlchemyGatewayStoreMixin:
 
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None:
-                experiment_id = self._get_or_create_experiment_id(f"gateway/{name}")
+                experiment_id = self._get_or_create_experiment_id(
+                    f"gateway/{name}",
+                    tags=[
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                    ],
+                )
 
             # Build fallback_config_json if fallback_config provided or fallback models exist
             fallback_model_def_ids = [
@@ -623,17 +636,19 @@ class SqlAlchemyGatewayStoreMixin:
                     }
                 )
 
-            sql_endpoint = SqlGatewayEndpoint(
-                endpoint_id=endpoint_id,
-                name=name,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
-                routing_strategy=routing_strategy.value if routing_strategy else None,
-                fallback_config_json=fallback_config_json,
-                experiment_id=int(experiment_id) if experiment_id else None,
-                usage_tracking=usage_tracking,
+            sql_endpoint = self._with_workspace_field(
+                SqlGatewayEndpoint(
+                    endpoint_id=endpoint_id,
+                    name=name,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                    routing_strategy=routing_strategy.value if routing_strategy else None,
+                    fallback_config_json=fallback_config_json,
+                    experiment_id=int(experiment_id) if experiment_id else None,
+                    usage_tracking=usage_tracking,
+                )
             )
             session.add(sql_endpoint)
 
@@ -733,7 +748,13 @@ class SqlAlchemyGatewayStoreMixin:
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None and sql_endpoint.experiment_id is None:
                 endpoint_name = name if name is not None else sql_endpoint.name
-                experiment_id = self._get_or_create_experiment_id(f"gateway/{endpoint_name}")
+                experiment_id = self._get_or_create_experiment_id(
+                    f"gateway/{endpoint_name}",
+                    tags=[
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                    ],
+                )
 
             if experiment_id is not None:
                 sql_endpoint.experiment_id = int(experiment_id)
@@ -851,7 +872,9 @@ class SqlAlchemyGatewayStoreMixin:
             List of Endpoint entities with model_mappings.
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayEndpoint).join(SqlGatewayEndpointModelMapping)
+            query = self._get_query(session, SqlGatewayEndpoint).join(
+                SqlGatewayEndpointModelMapping
+            )
 
             if provider or secret_id:
                 query = query.join(
@@ -955,7 +978,7 @@ class SqlAlchemyGatewayStoreMixin:
             MlflowException: If the mapping is not found (RESOURCE_DOES_NOT_EXIST).
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayEndpointModelMapping).filter(
+            query = self._get_query(session, SqlGatewayEndpointModelMapping).filter(
                 SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
                 SqlGatewayEndpointModelMapping.model_definition_id == model_definition_id,
             )
@@ -964,6 +987,16 @@ class SqlAlchemyGatewayStoreMixin:
 
             sql_mapping = query.first()
             if not sql_mapping:
+                sql_endpoint = (
+                    self._get_query(session, SqlGatewayEndpoint)
+                    .filter(SqlGatewayEndpoint.endpoint_id == endpoint_id)
+                    .first()
+                )
+                if not sql_endpoint:
+                    raise MlflowException(
+                        f"GatewayEndpoint not found (endpoint_id='{endpoint_id}')",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
                 linkage_str = f" with linkage type '{linkage_type}'" if linkage_type else ""
                 raise MlflowException(
                     f"Model definition '{model_definition_id}' is not attached to "
@@ -1068,7 +1101,7 @@ class SqlAlchemyGatewayStoreMixin:
             model_mappings populated).
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayEndpointBinding).options(
+            query = self._get_query(session, SqlGatewayEndpointBinding).options(
                 joinedload(SqlGatewayEndpointBinding.endpoint).joinedload(
                     SqlGatewayEndpoint.model_mappings
                 )

@@ -150,7 +150,7 @@ def test_conversation_simulator_max_turns_stopping(
 def test_conversation_simulator_empty_response_stopping(simple_test_case, simulation_mocks):
     simulation_mocks["invoke"].return_value = "Test message"
 
-    def empty_predict_fn(input=None, messages=None, **kwargs):
+    def empty_predict_fn(input=None, **kwargs):
         return {
             "output": [
                 {
@@ -340,6 +340,16 @@ def test_conversation_simulator_validation(test_cases, expected_error):
         [{"goal": "Learn about MLflow"}],
         [{"goal": "Debug issue", "persona": "Engineer"}],
         [{"goal": "Ask questions", "persona": "Student", "context": {"id": "1"}}],
+        [{"goal": "Learn ML", "simulation_guidelines": "Be concise"}],
+        [{"goal": "Learn ML", "simulation_guidelines": ["Be concise", "Ask follow-ups"]}],
+        [
+            {
+                "goal": "Debug deployment",
+                "persona": "Engineer",
+                "context": {"env": "prod"},
+                "simulation_guidelines": "Focus on logs",
+            }
+        ],
     ],
 )
 def test_conversation_simulator_evaluation_dataset_valid(inputs):
@@ -467,6 +477,17 @@ def test_simulator_context_is_frozen():
     )
     with pytest.raises(AttributeError, match="cannot assign to field"):
         context.goal = "New goal"
+
+
+def test_simulator_context_with_simulation_guidelines():
+    context = SimulatorContext(
+        goal="Test goal",
+        persona="Test persona",
+        conversation_history=[],
+        turn=0,
+        simulation_guidelines="Be concise and ask clarifying questions",
+    )
+    assert context.simulation_guidelines == "Be concise and ask clarifying questions"
 
 
 def test_custom_user_agent_class(simple_test_case, mock_predict_fn, simulation_mocks):
@@ -775,3 +796,141 @@ def test_simulate_run_name_format(tmp_path, simple_test_case, simulation_mocks):
     hex_part = run_name[len("simulation-") :]
     assert len(hex_part) == 8
     assert re.match(r"^[0-9a-f]+$", hex_part)
+
+
+def test_conversation_simulator_completions_messages_format(simple_test_case, simulation_mocks):
+    simulation_mocks["invoke"].side_effect = [
+        "Test message",
+        '{"rationale": "Goal achieved!", "result": "yes"}',
+    ]
+
+    captured_messages_snapshots = []
+
+    def capturing_predict_fn(messages: list[dict[str, str]] | None = None, **kwargs):
+        captured_messages_snapshots.append(list(messages) if messages else None)
+        return {
+            "output": [
+                {
+                    "id": "msg_123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Response"}],
+                }
+            ]
+        }
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+    simulator.simulate(capturing_predict_fn)
+
+    assert len(captured_messages_snapshots) == 1
+    assert captured_messages_snapshots[0][0]["role"] == "user"
+    assert captured_messages_snapshots[0][0]["content"] == "Test message"
+
+
+def test_conversation_simulator_rejects_both_input_and_messages(simple_test_case, simulation_mocks):
+    simulation_mocks["invoke"].return_value = "Test message"
+
+    def invalid_predict_fn(input: list[dict[str, str]], messages: list[dict[str, str]], **kwargs):
+        return {
+            "output": [
+                {"role": "assistant", "content": [{"type": "output_text", "text": "Response"}]}
+            ]
+        }
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+
+    with pytest.raises(Exception, match="cannot have both 'messages' and 'input' parameters"):
+        simulator.simulate(invalid_predict_fn)
+
+
+def test_simulated_user_agent_with_simulation_guidelines():
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
+        mock_invoke.return_value = "I have a question about ML pipelines."
+
+        agent = SimulatedUserAgent()
+        context = SimulatorContext(
+            goal="Learn about ML pipelines",
+            persona=DEFAULT_PERSONA,
+            conversation_history=[],
+            turn=0,
+            simulation_guidelines="Ask clarifying questions before proceeding",
+        )
+
+        message = agent.generate_message(context)
+
+        assert message == "I have a question about ML pipelines."
+        mock_invoke.assert_called_once()
+
+        call_args = mock_invoke.call_args
+        messages = call_args.kwargs["messages"]
+        prompt = messages[0].content
+
+        assert "Learn about ML pipelines" in prompt
+        assert "Ask clarifying questions before proceeding" in prompt
+        assert "simulation_guidelines" in prompt
+
+
+def test_simulated_user_agent_followup_with_simulation_guidelines():
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
+        mock_invoke.return_value = "Let me clarify something first."
+
+        agent = SimulatedUserAgent()
+        context = SimulatorContext(
+            goal="Learn about ML",
+            persona=DEFAULT_PERSONA,
+            conversation_history=[
+                {"role": "user", "content": "Hello"},
+                {"role": "assistant", "content": "Hi there!"},
+            ],
+            turn=1,
+            simulation_guidelines="Be thorough and ask follow-up questions",
+        )
+
+        message = agent.generate_message(context)
+
+        assert message == "Let me clarify something first."
+        mock_invoke.assert_called_once()
+
+        call_args = mock_invoke.call_args
+        messages = call_args.kwargs["messages"]
+        prompt = messages[0].content
+
+        assert "Be thorough and ask follow-up questions" in prompt
+        assert "simulation_guidelines" in prompt
+
+
+def test_conversation_simulator_with_simulation_guidelines(mock_predict_fn):
+    test_case = {
+        "goal": "Learn about ML pipelines",
+        "simulation_guidelines": "Ask clarifying questions before proceeding",
+    }
+
+    with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
+        mock_invoke.side_effect = [
+            "Test message with simulation_guidelines",
+            '{"rationale": "Goal achieved!", "result": "yes"}',
+        ]
+
+        simulator = ConversationSimulator(
+            test_cases=[test_case],
+            max_turns=2,
+        )
+
+        all_traces = simulator.simulate(mock_predict_fn)
+
+        assert len(all_traces) == 1
+        assert len(all_traces[0]) == 1
+
+        # Verify simulation_guidelines are in the generate_message prompt
+        generate_call = mock_invoke.call_args_list[0]
+        prompt = generate_call.kwargs["messages"][0].content
+        assert "Ask clarifying questions before proceeding" in prompt
+
+        # Verify simulation_guidelines are in trace metadata
+        trace = all_traces[0][0]
+        metadata = trace.info.request_metadata
+        assert "mlflow.simulation.simulation_guidelines" in metadata
+        assert (
+            metadata["mlflow.simulation.simulation_guidelines"]
+            == "Ask clarifying questions before proceeding"
+        )

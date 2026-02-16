@@ -129,11 +129,50 @@ For production applications, MLflow logs traces asynchronously by default to pre
 
 For high-volume applications, you may want to reduce the number of traces exported to the backend. You can configure the sampling ratio to control the number of traces exported.
 
+#### Global Sampling Configuration
+
 | Environment Variable          | Description                                                                                                                   | Default Value |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | `MLFLOW_TRACE_SAMPLING_RATIO` | The sampling ratio for traces. When set to `0.0`, no traces will be exported. When set to `1.0`, all traces will be exported. | `1.0`         |
 
 The default value is `1.0`, which means all traces will be exported. When set to less than `1.0`, say `0.1`, only 10% of the traces will be exported. The sampling is done at the trace level, meaning that all spans in some traces will be exported or discarded together.
+
+#### Per-Endpoint Sampling
+
+You can also configure sampling on a per-endpoint basis using the `sampling_ratio_override` parameter on the `@mlflow.trace` decorator. This allows different endpoints to have different sampling rates, which is useful when you want to:
+
+- Sample high-volume, low-value endpoints at a lower rate (e.g., 10%)
+- Always trace critical transactions (100% sampling)
+- Disable tracing for specific functions (0% sampling)
+
+```python
+import mlflow
+
+
+# High-volume endpoint: sample only 10% of traces
+@mlflow.trace(sampling_ratio_override=0.1)
+def high_volume_endpoint(request):
+    return process_request(request)
+
+
+# Critical transaction: always trace
+@mlflow.trace(sampling_ratio_override=1.0)
+def payment_processing(transaction):
+    return process_payment(transaction)
+
+
+# Use global sampling ratio (default behavior)
+@mlflow.trace
+def normal_endpoint(request):
+    return handle_request(request)
+```
+
+**Key behaviors:**
+
+- When `sampling_ratio_override` is specified on the decorator, it **overrides** the global `MLFLOW_TRACE_SAMPLING_RATIO` setting for that function
+- When `sampling_ratio_override` is not specified (or set to `None`), the global sampling ratio is used
+- `sampling_ratio_override` only applies at the trace level (root spans). Nested calls within an existing trace are always included, and their `sampling_ratio_override` settings are ignored.
+- The `sampling_ratio_override` must be a float between `0.0` and `1.0`
 
 ## Adding Context to Production Traces
 

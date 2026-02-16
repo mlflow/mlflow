@@ -60,7 +60,7 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
                          - num_threads: Number of threads for parallel optimization
                          - max_steps: Maximum number of optimization steps
                          See https://dspy.ai/api/optimizers/SIMBA/ for full list.
-            **kwargs: Additional keyword arguments passed to parent class
+            kwargs: Additional keyword arguments passed to parent class
         """
         super().__init__(model=model, **kwargs)
         self._batch_size = batch_size

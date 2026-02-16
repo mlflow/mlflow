@@ -146,8 +146,11 @@ class MockAsyncStreamingResponse:
 
 
 class MockHttpClient(mock.Mock):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, mock_response=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._mock_response = mock_response
+        # Create a mock for post that returns the response
+        self.post = mock.Mock(return_value=mock_response)
 
     async def __aenter__(self):
         return self
@@ -157,9 +160,7 @@ class MockHttpClient(mock.Mock):
 
 
 def mock_http_client(mock_response: MockAsyncResponse | MockAsyncStreamingResponse):
-    mock_http_client = MockHttpClient()
-    mock_http_client.post = mock.Mock(return_value=mock_response)
-    return mock_http_client
+    return MockHttpClient(mock_response=mock_response)
 
 
 class UvicornGateway:

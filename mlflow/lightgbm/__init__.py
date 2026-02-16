@@ -208,7 +208,12 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    model_data_subpath = "model.lgb" if isinstance(lgb_model, lgb.Booster) else "model.pkl"
+    if isinstance(lgb_model, lgb.Booster):
+        model_data_subpath = "model.lgb"
+    elif serialization_format == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS:
+        model_data_subpath = "model.skops"
+    else:
+        model_data_subpath = "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -313,8 +318,9 @@ def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types
             _logger.warning(
                 "Saving the models in the pickle or cloudpickle format requires exercising "
                 "caution because these formats rely on Python's object serialization mechanism, "
-                "which can execute arbitrary code during deserialization."
-                "The recommended safe alternative is the 'skops' format.",
+                "which can execute arbitrary code during deserialization. "
+                "The recommended safe alternative is the 'skops' format. "
+                "For more information, see: https://scikit-learn.org/stable/model_persistence.html",
             )
         _save_sklearn_model(lgb_model, model_path, serialization_format, skops_trusted_types)
 

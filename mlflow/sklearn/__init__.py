@@ -17,7 +17,6 @@ import logging
 import os
 import pickle
 import shutil
-import warnings
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
@@ -102,7 +101,8 @@ SUPPORTED_SERIALIZATION_FORMATS = [
 _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
 
-_MODEL_DATA_SUBPATH = "model.pkl"
+_PICKLE_MODEL_DATA_SUBPATH = "model.pkl"
+_SKOPS_MODEL_DATA_SUBPATH = "model.skops"
 
 
 def _gen_estimators_to_patch():
@@ -266,13 +266,12 @@ def save_model(
         )
 
     if serialization_format != SERIALIZATION_FORMAT_SKOPS and not is_in_databricks_runtime():
-        warnings.warn(
+        _logger.warning(
             "Saving scikit-learn models in the pickle or cloudpickle format requires exercising "
             "caution because these formats rely on Python's object serialization mechanism, "
-            "which can execute arbitrary code during deserialization."
-            "The recommended safe alternative is the 'skops' format.",
-            FutureWarning,
-            stacklevel=2,
+            "which can execute arbitrary code during deserialization. "
+            "The recommended safe alternative is the 'skops' format. "
+            "For more information, see: https://scikit-learn.org/stable/model_persistence.html",
         )
 
     _validate_and_prepare_target_save_path(path)
@@ -293,7 +292,10 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_subpath = _MODEL_DATA_SUBPATH
+    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
+        model_data_subpath = _SKOPS_MODEL_DATA_SUBPATH
+    else:
+        model_data_subpath = _PICKLE_MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
     _save_model(
         sk_model=sk_model,

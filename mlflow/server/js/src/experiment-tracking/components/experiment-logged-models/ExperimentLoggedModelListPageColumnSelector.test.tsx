@@ -1,13 +1,17 @@
-import { describe, test, expect } from '@jest/globals';
+import { describe, test, expect, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { IntlProvider } from 'react-intl';
+import { DesignSystemProvider } from '@databricks/design-system';
 import {
   ExperimentLoggedModelListPageKnownColumns,
   useExperimentLoggedModelListPageTableColumns,
 } from './hooks/useExperimentLoggedModelListPageTableColumns';
 import { ExperimentLoggedModelListPageColumnSelector } from './ExperimentLoggedModelListPageColumnSelector';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 
 const getMetric = (key: string, datasetName: string | undefined) => ({
   key,
@@ -55,7 +59,11 @@ describe('ExperimentLoggedModelListPageColumnSelector', () => {
       );
     };
     render(<TestComponent />, {
-      wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
+      wrapper: ({ children }) => (
+        <IntlProvider locale="en">
+          <DesignSystemProvider>{children}</DesignSystemProvider>
+        </IntlProvider>
+      ),
     });
   };
   test('should handle enabling and disabling arbitrary columns', async () => {
