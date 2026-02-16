@@ -799,6 +799,8 @@ def process_sdk_messages(
     Returns:
         MLflow Trace if successful, None if no user prompt is found or processing fails.
     """
+    from claude_agent_sdk.types import ResultMessage
+
     try:
         if not messages:
             get_logger().warning("Empty messages list, skipping")
@@ -808,8 +810,6 @@ def process_sdk_messages(
         if user_prompt is None:
             get_logger().warning("No user prompt found in SDK messages")
             return None
-
-        from claude_agent_sdk.types import ResultMessage
 
         result_msg = next((msg for msg in messages if isinstance(msg, ResultMessage)), None)
 
