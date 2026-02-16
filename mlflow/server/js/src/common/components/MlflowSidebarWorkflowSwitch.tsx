@@ -75,7 +75,14 @@ export const MlflowSidebarWorkflowSwitch = ({
             paddingLeft: theme.spacing.md,
             whiteSpace: 'nowrap' as const,
           }}
+          role="button"
+          tabIndex={0}
           onClick={() => setWorkflowType(WorkflowType.GENAI)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              setWorkflowType(WorkflowType.GENAI);
+            }
+          }}
         >
           <Typography.Text color={isGenAi ? undefined : 'secondary'}>
             <FormattedMessage defaultMessage="GenAI" description="Label for GenAI workflow type option" />
@@ -95,7 +102,14 @@ export const MlflowSidebarWorkflowSwitch = ({
             paddingLeft: theme.spacing.sm,
             whiteSpace: 'nowrap' as const,
           }}
+          role="button"
+          tabIndex={0}
           onClick={() => setWorkflowType(WorkflowType.MACHINE_LEARNING)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              setWorkflowType(WorkflowType.MACHINE_LEARNING);
+            }
+          }}
         >
           <Typography.Text color={isGenAi ? 'secondary' : undefined}>
             <FormattedMessage
