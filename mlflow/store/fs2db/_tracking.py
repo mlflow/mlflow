@@ -39,7 +39,7 @@ from sqlalchemy.orm import Session
 
 from mlflow.entities import RunStatus
 from mlflow.entities.logged_model_status import LoggedModelStatus
-from mlflow.store.fs2db._helpers import (
+from mlflow.store.fs2db._utils import (
     META_YAML,
     MigrationStats,
     for_each_experiment,

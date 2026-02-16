@@ -40,7 +40,6 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
     from sqlalchemy.orm import Session
 
     from mlflow.store.db.utils import _initialize_tables
-    from mlflow.store.fs2db._helpers import MigrationStats, for_each_experiment
     from mlflow.store.fs2db._registry import _migrate_one_registered_model, list_registered_models
     from mlflow.store.fs2db._tracking import (
         _migrate_assessments_for_experiment,
@@ -51,6 +50,7 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
         _migrate_runs_in_dir,
         _migrate_traces_for_experiment,
     )
+    from mlflow.store.fs2db._utils import MigrationStats, for_each_experiment
 
     def log(msg: str) -> None:
         if progress:

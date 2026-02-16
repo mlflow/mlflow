@@ -17,7 +17,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from mlflow.store.fs2db._helpers import (
+from mlflow.store.fs2db._utils import (
     META_YAML,
     MigrationStats,
     list_files,

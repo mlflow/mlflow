@@ -25,6 +25,8 @@ def test_experiments(clients: Clients) -> None:
     src_by_id = {e.experiment_id: e for e in src_exps}
     dst_by_id = {e.experiment_id: e for e in dst_exps if e.experiment_id in src_by_id}
 
+    assert any(e.lifecycle_stage == "deleted" for e in src_by_id.values())
+
     for exp_id, src_exp in src_by_id.items():
         dst_exp = dst_by_id[exp_id]
         assert dst_exp.name == src_exp.name
@@ -47,6 +49,8 @@ def test_runs(clients: Clients) -> None:
     src_by_id = {r.info.run_id: r for r in src_runs}
     dst_by_id = {r.info.run_id: r for r in dst_runs}
     assert set(dst_by_id) == set(src_by_id)
+
+    assert any(r.info.lifecycle_stage == "deleted" for r in src_by_id.values())
 
     for run_id, src_run in src_by_id.items():
         dst_run = dst_by_id[run_id]
