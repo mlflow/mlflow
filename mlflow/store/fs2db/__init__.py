@@ -1,8 +1,14 @@
 # ruff: noqa: T201
 import warnings
+from functools import partial
 from pathlib import Path
 
 from mlflow.exceptions import MlflowException
+
+
+def _log(progress: bool, msg: str) -> None:
+    if progress:
+        print(msg)
 
 
 def _resolve_mlruns(source: Path) -> Path:
@@ -52,9 +58,7 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
     )
     from mlflow.store.fs2db._utils import MigrationStats, for_each_experiment
 
-    def log(msg: str) -> None:
-        if progress:
-            print(msg)
+    log = partial(_log, progress)
 
     warnings.filterwarnings("ignore", message=".*filesystem.*deprecated.*", category=FutureWarning)
 
@@ -122,15 +126,4 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
     log("Migration completed successfully!")
 
     print()
-    print("=" * 50)
-    print("Migration summary:")
-    print("=" * 50)
-    for key, count in stats.items():
-        print(f"  {key}: {count}")
-    print("=" * 50)
-    print(f"  source: {mlruns}")
-    print(f"  target: {target_uri}")
-    print("=" * 50)
-    print()
-    print("To start a server with the migrated data:")
-    print(f"  mlflow server --backend-store-uri {target_uri}")
+    print(stats.summary(str(mlruns), target_uri))

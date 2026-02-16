@@ -375,7 +375,6 @@ def main() -> None:
     os.makedirs(output, exist_ok=True)
 
     tracking_uri = Path(output).as_uri()
-    os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
     mlflow.set_tracking_uri(tracking_uri)
 
     warnings.filterwarnings(

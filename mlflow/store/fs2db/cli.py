@@ -3,6 +3,7 @@ from pathlib import Path
 import click
 
 from mlflow.store.fs2db import migrate
+from mlflow.utils.uri import get_uri_scheme
 
 
 @click.command("migrate-filestore")
@@ -30,7 +31,7 @@ from mlflow.store.fs2db import migrate
 )
 def migrate_filestore(source: str, target: str, verify: bool, progress: bool) -> None:
     """Migrate MLflow FileStore data to a SQLite database."""
-    if not target.startswith("sqlite:///"):
+    if get_uri_scheme(target) != "sqlite":
         raise click.BadParameter(
             "Must be a SQLite URI starting with 'sqlite:///'",
             param_hint="'--target'",

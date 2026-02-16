@@ -44,6 +44,20 @@ class MigrationStats:
             if val > 0:
                 yield f.name, val
 
+    def summary(self, source: str, target_uri: str) -> str:
+        sep = "=" * 50
+        lines = [sep, "Migration summary:", sep]
+        for key, count in self.items():
+            lines.append(f"  {key}: {count}")
+        lines.append(sep)
+        lines.append(f"  source: {source}")
+        lines.append(f"  target: {target_uri}")
+        lines.append(sep)
+        lines.append("")
+        lines.append("To start a server with the migrated data:")
+        lines.append(f"  mlflow server --backend-store-uri {target_uri}")
+        return "\n".join(lines)
+
 
 def safe_read_yaml(root: Path, file_name: str) -> dict[str, Any] | None:
     try:
