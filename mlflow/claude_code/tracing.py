@@ -389,9 +389,8 @@ def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
 
     input_tokens = usage.get("input_tokens", 0)
     cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0)
-    cache_read_input_tokens = usage.get("cache_read_input_tokens", 0)
     output_tokens = usage.get("output_tokens", 0)
-    total_input_tokens = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+    total_input_tokens = input_tokens + cache_creation_input_tokens
 
     usage_dict = {
         TokenUsageKey.INPUT_TOKENS: total_input_tokens,

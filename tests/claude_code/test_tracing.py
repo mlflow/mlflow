@@ -303,18 +303,19 @@ def test_process_transcript_tracks_token_usage(mock_transcript_file_with_usage):
     assert len(llm_spans) == 1
     llm_span = llm_spans[0]
 
-    # input_tokens should include input + cache_creation + cache_read (10 + 100 + 40 = 150)
+    # input_tokens should include input + cache_creation (10 + 100 = 110)
+    # cache_read_input_tokens (40) is excluded because cache reads are free
     token_usage = llm_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
     assert token_usage is not None
-    assert token_usage["input_tokens"] == 150
+    assert token_usage["input_tokens"] == 110
     assert token_usage["output_tokens"] == 25
-    assert token_usage["total_tokens"] == 175
+    assert token_usage["total_tokens"] == 135
 
     # Verify trace-level token usage aggregation works
     assert trace.info.token_usage is not None
-    assert trace.info.token_usage["input_tokens"] == 150
+    assert trace.info.token_usage["input_tokens"] == 110
     assert trace.info.token_usage["output_tokens"] == 25
-    assert trace.info.token_usage["total_tokens"] == 175
+    assert trace.info.token_usage["total_tokens"] == 135
 
 
 # Sample transcript with sub-agent (Task tool + progress entries)
