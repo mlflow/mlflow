@@ -230,9 +230,15 @@ def _parse_metric_line(metric_line: str) -> tuple[int, float, int]:
 
 
 def _migrate_run_metrics(
-    session: Session, metrics_dir: Path, run_uuid: str, stats: MigrationStats
+    session: Session,
+    metrics_dir: Path,
+    run_uuid: str,
+    stats: MigrationStats,
+    *,
+    batch_size: int = 5000,
 ) -> None:
     all_metrics = read_metric_lines(metrics_dir)
+    count = 0
 
     for key, lines in all_metrics.items():
         # Track the "latest" metric for this key: max by (step, timestamp, value)
@@ -254,6 +260,10 @@ def _migrate_run_metrics(
                 )
             )
             stats.metrics += 1
+            count += 1
+            if count % batch_size == 0:
+                session.flush()
+                session.expunge_all()
 
             # For latest_metrics: NaN comparison uses 0 as proxy value
             cmp_val = 0.0 if is_nan else db_val
