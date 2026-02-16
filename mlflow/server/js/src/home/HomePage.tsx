@@ -52,12 +52,13 @@ const HomePage = () => {
         padding: theme.spacing.md,
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing.lg,
+        gap: theme.spacing.md,
         height: 'min-content',
       }}
     >
       <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
       <TelemetryInfoAlert />
+      <FeaturesSection />
       <React.Suspense fallback={<HomePageSectionSkeleton />}>
         <ExperimentsHomeView
           experiments={experiments}
@@ -67,7 +68,6 @@ const HomePage = () => {
           onRetry={refetch}
         />
       </React.Suspense>
-      <FeaturesSection />
 
       <CreateExperimentModal
         isOpen={isCreateModalOpen}
