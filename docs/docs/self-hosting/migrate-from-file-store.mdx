@@ -33,7 +33,6 @@ The migration tool transfers **all metadata** stored in the file-based backend:
 | Assessments    | Assessments (feedback, expectations)                  |
 | Logged Models  | Logged models, tags                                   |
 | Model Registry | Registered models, model versions, tags, aliases      |
-| Prompts        | Prompt templates and versions                         |
 
 ### What Is NOT Migrated
 
@@ -42,12 +41,11 @@ The migration tool transfers **all metadata** stored in the file-based backend:
 
 ## Options
 
-| Option              | Description                                                      |
-| ------------------- | ---------------------------------------------------------------- |
-| `--source`          | Path to the directory containing FileStore data.                 |
-| `--target`          | SQLite URI for the target database (e.g. `sqlite:///mlflow.db`). |
-| `--verify`          | After migration, verify that DB row counts match source data.    |
-| `--progress/--no-progress` | Show or hide per-experiment progress messages (default: on). |
+| Option                     | Description                                                      |
+| -------------------------- | ---------------------------------------------------------------- |
+| `--source`                 | Path to the directory containing FileStore data.                 |
+| `--target`                 | SQLite URI for the target database (e.g. `sqlite:///mlflow.db`). |
+| `--progress/--no-progress` | Show or hide per-experiment progress messages (default: on).     |
 
 The `--source` can point to either:
 
@@ -93,9 +91,11 @@ Migration completed successfully!
 ==================================================
 Migration summary:
 ==================================================
-  experiments: 5
-  runs: 42
-  metrics: 1200
+  entity                       migrated      in DB
+  ------------------------- ---------- ----------
+  experiments                        5          5
+  runs                              42         42
+  metrics                         1200       1200
   ...
 ==================================================
   source: ./mlruns
@@ -106,7 +106,7 @@ To start a server with the migrated data:
   mlflow server --backend-store-uri sqlite:///mlflow.db
 ```
 
-Each experiment is committed independently — if a failure occurs, previously migrated experiments are preserved in the database. Entity types that don't exist in your FileStore (e.g., traces if you never used tracing) are automatically skipped.
+The migration is atomic — all data is committed in a single transaction at the end. If any error occurs, the entire migration is rolled back and the database remains empty, so you can safely re-run the command after fixing the issue. Entity types that don't exist in your FileStore (e.g., traces if you never used tracing) are automatically skipped.
 
 ### 4. Start the server with the new database
 
@@ -124,4 +124,4 @@ Open the MLflow UI and confirm your experiments, runs, and models are present.
 - **Original IDs are preserved.** Experiment IDs, run UUIDs, and all timestamps are kept exactly as they were in the file store.
 - **Deleted items are included.** Experiments and runs in the `.trash` directory are migrated with their `deleted` lifecycle stage preserved.
 - **SQLite only.** The initial version supports SQLite as the target database. FileStore generates large experiment IDs that exceed the 32-bit integer limit enforced by PostgreSQL and MySQL, but SQLite handles them natively.
-- **Per-experiment batching.** Each experiment (with all its runs, traces, datasets, etc.) is committed independently. If a failure occurs, previously committed experiments are preserved. Model registry entries are also committed individually.
+- **Atomic migration.** The entire migration runs in a single transaction. If any error occurs, everything is rolled back and the database stays empty — no partial data is left behind.
