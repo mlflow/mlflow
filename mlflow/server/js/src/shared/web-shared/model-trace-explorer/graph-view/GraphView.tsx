@@ -164,8 +164,7 @@ export const GraphView = ({ className }: GraphViewProps) => {
   const leftPaneMinWidth = useMemo(() => {
     const depths = filteredTreeNodes.map(getModelTraceSpanNodeDepth);
     const maxDepth = depths.length > 0 ? Math.max(...depths) : 0;
-    const minWidthForSpans =
-      maxDepth * SPAN_INDENT_WIDTH + LEFT_PANE_MIN_WIDTH_LARGE_SPACINGS * theme.spacing.lg;
+    const minWidthForSpans = maxDepth * SPAN_INDENT_WIDTH + LEFT_PANE_MIN_WIDTH_LARGE_SPACINGS * theme.spacing.lg;
     return Math.max(LEFT_PANE_HEADER_MIN_WIDTH_PX, minWidthForSpans);
   }, [filteredTreeNodes, theme.spacing.lg]);
 
