@@ -4,17 +4,28 @@ from unittest import mock
 import pytest
 from packaging.version import Version
 
+from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
+from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.uv_utils import (
     _MIN_UV_VERSION,
     _PYPROJECT_FILE,
     _UV_LOCK_FILE,
     _evaluate_marker,
+    _parse_comma_separated_env,
     copy_uv_project_files,
+    create_uv_sync_pyproject,
     detect_uv_project,
     export_uv_requirements,
+    extract_index_urls_from_uv_lock,
     get_python_version_from_uv_project,
+    get_uv_extras_from_env,
+    get_uv_groups_from_env,
+    get_uv_only_groups_from_env,
     get_uv_version,
+    has_uv_lock_artifact,
     is_uv_available,
+    run_uv_sync,
+    setup_uv_sync_environment,
 )
 
 # --- get_uv_version tests ---
@@ -97,8 +108,8 @@ def test_detect_uv_project_returns_paths_when_both_files_exist(tmp_path):
 
     result = detect_uv_project(tmp_path)
     assert result is not None
-    assert result["uv_lock"] == tmp_path / _UV_LOCK_FILE
-    assert result["pyproject"] == tmp_path / _PYPROJECT_FILE
+    assert result.uv_lock == tmp_path / _UV_LOCK_FILE
+    assert result.pyproject == tmp_path / _PYPROJECT_FILE
 
 
 def test_detect_uv_project_uses_cwd_when_directory_not_specified(tmp_path, monkeypatch):
@@ -108,7 +119,7 @@ def test_detect_uv_project_uses_cwd_when_directory_not_specified(tmp_path, monke
 
     result = detect_uv_project()
     assert result is not None
-    assert result["uv_lock"] == tmp_path / _UV_LOCK_FILE
+    assert result.uv_lock == tmp_path / _UV_LOCK_FILE
 
 
 # --- _evaluate_marker tests ---
@@ -529,8 +540,6 @@ def test_copy_uv_project_files_with_uv_project_path_missing_pyproject(tmp_path):
 
 
 def test_infer_pip_requirements_uses_uv_when_project_detected(tmp_path, monkeypatch):
-    from mlflow.utils.environment import infer_pip_requirements
-
     # Setup UV project
     monkeypatch.chdir(tmp_path)
     (tmp_path / _UV_LOCK_FILE).touch()
@@ -675,40 +684,30 @@ def test_export_uv_requirements_only_groups_takes_precedence_over_groups(tmp_pat
 
 
 def test_get_uv_groups_from_env(monkeypatch):
-    from mlflow.utils.uv_utils import get_uv_groups_from_env
-
     monkeypatch.setenv("MLFLOW_UV_GROUPS", "serving,production")
     result = get_uv_groups_from_env()
     assert result == ["serving", "production"]
 
 
 def test_get_uv_groups_from_env_empty(monkeypatch):
-    from mlflow.utils.uv_utils import get_uv_groups_from_env
-
     monkeypatch.delenv("MLFLOW_UV_GROUPS", raising=False)
     result = get_uv_groups_from_env()
     assert result is None
 
 
 def test_get_uv_only_groups_from_env(monkeypatch):
-    from mlflow.utils.uv_utils import get_uv_only_groups_from_env
-
     monkeypatch.setenv("MLFLOW_UV_ONLY_GROUPS", "minimal")
     result = get_uv_only_groups_from_env()
     assert result == ["minimal"]
 
 
 def test_get_uv_extras_from_env(monkeypatch):
-    from mlflow.utils.uv_utils import get_uv_extras_from_env
-
     monkeypatch.setenv("MLFLOW_UV_EXTRAS", "gpu,experimental")
     result = get_uv_extras_from_env()
     assert result == ["gpu", "experimental"]
 
 
 def test_parse_comma_separated_env_handles_whitespace(monkeypatch):
-    from mlflow.utils.uv_utils import _parse_comma_separated_env
-
     monkeypatch.setenv("TEST_ENV", "  item1 , item2 ,  item3  ")
     result = _parse_comma_separated_env("TEST_ENV")
     assert result == ["item1", "item2", "item3"]
@@ -718,31 +717,23 @@ def test_parse_comma_separated_env_handles_whitespace(monkeypatch):
 
 
 def test_mlflow_uv_auto_detect_returns_true_by_default(monkeypatch):
-    from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
-
     monkeypatch.delenv("MLFLOW_UV_AUTO_DETECT", raising=False)
     assert MLFLOW_UV_AUTO_DETECT.get() is True
 
 
 @pytest.mark.parametrize("env_value", ["false", "0", "FALSE", "False"])
 def test_mlflow_uv_auto_detect_returns_false_when_disabled(monkeypatch, env_value):
-    from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
-
     monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", env_value)
     assert MLFLOW_UV_AUTO_DETECT.get() is False
 
 
 @pytest.mark.parametrize("env_value", ["true", "1", "TRUE", "True"])
 def test_mlflow_uv_auto_detect_returns_true_when_enabled(monkeypatch, env_value):
-    from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
-
     monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", env_value)
     assert MLFLOW_UV_AUTO_DETECT.get() is True
 
 
 def test_infer_pip_requirements_skips_uv_when_auto_detect_disabled(tmp_path, monkeypatch):
-    from mlflow.utils.uv_utils import detect_uv_project
-
     # Setup UV project
     monkeypatch.chdir(tmp_path)
     (tmp_path / "uv.lock").touch()
@@ -763,8 +754,6 @@ def test_infer_pip_requirements_skips_uv_when_auto_detect_disabled(tmp_path, mon
 
 
 def test_extract_index_urls_from_uv_lock(tmp_path):
-    from mlflow.utils.uv_utils import extract_index_urls_from_uv_lock
-
     uv_lock_content = """
 version = 1
 requires-python = ">=3.11"
@@ -790,8 +779,6 @@ source = { registry = "https://pypi.org/simple" }
 
 
 def test_extract_index_urls_from_uv_lock_multiple_private(tmp_path):
-    from mlflow.utils.uv_utils import extract_index_urls_from_uv_lock
-
     uv_lock_content = """
 version = 1
 
@@ -818,8 +805,6 @@ source = { registry = "https://private1.com/simple" }
 
 
 def test_extract_index_urls_from_uv_lock_no_private(tmp_path):
-    from mlflow.utils.uv_utils import extract_index_urls_from_uv_lock
-
     uv_lock_content = """
 version = 1
 
@@ -835,8 +820,6 @@ source = { registry = "https://pypi.org/simple" }
 
 
 def test_extract_index_urls_from_uv_lock_file_not_exists(tmp_path):
-    from mlflow.utils.uv_utils import extract_index_urls_from_uv_lock
-
     result = extract_index_urls_from_uv_lock(tmp_path / "nonexistent.lock")
     assert result == []
 
@@ -845,8 +828,6 @@ def test_extract_index_urls_from_uv_lock_file_not_exists(tmp_path):
 
 
 def test_create_uv_sync_pyproject(tmp_path):
-    from mlflow.utils.uv_utils import create_uv_sync_pyproject
-
     result_path = create_uv_sync_pyproject(tmp_path, "3.11.5")
 
     assert result_path.exists()
@@ -856,8 +837,6 @@ def test_create_uv_sync_pyproject(tmp_path):
 
 
 def test_create_uv_sync_pyproject_custom_name(tmp_path):
-    from mlflow.utils.uv_utils import create_uv_sync_pyproject
-
     result_path = create_uv_sync_pyproject(tmp_path, "3.10", project_name="my-custom-env")
 
     content = result_path.read_text()
@@ -866,8 +845,6 @@ def test_create_uv_sync_pyproject_custom_name(tmp_path):
 
 
 def test_setup_uv_sync_environment(tmp_path):
-    from mlflow.utils.uv_utils import setup_uv_sync_environment
-
     # Create model artifacts with uv.lock
     model_path = tmp_path / "model"
     model_path.mkdir()
@@ -885,8 +862,6 @@ def test_setup_uv_sync_environment(tmp_path):
 
 
 def test_setup_uv_sync_environment_no_uv_lock(tmp_path):
-    from mlflow.utils.uv_utils import setup_uv_sync_environment
-
     # Create model artifacts WITHOUT uv.lock
     model_path = tmp_path / "model"
     model_path.mkdir()
@@ -900,8 +875,6 @@ def test_setup_uv_sync_environment_no_uv_lock(tmp_path):
 
 
 def test_has_uv_lock_artifact(tmp_path):
-    from mlflow.utils.uv_utils import has_uv_lock_artifact
-
     model_path = tmp_path / "model"
     model_path.mkdir()
 
@@ -912,16 +885,12 @@ def test_has_uv_lock_artifact(tmp_path):
 
 
 def test_run_uv_sync_returns_false_when_uv_not_available(tmp_path):
-    from mlflow.utils.uv_utils import run_uv_sync
-
     with mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=False):
         result = run_uv_sync(tmp_path)
         assert result is False
 
 
 def test_run_uv_sync_builds_correct_command(tmp_path):
-    from mlflow.utils.uv_utils import run_uv_sync
-
     with (
         mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
         mock.patch("shutil.which", return_value="/usr/bin/uv"),
@@ -938,8 +907,6 @@ def test_run_uv_sync_builds_correct_command(tmp_path):
 
 
 def test_run_uv_sync_returns_false_on_failure(tmp_path):
-    from mlflow.utils.uv_utils import run_uv_sync
-
     with (
         mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
         mock.patch("shutil.which", return_value="/usr/bin/uv"),

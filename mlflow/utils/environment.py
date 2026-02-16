@@ -442,11 +442,11 @@ def infer_pip_requirements(
     if MLFLOW_UV_AUTO_DETECT.get():
         if uv_project := detect_uv_project():
             _logger.info(
-                f"Detected UV project at {uv_project['uv_lock'].parent}. "
+                f"Detected UV project at {uv_project.uv_lock.parent}. "
                 "Attempting to export requirements via 'uv export'."
             )
             if uv_requirements := export_uv_requirements(
-                uv_project["uv_lock"].parent,
+                uv_project.uv_lock.parent,
                 groups=uv_groups,
                 extras=uv_extras,
             ):

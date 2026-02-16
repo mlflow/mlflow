@@ -13,7 +13,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from packaging.version import Version
 
@@ -72,7 +72,14 @@ def is_uv_available() -> bool:
     return True
 
 
-def detect_uv_project(directory: str | Path | None = None) -> dict[str, Path] | None:
+class UVProjectInfo(NamedTuple):
+    """Paths for a detected UV project."""
+
+    uv_lock: Path
+    pyproject: Path
+
+
+def detect_uv_project(directory: str | Path | None = None) -> UVProjectInfo | None:
     """
     Detect if the given directory is a UV project.
 
@@ -83,10 +90,8 @@ def detect_uv_project(directory: str | Path | None = None) -> dict[str, Path] | 
         directory: The directory to check. Defaults to the current working directory.
 
     Returns:
-        A dictionary containing paths to detected files:
-        - "uv_lock": Path to uv.lock
-        - "pyproject": Path to pyproject.toml
-        Returns None if the directory is not a UV project.
+        A UVProjectInfo with paths to uv.lock and pyproject.toml,
+        or None if the directory is not a UV project.
     """
     directory = Path.cwd() if directory is None else Path(directory)
 
@@ -97,10 +102,7 @@ def detect_uv_project(directory: str | Path | None = None) -> dict[str, Path] | 
         _logger.info(
             f"Detected UV project: found {_UV_LOCK_FILE} and {_PYPROJECT_FILE} in {directory}"
         )
-        return {
-            "uv_lock": uv_lock_path,
-            "pyproject": pyproject_path,
-        }
+        return UVProjectInfo(uv_lock=uv_lock_path, pyproject=pyproject_path)
 
     return None
 
@@ -419,8 +421,8 @@ def copy_uv_project_files(
     if uv_project is None:
         return False
 
-    uv_lock_src = uv_project["uv_lock"]
-    pyproject_src = uv_project["pyproject"]
+    uv_lock_src = uv_project.uv_lock
+    pyproject_src = uv_project.pyproject
     python_version_src = source_dir / _PYTHON_VERSION_FILE
 
     try:
