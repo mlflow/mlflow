@@ -355,6 +355,8 @@ def test_process_sdk_messages_simple_conversation():
     assert llm_spans[0].name == "llm_call_1"
 
     assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-sdk-session"
+    assert trace.info.request_preview == "What is 2 + 2?"
+    assert trace.info.response_preview == "The answer is 4."
 
 
 def test_process_sdk_messages_with_tool_use():
@@ -505,27 +507,3 @@ def test_process_sdk_messages_multiple_tools():
     assert all(s.name == "tool_Read" for s in tool_spans)
     tool_results = {s.outputs["result"] for s in tool_spans}
     assert tool_results == {"content of a", "content of b"}
-
-
-def test_process_sdk_messages_sets_previews():
-    messages = [
-        UserMessage(content="What is Python?"),
-        AssistantMessage(
-            content=[TextBlock(text="Python is a programming language.")],
-            model="claude-sonnet-4-20250514",
-        ),
-        ResultMessage(
-            subtype="success",
-            duration_ms=500,
-            duration_api_ms=400,
-            is_error=False,
-            num_turns=1,
-            session_id="preview-session",
-        ),
-    ]
-
-    trace = process_sdk_messages(messages, "preview-session")
-
-    assert trace is not None
-    assert trace.info.request_preview == "What is Python?"
-    assert trace.info.response_preview == "Python is a programming language."

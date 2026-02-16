@@ -43,49 +43,7 @@ def _make_mock_hook_matcher(**kwargs):
     return FakeHookMatcher
 
 
-def test_patched_claude_sdk_init_wraps_receive_messages():
-    original_init = MagicMock()
-    mock_self = MagicMock()
-    mock_self.options = _make_mock_options(hooks={"Stop": []})
-    mock_self.receive_messages = AsyncMock()
-
-    with patch.dict(
-        "sys.modules",
-        {
-            "claude_agent_sdk": MagicMock(
-                ClaudeAgentOptions=lambda: _make_mock_options(),
-                HookMatcher=_make_mock_hook_matcher(),
-            )
-        },
-    ):
-        patched_claude_sdk_init(original_init, mock_self, mock_self.options)
-
-    original_init.assert_called_once_with(mock_self, mock_self.options)
-    # receive_messages should have been replaced with the wrapped version
-    assert mock_self.receive_messages is not original_init
-
-
-def test_patched_claude_sdk_init_injects_stop_hook():
-    original_init = MagicMock()
-    mock_self = MagicMock()
-    mock_self.options = _make_mock_options(hooks={"Stop": []})
-    mock_self.receive_messages = AsyncMock()
-
-    with patch.dict(
-        "sys.modules",
-        {
-            "claude_agent_sdk": MagicMock(
-                ClaudeAgentOptions=lambda: _make_mock_options(),
-                HookMatcher=_make_mock_hook_matcher(),
-            )
-        },
-    ):
-        patched_claude_sdk_init(original_init, mock_self, mock_self.options)
-
-    assert len(mock_self.options.hooks["Stop"]) == 1
-
-
-def test_patched_claude_sdk_init_creates_hooks_dict_when_none():
+def test_patched_claude_sdk_init_wraps_client_and_injects_hook():
     original_init = MagicMock()
     mock_self = MagicMock()
     mock_self.options = _make_mock_options(hooks=None)
@@ -102,6 +60,8 @@ def test_patched_claude_sdk_init_creates_hooks_dict_when_none():
     ):
         patched_claude_sdk_init(original_init, mock_self, mock_self.options)
 
+    original_init.assert_called_once_with(mock_self, mock_self.options)
+    assert mock_self.receive_messages is not original_init
     assert "Stop" in mock_self.options.hooks
     assert len(mock_self.options.hooks["Stop"]) == 1
 
@@ -139,7 +99,7 @@ async def test_receive_messages_wrapper_accumulates_messages():
 
 
 @pytest.mark.asyncio
-async def test_closure_stop_hook_calls_process_sdk_messages():
+async def test_closure_stop_hook_processes_and_clears_buffer():
     original_init = MagicMock()
     mock_self = MagicMock()
     mock_self.options = _make_mock_options(hooks={"Stop": []})
@@ -163,14 +123,13 @@ async def test_closure_stop_hook_calls_process_sdk_messages():
     ):
         patched_claude_sdk_init(original_init, mock_self, mock_self.options)
 
-    # First consume messages to populate the buffer
     async for _ in mock_self.receive_messages():
         pass
 
-    # Get the injected hook from the closure
     hook_matcher = mock_self.options.hooks["Stop"][0]
     stop_hook_fn = hook_matcher.hooks[0]
 
+    # First call: hook receives buffered messages
     with (
         patch(
             "mlflow.utils.autologging_utils.autologging_is_disabled",
@@ -181,71 +140,15 @@ async def test_closure_stop_hook_calls_process_sdk_messages():
             return_value=MagicMock(),
         ) as mock_process,
     ):
-        result = await stop_hook_fn(
-            {"session_id": "test-session"},
-            None,
-            None,
-        )
+        result = await stop_hook_fn({"session_id": "test-session"}, None, None)
 
     mock_process.assert_called_once()
-    # Verify messages were passed to process_sdk_messages
     call_args = mock_process.call_args
     assert call_args[0][0] == messages
     assert call_args[0][1] == "test-session"
     assert result == {"continue": True}
 
-
-@pytest.mark.asyncio
-async def test_closure_stop_hook_clears_buffer():
-    original_init = MagicMock()
-    mock_self = MagicMock()
-    mock_self.options = _make_mock_options(hooks={"Stop": []})
-
-    messages = ["msg1", "msg2"]
-
-    async def fake_receive_messages():
-        for msg in messages:
-            yield msg
-
-    mock_self.receive_messages = fake_receive_messages
-
-    with patch.dict(
-        "sys.modules",
-        {
-            "claude_agent_sdk": MagicMock(
-                ClaudeAgentOptions=lambda: _make_mock_options(),
-                HookMatcher=_make_mock_hook_matcher(),
-            )
-        },
-    ):
-        patched_claude_sdk_init(original_init, mock_self, mock_self.options)
-
-    # Consume messages to populate the buffer
-    async for _ in mock_self.receive_messages():
-        pass
-
-    hook_matcher = mock_self.options.hooks["Stop"][0]
-    stop_hook_fn = hook_matcher.hooks[0]
-
-    # Verify buffer has messages before hook runs
-    with (
-        patch(
-            "mlflow.utils.autologging_utils.autologging_is_disabled",
-            return_value=False,
-        ),
-        patch(
-            "mlflow.claude_code.tracing.process_sdk_messages",
-            return_value=MagicMock(),
-        ) as mock_process,
-    ):
-        await stop_hook_fn({"session_id": "s1"}, None, None)
-
-        # The hook should have received the buffered messages
-        call_args = mock_process.call_args
-        assert call_args[0][0] == messages
-
-    # After hook runs, the next call should get an empty buffer
-    # (verified by calling the hook again without consuming new messages)
+    # Second call without consuming new messages: buffer should be empty
     with (
         patch(
             "mlflow.utils.autologging_utils.autologging_is_disabled",
@@ -257,8 +160,7 @@ async def test_closure_stop_hook_clears_buffer():
         ) as mock_process,
     ):
         await stop_hook_fn({"session_id": "s2"}, None, None)
-        call_args = mock_process.call_args
-        assert call_args[0][0] == []
+        assert mock_process.call_args[0][0] == []
 
 
 @pytest.mark.asyncio
