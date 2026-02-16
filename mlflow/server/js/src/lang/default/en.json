@@ -231,6 +231,10 @@
     "defaultMessage": "Service unavailable error",
     "description": "Request failed due to service being available (HTTP STATUS 503) generic error message"
   },
+  "/ZsbLo": {
+    "defaultMessage": "Add feedback",
+    "description": "Label for the button to add new feedback"
+  },
   "/aYVif": {
     "defaultMessage": "Please fix the validation errors in the instructions",
     "description": "Tooltip message when instructions have validation errors"
@@ -306,10 +310,6 @@
   "033qfw": {
     "defaultMessage": "Select a framework and follow the instructions to log traces with MLflow.",
     "description": "Helper text shown at the top of the log traces drawer"
-  },
-  "03HDrw": {
-    "defaultMessage": "Add a custom feedback to this trace.",
-    "description": "Hint message prompting user to add a new feedback"
   },
   "050N3C": {
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
@@ -430,6 +430,10 @@
   "0z3Ko0": {
     "defaultMessage": "{sampleRatePercent}%",
     "description": "Sample rate value for scorer"
+  },
+  "1+JyrI": {
+    "defaultMessage": "LLM judge feedback",
+    "description": "Label for the button to add LLM judge feedback to the trace"
   },
   "1/M8+x": {
     "defaultMessage": "X-axis:",
@@ -2154,10 +2158,6 @@
     "defaultMessage": "Provider",
     "description": "Provider column header"
   },
-  "Cwuzyr": {
-    "defaultMessage": "Human feedback",
-    "description": "Label for the button to add a human feedback to the trace"
-  },
   "CyTYL6": {
     "defaultMessage": "Line chart",
     "description": "Experiment tracking > runs charts > add chart menu > line chart"
@@ -3310,6 +3310,10 @@
     "defaultMessage": "Calls",
     "description": "Column header for call count"
   },
+  "MNLhKO": {
+    "defaultMessage": "Add custom feedback to this trace.",
+    "description": "Hint message prompting user to add new feedback"
+  },
   "MQ4Voz": {
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
     "description": "Evaluation review > input section > title"
@@ -3650,10 +3654,6 @@
     "defaultMessage": "Field",
     "description": "Label for the column field in the GenAI Traces Table Filter form"
   },
-  "OmK5nx": {
-    "defaultMessage": "Add feedback",
-    "description": "Label for the button to add a new feedback"
-  },
   "On3g1B": {
     "defaultMessage": "Running",
     "description": "Run page > Overview > Run status cell > Value for running state"
@@ -3992,10 +3992,6 @@
   "RXL0a5": {
     "defaultMessage": "All {groupLabel}",
     "description": "Evaluation review > evaluations list > select all columns in group"
-  },
-  "RXUGmX": {
-    "defaultMessage": "LLM judge feedback",
-    "description": "Label for the button to add a LLM judge feedback to the trace"
   },
   "RaGnOQ": {
     "defaultMessage": "Compare",
@@ -5023,6 +5019,10 @@
     "defaultMessage": "PASS",
     "description": "Header label for pass/fail assessment type for the pass rate"
   },
+  "YeCF5P": {
+    "defaultMessage": "Human feedback",
+    "description": "Label for the button to add human feedback to the trace"
+  },
   "YeIhTa": {
     "defaultMessage": "Enter artifact root URI",
     "description": "Placeholder for artifact root input in edit modal"
@@ -5458,6 +5458,10 @@
   "bZdMSj": {
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
+  },
+  "ba7/ni": {
+    "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
+    "description": "Tooltip explaining the demo experiment in the experiments list"
   },
   "bcw06n": {
     "defaultMessage": "Is the output semantically equivalent to the expected output?",
@@ -7426,6 +7430,10 @@
   "orKoPo": {
     "defaultMessage": "Delete",
     "description": "A label for the confirm button in the delete prompt version modal"
+  },
+  "ot8KVZ": {
+    "defaultMessage": "MLflow Demo Experiment",
+    "description": "Badge label for the demo experiment in the experiments list"
   },
   "ov1whU": {
     "defaultMessage": "AI Judge",
