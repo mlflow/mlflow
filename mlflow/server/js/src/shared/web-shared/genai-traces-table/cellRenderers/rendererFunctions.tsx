@@ -50,7 +50,7 @@ import {
 import type { AssessmentInfo, EvalTraceComparisonEntry } from '../types';
 import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
-import { timeSinceStr } from '../utils/DisplayUtils';
+import { highlightSearchInText, timeSinceStr } from '../utils/DisplayUtils';
 import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
 import {
   getCustomMetadataKeyFromColumnId,
@@ -343,6 +343,12 @@ export const inputColumnCellRenderer = (
     : undefined;
 
   const inputColumnTitle = currentInputColumnTitle || otherInputColumnTitle;
+  const meta = row?.table?.options?.meta as { getRunColor?: (runUuid: string) => string; searchQuery?: string } | undefined;
+  const searchQuery = meta?.searchQuery;
+  const displayContent =
+    inputColumnTitle && searchQuery
+      ? highlightSearchInText(String(inputColumnTitle), searchQuery)
+      : inputColumnTitle;
 
   return (
     <div
@@ -366,8 +372,8 @@ export const inputColumnCellRenderer = (
         componentId="mlflow.evaluations_review.table_ui.evaluation_id_link"
         onClick={() => onChangeEvaluationId(evalId, value.currentRunValue?.traceInfo)}
       >
-        {inputColumnTitle ? (
-          inputColumnTitle
+        {displayContent ? (
+          displayContent
         ) : (
           <span
             css={{
@@ -416,6 +422,7 @@ export const traceInfoCellRenderer = (
   theme: ThemeType,
   onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void,
   traceIdToTurnMap?: Record<string, number>,
+  searchQuery?: string,
 ) => {
   const currentTraceInfo = comparisonEntry.currentRunValue?.traceInfo;
   const otherTraceInfo = isComparing ? comparisonEntry.otherRunValue?.traceInfo : undefined;
@@ -798,12 +805,15 @@ export const traceInfoCellRenderer = (
   } else if (colId === RESPONSE_COLUMN_ID) {
     const value = currentTraceInfo ? formatResponseTitle(getTraceInfoOutputs(currentTraceInfo)) : '';
     const otherValue = otherTraceInfo ? formatResponseTitle(getTraceInfoOutputs(otherTraceInfo)) : '';
+    const displayValue = value && searchQuery ? highlightSearchInText(value, searchQuery) : value;
+    const displayOtherValue =
+      otherValue && searchQuery ? highlightSearchInText(otherValue, searchQuery) : otherValue;
     return (
       <StackedComponents
         first={
-          value ? (
+          displayValue ? (
             <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>
-              {value}
+              {displayValue}
             </div>
           ) : (
             <NullCell isComparing={isComparing} />
@@ -811,9 +821,9 @@ export const traceInfoCellRenderer = (
         }
         second={
           isComparing &&
-          (otherValue ? (
+          (displayOtherValue ? (
             <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherValue}>
-              {otherValue}
+              {displayOtherValue}
             </div>
           ) : (
             <NullCell isComparing={isComparing} />
