@@ -18,14 +18,6 @@ def test_default_timestamp_is_in_nanoseconds():
         f"[{before_ns}, {after_ns}]. It may be using wrong time unit."
     )
 
-    # Additionally, verify it's in the nanosecond range (should be very large)
-    # A nanosecond timestamp should be around 1.7e18 (in 2024+)
-    # A microsecond timestamp would be around 1.7e15
-    assert event.timestamp > 1e18, (
-        f"Timestamp {event.timestamp} appears to be in microseconds, "
-        f"not nanoseconds (expected > 1e18)"
-    )
-
 
 def test_from_exception():
     exception = MlflowException("test")
