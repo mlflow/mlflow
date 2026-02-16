@@ -5471,6 +5471,10 @@
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
   },
+  "ba7/ni": {
+    "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
+    "description": "Tooltip explaining the demo experiment in the experiments list"
+  },
   "bcw06n": {
     "defaultMessage": "Is the output semantically equivalent to the expected output?",
     "description": "Hint for Equivalence template"
@@ -7430,6 +7434,10 @@
   "orKoPo": {
     "defaultMessage": "Delete",
     "description": "A label for the confirm button in the delete prompt version modal"
+  },
+  "ot8KVZ": {
+    "defaultMessage": "MLflow Demo Experiment",
+    "description": "Badge label for the demo experiment in the experiments list"
   },
   "ov1whU": {
     "defaultMessage": "AI Judge",
