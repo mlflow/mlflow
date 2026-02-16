@@ -2627,9 +2627,17 @@ def _create_model_version():
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    # If the model version is a prompt, we don't validate the source
     is_prompt = _is_prompt_request(request_message)
-    if not is_prompt:
+    if is_prompt:
+        # Prompt sources must not point to local filesystem paths
+        if is_local_uri(request_message.source, is_tracking_or_registry_uri=False):
+            raise MlflowException(
+                f"Invalid model version source: '{request_message.source}'. "
+                "Local source paths are not allowed for prompts.",
+                INVALID_PARAMETER_VALUE,
+            )
+        _validate_non_local_source_contains_relative_paths(request_message.source)
+    else:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
         else:
