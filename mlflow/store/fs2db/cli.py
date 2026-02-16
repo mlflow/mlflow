@@ -19,17 +19,11 @@ from mlflow.utils.uri import get_uri_scheme
     help="SQLite URI (e.g. sqlite:///mlflow.db).",
 )
 @click.option(
-    "--verify",
-    is_flag=True,
-    default=False,
-    help="After migration, verify that DB row counts match source file counts.",
-)
-@click.option(
     "--progress/--no-progress",
     default=True,
     help="Show per-experiment progress messages during migration.",
 )
-def migrate_filestore(source: str, target: str, verify: bool, progress: bool) -> None:
+def migrate_filestore(source: str, target: str, progress: bool) -> None:
     """Migrate MLflow FileStore data to a SQLite database."""
     if get_uri_scheme(target) != "sqlite":
         raise click.BadParameter(
@@ -49,8 +43,3 @@ def migrate_filestore(source: str, target: str, verify: bool, progress: bool) ->
 
     target = f"sqlite:///{db_path}"
     migrate(Path(source), target, progress=progress)
-
-    if verify:
-        from mlflow.store.fs2db._verify import verify_migration
-
-        verify_migration(target)

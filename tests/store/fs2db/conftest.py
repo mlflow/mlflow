@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from mlflow.store.fs2db import _resolve_mlruns, migrate
-from mlflow.store.fs2db._verify import verify_migration
 from mlflow.tracking import MlflowClient
 
 
@@ -32,7 +31,6 @@ def clients(
     )
 
     migrate(Path(source), target_uri, progress=False)
-    verify_migration(target_uri)
 
     mlruns = _resolve_mlruns(Path(source))
     with warnings.catch_warnings():

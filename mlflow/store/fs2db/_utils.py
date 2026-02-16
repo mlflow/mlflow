@@ -44,11 +44,18 @@ class MigrationStats:
             if val > 0:
                 yield f.name, val
 
-    def summary(self, source: str, target_uri: str) -> str:
+    def summary(self, source: str, target_uri: str, db_counts: dict[str, int] | None = None) -> str:
         sep = "=" * 50
         lines = [sep, "Migration summary:", sep]
-        for key, count in self.items():
-            lines.append(f"  {key}: {count}")
+        if db_counts:
+            lines.append(f"  {'entity':<25} {'migrated':>10} {'in DB':>10}")
+            lines.append(f"  {'-' * 25} {'-' * 10} {'-' * 10}")
+            for key, count in self.items():
+                db_val = db_counts.get(key, "")
+                lines.append(f"  {key:<25} {count:>10} {db_val:>10}")
+        else:
+            for key, count in self.items():
+                lines.append(f"  {key}: {count}")
         lines.append(sep)
         lines.append(f"  source: {source}")
         lines.append(f"  target: {target_uri}")

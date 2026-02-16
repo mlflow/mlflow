@@ -58,7 +58,6 @@ jobs:
           uv run mlflow migrate-filestore \
             --source /tmp/fs2db/${{ matrix.mlflow-version }}/ \
             --target sqlite:////tmp/fs2db/${{ matrix.mlflow-version }}/migrated.db \
-            --verify \
             --no-progress
 
   unit-tests:

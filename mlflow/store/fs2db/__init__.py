@@ -41,6 +41,47 @@ def _assert_empty_db(engine) -> None:
                 )
 
 
+_ROW_COUNT_QUERIES: dict[str, str] = {
+    "experiments": "SELECT COUNT(*) FROM experiments",
+    "experiment_tags": "SELECT COUNT(*) FROM experiment_tags",
+    "runs": "SELECT COUNT(*) FROM runs",
+    "params": "SELECT COUNT(*) FROM params",
+    "tags": "SELECT COUNT(*) FROM tags",
+    "metrics": "SELECT COUNT(*) FROM metrics",
+    "latest_metrics": "SELECT COUNT(*) FROM latest_metrics",
+    "datasets": "SELECT COUNT(*) FROM datasets",
+    "inputs": "SELECT COUNT(*) FROM inputs WHERE source_type = 'DATASET'",
+    "input_tags": "SELECT COUNT(*) FROM input_tags",
+    "outputs": "SELECT COUNT(*) FROM inputs WHERE source_type = 'RUN_OUTPUT'",
+    "traces": "SELECT COUNT(*) FROM trace_info",
+    "trace_tags": "SELECT COUNT(*) FROM trace_tags",
+    "trace_metadata": "SELECT COUNT(*) FROM trace_request_metadata",
+    "assessments": "SELECT COUNT(*) FROM assessments",
+    "logged_models": "SELECT COUNT(*) FROM logged_models",
+    "logged_model_params": "SELECT COUNT(*) FROM logged_model_params",
+    "logged_model_tags": "SELECT COUNT(*) FROM logged_model_tags",
+    "logged_model_metrics": "SELECT COUNT(*) FROM logged_model_metrics",
+    "registered_models": "SELECT COUNT(*) FROM registered_models",
+    "registered_model_tags": "SELECT COUNT(*) FROM registered_model_tags",
+    "registered_model_aliases": "SELECT COUNT(*) FROM registered_model_aliases",
+    "model_versions": "SELECT COUNT(*) FROM model_versions",
+    "model_version_tags": "SELECT COUNT(*) FROM model_version_tags",
+}
+
+
+def _query_row_counts(engine) -> dict[str, int]:
+    from sqlalchemy import text
+
+    counts = {}
+    with engine.connect() as conn:
+        for key, query in _ROW_COUNT_QUERIES.items():
+            try:
+                counts[key] = conn.execute(text(query)).scalar()
+            except Exception:
+                pass
+    return counts
+
+
 def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
     from sqlalchemy import create_engine, event
     from sqlalchemy.orm import Session
@@ -125,5 +166,6 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
     log("")
     log("Migration completed successfully!")
 
+    db_counts = _query_row_counts(engine)
     print()
-    print(stats.summary(str(mlruns), target_uri))
+    print(stats.summary(str(mlruns), target_uri, db_counts))
