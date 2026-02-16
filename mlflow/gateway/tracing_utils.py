@@ -38,44 +38,38 @@ def _has_traceparent(headers: dict[str, str]) -> bool:
     return "traceparent" in headers or "Traceparent" in headers
 
 
-def _get_token_usage_from_gateway_spans(gateway_trace_id: str) -> dict[str, int] | None:
-    """Read CHAT_USAGE from completed child spans of the gateway trace."""
+def _gateway_span_name(endpoint_config: GatewayEndpointConfig) -> str:
+    return f"gateway/{endpoint_config.endpoint_name}"
+
+
+def _gateway_span_attributes(endpoint_config: GatewayEndpointConfig) -> dict[str, str]:
+    return {
+        "endpoint_id": endpoint_config.endpoint_id,
+        "endpoint_name": endpoint_config.endpoint_name,
+    }
+
+
+_PROVIDER_SPAN_ATTRIBUTE_KEYS = [
+    SpanAttributeKey.CHAT_USAGE,
+    SpanAttributeKey.MODEL,
+    SpanAttributeKey.MODEL_PROVIDER,
+]
+
+
+def _get_provider_span_attributes(gateway_trace_id: str) -> dict[str, Any]:
+    """Read attributes from the provider span within a gateway trace."""
     trace_manager = InMemoryTraceManager.get_instance()
     with trace_manager.get_trace(gateway_trace_id) as trace:
         if trace is None:
-            return None
+            return {}
         for span in trace.span_dict.values():
-            if token_usage := span.get_attribute(SpanAttributeKey.CHAT_USAGE):
-                return token_usage
-    return None
-
-
-def _create_distributed_span(
-    request_headers: dict[str, str],
-    endpoint_config: GatewayEndpointConfig,
-    gateway_trace_id: str | None,
-    token_usage: dict[str, int] | None,
-) -> None:
-    """Create a span under the agent's distributed trace with a link to the gateway trace."""
-    from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
-
-    try:
-        with set_tracing_context_from_http_request_headers(request_headers):
-            with mlflow.start_span(
-                name=f"gateway/{endpoint_config.endpoint_name}",
-                span_type=SpanType.LLM,
-            ) as span:
-                attrs = {
-                    "endpoint_id": endpoint_config.endpoint_id,
-                    "endpoint_name": endpoint_config.endpoint_name,
-                }
-                if gateway_trace_id:
-                    attrs[SpanAttributeKey.LINKED_GATEWAY_TRACE_ID] = gateway_trace_id
-                span.set_attributes(attrs)
-                if token_usage:
-                    span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
-    except Exception:
-        _logger.debug("Failed to create distributed trace span for gateway call", exc_info=True)
+            attrs = {}
+            for key in _PROVIDER_SPAN_ATTRIBUTE_KEYS:
+                if value := span.get_attribute(key):
+                    attrs[key] = value
+            if attrs:
+                return attrs
+    return {}
 
 
 def _maybe_create_distributed_span(
@@ -86,14 +80,27 @@ def _maybe_create_distributed_span(
     if not request_headers or not _has_traceparent(request_headers):
         return
 
+    from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
+
     gateway_trace_id = None
     if span := mlflow.get_current_active_span():
         gateway_trace_id = span.trace_id
 
-    token_usage = (
-        _get_token_usage_from_gateway_spans(gateway_trace_id) if gateway_trace_id else None
-    )
-    _create_distributed_span(request_headers, endpoint_config, gateway_trace_id, token_usage)
+    provider_attrs = _get_provider_span_attributes(gateway_trace_id) if gateway_trace_id else {}
+
+    try:
+        with set_tracing_context_from_http_request_headers(request_headers):
+            with mlflow.start_span(
+                name=_gateway_span_name(endpoint_config),
+                span_type=SpanType.LLM,
+            ) as span:
+                attrs = _gateway_span_attributes(endpoint_config)
+                if gateway_trace_id:
+                    attrs[SpanAttributeKey.LINKED_GATEWAY_TRACE_ID] = gateway_trace_id
+                attrs.update(provider_attrs)
+                span.set_attributes(attrs)
+    except Exception:
+        _logger.debug("Failed to create distributed trace span for gateway call", exc_info=True)
 
 
 def maybe_traced_gateway_call(
@@ -124,11 +131,8 @@ def maybe_traced_gateway_call(
         return func
 
     trace_kwargs = {
-        "name": f"gateway/{endpoint_config.endpoint_name}",
-        "attributes": {
-            "endpoint_id": endpoint_config.endpoint_id,
-            "endpoint_name": endpoint_config.endpoint_name,
-        },
+        "name": _gateway_span_name(endpoint_config),
+        "attributes": _gateway_span_attributes(endpoint_config),
         "output_reducer": output_reducer,
         "trace_destination": MlflowExperimentLocation(endpoint_config.experiment_id),
     }

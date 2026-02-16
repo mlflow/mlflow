@@ -4,7 +4,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.tracing_utils import (
-    _get_token_usage_from_gateway_spans,
+    _get_provider_span_attributes,
     _has_traceparent,
     aggregate_chat_stream_chunks,
     maybe_traced_gateway_call,
@@ -345,17 +345,24 @@ def test_has_traceparent_empty():
     assert not _has_traceparent({})
 
 
-def test_get_token_usage_from_gateway_spans_returns_none_for_unknown_trace():
-    assert _get_token_usage_from_gateway_spans("nonexistent-trace-id") is None
+def test_get_provider_span_attributes_returns_empty_for_unknown_trace():
+    assert _get_provider_span_attributes("nonexistent-trace-id") == {}
 
 
 @pytest.mark.asyncio
-async def test_get_token_usage_from_gateway_spans_reads_child_span(endpoint_config):
+async def test_get_provider_span_attributes_reads_child_span(endpoint_config):
     async def func_with_child_span(payload):
         with mlflow.start_span("provider/test", span_type=SpanType.LLM) as child:
-            child.set_attribute(
-                SpanAttributeKey.CHAT_USAGE,
-                {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+            child.set_attributes(
+                {
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 10,
+                        "output_tokens": 5,
+                        "total_tokens": 15,
+                    },
+                    SpanAttributeKey.MODEL: "gpt-4",
+                    SpanAttributeKey.MODEL_PROVIDER: "openai",
+                }
             )
         return {"result": "ok"}
 
@@ -367,9 +374,9 @@ async def test_get_token_usage_from_gateway_spans_reads_child_span(endpoint_conf
     gateway_trace_id = traces[0].info.trace_id
 
     # After the trace is exported, spans are removed from InMemoryTraceManager,
-    # so we expect None here. The actual reading happens inside the wrapper
+    # so we expect empty here. The actual reading happens inside the wrapper
     # while the trace is still in memory.
-    assert _get_token_usage_from_gateway_spans(gateway_trace_id) is None
+    assert _get_provider_span_attributes(gateway_trace_id) == {}
 
 
 # ---------------------------------------------------------------------------
@@ -388,9 +395,16 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
 
     async def func_with_usage(payload):
         with mlflow.start_span("provider/test", span_type=SpanType.LLM) as child:
-            child.set_attribute(
-                SpanAttributeKey.CHAT_USAGE,
-                {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+            child.set_attributes(
+                {
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 10,
+                        "output_tokens": 5,
+                        "total_tokens": 15,
+                    },
+                    SpanAttributeKey.MODEL: "gpt-4",
+                    SpanAttributeKey.MODEL_PROVIDER: "openai",
+                }
             )
         return {"result": "ok"}
 
@@ -432,9 +446,11 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
     linked_trace_id = gw_span.attributes.get(SpanAttributeKey.LINKED_GATEWAY_TRACE_ID)
     assert linked_trace_id == gateway_trace_id
 
-    # Should have token usage copied from gateway spans
+    # Should have provider attributes copied from gateway spans
     token_usage = gw_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
     assert token_usage == {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+    assert gw_span.attributes.get(SpanAttributeKey.MODEL) == "gpt-4"
+    assert gw_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "openai"
 
     # Should NOT have request/response payloads
     assert gw_span.inputs is None
@@ -471,9 +487,16 @@ async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_expe
 
     async def mock_stream_with_usage(payload):
         with mlflow.start_span("provider/test", span_type=SpanType.LLM) as child:
-            child.set_attribute(
-                SpanAttributeKey.CHAT_USAGE,
-                {"input_tokens": 20, "output_tokens": 10, "total_tokens": 30},
+            child.set_attributes(
+                {
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 20,
+                        "output_tokens": 10,
+                        "total_tokens": 30,
+                    },
+                    SpanAttributeKey.MODEL: "gpt-4",
+                    SpanAttributeKey.MODEL_PROVIDER: "openai",
+                }
             )
         yield _make_chunk(content="Hello")
         yield _make_chunk(content=" world", finish_reason="stop")
@@ -518,12 +541,14 @@ async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_expe
     # Should have a link to the gateway trace
     assert gw_span.attributes.get(SpanAttributeKey.LINKED_GATEWAY_TRACE_ID) == gateway_trace_id
 
-    # Should have token usage copied from gateway spans
+    # Should have provider attributes copied from gateway spans
     assert gw_span.attributes.get(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 20,
         "output_tokens": 10,
         "total_tokens": 30,
     }
+    assert gw_span.attributes.get(SpanAttributeKey.MODEL) == "gpt-4"
+    assert gw_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "openai"
 
     # Should NOT have request/response payloads
     assert gw_span.inputs is None

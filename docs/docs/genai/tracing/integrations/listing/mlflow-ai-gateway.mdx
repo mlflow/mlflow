@@ -23,14 +23,12 @@ Since MLflow AI Gateway exposes an OpenAI-compatible API, you can use MLflow's a
 
 There are two ways to trace LLM calls through MLflow AI Gateway:
 
-| Approach                              | Description                             | Best For                                                   |
-| :------------------------------------ | :-------------------------------------- | :--------------------------------------------------------- |
-| **Server-side Tracing** (Coming Soon) | Gateway automatically logs all requests | Centralized tracing for all requests through the gateway   |
-| **Client-side Tracing**               | Use OpenAI SDK with MLflow autolog      | Combining LLM traces with your agent or application traces |
+| Approach                | Description                                                                      | Best For                                                   |
+| :---------------------- | :------------------------------------------------------------------------------- | :--------------------------------------------------------- |
+| **Server-side Tracing** | Gateway automatically logs all requests when [usage tracking](/genai/governance/ai-gateway/usage-tracking) is enabled | Centralized tracing for all requests through the gateway   |
+| **Client-side Tracing** | Use OpenAI SDK with MLflow autolog                                               | Combining LLM traces with your agent or application traces |
 
-:::note Coming Soon
-**Server-side tracing** for MLflow AI Gateway is not available yet. Stay tuned for updates!
-:::
+When both are used together with a `traceparent` header, the gateway creates a linked span under the agent's trace for end-to-end visibility. See [Distributed Tracing](/genai/tracing/app-instrumentation/distributed-tracing#ai-gateway-integration) for details.
 
 ## Prerequisite
 
