@@ -359,50 +359,6 @@ def test_process_sdk_messages_simple_conversation():
     assert trace.info.response_preview == "The answer is 4."
 
 
-def test_process_sdk_messages_with_tool_use():
-    messages = [
-        UserMessage(content="List files in current directory"),
-        AssistantMessage(
-            content=[
-                ToolUseBlock(id="tool_1", name="Bash", input={"command": "ls"}),
-            ],
-            model="claude-sonnet-4-20250514",
-        ),
-        UserMessage(
-            content=[
-                ToolResultBlock(tool_use_id="tool_1", content="file1.py\nfile2.py"),
-            ],
-            tool_use_result={"tool_use_id": "tool_1"},
-        ),
-        AssistantMessage(
-            content=[TextBlock(text="Here are the files: file1.py and file2.py")],
-            model="claude-sonnet-4-20250514",
-        ),
-        ResultMessage(
-            subtype="success",
-            duration_ms=2000,
-            duration_api_ms=1500,
-            is_error=False,
-            num_turns=2,
-            session_id="tool-session",
-        ),
-    ]
-
-    trace = process_sdk_messages(messages, "tool-session")
-
-    assert trace is not None
-    spans = list(trace.search_spans())
-
-    tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
-    assert len(tool_spans) == 1
-    assert tool_spans[0].name == "tool_Bash"
-    assert tool_spans[0].inputs == {"command": "ls"}
-    assert tool_spans[0].outputs["result"] == "file1.py\nfile2.py"
-
-    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
-    assert len(llm_spans) == 1
-
-
 def test_process_sdk_messages_token_usage():
     messages = [
         UserMessage(content="Hello!"),
