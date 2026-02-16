@@ -70,6 +70,9 @@ class TelemetryInfo:
     tracking_uri_scheme: str | None = None
     is_localhost: bool | None = None
     installation_id: str | None = None
+    # Whether a workspace is enabled at client side or not. Using short name to
+    # minimize the payload size, because these fields are included to every
+    # telemetry event.
     ws_enabled: bool | None = None
 
 
