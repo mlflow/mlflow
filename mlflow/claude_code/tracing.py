@@ -711,26 +711,48 @@ def _build_tool_result_map(messages: list[Any]) -> dict[str, str]:
     return tool_result_map
 
 
+def _sdk_msg_to_chat_message(msg) -> dict[str, str] | None:
+    """Convert an SDK message to an OpenAI-style chat message dict."""
+    from claude_agent_sdk.types import AssistantMessage, TextBlock, UserMessage
+
+    if isinstance(msg, UserMessage):
+        if msg.tool_use_result is not None:
+            return None
+        content = msg.content
+        if isinstance(content, str):
+            text = content
+        elif isinstance(content, list):
+            text = "\n".join(b.text for b in content if isinstance(b, TextBlock))
+        else:
+            return None
+        if text and text.strip():
+            return {"role": "user", "content": text}
+    elif isinstance(msg, AssistantMessage) and msg.content:
+        text_parts = [b.text for b in msg.content if isinstance(b, TextBlock)]
+        if text_parts:
+            return {"role": "assistant", "content": "\n".join(text_parts)}
+    return None
+
+
 def _create_sdk_child_spans(
     messages: list[Any],
     parent_span,
     tool_result_map: dict[str, str],
     conv_start_ns: int,
 ) -> str | None:
-    """
-    Create LLM and tool child spans under ``parent_span`` from AssistantMessages.
+    """Create LLM and tool child spans under ``parent_span`` from SDK messages.
 
-    Iterates through SDK messages and creates a child span for each assistant
-    response: text-only responses become LLM spans, tool use blocks become TOOL
-    spans with their results looked up from ``tool_result_map``.
+    Iterates through messages, building a running conversation history. For each
+    text-only AssistantMessage, creates an LLM span with the conversation context
+    as input. For tool use blocks, creates TOOL spans with results from
+    ``tool_result_map``.
 
     Args:
         messages: Full list of SDK message objects from the conversation.
         parent_span: The root AGENT span to attach children to.
         tool_result_map: Mapping of tool_use_id to result content, built by
             ``_build_tool_result_map``.
-        conv_start_ns: Conversation start time in nanoseconds, used as the
-            baseline for synthetic span timestamps.
+        conv_start_ns: Conversation start time in nanoseconds.
 
     Returns:
         The final assistant text response (for trace preview), or None if no
@@ -740,47 +762,55 @@ def _create_sdk_child_spans(
 
     llm_call_num = 0
     final_response = None
-    span_time_ns = conv_start_ns
+    conversation_history: list[dict[str, str]] = []
 
     for msg in messages:
+        # Build running conversation context from user and assistant messages
+        if chat_msg := _sdk_msg_to_chat_message(msg):
+            conversation_history.append(chat_msg)
+
         if not isinstance(msg, AssistantMessage) or not msg.content:
             continue
 
         text_blocks = [block for block in msg.content if isinstance(block, TextBlock)]
         tool_use_blocks = [block for block in msg.content if isinstance(block, ToolUseBlock)]
-        span_time_ns += int(100 * NANOSECONDS_PER_MS)
 
-        # Text-only responses become LLM spans
+        # Text-only responses become LLM spans with conversation context as input
         if text_blocks and not tool_use_blocks:
             llm_call_num += 1
             text = "\n".join(block.text for block in text_blocks)
             if text.strip():
                 final_response = text
+
+            # Input is the conversation up to (not including) this response
+            input_messages = conversation_history[:-1] if conversation_history else []
             llm_span = mlflow.start_span_no_context(
                 name=f"llm_call_{llm_call_num}",
                 parent_span=parent_span,
                 span_type=SpanType.LLM,
-                start_time_ns=span_time_ns,
-                inputs={"model": getattr(msg, "model", "unknown")},
+                start_time_ns=conv_start_ns,
+                inputs={
+                    "model": getattr(msg, "model", "unknown"),
+                    "messages": list(input_messages),
+                },
                 attributes={"model": getattr(msg, "model", "unknown")},
             )
             llm_span.set_outputs({"response": text})
-            llm_span.end(end_time_ns=span_time_ns + int(500 * NANOSECONDS_PER_MS))
+            llm_span.end(end_time_ns=conv_start_ns)
 
         # Tool use blocks each become a tool span
-        for idx, tool_block in enumerate(tool_use_blocks):
-            tool_start_ns = span_time_ns + idx * int(10 * NANOSECONDS_PER_MS)
+        for tool_block in tool_use_blocks:
             tool_span = mlflow.start_span_no_context(
                 name=f"tool_{tool_block.name}",
                 parent_span=parent_span,
                 span_type=SpanType.TOOL,
-                start_time_ns=tool_start_ns,
+                start_time_ns=conv_start_ns,
                 inputs=tool_block.input,
                 attributes={"tool_name": tool_block.name, "tool_id": tool_block.id},
             )
             tool_result = tool_result_map.get(tool_block.id, "No result found")
             tool_span.set_outputs({"result": tool_result})
-            tool_span.end(end_time_ns=tool_start_ns + int(500 * NANOSECONDS_PER_MS))
+            tool_span.end(end_time_ns=conv_start_ns)
 
     return final_response
 
@@ -828,7 +858,11 @@ def process_sdk_messages(
 
         tool_result_map = _build_tool_result_map(messages)
 
-        conv_start_ns = int(datetime.now().timestamp() * NANOSECONDS_PER_S)
+        # Use real duration from ResultMessage, fall back to 1s default
+        duration_ms = result_msg.duration_ms if result_msg else 1000
+        duration_ns = int(duration_ms * NANOSECONDS_PER_MS)
+        conv_start_ns = int(datetime.now().timestamp() * NANOSECONDS_PER_S) - duration_ns
+
         parent_span = mlflow.start_span_no_context(
             name="claude_code_conversation",
             inputs={"prompt": user_prompt},
@@ -848,7 +882,7 @@ def process_sdk_messages(
             user_prompt,
             final_response,
             session_id,
-            conv_start_ns + int(1 * NANOSECONDS_PER_S),
+            conv_start_ns + duration_ns,
         )
 
     except Exception as e:

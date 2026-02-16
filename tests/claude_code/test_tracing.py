@@ -344,49 +344,32 @@ def test_process_sdk_messages_simple_conversation():
 
     assert trace is not None
     spans = list(trace.search_spans())
-    assert len(spans) > 0
 
     root_span = trace.data.spans[0]
     assert root_span.name == "claude_code_conversation"
     assert root_span.span_type == SpanType.AGENT
 
+    # LLM span should have conversation context as input
     llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
     assert len(llm_spans) == 1
     assert llm_spans[0].name == "llm_call_1"
+    assert llm_spans[0].inputs["model"] == "claude-sonnet-4-20250514"
+    assert llm_spans[0].inputs["messages"] == [{"role": "user", "content": "What is 2 + 2?"}]
+
+    # Token usage from ResultMessage should be on the root span
+    token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage["input_tokens"] == 100
+    assert token_usage["output_tokens"] == 20
+    assert token_usage["total_tokens"] == 120
+
+    # Duration should reflect ResultMessage.duration_ms (1000ms = 1s)
+    duration_ns = root_span.end_time_ns - root_span.start_time_ns
+    assert abs(duration_ns - 1_000_000_000) < 1_000_000  # within 1ms tolerance
 
     assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-sdk-session"
     assert trace.info.request_preview == "What is 2 + 2?"
     assert trace.info.response_preview == "The answer is 4."
-
-
-def test_process_sdk_messages_token_usage():
-    messages = [
-        UserMessage(content="Hello!"),
-        AssistantMessage(
-            content=[TextBlock(text="Hi there!")],
-            model="claude-sonnet-4-20250514",
-        ),
-        ResultMessage(
-            subtype="success",
-            duration_ms=500,
-            duration_api_ms=400,
-            is_error=False,
-            num_turns=1,
-            session_id="usage-session",
-            usage={"input_tokens": 200, "output_tokens": 50},
-        ),
-    ]
-
-    trace = process_sdk_messages(messages, "usage-session")
-
-    assert trace is not None
-
-    root_span = trace.data.spans[0]
-    token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
-    assert token_usage is not None
-    assert token_usage["input_tokens"] == 200
-    assert token_usage["output_tokens"] == 50
-    assert token_usage["total_tokens"] == 250
 
 
 def test_process_sdk_messages_multiple_tools():
