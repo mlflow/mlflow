@@ -1,7 +1,14 @@
 import math
+from pathlib import Path
+from unittest import mock
+
+import pytest
+from sqlalchemy import create_engine, text
 
 from mlflow.entities import Experiment, Run, ViewType
+from mlflow.store.fs2db import migrate
 from mlflow.tracking import MlflowClient
+from mlflow.utils.file_utils import local_file_uri_to_path
 
 Clients = tuple[MlflowClient, MlflowClient]
 
@@ -263,3 +270,22 @@ def test_prompts(clients: Clients) -> None:
         assert src_pv is not None
         assert dst_pv is not None
         assert dst_pv.template == src_pv.template
+
+
+def test_rollback_on_failure(clients: Clients, tmp_path: Path) -> None:
+    src, _ = clients
+    source = Path(local_file_uri_to_path(src.tracking_uri))
+    target_uri = f"sqlite:///{tmp_path / 'rollback.db'}"
+
+    with mock.patch(
+        "mlflow.store.fs2db._tracking._migrate_runs_in_dir",
+        side_effect=RuntimeError("boom"),
+    ):
+        with pytest.raises(RuntimeError, match="boom"):
+            migrate(source, target_uri, progress=False)
+
+    engine = create_engine(target_uri)
+    with engine.connect() as conn:
+        for table in ("experiments", "runs", "registered_models"):
+            count = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
+            assert count == 0
