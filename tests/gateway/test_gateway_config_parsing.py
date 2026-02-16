@@ -184,7 +184,7 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
     routes = [r.to_endpoint() for r in loaded.endpoints]
 
     for config in loaded.endpoints:
-        route = [x for x in routes if x.name == config.name][0]
+        route = next(x for x in routes if x.name == config.name)
         assert route.endpoint_type == config.endpoint_type
         assert route.model.name == config.model.name
         assert route.model.provider == config.model.provider

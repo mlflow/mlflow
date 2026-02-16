@@ -82,7 +82,7 @@ def _extract_output_and_other_columns(
             )
         elif len(model_predictions[0]) == 1:
             # Set the only key as self.predictions and its value as self.y_pred
-            key, value = list(model_predictions[0].items())[0]
+            key, value = next(iter(model_predictions[0].items()))
             y_pred = pd.Series(value, name=key)
             output_column_name = key
         elif output_column_name is None:
@@ -123,7 +123,7 @@ def _extract_output_and_other_columns(
                 {k: v for k, v in model_predictions.items() if k != output_column_name}
             )
         elif len(model_predictions) == 1:
-            key, value = list(model_predictions.items())[0]
+            key, value = next(iter(model_predictions.items()))
             y_pred = pd.Series(value, name=key)
             output_column_name = key
         elif output_column_name is None:

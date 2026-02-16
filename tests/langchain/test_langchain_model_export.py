@@ -2196,7 +2196,7 @@ def test_pyfunc_converts_chat_request_for_non_chat_model():
 
     response = pyfunc_model.predict_stream(input_example)
     assert inspect.isgenerator(response)
-    assert isinstance(list(response)[0]["choices"][0]["delta"]["content"], str)
+    assert isinstance(next(iter(response))["choices"][0]["delta"]["content"], str)
 
 
 @skip_if_v1

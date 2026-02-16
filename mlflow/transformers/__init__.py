@@ -2066,7 +2066,7 @@ class _TransformersWrapper:
             and isinstance(data, list)
             and all(isinstance(entry, dict) for entry in data)
         ):
-            return [list(entry.values())[0] for entry in data]
+            return [next(iter(entry.values())) for entry in data]
         # NB: For Text2TextGenerationPipeline, we need more complex handling for dictionary,
         # as we allow both single string input and dictionary input (or list of them). Both
         # are once wrapped to Pandas DataFrame during schema enforcement and convert back to
@@ -2096,7 +2096,7 @@ class _TransformersWrapper:
             # Pandas Dataframe derived dictionary will have integer key (row index)
             and 0 in data[0].keys()
         ):
-            return [list(entry.values())[0] for entry in data]
+            return [next(iter(entry.values())) for entry in data]
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
             return self._validate_text_classification_input(data)
         else:
@@ -2163,7 +2163,7 @@ class _TransformersWrapper:
             elif all(isinstance(item, dict) for item in data):
                 for payload in data:
                     _check_keys(payload)
-                if list(data[0].keys())[0] == 0:
+                if next(iter(data[0].keys())) == 0:
                     data = [item[0] for item in data]
                 try:
                     # NB: To support MLflow serving signature validation, the value within dict
@@ -2326,7 +2326,7 @@ class _TransformersWrapper:
 
         def extract_response_data(data_out):
             if all(isinstance(x, dict) for x in data_out):
-                return [elem[output_key] for elem in data_out][0]
+                return next(elem[output_key] for elem in data_out)
             elif all(isinstance(x, list) for x in data_out):
                 return [elem[output_key] for coll in data_out for elem in coll]
             else:
@@ -2455,7 +2455,7 @@ class _TransformersWrapper:
     @staticmethod
     def _parse_feature_extraction_input(input_data):
         if isinstance(input_data, list) and isinstance(input_data[0], dict):
-            return [list(data.values())[0] for data in input_data]
+            return [next(iter(data.values())) for data in input_data]
         else:
             return input_data
 
@@ -2798,7 +2798,7 @@ class _TransformersWrapper:
             A single or list of audio data.
         """
         if isinstance(data, list):
-            data = [list(element.values())[0] for element in data]
+            data = [next(iter(element.values())) for element in data]
             decoded = [self._decode_audio(audio) for audio in data]
             # Signature validation converts a single audio data into a list (via Pandas Series).
             # We have to unwrap it back not to confuse with batch processing.

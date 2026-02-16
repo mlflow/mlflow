@@ -320,7 +320,7 @@ def test_fit_with_a_list_of_params(dataset_binomial):
                     mock_warning.called_once_with(
                         _get_warning_msg_for_fit_call_with_a_list_of_params(lr)
                     )
-            assert isinstance(list(lr_model_iter)[0], LinearRegressionModel)
+            assert isinstance(next(iter(lr_model_iter)), LinearRegressionModel)
             mock_log_params.assert_not_called()
             mock_set_tags.assert_not_called()
 

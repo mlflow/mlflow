@@ -66,7 +66,7 @@ def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_fil
             with mock.patch(
                 "mlflow.utils.rest_utils.http_request", side_effect=Exception("API request failed!")
             ):
-                data_format = list(format_to_file_path.keys())[0]
+                data_format = next(iter(format_to_file_path.keys()))
                 file_path = format_to_file_path[data_format]
                 df = (
                     spark_session.read.format(data_format)
@@ -83,7 +83,7 @@ def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_fil
 
 def test_autologging_dedups_multiple_reads_of_same_datasource(spark_session, format_to_file_path):
     mlflow.spark.autolog()
-    data_format = list(format_to_file_path.keys())[0]
+    data_format = next(iter(format_to_file_path.keys()))
     file_path = format_to_file_path[data_format]
     df = (
         spark_session.read.format(data_format)
@@ -132,7 +132,7 @@ def test_autologging_multiple_reads_same_run(spark_session, format_to_file_path)
 
 def test_autologging_multiple_runs_same_data(spark_session, format_to_file_path):
     mlflow.spark.autolog()
-    data_format = list(format_to_file_path.keys())[0]
+    data_format = next(iter(format_to_file_path.keys()))
     file_path = format_to_file_path[data_format]
     df = (
         spark_session.read.format(data_format)
@@ -153,7 +153,7 @@ def test_autologging_multiple_runs_same_data(spark_session, format_to_file_path)
 def test_autologging_does_not_start_run(spark_session, format_to_file_path):
     try:
         mlflow.spark.autolog()
-        data_format = list(format_to_file_path.keys())[0]
+        data_format = next(iter(format_to_file_path.keys()))
         file_path = format_to_file_path[data_format]
         df = (
             spark_session.read.format(data_format)

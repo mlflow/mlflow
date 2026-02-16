@@ -36,7 +36,7 @@ def test_autologging_disabled_logging_with_or_without_active_run(
     spark_session, format_to_file_path
 ):
     mlflow.spark.autolog(disable=True)
-    data_format = list(format_to_file_path.keys())[0]
+    data_format = next(iter(format_to_file_path.keys()))
     file_path = format_to_file_path[data_format]
     df = (
         spark_session.read.format(data_format)
@@ -70,7 +70,7 @@ def test_autologging_disabled_logging_with_or_without_active_run(
 
 def test_autologging_disabled_then_enabled(spark_session, format_to_file_path):
     mlflow.spark.autolog(disable=True)
-    data_format = list(format_to_file_path.keys())[0]
+    data_format = next(iter(format_to_file_path.keys()))
     file_path = format_to_file_path[data_format]
     df = (
         spark_session.read.format(data_format)

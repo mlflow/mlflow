@@ -58,7 +58,9 @@ def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_reques
     # Add record and wait for processing
     mock_telemetry_client.add_record(record)
     mock_telemetry_client.flush()
-    received_record = [req for req in mock_requests if req["data"]["event_name"] == "test_event"][0]
+    received_record = next(
+        req for req in mock_requests if req["data"]["event_name"] == "test_event"
+    )
 
     assert "data" in received_record
     assert "partition-key" in received_record
@@ -413,7 +415,7 @@ def test_telemetry_info_inclusion(mock_telemetry_client: TelemetryClient, mock_r
     mock_telemetry_client.flush()
 
     # Verify telemetry info is included
-    data = [req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event"][0]
+    data = next(req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event")
 
     # Check that telemetry info fields are present
     assert mock_telemetry_client.info.items() <= data.items()

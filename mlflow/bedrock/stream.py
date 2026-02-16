@@ -148,7 +148,7 @@ class ConverseStreamWrapper(BaseEventStreamWrapper):
         Refer to the following documentation for the event format:
         https://boto3.amazonaws.com/v1/documentation/api/1.35.8/reference/services/bedrock-runtime/client/converse_stream.html
         """
-        event_name = list(event.keys())[0]
+        event_name = next(iter(event.keys()))
         self._response_builder.process_event(event_name, event[event_name])
         # Record raw event as a span event
         self._span.add_event(

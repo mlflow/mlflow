@@ -39,7 +39,7 @@ def test_on_start_with_uc_table_name(monkeypatch):
     assert len(traces) == 1
 
     # Get the created trace
-    created_trace = list(traces.values())[0]
+    created_trace = next(iter(traces.values()))
     trace_info = created_trace.info
 
     # Verify trace location is UC_SCHEMA type
@@ -146,7 +146,7 @@ def test_trace_metadata_and_tags():
     # Get the created trace
     trace_manager = InMemoryTraceManager.get_instance()
     traces = trace_manager._traces
-    created_trace = list(traces.values())[0]
+    created_trace = next(iter(traces.values()))
     trace_info = created_trace.info
 
     # Check that metadata and tags are present
