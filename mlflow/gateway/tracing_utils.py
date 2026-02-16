@@ -10,7 +10,10 @@ from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 
 
 def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
-    """Unwrap single-argument inputs so trace shows the request body directly"""
+    """Unwrap inputs so trace shows the request body directly.
+
+    Extracts the payload kwarg if present, otherwise unwraps single-argument inputs.
+    """
     span = mlflow.get_current_active_span()
     if not span:
         return
