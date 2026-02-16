@@ -3494,6 +3494,10 @@
     "defaultMessage": "Is the text grammatically correct and naturally flowing?",
     "description": "Hint for Fluency template"
   },
+  "NekUba": {
+    "defaultMessage": "Add to dataset",
+    "description": "Button text for adding a trace to an evaluation dataset"
+  },
   "NhEmyj": {
     "defaultMessage": "Training runs",
     "description": "Label for the training runs tab in the MLflow experiment navbar"
@@ -5166,10 +5170,6 @@
   "ZlokCq": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt modal"
-  },
-  "ZmiY49": {
-    "defaultMessage": "Add to dataset",
-    "description": "Button text for adding a trace to a evaluation dataset"
   },
   "ZoBXpz": {
     "defaultMessage": "Model attributes",

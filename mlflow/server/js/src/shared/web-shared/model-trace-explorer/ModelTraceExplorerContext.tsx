@@ -67,10 +67,7 @@ export const ModelTraceExplorerAddToDatasetProvider: React.FC<{
   children: ReactNode;
 }> = ({ openModal, children }) => {
   const parent = useContext(ModelTraceExplorerContext);
-  const value = useMemo(
-    () => ({ ...parent, addToDatasetAction: { openModal } }),
-    [parent, openModal],
-  );
+  const value = useMemo(() => ({ ...parent, addToDatasetAction: { openModal } }), [parent, openModal]);
   return <ModelTraceExplorerContext.Provider value={value}>{children}</ModelTraceExplorerContext.Provider>;
 };
 
