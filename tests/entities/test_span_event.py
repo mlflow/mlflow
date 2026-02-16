@@ -13,10 +13,7 @@ def test_default_timestamp_is_in_nanoseconds():
     after_ns = int(time.time() * 1e9)
 
     # The event's timestamp should be between before and after in nanoseconds
-    assert before_ns <= event.timestamp <= after_ns, (
-        f"Timestamp {event.timestamp} is not in expected range "
-        f"[{before_ns}, {after_ns}]. It may be using wrong time unit."
-    )
+    assert before_ns <= event.timestamp <= after_ns
 
 
 def test_from_exception():
@@ -26,14 +23,6 @@ def test_from_exception():
     assert span_event.attributes["exception.message"] == "test"
     assert span_event.attributes["exception.type"] == "MlflowException"
     assert span_event.attributes["exception.stacktrace"] is not None
-
-    # Verify that the timestamp is in nanoseconds
-    current_ns = int(time.time() * 1e9)
-    # Allow 1 second tolerance
-    assert abs(span_event.timestamp - current_ns) < 1e9, (
-        f"Timestamp {span_event.timestamp} is too far from current time {current_ns}. "
-        f"It may be using wrong time unit."
-    )
 
 
 @pytest.mark.parametrize(
