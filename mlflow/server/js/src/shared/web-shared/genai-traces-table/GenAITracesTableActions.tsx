@@ -169,7 +169,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
             })}
           >
             <div>
-              <DropdownMenu.Trigger asChild>{ActionButton}</DropdownMenu.Trigger>
+              <DropdownMenu.Trigger disabled asChild>{ActionButton}</DropdownMenu.Trigger>
             </div>
           </Tooltip>
         ) : (
