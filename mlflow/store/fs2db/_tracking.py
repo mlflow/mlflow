@@ -5,25 +5,25 @@ FileStore layout:
 
     <mlruns>/
     ├── <experiment_id>/
-    │   ├── meta.yaml                    → experiments
-    │   ├── tags/<key>                   → experiment_tags
+    │   ├── meta.yaml                    -> experiments
+    │   ├── tags/<key>                   -> experiment_tags
     │   ├── <run_uuid>/
-    │   │   ├── meta.yaml                → runs
-    │   │   ├── params/<key>             → params
-    │   │   ├── tags/<key>               → tags
-    │   │   ├── metrics/<key>            → metrics, latest_metrics
-    │   │   └── inputs/<id>/meta.yaml    → inputs, input_tags
-    │   ├── datasets/<id>/meta.yaml      → datasets
+    │   │   ├── meta.yaml                -> runs
+    │   │   ├── params/<key>             -> params
+    │   │   ├── tags/<key>               -> tags
+    │   │   ├── metrics/<key>            -> metrics, latest_metrics
+    │   │   └── inputs/<id>/meta.yaml    -> inputs, input_tags
+    │   ├── datasets/<id>/meta.yaml      -> datasets
     │   ├── traces/<trace_id>/
-    │   │   ├── trace_info.yaml          → trace_info
-    │   │   ├── tags/<key>               → trace_tags
-    │   │   ├── request_metadata/<key>   → trace_request_metadata
-    │   │   └── assessments/<id>.yaml    → assessments
+    │   │   ├── trace_info.yaml          -> trace_info
+    │   │   ├── tags/<key>               -> trace_tags
+    │   │   ├── request_metadata/<key>   -> trace_request_metadata
+    │   │   └── assessments/<id>.yaml    -> assessments
     │   └── models/<model_id>/
-    │       ├── meta.yaml                → logged_models
-    │       ├── params/<key>             → logged_model_params
-    │       ├── tags/<key>               → logged_model_tags
-    │       └── metrics/<key>            → logged_model_metrics
+    │       ├── meta.yaml                -> logged_models
+    │       ├── params/<key>             -> logged_model_params
+    │       ├── tags/<key>               -> logged_model_tags
+    │       └── metrics/<key>            -> logged_model_metrics
     └── .trash/
         └── <experiment_id>/...          (same structure, deleted experiments)
 """
