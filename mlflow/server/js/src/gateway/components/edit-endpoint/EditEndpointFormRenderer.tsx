@@ -422,51 +422,53 @@ export const EditEndpointFormRenderer = ({
         </div>
       </Tabs.Root>
 
-      <div
-        css={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: theme.spacing.sm,
-          padding: theme.spacing.md,
-          borderTop: `1px solid ${theme.colors.border}`,
-          flexShrink: 0,
-        }}
-      >
-        <Button componentId="mlflow.gateway.edit-endpoint.cancel" onClick={onCancel}>
-          <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
-        </Button>
-        <Tooltip
-          componentId="mlflow.gateway.edit-endpoint.save-tooltip"
-          content={
-            !isFormComplete && trafficSplitModels.length > 0 && !isValidTotal
-              ? intl.formatMessage({
-                  defaultMessage: 'Traffic split percentages must total 100%',
-                  description: 'Tooltip shown when save button is disabled due to invalid traffic split total',
-                })
-              : !isFormComplete
-                ? intl.formatMessage({
-                    defaultMessage: 'Please configure at least one model in traffic split',
-                    description: 'Tooltip shown when save button is disabled due to incomplete form',
-                  })
-                : !hasChanges
-                  ? intl.formatMessage({
-                      defaultMessage: 'No changes to save',
-                      description: 'Tooltip shown when save button is disabled due to no changes',
-                    })
-                  : undefined
-          }
+      {activeTab === 'configuration' && (
+        <div
+          css={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: theme.spacing.sm,
+            padding: theme.spacing.md,
+            borderTop: `1px solid ${theme.colors.border}`,
+            flexShrink: 0,
+          }}
         >
-          <Button
-            componentId="mlflow.gateway.edit-endpoint.save"
-            type="primary"
-            onClick={form.handleSubmit(onSubmit)}
-            loading={isSubmitting}
-            disabled={!isFormComplete || !hasChanges}
-          >
-            <FormattedMessage defaultMessage="Save changes" description="Save changes button" />
+          <Button componentId="mlflow.gateway.edit-endpoint.cancel" onClick={onCancel}>
+            <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
           </Button>
-        </Tooltip>
-      </div>
+          <Tooltip
+            componentId="mlflow.gateway.edit-endpoint.save-tooltip"
+            content={
+              !isFormComplete && trafficSplitModels.length > 0 && !isValidTotal
+                ? intl.formatMessage({
+                    defaultMessage: 'Traffic split percentages must total 100%',
+                    description: 'Tooltip shown when save button is disabled due to invalid traffic split total',
+                  })
+                : !isFormComplete
+                  ? intl.formatMessage({
+                      defaultMessage: 'Please configure at least one model in traffic split',
+                      description: 'Tooltip shown when save button is disabled due to incomplete form',
+                    })
+                  : !hasChanges
+                    ? intl.formatMessage({
+                        defaultMessage: 'No changes to save',
+                        description: 'Tooltip shown when save button is disabled due to no changes',
+                      })
+                    : undefined
+            }
+          >
+            <Button
+              componentId="mlflow.gateway.edit-endpoint.save"
+              type="primary"
+              onClick={form.handleSubmit(onSubmit)}
+              loading={isSubmitting}
+              disabled={!isFormComplete || !hasChanges}
+            >
+              <FormattedMessage defaultMessage="Save changes" description="Save changes button" />
+            </Button>
+          </Tooltip>
+        </div>
+      )}
 
       <EndpointUsageModal
         open={isUsageModalOpen}
