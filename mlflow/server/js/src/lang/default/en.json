@@ -8351,6 +8351,10 @@
     "defaultMessage": "Status",
     "description": "Run page > Overview > Run status section label"
   },
+  "vyB+Og": {
+    "defaultMessage": "Search traces by request & response",
+    "description": "Placeholder text for the search input in the trace results table"
+  },
   "w/sljb": {
     "defaultMessage": "Sort descending",
     "description": "Label for the sort descending button in the logged model list page"
@@ -8846,10 +8850,6 @@
   "zMv2ev": {
     "defaultMessage": "Learn more.",
     "description": "Link text for learning more about expectations"
-  },
-  "zNWzj6": {
-    "defaultMessage": "Search traces by request",
-    "description": "Placeholder text for the search input in the trace results table"
   },
   "zRKlAL": {
     "defaultMessage": "Metadata",
