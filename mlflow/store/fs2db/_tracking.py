@@ -41,7 +41,6 @@ from sqlalchemy.orm import Session
 from mlflow.entities import RunStatus
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.store.fs2db._utils import (
-    META_YAML,
     MigrationStats,
     for_each_experiment,
     list_files,
@@ -70,6 +69,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+from mlflow.store.tracking.file_store import FileStore
 
 _logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ def migrate_experiments(session: Session, mlruns: Path, stats: MigrationStats) -
 def _migrate_one_experiment(
     session: Session, exp_dir: Path, exp_id: str, stats: MigrationStats
 ) -> None:
-    meta = safe_read_yaml(exp_dir, META_YAML)
+    meta = safe_read_yaml(exp_dir, FileStore.META_DATA_FILE_NAME)
     if meta is None:
         return
 
@@ -100,7 +100,7 @@ def _migrate_one_experiment(
     )
     stats.experiments += 1
 
-    for key, value in read_tag_files(exp_dir / "tags").items():
+    for key, value in read_tag_files(exp_dir / FileStore.TAGS_FOLDER_NAME).items():
         session.add(
             SqlExperimentTag(
                 key=key,
@@ -111,7 +111,13 @@ def _migrate_one_experiment(
         stats.experiment_tags += 1
 
 
-RESERVED_FOLDERS = {"tags", "datasets", "traces", "models", ".trash"}
+RESERVED_FOLDERS = {
+    FileStore.TAGS_FOLDER_NAME,
+    FileStore.DATASETS_FOLDER_NAME,
+    FileStore.TRACES_FOLDER_NAME,
+    FileStore.MODELS_FOLDER_NAME,
+    FileStore.TRASH_FOLDER_NAME,
+}
 
 
 def migrate_runs(session: Session, mlruns: Path, stats: MigrationStats) -> None:
@@ -126,13 +132,13 @@ def _migrate_runs_in_dir(
         if name in RESERVED_FOLDERS:
             continue
         run_dir = exp_dir / name
-        if not (run_dir / META_YAML).is_file():
+        if not (run_dir / FileStore.META_DATA_FILE_NAME).is_file():
             continue
         _migrate_one_run(session, run_dir, exp_id, stats)
 
 
 def _migrate_one_run(session: Session, run_dir: Path, exp_id: int, stats: MigrationStats) -> None:
-    meta = safe_read_yaml(run_dir, META_YAML)
+    meta = safe_read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
     if meta is None:
         return
 
@@ -169,7 +175,7 @@ def _migrate_one_run(session: Session, run_dir: Path, exp_id: int, stats: Migrat
     stats.runs += 1
 
     # Params
-    for key, value in read_tag_files(run_dir / "params").items():
+    for key, value in read_tag_files(run_dir / FileStore.PARAMS_FOLDER_NAME).items():
         session.add(
             SqlParam(
                 key=key,
@@ -180,7 +186,7 @@ def _migrate_one_run(session: Session, run_dir: Path, exp_id: int, stats: Migrat
         stats.params += 1
 
     # Tags
-    for key, value in read_tag_files(run_dir / "tags").items():
+    for key, value in read_tag_files(run_dir / FileStore.TAGS_FOLDER_NAME).items():
         session.add(
             SqlTag(
                 key=key,
@@ -191,7 +197,7 @@ def _migrate_one_run(session: Session, run_dir: Path, exp_id: int, stats: Migrat
         stats.tags += 1
 
     # Metrics + LatestMetrics
-    _migrate_run_metrics(session, run_dir / "metrics", run_uuid, stats)
+    _migrate_run_metrics(session, run_dir / FileStore.METRICS_FOLDER_NAME, run_uuid, stats)
 
 
 def _sanitize_metric_value(val: float) -> tuple[bool, float]:
@@ -269,14 +275,14 @@ def migrate_datasets(session: Session, mlruns: Path, stats: MigrationStats) -> N
 def _migrate_datasets_for_experiment(
     session: Session, exp_dir: Path, exp_id: int, stats: MigrationStats
 ) -> None:
-    datasets_dir = exp_dir / "datasets"
+    datasets_dir = exp_dir / FileStore.DATASETS_FOLDER_NAME
     if not datasets_dir.is_dir():
         return
 
     dataset_uuid_map: dict[str, str] = {}  # dataset_dir_name -> dataset_uuid
 
     for ds_dir_name in list_subdirs(datasets_dir):
-        meta = safe_read_yaml(datasets_dir / ds_dir_name, META_YAML)
+        meta = safe_read_yaml(datasets_dir / ds_dir_name, FileStore.META_DATA_FILE_NAME)
         if meta is None:
             continue
 
@@ -301,12 +307,12 @@ def _migrate_datasets_for_experiment(
     for run_uuid in list_subdirs(exp_dir):
         if run_uuid in RESERVED_FOLDERS:
             continue
-        inputs_dir = exp_dir / run_uuid / "inputs"
+        inputs_dir = exp_dir / run_uuid / FileStore.INPUTS_FOLDER_NAME
         if not inputs_dir.is_dir():
             continue
 
         for input_dir_name in list_subdirs(inputs_dir):
-            input_meta = safe_read_yaml(inputs_dir / input_dir_name, META_YAML)
+            input_meta = safe_read_yaml(inputs_dir / input_dir_name, FileStore.META_DATA_FILE_NAME)
             if input_meta is None:
                 continue
 
@@ -361,12 +367,12 @@ def _migrate_outputs_for_experiment(session: Session, exp_dir: Path, stats: Migr
     for run_uuid in list_subdirs(exp_dir):
         if run_uuid in RESERVED_FOLDERS:
             continue
-        outputs_dir = exp_dir / run_uuid / "outputs"
+        outputs_dir = exp_dir / run_uuid / FileStore.OUTPUTS_FOLDER_NAME
         if not outputs_dir.is_dir():
             continue
 
         for model_id in list_subdirs(outputs_dir):
-            meta = safe_read_yaml(outputs_dir / model_id, META_YAML)
+            meta = safe_read_yaml(outputs_dir / model_id, FileStore.META_DATA_FILE_NAME)
             if meta is None:
                 continue
 
@@ -400,16 +406,16 @@ def _parse_timestamp_ms(request_time: str) -> int:
 def _migrate_traces_for_experiment(
     session: Session, exp_dir: Path, exp_id: int, stats: MigrationStats
 ) -> None:
-    traces_dir = exp_dir / "traces"
+    traces_dir = exp_dir / FileStore.TRACES_FOLDER_NAME
     if not traces_dir.is_dir():
         return
 
     for trace_dir_name in list_subdirs(traces_dir):
         trace_dir = traces_dir / trace_dir_name
-        if not (trace_dir / "trace_info.yaml").is_file():
+        if not (trace_dir / FileStore.TRACE_INFO_FILE_NAME).is_file():
             continue
 
-        meta = safe_read_yaml(trace_dir, "trace_info.yaml")
+        meta = safe_read_yaml(trace_dir, FileStore.TRACE_INFO_FILE_NAME)
         if meta is None:
             continue
 
@@ -448,7 +454,7 @@ def _migrate_traces_for_experiment(
         stats.traces += 1
 
         # Trace tags
-        for key, value in read_tag_files(trace_dir / "tags").items():
+        for key, value in read_tag_files(trace_dir / FileStore.TRACE_TAGS_FOLDER_NAME).items():
             session.add(
                 SqlTraceTag(
                     key=key,
@@ -459,7 +465,9 @@ def _migrate_traces_for_experiment(
             stats.trace_tags += 1
 
         # Trace request metadata
-        for key, value in read_tag_files(trace_dir / "request_metadata").items():
+        for key, value in read_tag_files(
+            trace_dir / FileStore.TRACE_TRACE_METADATA_FOLDER_NAME
+        ).items():
             session.add(
                 SqlTraceMetadata(
                     key=key,
@@ -478,17 +486,17 @@ def migrate_assessments(session: Session, mlruns: Path, stats: MigrationStats) -
 def _migrate_assessments_for_experiment(
     session: Session, exp_dir: Path, stats: MigrationStats
 ) -> None:
-    traces_dir = exp_dir / "traces"
+    traces_dir = exp_dir / FileStore.TRACES_FOLDER_NAME
     if not traces_dir.is_dir():
         return
 
     for trace_dir_name in list_subdirs(traces_dir):
         trace_dir = traces_dir / trace_dir_name
-        assessments_dir = trace_dir / "assessments"
+        assessments_dir = trace_dir / FileStore.ASSESSMENTS_FOLDER_NAME
         if not assessments_dir.is_dir():
             continue
 
-        trace_meta = safe_read_yaml(trace_dir, "trace_info.yaml")
+        trace_meta = safe_read_yaml(trace_dir, FileStore.TRACE_INFO_FILE_NAME)
         if trace_meta is None:
             continue
         trace_id = trace_meta.get("trace_id") or trace_meta.get("request_id") or trace_dir_name
@@ -567,13 +575,13 @@ def migrate_logged_models(session: Session, mlruns: Path, stats: MigrationStats)
 def _migrate_logged_models_for_experiment(
     session: Session, exp_dir: Path, exp_id: int, stats: MigrationStats
 ) -> None:
-    models_dir = exp_dir / "models"
+    models_dir = exp_dir / FileStore.MODELS_FOLDER_NAME
     if not models_dir.is_dir():
         return
 
     for model_dir_name in list_subdirs(models_dir):
         model_dir = models_dir / model_dir_name
-        meta = safe_read_yaml(model_dir, META_YAML)
+        meta = safe_read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
         if meta is None:
             continue
 
@@ -606,7 +614,7 @@ def _migrate_logged_models_for_experiment(
         stats.logged_models += 1
 
         # Logged model params
-        for key, value in read_tag_files(model_dir / "params").items():
+        for key, value in read_tag_files(model_dir / FileStore.PARAMS_FOLDER_NAME).items():
             session.add(
                 SqlLoggedModelParam(
                     model_id=model_id,
@@ -618,7 +626,7 @@ def _migrate_logged_models_for_experiment(
             stats.logged_model_params += 1
 
         # Logged model tags
-        for key, value in read_tag_files(model_dir / "tags").items():
+        for key, value in read_tag_files(model_dir / FileStore.TAGS_FOLDER_NAME).items():
             session.add(
                 SqlLoggedModelTag(
                     model_id=model_id,
@@ -630,7 +638,9 @@ def _migrate_logged_models_for_experiment(
             stats.logged_model_tags += 1
 
         # Logged model metrics
-        _migrate_logged_model_metrics(session, model_dir / "metrics", model_id, exp_id, stats)
+        _migrate_logged_model_metrics(
+            session, model_dir / FileStore.METRICS_FOLDER_NAME, model_id, exp_id, stats
+        )
 
 
 def _migrate_logged_model_metrics(

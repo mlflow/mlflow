@@ -18,7 +18,6 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from mlflow.store.fs2db._utils import (
-    META_YAML,
     MigrationStats,
     list_files,
     list_subdirs,
@@ -32,10 +31,11 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelAlias,
     SqlRegisteredModelTag,
 )
+from mlflow.store.model_registry.file_store import FileStore
 
 
 def list_registered_models(mlruns: Path) -> list[Path]:
-    models_dir = mlruns / "models"
+    models_dir = mlruns / FileStore.MODELS_FOLDER_NAME
     if not models_dir.is_dir():
         return []
     return [models_dir / name for name in list_subdirs(models_dir)]
@@ -43,7 +43,7 @@ def list_registered_models(mlruns: Path) -> list[Path]:
 
 def _migrate_one_registered_model(session: Session, model_dir: Path, stats: MigrationStats) -> None:
     model_name = model_dir.name
-    meta = safe_read_yaml(model_dir, META_YAML)
+    meta = safe_read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
     if meta is None:
         return
 
@@ -58,7 +58,7 @@ def _migrate_one_registered_model(session: Session, model_dir: Path, stats: Migr
     stats.registered_models += 1
 
     # Registered model tags
-    for key, value in read_tag_files(model_dir / "tags").items():
+    for key, value in read_tag_files(model_dir / FileStore.TAGS_FOLDER_NAME).items():
         session.add(
             SqlRegisteredModelTag(
                 name=meta.get("name", model_name),
@@ -76,7 +76,7 @@ def _migrate_one_registered_model(session: Session, model_dir: Path, stats: Migr
         _migrate_model_version(session, version_dir, meta.get("name", model_name), stats)
 
     # Aliases
-    aliases_dir = model_dir / "aliases"
+    aliases_dir = model_dir / FileStore.REGISTERED_MODELS_ALIASES_FOLDER_NAME
     for alias_name in list_files(aliases_dir):
         version_str = (aliases_dir / alias_name).read_text().strip()
         try:
@@ -96,7 +96,7 @@ def _migrate_one_registered_model(session: Session, model_dir: Path, stats: Migr
 def _migrate_model_version(
     session: Session, version_dir: Path, model_name: str, stats: MigrationStats
 ) -> None:
-    meta = safe_read_yaml(version_dir, META_YAML)
+    meta = safe_read_yaml(version_dir, FileStore.META_DATA_FILE_NAME)
     if meta is None:
         return
 
@@ -122,7 +122,7 @@ def _migrate_model_version(
     stats.model_versions += 1
 
     # Model version tags
-    for key, value in read_tag_files(version_dir / "tags").items():
+    for key, value in read_tag_files(version_dir / FileStore.TAGS_FOLDER_NAME).items():
         session.add(
             SqlModelVersionTag(
                 name=model_name,

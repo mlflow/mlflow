@@ -6,9 +6,9 @@ from typing import Any
 
 import yaml
 
-_logger = logging.getLogger(__name__)
+from mlflow.store.tracking.file_store import FileStore
 
-META_YAML = "meta.yaml"
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -109,6 +109,6 @@ def for_each_experiment(mlruns: Path) -> Iterator[tuple[Path, str]]:
     for exp_id in list_experiment_ids(mlruns):
         yield mlruns / exp_id, exp_id
 
-    trash_dir = mlruns / ".trash"
+    trash_dir = mlruns / FileStore.TRASH_FOLDER_NAME
     for exp_id in list_experiment_ids(trash_dir):
         yield trash_dir / exp_id, exp_id
