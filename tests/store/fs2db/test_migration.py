@@ -66,7 +66,7 @@ def test_runs(clients: Clients) -> None:
         assert dst_tags == src_tags
 
 
-def test_datasets(clients: Clients) -> None:
+def test_dataset_inputs(clients: Clients) -> None:
     src, dst = clients
     exp_ids = [e.experiment_id for e in _get_all_experiments(src)]
     src_runs = _get_all_runs(src, exp_ids)
@@ -79,6 +79,25 @@ def test_datasets(clients: Clients) -> None:
         assert len(dst_ds) == len(src_ds)
         assert sorted(d.dataset.name for d in dst_ds) == sorted(d.dataset.name for d in src_ds)
         assert sorted(d.dataset.digest for d in dst_ds) == sorted(d.dataset.digest for d in src_ds)
+
+
+def test_model_inputs(clients: Clients) -> None:
+    # search_runs doesn't populate model_inputs; use get_run instead
+    src, dst = clients
+    exp_ids = [e.experiment_id for e in _get_all_experiments(src)]
+    run_ids = [r.info.run_id for r in _get_all_runs(src, exp_ids)]
+
+    all_src_model_inputs = []
+    for run_id in run_ids:
+        src_run = src.get_run(run_id)
+        dst_run = dst.get_run(run_id)
+        src_mi = src_run.inputs.model_inputs if src_run.inputs else []
+        dst_mi = dst_run.inputs.model_inputs if dst_run.inputs else []
+        assert len(dst_mi) == len(src_mi)
+        assert sorted(m.model_id for m in dst_mi) == sorted(m.model_id for m in src_mi)
+        all_src_model_inputs.extend(src_mi)
+
+    assert len(all_src_model_inputs) > 0
 
 
 def test_traces(clients: Clients) -> None:
