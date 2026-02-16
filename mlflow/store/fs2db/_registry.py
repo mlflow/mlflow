@@ -100,12 +100,7 @@ def _migrate_model_version(
     if meta is None:
         return
 
-    version = meta.get("version")
-    if version is None:
-        try:
-            version = int(version_dir.name.replace("version-", ""))
-        except ValueError:
-            return
+    version = meta["version"]
 
     session.add(
         SqlModelVersion(

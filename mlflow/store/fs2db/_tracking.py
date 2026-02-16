@@ -311,6 +311,7 @@ def _migrate_datasets_for_experiment(
                 ds_uuid = dataset_uuid_map.get(source_id)
                 if ds_uuid is None:
                     continue
+                # FileStore doesn't persist input UUIDs; generate for the DB
                 input_uuid = str(uuid.uuid4())
                 session.add(
                     SqlInput(
@@ -363,6 +364,7 @@ def _migrate_outputs_for_experiment(session: Session, exp_dir: Path, stats: Migr
             if meta is None:
                 continue
 
+            # FileStore doesn't persist input UUIDs; generate for the DB
             session.add(
                 SqlInput(
                     input_uuid=str(uuid.uuid4()),
