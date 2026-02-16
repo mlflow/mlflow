@@ -4273,6 +4273,10 @@
     "defaultMessage": "Select",
     "description": "Label for the checkbox column in the evaluation runs table"
   },
+  "TRutFE": {
+    "defaultMessage": "Click a graph node to navigate spans",
+    "description": "Hint text shown in graph view span navigator when no node is selected"
+  },
   "TSXmaB": {
     "defaultMessage": "Create",
     "description": "A label for the confirm button in the create prompt modal in the prompt management UI"

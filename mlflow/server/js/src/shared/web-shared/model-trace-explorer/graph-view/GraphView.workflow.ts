@@ -18,16 +18,74 @@ function flattenSpans(node: ModelTraceSpanNode): ModelTraceSpanNode[] {
 }
 
 /**
- * Gets the aggregation key for a span using its name.
+ * Gets the aggregation key for a span using its type and name.
+ * Including type prevents unrelated operations with the same name from merging.
  */
 function getAggregationKey(span: ModelTraceSpanNode): string {
-  return String(span.title ?? 'Unknown');
+  return `${span.type ?? 'UNKNOWN'}::${span.title ?? 'Unknown'}`;
+}
+
+/**
+ * Detects cycles via iterative DFS and marks cycle-causing edges as back-edges.
+ * Uses the standard white/gray/black coloring: an edge to a gray (in-stack)
+ * node is a back-edge. After this runs, the remaining forward edges form a DAG.
+ */
+function detectAndMarkBackEdges(nodes: WorkflowNode[], edges: WorkflowEdge[]): void {
+  const WHITE = 0;
+  const GRAY = 1;
+  const BLACK = 2;
+
+  const color = new Map<string, number>();
+  for (const node of nodes) {
+    color.set(node.id, WHITE);
+  }
+
+  const outgoing = new Map<string, WorkflowEdge[]>();
+  for (const node of nodes) {
+    outgoing.set(node.id, []);
+  }
+  for (const edge of edges) {
+    outgoing.get(edge.sourceId)?.push(edge);
+  }
+
+  for (const node of nodes) {
+    if (color.get(node.id) !== WHITE) {
+      continue;
+    }
+
+    // Iterative DFS: stack entries are [nodeId, index into outgoing edges]
+    const stack: [string, number][] = [[node.id, 0]];
+    color.set(node.id, GRAY);
+
+    while (stack.length > 0) {
+      const top = stack[stack.length - 1];
+      const nodeEdges = outgoing.get(top[0]) ?? [];
+
+      if (top[1] >= nodeEdges.length) {
+        color.set(top[0], BLACK);
+        stack.pop();
+        continue;
+      }
+
+      const edge = nodeEdges[top[1]];
+      top[1]++;
+
+      const targetColor = color.get(edge.targetId) ?? WHITE;
+      if (targetColor === GRAY) {
+        edge.isBackEdge = true;
+      } else if (targetColor === WHITE) {
+        color.set(edge.targetId, GRAY);
+        stack.push([edge.targetId, 0]);
+      }
+    }
+  }
 }
 
 /**
  * Custom layered layout algorithm for workflow graphs.
  * Assigns nodes to layers based on dependencies, then positions them.
- * Handles cycles by detecting back-edges and treating them specially.
+ * Cycles are broken beforehand by detectAndMarkBackEdges so the BFS
+ * operates on a guaranteed DAG.
  */
 function applyLayeredLayout(
   nodes: WorkflowNode[],
@@ -38,9 +96,12 @@ function applyLayeredLayout(
     return { width: 0, height: 0 };
   }
 
-  // Build adjacency maps
-  const outgoing = new Map<string, string[]>(); // node -> targets
-  const incoming = new Map<string, string[]>(); // node -> sources
+  // Break cycles first — marks cycle-causing edges as back-edges
+  detectAndMarkBackEdges(nodes, edges);
+
+  // Build adjacency maps from forward edges only (back-edges excluded)
+  const outgoing = new Map<string, string[]>();
+  const incoming = new Map<string, string[]>();
 
   for (const node of nodes) {
     outgoing.set(node.id, []);
@@ -54,47 +115,49 @@ function applyLayeredLayout(
     }
   }
 
-  // Assign layers using topological sort with BFS
-  // Nodes with no incoming edges (excluding back-edges) go to layer 0
+  // Assign layers via longest-path BFS on the DAG
   const layers = new Map<string, number>();
   const queue: string[] = [];
+  const inQueue = new Set<string>();
+  let head = 0;
 
-  // Find root nodes (no incoming edges)
+  // Seed with root nodes (no incoming forward edges)
   for (const node of nodes) {
-    const incomingEdges = incoming.get(node.id) ?? [];
-    if (incomingEdges.length === 0) {
+    if ((incoming.get(node.id) ?? []).length === 0) {
       layers.set(node.id, 0);
       queue.push(node.id);
+      inQueue.add(node.id);
     }
   }
 
-  // If no root nodes found (all nodes in cycle), start from first node
+  // Fallback: if every node had incoming edges (shouldn't happen after
+  // cycle-breaking, but guard for disconnected components)
   if (queue.length === 0 && nodes.length > 0) {
     layers.set(nodes[0].id, 0);
     queue.push(nodes[0].id);
+    inQueue.add(nodes[0].id);
   }
 
-  // BFS to assign layers
-  while (queue.length > 0) {
-    const nodeId = queue.shift()!;
-    const currentLayer = layers.get(nodeId) ?? 0;
-    const targets = outgoing.get(nodeId) ?? [];
+  while (head < queue.length) {
+    const nodeId = queue[head++];
+    inQueue.delete(nodeId);
 
-    for (const targetId of targets) {
-      const existingLayer = layers.get(targetId);
+    const currentLayer = layers.get(nodeId) ?? 0;
+
+    for (const targetId of outgoing.get(nodeId) ?? []) {
       const newLayer = currentLayer + 1;
 
-      if (existingLayer === undefined || newLayer > existingLayer) {
+      if ((layers.get(targetId) ?? -1) < newLayer) {
         layers.set(targetId, newLayer);
-        // Only add to queue if not already processed at this or higher layer
-        if (!queue.includes(targetId)) {
+        if (!inQueue.has(targetId)) {
           queue.push(targetId);
+          inQueue.add(targetId);
         }
       }
     }
   }
 
-  // Handle any remaining unassigned nodes (disconnected or in pure cycles)
+  // Handle any remaining unassigned nodes (disconnected components)
   let maxLayer = 0;
   for (const layer of layers.values()) {
     maxLayer = Math.max(maxLayer, layer);
@@ -142,12 +205,14 @@ function applyLayeredLayout(
     }
   }
 
-  // Mark back-edges (edges that go from lower layer to higher layer numbers,
-  // i.e., from a node "below" to a node "above" in the visual hierarchy)
+  // Mark any remaining same-layer or upward edges as back-edges
   for (const edge of edges) {
+    if (edge.isBackEdge || edge.isNestedCall) {
+      continue;
+    }
     const sourceLayer = layers.get(edge.sourceId) ?? 0;
     const targetLayer = layers.get(edge.targetId) ?? 0;
-    if (sourceLayer >= targetLayer && !edge.isNestedCall) {
+    if (sourceLayer >= targetLayer) {
       edge.isBackEdge = true;
     }
   }
@@ -238,13 +303,17 @@ function buildWorkflowGraph(
 
   // Detect nested call edges (bidirectional relationships)
   const toolLikeTypes = new Set(['TOOL', 'GUARDRAIL', 'FUNCTION', 'RETRIEVER']);
+  const nodeById = new Map<string, WorkflowNode>();
+  for (const node of workflowNodes) {
+    nodeById.set(node.id, node);
+  }
   for (const edge of edgeMap.values()) {
     const reverseEdgeId = `${edge.targetId}->${edge.sourceId}`;
     if (edgeMap.has(reverseEdgeId)) {
       const reverseEdge = edgeMap.get(reverseEdgeId)!;
       // Check if source node is a tool-like type
-      const sourceNode = workflowNodes.find((n) => n.id === edge.sourceId);
-      const reverseSourceNode = workflowNodes.find((n) => n.id === reverseEdge.sourceId);
+      const sourceNode = nodeById.get(edge.sourceId);
+      const reverseSourceNode = nodeById.get(reverseEdge.sourceId);
       if (sourceNode && toolLikeTypes.has(sourceNode.nodeType.toUpperCase())) {
         edge.isNestedCall = true;
       } else if (reverseSourceNode && toolLikeTypes.has(reverseSourceNode.nodeType.toUpperCase())) {

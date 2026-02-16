@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { ReactFlow, useReactFlow, ReactFlowProvider } from '@xyflow/react';
+import { ReactFlow, useReactFlow, useNodesInitialized, ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useDesignSystemTheme } from '@databricks/design-system';
 
@@ -39,6 +39,13 @@ const GraphViewWorkflowCanvasInner = ({
     return map;
   }, [layout.nodes]);
 
+  // Stabilize onViewSpanDetails via ref to avoid recreating all node data
+  const onViewSpanDetailsRef = useRef(onViewSpanDetails);
+  onViewSpanDetailsRef.current = onViewSpanDetails;
+  const stableOnViewSpanDetails = useCallback((span: ModelTraceSpanNode) => {
+    onViewSpanDetailsRef.current(span);
+  }, []);
+
   // Convert layout nodes to React Flow nodes
   const nodes: WorkflowFlowNode[] = useMemo(() => {
     return layout.nodes.map(
@@ -53,12 +60,11 @@ const GraphViewWorkflowCanvasInner = ({
           spans: node.spans,
           isSelected: node.id === selectedNodeId,
           isOnHighlightedPath: highlightedPathNodeIds.has(node.id),
-          onSelect: () => onSelectNode(node),
-          onViewSpanDetails,
+          onViewSpanDetails: stableOnViewSpanDetails,
         },
       }),
     );
-  }, [layout.nodes, selectedNodeId, highlightedPathNodeIds, onSelectNode, onViewSpanDetails]);
+  }, [layout.nodes, selectedNodeId, highlightedPathNodeIds, stableOnViewSpanDetails]);
 
   // Convert layout edges to React Flow edges
   const edges: WorkflowFlowEdge[] = useMemo(() => {
@@ -79,16 +85,22 @@ const GraphViewWorkflowCanvasInner = ({
     });
   }, [layout.edges, highlightedPathEdgeIds]);
 
-  // Fit view when layout changes
+  // Re-center the view when nodes are initialized or layout changes
+  const nodesInitialized = useNodesInitialized();
   useEffect(() => {
-    if (layout.nodes.length > 0) {
-      const timeout = setTimeout(() => {
-        fitView({ padding: 0.15, duration: 200 });
-      }, 50);
-      return () => clearTimeout(timeout);
+    if (nodesInitialized && layout.nodes.length > 0) {
+      fitView({ padding: 0.15, duration: 200 });
     }
-    return undefined;
-  }, [layout.nodes.length, layout.width, layout.height, fitView]);
+  }, [nodesInitialized, layout.nodes.length, layout.width, layout.height, fitView]);
+
+  // Handle node click for selection (replaces per-node onSelect closures)
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: WorkflowFlowNode) => {
+      const workflowNode = nodeMap.get(node.id) ?? null;
+      onSelectNode(workflowNode);
+    },
+    [nodeMap, onSelectNode],
+  );
 
   // Handle pane click to deselect
   const handlePaneClick = useCallback(() => {
@@ -105,6 +117,7 @@ const GraphViewWorkflowCanvasInner = ({
         edges={edges}
         nodeTypes={workflowNodeTypes}
         edgeTypes={workflowEdgeTypes}
+        onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
         fitView
         fitViewOptions={{ padding: 0.15 }}

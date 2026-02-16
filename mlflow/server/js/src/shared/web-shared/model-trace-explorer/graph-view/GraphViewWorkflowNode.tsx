@@ -212,7 +212,7 @@ interface WorkflowNodeProps {
  */
 export const WorkflowNode = memo(function WorkflowNode({ data }: WorkflowNodeProps) {
   const { theme } = useDesignSystemTheme();
-  const { displayName, nodeType, count, spans, isSelected, isOnHighlightedPath, onSelect, onViewSpanDetails } = data;
+  const { displayName, nodeType, count, spans, isSelected, isOnHighlightedPath, onViewSpanDetails } = data;
 
   const spanType = nodeType as ModelSpanType | undefined;
 
@@ -237,14 +237,6 @@ export const WorkflowNode = memo(function WorkflowNode({ data }: WorkflowNodePro
   const iconType = getIconTypeForSpan(spanType ?? 'UNKNOWN');
   const title = truncateText(displayName, 16);
 
-  const handleClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onSelect();
-    },
-    [onSelect],
-  );
-
   return (
     <Tooltip
       componentId="shared.model-trace-explorer.workflow-node-tooltip"
@@ -261,7 +253,6 @@ export const WorkflowNode = memo(function WorkflowNode({ data }: WorkflowNodePro
       maxWidth={350}
     >
       <div
-        onClick={handleClick}
         css={{
           width: 160,
           height: 56,

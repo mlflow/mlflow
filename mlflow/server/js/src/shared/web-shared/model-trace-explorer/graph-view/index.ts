@@ -1,4 +1,6 @@
 export { GraphView } from './GraphView';
+export { GraphViewSpanNavigator } from './GraphViewSpanNavigator';
+export { useGraphTreeLinkedState } from './useGraphTreeLinkedState';
 export type {
   GraphLayoutConfig,
   WorkflowNode,

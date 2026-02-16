@@ -12,7 +12,6 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   spans: ModelTraceSpanNode[];
   isSelected: boolean;
   isOnHighlightedPath: boolean;
-  onSelect: () => void;
   onViewSpanDetails: (span: ModelTraceSpanNode) => void;
 }
 

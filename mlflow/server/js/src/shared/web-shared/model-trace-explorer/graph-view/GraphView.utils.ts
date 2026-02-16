@@ -108,6 +108,7 @@ export function getNodeTextColor(
       return theme.isDarkMode ? '#a5b4fc' : '#4338ca';
 
     case ModelSpanType.EMBEDDING:
+    case ModelSpanType.RERANKER:
       // Teal
       return theme.isDarkMode ? '#5eead4' : '#0f766e';
 
