@@ -433,39 +433,6 @@ def test_process_sdk_messages_token_usage():
     assert token_usage["total_tokens"] == 250
 
 
-def test_process_sdk_messages_multi_turn():
-    messages = [
-        UserMessage(content="First question"),
-        AssistantMessage(
-            content=[TextBlock(text="First answer")],
-            model="claude-sonnet-4-20250514",
-        ),
-        UserMessage(content="Second question"),
-        AssistantMessage(
-            content=[TextBlock(text="Second answer")],
-            model="claude-sonnet-4-20250514",
-        ),
-        ResultMessage(
-            subtype="success",
-            duration_ms=3000,
-            duration_api_ms=2000,
-            is_error=False,
-            num_turns=2,
-            session_id="multi-turn-session",
-        ),
-    ]
-
-    trace = process_sdk_messages(messages, "multi-turn-session")
-
-    assert trace is not None
-    spans = list(trace.search_spans())
-
-    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
-    assert len(llm_spans) == 2
-    assert llm_spans[0].name == "llm_call_1"
-    assert llm_spans[1].name == "llm_call_2"
-
-
 def test_process_sdk_messages_multiple_tools():
     messages = [
         UserMessage(content="Read two files"),

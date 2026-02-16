@@ -66,14 +66,11 @@ def test_patched_claude_sdk_init_wraps_client_and_injects_hook():
     assert len(mock_self.options.hooks["Stop"]) == 1
 
 
-@pytest.mark.asyncio
-async def test_receive_messages_wrapper_accumulates_messages():
+async def _setup_patched_client_and_consume(messages):
+    """Patch a mock SDK client, stream messages through it, and return the stop hook."""
     original_init = MagicMock()
     mock_self = MagicMock()
     mock_self.options = _make_mock_options(hooks={"Stop": []})
-
-    # Create a real async generator for receive_messages
-    messages = ["msg1", "msg2", "msg3"]
 
     async def fake_receive_messages():
         for msg in messages:
@@ -92,44 +89,26 @@ async def test_receive_messages_wrapper_accumulates_messages():
     ):
         patched_claude_sdk_init(original_init, mock_self, mock_self.options)
 
-    # Consume the wrapped async generator
+    # Consume messages to populate the internal buffer
     collected = [msg async for msg in mock_self.receive_messages()]
 
+    stop_hook_fn = mock_self.options.hooks["Stop"][0].hooks[0]
+    return mock_self, collected, stop_hook_fn
+
+
+@pytest.mark.asyncio
+async def test_receive_messages_wrapper_accumulates_messages():
+    messages = ["msg1", "msg2", "msg3"]
+    _, collected, _ = await _setup_patched_client_and_consume(messages)
     assert collected == messages
 
 
 @pytest.mark.asyncio
-async def test_closure_stop_hook_processes_and_clears_buffer():
-    original_init = MagicMock()
-    mock_self = MagicMock()
-    mock_self.options = _make_mock_options(hooks={"Stop": []})
-
+async def test_stop_hook_forwards_messages_to_tracing():
     messages = ["msg1", "msg2"]
+    _, _, stop_hook_fn = await _setup_patched_client_and_consume(messages)
 
-    async def fake_receive_messages():
-        for msg in messages:
-            yield msg
-
-    mock_self.receive_messages = fake_receive_messages
-
-    with patch.dict(
-        "sys.modules",
-        {
-            "claude_agent_sdk": MagicMock(
-                ClaudeAgentOptions=lambda: _make_mock_options(),
-                HookMatcher=_make_mock_hook_matcher(),
-            )
-        },
-    ):
-        patched_claude_sdk_init(original_init, mock_self, mock_self.options)
-
-    async for _ in mock_self.receive_messages():
-        pass
-
-    hook_matcher = mock_self.options.hooks["Stop"][0]
-    stop_hook_fn = hook_matcher.hooks[0]
-
-    # First call: hook receives buffered messages
+    # Hook should forward accumulated messages to process_sdk_messages
     with (
         patch(
             "mlflow.utils.autologging_utils.autologging_is_disabled",
@@ -143,12 +122,11 @@ async def test_closure_stop_hook_processes_and_clears_buffer():
         result = await stop_hook_fn({"session_id": "test-session"}, None, None)
 
     mock_process.assert_called_once()
-    call_args = mock_process.call_args
-    assert call_args[0][0] == messages
-    assert call_args[0][1] == "test-session"
+    assert mock_process.call_args[0][0] == messages
+    assert mock_process.call_args[0][1] == "test-session"
     assert result == {"continue": True}
 
-    # Second call without consuming new messages: buffer should be empty
+    # Calling again without new messages should forward an empty list
     with (
         patch(
             "mlflow.utils.autologging_utils.autologging_is_disabled",
@@ -164,25 +142,9 @@ async def test_closure_stop_hook_processes_and_clears_buffer():
 
 
 @pytest.mark.asyncio
-async def test_closure_stop_hook_skips_when_autologging_disabled():
-    original_init = MagicMock()
-    mock_self = MagicMock()
-    mock_self.options = _make_mock_options(hooks={"Stop": []})
-    mock_self.receive_messages = AsyncMock()
-
-    with patch.dict(
-        "sys.modules",
-        {
-            "claude_agent_sdk": MagicMock(
-                ClaudeAgentOptions=lambda: _make_mock_options(),
-                HookMatcher=_make_mock_hook_matcher(),
-            )
-        },
-    ):
-        patched_claude_sdk_init(original_init, mock_self, mock_self.options)
-
-    hook_matcher = mock_self.options.hooks["Stop"][0]
-    stop_hook_fn = hook_matcher.hooks[0]
+async def test_stop_hook_skips_when_autologging_disabled():
+    messages = ["msg1", "msg2"]
+    _, _, stop_hook_fn = await _setup_patched_client_and_consume(messages)
 
     with (
         patch(
