@@ -1,12 +1,25 @@
 import pytest
 
+import mlflow
+from mlflow.entities import SpanType
 from mlflow.gateway.schemas.chat import StreamResponsePayload
-from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
+from mlflow.gateway.tracing_utils import (
+    _get_token_usage_from_gateway_spans,
+    _has_traceparent,
+    aggregate_chat_stream_chunks,
+    maybe_traced_gateway_call,
+)
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.distributed import get_tracing_context_headers_for_http_request
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.types.chat import ChatChoiceDelta, ChatChunkChoice, ChatUsage, Function, ToolCallDelta
+
+
+@pytest.fixture
+def gateway_experiment_id():
+    return mlflow.create_experiment("gateway-test-endpoint")
 
 
 def get_traces():
@@ -286,3 +299,226 @@ async def test_maybe_traced_gateway_call_with_output_reducer(endpoint_config):
     assert output["choices"][0]["message"]["content"] == "Hello world"
     assert output["choices"][0]["finish_reason"] == "stop"
     assert output["usage"]["total_tokens"] == 7
+
+
+# ---------------------------------------------------------------------------
+# Tests for distributed tracing helpers
+# ---------------------------------------------------------------------------
+
+
+def test_has_traceparent_lowercase():
+    assert _has_traceparent({"traceparent": "00-abc-def-01"})
+
+
+def test_has_traceparent_uppercase():
+    assert _has_traceparent({"Traceparent": "00-abc-def-01"})
+
+
+def test_has_traceparent_missing():
+    assert not _has_traceparent({"content-type": "application/json"})
+
+
+def test_has_traceparent_empty():
+    assert not _has_traceparent({})
+
+
+def test_get_token_usage_from_gateway_spans_returns_none_for_unknown_trace():
+    assert _get_token_usage_from_gateway_spans("nonexistent-trace-id") is None
+
+
+@pytest.mark.asyncio
+async def test_get_token_usage_from_gateway_spans_reads_child_span(endpoint_config):
+    async def func_with_child_span(payload):
+        with mlflow.start_span("provider/test", span_type=SpanType.LLM) as child:
+            child.set_attribute(
+                SpanAttributeKey.CHAT_USAGE,
+                {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+            )
+        return {"result": "ok"}
+
+    traced = maybe_traced_gateway_call(func_with_child_span, endpoint_config)
+    await traced({"input": "test"})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    gateway_trace_id = traces[0].info.trace_id
+
+    # After the trace is exported, spans are removed from InMemoryTraceManager,
+    # so we expect None here. The actual reading happens inside the wrapper
+    # while the trace is still in memory.
+    assert _get_token_usage_from_gateway_spans(gateway_trace_id) is None
+
+
+# ---------------------------------------------------------------------------
+# Integration tests for distributed tracing via traceparent
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id):
+    ep_config = GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id",
+        endpoint_name="test-endpoint",
+        experiment_id=gateway_experiment_id,
+        models=[],
+    )
+
+    async def func_with_usage(payload):
+        with mlflow.start_span("provider/test", span_type=SpanType.LLM) as child:
+            child.set_attribute(
+                SpanAttributeKey.CHAT_USAGE,
+                {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+            )
+        return {"result": "ok"}
+
+    # Step 1: Agent creates span and generates traceparent headers
+    with mlflow.start_span("agent-root") as agent_span:
+        headers = get_tracing_context_headers_for_http_request()
+        agent_trace_id = agent_span.trace_id
+        agent_span_id = agent_span.span_id
+
+    # Step 2: Gateway processes request (no active agent span, simulating separate server)
+    traced = maybe_traced_gateway_call(
+        func_with_usage, ep_config, request_headers=headers
+    )
+    result = await traced({"input": "test"})
+
+    assert result == {"result": "ok"}
+
+    # Gateway trace should exist in the gateway experiment
+    gateway_traces = TracingClient().search_traces(
+        locations=[gateway_experiment_id]
+    )
+    assert len(gateway_traces) == 1
+    gateway_trace_id = gateway_traces[0].info.trace_id
+
+    # The gateway trace should be separate from the agent trace
+    assert gateway_trace_id != agent_trace_id
+
+    # Agent trace should contain the distributed gateway span
+    mlflow.flush_trace_async_logging()
+    agent_trace = mlflow.get_trace(agent_trace_id)
+    assert agent_trace is not None
+
+    spans_by_name = {s.name: s for s in agent_trace.data.spans}
+    assert "agent-root" in spans_by_name
+    assert f"gateway/{ep_config.endpoint_name}" in spans_by_name
+
+    gw_span = spans_by_name[f"gateway/{ep_config.endpoint_name}"]
+    assert gw_span.parent_id == agent_span_id
+    assert gw_span.attributes.get("endpoint_id") == ep_config.endpoint_id
+    assert gw_span.attributes.get("endpoint_name") == ep_config.endpoint_name
+
+    # Should have a link to the gateway trace
+    linked_trace_id = gw_span.attributes.get(SpanAttributeKey.LINKED_GATEWAY_TRACE_ID)
+    assert linked_trace_id == gateway_trace_id
+
+    # Should have token usage copied from gateway spans
+    token_usage = gw_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage == {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+
+    # Should NOT have request/response payloads
+    assert gw_span.inputs is None
+    assert gw_span.outputs is None
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_without_traceparent_no_distributed_span(endpoint_config):
+    traced = maybe_traced_gateway_call(
+        mock_async_func, endpoint_config, request_headers={"content-type": "application/json"}
+    )
+    result = await traced({"input": "test"})
+
+    assert result == {"result": "success", "payload": {"input": "test"}}
+
+    # Only the gateway trace should exist, no distributed span
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    # All spans should be part of the gateway trace only
+    for span in trace.data.spans:
+        assert SpanAttributeKey.LINKED_GATEWAY_TRACE_ID not in (span.attributes or {})
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_experiment_id):
+    ep_config = GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id",
+        endpoint_name="test-endpoint",
+        experiment_id=gateway_experiment_id,
+        models=[],
+    )
+
+    async def mock_stream_with_usage(payload):
+        with mlflow.start_span("provider/test", span_type=SpanType.LLM) as child:
+            child.set_attribute(
+                SpanAttributeKey.CHAT_USAGE,
+                {"input_tokens": 20, "output_tokens": 10, "total_tokens": 30},
+            )
+        yield _make_chunk(content="Hello")
+        yield _make_chunk(content=" world", finish_reason="stop")
+
+    # Agent creates headers
+    with mlflow.start_span("agent-root") as agent_span:
+        headers = get_tracing_context_headers_for_http_request()
+        agent_trace_id = agent_span.trace_id
+        agent_span_id = agent_span.span_id
+
+    # Gateway processes request (separate context)
+    traced = maybe_traced_gateway_call(
+        mock_stream_with_usage,
+        ep_config,
+        output_reducer=aggregate_chat_stream_chunks,
+        request_headers=headers,
+    )
+    chunks = [chunk async for chunk in traced({"input": "test"})]
+
+    assert len(chunks) == 2
+
+    # Gateway trace should exist
+    gateway_traces = TracingClient().search_traces(
+        locations=[gateway_experiment_id]
+    )
+    assert len(gateway_traces) == 1
+    gateway_trace_id = gateway_traces[0].info.trace_id
+    assert gateway_trace_id != agent_trace_id
+
+    # Agent trace should have the distributed gateway span
+    mlflow.flush_trace_async_logging()
+    agent_trace = mlflow.get_trace(agent_trace_id)
+    assert agent_trace is not None
+
+    spans_by_name = {s.name: s for s in agent_trace.data.spans}
+    assert "agent-root" in spans_by_name
+    assert f"gateway/{ep_config.endpoint_name}" in spans_by_name
+
+    gw_span = spans_by_name[f"gateway/{ep_config.endpoint_name}"]
+    assert gw_span.parent_id == agent_span_id
+    assert gw_span.attributes.get("endpoint_id") == ep_config.endpoint_id
+    assert gw_span.attributes.get("endpoint_name") == ep_config.endpoint_name
+
+    # Should have a link to the gateway trace
+    assert gw_span.attributes.get(SpanAttributeKey.LINKED_GATEWAY_TRACE_ID) == gateway_trace_id
+
+    # Should have token usage copied from gateway spans
+    assert gw_span.attributes.get(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 20,
+        "output_tokens": 10,
+        "total_tokens": 30,
+    }
+
+    # Should NOT have request/response payloads
+    assert gw_span.inputs is None
+    assert gw_span.outputs is None
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_no_request_headers(endpoint_config):
+    traced = maybe_traced_gateway_call(mock_async_func, endpoint_config, request_headers=None)
+    result = await traced({"input": "test"})
+
+    assert result == {"result": "success", "payload": {"input": "test"}}
+
+    traces = get_traces()
+    assert len(traces) == 1

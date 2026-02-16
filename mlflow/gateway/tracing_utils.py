@@ -1,12 +1,18 @@
 import functools
 import inspect
+import logging
 from collections.abc import Callable
 from typing import Any
 
 import mlflow
+from mlflow.entities import SpanType
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+_logger = logging.getLogger(__name__)
 
 
 def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
@@ -15,11 +21,76 @@ def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
         span.set_inputs(args[0])
 
 
+def _has_traceparent(headers: dict[str, str]) -> bool:
+    return "traceparent" in headers or "Traceparent" in headers
+
+
+def _get_token_usage_from_gateway_spans(gateway_trace_id: str) -> dict[str, int] | None:
+    """Read CHAT_USAGE from completed child spans of the gateway trace."""
+    trace_manager = InMemoryTraceManager.get_instance()
+    with trace_manager.get_trace(gateway_trace_id) as trace:
+        if trace is None:
+            return None
+        for span in trace.span_dict.values():
+            if token_usage := span.get_attribute(SpanAttributeKey.CHAT_USAGE):
+                return token_usage
+    return None
+
+
+def _create_distributed_span(
+    request_headers: dict[str, str],
+    endpoint_config: GatewayEndpointConfig,
+    gateway_trace_id: str | None,
+    token_usage: dict[str, int] | None,
+) -> None:
+    """Create a span under the agent's distributed trace with a link to the gateway trace."""
+    from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
+
+    try:
+        with set_tracing_context_from_http_request_headers(request_headers):
+            with mlflow.start_span(
+                name=f"gateway/{endpoint_config.endpoint_name}",
+                span_type=SpanType.LLM,
+            ) as span:
+                attrs = {
+                    "endpoint_id": endpoint_config.endpoint_id,
+                    "endpoint_name": endpoint_config.endpoint_name,
+                }
+                if gateway_trace_id:
+                    attrs[SpanAttributeKey.LINKED_GATEWAY_TRACE_ID] = gateway_trace_id
+                span.set_attributes(attrs)
+                if token_usage:
+                    span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
+    except Exception:
+        _logger.debug(
+            "Failed to create distributed trace span for gateway call", exc_info=True
+        )
+
+
+def _maybe_create_distributed_span(
+    request_headers: dict[str, str] | None,
+    endpoint_config: GatewayEndpointConfig,
+) -> None:
+    """Create a distributed span if traceparent header is present."""
+    if not request_headers or not _has_traceparent(request_headers):
+        return
+
+    gateway_trace_id = None
+    if span := mlflow.get_current_active_span():
+        gateway_trace_id = span.trace_id
+
+    token_usage = (
+        _get_token_usage_from_gateway_spans(gateway_trace_id) if gateway_trace_id else None
+    )
+    _create_distributed_span(request_headers, endpoint_config, gateway_trace_id, token_usage)
+
+
 def maybe_traced_gateway_call(
     func: Callable[..., Any],
     endpoint_config: GatewayEndpointConfig,
     metadata: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
+    request_headers: dict[str, str] | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a gateway function with tracing.
@@ -29,6 +100,8 @@ def maybe_traced_gateway_call(
         endpoint_config: The gateway endpoint configuration.
         metadata: Additional metadata to include in the trace (e.g., auth user info).
         output_reducer: A function to aggregate streaming chunks into a single output.
+        request_headers: HTTP request headers; if they contain a traceparent header,
+            a span will also be created under the agent's distributed trace.
 
     Returns:
         A traced version of the function.
@@ -58,6 +131,7 @@ def maybe_traced_gateway_call(
                 mlflow.update_current_trace(metadata=metadata)
             async for item in func(*args, **kwargs):
                 yield item
+            _maybe_create_distributed_span(request_headers, endpoint_config)
 
     elif inspect.iscoroutinefunction(func):
 
@@ -66,7 +140,9 @@ def maybe_traced_gateway_call(
             _maybe_unwrap_single_arg_input(args, kwargs)
             if metadata:
                 mlflow.update_current_trace(metadata=metadata)
-            return await func(*args, **kwargs)
+            result = await func(*args, **kwargs)
+            _maybe_create_distributed_span(request_headers, endpoint_config)
+            return result
 
     else:
 
@@ -75,7 +151,9 @@ def maybe_traced_gateway_call(
             _maybe_unwrap_single_arg_input(args, kwargs)
             if metadata:
                 mlflow.update_current_trace(metadata=metadata)
-            return func(*args, **kwargs)
+            result = func(*args, **kwargs)
+            _maybe_create_distributed_span(request_headers, endpoint_config)
+            return result
 
     return mlflow.trace(wrapper, **trace_kwargs)
 
