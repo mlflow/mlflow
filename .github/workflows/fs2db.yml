@@ -73,4 +73,4 @@ jobs:
       - uses: ./.github/actions/setup-python
 
       - name: Run fs2db pytest tests
-        run: uv run pytest tests/store/fs2db/ -v
+        run: uv run pytest tests/store/fs2db
