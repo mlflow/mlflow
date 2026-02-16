@@ -204,11 +204,13 @@ def _sanitize_metric_value(val: float) -> tuple[bool, float]:
 
 
 def _parse_metric_line(metric_line: str) -> tuple[int, float, int]:
-    parts = metric_line.strip().split(" ")
-    ts = int(parts[0])
-    val = float(parts[1])
-    step = int(parts[2]) if len(parts) >= 3 else 0
-    return ts, val, step
+    match metric_line.strip().split(" "):
+        case [ts, val]:
+            return int(ts), float(val), 0
+        case [ts, val, step, *_]:
+            return int(ts), float(val), int(step)
+        case _:
+            raise ValueError(f"Malformed metric line: {metric_line!r}")
 
 
 def _migrate_run_metrics(
@@ -638,26 +640,26 @@ def _migrate_logged_model_metrics(
 
     for key, lines in all_metrics.items():
         for line in lines:
-            parts = line.strip().split(" ")
-            # Logged model metric format: timestamp value step run_id [dataset_name dataset_digest]
-            if len(parts) not in (4, 6):
-                _logger.warning("Skipping malformed logged model metric line in %s: %s", key, line)
-                continue
-
-            ts = int(parts[0])
-            val = float(parts[1])
-            step = int(parts[2])
-            run_id = parts[3]
-            dataset_name = parts[4] if len(parts) == 6 else None
-            dataset_digest = parts[5] if len(parts) == 6 else None
+            # Format: timestamp value step run_id [dataset_name dataset_digest]
+            match line.strip().split(" "):
+                case [ts, val, step, run_id]:
+                    dataset_name = None
+                    dataset_digest = None
+                case [ts, val, step, run_id, dataset_name, dataset_digest]:
+                    pass
+                case _:
+                    _logger.warning(
+                        "Skipping malformed logged model metric line in %s: %s", key, line
+                    )
+                    continue
 
             session.add(
                 SqlLoggedModelMetric(
                     model_id=model_id,
                     metric_name=key,
-                    metric_timestamp_ms=ts,
-                    metric_step=step,
-                    metric_value=val,
+                    metric_timestamp_ms=int(ts),
+                    metric_step=int(step),
+                    metric_value=float(val),
                     experiment_id=exp_id,
                     run_id=run_id,
                     dataset_uuid=None,
