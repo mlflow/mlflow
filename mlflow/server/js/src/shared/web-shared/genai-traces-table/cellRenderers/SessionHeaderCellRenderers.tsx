@@ -199,8 +199,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     // In comparison mode, show stacked inputs with run colors
     const inputTitle = firstTrace ? getTraceInfoInputs(firstTrace) : undefined;
     const otherInputTitle = firstOtherTrace ? getTraceInfoInputs(firstOtherTrace) : undefined;
-    const displayInputTitle =
-      inputTitle && searchQuery ? highlightSearchInText(inputTitle, searchQuery) : inputTitle;
+    const displayInputTitle = inputTitle && searchQuery ? highlightSearchInText(inputTitle, searchQuery) : inputTitle;
     const displayOtherInputTitle =
       otherInputTitle && searchQuery ? highlightSearchInText(otherInputTitle, searchQuery) : otherInputTitle;
 
@@ -436,8 +435,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     const value = lastTrace ? formatResponseTitle(getTraceInfoOutputs(lastTrace)) : undefined;
     const otherValue = lastOtherTrace ? formatResponseTitle(getTraceInfoOutputs(lastOtherTrace)) : undefined;
     const displayValue = value && searchQuery ? highlightSearchInText(value, searchQuery) : value;
-    const displayOtherValue =
-      otherValue && searchQuery ? highlightSearchInText(otherValue, searchQuery) : otherValue;
+    const displayOtherValue = otherValue && searchQuery ? highlightSearchInText(otherValue, searchQuery) : otherValue;
 
     if (isComparing) {
       cellContent = (

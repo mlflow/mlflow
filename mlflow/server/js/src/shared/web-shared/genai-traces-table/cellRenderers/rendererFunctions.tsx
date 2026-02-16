@@ -343,12 +343,12 @@ export const inputColumnCellRenderer = (
     : undefined;
 
   const inputColumnTitle = currentInputColumnTitle || otherInputColumnTitle;
-  const meta = row?.table?.options?.meta as { getRunColor?: (runUuid: string) => string; searchQuery?: string } | undefined;
+  const meta = row?.table?.options?.meta as
+    | { getRunColor?: (runUuid: string) => string; searchQuery?: string }
+    | undefined;
   const searchQuery = meta?.searchQuery;
   const displayContent =
-    inputColumnTitle && searchQuery
-      ? highlightSearchInText(String(inputColumnTitle), searchQuery)
-      : inputColumnTitle;
+    inputColumnTitle && searchQuery ? highlightSearchInText(String(inputColumnTitle), searchQuery) : inputColumnTitle;
 
   return (
     <div
@@ -806,8 +806,7 @@ export const traceInfoCellRenderer = (
     const value = currentTraceInfo ? formatResponseTitle(getTraceInfoOutputs(currentTraceInfo)) : '';
     const otherValue = otherTraceInfo ? formatResponseTitle(getTraceInfoOutputs(otherTraceInfo)) : '';
     const displayValue = value && searchQuery ? highlightSearchInText(value, searchQuery) : value;
-    const displayOtherValue =
-      otherValue && searchQuery ? highlightSearchInText(otherValue, searchQuery) : otherValue;
+    const displayOtherValue = otherValue && searchQuery ? highlightSearchInText(otherValue, searchQuery) : otherValue;
     return (
       <StackedComponents
         first={
