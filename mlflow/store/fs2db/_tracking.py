@@ -29,6 +29,7 @@ FileStore layout:
 """
 
 import json
+import logging
 import math
 import uuid
 from datetime import datetime, timezone
@@ -39,6 +40,8 @@ from sqlalchemy.orm import Session
 
 from mlflow.entities import RunStatus
 from mlflow.entities.logged_model_status import LoggedModelStatus
+
+_logger = logging.getLogger(__name__)
 from mlflow.store.fs2db._utils import (
     META_YAML,
     MigrationStats,
@@ -135,6 +138,7 @@ def _migrate_one_run(session: Session, run_dir: Path, exp_id: int, stats: Migrat
 
     run_uuid = meta.get("run_uuid") or meta.get("run_id")
     if not run_uuid:
+        _logger.warning("Skipping run in %s: missing run_uuid/run_id", run_dir)
         return
 
     status_raw = meta.get("status", RunStatus.RUNNING)
@@ -637,6 +641,7 @@ def _migrate_logged_model_metrics(
             parts = line.strip().split(" ")
             # Logged model metric format: timestamp value step run_id [dataset_name dataset_digest]
             if len(parts) not in (4, 6):
+                _logger.warning("Skipping malformed logged model metric line in %s: %s", key, line)
                 continue
 
             ts = int(parts[0])

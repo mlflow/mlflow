@@ -13,6 +13,9 @@ _COUNT_QUERIES: dict[str, str] = {
     "tags": "SELECT COUNT(*) FROM tags",
     "metrics": "SELECT COUNT(*) FROM metrics",
     "datasets": "SELECT COUNT(*) FROM datasets",
+    "inputs": (
+        "SELECT COUNT(*) FROM inputs WHERE source_type = 'DATASET' AND destination_type = 'RUN'"
+    ),
     "outputs": (
         "SELECT COUNT(*) FROM inputs"
         " WHERE source_type = 'RUN_OUTPUT' AND destination_type = 'MODEL_OUTPUT'"
