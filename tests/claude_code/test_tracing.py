@@ -743,8 +743,18 @@ def test_process_transcript_marks_rejected_tool_as_error(mock_transcript_with_to
     assert len(tool_spans) == 1
     tool_span = tool_spans[0]
 
-    # Tool span should have ERROR status
+    # Tool span should have ERROR status (set by record_exception)
     assert tool_span.status.status_code == SpanStatusCode.ERROR
+
+    # Tool span should have an exception event with the rejection message
+    events = tool_span.events
+    assert len(events) >= 1
+    exception_events = [e for e in events if e.name == "exception"]
+    assert len(exception_events) == 1
+    event = exception_events[0]
+    assert "exception.message" in event.attributes
+    assert "doesn't want to proceed" in event.attributes["exception.message"]
+    assert event.attributes["exception.type"] == "Exception"
 
 
 def test_process_transcript_captures_permission_mode(mock_transcript_with_tool_error):

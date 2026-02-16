@@ -16,7 +16,6 @@ from mlflow.claude_code.config import (
     get_env_var,
 )
 from mlflow.entities import SpanType
-from mlflow.entities.span_status import SpanStatusCode
 from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
@@ -587,11 +586,14 @@ def _create_llm_and_tool_spans(
 
                 tool_span.set_outputs({"result": tool_result})
 
-                is_error = tool_result_info.get("is_error", False) if isinstance(
-                    tool_result_info, dict
-                ) else False
+                is_error = (
+                    tool_result_info.get("is_error", False)
+                    if isinstance(tool_result_info, dict)
+                    else False
+                )
                 if is_error:
-                    tool_span.set_status(SpanStatusCode.ERROR)
+                    error_message = str(tool_result) if tool_result else "Tool execution failed"
+                    tool_span.record_exception(Exception(error_message))
 
                 tool_span.end(end_time_ns=tool_start_ns + tool_duration_ns)
 
