@@ -28,7 +28,7 @@ defaults:
     shell: bash
 
 jobs:
-  fs2db:
+  e2e-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -61,7 +61,7 @@ jobs:
             --verify \
             --no-progress
 
-  pytest:
+  unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
