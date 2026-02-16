@@ -569,7 +569,9 @@ async def openai_passthrough_chat(request: Request):
     )
 
     if body.get("stream", False):
-        stream = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
+        stream = await provider.passthrough(
+            action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
+        )
 
         # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
         async def yield_stream(body: dict[str, Any]):
@@ -584,7 +586,9 @@ async def openai_passthrough_chat(request: Request):
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough, endpoint_config, user_metadata
     )
-    return await traced_passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
+    return await traced_passthrough(
+        action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
+    )
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
@@ -621,7 +625,9 @@ async def openai_passthrough_embeddings(request: Request):
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough, endpoint_config, user_metadata
     )
-    return await traced_passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body, headers)
+    return await traced_passthrough(
+        action=PassthroughAction.OPENAI_EMBEDDINGS, payload=body, headers=headers
+    )
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
@@ -660,7 +666,9 @@ async def openai_passthrough_responses(request: Request):
     )
 
     if body.get("stream", False):
-        stream = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
+        stream = await provider.passthrough(
+            action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
+        )
 
         # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
         async def yield_stream(body: dict[str, Any]):
@@ -675,7 +683,9 @@ async def openai_passthrough_responses(request: Request):
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough, endpoint_config, user_metadata
     )
-    return await traced_passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
+    return await traced_passthrough(
+        action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
+    )
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
@@ -714,7 +724,9 @@ async def anthropic_passthrough_messages(request: Request):
     )
 
     if body.get("stream", False):
-        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
+        stream = await provider.passthrough(
+            action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
+        )
 
         # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
         async def yield_stream(body: dict[str, Any]):
@@ -729,7 +741,9 @@ async def anthropic_passthrough_messages(request: Request):
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough, endpoint_config, user_metadata
     )
-    return await traced_passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
+    return await traced_passthrough(
+        action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
+    )
 
 
 @gateway_router.post(
@@ -770,7 +784,9 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough, endpoint_config, user_metadata
     )
-    return await traced_passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
+    return await traced_passthrough(
+        action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
+    )
 
 
 @gateway_router.post(
@@ -809,7 +825,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     )
 
     stream = await provider.passthrough(
-        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body, headers
+        action=PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, payload=body, headers=headers
     )
 
     # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
