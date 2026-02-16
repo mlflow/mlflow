@@ -176,6 +176,8 @@ def init_fastapi_security(app: FastAPI) -> None:
             expose_headers=["*"],
         )
     else:
+        # Use CORSBlockingMiddleware for blocking CORS requests on the server side,
+        # and CORSMiddleware for responding to OPTIONS requests.
         app.add_middleware(CORSBlockingMiddleware, allowed_origins=allowed_origins)
         app.add_middleware(
             CORSMiddleware,
