@@ -80,10 +80,7 @@ const AddFeedbackButton = ({
               size="small"
               icon={<PlusIcon />}
             >
-              <FormattedMessage
-                defaultMessage="Add feedback"
-                description="Label for the button to add new feedback"
-              />
+              <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add new feedback" />
             </Button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Content>
