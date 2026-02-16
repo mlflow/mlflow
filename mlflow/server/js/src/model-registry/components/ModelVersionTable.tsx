@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Empty,
   PlusIcon,
@@ -6,30 +7,23 @@ import {
   TableHeader,
   TableRow,
   TableRowSelectCell,
-  LegacyTooltip,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
   TableSkeletonRows,
 } from '@databricks/design-system';
-import {
-  ColumnDef,
-  RowSelectionState,
-  SortingState,
-  ColumnSort,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
-import { KeyValueEntity, ModelEntity, ModelVersionInfoEntity, ModelAliasMap } from '../../experiment-tracking/types';
+import type { ColumnDef, RowSelectionState, SortingState, ColumnSort } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
+import type { ModelEntity, ModelVersionInfoEntity, ModelAliasMap } from '../../experiment-tracking/types';
+import type { KeyValueEntity } from '../../common/types';
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { RegisteringModelDocUrl } from '../../common/constants';
 import {
   ACTIVE_STAGES,
-  EMPTY_CELL_PLACEHOLDER,
   ModelVersionStatusIcons,
   StageTagComponents,
+  mlflowAliasesLearnMoreLink,
   modelVersionStatusIconTooltips,
 } from '../constants';
 import { Link } from '../../common/utils/RoutingUtils';
@@ -37,14 +31,15 @@ import { ModelRegistryRoutes } from '../routes';
 import Utils from '../../common/utils/Utils';
 import { KeyValueTagsEditorCell } from '../../common/components/KeyValueTagsEditorCell';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '../../redux-types';
+import type { ThunkDispatch } from '../../redux-types';
 import { useEditKeyValueTagsModal } from '../../common/hooks/useEditKeyValueTagsModal';
-import { useEditRegisteredModelAliasesModal } from '../hooks/useEditRegisteredModelAliasesModal';
+import { useEditAliasesModal } from '../../common/hooks/useEditAliasesModal';
 import { updateModelVersionTagsApi } from '../actions';
 import { ModelVersionTableAliasesCell } from './aliases/ModelVersionTableAliasesCell';
-import { Interpolation, Theme } from '@emotion/react';
+import type { Interpolation, Theme } from '@emotion/react';
 import { truncateToFirstLineWithMaxLength } from '../../common/utils/StringUtils';
-import ExpandableList from '../../common/components/ExpandableList';
+import { setModelVersionAliasesApi } from '../actions';
+import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 
 type ModelVersionTableProps = {
   isLoading: boolean;
@@ -77,6 +72,14 @@ enum COLUMN_IDS {
   DESCRIPTION = 'description',
   ALIASES = 'aliases',
 }
+
+const getAliasesModalTitle = (version: string) => (
+  <FormattedMessage
+    defaultMessage="Add/Edit alias for model version {version}"
+    description="Model registry > model version alias editor > Title of the update alias modal"
+    values={{ version }}
+  />
+);
 
 export const ModelVersionTable = ({
   modelName,
@@ -131,12 +134,29 @@ export const ModelVersionTable = ({
     onSuccess: onMetadataUpdated,
   });
 
-  const { EditAliasesModal, showEditAliasesModal } = useEditRegisteredModelAliasesModal({
-    model: modelEntity || null,
+  const { EditAliasesModal, showEditAliasesModal } = useEditAliasesModal({
+    aliases: modelEntity?.aliases ?? [],
     onSuccess: onMetadataUpdated,
+    onSave: async (currentlyEditedVersion: string, existingAliases: string[], draftAliases: string[]) =>
+      dispatch(setModelVersionAliasesApi(modelName, currentlyEditedVersion, existingAliases, draftAliases)),
+    getTitle: getAliasesModalTitle,
+    description: (
+      <FormattedMessage
+        defaultMessage="Aliases allow you to assign a mutable, named reference to a particular model version. <link>Learn more</link>"
+        description="Explanation of registered model aliases"
+        values={{
+          link: (chunks) => (
+            <a href={mlflowAliasesLearnMoreLink} rel="noreferrer" target="_blank">
+              {chunks}
+            </a>
+          ),
+        }}
+      />
+    ),
   });
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  useRegisterSelectedIds('selectedModelVersions', rowSelection);
 
   useEffect(() => {
     const selectedVersions = (versions || []).filter(({ version }) => rowSelection[version]);
@@ -154,9 +174,14 @@ export const ModelVersionTable = ({
         cell: ({ row: { original } }) => {
           const { status, status_message } = original || {};
           return (
-            <LegacyTooltip title={status_message || modelVersionStatusIconTooltips[status]}>
-              <Typography.Text>{ModelVersionStatusIcons[status]}</Typography.Text>
-            </LegacyTooltip>
+            <Tooltip
+              componentId="mlflow.model-registry.model-view.model-versions.version-status.tooltip"
+              content={status_message || modelVersionStatusIconTooltips[status]}
+            >
+              <span>
+                <Typography.Text>{ModelVersionStatusIcons[status]}</Typography.Text>
+              </span>
+            </Tooltip>
           );
         },
       },
@@ -294,19 +319,22 @@ export const ModelVersionTable = ({
     }
   };
 
-  const table = useReactTable<ModelVersionInfoEntity>({
-    data: versions || [],
-    columns: tableColumns,
-    state: {
-      rowSelection,
-      sorting,
+  const table = useReactTable<ModelVersionInfoEntity>(
+    'mlflow/server/js/src/model-registry/components/ModelVersionTable.tsx',
+    {
+      data: versions || [],
+      columns: tableColumns,
+      state: {
+        rowSelection,
+        sorting,
+      },
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      getRowId: ({ version }) => version,
+      onRowSelectionChange: setRowSelection,
+      onSortingChange: setSorting,
     },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getRowId: ({ version }) => version,
-    onRowSelectionChange: setRowSelection,
-    onSortingChange: setSorting,
-  });
+  );
 
   const isEmpty = () => table.getRowModel().rows.length === 0;
 

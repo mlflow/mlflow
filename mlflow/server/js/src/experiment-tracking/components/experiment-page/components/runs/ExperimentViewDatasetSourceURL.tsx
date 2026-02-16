@@ -1,5 +1,6 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { DatasetSourceTypes, RunDatasetWithTags } from '../../../../types';
+import type { RunDatasetWithTags } from '../../../../types';
+import { DatasetSourceTypes } from '../../../../types';
 import { getDatasetSourceUrl } from '../../../../utils/DatasetUtils';
 
 export interface ExperimentViewDatasetSourceProps {

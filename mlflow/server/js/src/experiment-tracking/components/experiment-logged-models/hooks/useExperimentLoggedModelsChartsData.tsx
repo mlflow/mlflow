@@ -1,12 +1,12 @@
 import { compact, keyBy } from 'lodash';
 import { useMemo } from 'react';
-import { LoggedModelProto } from '../../../types';
+import type { LoggedModelProto } from '../../../types';
 import { getStableColorForRun } from '../../../utils/RunNameUtils';
 import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 import { useExperimentLoggedModelListPageRowVisibilityContext } from './useExperimentLoggedModelListPageRowVisibility';
 
 export const getMetricByDatasetChartDataKey = (metricKey?: string, datasetName?: string) =>
-  datasetName ? JSON.stringify([datasetName, metricKey]) : metricKey ?? '';
+  datasetName ? JSON.stringify([datasetName, metricKey]) : (metricKey ?? '');
 
 /**
  * Creates chart-consumable data based on logged models, including metrics and parameters.

@@ -22,7 +22,7 @@ CatBoost (native) format
 import contextlib
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -49,6 +49,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -95,6 +96,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
     **kwargs,
 ):
     """Save a CatBoost model to a path on the local file system.
@@ -113,7 +115,8 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
-        kwargs: kwargs to pass to `CatBoost.save_model`_ method.
+        extra_files: {{ extra_files }}
+        kwargs: kwargs to pass to `CatBoost.save_model` method.
 
     """
     import catboost as cb
@@ -152,10 +155,13 @@ def save_model(
         **model_bin_kwargs,
     )
 
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     flavor_conf = {
         _MODEL_TYPE_KEY: cb_model.__class__.__name__,
         _SAVE_FORMAT_KEY: kwargs.get("format", "cbm"),
         **model_bin_kwargs,
+        **extra_files_config,
     }
     mlflow_model.add_flavor(
         FLAVOR_NAME, catboost_version=cb.__version__, code=code_dir_subpath, **flavor_conf
@@ -201,7 +207,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     cb_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -211,12 +217,13 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    extra_files=None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
     **kwargs,
 ):
     """Log a CatBoost model as an MLflow artifact for the current run.
@@ -240,6 +247,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -267,6 +275,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        extra_files=extra_files,
         params=params,
         tags=tags,
         model_type=model_type,
@@ -358,7 +367,7 @@ class _CatboostModelWrapper:
         """
         return self.cb_model
 
-    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
+    def predict(self, dataframe, params: dict[str, Any] | None = None):
         """
         Args:
             dataframe: Model input data.

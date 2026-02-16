@@ -1,0 +1,70 @@
+---
+title: Upgrade
+---
+
+# How to Upgrade MLflow
+
+MLflow evolves rapidly to provide new features and improve the framework. This document outlines the steps to upgrade self-hosted MLflow servers to the latest version.
+
+## Basic Steps
+
+Upgrading MLflow typically involves the following steps:
+
+1. Stop the server.
+2. Upgrade the package version in the environment.
+3. Run database migrations (if database backend is used).
+4. Restart the server.
+
+:::info
+
+MLflow does not natively support upgrading the server while the server is running. To avoid downtime, upgrade the server in a rolling manner and use load balancer to gradually route traffic from the old servers to the new servers.
+
+:::
+
+## Migrating the database
+
+If you are using a database-backend store, run the following command to apply schema migrations before restarting the server.
+
+```bash
+mlflow db upgrade <backend-store-url>
+```
+
+The command will update the database schema to the latest version using [Alembic](https://alembic.sqlalchemy.org/).
+
+:::warning important
+
+Schema migrations can be slow and are not guaranteed to be transactional. Always take a backup of the database before running the migration.
+
+:::
+
+## Semantic versioning
+
+MLflow uses [semantic versioning](https://semver.org/) to manage versions and provide clear risk level for users when upgrading MLflow. More specifically, we use the following rules:
+
+The following changes requires a **major version bump**:
+
+- Architecture changes
+- Removal of [Public APIs](https://mlflow.org/docs/latest/api_reference/python_api/index.html), except those explicitly declared as experimental.
+- Removal/renaming of existing parameters from Public APIs in the breaking manner.
+
+The following changes **do not require a major version bump** and released within a minor version update:
+
+- Database schema changes.
+- Adding new APIs.
+- Adding new optional parameters to Public APIs.
+- Removing experimental APIs or removing/renaming parameters of them.
+
+## Compatibility between MLflow SDK and the Server
+
+MLflow SDK and the server works best if they are in the same version. However, in practice, you may need to deal with a mismatch between the client and server versions. MLflow offers best-effort compatibility between the SDK and the server.
+
+- MLflow tracking server works with the **older** version of the SDK, up to one major version difference (e.g., 2.x to 3.x).
+- MLflow tracking server may not work with the **newer** version of the SDK.
+
+For example, you can use MLflow 2.x client SDK to log models to the MLflow 3.x server, because the server is backward compatible. On the other hand, if you upgrade the client SDK to 2.15 to use MLflow Tracing, the server also needs to be newer than 2.15, otherwise the tracing endpoints do not exist.
+
+When making any breaking change, we issue deprecation warning for a few minor versions before the actual change, and announce them in the [release notes](https://github.com/mlflow/mlflow/releases).
+
+## Support
+
+If you are facing any issues during the upgrade, contact to the MLflow team by opening an issue on [GitHub](https://github.com/mlflow/mlflow/issues/new/choose).

@@ -13,6 +13,7 @@ export const determineIfRowIsHidden = (
   runUuid: string,
   rowIndex: number,
   runsVisibilityMap: Record<string, boolean>,
+  runStatus?: string,
 ) => {
   // If using rows visibility map, we should always use it to determine visibility
   if (shouldUseRunRowsVisibilityMap()) {
@@ -34,6 +35,8 @@ export const determineIfRowIsHidden = (
   if (runsHiddenMode === RUNS_VISIBILITY_MODE.FIRST_20_RUNS) {
     return rowIndex >= 20;
   }
-
+  if (runsHiddenMode === RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS) {
+    return ['FINISHED', 'FAILED', 'KILLED'].includes(runStatus ?? '');
+  }
   return false;
 };

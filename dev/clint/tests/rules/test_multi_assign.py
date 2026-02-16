@@ -1,23 +1,25 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.index import SymbolIndex
-from clint.linter import Location, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules import MultiAssign
 
 
-def test_multi_assign(index: SymbolIndex, config: Config, tmp_path: Path) -> None:
-    tmp_file = tmp_path / "test.py"
-    tmp_file.write_text(
-        """
-# Bad
-x, y = 1, 2
+def test_multi_assign(index_path: Path) -> None:
+    code = """
+# Bad - non-constant values
+x, y = func1(), func2()
 
-# Good
+# Good - unpacking from function
 a, b = func()
+
+# Good - all constants (allowed)
+c, d = 1, 1
+e, f, g = 0, 0, 0
+h, i = "test", "test"
 """
-    )
-    results = lint_file(tmp_file, config, index)
+    config = Config(select={MultiAssign.name})
+    results = lint_file(Path("test.py"), code, config, index_path)
     assert len(results) == 1
     assert all(isinstance(r.rule, MultiAssign) for r in results)
-    assert results[0].loc == Location(2, 0)
+    assert results[0].range == Range(Position(2, 0))

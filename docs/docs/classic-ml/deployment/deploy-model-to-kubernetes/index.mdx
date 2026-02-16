@@ -2,7 +2,6 @@
 sidebar_position: 3
 ---
 
-import Link from "@docusaurus/Link";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { CardGroup, PageCard } from "@site/src/components/Card";
@@ -31,7 +30,7 @@ The essential step to deploy an MLflow model to Kubernetes is to build a Docker 
     mlflow models build-docker -m runs:/<run_id>/model -n <image_name> --enable-mlserver
     ```
     If you want to use the bare-bones FastAPI server instead of MLServer, remove the ``--enable-mlserver`` flag. For other options, see
-    the <Link to="/api_reference/cli.html#mlflow-models-build-docker" target="_blank">build-docker</Link> command documentation.
+    the <APILink fn="mlflow.server.cli" hash="mlflow-models-build-docker">build-docker</APILink> command documentation.
   </TabItem>
   <TabItem label="Python" value="python">
     ```python

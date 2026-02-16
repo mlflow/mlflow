@@ -10,11 +10,12 @@ export interface FeatureItem {
 
 interface FeatureHighlightsProps {
   features: FeatureItem[];
+  col?: number;
 }
 
-export default function FeatureHighlights({ features }: FeatureHighlightsProps) {
+export default function FeatureHighlights({ features, col = 2 }: FeatureHighlightsProps) {
   return (
-    <div className={styles.featureHighlights}>
+    <div className={styles.featureHighlights} style={{ gridTemplateColumns: `repeat(${col}, 1fr)` }}>
       {features.map((feature, index) => (
         <div key={index} className={styles.highlightItem}>
           {feature.icon && (

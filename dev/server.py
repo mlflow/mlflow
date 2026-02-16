@@ -12,10 +12,10 @@ import time
 def random_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
-        return s.getsockname()[1]
+        return int(s.getsockname()[1])
 
 
-def main():
+def main() -> None:
     gateway_port = random_port()
     gateway_host = "localhost"
     with (

@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import { RegisterModelForm, CREATE_NEW_MODEL_OPTION_VALUE } from './RegisterModelForm';
@@ -36,7 +37,7 @@ describe('RegisterModelForm', () => {
       modelByName,
     };
     wrapper = shallow(<RegisterModelForm {...props} />);
-    expect(wrapper.find('.create-new-model-option').length).toBe(1);
+    expect(wrapper.find('.mlflow-create-new-model-option').length).toBe(1);
     expect(wrapper.find('[value="Model A"]').length).toBe(1);
   });
 

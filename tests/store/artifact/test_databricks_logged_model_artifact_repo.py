@@ -5,6 +5,7 @@ import pytest
 from databricks.sdk.service.files import DirectoryEntry
 
 from mlflow.entities.file_info import FileInfo
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.databricks_logged_model_artifact_repo import (
     DatabricksLoggedModelArtifactRepository,
 )
@@ -25,7 +26,7 @@ def test_log_artifact(tmp_path: Path):
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksArtifactRepository",
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository",
             return_value=mock_databricks_artifact_repo,
         ),
     ):
@@ -57,7 +58,7 @@ def test_log_artifacts(tmp_path: Path):
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksArtifactRepository",
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository",
             return_value=mock_databricks_artifact_repo,
         ),
     ):
@@ -90,7 +91,7 @@ def test_download_file(tmp_path: Path):
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksArtifactRepository"
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository"
         ) as mock_fallback_repo,
     ):
         mock_fallback_repo.return_value = mock_databricks_artifact_repo
@@ -120,7 +121,7 @@ def test_list_artifacts():
             "mlflow.store.artifact.databricks_sdk_artifact_repo.DatabricksSdkArtifactRepository.files_api"
         ) as mock_files_api,
         mock.patch(
-            "mlflow.store.artifact.databricks_logged_model_artifact_repo.DatabricksArtifactRepository",
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository",
             return_value=mock_databricks_artifact_repo,
         ),
     ):
@@ -148,3 +149,125 @@ def test_list_artifacts():
         artifacts = repo.list_artifacts("artifact_path")
         mock_databricks_artifact_repo.list_artifacts.assert_called_once()
         assert len(artifacts) == 1
+
+
+def test_constructor_with_valid_uri():
+    mock_databricks_artifact_repo = mock.MagicMock()
+    mock_databricks_sdk_repo = mock.MagicMock()
+    with (
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository",
+            return_value=mock_databricks_artifact_repo,
+        ),
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksSdkArtifactRepository",
+            return_value=mock_databricks_sdk_repo,
+        ),
+    ):
+        repo = DatabricksLoggedModelArtifactRepository(
+            "dbfs:/databricks/mlflow-tracking/1/logged_models/1"
+        )
+        assert repo is not None
+
+
+@pytest.mark.parametrize(
+    "invalid_uri",
+    [
+        "invalid_uri",
+        "dbfs:/databricks/mlflow-tracking/1/runs/1",
+        "dbfs:/databricks/mlflow-tracking/1/other/1",
+        "http://example.com",
+        "s3://bucket/path",
+    ],
+)
+def test_constructor_with_invalid_uri(invalid_uri: str):
+    with pytest.raises(MlflowException, match="Invalid artifact URI"):
+        DatabricksLoggedModelArtifactRepository(invalid_uri)
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected_result"),
+    [
+        # Valid logged model URIs
+        ("dbfs:/databricks/mlflow-tracking/1/logged_models/1", True),
+        ("dbfs:/databricks/mlflow-tracking/123/logged_models/456", True),
+        # Invalid URIs
+        ("dbfs:/databricks/mlflow-tracking/1/runs/1", False),
+        ("dbfs:/databricks/mlflow-tracking/1/other/1", False),
+        ("dbfs:/databricks/mlflow-tracking/1", False),
+        ("dbfs:/databricks/mlflow-tracking/1/logged_models", False),
+        ("dbfs:/databricks/mlflow-tracking/logged_models/1", False),
+    ],
+)
+def test_is_logged_model_uri(uri: str, expected_result: bool):
+    result = DatabricksLoggedModelArtifactRepository.is_logged_model_uri(uri)
+    assert result == expected_result
+
+
+def test_uri_parsing():
+    mock_databricks_artifact_repo = mock.MagicMock()
+    mock_databricks_sdk_repo = mock.MagicMock()
+    with (
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository",
+            return_value=mock_databricks_artifact_repo,
+        ),
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksSdkArtifactRepository",
+            return_value=mock_databricks_sdk_repo,
+        ),
+    ):
+        repo = DatabricksLoggedModelArtifactRepository(
+            "dbfs:/databricks/mlflow-tracking/123/logged_models/456"
+        )
+
+        # Access the regex match to verify parsing
+        m = repo._get_uri_regex().search("dbfs:/databricks/mlflow-tracking/123/logged_models/456")
+        assert m is not None
+        assert m.group("experiment_id") == "123"
+        assert m.group("model_id") == "456"
+        assert m.group("relative_path") is None
+
+
+def test_build_root_path():
+    mock_databricks_artifact_repo = mock.MagicMock()
+    mock_databricks_sdk_repo = mock.MagicMock()
+    with (
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository",
+            return_value=mock_databricks_artifact_repo,
+        ),
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksSdkArtifactRepository",
+            return_value=mock_databricks_sdk_repo,
+        ),
+    ):
+        repo = DatabricksLoggedModelArtifactRepository(
+            "dbfs:/databricks/mlflow-tracking/123/logged_models/456"
+        )
+
+        # Test root path building
+        m = repo._get_uri_regex().search("dbfs:/databricks/mlflow-tracking/123/logged_models/456")
+        root_path = repo._build_root_path("123", m, "")
+        expected_path = "/WorkspaceInternal/Mlflow/Artifacts/123/LoggedModels/456"
+        assert root_path == expected_path
+
+
+def test_expected_uri_format():
+    mock_databricks_artifact_repo = mock.MagicMock()
+    mock_databricks_sdk_repo = mock.MagicMock()
+    with (
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksArtifactRepository",
+            return_value=mock_databricks_artifact_repo,
+        ),
+        mock.patch(
+            "mlflow.store.artifact.databricks_tracking_artifact_repo.DatabricksSdkArtifactRepository",
+            return_value=mock_databricks_sdk_repo,
+        ),
+    ):
+        repo = DatabricksLoggedModelArtifactRepository(
+            "dbfs:/databricks/mlflow-tracking/1/logged_models/1"
+        )
+        expected_format = "databricks/mlflow-tracking/<EXP_ID>/logged_models/<MODEL_ID>"
+        assert repo._get_expected_uri_format() == expected_format

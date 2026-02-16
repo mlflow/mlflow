@@ -16,9 +16,13 @@ import pytest
 
 import mlflow
 from mlflow.entities import (
+    AssessmentSource,
+    AssessmentSourceType,
     Dataset,
     DatasetInput,
+    Expectation,
     ExperimentTag,
+    Feedback,
     InputTag,
     LifecycleStage,
     Metric,
@@ -32,6 +36,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.models import Model
@@ -140,6 +145,11 @@ def create_experiments(store, experiment_names):
         time.sleep(0.001)
         ids.append(store.create_experiment(name))
     return ids
+
+
+def test_file_store_deprecation_warning(tmp_path):
+    with pytest.warns(FutureWarning, match="filesystem tracking backend.*is deprecated"):
+        FileStore(str(tmp_path / "mlruns"))
 
 
 def test_valid_root(store):
@@ -425,7 +435,7 @@ def _verify_experiment(fs, exp_id, exp_data):
 
 def _verify_logged(store, run_id, metrics, params, tags):
     run = store.get_run(run_id)
-    all_metrics = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    all_metrics = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     assert len(all_metrics) == len(metrics)
     logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
     assert set(logged_metrics) == {(m.key, m.value, m.timestamp, m.step) for m in metrics}
@@ -609,6 +619,25 @@ def test_record_logged_model(store):
         match="Argument 'mlflow_model' should be mlflow.models.Model, got '<class 'dict'>'",
     ):
         store.record_logged_model(run_id, m.get_tags_dict())
+
+
+def test_hard_delete_logged_model(store):
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.delete_logged_model(model.model_id)
+    model_dir = store._get_model_dir(exp_id, model.model_id)
+    assert os.path.exists(model_dir)
+    store._hard_delete_logged_model(model.model_id)
+    assert not os.path.exists(model_dir)
+
+
+def test_get_deleted_logged_models(store):
+    exp_id = store.create_experiment("exp")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert store._get_deleted_logged_models() == []
+    store.delete_logged_model(model.model_id)
+    assert store._get_deleted_logged_models(older_than=1000000) == []
+    assert store._get_deleted_logged_models() == [model.model_id]
 
 
 def test_get_experiment(store):
@@ -3003,7 +3032,6 @@ def test_legacy_start_trace_v2(store):
     assert trace_info.timestamp_ms == timestamp_ms
     assert trace_info.execution_time_ms is None
     assert trace_info.status == TraceStatus.IN_PROGRESS
-    assert trace_info.request_metadata == {TRACE_SCHEMA_VERSION_KEY: "2"}
     assert trace_info.tags == tags
 
     with pytest.raises(MlflowException, match=r"Experiment fake_exp_id does not exist."):
@@ -3026,8 +3054,8 @@ def test_legacy_end_trace(store_and_trace_info):
     assert trace_info.timestamp_ms == trace.timestamp_ms
     assert trace_info.execution_time_ms == timestamp_ms - trace.timestamp_ms
     assert trace_info.status == TraceStatus.OK
-    assert trace_info.request_metadata == {**trace.request_metadata, **request_metadata}
-    assert trace_info.tags == {**trace.tags, **tags}
+    assert trace_info.request_metadata == trace.request_metadata | request_metadata
+    assert trace_info.tags == trace.tags | tags
 
     with pytest.raises(MlflowException, match=r"Trace with ID 'fake_request_id' not found"):
         store.deprecated_end_trace_v2(
@@ -3058,7 +3086,6 @@ def test_start_trace(store):
     assert new_trace_info.execution_time_ms == 100
     assert new_trace_info.state == TraceState.OK
     assert new_trace_info.tags["mlflow.artifactLocation"] is not None
-    assert new_trace_info.trace_metadata == {TRACE_SCHEMA_VERSION_KEY: "3"}
     assert new_trace_info.client_request_id == trace_info.client_request_id
 
 
@@ -3361,6 +3388,46 @@ def test_search_traces_filter_trace_metadata(store):
     )
 
 
+def test_search_traces_with_like_ilike_filters(generate_trace_infos):
+    trace_infos = generate_trace_infos.trace_infos
+    store = generate_trace_infos.store
+    exp_id = generate_trace_infos.exp_id
+
+    # Test LIKE operator for trace name (case-sensitive)
+    _validate_search_traces(store, [exp_id], "name LIKE 'trace_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "name LIKE 'trace_0'", [trace_infos[0]])
+    _validate_search_traces(store, [exp_id], "name LIKE 'trace_1%'", [trace_infos[1]])
+    _validate_search_traces(store, [exp_id], "name LIKE 'TRACE_%'", [])  # case-sensitive
+
+    # Test ILIKE operator for trace name (case-insensitive)
+    _validate_search_traces(store, [exp_id], "name ILIKE 'TRACE_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "name ILIKE 'TRACE_0'", [trace_infos[0]])
+    _validate_search_traces(store, [exp_id], "name ILIKE 'TrAcE_1'", [trace_infos[1]])
+
+    # Test LIKE operator for tags
+    _validate_search_traces(store, [exp_id], "tag.test_tag LIKE 'tag_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "tag.test_tag LIKE 'tag_0'", [trace_infos[0]])
+    _validate_search_traces(store, [exp_id], "tag.test_tag LIKE 'TAG_%'", [])  # case-sensitive
+
+    # Test ILIKE operator for tags using both 'tag' and 'tags' prefix
+    _validate_search_traces(store, [exp_id], "tag.test_tag ILIKE 'TAG_%'", trace_infos[::-1])
+    _validate_search_traces(store, [exp_id], "tags.test_tag ILIKE 'TAG_0'", [trace_infos[0]])
+
+    # Test LIKE/ILIKE for run_id
+    _validate_search_traces(store, [exp_id], "run_id LIKE 'run_%'", trace_infos[5:][::-1])
+    _validate_search_traces(store, [exp_id], "run_id LIKE 'run_5'", [trace_infos[5]])
+    _validate_search_traces(store, [exp_id], "run_id ILIKE 'RUN_5'", [trace_infos[5]])
+    _validate_search_traces(store, [exp_id], "run_id ILIKE 'RUN_%'", trace_infos[5:][::-1])
+
+    # Test combined filters with LIKE/ILIKE
+    _validate_search_traces(
+        store, [exp_id], "name LIKE 'trace_%' AND status = 'OK'", trace_infos[:5][::-1]
+    )
+    _validate_search_traces(
+        store, [exp_id], "tag.test_tag ILIKE 'TAG_%' AND timestamp < 20", trace_infos[:2][::-1]
+    )
+
+
 @pytest.mark.parametrize(
     ("filter_string", "error"),
     [
@@ -3371,12 +3438,7 @@ def test_search_traces_filter_trace_metadata(store):
         ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
         ("trace.status < 'OK'", r"Invalid comparator '<'"),
         ("name IN ('foo', 'bar')", r"Invalid comparator 'IN'"),
-        # We don't support LIKE/ILIKE operators for trace search because it may
-        # cause performance issues with large attributes and tags.
-        ("name LIKE 'trace_%'", r"Invalid comparator 'LIKE'"),
-        ("run_id ILIKE 'run_%'", r"Invalid comparator 'ILIKE'"),
-        ("tag.test_tag LIKE 'tag_%'", r"Invalid comparator 'LIKE'"),
-        ("tags.test_tag ILIKE 'tag_%'", r"Invalid comparator 'ILIKE'"),
+        ("feedback.correctness = 'true'", r"Assessment filtering requires database support"),
     ],
 )
 def test_search_traces_invalid_filter(generate_trace_infos, filter_string, error):
@@ -3505,6 +3567,408 @@ def test_traces_not_listed_as_runs(tmp_path):
             mock_debug.assert_not_called()
 
 
+def test_create_and_get_assessment(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="correctness",
+        value=True,
+        rationale="The response is correct and well-formatted",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+        ),
+        metadata={"project": "test-project", "version": "1.0"},
+        span_id="span-123",
+    )
+
+    created_feedback = store.create_assessment(feedback)
+    assert created_feedback.assessment_id is not None
+    assert created_feedback.assessment_id.startswith("a-")
+    assert created_feedback.trace_id == trace_info.request_id
+    assert created_feedback.create_time_ms is not None
+    assert created_feedback.name == "correctness"
+    assert created_feedback.value is True
+    assert created_feedback.rationale == "The response is correct and well-formatted"
+    assert created_feedback.metadata == {"project": "test-project", "version": "1.0"}
+    assert created_feedback.span_id == "span-123"
+    assert created_feedback.valid
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="expected_response",
+        value="The capital of France is Paris.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+        ),
+        metadata={"context": "geography-qa", "difficulty": "easy"},
+        span_id="span-456",
+    )
+
+    created_expectation = store.create_assessment(expectation)
+    assert created_expectation.assessment_id != created_feedback.assessment_id
+    assert created_expectation.trace_id == trace_info.request_id
+    assert created_expectation.value == "The capital of France is Paris."
+    assert created_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert created_expectation.span_id == "span-456"
+    assert created_expectation.valid
+
+    retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved_feedback.name == "correctness"
+    assert retrieved_feedback.value is True
+    assert retrieved_feedback.rationale == "The response is correct and well-formatted"
+    assert retrieved_feedback.metadata == {"project": "test-project", "version": "1.0"}
+    assert retrieved_feedback.span_id == "span-123"
+    assert retrieved_feedback.trace_id == trace_info.request_id
+    assert retrieved_feedback.valid
+
+    retrieved_expectation = store.get_assessment(
+        trace_info.request_id, created_expectation.assessment_id
+    )
+    assert retrieved_expectation.value == "The capital of France is Paris."
+    assert retrieved_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert retrieved_expectation.span_id == "span-456"
+    assert retrieved_expectation.trace_id == trace_info.request_id
+    assert retrieved_expectation.valid is None
+
+
+def test_get_assessment_errors(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    with pytest.raises(MlflowException, match=r"Trace with ID 'fake_trace' not found"):
+        store.get_assessment("fake_trace", "fake_assessment")
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Assessment with ID 'fake_assessment' not found for trace",
+    ):
+        store.get_assessment(trace_info.request_id, "fake_assessment")
+
+
+def test_update_assessment_feedback(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="correctness",
+        value=True,
+        rationale="Original rationale",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+        ),
+        metadata={"project": "test-project", "version": "1.0"},
+        span_id="span-123",
+    )
+
+    created_feedback = store.create_assessment(original_feedback)
+    original_id = created_feedback.assessment_id
+
+    updated_feedback = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        name="correctness_updated",
+        feedback=FeedbackValue(value=False),
+        rationale="Updated rationale",
+        metadata={"project": "test-project", "version": "2.0", "new_field": "added"},
+    )
+
+    assert updated_feedback.assessment_id == original_id
+    assert updated_feedback.name == "correctness_updated"
+    assert updated_feedback.value is False
+    assert updated_feedback.rationale == "Updated rationale"
+    assert updated_feedback.metadata == {
+        "project": "test-project",
+        "version": "2.0",
+        "new_field": "added",
+    }
+    assert updated_feedback.span_id == "span-123"
+    assert updated_feedback.source.source_id == "evaluator@company.com"
+    assert updated_feedback.valid is True
+
+    retrieved = store.get_assessment(trace_info.request_id, original_id)
+    assert retrieved.value is False
+    assert retrieved.name == "correctness_updated"
+    assert retrieved.rationale == "Updated rationale"
+
+
+def test_update_assessment_expectation(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="expected_response",
+        value="The capital of France is Paris.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+        ),
+        metadata={"context": "geography-qa"},
+        span_id="span-456",
+    )
+
+    created_expectation = store.create_assessment(original_expectation)
+    original_id = created_expectation.assessment_id
+
+    updated_expectation = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        expectation=ExpectationValue(value="The capital and largest city of France is Paris."),
+        metadata={"context": "geography-qa", "updated": "true"},
+    )
+
+    assert updated_expectation.assessment_id == original_id
+    assert updated_expectation.name == "expected_response"
+    assert updated_expectation.value == "The capital and largest city of France is Paris."
+    assert updated_expectation.metadata == {"context": "geography-qa", "updated": "true"}
+    assert updated_expectation.span_id == "span-456"
+    assert updated_expectation.source.source_id == "annotator@company.com"
+
+
+def test_update_assessment_partial_fields(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value=5,
+        rationale="Original rationale",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        metadata={"scorer": "automated"},
+    )
+
+    created_feedback = store.create_assessment(original_feedback)
+    original_id = created_feedback.assessment_id
+
+    updated_feedback = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        rationale="Updated rationale only",
+    )
+
+    assert updated_feedback.assessment_id == original_id
+    assert updated_feedback.name == "quality"
+    assert updated_feedback.value == 5
+    assert updated_feedback.rationale == "Updated rationale only"
+    assert updated_feedback.metadata == {"scorer": "automated"}
+
+
+def test_update_assessment_type_validation(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="test_feedback",
+        value="original",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+    created_feedback = store.create_assessment(feedback)
+
+    with pytest.raises(
+        MlflowException, match=r"Cannot update expectation value on a Feedback assessment"
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id=created_feedback.assessment_id,
+            expectation=ExpectationValue(value="This should fail"),
+        )
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="test_expectation",
+        value="original_expected",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    created_expectation = store.create_assessment(expectation)
+
+    with pytest.raises(
+        MlflowException, match=r"Cannot update feedback value on an Expectation assessment"
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id=created_expectation.assessment_id,
+            feedback=FeedbackValue(value="This should fail"),
+        )
+
+
+def test_update_assessment_errors(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    with pytest.raises(MlflowException, match=r"Trace with ID 'fake_trace' not found"):
+        store.update_assessment(
+            trace_id="fake_trace", assessment_id="fake_assessment", rationale="This should fail"
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Assessment with ID 'fake_assessment' not found for trace",
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id="fake_assessment",
+            rationale="This should fail",
+        )
+
+
+def test_update_assessment_metadata_merging(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="original",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        metadata={"keep": "this", "override": "old_value", "remove_me": "will_stay"},
+    )
+
+    created = store.create_assessment(original)
+
+    updated = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=created.assessment_id,
+        metadata={"override": "new_value", "new_key": "new_value"},
+    )
+
+    expected_metadata = {
+        "keep": "this",
+        "override": "new_value",
+        "remove_me": "will_stay",
+        "new_key": "new_value",
+    }
+    assert updated.metadata == expected_metadata
+
+
+def test_update_assessment_timestamps(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="original",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+
+    created = store.create_assessment(original)
+    original_create_time = created.create_time_ms
+    original_update_time = created.last_update_time_ms
+
+    time.sleep(0.001)
+
+    updated = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=created.assessment_id,
+        name="updated_name",
+    )
+
+    assert updated.create_time_ms == original_create_time
+    assert updated.last_update_time_ms > original_update_time
+
+
+def test_create_assessment_with_overrides(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value="poor",
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
+    )
+
+    created_original = store.create_assessment(original_feedback)
+
+    override_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value="excellent",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        overrides=created_original.assessment_id,
+    )
+
+    created_override = store.create_assessment(override_feedback)
+
+    assert created_override.overrides == created_original.assessment_id
+    assert created_override.value == "excellent"
+    assert created_override.valid is True
+
+    retrieved_original = store.get_assessment(trace_info.request_id, created_original.assessment_id)
+    assert retrieved_original.valid is False
+    assert retrieved_original.value == "poor"
+
+
+def test_create_assessment_override_nonexistent(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    override_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value="excellent",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        overrides="nonexistent-assessment-id",
+    )
+
+    with pytest.raises(
+        MlflowException, match=r"Assessment with ID 'nonexistent-assessment-id' not found"
+    ):
+        store.create_assessment(override_feedback)
+
+
+def test_delete_assessment_idempotent(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="test_value",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+
+    created_feedback = store.create_assessment(feedback)
+
+    retrieved = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved.assessment_id == created_feedback.assessment_id
+
+    store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Assessment with ID '{created_feedback.assessment_id}' not found for trace",
+    ):
+        store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
+    store.delete_assessment(trace_info.request_id, "fake_assessment_id")
+
+
+def test_delete_assessment_override_behavior(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+
+    original = store.create_assessment(
+        Feedback(
+            trace_id=trace_info.request_id,
+            name="original",
+            value="original_value",
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        ),
+    )
+
+    override = store.create_assessment(
+        Feedback(
+            trace_id=trace_info.request_id,
+            name="override",
+            value="override_value",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+            overrides=original.assessment_id,
+        ),
+    )
+
+    assert store.get_assessment(trace_info.request_id, original.assessment_id).valid is False
+    assert store.get_assessment(trace_info.request_id, override.assessment_id).valid is True
+
+    store.delete_assessment(trace_info.request_id, override.assessment_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_assessment(trace_info.request_id, override.assessment_id)
+    assert store.get_assessment(trace_info.request_id, original.assessment_id).valid is True
+
+
 def test_get_experiment_missing_and_empty_metadata_file(tmp_path):
     fs = FileStore(str(tmp_path))
 
@@ -3523,3 +3987,53 @@ def test_get_experiment_missing_and_empty_metadata_file(tmp_path):
     # Should raise MissingConfigException about invalid metadata
     with pytest.raises(MissingConfigException, match=rf"Experiment {exp_id} is invalid with empty"):
         fs._get_experiment(exp_id)
+
+
+def test_malicious_meta_yaml_in_artifact_folder_path_traversal(tmp_path):
+    """
+    Regression test for ZDI-CAN-26649: Directory traversal via malicious meta.yaml.
+
+    Attack flow that should be blocked:
+    1. Create experiment with artifact_location pointing to FileStore root
+    2. Create a run - artifacts go to {root}/{run_id}/artifacts/
+    3. Plant malicious meta.yaml in artifacts folder with arbitrary artifact_uri
+    4. Try to use "artifacts" as run_uuid to access files via the malicious artifact_uri
+
+    The fix validates that run directories have required subdirectories (metrics/, params/,
+    artifacts/), which artifact folders do not have.
+    """
+    root_dir = tmp_path / "mlruns"
+    root_dir.mkdir()
+    fs = FileStore(str(root_dir))
+
+    exp_id = fs.create_experiment("malicious_exp", artifact_location=str(root_dir))
+    run = fs.create_run(
+        experiment_id=exp_id, user_id="attacker", start_time=0, tags=[], run_name=""
+    )
+    run_id = run.info.run_id
+
+    assert Path(run.info.artifact_uri) == root_dir / run_id / "artifacts"
+
+    artifacts_dir = root_dir / run_id / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    target_dir = tmp_path / "sensitive_data"
+    target_dir.mkdir()
+
+    malicious_meta = {
+        "run_id": "artifacts",
+        "run_uuid": "artifacts",
+        "experiment_id": run_id,
+        "user_id": "attacker",
+        "status": 1,
+        "start_time": 0,
+        "end_time": None,
+        "lifecycle_stage": "active",
+        "artifact_uri": str(target_dir),
+        "tags": [],
+    }
+    write_yaml(str(artifacts_dir), "meta.yaml", malicious_meta)
+
+    # The fix should prevent the artifact folder from being treated as a run directory
+    with pytest.raises(MlflowException, match="Run 'artifacts' not found"):
+        fs.get_run("artifacts")

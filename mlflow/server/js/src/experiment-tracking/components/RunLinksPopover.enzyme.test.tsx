@@ -5,12 +5,14 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { shallow, mount } from 'enzyme';
 
 import { RunLinksPopover } from './RunLinksPopover';
 import Routes from '../routes';
+import { prefixRouteWithWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 
 describe('unit tests', () => {
   let wrapper;
@@ -67,7 +69,7 @@ describe('unit tests', () => {
 
     props.runItems.forEach(({ runId, name, color, y }: any, index: any) => {
       const link = links[index];
-      const hrefExpected = Routes.getRunPageRoute(props.experimentId, runId);
+      const hrefExpected = prefixRouteWithWorkspace(Routes.getRunPageRoute(props.experimentId, runId));
       expect(link.getAttribute('href')).toBe(hrefExpected);
 
       const p = link.querySelector('p');

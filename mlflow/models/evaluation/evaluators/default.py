@@ -56,7 +56,7 @@ class DefaultEvaluator(BuiltInEvaluator):
         extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> Optional[EvaluationResult]:
+    ) -> EvaluationResult | None:
         compute_latency = False
         for extra_metric in extra_metrics:
             # If latency metric is specified, we will compute latency for the model
@@ -93,6 +93,9 @@ class DefaultEvaluator(BuiltInEvaluator):
         """
         Get a list of builtin metrics for the model type.
         """
+        if self.model_type is None:
+            return []
+
         text_metrics = [
             token_count(),
             toxicity(),

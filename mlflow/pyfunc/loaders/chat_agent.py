@@ -1,4 +1,4 @@
-from typing import Any, Generator, Optional
+from typing import Any, Generator
 
 import pydantic
 
@@ -15,15 +15,13 @@ from mlflow.types.agent import (
     ChatContext,
 )
 from mlflow.types.type_hints import model_validate
-from mlflow.utils.annotations import experimental
 
 
-def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
+def _load_pyfunc(model_path: str, model_config: dict[str, Any] | None = None):
     _, chat_agent, _ = _load_context_model_and_signature(model_path, model_config)
     return _ChatAgentPyfuncWrapper(chat_agent)
 
 
-@experimental(version="2.20.0")
 class _ChatAgentPyfuncWrapper:
     """
     Wrapper class that converts dict inputs to pydantic objects accepted by :class:`~ChatAgent`.
@@ -44,7 +42,7 @@ class _ChatAgentPyfuncWrapper:
 
     def _convert_input(
         self, model_input
-    ) -> tuple[list[ChatAgentMessage], Optional[ChatContext], Optional[dict[str, Any]]]:
+    ) -> tuple[list[ChatAgentMessage], ChatContext | None, dict[str, Any] | None]:
         import pandas
 
         if isinstance(model_input, dict):
@@ -63,13 +61,13 @@ class _ChatAgentPyfuncWrapper:
 
         messages = [ChatAgentMessage(**message) for message in dict_input.get("messages", [])]
         context = ChatContext(**dict_input["context"]) if "context" in dict_input else None
-        custom_inputs = dict_input.get("custom_inputs", None)
+        custom_inputs = dict_input.get("custom_inputs")
 
         return messages, context, custom_inputs
 
     def _response_to_dict(self, response, pydantic_class) -> dict[str, Any]:
         if isinstance(response, pydantic_class):
-            return response.model_dump_compat(exclude_none=True)
+            return response.model_dump(exclude_none=True)
         try:
             model_validate(pydantic_class, response)
         except pydantic.ValidationError as e:

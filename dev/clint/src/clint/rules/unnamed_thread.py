@@ -16,8 +16,8 @@ class UnnamedThread(Rule):
         """
         Returns True if the call is threading.Thread() without a name parameter.
         """
-        return (
-            (resolved := resolver.resolve(node))
-            and resolved == ["threading", "Thread"]
-            and not any(keyword.arg == "name" for keyword in node.keywords)
-        )
+        if names := resolver.resolve(node):
+            return names == ["threading", "Thread"] and not any(
+                keyword.arg == "name" for keyword in node.keywords
+            )
+        return False

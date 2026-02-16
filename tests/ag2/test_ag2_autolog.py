@@ -67,7 +67,7 @@ def test_enable_disable_autolog(llm_config):
     assert len(traces) == 1
 
 
-def test_tracing_agent(llm_config):
+def test_tracing_agent(llm_config, mock_litellm_cost):
     mlflow.ag2.autolog()
 
     with mock_user_input(
@@ -83,51 +83,72 @@ def test_tracing_agent(llm_config):
     assert traces[0].info.execution_time_ms > 0
     # 7 spans are expected:
     # initiate_chat
-    #    |-- user_1
-    #    |-- assistant_1 -- chat_completion
-    #    |-- user_2
-    #    |-- assistant_2 -- chat_completion
+    #    |-- user
+    #    |-- assistant -- chat_completion
+    #    |-- user
+    #    |-- assistant -- chat_completion
     assert len(traces[0].data.spans) == 7
 
-    span_name_to_dict = {span.name: span for span in traces[0].data.spans}
-    session_span = span_name_to_dict["initiate_chat"]
+    session_span = traces[0].data.spans[0]
     assert session_span.name == "initiate_chat"
     assert session_span.span_type == SpanType.UNKNOWN
     assert session_span.inputs["message"] == "How can I help you today?"
     assert session_span.outputs["chat_history"] == response.chat_history
-    user_span = span_name_to_dict["user_1"]
+    user_span = traces[0].data.spans[1]
+    assert user_span.name == "user"
     assert user_span.span_type == SpanType.AGENT
     assert user_span.parent_id == session_span.span_id
     assert user_span.inputs["message"] == "How can I help you today?"
     assert user_span.outputs["message"]["content"] == "What is the capital of Tokyo?"
-    agent_span = span_name_to_dict["agent_1"]
+    agent_span = traces[0].data.spans[2]
+    assert agent_span.name == "agent"
     assert agent_span.span_type == SpanType.AGENT
     assert agent_span.parent_id == session_span.span_id
     assert agent_span.inputs["message"]["content"] == "What is the capital of Tokyo?"
     assert agent_span.outputs is not None
-    llm_span = span_name_to_dict["chat_completion_1"]
+    llm_span = traces[0].data.spans[3]
+    assert llm_span.name == "chat_completion"
     assert llm_span.span_type == SpanType.LLM
     assert llm_span.parent_id == agent_span.span_id
     assert llm_span.inputs["messages"][-1]["content"] == "What is the capital of Tokyo?"
     assert llm_span.outputs is not None
     assert llm_span.attributes["cost"] >= 0
-    user_span_2 = span_name_to_dict["user_2"]
+    assert llm_span.model_name == "gpt-4o-mini"
+    user_span_2 = traces[0].data.spans[4]
+    assert user_span_2.name == "user"
     assert user_span_2.parent_id == session_span.span_id
-    agent_span_2 = span_name_to_dict["agent_2"]
+    agent_span_2 = traces[0].data.spans[5]
+    assert agent_span_2.name == "agent"
     assert agent_span_2.parent_id == session_span.span_id
-    llm_span_2 = span_name_to_dict["chat_completion_2"]
+    llm_span_2 = traces[0].data.spans[6]
+    assert llm_span_2.name == "chat_completion"
     assert llm_span_2.parent_id == agent_span_2.span_id
+    assert llm_span_2.model_name == "gpt-4o-mini"
 
     assert llm_span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 9,
         "output_tokens": 12,
         "total_tokens": 21,
     }
+    assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert llm_span.llm_cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
+    }
 
     assert llm_span_2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 9,
         "output_tokens": 12,
         "total_tokens": 21,
+    }
+    assert llm_span_2.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
+    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+    assert llm_span_2.llm_cost == {
+        "input_cost": 9.0,
+        "output_cost": 24.0,
+        "total_cost": 33.0,
     }
 
     assert traces[0].info.token_usage == {
@@ -202,8 +223,9 @@ def test_tracing_agent_with_function_calling(llm_config):
     user_proxy = ConversableAgent(
         name="tool_agent",
         llm_config=False,
-        is_termination_msg=lambda msg: msg.get("content") is not None
-        and "TERMINATE" in msg["content"],
+        is_termination_msg=lambda msg: (
+            msg.get("content") is not None and "TERMINATE" in msg["content"]
+        ),
         human_input_mode="NEVER",
     )
     assistant.register_for_llm(name="sum", description="A simple sum calculator")(sum)
@@ -260,12 +282,11 @@ def test_tracing_agent_with_function_calling(llm_config):
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
-    span_name_to_dict = {span.name: span for span in traces[0].data.spans}
-    assistant_span = span_name_to_dict["assistant_1"]
+    assistant_span = traces[0].data.spans[1]
     assert assistant_span.span_type == SpanType.AGENT
-    tool_agent_span = span_name_to_dict["tool_agent"]
+    tool_agent_span = traces[0].data.spans[3]
     assert tool_agent_span.span_type == SpanType.AGENT
-    tool_span = span_name_to_dict["sum"]
+    tool_span = traces[0].data.spans[4]
     assert tool_span.span_type == SpanType.TOOL
     assert tool_span.parent_id == tool_agent_span.span_id
     assert tool_span.inputs["a"] == 1
@@ -300,11 +321,12 @@ def test_tracing_llm_completion_duration_timezone(llm_config, tokyo_timezone):
     # Check if the initiate_chat method is patched
     traces = get_traces()
     span_name_to_dict = {span.name: span for span in traces[0].data.spans}
-    llm_span = span_name_to_dict["chat_completion_1"]
+    llm_span = span_name_to_dict["chat_completion"]
 
     # We mock OpenAI LLM call so it should not take too long e.g. > 10 seconds. If it does,
     # it most likely a bug such as incorrect timezone handling.
     assert 0 < llm_span.end_time_ns - llm_span.start_time_ns <= 10e9
+    assert llm_span.model_name == "gpt-4o-mini"
 
     # Check if the start time is in reasonable range
     root_span = span_name_to_dict["initiate_chat"]
@@ -346,9 +368,8 @@ def test_tracing_composite_agent(llm_config):
     assert span_names == {
         "initiate_chat",
         "agent_1",
-        "chat_completion_1",
         "agent_2",
-        "chat_completion_2",
+        "chat_completion",
     }
 
     assert traces[0].info.token_usage == {

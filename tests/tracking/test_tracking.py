@@ -1,12 +1,13 @@
 import filecmp
+import io
 import json
 import os
 import pathlib
 import posixpath
 import random
 import re
-from collections import namedtuple
 from datetime import datetime, timezone
+from typing import NamedTuple
 from unittest import mock
 
 import pytest
@@ -43,7 +44,10 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
 )
 
-MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
+
+class MockExperiment(NamedTuple):
+    experiment_id: str
+    lifecycle_stage: str
 
 
 def test_create_experiment():
@@ -53,7 +57,7 @@ def test_create_experiment():
     with pytest.raises(MlflowException, match="Invalid experiment name"):
         mlflow.create_experiment("")
 
-    exp_id = mlflow.create_experiment(f"Some random experiment name {random.randint(1, 1e6)}")
+    exp_id = mlflow.create_experiment(f"Some random experiment name {random.randint(1, int(1e6))}")
     assert exp_id is not None
 
 
@@ -316,8 +320,7 @@ def test_log_batch_with_many_elements():
 
 
 def test_log_metric():
-    with start_run() as active_run, mock.patch("time.time") as time_mock:
-        time_mock.side_effect = [123 for _ in range(100)]
+    with start_run() as active_run, mock.patch("time.time", return_value=123):
         run_id = active_run.info.run_id
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_2", -3)
@@ -713,6 +716,45 @@ def test_log_dict(subdir, extension):
                 else json.load(f)
             )
             assert loaded == dictionary
+
+
+@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
+def test_log_stream_bytes(subdir):
+    filename = "file.bin"
+    content = b"binary content"
+    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
+
+    with mlflow.start_run():
+        stream = io.BytesIO(content)
+        mlflow.log_stream(stream, artifact_file)
+
+        artifact_path = None if subdir is None else posixpath.normpath(subdir)
+        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        run_artifact_dir = pathlib.Path(local_file_uri_to_path(artifact_uri))
+        assert list(run_artifact_dir.iterdir()) == [run_artifact_dir / filename]
+        assert (run_artifact_dir / filename).read_bytes() == content
+
+
+def test_log_stream_empty():
+    with mlflow.start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = pathlib.Path(local_file_uri_to_path(artifact_uri))
+
+        stream = io.BytesIO(b"")
+        mlflow.log_stream(stream, "empty.bin")
+        assert (run_artifact_dir / "empty.bin").read_bytes() == b""
+
+
+def test_log_stream_large_content():
+    with mlflow.start_run():
+        # Large binary content (larger than chunk size of 8192)
+        large_content = b"x" * 100000
+        stream = io.BytesIO(large_content)
+        mlflow.log_stream(stream, "large.bin")
+
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = pathlib.Path(local_file_uri_to_path(artifact_uri))
+        assert (run_artifact_dir / "large.bin").read_bytes() == large_content
 
 
 def test_with_startrun():

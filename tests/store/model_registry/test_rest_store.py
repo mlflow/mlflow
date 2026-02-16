@@ -34,8 +34,31 @@ from mlflow.protos.model_registry_pb2 import (
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import mock_http_request_200, mock_http_request_403_200
+
+
+@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+def workspaces_enabled(request):
+    """
+    Run every test in this module with workspaces disabled and enabled to cover both code paths.
+    """
+
+    enabled = request.param
+    if enabled:
+        with (
+            WorkspaceContext(DEFAULT_WORKSPACE_NAME),
+            mock.patch(
+                "mlflow.store.workspace_rest_store_mixin.WorkspaceRestStoreMixin.supports_workspaces",
+                new_callable=mock.PropertyMock,
+                return_value=True,
+            ),
+        ):
+            yield enabled
+    else:
+        yield enabled
 
 
 @pytest.fixture
@@ -427,10 +450,6 @@ def test_get_model_version_by_alias(store, creds):
     )
 
 
-@mock.patch(
-    "mlflow.store.model_registry.abstract_store.AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS",
-    1,
-)
 def test_await_model_version_creation_pending(store):
     pending_mv = ModelVersion(
         name="Model 1",
@@ -439,6 +458,10 @@ def test_await_model_version_creation_pending(store):
         status=ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION),
     )
     with (
+        mock.patch(
+            "mlflow.store.model_registry.abstract_store.AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS",
+            1,
+        ),
         mock.patch.object(store, "get_model_version", return_value=pending_mv),
         pytest.raises(MlflowException, match="Exceeded max wait time"),
     ):

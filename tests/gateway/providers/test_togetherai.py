@@ -5,7 +5,7 @@ import pytest
 from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.togetherai import TogetherAIProvider
@@ -63,7 +63,7 @@ async def test_completions():
         mock.patch("time.time", return_value=1677858242),
         mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
     ):
-        provider = TogetherAIProvider(RouteConfig(**config))
+        provider = TogetherAIProvider(EndpointConfig(**config))
 
         payload = {
             "prompt": "Whats the capital of France?",
@@ -158,7 +158,7 @@ async def test_completions_stream(resp):
             "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
         ) as mock_post,
     ):
-        provider = TogetherAIProvider(RouteConfig(**config))
+        provider = TogetherAIProvider(EndpointConfig(**config))
         payload = {
             "model": "mistralai/Mixtral-8x7B-v0.1",
             "max_tokens": 200,
@@ -182,6 +182,7 @@ async def test_completions_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -195,6 +196,7 @@ async def test_completions_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
             {
                 "choices": [
@@ -208,6 +210,7 @@ async def test_completions_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "text_completion_chunk",
+                "usage": None,
             },
         ]
 
@@ -237,7 +240,7 @@ async def test_max_tokens_missing_error():
         mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
     ):
         # Instantiate the provider
-        provider = TogetherAIProvider(RouteConfig(**config))
+        provider = TogetherAIProvider(EndpointConfig(**config))
 
         # Prepare the payload with missing max_tokens
         payload = {
@@ -275,7 +278,7 @@ async def test_wrong_logprobs_type_error():
         mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
     ):
         # Instantiate the provider
-        provider = TogetherAIProvider(RouteConfig(**config))
+        provider = TogetherAIProvider(EndpointConfig(**config))
 
         # Prepare the payload with missing max_tokens
         payload = {
@@ -336,7 +339,7 @@ async def test_embeddings():
         mock.patch("time.time", return_value=1677858242),
         mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
     ):
-        provider = TogetherAIProvider(RouteConfig(**config))
+        provider = TogetherAIProvider(EndpointConfig(**config))
 
         payload = {
             "input": "Our solar system orbits the Milky Way galaxy at about 515,000 mph.",
@@ -402,7 +405,7 @@ async def test_chat():
         mock.patch("time.time", return_value=1677858242),
         mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
     ):
-        provider = TogetherAIProvider(RouteConfig(**config))
+        provider = TogetherAIProvider(EndpointConfig(**config))
 
         payload = {
             "messages": [{"role": "user", "content": "Who's the protagonist in Metro 2033?"}],
@@ -491,7 +494,7 @@ async def test_chat_stream(resp):
             "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
         ) as mock_post,
     ):
-        provider = TogetherAIProvider(RouteConfig(**config))
+        provider = TogetherAIProvider(EndpointConfig(**config))
         payload = {
             "model": "mistralai/Mixtral-8x7B-v0.1",
             "messages": [
@@ -510,7 +513,11 @@ async def test_chat_stream(resp):
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": "test"},
+                        "delta": {
+                            "role": None,
+                            "content": "test",
+                            "tool_calls": None,
+                        },
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -519,20 +526,34 @@ async def test_chat_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
-                    {"delta": {"role": None, "content": "test"}, "finish_reason": None, "index": 0}
+                    {
+                        "delta": {
+                            "role": None,
+                            "content": "test",
+                            "tool_calls": None,
+                        },
+                        "finish_reason": None,
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "chat.completion.chunk",
+                "usage": None,
             },
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": "test"},
+                        "delta": {
+                            "role": None,
+                            "content": "test",
+                            "tool_calls": None,
+                        },
                         "finish_reason": "length",
                         "index": 0,
                     }
@@ -541,6 +562,11 @@ async def test_chat_stream(resp):
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
                 "object": "chat.completion.chunk",
+                "usage": {
+                    "prompt_tokens": 17,
+                    "completion_tokens": 200,
+                    "total_tokens": 217,
+                },
             },
         ]
 

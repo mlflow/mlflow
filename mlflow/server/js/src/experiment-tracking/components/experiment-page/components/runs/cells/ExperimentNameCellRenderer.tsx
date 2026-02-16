@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../../routes';
-import { RunRowType } from '../../../utils/experimentPage.row-types';
+import type { RunRowType } from '../../../utils/experimentPage.row-types';
 
 export interface ExperimentNameCellRendererProps {
   value: {
@@ -11,6 +11,7 @@ export interface ExperimentNameCellRendererProps {
   data: RunRowType;
 }
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const ExperimentNameCellRenderer = React.memo(({ data, value }: ExperimentNameCellRendererProps) =>
   !data.experimentId ? null : (
     <Link to={Routes.getExperimentPageRoute(data.experimentId)} title={value.name}>

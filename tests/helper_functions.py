@@ -11,10 +11,10 @@ import sys
 import tempfile
 import time
 import uuid
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -27,6 +27,45 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.os import is_windows
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
+
+
+def kill_process_tree(pid: int) -> None:
+    """
+    Gracefully terminate or kill a process tree (children first, then parent).
+    """
+    import psutil
+
+    try:
+        parent = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        return
+
+    # Kill children first to prevent the parent from spawning new processes
+    children = parent.children(recursive=True)
+    for child in children:
+        try:
+            child.terminate()
+        except psutil.NoSuchProcess:
+            pass
+
+    # Wait for children to terminate, then force-kill any that remain
+    _, still_alive = psutil.wait_procs(children, timeout=5)
+    for p in still_alive:
+        try:
+            p.kill()
+        except psutil.NoSuchProcess:
+            pass
+
+    # Finally, kill the parent
+    try:
+        parent.terminate()
+        parent.wait(timeout=5)
+    except psutil.NoSuchProcess:
+        pass
+    except psutil.TimeoutExpired:
+        parent.kill()
+
+
 LOCALHOST = "127.0.0.1"
 PROTOBUF_REQUIREMENT = "protobuf<4.0.0"
 
@@ -43,7 +82,7 @@ def get_safe_port():
 
 
 def random_int(lo=1, hi=1e10):
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 def random_str(size=12):
@@ -120,8 +159,7 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
         "-d",
         output_directory,
     ]
-    mlflow_home = os.environ.get("MLFLOW_HOME")
-    if mlflow_home:
+    if mlflow_home := os.environ.get("MLFLOW_HOME"):
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
@@ -554,12 +592,6 @@ def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
             mock_obj.side_effect = side_effect
 
 
-@contextmanager
-def multi_context(*cms):
-    with ExitStack() as stack:
-        yield list(map(stack.enter_context, cms))
-
-
 class StartsWithMatcher:
     def __init__(self, prefix):
         self.prefix = prefix
@@ -756,7 +788,7 @@ def _iter_pr_files() -> Iterator[str]:
     repo = pr_data["repository"]["full_name"]
     page = 1
     per_page = 100
-    headers = {"Authorization": token} if (token := os.environ.get("GITHUB_TOKEN")) else None
+    headers = {"Authorization": token} if (token := os.environ.get("GH_TOKEN")) else None
     while True:
         resp = requests.get(
             f"https://api.github.com/repos/{repo}/pulls/{pull_number}/files",
@@ -802,7 +834,7 @@ def skip_if_hf_hub_unhealthy():
     )
 
 
-def get_logged_model_by_name(name: str) -> Optional[LoggedModel]:
+def get_logged_model_by_name(name: str) -> LoggedModel | None:
     """
     Get a logged model by name. If multiple logged models with
     the same name exist, get the latest one.

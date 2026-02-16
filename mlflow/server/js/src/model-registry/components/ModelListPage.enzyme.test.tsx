@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
@@ -44,7 +45,6 @@ describe('ModelListPage', () => {
     minimalProps = {
       models: [],
       searchRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
-      listEndpointsApi: jest.fn(() => Promise.resolve({})),
       getRegistryWidePermissionsApi: jest.fn(() => Promise.resolve({})),
       apis: {},
       navigate: navigateSpy,
@@ -107,6 +107,7 @@ describe('ModelListPage', () => {
       expect(instance.state.searchInput).toBe('name ilike "%xyz%" AND tags.k="v"');
       expect(instance.state.currentPage).toBe(1);
     });
+    // eslint-disable-next-line jest/expect-expect -- TODO(FEINF-1337)
     test('the states should be correctly set when user clear input', () => {
       instance = wrapper.find(ModelListPageImpl).instance();
       instance.state.searchInput = 'abc';

@@ -1,10 +1,9 @@
 import { assign, entries, isNil, keys, omitBy, pick } from 'lodash';
 import { useMemo } from 'react';
-import { NavigateOptions, useParams, useSearchParams } from '../../../../common/utils/RoutingUtils';
-import {
-  ExperimentPageSearchFacetsState,
-  createExperimentPageSearchFacetsState,
-} from '../models/ExperimentPageSearchFacetsState';
+import type { NavigateOptions } from '../../../../common/utils/RoutingUtils';
+import { useParams, useSearchParams } from '../../../../common/utils/RoutingUtils';
+import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import {
   deserializeFieldsFromQueryString,
   serializeFieldsToQueryString,

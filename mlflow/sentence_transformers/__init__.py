@@ -2,7 +2,7 @@ import json
 import logging
 import pathlib
 import re
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -47,6 +47,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _download_artifact_from_uri,
     _get_flavor_configuration_from_uri,
     _validate_and_copy_code_paths,
@@ -93,7 +94,7 @@ def get_default_conda_env():
 
 
 def _verify_task_and_update_metadata(
-    task: str, metadata: Optional[dict[str, Any]] = None
+    task: str, metadata: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     if task not in [_LLM_INFERENCE_TASK_EMBEDDING]:
         raise MlflowException.invalid_parameter_value(
@@ -116,16 +117,18 @@ def _verify_task_and_update_metadata(
 def save_model(
     model,
     path: str,
-    task: Optional[str] = None,
-    inference_config: Optional[dict[str, Any]] = None,
-    code_paths: Optional[list[str]] = None,
-    mlflow_model: Optional[Model] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    task: str | None = None,
+    inference_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    mlflow_model: Model | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
+    extra_files=None,
+    **kwargs,
 ) -> None:
     """
     .. note::
@@ -165,6 +168,8 @@ def save_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
     """
     import sentence_transformers
 
@@ -202,7 +207,7 @@ def save_model(
         mlflow_model.metadata = _verify_task_and_update_metadata(task, mlflow_model.metadata)
         model_config = {"task": _LLM_INFERENCE_TASK_EMBEDDING}
 
-    model.save(str(model_data_path))
+    model.save(str(model_data_path), **kwargs)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -214,11 +219,14 @@ def save_model(
         code=code_dir_subpath,
     )
 
+    extra_files_config = _copy_extra_files(extra_files, str(path))
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         sentence_transformers_version=sentence_transformers.__version__,
         code=code_dir_subpath,
         **_get_transformers_model_metadata(model),
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -295,25 +303,27 @@ def _get_transformers_model_name(model_name_or_path):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path: Optional[str] = None,
-    task: Optional[str] = None,
-    inference_config: Optional[dict[str, Any]] = None,
-    code_paths: Optional[list[str]] = None,
-    registered_model_name: Optional[str] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
+    artifact_path: str | None = None,
+    task: str | None = None,
+    inference_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    registered_model_name: str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Optional[dict[str, Any]] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    metadata: dict[str, Any] | None = None,
+    extra_files=None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
+    **kwargs,
 ):
     """
     .. note::
@@ -380,6 +390,7 @@ def log_model(
         extra_pip_requirements: {{ extra_pip_requirements }}
         conda_env: {{ conda_env }}
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -387,6 +398,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
     """
     if task is not None:
         metadata = _verify_task_and_update_metadata(task, metadata)
@@ -398,6 +410,7 @@ def log_model(
         registered_model_name=registered_model_name,
         await_registration_for=await_registration_for,
         metadata=metadata,
+        extra_files=extra_files,
         model=model,
         inference_config=inference_config,
         conda_env=conda_env,
@@ -412,6 +425,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        **kwargs,
     )
 
 
@@ -429,7 +443,7 @@ def _get_load_kwargs():
     return load_kwargs
 
 
-def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):  # noqa: D417
+def _load_pyfunc(path, model_config: dict[str, Any] | None = None):
     """
     Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
 
@@ -446,7 +460,7 @@ def _load_pyfunc(path, model_config: Optional[dict[str, Any]] = None):  # noqa: 
 
 
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
-def load_model(model_uri: str, dst_path: Optional[str] = None):
+def load_model(model_uri: str, dst_path: str | None = None):
     """
     Load a ``sentence_transformers`` object from a local file or a run.
 
@@ -508,7 +522,7 @@ class _SentenceTransformerModelWrapper:
         """
         return self.model
 
-    def predict(self, sentences, params: Optional[dict[str, Any]] = None):
+    def predict(self, sentences, params: dict[str, Any] | None = None):
         """
         Args:
             sentences: Model input data.

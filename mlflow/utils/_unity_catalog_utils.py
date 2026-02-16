@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Optional
+from typing import Callable
 
 from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
 from mlflow.entities.metric import Metric
@@ -149,7 +149,7 @@ def registered_model_search_from_uc_proto(uc_proto: ProtoRegisteredModel) -> Reg
 
 
 def uc_registered_model_tag_from_mlflow_tags(
-    tags: Optional[list[RegisteredModelTag]],
+    tags: list[RegisteredModelTag] | None,
 ) -> list[ProtoRegisteredModelTag]:
     if tags is None:
         return []
@@ -157,7 +157,7 @@ def uc_registered_model_tag_from_mlflow_tags(
 
 
 def uc_model_version_tag_from_mlflow_tags(
-    tags: Optional[list[ModelVersionTag]],
+    tags: list[ModelVersionTag] | None,
 ) -> list[ProtoModelVersionTag]:
     if tags is None:
         return []
@@ -396,10 +396,9 @@ def _parse_aws_sse_credential(scoped_token: TemporaryCredentials):
             "ServerSideEncryption": "AES256",
         }
     if sse_encryption_details.algorithm == SseEncryptionAlgorithm.AWS_SSE_KMS:
-        key_id = sse_encryption_details.aws_kms_key_arn.split("/")[-1]
         return {
             "ServerSideEncryption": "aws:kms",
-            "SSEKMSKeyId": key_id,
+            "SSEKMSKeyId": sse_encryption_details.aws_kms_key_arn,
         }
     else:
         return {}

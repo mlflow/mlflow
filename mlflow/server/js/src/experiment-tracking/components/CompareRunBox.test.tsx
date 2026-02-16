@@ -1,9 +1,15 @@
+import { jest, describe, it, expect } from '@jest/globals';
 import { select } from '@databricks/design-system/test-utils/rtl';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl, screen } from '../../common/utils/TestUtils.react18';
-import { RunInfoEntity } from '../types';
+import type { RunInfoEntity } from '../types';
 import { CompareRunBox } from './CompareRunBox';
 
+jest.mock('./LazyPlot', () => ({
+  LazyPlot: ({ children }: any) => <div data-testid="lazy-plot">{children}</div>,
+}));
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing (plotly rendering)
 
 describe('CompareRunBox', () => {
@@ -15,7 +21,7 @@ describe('CompareRunBox', () => {
         ({
           runUuid,
           experimentId: '0',
-        } as RunInfoEntity),
+        }) as RunInfoEntity,
     ),
     runDisplayNames: runUuids,
   };

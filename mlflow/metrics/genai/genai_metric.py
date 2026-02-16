@@ -5,7 +5,7 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from inspect import Parameter, Signature
 from tempfile import TemporaryDirectory
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 
@@ -15,7 +15,11 @@ from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
-from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
+from mlflow.metrics.genai.utils import (
+    _MIGRATION_GUIDE,
+    _get_default_model,
+    _get_latest_metric_version,
+)
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.models.evaluation.base import _make_metric
 from mlflow.protos.databricks_pb2 import (
@@ -25,7 +29,7 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
     ErrorCode,
 )
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.version import VERSION
 
@@ -41,7 +45,7 @@ justification: Your reasoning for giving this score
 Do not add additional new lines. Do not add any other fields."""
 
 
-def _format_args_string(grading_context_columns: Optional[list[str]], eval_values, indx) -> str:
+def _format_args_string(grading_context_columns: list[str] | None, eval_values, indx) -> str:
     import pandas as pd
 
     args_dict = {}
@@ -101,9 +105,9 @@ def _extract_score_and_justification(text):
 def _score_model_on_one_payload(
     payload: str,
     eval_model: str,
-    parameters: Optional[dict[str, Any]],
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    parameters: dict[str, Any] | None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
 ):
     try:
         # If the endpoint does not specify type, default to chat format
@@ -195,18 +199,18 @@ def _get_aggregate_results(scores, aggregations):
     )
 
 
-@experimental(version="2.13.0")
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def make_genai_metric_from_prompt(
     name: str,
-    judge_prompt: Optional[str] = None,
-    model: Optional[str] = _get_default_model(),
-    parameters: Optional[dict[str, Any]] = None,
-    aggregations: Optional[list[str]] = None,
+    judge_prompt: str | None = None,
+    model: str | None = _get_default_model(),
+    parameters: dict[str, Any] | None = None,
+    aggregations: list[str] | None = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    metric_metadata: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. This produces
@@ -248,6 +252,8 @@ def make_genai_metric_from_prompt(
         :test:
         :caption: Example for creating a genai metric
 
+        import pandas as pd
+        import mlflow
         from mlflow.metrics.genai import make_genai_metric_from_prompt
 
         metric = make_genai_metric_from_prompt(
@@ -264,11 +270,27 @@ def make_genai_metric_from_prompt(
             greater_is_better=True,
         )
 
+        data = pd.DataFrame(
+            {
+                "input": ["Where is the capital of France."],
+                "ground_truth": ["Paris"],
+                "output": ["The capital of France is Paris."],
+            }
+        )
+
+        mlflow.evaluate(
+            data=data,
+            targets="ground_truth",
+            predictions="output",
+            evaluators="default",
+            extra_metrics=[metric],
+        )
     """
     import numpy as np
 
     prompt_template = PromptTemplate([judge_prompt, _PROMPT_FORMATTING_WRAPPER])
     allowed_variables = prompt_template.variables
+    additional_variables = list(allowed_variables - {"predictions"})
 
     # When users create a custom metric using this function,the metric configuration
     # will be serialized and stored as an artifact. This enables us to later deserialize
@@ -295,7 +317,13 @@ def make_genai_metric_from_prompt(
     ) -> MetricValue:
         """
         This is the function that is called when the metric is evaluated.
+        Note that default evaluator only passes positional arguments.
         """
+        for i, arg in enumerate(args):
+            if i == 0:
+                kwargs["predictions"] = arg
+            else:
+                kwargs[additional_variables[i - 1]] = arg
         if missing_variables := allowed_variables - set(kwargs.keys()):
             raise MlflowException(
                 message=f"Missing variable inputs to eval_fn: {missing_variables}",
@@ -312,12 +340,15 @@ def make_genai_metric_from_prompt(
 
         return MetricValue(scores, justifications, aggregate_scores)
 
-    if allowed_variables:
-        eval_fn.__signature__ = Signature(
-            parameters=[
-                Parameter(name=var, kind=Parameter.KEYWORD_ONLY) for var in allowed_variables
-            ]
-        )
+    # Add `predictions` to the parameters to be compatible with `eval_fn`` interface
+    eval_fn_parameters = [
+        Parameter(name="predictions", kind=Parameter.POSITIONAL_ONLY),
+        *[
+            Parameter(name=var, kind=Parameter.POSITIONAL_ONLY, default=None)
+            for var in additional_variables
+        ],
+    ]
+    eval_fn.__signature__ = Signature(parameters=eval_fn_parameters)
 
     return make_metric(
         eval_fn=eval_fn,
@@ -328,22 +359,23 @@ def make_genai_metric_from_prompt(
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def make_genai_metric(
     name: str,
     definition: str,
     grading_prompt: str,
-    examples: Optional[list[EvaluationExample]] = None,
-    version: Optional[str] = _get_latest_metric_version(),
-    model: Optional[str] = _get_default_model(),
-    grading_context_columns: Optional[Union[str, list[str]]] = None,
+    examples: list[EvaluationExample] | None = None,
+    version: str | None = _get_latest_metric_version(),
+    model: str | None = _get_default_model(),
+    grading_context_columns: str | list[str] | None = None,
     include_input: bool = True,
-    parameters: Optional[dict[str, Any]] = None,
-    aggregations: Optional[list[str]] = None,
+    parameters: dict[str, Any] | None = None,
+    aggregations: list[str] | None = None,
     greater_is_better: bool = True,
     max_workers: int = 10,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    metric_metadata: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
 ) -> EvaluationMetric:
     """
     Create a genai metric used to evaluate LLM using LLM as a judge in MLflow. The full grading
@@ -529,6 +561,7 @@ def make_genai_metric(
         examples,
         model,
         *(parameters,) if parameters is not None else (),
+        include_input=include_input,
     ).to_dict()
 
     def eval_fn(
@@ -625,8 +658,9 @@ def make_genai_metric(
     ]
 
     # Add grading_context_columns to signature list
-    for var in grading_context_columns:
-        signature_parameters.append(Parameter(var, Parameter.POSITIONAL_OR_KEYWORD))
+    signature_parameters.extend(
+        Parameter(var, Parameter.POSITIONAL_OR_KEYWORD) for var in grading_context_columns
+    )
 
     # Note: this doesn't change how python allows calling the function
     # extra params in grading_context_columns can only be passed as positional args
@@ -681,8 +715,8 @@ def _deserialize_genai_metric_args(args_dict):
 
 def retrieve_custom_metrics(
     run_id: str,
-    name: Optional[str] = None,
-    version: Optional[str] = None,
+    name: str | None = None,
+    version: str | None = None,
 ) -> list[EvaluationMetric]:
     """
     Retrieve the custom metrics created by users through `make_genai_metric()` or
@@ -727,7 +761,7 @@ def retrieve_custom_metrics(
                 ],
             )
             custom_metric = make_genai_metric_from_prompt(
-                name="custom llm judge",
+                name="custom_llm_judge",
                 judge_prompt="This is a custom judge prompt.",
                 greater_is_better=False,
                 parameters={"temperature": 0.0},
@@ -742,7 +776,7 @@ def retrieve_custom_metrics(
             )
         metrics = retrieve_custom_metrics(
             run_id=run.info.run_id,
-            name="custom llm judge",
+            name="custom_llm_judge",
         )
     """
     client = mlflow.MlflowClient()

@@ -6,7 +6,8 @@
  */
 
 import React, { Component } from 'react';
-import { Modal, ModalProps } from '@databricks/design-system';
+import type { ModalProps } from '@databricks/design-system';
+import { Modal } from '@databricks/design-system';
 
 type Props = {
   isOpen: boolean;

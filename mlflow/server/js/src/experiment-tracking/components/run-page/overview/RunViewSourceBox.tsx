@@ -3,13 +3,13 @@ import {
   CopyIcon,
   GitCommitIcon,
   Tag,
-  LegacyTooltip,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
   Popover,
 } from '@databricks/design-system';
 import Utils from '../../../../common/utils/Utils';
-import type { KeyValueEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG } from '../../../constants';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { ExperimentSourceTypeIcon } from '../../ExperimentSourceTypeIcon';
@@ -19,11 +19,13 @@ export const RunViewSourceBox = ({
   tags,
   search,
   className,
+  hasIcon = true,
 }: {
   runUuid: string;
   tags: Record<string, KeyValueEntity>;
   search: string;
   className?: string;
+  hasIcon?: boolean;
 }) => {
   const branchName = tags?.[MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG]?.value;
   const commitHash = tags?.[Utils.gitCommitTag]?.value;
@@ -42,13 +44,15 @@ export const RunViewSourceBox = ({
       }}
       className={className}
     >
-      <ExperimentSourceTypeIcon
-        sourceType={tags[Utils.sourceTypeTag]?.value}
-        css={{ color: theme.colors.actionPrimaryBackgroundDefault }}
-      />
+      {hasIcon && (
+        <ExperimentSourceTypeIcon
+          sourceType={tags[Utils.sourceTypeTag]?.value}
+          css={{ color: theme.colors.actionPrimaryBackgroundDefault }}
+        />
+      )}
       {runSource}{' '}
       {branchName && (
-        <LegacyTooltip title={branchName}>
+        <Tooltip componentId="mlflow.experiment-tracking.run-source.branch" content={branchName}>
           <Tag
             componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewsourcebox.tsx_48"
             css={{ marginRight: 0 }}
@@ -57,7 +61,7 @@ export const RunViewSourceBox = ({
               <BranchIcon /> {branchName}
             </div>
           </Tag>
-        </LegacyTooltip>
+        </Tooltip>
       )}
       {commitHash && (
         <Popover.Root componentId="mlflow.run_details.overview.source.commit_hash_popover">

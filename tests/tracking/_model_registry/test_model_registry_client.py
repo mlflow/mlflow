@@ -32,8 +32,8 @@ def mock_store():
         yield mock_store
 
 
-def newModelRegistryClient():
-    return ModelRegistryClient("uri:/fake", "uri:/fake")
+def newModelRegistryClient(registry_uri="uri:/fake"):
+    return ModelRegistryClient(registry_uri, "uri:/fake")
 
 
 def _model_version(
@@ -152,6 +152,38 @@ def test_search_registered_models(mock_store):
     mock_store.search_registered_models.assert_called_with(prompt_filter, 5, None, None)
     assert [rm.name for rm in result] == ["model A", "Model zz", "Model b"]
     assert result.token == "page 2 token"
+
+
+def test_search_registered_models_unity_catalog_no_prompt_filter(mock_store):
+    mock_store.search_registered_models.return_value = PagedList(
+        [RegisteredModel("Model 1"), RegisteredModel("Model 2")], ""
+    )
+
+    result = newModelRegistryClient(
+        "databricks-uc://scope:key@workspace"
+    ).search_registered_models()
+
+    mock_store.search_registered_models.assert_called_with(
+        None,  # No filter at all
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        None,
+        None,
+    )
+    assert len(result) == 2
+    assert result.token == ""
+
+
+def test_search_registered_models_non_unity_catalog_with_prompt_filter(mock_store):
+    mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+
+    newModelRegistryClient("sqlite:///path/to/db").search_registered_models(
+        filter_string="test filter"
+    )
+
+    mock_store.search_registered_models.assert_called_with(
+        f"test filter AND {prompt_filter}", SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, None, None
+    )
 
 
 def test_get_registered_model_details(mock_store):
@@ -426,3 +458,97 @@ def test_get_model_version_by_alias(mock_store):
     mock_store.get_model_version_by_alias.assert_called_once()
     assert result.name == "Model 1"
     assert result.aliases == ["test_alias"]
+
+
+def test_search_registered_models_excludes_chat_prompts(mock_store):
+    # This test ensures the prompt filter logic works with new prompt types
+    mock_store.search_registered_models.return_value = PagedList(
+        [RegisteredModel("Model 1"), RegisteredModel("Model 2")], ""
+    )
+
+    client = newModelRegistryClient()
+    client.search_registered_models(filter_string="test filter")
+
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+    mock_store.search_registered_models.assert_called_with(
+        f"test filter AND {prompt_filter}",
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        None,
+        None,
+    )
+
+
+def test_search_registered_models_excludes_text_prompts(mock_store):
+    mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
+
+    client = newModelRegistryClient()
+    client.search_registered_models()
+
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+    mock_store.search_registered_models.assert_called_with(
+        prompt_filter, SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, None, None
+    )
+
+
+def test_search_registered_models_excludes_prompts_with_response_format(mock_store):
+    mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
+
+    client = newModelRegistryClient()
+    client.search_registered_models(filter_string="name='test'")
+
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+    mock_store.search_registered_models.assert_called_with(
+        f"name='test' AND {prompt_filter}",
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        None,
+        None,
+    )
+
+
+def test_search_registered_models_preserves_existing_prompt_filter(mock_store):
+    mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
+
+    client = newModelRegistryClient()
+    # Test with existing prompt filter
+    client.search_registered_models(filter_string="tag.`mlflow.prompt.is_prompt` != 'true'")
+
+    # Should not add duplicate filter
+    mock_store.search_registered_models.assert_called_with(
+        "tag.`mlflow.prompt.is_prompt` != 'true'",
+        SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        None,
+        None,
+    )
+
+
+def test_search_registered_models_with_complex_filter(mock_store):
+    mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
+
+    client = newModelRegistryClient()
+    complex_filter = "name LIKE 'test%' AND tag.environment = 'prod'"
+    client.search_registered_models(filter_string=complex_filter)
+
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+    expected_filter = f"{complex_filter} AND {prompt_filter}"
+    mock_store.search_registered_models.assert_called_with(
+        expected_filter, SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, None, None
+    )
+
+
+def test_search_registered_models_with_pagination(mock_store):
+    mock_store.search_registered_models.return_value = PagedList(
+        [RegisteredModel("Model 1")], "next_token"
+    )
+
+    client = newModelRegistryClient()
+    client.search_registered_models(
+        filter_string="name='test'",
+        max_results=10,
+        order_by=["name"],
+        page_token="prev_token",
+    )
+
+    prompt_filter = "tag.`mlflow.prompt.is_prompt` != 'true'"
+    mock_store.search_registered_models.assert_called_with(
+        f"name='test' AND {prompt_filter}", 10, ["name"], "prev_token"
+    )

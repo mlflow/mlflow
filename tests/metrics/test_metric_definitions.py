@@ -182,15 +182,17 @@ def test_fails_to_load_metric():
 
     predictions = pd.Series(["random text", "This is a sentence"])
     e = ImportError("mocked error")
-    with mock.patch(
-        "mlflow.metrics.metric_definitions._cached_evaluate_load", side_effect=e
-    ) as mock_load:
-        with mock.patch("mlflow.metrics.metric_definitions._logger.warning") as mock_warning:
-            toxicity().eval_fn(predictions, None, {})
-            mock_load.assert_called_once_with("toxicity", module_type="measurement")
-            mock_warning.assert_called_once_with(
-                f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging.",
-            )
+    with (
+        mock.patch(
+            "mlflow.metrics.metric_definitions._cached_evaluate_load", side_effect=e
+        ) as mock_load,
+        mock.patch("mlflow.metrics.metric_definitions._logger.warning") as mock_warning,
+    ):
+        toxicity().eval_fn(predictions, None, {})
+        mock_load.assert_called_once_with("toxicity", module_type="measurement")
+        mock_warning.assert_called_once_with(
+            f"Failed to load 'toxicity' metric (error: {e!r}), skipping metric logging.",
+        )
 
 
 def test_mae():

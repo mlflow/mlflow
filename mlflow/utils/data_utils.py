@@ -7,8 +7,7 @@ def parse_s3_uri(uri):
     if parsed.scheme != "s3":
         raise Exception(f"Not an S3 URI: {uri}")
     path = parsed.path
-    if path.startswith("/"):
-        path = path[1:]
+    path = path.removeprefix("/")
     return parsed.netloc, path
 
 

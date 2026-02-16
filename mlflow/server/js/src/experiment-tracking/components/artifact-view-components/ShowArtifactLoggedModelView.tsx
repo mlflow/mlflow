@@ -18,13 +18,15 @@ import {
   CustomPyfuncModelsDocUrl,
 } from '../../../common/constants';
 import { Typography } from '@databricks/design-system';
-import { FormattedMessage, injectIntl, IntlShape } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { FormattedMessage, injectIntl } from 'react-intl';
 
 import './ShowArtifactLoggedModelView.css';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { ShowArtifactCodeSnippet } from './ShowArtifactCodeSnippet';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
+import type { KeyValueEntity } from '../../../common/types';
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -36,6 +38,7 @@ type OwnProps = {
   artifactRootUri: string;
   registeredModelLink?: string;
   intl: IntlShape;
+  entityTags?: Partial<KeyValueEntity>[];
 };
 
 type State = any;
@@ -94,7 +97,6 @@ export class ShowArtifactLoggedModelViewImpl extends Component<Props, State> {
     ) : (
       <>
         <FormattedMessage
-          // eslint-disable-next-line max-len
           defaultMessage="You can also <link>register it to the model registry</link> to version control"
           description="Sub text to tell the users where one can go to register the model artifact"
           values={{
@@ -230,7 +232,6 @@ mlflow.models.predict(
         <Title level={3}>
           <FormattedMessage
             defaultMessage="Load the model"
-            // eslint-disable-next-line max-len
             description="Heading text for stating how to load the model from the experiment run"
           />
         </Title>
@@ -238,9 +239,7 @@ mlflow.models.predict(
           <div>
             <ShowArtifactCodeSnippet code={this.loadModelCodeText(modelPath, flavor)} />
             <FormattedMessage
-              // eslint-disable-next-line max-len
               defaultMessage="See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor."
-              // eslint-disable-next-line max-len
               description="Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
             />
             <ul>
@@ -262,7 +261,7 @@ mlflow.models.predict(
       <div css={{ marginBottom: 16 }}>
         <Text>
           <FormattedMessage
-            defaultMessage="Predict on a Pandas DataFrame:" // eslint-disable-next-line max-len
+            defaultMessage="Predict on a Pandas DataFrame:"
             description="Section heading to display the code block on how we can use registered model to predict using pandas DataFrame"
           />
         </Text>
@@ -282,7 +281,6 @@ mlflow.models.predict(
         <Title level={3}>
           <FormattedMessage
             defaultMessage="Make Predictions"
-            // eslint-disable-next-line max-len
             description="Heading text for the prediction section on the registered model from the experiment run"
           />
         </Title>
@@ -291,7 +289,6 @@ mlflow.models.predict(
           <Text>
             <FormattedMessage
               defaultMessage="Predict on a Spark DataFrame:"
-              // eslint-disable-next-line max-len
               description="Section heading to display the code block on how we can use registered model to predict using spark DataFrame"
             />
           </Text>
@@ -309,7 +306,6 @@ mlflow.models.predict(
         <Title level={3}>
           <FormattedMessage
             defaultMessage="Make Predictions"
-            // eslint-disable-next-line max-len
             description="Heading text for the prediction section on the registered model from the experiment run"
           />
         </Title>
@@ -326,7 +322,7 @@ mlflow.models.predict(
       <div css={{ marginBottom: 16 }}>
         <Text>
           <FormattedMessage
-            defaultMessage="Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint" // eslint-disable-next-line max-len
+            defaultMessage="Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint"
             description="Section heading to display the code block on how we can validate a model locally prior to serving"
           />
         </Text>
@@ -343,7 +339,6 @@ mlflow.models.predict(
         <Title level={3}>
           <FormattedMessage
             defaultMessage="Validate the model before deployment"
-            // eslint-disable-next-line max-len
             description="Heading text for validating the model before deploying it for serving"
           />
         </Title>
@@ -369,8 +364,8 @@ mlflow.models.predict(
       );
     } else {
       return (
-        <div className="ShowArtifactPage">
-          <div className="show-artifact-logged-model-view">
+        <div className="mlflow-ShowArtifactPage">
+          <div className="mlflow-show-artifact-logged-model-view">
             <div
               className="artifact-logged-model-view-header"
               style={{ marginTop: 16, marginBottom: 16, marginLeft: 16 }}
@@ -380,16 +375,12 @@ mlflow.models.predict(
               </Title>
               {this.state.flavor === 'pyfunc' ? (
                 <FormattedMessage
-                  // eslint-disable-next-line max-len
                   defaultMessage="The code snippets below demonstrate how to make predictions using the logged model."
-                  // eslint-disable-next-line max-len
                   description="Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model"
                 />
               ) : (
                 <FormattedMessage
-                  // eslint-disable-next-line max-len
                   defaultMessage="The code snippets below demonstrate how to load the logged model."
-                  // eslint-disable-next-line max-len
                   description="Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
                 />
               )}{' '}
@@ -403,7 +394,6 @@ mlflow.models.predict(
               <Title level={3}>
                 <FormattedMessage
                   defaultMessage="Model schema"
-                  // eslint-disable-next-line max-len
                   description="Heading text for the model schema of the registered model from the experiment run"
                 />
               </Title>
@@ -411,7 +401,6 @@ mlflow.models.predict(
                 <Text>
                   <FormattedMessage
                     defaultMessage="Input and output schema for your model. <link>Learn more</link>"
-                    // eslint-disable-next-line max-len
                     description="Input and output params of the model that is registered from the experiment run"
                     values={{
                       link: (
@@ -446,13 +435,14 @@ mlflow.models.predict(
   /** Fetches artifacts and updates component state with the result */
   fetchLoggedModelMetadata() {
     const MLModelArtifactPath = `${this.props.path}/${MLMODEL_FILE_NAME}`;
-    const { getArtifact, path, runUuid, experimentId } = this.props;
+    const { getArtifact, path, runUuid, experimentId, entityTags } = this.props;
 
     fetchArtifactUnified(
       {
         path: MLModelArtifactPath,
         runUuid,
         experimentId,
+        entityTags,
       },
       getArtifact,
     )

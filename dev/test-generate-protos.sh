@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
 set -e
-python ./dev/generate_protos.py
+./dev/generate-protos.sh
 
 GIT_STATUS="$(git status --porcelain)"
-if [ "$GIT_STATUS" ]; then 
-	echo "Protobufs were not generated with protoc. Please run 'python ./dev/generate_protos.py' or comment '/autoformat' on the PR"
+if [ "$GIT_STATUS" ]; then
+	echo "Protobufs were not generated with protoc. Please run './dev/generate-protos.sh' or comment '/autoformat' on the PR"
 	echo "Git status is"
 	echo "------------------------------------------------------------------"
 	echo "$GIT_STATUS"

@@ -1,6 +1,6 @@
 import { chunk, isEqual } from 'lodash';
 import { AnyAction } from 'redux';
-import { searchModelVersionsApi } from '../../../../model-registry/actions';
+import type { searchModelVersionsApi } from '../../../../model-registry/actions';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../../../model-registry/constants';
 import {
   ATTRIBUTE_COLUMN_SORT_KEY,
@@ -9,9 +9,10 @@ import {
   DEFAULT_START_TIME,
 } from '../../../constants';
 import { ViewType } from '../../../sdk/MlflowEnums';
-import { KeyValueEntity, LIFECYCLE_FILTER } from '../../../types';
+import { LIFECYCLE_FILTER } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { EXPERIMENT_LOG_MODEL_HISTORY_TAG } from './experimentPage.common-utils';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { RUNS_SEARCH_MAX_RESULTS } from '../../../actions';
 import { getUUID } from '../../../../common/utils/ActionUtils';
@@ -195,14 +196,11 @@ export const fetchModelVersionsForRuns = (
   );
 
   const promises = chunk(runsWithLogModelHistory, MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER).map((runsChunk) => {
-    // eslint-disable-next-line prefer-const
-    let maxResults = undefined;
     const action = actionCreator(
       {
         run_id: runsChunk.map((run) => run.info.run_id),
       },
       getUUID(),
-      maxResults,
     );
     return dispatch(action);
   });
@@ -219,9 +217,9 @@ export const isSearchFacetsFilterUsed = (currentSearchFacetsState: ExperimentPag
   const { lifecycleFilter, modelVersionFilter, datasetsFilter, searchFilter, startTime } = currentSearchFacetsState;
   return Boolean(
     lifecycleFilter !== DEFAULT_LIFECYCLE_FILTER ||
-      modelVersionFilter !== DEFAULT_MODEL_VERSION_FILTER ||
-      datasetsFilter.length !== 0 ||
-      searchFilter ||
-      startTime !== DEFAULT_START_TIME,
+    modelVersionFilter !== DEFAULT_MODEL_VERSION_FILTER ||
+    datasetsFilter.length !== 0 ||
+    searchFilter ||
+    startTime !== DEFAULT_START_TIME,
   );
 };

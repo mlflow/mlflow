@@ -22,9 +22,7 @@ class RunArtifacts:
         self.received_filenames = []
         self.received_artifact_paths = []
         self.artifact_count = 0
-        self.throw_exception_on_artifact_number = (
-            throw_exception_on_artifact_number if throw_exception_on_artifact_number else []
-        )
+        self.throw_exception_on_artifact_number = throw_exception_on_artifact_number or []
 
     def consume_queue_data(self, filename, artifact_path, artifact):
         self.artifact_count += 1
@@ -213,15 +211,14 @@ def test_async_logging_queue_pickle():
     # activate the queue and then try to pickle it
     async_logging_queue.activate()
 
-    run_operations = []
-    for val in range(0, 10):
-        run_operations.append(
-            async_logging_queue.log_artifacts_async(
-                filename=f"image-{val}.png",
-                artifact_path="images/image-artifact.png",
-                artifact=Image.new("RGB", (100, 100), color="blue"),
-            )
+    run_operations = [
+        async_logging_queue.log_artifacts_async(
+            filename=f"image-{val}.png",
+            artifact_path="images/image-artifact.png",
+            artifact=Image.new("RGB", (100, 100), color="blue"),
         )
+        for val in range(0, 10)
+    ]
 
     # Pickle the queue
     buffer = io.BytesIO()

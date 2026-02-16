@@ -21,3 +21,27 @@ class AgentEvaluationReserverKey:
 
 # A column name for storing custom expectations dictionary in Agent Evaluation.
 AGENT_EVAL_CUSTOM_EXPECTATION_KEY = "custom_expected"
+
+
+# Input dataset column names
+class InputDatasetColumn:
+    REQUEST_ID = "request_id"
+    INPUTS = "inputs"
+    REQUEST = "request"
+    RESPONSE = "response"
+    OUTPUTS = "outputs"
+    EXPECTATIONS = "expectations"
+    TAGS = "tags"
+    TRACE = "trace"
+    SOURCE = "source"
+
+
+# Result Dataframe column names
+class ResultDataFrameColumn:
+    REQUEST_ID = "request_id"
+    INPUTS = "inputs"
+    OUTPUTS = "outputs"
+    EXPECTATIONS = "expectations"
+    TAGS = "tags"
+    TRACE = "trace"
+    ERROR_MESSAGE = "error_message"

@@ -1,3 +1,4 @@
+import { describe, test, expect } from '@jest/globals';
 import React from 'react';
 import { TrimmedText } from './TrimmedText';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';

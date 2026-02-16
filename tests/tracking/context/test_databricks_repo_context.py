@@ -11,8 +11,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_GIT_REPO_URL,
 )
 
-from tests.helper_functions import multi_context
-
 
 def test_databricks_repo_run_context_in_context():
     with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_repo") as in_repo_mock:
@@ -32,22 +30,14 @@ def test_databricks_repo_run_context_tags():
     )
     patch_git_repo_status = mock.patch("mlflow.utils.databricks_utils.get_git_repo_status")
 
-    with multi_context(
-        patch_git_repo_url,
-        patch_git_repo_provider,
-        patch_git_repo_commit,
-        patch_git_repo_relative_path,
-        patch_git_repo_reference,
-        patch_git_repo_reference_type,
-        patch_git_repo_status,
-    ) as (
-        git_repo_url_mock,
-        git_repo_provider_mock,
-        git_repo_commit_mock,
-        git_repo_relative_path_mock,
-        git_repo_reference_mock,
-        git_repo_reference_type_mock,
-        git_repo_status_mock,
+    with (
+        patch_git_repo_url as git_repo_url_mock,
+        patch_git_repo_provider as git_repo_provider_mock,
+        patch_git_repo_commit as git_repo_commit_mock,
+        patch_git_repo_relative_path as git_repo_relative_path_mock,
+        patch_git_repo_reference as git_repo_reference_mock,
+        patch_git_repo_reference_type as git_repo_reference_type_mock,
+        patch_git_repo_status as git_repo_status_mock,
     ):
         assert DatabricksRepoRunContext().tags() == {
             MLFLOW_DATABRICKS_GIT_REPO_URL: git_repo_url_mock.return_value,
@@ -82,7 +72,7 @@ def test_databricks_repo_run_context_tags_nones():
     patch_git_repo_status = mock.patch(
         "mlflow.utils.databricks_utils.get_git_repo_status", return_value=None
     )
-    with multi_context(
+    with (
         patch_git_repo_url,
         patch_git_repo_provider,
         patch_git_repo_commit,

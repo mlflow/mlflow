@@ -159,7 +159,7 @@ def test_display_respects_max_limit(monkeypatch):
     mock_display = Mock()
     monkeypatch.setattr("IPython.display.display", mock_display)
 
-    monkeypatch.setenv("MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", 1)
+    monkeypatch.setenv("MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", "1")
 
     trace_a = create_trace("a")
     trace_b = create_trace("b")
@@ -248,6 +248,16 @@ def test_mimebundle_in_oss():
     assert trace._repr_mimebundle_() == {
         "text/plain": repr(trace),
     }
+
+
+def test_notebook_trace_renderer_base_url_override(monkeypatch):
+    trace = create_trace("a")
+    mlflow.set_tracking_uri("http://mlflow:5000")
+    monkeypatch.setenv("MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL", "http://localhost:5000")
+
+    html = get_notebook_iframe_html([trace])
+    assert "http://localhost:5000/static-files/lib/notebook-trace-renderer/index.html" in html
+    assert "http://mlflow:5000/static-files/lib/notebook-trace-renderer/index.html" not in html
 
 
 def test_display_in_oss(monkeypatch):

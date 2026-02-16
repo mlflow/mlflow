@@ -30,6 +30,7 @@ import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ErrorCodes } from '../../common/constants';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 type ModelPageImplState = {
   maxResultsSelection: number;
@@ -64,6 +65,15 @@ type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
 function getModelPageSessionStore(key: any) {
   return LocalStorageUtils.getSessionScopedStoreForComponent('ModelPage', key);
 }
+
+/**
+ * Wrapper component to register model name context for the Assistant.
+ * Used because ModelPageImpl is a class component that can't use hooks.
+ */
+const ModelAssistantContextProvider = ({ modelName }: { modelName?: string }) => {
+  useRegisterAssistantContext('modelName', modelName);
+  return null;
+};
 
 export function getOrderByExpr(orderByKey: string, orderByAsc: boolean): string {
   return orderByKey ? `${orderByKey} ${orderByAsc ? 'ASC' : 'DESC'}` : '';
@@ -122,6 +132,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   loadModelVersions(isInitialLoading = true) {
     this.loadPage(this.currentPage, isInitialLoading, true);
   }
+
   get currentPage() {
     const urlPage = parseInt(this.props.searchParams.get('page') || '1', 10);
     return isNaN(urlPage) ? 1 : urlPage;
@@ -283,10 +294,8 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     const { pageTokens } = this.state;
     return (
       <PageContainer>
-        <RequestStateWrapper
-          requestIds={this.criticalInitialRequestIds}
-          // eslint-disable-next-line no-trailing-spaces
-        >
+        <ModelAssistantContextProvider modelName={modelName} />
+        <RequestStateWrapper requestIds={this.criticalInitialRequestIds}>
           {(loading: any, hasError: any, requests: any) => {
             if (hasError) {
               if (Utils.shouldRender404(requests, [this.initgetRegisteredModelApiRequestId])) {

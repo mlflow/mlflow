@@ -1,19 +1,21 @@
-import { ExperimentEntity, KeyValueEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import {
   Button,
   ChevronDownIcon,
   ChevronUpIcon,
   Modal,
   PencilIcon,
-  LegacyTooltip,
+  Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useCallback, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { getExperimentTags } from '../../../reducers/Reducers';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import React from 'react';
+import 'react-mde/lib/styles/css/react-mde-all.css';
 import ReactMde, { SvgIcon } from 'react-mde';
 import {
   forceAnchorTagNewTab,
@@ -22,6 +24,7 @@ import {
 } from '../../../../common/utils/MarkdownUtils';
 import { FormattedMessage } from 'react-intl';
 import { setExperimentTagApi } from '../../../actions';
+import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
   Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value || undefined;
@@ -89,7 +92,16 @@ export const ExperimentViewDescriptionNotes = ({
   );
 
   return (
-    <div>
+    <div
+      css={
+        shouldEnableExperimentPageSideTabs()
+          ? {
+              paddingBottom: theme.spacing.sm,
+              borderBottom: `1px solid ${theme.colors.border}`,
+            }
+          : undefined
+      }
+    >
       {effectiveNote && (
         <div
           style={{
@@ -176,11 +188,11 @@ export const ExperimentViewDescriptionNotes = ({
             onTabChange={(newTab) => setSelectedTab(newTab)}
             generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
             getIcon={(name) => (
-              <LegacyTooltip title={name}>
+              <Tooltip componentId="mlflow.experiment-tracking.experiment-description.edit" content={name}>
                 <span css={{ color: theme.colors.textPrimary }}>
                   <SvgIcon icon={name} />
                 </span>
-              </LegacyTooltip>
+              </Tooltip>
             )}
           />
         </React.Fragment>

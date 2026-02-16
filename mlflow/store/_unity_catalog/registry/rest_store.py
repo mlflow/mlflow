@@ -7,16 +7,27 @@ import re
 import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Any
 
 import google.protobuf.empty_pb2
+from pydantic import BaseModel
 
 import mlflow
 from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.model_registry.prompt_version import (
+    PromptModelConfig,
+    PromptVersion,
+)
 from mlflow.exceptions import MlflowException, RestException
+from mlflow.prompt.constants import (
+    PROMPT_MODEL_CONFIG_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    PROMPT_TYPE_TEXT,
+    RESPONSE_FORMAT_TAG_KEY,
+)
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -186,7 +197,7 @@ class _CatalogSchemaFilter:
 
     catalog_name: str
     schema_name: str
-    remaining_filter: Optional[str]
+    remaining_filter: str | None
 
 
 def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):
@@ -320,8 +331,9 @@ def get_model_version_dependencies(model_dir):
         index_names = _fetch_langchain_dependency_from_model_info(
             databricks_dependencies, _DATABRICKS_VECTOR_SEARCH_INDEX_NAME_KEY
         )
-        for index_name in index_names:
-            dependencies.append({"type": "DATABRICKS_VECTOR_INDEX", "name": index_name})
+        dependencies.extend(
+            {"type": "DATABRICKS_VECTOR_INDEX", "name": index_name} for index_name in index_names
+        )
         for key in (
             _DATABRICKS_EMBEDDINGS_ENDPOINT_NAME_KEY,
             _DATABRICKS_LLM_ENDPOINT_NAME_KEY,
@@ -330,8 +342,10 @@ def get_model_version_dependencies(model_dir):
             endpoint_names = _fetch_langchain_dependency_from_model_info(
                 databricks_dependencies, key
             )
-            for endpoint_name in endpoint_names:
-                dependencies.append({"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name})
+            dependencies.extend(
+                {"type": "DATABRICKS_MODEL_ENDPOINT", "name": endpoint_name}
+                for endpoint_name in endpoint_names
+            )
     return dependencies
 
 
@@ -508,7 +522,7 @@ class UcModelRegistryStore(BaseRestStore):
             UpdateRegisteredModelRequest(
                 name=full_name,
                 description=description,
-                deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
+                deployment_job_id=str(deployment_job_id) if deployment_job_id is not None else None,
             )
         )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
@@ -866,7 +880,7 @@ class UcModelRegistryStore(BaseRestStore):
                     f"Unable to download model artifacts from source artifact location "
                     f"'{source}' in order to upload them to Unity Catalog. Please ensure "
                     f"the source artifact location exists and that you can download from "
-                    f"it via mlflow.artifacts.download_artifacts()"
+                    f"it via mlflow.artifacts.download_artifacts(). Original error: {e}"
                 ) from e
             try:
                 yield local_model_dir
@@ -881,13 +895,23 @@ class UcModelRegistryStore(BaseRestStore):
                 if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
                     shutil.rmtree(local_model_dir)
 
-    def _get_logged_model_from_model_id(self, model_id) -> Optional[LoggedModel]:
-        # load the MLflow LoggedModel by model_id and
+    def _get_logged_model_from_model_id(self, model_id) -> LoggedModel | None:
         if model_id is None:
             return None
-        return mlflow.get_logged_model(model_id)
+        try:
+            return mlflow.get_logged_model(model_id)
+        except MlflowException as e:
+            # model_id may be from a different workspace that's not accessible,
+            # e.g., during cross-workspace model copying
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                _logger.debug(
+                    f"Could not find logged model with ID {model_id}. "
+                    "This may occur during cross-workspace model copying."
+                )
+                return None
+            raise
 
-    def create_model_version(
+    def _create_model_version_with_optional_signature_validation(
         self,
         name,
         source,
@@ -896,10 +920,17 @@ class UcModelRegistryStore(BaseRestStore):
         run_link=None,
         description=None,
         local_model_path=None,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
+        bypass_signature_validation: bool = False,
+        source_workspace_id: str | None = None,
     ):
         """
-        Create a new model version from given source and run ID.
+        Private method to create a new model version from given source and run ID, with optional
+        bypass of signature validation. This bypass is currently only used by the
+        DatabricksWorkspaceModelRegistryRestStore to migrate model versions from the Databricks
+        workspace registry to Unity Catalog via copy_model_version. We do not want to allow
+        normal use of create_model_version to bypass signature validation, so we have this
+        private method.
 
         Args:
             name: Registered model name.
@@ -916,17 +947,20 @@ class UcModelRegistryStore(BaseRestStore):
                 mlflow.<flavor>.log_model(..., registered_model_name) call.
             model_id: The ID of the model (from an Experiment) that is being promoted to a
                 registered model version, if applicable.
+            bypass_signature_validation: Whether to bypass signature validation.
+            source_workspace_id: The workspace ID of the source run. If not provided,
+                it will be fetched from the run headers.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
             created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
-        logged_model = self._get_logged_model_from_model_id(model_id)
-        if logged_model:
+        if logged_model := self._get_logged_model_from_model_id(model_id):
             run_id = logged_model.source_run_id
         headers, run = self._get_run_and_headers(run_id)
-        source_workspace_id = self._get_workspace_id(headers)
+        if source_workspace_id is None:
+            source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
         lineage_securable_list = self._get_lineage_input_sources(run)
         job_id = self._get_job_id(run)
@@ -951,7 +985,8 @@ class UcModelRegistryStore(BaseRestStore):
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
         with self._local_model_dir(source, local_model_path) as local_model_dir:
-            self._validate_model_signature(local_model_dir)
+            if not bypass_signature_validation:
+                self._validate_model_signature(local_model_dir)
             self._download_model_weights_if_not_saved(local_model_dir)
             feature_deps = get_feature_dependencies(local_model_dir)
             other_model_deps = get_model_version_dependencies(local_model_dir)
@@ -978,6 +1013,52 @@ class UcModelRegistryStore(BaseRestStore):
                 name=full_name, version=model_version.version
             )
             return model_version_from_uc_proto(finalized_mv)
+
+    def create_model_version(
+        self,
+        name,
+        source,
+        run_id=None,
+        tags=None,
+        run_link=None,
+        description=None,
+        local_model_path=None,
+        model_id: str | None = None,
+    ):
+        """
+        Create a new model version from given source and run ID.
+
+        Args:
+            name: Registered model name.
+            source: URI indicating the location of the model artifacts.
+            run_id: Run ID from MLflow tracking server that generated the model.
+            tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
+                instances associated with this model version.
+            run_link: Link to the run from an MLflow tracking server that generated this model.
+            description: Description of the version.
+            local_model_path: Local path to the MLflow model, if it's already accessible on the
+                local filesystem. Can be used by AbstractStores that upload model version files
+                to the model registry to avoid a redundant download from the source location when
+                logging and registering a model via a single
+                mlflow.<flavor>.log_model(..., registered_model_name) call.
+            model_id: The ID of the model (from an Experiment) that is being promoted to a
+                registered model version, if applicable.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
+            created in the backend.
+        """
+        return self._create_model_version_with_optional_signature_validation(
+            name=name,
+            source=source,
+            run_id=run_id,
+            tags=tags,
+            run_link=run_link,
+            description=description,
+            local_model_path=local_model_path,
+            model_id=model_id,
+            bypass_signature_validation=False,
+        )
 
     def _get_artifact_repo(self, model_version, model_name=None):
         def base_credential_refresh_def():
@@ -1219,8 +1300,8 @@ class UcModelRegistryStore(BaseRestStore):
     def create_prompt(
         self,
         name: str,
-        description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None,
+        description: str | None = None,
+        tags: dict[str, str] | None = None,
     ) -> Prompt:
         """
         Create a new prompt in Unity Catalog (metadata only, no initial version).
@@ -1244,10 +1325,10 @@ class UcModelRegistryStore(BaseRestStore):
 
     def search_prompts(
         self,
-        filter_string: Optional[str] = None,
-        max_results: Optional[int] = None,
-        order_by: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in Unity Catalog.
@@ -1261,6 +1342,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         # Parse catalog and schema from filter string
         if filter_string:
+            filter_string = self._parse_experiment_id_filter(filter_string)
             parsed_filter = self._parse_catalog_schema_from_filter(filter_string)
         else:
             raise MlflowException(
@@ -1283,16 +1365,15 @@ class UcModelRegistryStore(BaseRestStore):
         )
 
         response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
-        prompts = []
-        for prompt_info in response_proto.prompts:
-            # For UC, only use the basic prompt info without extra tag fetching
-            prompts.append(proto_info_to_mlflow_prompt_info(prompt_info, {}))
+        # For UC, only use the basic prompt info without extra tag fetching
+        prompts = [
+            proto_info_to_mlflow_prompt_info(prompt_info, {})
+            for prompt_info in response_proto.prompts
+        ]
 
         return PagedList(prompts, response_proto.next_page_token)
 
-    def _parse_catalog_schema_from_filter(
-        self, filter_string: Optional[str]
-    ) -> _CatalogSchemaFilter:
+    def _parse_catalog_schema_from_filter(self, filter_string: str | None) -> _CatalogSchemaFilter:
         """
         Parse catalog and schema from filter string for Unity Catalog using regex.
 
@@ -1391,7 +1472,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=DeletePromptTagRequest,
         )
 
-    def get_prompt(self, name: str) -> Optional[Prompt]:
+    def get_prompt(self, name: str) -> Prompt | None:
         """
         Get prompt by name from Unity Catalog.
         """
@@ -1416,9 +1497,11 @@ class UcModelRegistryStore(BaseRestStore):
     def create_prompt_version(
         self,
         name: str,
-        template: str,
-        description: Optional[str] = None,
-        tags: Optional[dict[str, str]] = None,
+        template: str | list[dict[str, Any]],
+        description: str | None = None,
+        tags: dict[str, str] | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
+        model_config: "PromptModelConfig | dict[str, Any] | None" = None,
     ) -> PromptVersion:
         """
         Create a new prompt version in Unity Catalog.
@@ -1433,8 +1516,27 @@ class UcModelRegistryStore(BaseRestStore):
         # We don't set it here as it's generated server-side
         if description:
             prompt_version_proto.description = description
-        if tags:
-            prompt_version_proto.tags.extend(mlflow_tags_to_proto_version_tags(tags))
+
+        final_tags = tags.copy() if tags else {}
+        if response_format:
+            final_tags[RESPONSE_FORMAT_TAG_KEY] = json.dumps(
+                PromptVersion.convert_response_format_to_dict(response_format)
+            )
+        if model_config:
+            # Convert ModelConfig to dict if needed
+            if isinstance(model_config, PromptModelConfig):
+                config_dict = model_config.to_dict()
+            else:
+                config_dict = model_config
+
+            final_tags[PROMPT_MODEL_CONFIG_TAG_KEY] = json.dumps(config_dict)
+        if isinstance(template, str):
+            final_tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_TEXT
+        else:
+            final_tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_CHAT
+
+        if final_tags:
+            prompt_version_proto.tags.extend(mlflow_tags_to_proto_version_tags(final_tags))
 
         req_body = message_to_json(
             CreatePromptVersionRequest(
@@ -1452,7 +1554,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
         return proto_to_mlflow_prompt(response_proto)
 
-    def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:
+    def get_prompt_version(self, name: str, version: str | int) -> PromptVersion | None:
         """
         Get a specific prompt version from Unity Catalog.
         """
@@ -1477,7 +1579,7 @@ class UcModelRegistryStore(BaseRestStore):
                 return None
             raise
 
-    def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
+    def delete_prompt_version(self, name: str, version: str | int) -> None:
         """
         Delete a prompt version from Unity Catalog.
         """
@@ -1494,7 +1596,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
 
     def search_prompt_versions(
-        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+        self, name: str, max_results: int | None = None, page_token: str | None = None
     ) -> SearchPromptVersionsResponse:
         """
         Search prompt versions for a given prompt name in Unity Catalog.
@@ -1521,9 +1623,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=SearchPromptVersionsRequest,
         )
 
-    def set_prompt_version_tag(
-        self, name: str, version: Union[str, int], key: str, value: str
-    ) -> None:
+    def set_prompt_version_tag(self, name: str, version: str | int, key: str, value: str) -> None:
         """
         Set a tag on a prompt version in Unity Catalog.
         """
@@ -1541,7 +1641,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=SetPromptVersionTagRequest,
         )
 
-    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+    def delete_prompt_version_tag(self, name: str, version: str | int, key: str) -> None:
         """
         Delete a tag from a prompt version in Unity Catalog.
         """
@@ -1559,7 +1659,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=DeletePromptVersionTagRequest,
         )
 
-    def get_prompt_version_by_alias(self, name: str, alias: str) -> Optional[PromptVersion]:
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> PromptVersion | None:
         """
         Get a prompt version by alias from Unity Catalog.
         """
@@ -1584,7 +1684,7 @@ class UcModelRegistryStore(BaseRestStore):
                 return None
             raise
 
-    def set_prompt_alias(self, name: str, alias: str, version: Union[str, int]) -> None:
+    def set_prompt_alias(self, name: str, alias: str, version: str | int) -> None:
         """
         Set an alias for a prompt version in Unity Catalog.
         """
@@ -1661,8 +1761,6 @@ class UcModelRegistryStore(BaseRestStore):
             prompt_versions: List of PromptVersion objects to link.
             trace_id: Trace ID to link to each prompt version.
         """
-        super().link_prompts_to_trace(prompt_versions=prompt_versions, trace_id=trace_id)
-
         prompt_version_entries = [
             PromptVersionLinkEntry(name=pv.name, version=str(pv.version)) for pv in prompt_versions
         ]

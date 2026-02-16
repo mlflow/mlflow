@@ -2,24 +2,29 @@ import clsx from 'clsx';
 import styles from './card.module.css';
 import Link from '@docusaurus/Link';
 
-export const CardGroup = ({ children, isSmall, cols }): JSX.Element => (
+export const CardGroup = ({ children, isSmall, cols, noGap }): JSX.Element => (
   <div
     className={clsx(
       styles.CardGroup,
       isSmall ? styles.AutofillColumns : cols ? styles[`Cols${cols}`] : styles.MaxThreeColumns,
+      noGap && styles.NoGap,
     )}
   >
     {children}
   </div>
 );
 
-export const Card = ({ children, link = '' }): JSX.Element => {
+export const Card = ({ children, link = '', style = undefined }): JSX.Element => {
   if (!link) {
-    return <div className={clsx(styles.Card, styles.CardBordered)}>{children}</div>;
+    return (
+      <div className={clsx(styles.Card, styles.CardBordered)} style={style}>
+        {children}
+      </div>
+    );
   }
 
   return (
-    <Link className={clsx(styles.Link, styles.Card, styles.CardBordered)} to={link}>
+    <Link className={clsx(styles.Link, styles.Card, styles.CardBordered)} style={style} to={link}>
       {children}
     </Link>
   );
@@ -64,13 +69,39 @@ export const LogoCard = ({ description, children, link }): JSX.Element => (
   </Card>
 );
 
-export const SmallLogoCard = ({ children, link }) => (
-  <Card link={link}>
-    <div className={styles.SmallLogoCardContent}>
-      <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
-    </div>
-  </Card>
-);
+export const SmallLogoCard = ({ children, link, title = '' }) => {
+  return (
+    <Link
+      className={clsx(styles.Card, styles.CardBordered, styles.SmallLogoCardRounded, styles.SmallLogoCardLink)}
+      to={link}
+    >
+      <div className={styles.SmallLogoCardContent}>
+        {title ? (
+          <div className={styles.SmallLogoCardRow}>
+            <div
+              className={clsx(
+                'max-height-img-container',
+                styles.SmallLogoCardImage,
+                styles.SmallLogoCardImageWithTitle,
+              )}
+            >
+              {children}
+            </div>
+            <div className={styles.SmallLogoCardLabel}>
+              <span>{title}</span>
+            </div>
+          </div>
+        ) : (
+          <div
+            className={clsx('max-height-img-container', styles.SmallLogoCardImage, styles.SmallLogoCardImageDefault)}
+          >
+            {children}
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+};
 
 const RELEASE_URL = 'https://github.com/mlflow/mlflow/releases/tag/v';
 
@@ -105,14 +136,27 @@ export const NewFeatureCard = ({ children, description, name, releaseVersion, le
   </Card>
 );
 
-export const TitleCard = ({ title, description, link = '' }): JSX.Element => (
+export const TitleCard = ({
+  title,
+  description,
+  link = '',
+  headerRight = undefined,
+  children = undefined,
+}): JSX.Element => (
   <Card link={link}>
     <div className={styles.TitleCardContent}>
-      <div className={clsx(styles.TitleCardTitle)} style={{ textAlign: 'left', fontWeight: 'bold' }}>
-        {title}
+      <div className={clsx(styles.TitleCardHeader)}>
+        <div className={clsx(styles.TitleCardTitle)} style={{ textAlign: 'left', fontWeight: 'bold' }}>
+          {title}
+        </div>
+        <div className={styles.TitleCardHeaderRight}>{headerRight}</div>
       </div>
       <hr className={clsx(styles.TitleCardSeparator)} style={{ margin: '12px 0' }} />
-      <p className={clsx(styles.TextColor)}>{description}</p>
+      {children ? (
+        <div className={clsx(styles.TextColor)}>{children}</div>
+      ) : (
+        <p className={clsx(styles.TextColor)} dangerouslySetInnerHTML={{ __html: description }} />
+      )}
     </div>
   </Card>
 );

@@ -7,7 +7,7 @@ EvaluationEntity objects and related APIs.
 
 import hashlib
 import json
-from typing import Any, Optional, Union
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.metric import Metric
@@ -31,14 +31,14 @@ class EvaluationEntity(_MlflowObject):
         run_id: str,
         inputs_id: str,
         inputs: dict[str, Any],
-        outputs: Optional[dict[str, Any]] = None,
-        request_id: Optional[str] = None,
-        targets: Optional[dict[str, Any]] = None,
-        error_code: Optional[str] = None,
-        error_message: Optional[str] = None,
-        assessments: Optional[list[AssessmentEntity]] = None,
-        metrics: Optional[list[Metric]] = None,
-        tags: Optional[list[EvaluationTag]] = None,
+        outputs: dict[str, Any] | None = None,
+        request_id: str | None = None,
+        targets: dict[str, Any] | None = None,
+        error_code: str | None = None,
+        error_message: str | None = None,
+        assessments: list[AssessmentEntity] | None = None,
+        metrics: list[Metric] | None = None,
+        tags: list[EvaluationTag] | None = None,
     ):
         """
         Construct a new mlflow.evaluation.EvaluationEntity instance.
@@ -93,42 +93,42 @@ class EvaluationEntity(_MlflowObject):
         return self._inputs
 
     @property
-    def outputs(self) -> Optional[dict[str, Any]]:
+    def outputs(self) -> dict[str, Any] | None:
         """The evaluation outputs."""
         return self._outputs
 
     @property
-    def request_id(self) -> Optional[str]:
+    def request_id(self) -> str | None:
         """The evaluation request ID."""
         return self._request_id
 
     @property
-    def targets(self) -> Optional[dict[str, Any]]:
+    def targets(self) -> dict[str, Any] | None:
         """The evaluation targets."""
         return self._targets
 
     @property
-    def error_code(self) -> Optional[str]:
+    def error_code(self) -> str | None:
         """The evaluation error code."""
         return self._error_code
 
     @property
-    def error_message(self) -> Optional[str]:
+    def error_message(self) -> str | None:
         """The evaluation error message."""
         return self._error_message
 
     @property
-    def assessments(self) -> Optional[list[AssessmentEntity]]:
+    def assessments(self) -> list[AssessmentEntity] | None:
         """The evaluation assessments."""
         return self._assessments
 
     @property
-    def metrics(self) -> Optional[list[Metric]]:
+    def metrics(self) -> list[Metric] | None:
         """The evaluation metrics."""
         return self._metrics
 
     @property
-    def tags(self) -> Optional[list[EvaluationTag]]:
+    def tags(self) -> list[EvaluationTag] | None:
         """The evaluation tags."""
         return self._tags
 
@@ -212,15 +212,15 @@ class Evaluation(_MlflowObject):
     def __init__(
         self,
         inputs: dict[str, Any],
-        outputs: Optional[dict[str, Any]] = None,
-        inputs_id: Optional[str] = None,
-        request_id: Optional[str] = None,
-        targets: Optional[dict[str, Any]] = None,
-        error_code: Optional[str] = None,
-        error_message: Optional[str] = None,
-        assessments: Optional[list[Assessment]] = None,
-        metrics: Optional[Union[dict[str, float], list[Metric]]] = None,
-        tags: Optional[dict[str, str]] = None,
+        outputs: dict[str, Any] | None = None,
+        inputs_id: str | None = None,
+        request_id: str | None = None,
+        targets: dict[str, Any] | None = None,
+        error_code: str | None = None,
+        error_message: str | None = None,
+        assessments: list[Assessment] | None = None,
+        metrics: dict[str, float] | list[Metric] | None = None,
+        tags: dict[str, str] | None = None,
     ):
         """
         Construct a new Evaluation instance.
@@ -268,42 +268,42 @@ class Evaluation(_MlflowObject):
         return self._inputs
 
     @property
-    def outputs(self) -> Optional[dict[str, Any]]:
+    def outputs(self) -> dict[str, Any] | None:
         """The evaluation outputs."""
         return self._outputs
 
     @property
-    def request_id(self) -> Optional[str]:
+    def request_id(self) -> str | None:
         """The evaluation request ID."""
         return self._request_id
 
     @property
-    def targets(self) -> Optional[dict[str, Any]]:
+    def targets(self) -> dict[str, Any] | None:
         """The evaluation targets."""
         return self._targets
 
     @property
-    def error_code(self) -> Optional[str]:
+    def error_code(self) -> str | None:
         """The evaluation error code."""
         return self._error_code
 
     @property
-    def error_message(self) -> Optional[str]:
+    def error_message(self) -> str | None:
         """The evaluation error message."""
         return self._error_message
 
     @property
-    def assessments(self) -> Optional[list[Assessment]]:
+    def assessments(self) -> list[Assessment] | None:
         """The evaluation assessments."""
         return self._assessments
 
     @property
-    def metrics(self) -> Optional[list[Metric]]:
+    def metrics(self) -> list[Metric] | None:
         """The evaluation metrics."""
         return self._metrics
 
     @property
-    def tags(self) -> Optional[dict[str, str]]:
+    def tags(self) -> dict[str, str] | None:
         """The evaluation tags."""
         return self._tags
 

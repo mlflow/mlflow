@@ -1,5 +1,5 @@
 import string
-from typing import Any, Union
+from typing import Any
 
 
 class PromptTemplate:
@@ -26,7 +26,7 @@ class PromptTemplate:
             prompt.format(baz="qux")
     """
 
-    def __init__(self, template_str: Union[str, list[str]]):
+    def __init__(self, template_str: str | list[str]):
         self.template_strs = [template_str] if isinstance(template_str, str) else template_str
 
     @property

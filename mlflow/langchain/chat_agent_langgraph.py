@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import importlib.metadata
 import json
-from typing import Annotated, Any, Optional, TypedDict, Union
+from typing import Annotated, Any, TypedDict
 from uuid import uuid4
 
 from packaging.version import Version
@@ -37,12 +39,11 @@ except ImportError as e:
 
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message
 from mlflow.types.agent import ChatAgentMessage
-from mlflow.utils.annotations import experimental
 
 
 def _add_agent_messages(
-    left: Union[dict[str, Any], list[dict[str, Any]]],
-    right: Union[dict[str, Any], list[dict[str, Any]]],
+    left: dict[str, Any] | list[dict[str, Any]],
+    right: dict[str, Any] | list[dict[str, Any]],
 ):
     if not isinstance(left, list):
         left = [left]
@@ -72,7 +73,6 @@ def _add_agent_messages(
     return merged
 
 
-@experimental(version="2.21.0")
 class ChatAgentState(TypedDict):
     """
     Helper class that enables building a LangGraph agent that produces ChatAgent-compatible
@@ -164,7 +164,7 @@ class ChatAgentState(TypedDict):
     Step 2: Define the LLM and your tools
 
     If you want to return attachments and custom_outputs from your tool, you can return a
-    dictionary with keys “content”, “attachments”, and “custom_outputs”. This dictionary will be
+    dictionary with keys "content", "attachments", and "custom_outputs". This dictionary will be
     parsed out by the ChatAgentToolNode and properly stored in your LangGraph's state.
 
 
@@ -268,18 +268,18 @@ class ChatAgentState(TypedDict):
     """
 
     messages: Annotated[list[dict[str, Any]], _add_agent_messages]
-    context: Optional[dict[str, Any]]
-    custom_inputs: Optional[dict[str, Any]]
-    custom_outputs: Optional[dict[str, Any]]
+    context: dict[str, Any] | None
+    custom_inputs: dict[str, Any] | None
+    custom_outputs: dict[str, Any] | None
 
 
 def parse_message(
-    msg: AnyMessage, name: Optional[str] = None, attachments: Optional[dict[str, Any]] = None
+    msg: AnyMessage, name: str | None = None, attachments: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """
     Parse different LangChain message types into their ChatAgentMessage schema dict equivalents
     """
-    chat_message_dict = convert_lc_message_to_chat_message(msg).model_dump_compat()
+    chat_message_dict = convert_lc_message_to_chat_message(msg).model_dump()
     chat_message_dict["attachments"] = attachments
     chat_message_dict["name"] = msg.name or name
     chat_message_dict["id"] = msg.id
@@ -288,10 +288,9 @@ def parse_message(
         chat_message_dict["content"] = ""
 
     chat_agent_msg = ChatAgentMessage(**chat_message_dict)
-    return chat_agent_msg.model_dump_compat(exclude_none=True)
+    return chat_agent_msg.model_dump(exclude_none=True)
 
 
-@experimental(version="2.21.0")
 class ChatAgentToolNode(ToolNode):
     """
     Helper class to make ToolNodes be compatible with
@@ -303,7 +302,7 @@ class ChatAgentToolNode(ToolNode):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def invoke(self, input: Input, config: Optional[RunnableConfig] = None, **kwargs: Any) -> Any:
+    def invoke(self, input: Input, config: RunnableConfig | None = None, **kwargs: Any) -> Any:
         """
         Wraps the standard ToolNode invoke method to:
         - Parse ChatAgentState into LangChain messages

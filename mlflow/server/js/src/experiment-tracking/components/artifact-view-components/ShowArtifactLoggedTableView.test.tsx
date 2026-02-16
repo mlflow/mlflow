@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, beforeAll, afterAll, afterEach, it, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { ShowArtifactLoggedTableView } from './ShowArtifactLoggedTableView';
@@ -5,6 +6,7 @@ import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Larger timeout for integration testing (table rendering)
 
 const testArtifactData = {
@@ -52,7 +54,7 @@ describe('ShowArtifactLoggedTableView', () => {
           right: 0,
           bottom: 0,
           left: 0,
-        } as DOMRect),
+        }) as DOMRect,
     );
   });
 
@@ -78,6 +80,7 @@ describe('ShowArtifactLoggedTableView', () => {
   });
 
   it('renders the table and expected values in the cells', async () => {
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testArtifactData)));
 
     renderComponent();
@@ -101,6 +104,7 @@ describe('ShowArtifactLoggedTableView', () => {
   });
 
   it('renders the table with columns and allows showing/hiding them', async () => {
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testArtifactData)));
 
     renderComponent();
@@ -128,6 +132,7 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [[1], ['two'], [3.0], [null], [[1, null, 3]], [{ 1: null, 3: 5 }]],
     };
 
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testMixedTypes)));
 
     renderComponent();
@@ -157,6 +162,7 @@ describe('ShowArtifactLoggedTableView', () => {
       ],
     };
 
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testMixedColumnTypes)));
 
     renderComponent();
@@ -186,6 +192,7 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [],
     };
 
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testEmptyData)));
     renderComponent();
 
@@ -207,6 +214,7 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [],
     };
 
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testEmptyTable)));
     renderComponent();
 
@@ -235,6 +243,7 @@ describe('ShowArtifactLoggedTableView', () => {
       ],
     };
 
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testImageTable)));
     renderComponent();
 
@@ -243,14 +252,19 @@ describe('ShowArtifactLoggedTableView', () => {
       expect(screen.getByRole('columnheader', { name: 'images' })).toBeInTheDocument();
     });
 
+    await waitFor(() => {
+      expect(document.body.innerHTML).toContain('get-artifact?path=');
+    });
+
     // Wait for the table cells to render
     await waitFor(() => {
-      const image = screen.getByRole('img');
-      expect(image).toBeInTheDocument();
-      expect(image).toHaveAttribute(
-        'src',
-        expect.stringContaining('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
-      );
+      const images = screen.getAllByRole('img');
+      expect(images.length).toBeGreaterThan(0);
+      expect(
+        images.some((image) =>
+          image.getAttribute('src')?.includes('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
+        ),
+      ).toBe(true);
     });
   });
 
@@ -259,6 +273,7 @@ describe('ShowArtifactLoggedTableView', () => {
     { artifactContent: { data: [] }, testName: 'object without columns' },
     { artifactContent: { columns: [] }, testName: 'object without data' },
   ])('renders error message when artifact contents is a $testName', async ({ artifactContent }) => {
+    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(artifactContent)));
 
     renderComponent();
@@ -275,6 +290,7 @@ describe('ShowArtifactLoggedTableView', () => {
 
   it('renders fallback column headers when column names are not provided', async () => {
     jest.mocked(getArtifactContent).mockImplementation(() =>
+      // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
       Promise.resolve(
         JSON.stringify({
           columns: ['guid', '', 'sentence', ''],

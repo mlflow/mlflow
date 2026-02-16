@@ -1,7 +1,8 @@
 import type { RunsChartAxisDef, RunsChartsRunData } from './components/RunsCharts.common';
 import { RunsChartsLineChartXAxisType } from './components/RunsCharts.common';
 import { getUUID } from '../../../common/utils/ActionUtils';
-import { MetricEntitiesByName, ChartSectionConfig } from '../../types';
+import type { ChartSectionConfig } from '../../types';
+import { MetricEntitiesByName } from '../../types';
 import {
   MLFLOW_MODEL_METRIC_PREFIX,
   MLFLOW_SYSTEM_METRIC_PREFIX,
@@ -212,6 +213,7 @@ export abstract class RunsChartsCardConfig {
         resultChartSet.push({
           ...RunsChartsCardConfig.getEmptyChartCardByType(chartType, true, getUUID(), sectionId),
           metricKey: metricsKey,
+          ...(metricsKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsBarCardConfig);
       });
 
@@ -380,6 +382,7 @@ export abstract class RunsChartsCardConfig {
         const newChartConfig = {
           ...RunsChartsCardConfig.getEmptyChartCardByType(chartType, true, getUUID(), sectionId),
           metricKey: metricKey,
+          ...(metricKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsBarCardConfig;
 
         if (isSectionReordered) {
@@ -410,6 +413,7 @@ export abstract class RunsChartsCardConfig {
           ),
           metricKey: metricKey,
           deleted: prevChart.deleted,
+          ...(metricKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsLineCardConfig;
       }
     });

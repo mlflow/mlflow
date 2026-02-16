@@ -1,10 +1,10 @@
 import { useDesignSystemTheme, TableRow, TableHeader, TableCell, Table, Tooltip } from '@databricks/design-system';
 import { RunColorPill } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/RunColorPill';
 import { useMemo } from 'react';
-import { RunsChartsImageCardConfig, RunsChartsCardConfig } from '../../runs-charts.types';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsImageCardConfig, RunsChartsCardConfig } from '../../runs-charts.types';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { EmptyImageGridPlot, ImagePlotWithHistory, MIN_GRID_IMAGE_SIZE } from './ImageGridPlot.common';
-import { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { FormattedMessage } from 'react-intl';
 
 export const ImageGridMultipleKeyPlot = ({
@@ -71,12 +71,15 @@ export const ImageGridMultipleKeyPlot = ({
               </TableCell>
               {displayRuns.map((run: RunsChartsRunData) => {
                 if (run.images[imageKey] && Object.keys(run.images[imageKey]).length > 0) {
-                  const metadataByStep = Object.values(run.images[imageKey]).reduce((acc, metadata) => {
-                    if (metadata.step !== undefined) {
-                      acc[metadata.step] = metadata;
-                    }
-                    return acc;
-                  }, {} as Record<number, ImageEntity>);
+                  const metadataByStep = Object.values(run.images[imageKey]).reduce(
+                    (acc, metadata) => {
+                      if (metadata.step !== undefined) {
+                        acc[metadata.step] = metadata;
+                      }
+                      return acc;
+                    },
+                    {} as Record<number, ImageEntity>,
+                  );
                   return (
                     <TableCell
                       key={run.uuid}

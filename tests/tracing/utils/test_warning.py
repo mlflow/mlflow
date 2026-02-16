@@ -1,5 +1,7 @@
 import logging
-from unittest import mock
+import warnings
+
+import pytest
 
 import mlflow
 from mlflow.tracing.utils.warning import suppress_warning
@@ -34,31 +36,66 @@ def test_suppress_token_detach_warning(caplog):
     assert caplog.records[2].levelname == "DEBUG"
 
 
+def _filter_request_id_warnings(
+    warnings_list: list[warnings.WarningMessage],
+) -> list[warnings.WarningMessage]:
+    """Filter warnings to only include FutureWarning about request_id deprecation."""
+    return [
+        w
+        for w in warnings_list
+        if issubclass(w.category, FutureWarning)
+        and "request_id" in str(w.message)
+        and "deprecated" in str(w.message).lower()
+        and "trace_id" in str(w.message)
+    ]
+
+
 @skip_when_testing_trace_sdk
-@mock.patch("mlflow.tracing.utils.warning.warnings")
-def test_request_id_backward_compatible(mock_warnings):
+def test_request_id_backward_compatible():
     client = mlflow.MlflowClient()
 
-    # Invalid usage with deprecated request_id -> warning
     parent_span = client.start_trace(name="test")
-    child_span = client.start_span(
-        request_id=parent_span.trace_id,
-        name="child",
-        parent_id=parent_span.span_id,
-    )
-    assert child_span.trace_id == parent_span.trace_id
-    mock_warnings.warn.assert_called_once()
-    warning_msg = mock_warnings.warn.call_args[0][0]
-    assert "start_span" in warning_msg
-    mock_warnings.reset_mock()
 
-    client.end_span(request_id=parent_span.trace_id, span_id=child_span.span_id)
-    client.end_trace(request_id=parent_span.trace_id)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
 
-    assert mock_warnings.warn.call_count == 2
-    mock_warnings.reset_mock()
+        child_span = client.start_span(
+            request_id=parent_span.trace_id,
+            name="child",
+            parent_id=parent_span.span_id,
+        )
+
+        request_id_warnings = _filter_request_id_warnings(w)
+        assert len(request_id_warnings) == 1
+        assert child_span.trace_id == parent_span.trace_id
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        client.end_span(request_id=parent_span.trace_id, span_id=child_span.span_id)
+        client.end_trace(request_id=parent_span.trace_id)
+
+        request_id_warnings = _filter_request_id_warnings(w)
+        assert len(request_id_warnings) == 2
 
     # Valid usage without request_id -> no warning
-    trace = mlflow.get_trace(parent_span.trace_id)
-    mock_warnings.warn.assert_not_called()
-    assert trace.info.trace_id == parent_span.trace_id
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        trace = mlflow.get_trace(parent_span.trace_id)
+
+        request_id_warnings = _filter_request_id_warnings(w)
+        assert len(request_id_warnings) == 0
+        assert trace.info.trace_id == parent_span.trace_id
+
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+
+        with pytest.raises(
+            ValueError,
+            match=r".*",
+            check=lambda e: (
+                "Cannot specify both" in str(e) and "request_id" in str(e) and "trace_id" in str(e)
+            ),
+        ):
+            client.get_trace(request_id="abc", trace_id="def")

@@ -1,8 +1,10 @@
+from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities import Span
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.utils.annotations import deprecated
 
 
 @dataclass
@@ -17,7 +19,7 @@ class TraceData:
 
     # NB: Custom constructor to allow passing additional kwargs for backward compatibility for
     # DBX agent evaluator. Once they migrates to trace V3 schema, we can remove this.
-    def __init__(self, spans: Optional[list[Span]] = None, **kwargs):
+    def __init__(self, spans: list[Span] | None = None, **kwargs):
         self.spans = spans or []
 
     @classmethod
@@ -29,9 +31,14 @@ class TraceData:
     def to_dict(self) -> dict[str, Any]:
         return {"spans": [span.to_dict() for span in self.spans]}
 
+    # TODO: remove this property in 3.7.0
     @property
-    def intermediate_outputs(self) -> Optional[dict[str, Any]]:
+    @deprecated(since="3.6.0", alternative="trace.search_spans(name=...)")
+    def intermediate_outputs(self) -> dict[str, Any] | None:
         """
+        .. deprecated:: 3.6.0
+            Use `trace.search_spans(name=...)` to search for spans and get the outputs.
+
         Returns intermediate outputs produced by the model or agent while handling the request.
         There are mainly two flows to return intermediate outputs:
         1. When a trace is generate by the `mlflow.log_trace` API,
@@ -44,27 +51,34 @@ class TraceData:
             return root_span.get_attribute(SpanAttributeKey.INTERMEDIATE_OUTPUTS)
 
         if len(self.spans) > 1:
-            return {
-                span.name: span.outputs
-                for span in self.spans
-                if span.parent_id and span.outputs is not None
-            }
+            result = {}
+            # spans may have duplicate names, so deduplicate the names by appending an index number.
+            span_name_counter = Counter(span.name for span in self.spans)
+            span_name_counter = {name: 1 for name, count in span_name_counter.items() if count > 1}
+            for span in self.spans:
+                span_name = span.name
+                if count := span_name_counter.get(span_name):
+                    span_name_counter[span_name] += 1
+                    span_name = f"{span_name}_{count}"
+                if span.parent_id and span.outputs is not None:
+                    result[span_name] = span.outputs
+            return result
 
-    def _get_root_span(self) -> Optional[Span]:
+    def _get_root_span(self) -> Span | None:
         for span in self.spans:
             if span.parent_id is None:
                 return span
 
     # `request` and `response` are preserved for backward compatibility with v2
     @property
-    def request(self) -> Optional[str]:
+    def request(self) -> str | None:
         if span := self._get_root_span():
             # Accessing the OTel span directly get serialized value directly.
             return span._span.attributes.get(SpanAttributeKey.INPUTS)
         return None
 
     @property
-    def response(self) -> Optional[str]:
+    def response(self) -> str | None:
         if span := self._get_root_span():
             # Accessing the OTel span directly get serialized value directly.
             return span._span.attributes.get(SpanAttributeKey.OUTPUTS)

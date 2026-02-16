@@ -1,5 +1,0 @@
-build_dependencies:
-  - pip
-dependencies:
-  - diviner
-  - mlflow>=1.24.1

@@ -1,6 +1,7 @@
+import { jest, describe, afterEach, test, expect } from '@jest/globals';
 import { listArtifactsApi } from '../../../actions';
 import { useRunsArtifacts } from './useRunsArtifacts';
-import { ArtifactListFilesResponse } from '../../../types';
+import type { ArtifactListFilesResponse } from '../../../types';
 import { renderHook, cleanup, waitFor } from '@testing-library/react';
 
 const mockArtifactsData: Record<string, ArtifactListFilesResponse> = {

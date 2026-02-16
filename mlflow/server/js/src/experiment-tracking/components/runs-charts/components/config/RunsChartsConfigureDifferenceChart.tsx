@@ -4,15 +4,11 @@ import {
   Switch,
   useDesignSystemTheme,
   LegacyTooltip,
-  InfoIcon,
+  InfoSmallIcon,
   LegacyInfoTooltip,
 } from '@databricks/design-system';
-import {
-  DISABLED_GROUP_WHEN_GROUPBY,
-  DifferenceCardConfigCompareGroup,
-  RunsChartsCardConfig,
-  RunsChartsDifferenceCardConfig,
-} from '../../runs-charts.types';
+import type { RunsChartsCardConfig, RunsChartsDifferenceCardConfig } from '../../runs-charts.types';
+import { DISABLED_GROUP_WHEN_GROUPBY, DifferenceCardConfigCompareGroup } from '../../runs-charts.types';
 import { RunsChartsConfigureField } from './RunsChartsConfigure.common';
 import { useCallback } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';

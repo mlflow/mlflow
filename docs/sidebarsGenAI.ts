@@ -5,64 +5,41 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'index',
+      className: 'sidebar-overview',
+      label: 'Overview',
+    },
+    {
+      type: 'html',
+      value: '<b>Getting Started</b>',
+      defaultStyle: true,
+    },
+    {
+      type: 'doc',
+      id: 'getting-started/connect-environment',
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'category',
-      label: 'MLflow 3.0',
+      type: 'doc',
+      id: 'tracing/quickstart/index',
+      label: 'Start Tracing',
       className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'mlflow-3/deep-learning',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/genai-agent',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/breaking-changes',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/faqs',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'mlflow-3/index',
-      },
     },
     {
-      type: 'category',
-      label: 'Getting Started',
+      type: 'link',
+      href: '/genai/eval-monitor/quickstart/',
+      label: 'Evaluate LLMs and Agents',
       className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'getting-started/databricks-trial/index',
-        },
-        {
-          type: 'doc',
-          id: 'getting-started/connect-environment',
-          label: 'Connect to MLflow',
-        },
-        {
-          type: 'link',
-          href: 'https://docs.databricks.com/aws/en/mlflow3/genai/getting-started/eval.html',
-          label: 'Evaluate your GenAI App',
-        },
-        {
-          type: 'link',
-          href: '/genai/tracing/quickstart/python-openai',
-          label: 'Tracing',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'getting-started/index',
-      },
+    },
+    {
+      type: 'doc',
+      id: 'getting-started/try-assistant',
+      label: 'Try MLflow Assistant',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'html',
+      value: '<b>Core Components</b>',
+      defaultStyle: true,
     },
     {
       type: 'category',
@@ -70,64 +47,437 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'category',
+          type: 'doc',
+          id: 'tracing/quickstart/index',
           label: 'Quickstart',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/python-openai',
-              label: 'Getting Started (Python)',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/quickstart/typescript-openai',
-              label: 'Getting Started (TS/JS)',
-            },
-          ],
         },
         {
           type: 'category',
-          label: 'Instrumenting GenAI Apps',
+          label: 'Guides',
           items: [
             {
-              type: 'doc',
-              id: 'tracing/app-instrumentation/automatic',
-            },
-            {
               type: 'category',
-              label: 'Manual Tracing',
+              label: 'Trace Your App & Agents',
               items: [
                 {
                   type: 'doc',
-                  id: 'tracing/app-instrumentation/manual-tracing/fluent-apis',
+                  id: 'tracing/app-instrumentation/automatic',
+                  label: 'Automatic Tracing',
                 },
                 {
                   type: 'doc',
-                  id: 'tracing/app-instrumentation/manual-tracing/low-level-api',
+                  id: 'tracing/app-instrumentation/manual-tracing',
+                  label: 'Manual Tracing',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/opentelemetry',
+                  label: 'Tracing with OpenTelemetry',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/distributed-tracing',
+                  label: 'Distributed Tracing',
                 },
               ],
-              link: {
-                type: 'doc',
-                id: 'tracing/app-instrumentation/manual-tracing/index',
-              },
+            },
+            {
+              type: 'category',
+              label: 'Enhance Your Traces',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/track-users-sessions/index',
+                  label: 'Track Users and Sessions',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/attach-tags/index',
+                  label: 'Tag Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/collect-user-feedback/index',
+                  label: 'Collect User Feedback',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/masking',
+                  label: 'Redact Sensitive Data',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/track-environments-context/index',
+                  label: 'Track Application Versions',
+                },
+              ],
+            },
+            {
+              type: 'category',
+              label: 'View & Manage Traces',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/ui',
+                  label: 'View Traces in the UI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/search-traces',
+                  label: 'Search Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/delete-traces',
+                  label: 'Delete Traces',
+                },
+              ],
+            },
+            {
+              type: 'category',
+              label: 'Deploy to Production',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/prod-tracing',
+                  label: 'Production Monitoring',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/lightweight-sdk',
+                  label: 'Production Tracing SDK',
+                },
+              ],
             },
           ],
-          link: {
-            type: 'doc',
-            id: 'tracing/app-instrumentation/index',
-          },
         },
         {
           type: 'category',
-          label: 'Tracing Integrations',
+          label: 'Integrations',
           items: [
             {
-              type: 'autogenerated',
-              dirName: 'tracing/integrations/listing',
+              type: 'category',
+              label: 'Frameworks',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/ag2',
+                  label: 'AG2',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/agno',
+                  label: 'Agno',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/bedrock-agentcore',
+                  label: 'Amazon Bedrock AgentCore',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/autogen',
+                  label: 'AutoGen',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/crewai',
+                  label: 'CrewAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/dspy',
+                  label: 'DSPy',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/google-adk',
+                  label: 'Google ADK',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/haystack',
+                  label: 'Haystack',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/koog',
+                  label: 'Koog',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/langchain',
+                  label: 'LangChain',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/langflow',
+                  label: 'Langflow',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/langgraph',
+                  label: 'LangGraph',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/livekit',
+                  label: 'LiveKit Agents',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/deepagent',
+                  label: 'LangChain DeepAgent',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/llama_index',
+                  label: 'LlamaIndex',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/mastra',
+                  label: 'Mastra',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/microsoft-agent-framework',
+                  label: 'Microsoft Agent Framework',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/openai-agent',
+                  label: 'OpenAI Agent',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/pipecat',
+                  label: 'Pipecat',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/pydantic_ai',
+                  label: 'PydanticAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/quarkus-langchain4j',
+                  label: 'Quarkus LangChain4j',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/semantic_kernel',
+                  label: 'Semantic Kernel',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/smolagents',
+                  label: 'Smolagents',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/spring-ai',
+                  label: 'Spring AI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/strands',
+                  label: 'Strands Agents SDK',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/txtai',
+                  label: 'Txtai',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/vercelai',
+                  label: 'Vercel AI SDK',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/voltagent',
+                  label: 'VoltAgent',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/watsonx-orchestrate',
+                  label: 'Watsonx Orchestrate',
+                },
+              ],
+            },
+            {
+              type: 'category',
+              label: 'Model Providers',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/anthropic',
+                  label: 'Anthropic',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/bedrock',
+                  label: 'AWS Bedrock',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/byteplus',
+                  label: 'BytePlus',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/cohere',
+                  label: 'Cohere',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/databricks',
+                  label: 'Databricks',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/deepseek',
+                  label: 'DeepSeek',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/fireworksai',
+                  label: 'FireworksAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/gemini',
+                  label: 'Gemini',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/groq',
+                  label: 'Groq',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/moonshot',
+                  label: 'Kimi (Moonshot AI)',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/litellm',
+                  label: 'LiteLLM',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/mistral',
+                  label: 'Mistral',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/novitaai',
+                  label: 'Novita AI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/ollama',
+                  label: 'Ollama',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/openai',
+                  label: 'OpenAI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/qwen',
+                  label: 'Qwen',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/togetherai',
+                  label: 'Together AI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/xai-grok',
+                  label: 'xAI / Grok',
+                },
+              ],
+            },
+            {
+              type: 'category',
+              label: 'Tools',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/claude_code',
+                  label: 'Claude Code',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/instructor',
+                  label: 'Instructor',
+                },
+              ],
+            },
+            {
+              type: 'category',
+              label: 'Gateways',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/mlflow-ai-gateway',
+                  label: 'MLflow AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/databricks-ai-gateway',
+                  label: 'Databricks',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/helicone',
+                  label: 'Helicone',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/kong',
+                  label: 'Kong AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/litellm-proxy',
+                  label: 'LiteLLM Proxy',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/openrouter',
+                  label: 'OpenRouter',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/portkey',
+                  label: 'Portkey',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/pydantic-ai-gateway',
+                  label: 'Pydantic AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/truefoundry',
+                  label: 'TrueFoundry',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/vercel-ai-gateway',
+                  label: 'Vercel AI Gateway',
+                },
+              ],
             },
             {
               type: 'doc',
               id: 'tracing/integrations/contribute',
+              label: 'Add New Integration',
             },
           ],
           link: {
@@ -137,103 +487,27 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Concepts',
+          label: 'OpenTelemetry',
           items: [
             {
               type: 'doc',
-              id: 'tracing/concepts/trace',
-              label: 'Trace',
+              id: 'tracing/opentelemetry/index',
+              label: 'Overview',
             },
             {
               type: 'doc',
-              id: 'tracing/concepts/span',
-              label: 'Span',
+              id: 'tracing/opentelemetry/ingest',
             },
             {
               type: 'doc',
-              id: 'tracing/concepts/feedback',
-              label: 'Feedback',
+              id: 'tracing/opentelemetry/export',
             },
           ],
-        },
-        {
-          type: 'category',
-          label: 'Guides',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/track-users-sessions/index',
-              label: 'Track Users and Sessions',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/track-environments-context/index',
-              label: 'Track App Versions and Environments',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/collect-user-feedback/index',
-              label: 'User Feedback Collection',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/attach-tags/index',
-              label: 'Trace Tagging',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/quality-with-traces',
-              label: 'Using Traces for Quality Improvement',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/delete-traces',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/search-traces',
-              label: 'Searching for Traces',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/masking',
-              label: 'Redacting Sensitive Data',
-            },
-          ],
-        },
-
-        {
-          type: 'category',
-          label: 'Observe & Analyze Traces',
-          items: [
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/ui',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/observe-with-traces/query-via-sdk',
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'tracing/observe-with-traces/index',
-          },
-        },
-        {
-          type: 'doc',
-          id: 'tracing/lightweight-sdk',
-          label: 'Lightweight Tracing SDK',
-        },
-        {
-          type: 'doc',
-          id: 'tracing/prod-tracing',
-          label: 'Production Tracing',
         },
         {
           type: 'doc',
           id: 'tracing/faq',
-          label: 'Tracing FAQ',
+          label: 'FAQ',
         },
       ],
       link: {
@@ -248,35 +522,303 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'doc',
-          id: 'eval-monitor/llm-evaluation',
-          label: 'LLM Evaluation',
-        },
-        {
-          type: 'link',
-          href: 'https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/',
-          label: '🆕 GenAI Evaluation Suite (Managed-Only)',
+          id: 'eval-monitor/quickstart',
+          label: 'Quickstart',
         },
         {
           type: 'category',
-          label: 'Notebooks',
+          label: 'Running Evaluations',
           items: [
             {
               type: 'doc',
-              id: 'eval-monitor/notebooks/huggingface-evaluation-ipynb',
+              id: 'eval-monitor/running-evaluation/eval-examples',
+              label: 'Examples',
             },
             {
               type: 'doc',
-              id: 'eval-monitor/notebooks/question-answering-evaluation-ipynb',
+              id: 'eval-monitor/running-evaluation/prompts',
+              label: 'Evaluate Prompts',
             },
             {
               type: 'doc',
-              id: 'eval-monitor/notebooks/rag-evaluation-ipynb',
+              id: 'eval-monitor/running-evaluation/agents',
+              label: 'Evaluate Agents',
             },
             {
               type: 'doc',
-              id: 'eval-monitor/notebooks/rag-evaluation-llama2-ipynb',
+              id: 'eval-monitor/running-evaluation/traces',
+              label: 'Evaluate Traces',
+            },
+            {
+              type: 'category',
+              label: 'Evaluate Conversations',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/running-evaluation/conversation-simulation',
+                  label: 'Conversation Simulation',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/running-evaluation/multi-turn',
+              },
             },
           ],
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/automatic-evaluations/index',
+          label: 'Automatic Evaluation',
+        },
+        {
+          type: 'category',
+          label: 'Judges and Scorers',
+          link: {
+            type: 'doc',
+            id: 'eval-monitor/scorers/index',
+          },
+          items: [
+            {
+              type: 'category',
+              label: 'Built-in Judges',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/predefined',
+              },
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/guidelines',
+                  label: 'Guidelines',
+                },
+                {
+                  type: 'category',
+                  label: 'RAG',
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/llm-judge/rag/index',
+                  },
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/rag/relevance',
+                      label: 'Answer and Context Relevance',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/rag/groundedness',
+                      label: 'Groundedness',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/rag/context-sufficiency',
+                      label: 'Context Sufficiency',
+                    },
+                  ],
+                  collapsed: false,
+                },
+                {
+                  type: 'category',
+                  label: 'Response Quality',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/response-quality/safety',
+                      label: 'Safety',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/response-quality/correctness',
+                      label: 'Correctness',
+                    },
+                  ],
+                  collapsed: false,
+                },
+                {
+                  type: 'category',
+                  label: 'Tool Call',
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/llm-judge/tool-call/index',
+                  },
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/tool-call/correctness',
+                      label: 'ToolCallCorrectness',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/llm-judge/tool-call/efficiency',
+                      label: 'ToolCallEfficiency',
+                    },
+                  ],
+                  collapsed: false,
+                },
+                {
+                  type: 'category',
+                  label: 'Third-party Judges',
+                  items: [
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/deepeval',
+                      label: 'DeepEval',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/ragas',
+                      label: 'RAGAS',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/phoenix',
+                      label: 'Arize Phoenix',
+                    },
+                  ],
+                  collapsed: false,
+                  link: {
+                    type: 'doc',
+                    id: 'eval-monitor/scorers/third-party/index',
+                  },
+                },
+              ],
+            },
+            {
+              type: 'category',
+              label: 'Custom Judges',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/custom-judges/index',
+              },
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/supported-models',
+                  label: 'Supported Judge Models',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge',
+                  label: 'Create a Custom Judge',
+                },
+              ],
+              collapsed: false,
+            },
+            {
+              type: 'category',
+              label: 'Code-based Scorers',
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/custom/index',
+              },
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/code-examples',
+                  label: 'Code-based Scorer Examples',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/custom/tutorial',
+                  label: 'Tutorial: Develop code-based scorers',
+                },
+              ],
+              collapsed: false,
+            },
+            {
+              type: 'category',
+              label: 'Align with Human Feedback',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/simba',
+                  label: 'SIMBA Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/memalign',
+                  label: 'MemAlign Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/custom-optimizers',
+                  label: 'Custom Optimizers',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/scorers/llm-judge/alignment',
+              },
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/scorers/versioning',
+              label: 'Versioning Scorers',
+            },
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Evaluation Datasets',
+          items: [
+            {
+              type: 'doc',
+              id: 'datasets/sdk-guide',
+              label: 'SDK Guide',
+            },
+            {
+              type: 'doc',
+              id: 'datasets/conversation-simulation',
+              label: 'Conversation Simulation',
+            },
+            {
+              type: 'doc',
+              id: 'datasets/end-to-end-workflow',
+              label: 'End-to-End Workflow',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'datasets/index',
+          },
+        },
+        {
+          type: 'category',
+          label: 'Annotation',
+          items: [
+            {
+              type: 'doc',
+              id: 'assessments/feedback',
+              label: 'Human Feedback',
+            },
+            {
+              type: 'doc',
+              id: 'assessments/expectations',
+              label: 'Annotating Ground Truth',
+            },
+          ],
+        },
+        {
+          type: 'category',
+          label: 'AI Insights',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/ai-insights/ai-issue-discovery',
+              label: 'AI Issue Discovery',
+            },
+          ],
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/legacy-llm-evaluation',
+          label: 'Migrating from MLflow 2 LLM Evaluation',
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/faq',
+          label: 'FAQ',
         },
       ],
       link: {
@@ -286,250 +828,328 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Prompt and Version Management',
+      label: 'Prompt Management & Optimization',
       className: 'sidebar-top-level-category',
-      collapsed: true,
+      items: [
+        {
+          type: 'doc',
+          id: 'prompt-registry/create-and-edit-prompts',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/evaluate-prompts',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/manage-prompt-lifecycles-with-aliases',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/use-prompts-in-apps',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/log-with-model',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/structured-output',
+        },
+        {
+          type: 'category',
+          label: 'Optimize Prompts',
+          link: {
+            type: 'doc',
+            id: 'prompt-registry/optimize-prompts',
+          },
+          items: [
+            {
+              type: 'doc',
+              id: 'prompt-registry/optimize-prompts/langchain-optimization',
+            },
+            {
+              type: 'doc',
+              id: 'prompt-registry/optimize-prompts/langgraph-optimization',
+            },
+            {
+              type: 'doc',
+              id: 'prompt-registry/optimize-prompts/openai-agent-optimization',
+            },
+            {
+              type: 'doc',
+              id: 'prompt-registry/optimize-prompts/pydantic-ai-optimization',
+            },
+          ],
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/rewrite-prompts',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/prompt-engineering',
+          label: 'Prompt Engineering UI',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'prompt-registry/index',
+      },
+    },
+    {
+      type: 'category',
+      label: 'AI Gateway',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/quickstart',
+          label: 'Quickstart',
+        },
+        {
+          type: 'category',
+          label: 'API Keys',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/api-keys/create-and-manage',
+              label: 'Create and Manage API Keys',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/api-keys/key-rotation',
+              label: 'Encryption & Rotation',
+            },
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Endpoints',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/create-and-manage',
+              label: 'Create and Manage Endpoints',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/query-endpoints',
+              label: 'Query Endpoints',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/endpoints/model-providers',
+              label: 'Model Providers',
+            },
+          ],
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/traffic-routing-fallbacks',
+          label: 'Traffic Routing & Fallbacks',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/usage-tracking',
+          label: 'Usage Tracking',
+        },
+        {
+          type: 'category',
+          label: 'Gateway Server (Legacy)',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/setup',
+              label: 'Setup',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/configuration',
+              label: 'Configuration',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/legacy/usage',
+              label: 'Usage',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'governance/ai-gateway/legacy/index',
+          },
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'governance/ai-gateway/index',
+      },
+    },
+    {
+      type: 'html',
+      value: '<b>More Features</b>',
+      defaultStyle: true,
+    },
+    {
+      type: 'category',
+      label: 'Version Tracking',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'version-tracking/quickstart',
+          label: 'Quickstart',
+        },
+        {
+          type: 'doc',
+          id: 'version-tracking/track-application-versions-with-mlflow',
+        },
+        {
+          type: 'doc',
+          id: 'version-tracking/compare-app-versions',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'version-tracking/index',
+      },
+    },
+    {
+      type: 'category',
+      label: 'Packaging & Deployment',
+      className: 'sidebar-top-level-category',
       items: [
         {
           type: 'category',
-          label: 'Version Tracking',
+          label: 'DSPy',
           items: [
             {
               type: 'doc',
-              id: 'prompt-version-mgmt/version-tracking/quickstart',
-              label: 'Quickstart',
+              id: 'flavors/dspy/notebooks/dspy_quickstart-ipynb',
+              label: 'DSPy Quickstart',
             },
             {
-              type: 'category',
-              label: 'Guides',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'prompt-version-mgmt/version-tracking/track-application-versions-with-mlflow',
-                },
-                {
-                  type: 'doc',
-                  id: 'prompt-version-mgmt/version-tracking/compare-app-versions',
-                },
-                {
-                  type: 'category',
-                  label: 'App Packaging & Deployment',
-                  items: [
-                    {
-                      type: 'category',
-                      label: 'OpenAI',
-                      items: [
-                        {
-                          type: 'doc',
-                          id: 'flavors/openai/guide/index',
-                          label: 'Guide',
-                        },
-                        {
-                          type: 'doc',
-                          id: 'flavors/openai/autologging/index',
-                          label: 'Autologging Support',
-                        },
-                        {
-                          type: 'category',
-                          label: 'Tutorials',
-                          items: [
-                            {
-                              type: 'doc',
-                              id: 'flavors/openai/notebooks/openai-quickstart-ipynb',
-                              label: 'OpenAI Quickstart',
-                            },
-                            {
-                              type: 'doc',
-                              id: 'flavors/openai/notebooks/openai-chat-completions-ipynb',
-                              label: 'Chat Completions with OpenAI',
-                            },
-                            {
-                              type: 'doc',
-                              id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
-                              label: 'Building a Code Assistant with OpenAI & MLflow',
-                            },
-                            {
-                              type: 'doc',
-                              id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
-                              label: 'Embeddings Support with OpenAI in MLflow',
-                            },
-                          ],
-                          link: {
-                            type: 'doc',
-                            id: 'flavors/openai/notebooks/index',
-                          },
-                        },
-                      ],
-                      link: {
-                        type: 'doc',
-                        id: 'flavors/openai/index',
-                      },
-                    },
-                    {
-                      type: 'category',
-                      label: 'DSPy',
-                      items: [
-                        {
-                          type: 'doc',
-                          id: 'flavors/dspy/notebooks/dspy_quickstart-ipynb',
-                          label: 'DSPy Quickstart',
-                        },
-                        {
-                          type: 'doc',
-                          id: 'flavors/dspy/optimizer',
-                          label: 'Using DSPy Optimizers',
-                        },
-                      ],
-                      link: {
-                        type: 'doc',
-                        id: 'flavors/dspy/index',
-                      },
-                    },
-                    {
-                      type: 'category',
-                      label: 'LangChain',
-                      items: [
-                        {
-                          type: 'doc',
-                          id: 'flavors/langchain/guide/index',
-                          label: 'Guide to using LangChain with MLflow',
-                        },
-                        {
-                          type: 'doc',
-                          id: 'flavors/langchain/notebooks/langchain-quickstart-ipynb',
-                          label: 'LangChain Quickstart',
-                        },
-                        {
-                          type: 'doc',
-                          id: 'flavors/langchain/notebooks/langchain-retriever-ipynb',
-                          label: 'Retrievers with LangChain',
-                        },
-                      ],
-                      link: {
-                        type: 'doc',
-                        id: 'flavors/langchain/index',
-                      },
-                    },
-                    {
-                      type: 'category',
-                      label: 'LlamaIndex',
-                      items: [
-                        {
-                          type: 'doc',
-                          id: 'flavors/llama-index/notebooks/llama_index_quickstart-ipynb',
-                          label: 'LlamaIndex Quickstart',
-                        },
-                        {
-                          type: 'doc',
-                          id: 'flavors/llama-index/notebooks/llama_index_workflow_tutorial-ipynb',
-                          label: 'Agents with LlamaIndex',
-                        },
-                      ],
-                      link: {
-                        type: 'doc',
-                        id: 'flavors/llama-index/index',
-                      },
-                    },
-                    {
-                      type: 'category',
-                      label: 'Custom Applications',
-                      items: [
-                        {
-                          type: 'doc',
-                          id: 'flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm-ipynb',
-                          label: 'Custom App Development Guide',
-                        },
-                      ],
-                      link: {
-                        type: 'doc',
-                        id: 'flavors/custom-pyfunc-for-llms/index',
-                      },
-                    },
-                    {
-                      type: 'doc',
-                      id: 'flavors/chat-model-intro/index',
-                      label: 'Intro to ChatModel',
-                    },
-                    {
-                      type: 'category',
-                      label: 'Building with ChatModel',
-                      items: [
-                        {
-                          type: 'doc',
-                          id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
-                          label: 'ChatModel Tool Calling Example',
-                        },
-                      ],
-                      link: {
-                        type: 'doc',
-                        id: 'flavors/chat-model-guide/index',
-                      },
-                    },
-                    {
-                      type: 'doc',
-                      id: 'flavors/responses-agent-intro',
-                      label: 'Building with ResponsesAgent',
-                    },
-                  ],
-                  link: {
-                    type: 'doc',
-                    id: 'flavors/index',
-                  },
-                },
-              ],
+              type: 'doc',
+              id: 'flavors/dspy/optimizer',
+              label: 'Using DSPy Optimizers',
             },
           ],
           link: {
             type: 'doc',
-            id: 'prompt-version-mgmt/version-tracking/index',
+            id: 'flavors/dspy/index',
           },
         },
         {
           type: 'category',
-          label: 'Prompt Registry',
+          label: 'LangChain',
           items: [
             {
               type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/create-and-edit-prompts',
+              id: 'flavors/langchain/guide/index',
+              label: 'Guide to using LangChain with MLflow',
             },
             {
               type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/evaluate-prompts',
+              id: 'flavors/langchain/notebooks/langchain-quickstart-ipynb',
+              label: 'LangChain Quickstart',
             },
             {
               type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/manage-prompt-lifecycles-with-aliases',
-            },
-            {
-              type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/use-prompts-in-apps',
-            },
-            {
-              type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/log-with-model',
+              id: 'flavors/langchain/notebooks/langchain-retriever-ipynb',
+              label: 'Retrievers with LangChain',
             },
           ],
           link: {
             type: 'doc',
-            id: 'prompt-version-mgmt/prompt-registry/index',
+            id: 'flavors/langchain/index',
+          },
+        },
+        {
+          type: 'category',
+          label: 'LlamaIndex',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/llama-index/notebooks/llama_index_quickstart-ipynb',
+              label: 'LlamaIndex Quickstart',
+            },
+            {
+              type: 'doc',
+              id: 'flavors/llama-index/notebooks/llama_index_workflow_tutorial-ipynb',
+              label: 'Agents with LlamaIndex',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/llama-index/index',
+          },
+        },
+        {
+          type: 'category',
+          label: 'Custom Applications',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm-ipynb',
+              label: 'Custom App Development Guide',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/custom-pyfunc-for-llms/index',
           },
         },
         {
           type: 'doc',
-          id: 'prompt-version-mgmt/optimize-prompts/index',
+          id: 'flavors/chat-model-intro/index',
+          label: 'Intro to ChatModel',
+        },
+        {
+          type: 'category',
+          label: 'Building with ChatModel',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
+              label: 'ChatModel Tool Calling Example',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/chat-model-guide/index',
+          },
         },
         {
           type: 'doc',
-          id: 'prompt-version-mgmt/prompt-engineering/index',
-          label: 'Prompt Engineering UI',
+          id: 'flavors/responses-agent-intro',
+          label: 'Building with ResponsesAgent',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'flavors/index',
+      },
+    },
+    {
+      type: 'category',
+      label: 'MCP',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'mcp/index',
         },
       ],
     },
     {
       type: 'category',
-      label: 'Application Serving',
+      label: 'Model Serving',
       className: 'sidebar-top-level-category',
       items: [
+        {
+          type: 'doc',
+          id: 'serving/agent-server',
+          label: 'Agent Server',
+        },
         {
           type: 'doc',
           id: 'serving/responses-agent',
@@ -547,91 +1167,57 @@ const sidebarsGenAI: SidebarsConfig = {
       },
     },
     {
-      type: 'category',
-      label: 'Governance',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'category',
-          label: 'AI Gateway',
-          items: [
-            {
-              type: 'doc',
-              id: 'governance/ai-gateway/guides/index',
-              label: 'Getting Started with AI Gateway',
-            },
-            {
-              type: 'doc',
-              id: 'governance/ai-gateway/guides/step1-create-deployments/index',
-              label: 'Setup the AI Gateway',
-            },
-            {
-              type: 'doc',
-              id: 'governance/ai-gateway/guides/step2-query-deployments/index',
-              label: 'Use the AI Gateway',
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'governance/ai-gateway/index',
-          },
-        },
-        {
-          type: 'doc',
-          id: 'governance/unity-catalog',
-          label: 'Unity Catalog',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'governance/ai-gateway/index',
-      },
+      type: 'html',
+      value: '<b>References</b>',
+      defaultStyle: true,
     },
     {
       type: 'category',
-      label: 'Data Model',
+      label: 'Concepts',
       className: 'sidebar-top-level-category',
       items: [
         {
           type: 'doc',
-          id: 'data-model/experiments',
-          label: 'Experiments',
+          id: 'concepts/trace',
+          label: 'Trace',
         },
         {
           type: 'doc',
-          id: 'data-model/logged-model',
-          label: 'Logged Model',
+          id: 'concepts/span',
+          label: 'Span',
         },
         {
           type: 'doc',
-          id: 'data-model/runs',
-          label: 'Runs',
+          id: 'concepts/feedback',
+          label: 'Feedback',
         },
         {
           type: 'doc',
-          id: 'data-model/traces',
-          label: 'Traces',
+          id: 'concepts/expectations',
+          label: 'Expectations',
         },
         {
           type: 'doc',
-          id: 'data-model/prompts',
-          label: 'Prompts',
+          id: 'concepts/scorers',
+          label: 'Scorers',
         },
         {
           type: 'doc',
-          id: 'data-model/app-versions',
-          label: 'Version Tracking',
-        },
-        {
-          type: 'doc',
-          id: 'data-model/model-registry',
-          label: 'Model Registry',
+          id: 'concepts/evaluation-datasets',
+          label: 'Evaluation Datasets',
         },
       ],
-      link: {
-        type: 'doc',
-        id: 'data-model/index',
-      },
+    },
+    {
+      type: 'doc',
+      id: 'references/request-features',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'doc',
+      id: 'getting-started/databricks-trial/index',
+      className: 'sidebar-top-level-category',
+      label: 'Managed MLflow',
     },
   ],
 };

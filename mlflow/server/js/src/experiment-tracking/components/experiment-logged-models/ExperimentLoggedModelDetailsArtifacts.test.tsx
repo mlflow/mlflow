@@ -1,3 +1,5 @@
+import { afterAll, afterEach, beforeAll, describe, expect, jest, test } from '@jest/globals';
+import { DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { rest } from 'msw';
 import { IntlProvider } from 'react-intl';
@@ -9,18 +11,23 @@ import { setupServer } from '../../../common/utils/setup-msw';
 import { render, waitFor } from '../../../common/utils/TestUtils.react18';
 import { apis, artifactsByRunUuid } from '../../reducers/Reducers';
 import { ExperimentLoggedModelDetailsArtifacts } from './ExperimentLoggedModelDetailsArtifacts';
-import { isExperimentLoggedModelsUIEnabled } from '../../../common/utils/FeatureUtils';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
+import { setActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
+import { getWorkspacesEnabledSync } from '../../hooks/useServerInfo';
 
-jest.mock('../../../common/utils/FeatureUtils', () => ({
-  isExperimentLoggedModelsUIEnabled: jest.fn(),
+jest.mock('../../hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../../hooks/useServerInfo')>('../../hooks/useServerInfo'),
+  getWorkspacesEnabledSync: jest.fn(),
 }));
+
+const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
 
 describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
   const { history } = setupTestRouter();
   const server = setupServer(
-    rest.get('/ajax-api/2.0/mlflow/logged-models/:modelId/artifacts/directories', (req, res, ctx) =>
-      res(
+    rest.get(/\/?ajax-api\/2\.0\/mlflow\/logged-models\/[^/]+\/artifacts\/directories/, (req, res, ctx) => {
+      expect(req.headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+      return res(
         ctx.json({
           root_uri: 'dbfs:/databricks/mlflow-tracking/123/logged_models/test-model-id/artifacts',
           files: [
@@ -36,14 +43,16 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
             },
           ],
         }),
-      ),
-    ),
-    rest.get('/ajax-api/2.0/mlflow/logged-models/:modelId/artifacts/files', (req, res, ctx) =>
-      res(ctx.text('this is text file content of ' + req.url.searchParams.get('artifact_file_path'))),
-    ),
-    rest.get('/get-artifact', (req, res, ctx) =>
-      res(ctx.text('this is text file content of ' + req.url.searchParams.get('path'))),
-    ),
+      );
+    }),
+    rest.get(/\/?ajax-api\/2\.0\/mlflow\/logged-models\/[^/]+\/artifacts\/files/, (req, res, ctx) => {
+      expect(req.headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+      return res(ctx.text('this is text file content of ' + req.url.searchParams.get('artifact_file_path')));
+    }),
+    rest.get(/\/?get-artifact/, (req, res, ctx) => {
+      expect(req.headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+      return res(ctx.text('this is text file content of ' + req.url.searchParams.get('path')));
+    }),
   );
 
   const renderTestComponent = () => {
@@ -68,22 +77,32 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
 
     return render(<ExperimentLoggedModelDetailsArtifacts loggedModel={loggedModel} />, {
       wrapper: ({ children }) => (
-        <IntlProvider locale="en">
-          <Provider store={store}>
-            <TestRouter routes={[testRoute(<>{children}</>)]} history={history} />
-          </Provider>
-        </IntlProvider>
+        <DesignSystemProvider>
+          <IntlProvider locale="en">
+            <Provider store={store}>
+              <TestRouter routes={[testRoute(<>{children}</>)]} history={history} />
+            </Provider>
+          </IntlProvider>
+        </DesignSystemProvider>
       ),
     });
   };
 
   beforeAll(() => {
+    getWorkspacesEnabledSyncMock.mockReturnValue(true);
+    setActiveWorkspace('team-a');
     process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = 'true';
     server.listen();
   });
 
-  beforeEach(() => {
-    jest.mocked(isExperimentLoggedModelsUIEnabled).mockReturnValue(true);
+  afterAll(() => {
+    jest.restoreAllMocks();
+    setActiveWorkspace(null);
+    server.close();
+  });
+
+  afterEach(() => {
+    server.resetHandlers();
   });
 
   test('should render list of artifacts and display file contents', async () => {

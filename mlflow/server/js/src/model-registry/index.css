@@ -3,21 +3,16 @@
 @import 'components/ModelStageTransitionDropdown.css';
 
 /** TODO(Zangr) migrate globally common components and styles into src/common folder */
-.metadata-container {
+.mlflow-metadata-container {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
 }
 
-.metadata-entry {
+.mlflow-metadata-entry {
   margin-bottom: 16px;
 }
 
-.icon-pending,
-.icon-ready {
-  color: green;
-}
-
-.icon-fail {
+.mlflow-icon-fail {
   color: red;
 }

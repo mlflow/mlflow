@@ -5,7 +5,7 @@ import os
 import warnings
 from functools import partial
 from string import Formatter
-from typing import Any, Optional, Union
+from typing import Any
 
 import yaml
 from packaging.version import Version
@@ -24,7 +24,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import ColSpec, Schema, TensorSpec
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     is_in_databricks_runtime,
@@ -62,7 +62,6 @@ _PYFUNC_SUPPORTED_TASKS = ("chat.completions", "embeddings", "completions")
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="2.3.0")
 def get_default_pip_requirements():
     """
     Returns:
@@ -73,7 +72,6 @@ def get_default_pip_requirements():
     return list(map(_get_pinned_requirement, ["openai", "tiktoken", "tenacity"]))
 
 
-@experimental(version="2.3.0")
 def get_default_conda_env():
     """
     Returns:
@@ -192,9 +190,29 @@ def _log_secrets_yaml(local_model_dir, scope):
         yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in _OpenAIEnvVar}, f)
 
 
-def _parse_format_fields(s) -> set[str]:
-    """Parses format fields from a given string, e.g. "Hello {name}" -> ["name"]."""
-    return {fn for _, fn, _, _ in Formatter().parse(s) if fn is not None}
+def _parse_format_fields(content: str | list[Any] | dict[str, Any] | Any) -> set[str]:
+    """Parse format fields from content recursively."""
+    if isinstance(content, str):
+        return {fn for _, fn, _, _ in Formatter().parse(content) if fn is not None}
+    elif isinstance(content, list):
+        # Handle multimodal content (list of objects)
+        fields = set()
+        for item in content:
+            if isinstance(item, dict):
+                for value in item.values():
+                    fields.update(_parse_format_fields(value))  # Recursive call
+            elif isinstance(item, str):
+                fields.update(_parse_format_fields(item))
+        return fields
+    elif isinstance(content, dict):
+        # Handle dict content (recursively)
+        fields = set()
+        for value in content.values():
+            fields.update(_parse_format_fields(value))  # Recursive call
+        return fields
+    else:
+        # For other types (e.g., None), return empty set
+        return set()
 
 
 def _get_input_schema(task, content):
@@ -211,7 +229,10 @@ def _get_input_schema(task, content):
         return Schema([ColSpec(type="string")])
 
 
-@experimental(version="2.3.0")
+@deprecated(
+    alternative="mlflow.genai.register_prompt",
+    since="3.8.0",
+)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
@@ -410,12 +431,15 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental(version="2.3.0")
+@deprecated(
+    alternative="mlflow.genai.register_prompt",
+    since="3.8.0",
+)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
     task,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -425,13 +449,13 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
     **kwargs,
 ):
     """
@@ -605,13 +629,37 @@ class _ContentFormatter:
 
     def format_chat(self, **params):
         format_args = {v: params[v] for v in self.variables}
-        return [
-            {
-                "role": message.get("role").format(**format_args),
-                "content": message.get("content").format(**format_args),
-            }
-            for message in self.template
-        ]
+
+        def format_value(
+            value: str | list[Any] | dict[str, Any] | Any,
+        ) -> str | list[Any] | dict[str, Any] | Any:
+            if isinstance(value, str):
+                return value.format(**format_args)
+            elif isinstance(value, list):
+                return [format_value(item) for item in value]
+            elif isinstance(value, dict):
+                return {key: format_value(val) for key, val in value.items()}
+            else:
+                return value
+
+        formatted_messages = []
+
+        for message in self.template:
+            role = message.get("role")
+            content = message.get("content")
+
+            # Format role and content recursively
+            formatted_role = format_value(role)
+            formatted_content = format_value(content)
+
+            formatted_messages.append(
+                {
+                    "role": formatted_role,
+                    "content": formatted_content,
+                }
+            )
+
+        return formatted_messages
 
 
 def _first_string_column(pdf):
@@ -767,7 +815,7 @@ class _OpenAIWrapper:
 
         return [row.embedding for batch in results for row in batch.data]
 
-    def predict(self, data, params: Optional[dict[str, Any]] = None):
+    def predict(self, data, params: dict[str, Any] | None = None):
         """
         Args:
             data: Model input data.
@@ -794,7 +842,6 @@ def _load_pyfunc(path):
     return _OpenAIWrapper(_load_model(path))
 
 
-@experimental(version="2.3.0")
 def load_model(model_uri, dst_path=None):
     """
     Load an OpenAI model from a local file or a run.

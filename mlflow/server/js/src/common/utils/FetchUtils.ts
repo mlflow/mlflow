@@ -8,8 +8,10 @@
 import cookie from 'cookie';
 import JsonBigInt from 'json-bigint';
 import yaml from 'js-yaml';
-import _ from 'lodash';
+import { isNil, pickBy } from 'lodash';
 import { ErrorWrapper } from './ErrorWrapper';
+import { matchPredefinedError, matchPredefinedErrorFromResponse } from '@databricks/web-shared/errors';
+import { getActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 
 export const HTTPMethods = {
   GET: 'GET',
@@ -46,14 +48,18 @@ export const getDefaultHeadersFromCookies = (cookieStr: any) => {
 
 export const getDefaultHeaders = (cookieStr: any) => {
   const cookieHeaders = getDefaultHeadersFromCookies(cookieStr);
+
+  // getActiveWorkspace() returns null if workspaces feature is not enabled
+  const workspace = getActiveWorkspace();
+
   return {
     ...cookieHeaders,
+    ...(workspace ? { 'X-MLFLOW-WORKSPACE': workspace } : {}),
   };
 };
 
 export const getAjaxUrl = (relativeUrl: any) => {
-  // @ts-expect-error TS(4111): Property 'MLFLOW_USE_ABSOLUTE_AJAX_URLS' comes from an in... Remove this comment to see the full error message
-  if (process.env.MLFLOW_USE_ABSOLUTE_AJAX_URLS === 'true' && !relativeUrl.startsWith('/')) {
+  if (process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] === 'true' && !relativeUrl.startsWith('/')) {
     return '/' + relativeUrl;
   }
   return relativeUrl;
@@ -137,7 +143,7 @@ export const fetchEndpointRaw = ({
     ...options,
     ...(timeoutMs && { signal: abortController.signal }),
   };
-
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
   return fetch(url, fetchOptions);
 };
 
@@ -263,7 +269,7 @@ export const fetchEndpoint = ({
 
 const filterUndefinedFields = (data: any) => {
   if (!Array.isArray(data)) {
-    return _.pickBy(data, (v) => v !== undefined);
+    return pickBy(data, (v) => v !== undefined);
   } else {
     return data.filter((v) => v !== undefined);
   }
@@ -278,8 +284,6 @@ const generateJsonBody = (data: any) => {
     return JSON.stringify(filterUndefinedFields(data));
   } else {
     throw new Error(
-      // Reported during ESLint upgrade
-      // eslint-disable-next-line max-len
       'Unexpected type of input. The REST api payload type must be either an object or a string, got ' + typeof data,
     );
   }
@@ -442,3 +446,87 @@ export const deleteYaml = (props: any) => {
     success: yamlResponseParser,
   });
 };
+
+function serializeRequestBody(payload: any | FormData | Blob) {
+  if (payload === undefined) {
+    return undefined;
+  }
+  return typeof payload === 'string' || payload instanceof FormData || payload instanceof Blob
+    ? payload
+    : JSON.stringify(payload);
+}
+
+export type FetchAPIOptions = Omit<RequestInit, 'body'> & {
+  body?: any;
+};
+
+// Helper method to make a request to the backend.
+export const fetchAPI = async (url: string, options: FetchAPIOptions = {}) => {
+  const { method, headers, body, ...restOptions } = options;
+
+  let cookieString = '';
+  if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
+    cookieString = document.cookie || '';
+  }
+
+  const fetchOptions: RequestInit = {
+    ...restOptions,
+    method: method || HTTPMethods.GET,
+    headers: {
+      ...getDefaultHeaders(cookieString),
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...headers,
+    },
+    ...(body && { body: serializeRequestBody(body) }),
+  };
+
+  // eslint-disable-next-line no-restricted-globals
+  const fetchFn = fetch;
+  const response = await fetchFn(url, fetchOptions);
+  if (!response.ok) {
+    const predefinedError = matchPredefinedError(response);
+    if (predefinedError) {
+      try {
+        // Attempt to use message from the response
+        const message = (await response.json()).message;
+        predefinedError.message = message ?? predefinedError.message;
+      } catch {
+        // If the message can't be parsed, use default one
+      }
+      throw predefinedError;
+    }
+  }
+  return response.json();
+};
+/**
+ * Wrapper around fetch that throws on non-OK responses
+ * Returns the Response object for further processing (.json(), .text(), etc.)
+ * Automatically includes default headers (cookies and workspace).
+ *
+ * @param input - URL or Request object
+ * @param options - Fetch options
+ * @returns Response object if successful
+ * @throws PredefinedError (NotFoundError, PermissionError, etc.) if response is not OK
+ */
+export async function fetchOrFail(input: RequestInfo | URL, options?: RequestInit): Promise<Response> {
+  let cookieString = '';
+  if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
+    cookieString = document.cookie || '';
+  }
+
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers: {
+      ...getDefaultHeaders(cookieString),
+      ...options?.headers,
+    },
+  };
+
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
+  const response = await fetch(input, fetchOptions);
+  if (!response.ok) {
+    const error = matchPredefinedErrorFromResponse(response);
+    throw error;
+  }
+  return response;
+}

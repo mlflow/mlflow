@@ -1,19 +1,95 @@
 import functools
+import json
+import logging
 import re
+import threading
+import time
 from textwrap import dedent
-from typing import Any, Optional, Union
+from typing import Any, NamedTuple
 
 import mlflow
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_NAME_RULE, PROMPT_TEXT_TAG_KEY
+from mlflow.prompt.constants import (
+    IS_PROMPT_TAG_KEY,
+    PROMPT_NAME_RULE,
+    PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    RESPONSE_FORMAT_TAG_KEY,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
+
+_logger = logging.getLogger(__name__)
+
+
+class PromptCacheKey(NamedTuple):
+    """Cache key for prompt lookups.
+
+    Attributes:
+        name: Prompt name
+        version: Prompt version (None for non-version lookups)
+        alias: Prompt alias (None for non-alias lookups)
+    """
+
+    name: str
+    version: int | None
+    alias: str | None
+
+    @classmethod
+    def from_parts(
+        cls,
+        name: str,
+        version: int | None = None,
+        alias: str | None = None,
+    ) -> "PromptCacheKey":
+        """
+        Create a cache key from prompt name and version/alias.
+
+        Args:
+            name: Prompt name
+            version: Prompt version (mutually exclusive with alias)
+            alias: Prompt alias (mutually exclusive with version)
+
+        Returns:
+            A PromptCacheKey instance
+
+        Raises:
+            ValueError: If both version and alias are provided
+        """
+        if version is not None and alias is not None:
+            raise ValueError("Cannot specify both version and alias")
+        return cls(name=name, version=version, alias=alias)
+
+    @classmethod
+    def from_uri(cls, prompt_uri: str) -> "PromptCacheKey":
+        """
+        Create a cache key from a prompt URI.
+
+        Args:
+            prompt_uri: URI in format "prompts:/name/version" or "prompts:/name@alias"
+
+        Returns:
+            A PromptCacheKey instance
+        """
+        uri_path = prompt_uri.replace("prompts:/", "")
+
+        if "@" in uri_path:
+            # Alias format: "name@alias"
+            prompt_name, alias = uri_path.split("@", 1)
+            return cls.from_parts(prompt_name, alias=alias)
+        else:
+            # Version format: "name/version"
+            parts = uri_path.split("/")
+            prompt_name = parts[0]
+            prompt_version = int(parts[1]) if len(parts) > 1 else None
+            return cls.from_parts(prompt_name, version=prompt_version)
 
 
 def model_version_to_prompt_version(
-    model_version: ModelVersion, prompt_tags: Optional[dict[str, str]] = None
+    model_version: ModelVersion, prompt_tags: dict[str, str] | None = None
 ) -> PromptVersion:
     """
     Create a PromptVersion object from a ModelVersion object.
@@ -36,22 +112,31 @@ def model_version_to_prompt_version(
             f"Prompt `{model_version.name}` does not contain a prompt text"
         )
 
+    if model_version.tags.get(PROMPT_TYPE_TAG_KEY) == PROMPT_TYPE_CHAT:
+        template = json.loads(model_version.tags[PROMPT_TEXT_TAG_KEY])
+    else:
+        template = model_version.tags[PROMPT_TEXT_TAG_KEY]
+
+    if RESPONSE_FORMAT_TAG_KEY in model_version.tags:
+        response_format = json.loads(model_version.tags[RESPONSE_FORMAT_TAG_KEY])
+    else:
+        response_format = None
+
     return PromptVersion(
         name=model_version.name,
         version=int(model_version.version),
-        template=model_version.tags[PROMPT_TEXT_TAG_KEY],
+        template=template,
         commit_message=model_version.description,
         creation_timestamp=model_version.creation_timestamp,
         tags=model_version.tags,
         aliases=model_version.aliases,
         last_updated_timestamp=model_version.last_updated_timestamp,
         user_id=model_version.user_id,
+        response_format=response_format,
     )
 
 
-def add_prompt_filter_string(
-    filter_string: Optional[str], is_prompt: bool = False
-) -> Optional[str]:
+def add_prompt_filter_string(filter_string: str | None, is_prompt: bool = False) -> str | None:
     """
     Additional filter string to include/exclude prompts from the result.
     By default, exclude prompts from the result.
@@ -69,7 +154,7 @@ def add_prompt_filter_string(
     return filter_string
 
 
-def has_prompt_tag(tags: Optional[Union[list[RegisteredModelTag], dict[str, str]]]) -> bool:
+def has_prompt_tag(tags: list[RegisteredModelTag] | dict[str, str] | None) -> bool:
     """Check if the given tags contain the prompt tag."""
     if isinstance(tags, dict):
         return IS_PROMPT_TAG_KEY in tags if tags else False
@@ -78,7 +163,7 @@ def has_prompt_tag(tags: Optional[Union[list[RegisteredModelTag], dict[str, str]
     return any(tag.key == IS_PROMPT_TAG_KEY for tag in tags)
 
 
-def is_prompt_supported_registry(registry_uri: Optional[str] = None) -> bool:
+def is_prompt_supported_registry(registry_uri: str | None = None) -> bool:
     """
     Check if the current registry supports prompts.
 
@@ -154,7 +239,9 @@ def translate_prompt_exception(func):
             )
 
             if new_message != original_message:
-                raise MlflowException(new_message) from e
+                new_exc = MlflowException(new_message)
+                new_exc.error_code = e.error_code  # Preserve original error code
+                raise new_exc from e
             else:
                 raise e
 
@@ -203,11 +290,9 @@ def handle_resource_already_exist_error(
     )
 
 
-def parse_prompt_name_or_uri(
-    name_or_uri: str, version: Optional[Union[str, int]] = None
-) -> tuple[str, Optional[Union[str, int]]]:
+def parse_prompt_name_or_uri(name_or_uri: str, version: str | int | None = None) -> str:
     """
-    Parse prompt name or URI into (name, version) tuple.
+    Parse prompt name or URI into a fully qualified prompt URI.
 
     Handles two cases:
     1. URI format: "prompts:/name/version" or "prompts:/name@alias"
@@ -215,14 +300,14 @@ def parse_prompt_name_or_uri(
        - Raises error if version parameter is also provided
     2. Name format: "my_prompt"
        - Returns (name, version)
-       - Raises error if version parameter is not provided
+       - Return the latest version if version is not provided
 
     Args:
         name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
         version: The version of the prompt (required when using name, not allowed when using URI).
 
     Returns:
-        Tuple of (name, version) where version can be a string, int, or None
+        Fully qualified prompt URI
 
     Raises:
         MlflowException: If validation fails
@@ -233,16 +318,103 @@ def parse_prompt_name_or_uri(
                 "The `version` argument should not be specified when loading a prompt by URI.",
                 INVALID_PARAMETER_VALUE,
             )
-        # Parse URI to extract name and version
-        # This assumes the parse_prompt_uri method exists, but we'll handle that separately
-        # For now, we'll do basic parsing and let the caller handle the URI parsing
-        return name_or_uri, None
+        return name_or_uri
     else:
         if version is None:
-            raise MlflowException(
-                "Version must be specified when loading a prompt by name. "
-                "Use a prompt URI (e.g., 'prompts:/name/version') or provide the version "
-                "parameter.",
-                INVALID_PARAMETER_VALUE,
+            _logger.debug(
+                "No version provided, returning the latest version of the prompt. "
+                "Prompt caching will not be enabled for this mode."
             )
-        return name_or_uri, version
+            return f"prompts:/{name_or_uri}@latest"
+        return f"prompts:/{name_or_uri}/{version}"
+
+
+class PromptCache:
+    """
+    Thread-safe singleton cache for prompts with TTL support.
+
+    This cache stores prompts to avoid repeated API calls when fetching
+    prompts by name/version/alias. Items expire after a configurable TTL.
+
+    Usage:
+        cache = PromptCache.get_instance()
+        key = PromptCacheKey.from_parts("my-prompt", version=1)
+        cache.set(key, prompt_value, ttl_seconds=300)
+        prompt = cache.get(key)
+    """
+
+    _instance_lock = threading.RLock()
+    _instance: "PromptCache | None" = None
+
+    @classmethod
+    def get_instance(cls) -> "PromptCache":
+        """Get the singleton instance of PromptCache."""
+        if cls._instance is None:
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def _reset_instance(cls) -> None:
+        """Reset the singleton instance (for testing purposes only)."""
+        with cls._instance_lock:
+            if cls._instance is not None:
+                cls._instance._cache.clear()
+            cls._instance = None
+
+    def __init__(self):
+        # key -> (value, expiry_timestamp)
+        self._cache: dict[PromptCacheKey, tuple[PromptVersion, float]] = {}
+        self._lock = threading.RLock()
+
+    def get(self, key: PromptCacheKey) -> PromptVersion | None:
+        """
+        Get a prompt from the cache.
+
+        Returns the cached value, or None if not found or expired.
+        Expired items are removed on access.
+        """
+        with self._lock:
+            item = self._cache.get(key)
+            if item is None:
+                return None
+            value, expiry = item
+            if time.time() > expiry:
+                self._cache.pop(key, None)
+                return None
+            return value
+
+    def set(
+        self,
+        key: PromptCacheKey,
+        value: PromptVersion,
+        ttl_seconds: float | None = None,
+    ) -> None:
+        """
+        Store a prompt in the cache.
+
+        Args:
+            key: Cache key created by PromptCacheKey.from_parts() or PromptCacheKey.from_uri()
+            value: The prompt value to cache
+            ttl_seconds: Time-to-live in seconds (default None, no TTL)
+        """
+        with self._lock:
+            expiry = float("inf") if ttl_seconds is None else time.time() + ttl_seconds
+            self._cache[key] = (value, expiry)
+
+    def delete(
+        self,
+        prompt_name: str,
+        version: int | None = None,
+        alias: str | None = None,
+    ) -> None:
+        """Delete a prompt from the cache."""
+        key = PromptCacheKey.from_parts(prompt_name, version, alias)
+        with self._lock:
+            self._cache.pop(key, None)
+
+    def clear(self) -> None:
+        """Clear all cached prompts."""
+        with self._lock:
+            self._cache.clear()

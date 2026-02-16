@@ -25,7 +25,7 @@ import { Param, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid, minMetricsByRunUuid, maxMetricsByRunUuid } from './MetricReducer';
 import modelRegistryReducers from '../../model-registry/reducers';
-import _, { isArray, isEqual, merge, update } from 'lodash';
+import { isArray, isEqual, merge, update, intersection, omit, union } from 'lodash';
 import { fulfilled, isFulfilledApi, isPendingApi, isRejectedApi, rejected } from '../../common/utils/ActionUtils';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import { getProtoField } from '../../model-registry/utils';
@@ -39,10 +39,10 @@ import type {
   RunInfoEntity,
 } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { sampledMetricsByRunUuid } from './SampledMetricsReducer';
-import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import type { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { imagesByRunUuid } from './ImageReducer';
 import { colorByRunUuid } from './RunColorReducer';
-import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
+import { runInputsOutputsByUuid } from './InputsOutputsReducer';
 
 export type ApisReducerReduxState = Record<
   string,
@@ -233,7 +233,7 @@ export const modelVersionsByRunUuid = (state = {}, action: any) => {
         }
       }
       newState = { ...newState, ...updatedState };
-      if (_.isEqual(state, newState)) {
+      if (isEqual(state, newState)) {
         return state;
       }
       return newState;
@@ -341,9 +341,9 @@ export const tagsByRunUuid = (state = {}, action: any) => {
       const { runUuid } = action.meta;
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       const oldTags = state[runUuid] ? state[runUuid] : {};
-      const newTags = _.omit(oldTags, action.meta.key);
+      const newTags = omit(oldTags, action.meta.key);
       if (Object.keys(newTags).length === 0) {
-        return _.omit({ ...state }, runUuid);
+        return omit({ ...state }, runUuid);
       } else {
         return { ...state, [runUuid]: newTags };
       }
@@ -426,7 +426,7 @@ export const artifactsByRunUuid = (state = {}, action: any) => {
       const { runUuid, loggedModelId } = action.meta;
 
       // If the artifact belongs to a logged model instead of run, use its id as a store identifier
-      const storeIdentifier = isExperimentLoggedModelsUIEnabled() ? loggedModelId ?? runUuid : runUuid;
+      const storeIdentifier = loggedModelId ?? runUuid;
 
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       let artifactNode = state[storeIdentifier] || new ArtifactNode(true);
@@ -537,6 +537,7 @@ const entities = combineReducers({
   runInfosByUuid,
   runInfoOrderByUuid,
   runDatasetsByUuid,
+  runInputsOutputsByUuid,
   runUuidsMatchingFilter,
   metricsByRunUuid,
   imagesByRunUuid,
@@ -556,16 +557,16 @@ const entities = combineReducers({
 });
 
 export const getSharedParamKeysByRunUuids = (runUuids: any, state: any) =>
-  _.intersection(...runUuids.map((runUuid: any) => Object.keys(state.entities.paramsByRunUuid[runUuid])));
+  intersection(...runUuids.map((runUuid: any) => Object.keys(state.entities.paramsByRunUuid[runUuid])));
 
 export const getSharedMetricKeysByRunUuids = (runUuids: any, state: any) =>
-  _.intersection(...runUuids.map((runUuid: any) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])));
+  intersection(...runUuids.map((runUuid: any) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])));
 
 export const getAllParamKeysByRunUuids = (runUuids: any, state: any) =>
-  _.union(...runUuids.map((runUuid: any) => Object.keys(state.entities.paramsByRunUuid[runUuid])));
+  union(...runUuids.map((runUuid: any) => Object.keys(state.entities.paramsByRunUuid[runUuid])));
 
 export const getAllMetricKeysByRunUuids = (runUuids: any, state: any) =>
-  _.union(...runUuids.map((runUuid: any) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])));
+  union(...runUuids.map((runUuid: any) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])));
 
 export const getApis = (requestIds: any, state: any) => {
   return requestIds.map((id: any) => state.apis[id] || {});

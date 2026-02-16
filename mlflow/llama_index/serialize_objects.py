@@ -38,10 +38,15 @@ def object_to_dict(o: object):
     if isinstance(o, BaseComponent):
         # we can't serialize callables in the model fields
         callable_fields = set()
-        fields = o.model_fields if hasattr(o, "model_fields") else o.__fields__
+        # Access model_fields from the class to avoid pydantic deprecation warning
+        fields = (
+            o.__class__.model_fields if hasattr(o.__class__, "model_fields") else o.model_fields
+        )
         for k, v in fields.items():
             field_val = getattr(o, k, None)
-            if field_val != v.default and callable(field_val):
+            # Exclude all callable fields, including those with default values
+            # to prevent serialization issues in llama_index
+            if callable(field_val):
                 callable_fields.add(k)
         # exclude default values from serialization to avoid
         # unnecessary clutter in the serialized object
@@ -152,7 +157,7 @@ def serialize_settings(path: str) -> None:
         def _convert(obj):
             object_json = object_to_dict(obj)
             if object_json is None:
-                prop_name = k[1:] if k.startswith("_") else k
+                prop_name = k.removeprefix("_")
                 unsupported_objects.append((prop_name, v))
             return object_json
 
@@ -183,6 +188,5 @@ def deserialize_settings(path: str):
 
     for k, v in settings_dict.items():
         # To use the property setter rather than directly setting the private attribute e.g. _llm
-        if k.startswith("_"):
-            k = k[1:]
+        k = k.removeprefix("_")
         setattr(Settings, k, v)

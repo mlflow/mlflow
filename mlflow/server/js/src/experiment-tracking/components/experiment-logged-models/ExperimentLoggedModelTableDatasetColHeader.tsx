@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import type { LoggedModelProto } from '../../types';
 import { Overflow, Spinner, TableIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { ExperimentLoggedModelDatasetButton } from './ExperimentLoggedModelDatasetButton';
-import { ColumnGroup } from '@ag-grid-community/core';
+import type { ColumnGroup } from '@ag-grid-community/core';
 import { useExperimentLoggedModelOpenDatasetDetails } from './hooks/useExperimentLoggedModelOpenDatasetDetails';
 import { FormattedMessage } from 'react-intl';
 
@@ -48,7 +48,7 @@ export const ExperimentLoggedModelTableDatasetColHeader = ({ columnGroup }: { co
     );
   }
   return (
-    <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+    <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, overflow: 'hidden' }}>
       Dataset:{' '}
       <Typography.Link
         css={{

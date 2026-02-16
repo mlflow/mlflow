@@ -1,6 +1,8 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import { RunsChartsConfigureModal } from './RunsChartsConfigureModal';
-import { RunsChartType, RunsChartsLineCardConfig } from '../runs-charts.types';
+import type { RunsChartsLineCardConfig } from '../runs-charts.types';
+import { RunsChartType } from '../runs-charts.types';
 import { IntlProvider } from 'react-intl';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { RunsMetricsLinePlot } from './RunsMetricsLinePlot';
@@ -11,6 +13,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 
 // Larger timeout for integration testing (form rendering)
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(15000);
 
 // Mock <RunsMetricsLinePlot> component, it's exact implementation is not important for this test

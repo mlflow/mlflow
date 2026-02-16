@@ -1,4 +1,5 @@
-from mlflow.genai.optimize.optimizers.base_optimizer import _BaseOptimizer
-from mlflow.genai.optimize.optimizers.dspy_mipro_optimizer import _DSPyMIPROv2Optimizer
+from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
+from mlflow.genai.optimize.optimizers.gepa_optimizer import GepaPromptOptimizer
+from mlflow.genai.optimize.optimizers.metaprompt_optimizer import MetaPromptOptimizer
 
-__all__ = ["_BaseOptimizer", "_DSPyMIPROv2Optimizer"]
+__all__ = ["BasePromptOptimizer", "GepaPromptOptimizer", "MetaPromptOptimizer"]

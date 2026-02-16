@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import React, { Component } from 'react';
+import { Component } from 'react';
 import { connect } from 'react-redux';
 import { FormattedMessage } from 'react-intl';
 import Utils from '../../common/utils/Utils';
@@ -27,6 +27,7 @@ type MetricViewImplProps = {
   runNames: string[];
   metricKey: string;
   location: Location;
+  navigate: (path: string, options?: { replace?: boolean }) => void;
 };
 
 export class MetricViewImpl extends Component<MetricViewImplProps> {
@@ -34,7 +35,6 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     return numExperiments > 1 ? (
       <FormattedMessage
         defaultMessage="Comparing {numRuns} Runs from {numExperiments} Experiments"
-        // eslint-disable-next-line max-len
         description="Breadcrumb title for compare runs page with multiple experiments"
         values={{ numRuns, numExperiments }}
       />
@@ -70,7 +70,6 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     return (
       <FormattedMessage
         defaultMessage="Displaying Runs from {numExperiments} Experiments"
-        // eslint-disable-next-line max-len
         description="Breadcrumb nav item to link to the compare-experiments page on compare runs page"
         values={{ numExperiments }}
       />
@@ -106,7 +105,13 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     return (
       <div>
         <PageHeader title={title} breadcrumbs={breadcrumbs} hideSpacer />
-        <MetricsPlotPanel {...{ experimentIds, runUuids, metricKey }} />
+        <MetricsPlotPanel
+          experimentIds={experimentIds}
+          runUuids={runUuids}
+          metricKey={metricKey}
+          location={location}
+          navigate={this.props.navigate}
+        />
       </div>
     );
   }

@@ -13,10 +13,14 @@ from mlflow.entities.assessment import (
     Feedback,
     FeedbackValue,
 )
+from mlflow.entities.assessment_error import _STACK_TRACE_TRUNCATION_LENGTH
 from mlflow.exceptions import MlflowException
 from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
+from mlflow.protos.databricks_tracing_pb2 import Assessment as ProtoAssessmentV4
+from mlflow.protos.databricks_tracing_pb2 import TraceLocation, UCSchemaLocation
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 
 
@@ -291,7 +295,7 @@ def test_expectation_proto_dict_conversion(value):
 
     expectation_dict = expectation.to_dictionary()
     result = ExpectationValue.from_dictionary(expectation_dict)
-    assert result.value == result.value
+    assert result.value == expectation.value
 
 
 @pytest.mark.parametrize(
@@ -316,7 +320,7 @@ def test_expectation_value_serialization(value):
 
     expectation_dict = expectation.to_dictionary()
     result = ExpectationValue.from_dictionary(expectation_dict)
-    assert result.value == result.value
+    assert result.value == expectation.value
 
 
 def test_expectation_invalid_values():
@@ -352,13 +356,13 @@ def test_feedback_value_proto_dict_conversion(value, error):
     assert isinstance(proto, ProtoFeedback)
 
     result = FeedbackValue.from_proto(proto)
-    assert result.value == result.value
-    assert result.error == result.error
+    assert result.value == feedback.value
+    assert result.error == feedback.error
 
     feedback_dict = feedback.to_dictionary()
     result = FeedbackValue.from_dictionary(feedback_dict)
-    assert result.value == result.value
-    assert result.error == result.error
+    assert result.value == feedback.value
+    assert result.error == feedback.error
 
 
 @pytest.mark.parametrize("stack_trace_length", [500, 2000])
@@ -384,9 +388,11 @@ def test_feedback_from_exception(stack_trace_length):
     assert feedback.error_message == "An error occurred."
 
     proto = feedback.to_proto()
-    assert len(proto.feedback.error.stack_trace) == min(stack_trace_length, 1000)
+    assert len(proto.feedback.error.stack_trace) == min(
+        stack_trace_length, _STACK_TRACE_TRUNCATION_LENGTH
+    )
     assert proto.feedback.error.stack_trace.endswith("last line")
-    if stack_trace_length > 1000:
+    if stack_trace_length > _STACK_TRACE_TRUNCATION_LENGTH:
         assert proto.feedback.error.stack_trace.startswith("[Stack trace is truncated]\n...\n")
 
     recovered = Feedback.from_proto(feedback.to_proto())
@@ -406,3 +412,208 @@ def test_assessment_value_assignment():
 
     expectation.value = 0.9
     assert expectation.value == 0.9
+
+
+@pytest.mark.parametrize(
+    ("metadata", "explicit_run_id", "expected_run_id"),
+    [
+        ({AssessmentMetadataKey.SOURCE_RUN_ID: "run123"}, None, "run123"),
+        ({"other_key": "value"}, "explicit_run", "explicit_run"),
+        ({"other_key": "value"}, None, None),
+        (None, None, None),
+    ],
+)
+def test_run_id_handling(metadata, explicit_run_id, expected_run_id):
+    feedback = Feedback(name="test", value=True, metadata=metadata)
+    if explicit_run_id:
+        feedback.run_id = explicit_run_id
+
+    assert feedback.run_id == expected_run_id
+    assert not hasattr(feedback.to_proto(), "run_id")
+
+    if expected_run_id and not explicit_run_id:
+        recovered = Feedback.from_proto(feedback.to_proto())
+        assert recovered.run_id == expected_run_id
+
+
+def test_feedback_from_proto_v4():
+    # Create v4 proto with all fields
+    proto_v4 = ProtoAssessmentV4()
+    proto_v4.assessment_id = "feedback123"
+    proto_v4.assessment_name = "accuracy"
+
+    proto_v4.trace_location.CopyFrom(
+        TraceLocation(
+            type=TraceLocation.TraceLocationType.UC_SCHEMA,
+            uc_schema=UCSchemaLocation(catalog_name="prod", schema_name="ml_data"),
+        )
+    )
+    proto_v4.trace_id = "123456"
+
+    proto_v4.span_id = "span789"
+    proto_v4.rationale = "Model output matches ground truth"
+    proto_v4.overrides = "prev_assessment"
+    proto_v4.valid = True
+
+    # Set source
+    source = AssessmentSource(source_type="CODE", source_id="scorer.py")
+    proto_v4.source.CopyFrom(source.to_proto())
+
+    # Set timestamps
+    proto_v4.create_time.FromMilliseconds(1700000000000)
+    proto_v4.last_update_time.FromMilliseconds(1700000001000)
+
+    # Set metadata
+    proto_v4.metadata["key1"] = "value1"
+    proto_v4.metadata["key2"] = "value2"
+
+    # Set feedback value with error
+    feedback_value = FeedbackValue(
+        value=0.85, error=AssessmentError(error_code="TIMEOUT", error_message="Request timed out")
+    )
+    proto_v4.feedback.CopyFrom(feedback_value.to_proto())
+
+    # Convert from proto
+    feedback = Feedback.from_proto(proto_v4)
+
+    # Validate all fields
+    assert feedback.assessment_id == "feedback123"
+    assert feedback.name == "accuracy"
+    assert feedback.trace_id == "trace:/prod.ml_data/123456"
+    assert feedback.span_id == "span789"
+    assert feedback.rationale == "Model output matches ground truth"
+    assert feedback.overrides == "prev_assessment"
+    assert feedback.valid is True
+    assert feedback.value == 0.85
+    assert feedback.error.error_code == "TIMEOUT"
+    assert feedback.error.error_message == "Request timed out"
+    assert feedback.source.source_type == "CODE"
+    assert feedback.source.source_id == "scorer.py"
+    assert feedback.create_time_ms == 1700000000000
+    assert feedback.last_update_time_ms == 1700000001000
+    assert feedback.metadata == {"key1": "value1", "key2": "value2"}
+
+
+def test_expectation_from_proto_v4():
+    # Create v4 proto with all fields
+    proto_v4 = ProtoAssessmentV4()
+    proto_v4.assessment_id = "exp123"
+    proto_v4.assessment_name = "expected_output"
+
+    # Set TraceIdentifier with UC schema location
+    proto_v4.trace_location.CopyFrom(
+        TraceLocation(
+            type=TraceLocation.TraceLocationType.UC_SCHEMA,
+            uc_schema=UCSchemaLocation(catalog_name="dev", schema_name="experiments"),
+        )
+    )
+    proto_v4.trace_id = "123456"
+
+    proto_v4.span_id = "exp_span789"
+
+    # Set source
+    source = AssessmentSource(source_type="HUMAN", source_id="expert@company.com")
+    proto_v4.source.CopyFrom(source.to_proto())
+
+    # Set timestamps
+    proto_v4.create_time.FromMilliseconds(1700000002000)
+    proto_v4.last_update_time.FromMilliseconds(1700000003000)
+
+    # Set metadata
+    proto_v4.metadata["dataset"] = "test_set_v1"
+    proto_v4.metadata["version"] = "1.0"
+
+    # Set expectation value (complex structure)
+    expectation_value = ExpectationValue(
+        value={"expected_response": "The capital is Paris", "alternatives": ["Paris, France"]}
+    )
+    proto_v4.expectation.CopyFrom(expectation_value.to_proto())
+
+    # Convert from proto
+    expectation = Expectation.from_proto(proto_v4)
+
+    # Validate all fields
+    assert expectation.assessment_id == "exp123"
+    assert expectation.name == "expected_output"
+    assert expectation.trace_id == "trace:/dev.experiments/123456"
+    assert expectation.span_id == "exp_span789"
+    assert expectation.value == {
+        "expected_response": "The capital is Paris",
+        "alternatives": ["Paris, France"],
+    }
+    assert expectation.source.source_type == "HUMAN"
+    assert expectation.source.source_id == "expert@company.com"
+    assert expectation.create_time_ms == 1700000002000
+    assert expectation.last_update_time_ms == 1700000003000
+    assert expectation.metadata == {"dataset": "test_set_v1", "version": "1.0"}
+
+
+def test_feedback_converts_string_error_to_assessment_error():
+    feedback = Feedback(
+        name="test_feedback",
+        error="This is a string error message",
+    )
+
+    # Verify error was converted to AssessmentError
+    assert isinstance(feedback.error, AssessmentError)
+    assert feedback.error.error_message == "This is a string error message"
+    assert feedback.error.error_code == "ASSESSMENT_ERROR"
+
+    # Verify it can be serialized to proto
+    proto = feedback.to_proto()
+    assert proto.feedback.HasField("error")
+    assert proto.feedback.error.error_message == "This is a string error message"
+    assert proto.feedback.error.error_code == "ASSESSMENT_ERROR"
+
+
+def test_feedback_converts_exception_error_to_assessment_error():
+    feedback = Feedback(name="test_feedback", error=ValueError("Test exception message"))
+
+    # Verify error was converted to AssessmentError
+    assert isinstance(feedback.error, AssessmentError)
+    assert "Test exception message" in feedback.error.error_message
+    assert feedback.error.error_code == "ValueError"
+    assert feedback.error.stack_trace is not None
+    assert len(feedback.error.stack_trace) > 0
+
+    # Verify it can be serialized
+    proto = feedback.to_proto()
+    assert proto.feedback.HasField("error")
+    assert proto.feedback.error.error_code == "ValueError"
+
+
+def test_feedback_passes_through_assessment_error():
+    error = AssessmentError(
+        error_message="Custom error message",
+        error_code="CUSTOM_ERROR_CODE",
+        stack_trace="Custom stack trace",
+    )
+
+    feedback = Feedback(
+        name="test_feedback",
+        error=error,
+    )
+
+    # Verify error was not modified
+    assert feedback.error is error
+    assert feedback.error.error_message == "Custom error message"
+    assert feedback.error.error_code == "CUSTOM_ERROR_CODE"
+    assert feedback.error.stack_trace == "Custom stack trace"
+
+    # Verify it can be serialized
+    proto = feedback.to_proto()
+    assert proto.feedback.HasField("error")
+    assert proto.feedback.error.error_message == "Custom error message"
+    assert proto.feedback.error.error_code == "CUSTOM_ERROR_CODE"
+
+
+@pytest.mark.parametrize(
+    "invalid_error",
+    [123, ["error"], {"error": "message"}],
+    ids=["int", "list", "dict"],
+)
+def test_feedback_rejects_invalid_error_types(invalid_error):
+    with pytest.raises(
+        MlflowException, match="'error' must be an Exception, AssessmentError, or string"
+    ):
+        Feedback(name="test", error=invalid_error)

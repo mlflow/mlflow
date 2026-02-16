@@ -2,14 +2,12 @@ syntax = "proto2";
 
 package mlflow.ucmodelregistry;
 
-import "scalapb/scalapb.proto";
 import "databricks.proto";
+import "scalapb/scalapb.proto";
 
-option java_package = "com.databricks.api.proto.ucmodelregistry";
 option java_generate_equals_and_hash = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
+option java_package = "com.databricks.api.proto.ucmodelregistry";
+option (scalapb.options) = {flat_package: true};
 
 message RegisteredModel {
   // Unique name for the model.
@@ -81,7 +79,7 @@ message ModelMetric {
   optional int64 step = 4 [default = 0];
 
   // The name of the dataset associated with the metric.
-  // E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  // E.g. "my.uc.table@2" "nyc-taxi-dataset", "fantastic-elk-3"
   optional string dataset_name = 5 [(visibility) = PUBLIC_UNDOCUMENTED];
 
   // Dataset digest of the dataset associated with the metric,
@@ -189,7 +187,7 @@ message DeploymentJobConnection {
     // connected job: job exists, owner has ACLs, and required job parameters are present
     CONNECTED = 2;
 
-    // job was deleted OR owner had job ACLs removed 
+    // job was deleted OR owner had job ACLs removed
     NOT_FOUND = 3;
 
     // required job parameters were changed
@@ -295,8 +293,8 @@ message EncryptionDetails {
 
 enum SseEncryptionAlgorithm {
   SSE_ENCRYPTION_ALGORITHM_UNSPECIFIED = 0;
-  AWS_SSE_S3 = 1;    // "AES256" in 'x-amz-server-side-encryption' header
-  AWS_SSE_KMS = 2;   // "aws:kms" in x-amz-server-side-encryption' header
+  AWS_SSE_S3 = 1; // "AES256" in 'x-amz-server-side-encryption' header
+  AWS_SSE_KMS = 2; // "aws:kms" in x-amz-server-side-encryption' header
 }
 
 message SseEncryptionDetails {
@@ -354,8 +352,7 @@ message DeleteRegisteredModelRequest {
   optional string name = 1 [(validate_required) = true];
 }
 
-message DeleteRegisteredModelResponse {
-}
+message DeleteRegisteredModelResponse {}
 
 message GetRegisteredModelRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[GetRegisteredModelResponse]";
@@ -465,8 +462,7 @@ message DeleteModelVersionRequest {
   optional string version = 2 [(validate_required) = true];
 }
 
-message DeleteModelVersionResponse {
-}
+message DeleteModelVersionResponse {}
 
 message GetModelVersionRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[GetModelVersionResponse]";
@@ -515,7 +511,6 @@ message GenerateTemporaryModelVersionCredentialsRequest {
   // Required. Type of operation (read or write) to perform on the model version
   // Note that model version files can only be written at creation time
   optional ModelVersionOperation operation = 3 [(validate_required) = true];
-
 }
 
 message GenerateTemporaryModelVersionCredentialsResponse {
@@ -532,7 +527,6 @@ message GetModelVersionDownloadUriRequest {
   optional string version = 2 [(validate_required) = true];
 }
 
-
 message GetModelVersionDownloadUriResponse {
   // URI corresponding to where artifacts for this model version are stored.
   optional string artifact_uri = 1;
@@ -546,7 +540,6 @@ message FinalizeModelVersionRequest {
   // Model version number
   optional string version = 2 [(validate_required) = true];
 }
-
 
 message FinalizeModelVersionResponse {
   optional ModelVersion model_version = 1;
@@ -565,8 +558,7 @@ message SetRegisteredModelAliasRequest {
   optional string version = 3 [(validate_required) = true];
 }
 
-message SetRegisteredModelAliasResponse {
-}
+message SetRegisteredModelAliasResponse {}
 
 message DeleteRegisteredModelAliasRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[DeleteRegisteredModelAliasResponse]";
@@ -578,8 +570,7 @@ message DeleteRegisteredModelAliasRequest {
   optional string alias = 2 [(validate_required) = true];
 }
 
-message DeleteRegisteredModelAliasResponse {
-}
+message DeleteRegisteredModelAliasResponse {}
 
 message SetRegisteredModelTagRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[SetRegisteredModelTagResponse]";
@@ -594,8 +585,7 @@ message SetRegisteredModelTagRequest {
   optional string value = 3;
 }
 
-message SetRegisteredModelTagResponse {
-}
+message SetRegisteredModelTagResponse {}
 
 message DeleteRegisteredModelTagRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[DeleteRegisteredModelTagResponse]";
@@ -607,8 +597,7 @@ message DeleteRegisteredModelTagRequest {
   optional string key = 2 [(validate_required) = true];
 }
 
-message DeleteRegisteredModelTagResponse {
-}
+message DeleteRegisteredModelTagResponse {}
 
 message SetModelVersionTagRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[SetModelVersionTagResponse]";
@@ -626,8 +615,7 @@ message SetModelVersionTagRequest {
   optional string value = 4;
 }
 
-message SetModelVersionTagResponse {
-}
+message SetModelVersionTagResponse {}
 
 message DeleteModelVersionTagRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[DeleteModelVersionTagResponse]";
@@ -642,8 +630,7 @@ message DeleteModelVersionTagRequest {
   optional string key = 3 [(validate_required) = true];
 }
 
-message DeleteModelVersionTagResponse {
-}
+message DeleteModelVersionTagResponse {}
 
 message GetModelVersionByAliasRequest {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[GetModelVersionByAliasResponse]";
@@ -687,30 +674,30 @@ message Notebook {
 }
 
 enum TableType {
-    TABLE = 0;
-    PERSISTED_VIEW = 1;
-    TEMP_VIEW = 2;
-    MATERIALIZED_VIEW = 3;
-    STREAMING_LIVE_TABLE = 4;
-    PATH = 5;
+  TABLE = 0;
+  PERSISTED_VIEW = 1;
+  TEMP_VIEW = 2;
+  MATERIALIZED_VIEW = 3;
+  STREAMING_LIVE_TABLE = 4;
+  PATH = 5;
 }
 
 message Table {
-    optional string name = 1;
-    optional TableType table_type = 2;
-    optional string location = 3;
-    optional string table_id = 4;
+  optional string name = 1;
+  optional TableType table_type = 2;
+  optional string location = 3;
+  optional string table_id = 4;
 }
 
 message Securable {
-    oneof value {
-        Table table = 1;
-    }
+  oneof value {
+    Table table = 1;
+  }
 }
 
 message Lineage {
-    optional Securable target_securable = 4;
-    repeated Securable source_securables = 5;
+  optional Securable target_securable = 4;
+  repeated Securable source_securables = 5;
 }
 
 message LineageHeaderInfo {

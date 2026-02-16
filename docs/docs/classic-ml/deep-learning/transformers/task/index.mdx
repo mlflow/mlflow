@@ -1,5 +1,4 @@
 import TOCInline from "@theme/TOCInline";
-import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
 
@@ -17,7 +16,7 @@ The `task` is a fundamental concept in the Transformers library, which describe 
 (inputs and outputs) and are used to determine which Inference API and widget we want to display for any given model.
 
 MLflow utilizes this concept to determine the input and output format of the model, persists the correct
-[Model Signature](/ml/model#model-signatures-and-input-examples), and provides a consistent <Link to="/api_reference/python_api/mlflow.pyfunc.html#inference-api" target="_blank">Pyfunc Inference API</Link>
+[Model Signature](/ml/model#model-signatures-and-input-examples), and provides a consistent <APILink fn="mlflow.pyfunc" hash="inference-api">Pyfunc Inference API</APILink>
 for serving different types of models. Additionally, on top of the native Transformers task types, MLflow defines a few additional task types to support more complex use cases, such as chat-style applications.
 
 ## Native Transformers Task Types

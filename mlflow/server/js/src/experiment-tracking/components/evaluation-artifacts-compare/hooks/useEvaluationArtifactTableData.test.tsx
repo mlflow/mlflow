@@ -1,7 +1,8 @@
+import { describe, test, expect, it } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import { useEvaluationArtifactTableData } from './useEvaluationArtifactTableData';
 import { fromPairs } from 'lodash';
-import { EvaluationArtifactTable, PendingEvaluationArtifactTableEntry } from '../../../types';
+import type { EvaluationArtifactTable, PendingEvaluationArtifactTableEntry } from '../../../types';
 
 describe('useEvaluationArtifactTableData', () => {
   const mountTestComponent = ({

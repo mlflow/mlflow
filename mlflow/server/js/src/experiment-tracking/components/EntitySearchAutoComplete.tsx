@@ -3,7 +3,8 @@ import {
   Button,
   CloseIcon,
   InfoFillIcon,
-  InfoIcon,
+  InfoPopover,
+  InfoSmallIcon,
   Input,
   LegacyTooltip,
   SearchIcon,
@@ -12,13 +13,12 @@ import {
 } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import {
+import type { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import type {
   EntitySearchAutoCompleteEntity,
   EntitySearchAutoCompleteOptionGroup,
-  getEntitySearchEntitiesAndIndices,
-  getFilteredOptionsFromEntityName,
 } from './EntitySearchAutoComplete.utils';
+import { getEntitySearchEntitiesAndIndices, getFilteredOptionsFromEntityName } from './EntitySearchAutoComplete.utils';
 import { shouldEnableMinMaxMetricsOnExperimentPage } from '../../common/utils/FeatureUtils';
 import {
   createQuickRegexpSearchFilter,
@@ -41,6 +41,7 @@ export type EntitySearchAutoCompleteCompleteProps = {
   placeholder?: string;
   useQuickFilter?: boolean;
   defaultActiveFirstOption?: boolean;
+  className?: string;
 };
 
 /**
@@ -56,6 +57,7 @@ export const EntitySearchAutoComplete = ({
   placeholder,
   useQuickFilter,
   defaultActiveFirstOption = true,
+  className,
 }: EntitySearchAutoCompleteCompleteProps) => {
   const { theme, getPrefixedClassName } = useDesignSystemTheme();
 
@@ -218,7 +220,14 @@ export const EntitySearchAutoComplete = ({
         [theme.responsive.mediaQueries.xs]: {
           width: 'auto',
         },
+        '[type=search]::-webkit-search-cancel-button': {
+          WebkitAppearance: 'none',
+        },
+        '[type=search]::-webkit-search-decoration': {
+          WebkitAppearance: 'none',
+        },
       }}
+      className={className}
     >
       <AutoComplete
         dropdownMatchSelectWidth={560}
@@ -234,7 +243,7 @@ export const EntitySearchAutoComplete = ({
         options={filteredOptions}
         onSelect={onSelect}
         value={text}
-        data-test-id="runs-search-autocomplete"
+        data-testid="runs-search-autocomplete"
         dropdownRender={(menu) => (
           <div
             css={{
@@ -268,7 +277,7 @@ export const EntitySearchAutoComplete = ({
           onBlur={onBlur}
           onChange={(e) => setText(e.target.value)}
           placeholder={placeholder}
-          data-test-id="search-box"
+          data-testid="search-box"
           suffix={
             <div css={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               {text && (
@@ -279,7 +288,7 @@ export const EntitySearchAutoComplete = ({
                     setText('');
                   }}
                   type="link"
-                  data-test-id="clear-button"
+                  data-testid="clear-button"
                 >
                   <CloseIcon />
                 </Button>
@@ -324,33 +333,9 @@ export const EntitySearchAutoComplete = ({
                   />
                 </Tooltip>
               ) : (
-                <LegacyTooltip
-                  title={tooltipContent}
-                  placement="right"
-                  dangerouslySetAntdProps={{
-                    overlayInnerStyle: { width: '150%' },
-                    trigger: ['focus', 'click'],
-                  }}
-                >
-                  <Button
-                    size="small"
-                    ref={tooltipIcon}
-                    componentId="mlflow.experiment_page.search_filter.tooltip"
-                    type="link"
-                    css={{ marginLeft: -theme.spacing.xs, marginRight: -theme.spacing.xs }}
-                    icon={
-                      <InfoIcon
-                        css={{
-                          svg: {
-                            width: theme.general.iconFontSize,
-                            height: theme.general.iconFontSize,
-                            color: theme.colors.textSecondary,
-                          },
-                        }}
-                      />
-                    }
-                  />
-                </LegacyTooltip>
+                <InfoPopover popoverProps={{ side: 'right' }} iconProps={{ ref: tooltipIcon }}>
+                  {tooltipContent}
+                </InfoPopover>
               )}
             </div>
           }

@@ -24,7 +24,7 @@ import logging
 import os
 import tempfile
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from packaging.version import Version
@@ -44,6 +44,7 @@ from mlflow.sklearn import _SklearnTrainingSession
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.fluent import _initialize_logged_model
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
@@ -58,6 +59,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     safe_patch,
 )
+from mlflow.utils.databricks_utils import is_in_databricks_runtime as is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -76,6 +78,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -88,7 +91,7 @@ FLAVOR_NAME = "lightgbm"
 _logger = logging.getLogger(__name__)
 
 
-def get_default_pip_requirements(include_cloudpickle=False):
+def get_default_pip_requirements(include_cloudpickle=False, include_skops=False):
     """
     Returns:
         A list of default pip requirements for MLflow Models produced by this flavor.
@@ -98,16 +101,21 @@ def get_default_pip_requirements(include_cloudpickle=False):
     pip_deps = [_get_pinned_requirement("lightgbm")]
     if include_cloudpickle:
         pip_deps.append(_get_pinned_requirement("cloudpickle"))
+    if include_skops:
+        pip_deps += [_get_pinned_requirement("skops")]
+
     return pip_deps
 
 
-def get_default_conda_env(include_cloudpickle=False):
+def get_default_conda_env(include_cloudpickle=False, include_skops=False):
     """
     Returns:
         The default Conda environment for MLflow Models produced by calls to
         :func:`save_model()` and :func:`log_model()`.
     """
-    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
+    return _mlflow_conda_env(
+        additional_pip_deps=get_default_pip_requirements(include_cloudpickle, include_skops)
+    )
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -122,6 +130,10 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    serialization_format="cloudpickle",
+    skops_trusted_types=None,
+    extra_files=None,
+    **kwargs,
 ):
     """
     Save a LightGBM model to a path on the local file system.
@@ -138,6 +150,18 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        serialization_format: The format in which to serialize the model if the model is not
+            `lightgbm.Booster` instance. This should be one of
+            the formats "skops", "cloudpickle" or "pickle".
+            The "skops" format guarantees safe deserialization.
+            The "cloudpickle" format, provides better cross-system compatibility by identifying and
+            packaging code dependencies with the serialized model, but requires exercising
+            caution because these formats rely on Python's object serialization mechanism,
+            which can execute arbitrary code during deserialization.
+        skops_trusted_types: A list of trusted types when loading model that is saved as
+            the "skops" format.
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
 
     .. code-block:: python
         :caption: Example
@@ -158,7 +182,16 @@ def save_model(
 
         # Save the model
         path = "model"
-        mlflow.lightgbm.save_model(model, path)
+        mlflow.lightgbm.save_model(
+            model,
+            path,
+            serialization_format="skops",
+            skops_trusted_types=[
+                "collections.OrderedDict",
+                "lightgbm.basic.Booster",
+                "lightgbm.sklearn.LGBMClassifier",
+            ],
+        )
 
         # Load model for inference
         loaded_model = mlflow.lightgbm.load_model(Path.cwd() / path)
@@ -175,7 +208,12 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    model_data_subpath = "model.lgb" if isinstance(lgb_model, lgb.Booster) else "model.pkl"
+    if isinstance(lgb_model, lgb.Booster):
+        model_data_subpath = "model.lgb"
+    elif serialization_format == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS:
+        model_data_subpath = "model.skops"
+    else:
+        model_data_subpath = "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -195,9 +233,12 @@ def save_model(
         mlflow_model.metadata = metadata
 
     # Save a LightGBM model
-    _save_model(lgb_model, model_data_path)
+    _save_model(lgb_model, model_data_path, serialization_format, skops_trusted_types)
 
     lgb_model_class = _get_fully_qualified_class_name(lgb_model)
+
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.lightgbm",
@@ -212,6 +253,9 @@ def save_model(
         data=model_data_subpath,
         model_class=lgb_model_class,
         code=code_dir_subpath,
+        serialization_format=serialization_format,
+        skops_trusted_types=skops_trusted_types,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -219,8 +263,12 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
+            is_booster = isinstance(lgb_model, lgb.Booster)
+            include_cloudpickle = (not is_booster) and (serialization_format == "cloudpickle")
+            include_skops = (not is_booster) and (serialization_format == "skops")
             default_reqs = get_default_pip_requirements(
-                include_cloudpickle=not isinstance(lgb_model, lgb.Booster)
+                include_cloudpickle=include_cloudpickle,
+                include_skops=include_skops,
             )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
@@ -253,26 +301,34 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _save_model(lgb_model, model_path):
+def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types):
     """
     LightGBM Boosters are saved using the built-in method `save_model()`,
-    whereas LightGBM scikit-learn models are serialized using Cloudpickle.
+    whereas LightGBM scikit-learn models are serialized using the specified
+    `serialization_format`.
     """
     import lightgbm as lgb
+
+    from mlflow.sklearn import _save_model as _save_sklearn_model
 
     if isinstance(lgb_model, lgb.Booster):
         lgb_model.save_model(model_path)
     else:
-        import cloudpickle
-
-        with open(model_path, "wb") as out:
-            cloudpickle.dump(lgb_model, out)
+        if serialization_format != "skops" and not is_in_databricks_runtime():
+            _logger.warning(
+                "Saving the models in the pickle or cloudpickle format requires exercising "
+                "caution because these formats rely on Python's object serialization mechanism, "
+                "which can execute arbitrary code during deserialization. "
+                "The recommended safe alternative is the 'skops' format. "
+                "For more information, see: https://scikit-learn.org/stable/model_persistence.html",
+            )
+        _save_sklearn_model(lgb_model, model_path, serialization_format, skops_trusted_types)
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     lgb_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -282,12 +338,15 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    extra_files=None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
+    serialization_format="cloudpickle",
+    skops_trusted_types: list[str] | None = None,
     **kwargs,
 ):
     """
@@ -311,12 +370,23 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        serialization_format: The format in which to serialize the model if the model is not
+            `lightgbm.Booster` instance. This should be one of
+            the formats "skops", "cloudpickle" or "pickle".
+            The "skops" format guarantees safe deserialization.
+            The "cloudpickle" format, provides better cross-system compatibility by identifying and
+            packaging code dependencies with the serialized model, but requires exercising
+            caution because these formats rely on Python's object serialization mechanism,
+            which can execute arbitrary code during deserialization.
+        skops_trusted_types: A list of trusted types when loading model that is saved as
+            the "skops" format.
         kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
 
     Returns:
@@ -380,11 +450,14 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        extra_files=extra_files,
         params=params,
         tags=tags,
         model_type=model_type,
         step=step,
         model_id=model_id,
+        serialization_format=serialization_format,
+        skops_trusted_types=skops_trusted_types,
         **kwargs,
     )
 
@@ -410,11 +483,12 @@ def _load_model(path):
 
         model = lgb.Booster(model_file=lgb_model_path)
     else:
-        # LightGBM scikit-learn models are deserialized using Cloudpickle.
-        import cloudpickle
+        from mlflow.sklearn import _load_model_from_local_file as _load_sklearn_model
 
-        with open(lgb_model_path, "rb") as f:
-            model = cloudpickle.load(f)
+        serialization_format = flavor_conf.get("serialization_format", "cloudpickle")
+        skops_trusted_types = flavor_conf.get("skops_trusted_types", None)
+
+        model = _load_sklearn_model(lgb_model_path, serialization_format, skops_trusted_types)
 
     return model
 
@@ -498,7 +572,7 @@ class _LGBModelWrapper:
         """
         return self.lgb_model
 
-    def predict(self, dataframe, params: Optional[dict[str, Any]] = None):
+    def predict(self, dataframe, params: dict[str, Any] | None = None):
         """
         Args:
             dataframe: Model input data.
@@ -515,8 +589,7 @@ def _patch_metric_names(metric_dict):
     patched_metrics = {
         metric_name.replace("@", "_at_"): value for metric_name, value in metric_dict.items()
     }
-    changed_keys = set(patched_metrics.keys()) - set(metric_dict.keys())
-    if changed_keys:
+    if changed_keys := set(patched_metrics.keys()) - set(metric_dict.keys()):
         _logger.info(
             "Identified one or more metrics with names containing the invalid character `@`."
             " These metric names have been sanitized by replacing `@` with `_at_`, as follows: %s",
@@ -803,7 +876,7 @@ def autolog(
 
         model_id = None
         if _log_models:
-            model_id = mlflow.initialize_logged_model("model").model_id
+            model_id = _initialize_logged_model("model", flavor=FLAVOR_NAME).model_id
         with batch_metrics_logger(run_id, model_id=model_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:

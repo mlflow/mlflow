@@ -28,7 +28,7 @@ this section.
 Before running the script, let's simply start the MLflow UI on a local host.
 
 ```bash
-mlflow ui
+mlflow server
 ```
 
 Let's visit `http://localhost:5000/` in our web browser. After doing so, you'll notice that we don't
@@ -36,7 +36,7 @@ have any experiments or models. Let's resolve this by creating a few MLflow runs
 below.
 
 Note that when you run this script, you'll want to do so from the same directory that you ran
-the `mlflow ui` command.
+the `mlflow server` command.
 
 ```python
 import mlflow
@@ -408,7 +408,7 @@ You can also apply multiple conditions on the same field, for example searching 
 metrics.loss <= 0.15 AND metrics.loss >= 0.1
 ```
 
-Finally, before moving on it's important to revisit that that you cannot use the `OR` keyword in
+Finally, before moving on it's important to revisit that you cannot use the `OR` keyword in
 your queries.
 
 #### 8 - Non-None Queries

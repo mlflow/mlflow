@@ -2,7 +2,7 @@ import posixpath
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.protos.databricks_artifacts_pb2 import (
@@ -48,7 +48,7 @@ class ListArtifactsPage:
     # List of files in the current page
     files: list[FileInfo]
     # Token to fetch the next page of files
-    next_page_token: Optional[str] = None
+    next_page_token: str | None = None
 
     @classmethod
     def empty(cls):
@@ -98,9 +98,9 @@ class _Resource(ABC):
     def get_credentials(
         self,
         cred_type: _CredentialType,
-        paths: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
-    ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
+        paths: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[ArtifactCredentialInfo], str | None]:
         """
         Fetches read/write credentials for the specified paths.
         """
@@ -114,19 +114,19 @@ class _Resource(ABC):
     @abstractmethod
     def _list_artifacts(
         self,
-        path: Optional[str] = None,
-        page_token: Optional[str] = None,
+        path: str | None = None,
+        page_token: str | None = None,
     ) -> ListArtifactsPage:
         """
         List artifacts under the specified path.
         """
 
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         """
         Handle pagination and return all artifacts under the specified path.
         """
         files: list[FileInfo] = []
-        page_token: Optional[str] = None
+        page_token: str | None = None
         while True:
             page = self._list_artifacts(path, page_token)
             files.extend(page.files)
@@ -141,9 +141,9 @@ class _LoggedModel(_Resource):
     def get_credentials(
         self,
         cred_type: _CredentialType,
-        paths: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
-    ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
+        paths: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[ArtifactCredentialInfo], str | None]:
         api = (
             GetCredentialsForLoggedModelDownload
             if cred_type == _CredentialType.READ
@@ -175,8 +175,8 @@ class _LoggedModel(_Resource):
 
     def _list_artifacts(
         self,
-        path: Optional[str] = None,
-        page_token: Optional[str] = None,
+        path: str | None = None,
+        page_token: str | None = None,
     ) -> ListArtifactsPage:
         path = posixpath.join(self.relative_path, path) if path else self.relative_path
         json_body = message_to_json(
@@ -209,9 +209,9 @@ class _Run(_Resource):
     def get_credentials(
         self,
         cred_type: _CredentialType,
-        paths: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
-    ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
+        paths: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list[ArtifactCredentialInfo], str | None]:
         api = GetCredentialsForRead if cred_type == _CredentialType.READ else GetCredentialsForWrite
         json_body = api(run_id=self.id, path=paths, page_token=page_token)
         response = self.call_endpoint(
@@ -234,8 +234,8 @@ class _Run(_Resource):
 
     def _list_artifacts(
         self,
-        path: Optional[str] = None,
-        page_token: Optional[str] = None,
+        path: str | None = None,
+        page_token: str | None = None,
     ) -> ListArtifactsPage:
         path = posixpath.join(self.relative_path, path) if path else self.relative_path
         json_body = message_to_json(
@@ -269,10 +269,10 @@ class _Trace(_Resource):
     def get_credentials(
         self,
         cred_type: _CredentialType,
-        paths: Optional[list[str]] = None,
-        page_token: Optional[str] = None,
-        timeout: Optional[int] = None,
-    ) -> tuple[list[ArtifactCredentialInfo], Optional[str]]:
+        paths: list[str] | None = None,
+        page_token: str | None = None,
+        timeout: int | None = None,
+    ) -> tuple[list[ArtifactCredentialInfo], str | None]:
         res = self.call_endpoint(
             DatabricksMlflowArtifactsService,
             (
@@ -295,7 +295,7 @@ class _Trace(_Resource):
 
     def _list_artifacts(
         self,
-        path: Optional[str] = None,
-        page_token: Optional[str] = None,
+        path: str | None = None,
+        page_token: str | None = None,
     ) -> ListArtifactsPage:
         raise NotImplementedError

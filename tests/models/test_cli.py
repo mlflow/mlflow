@@ -5,6 +5,8 @@ import shutil
 import subprocess
 import sys
 import warnings
+from dataclasses import dataclass
+from io import BytesIO, StringIO
 from pathlib import Path
 from unittest import mock
 
@@ -62,12 +64,12 @@ install_mlflow = ["--install-mlflow"] if not no_conda else []
 extra_options = no_conda + install_mlflow
 
 
-def env_with_tracking_uri():
+def env_with_tracking_uri() -> dict[str, str]:
     return {**os.environ, "MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()}
 
 
 @pytest.fixture(scope="module")
-def iris_data():
+def iris_data() -> tuple[np.ndarray, np.ndarray]:
     iris = sklearn.datasets.load_iris()
     x = iris.data[:, :2]
     y = iris.target
@@ -75,7 +77,7 @@ def iris_data():
 
 
 @pytest.fixture(scope="module")
-def sk_model(iris_data):
+def sk_model(iris_data: tuple[np.ndarray, np.ndarray]) -> sklearn.neighbors.KNeighborsClassifier:
     x, y = iris_data
     knn_model = sklearn.neighbors.KNeighborsClassifier()
     knn_model.fit(x, y)
@@ -165,7 +167,7 @@ def test_serve_uvicorn_opts(iris_data, sk_model):
                 )
             with open(output_file_path) as output_file:
                 stdout = output_file.read()
-        actual = pd.read_json(scoring_response.content.decode("utf-8"), orient="records")
+        actual = pd.read_json(BytesIO(scoring_response.content), orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
@@ -175,179 +177,208 @@ def test_serve_uvicorn_opts(iris_data, sk_model):
         assert expected_command_pattern.search(stdout) is not None
 
 
-def test_predict(iris_data, sk_model):
-    with TempDir(chdr=True) as tmp:
-        with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
-            model_uri = f"runs:/{active_run.info.run_id}/model"
-        model_registry_uri = "models:/impredicting/None"
-        input_json_path = tmp.path("input.json")
-        input_csv_path = tmp.path("input.csv")
-        output_json_path = tmp.path("output.json")
-        x, _ = iris_data
-        with open(input_json_path, "w") as f:
-            json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+@dataclass
+class PredictTestData:
+    model_uri: str
+    model_registry_uri: str
+    input_json_path: Path
+    input_csv_path: Path
+    output_json_path: Path
+    x: np.ndarray
+    sk_model: sklearn.base.BaseEstimator
 
-        pd.DataFrame(x).to_csv(input_csv_path, index=False)
 
-        # Test with no conda & model registry URI
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_registry_uri,
-                "-i",
-                input_json_path,
-                "-o",
-                output_json_path,
-                "--env-manager",
-                "local",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env_with_tracking_uri(),
-            check=True,
-        )
-        actual = pd.read_json(output_json_path, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
+@pytest.fixture
+def predict_test_setup(
+    iris_data: tuple[np.ndarray, np.ndarray],
+    sk_model: sklearn.neighbors.KNeighborsClassifier,
+    tmp_path: Path,
+) -> PredictTestData:
+    with mlflow.start_run() as active_run:
+        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
+        model_uri = f"runs:/{active_run.info.run_id}/model"
 
-        # With conda + --install-mlflow
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_uri,
-                "-i",
-                input_json_path,
-                "-o",
-                output_json_path,
-                *extra_options,
-            ],
-            env=env_with_tracking_uri(),
-            check=True,
-        )
-        actual = pd.read_json(output_json_path, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
+    model_registry_uri = "models:/impredicting/None"
+    input_json_path = tmp_path / "input.json"
+    input_csv_path = tmp_path / "input.csv"
+    output_json_path = tmp_path / "output.json"
 
-        # explicit json format with default orient (should be split)
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_uri,
-                "-i",
-                input_json_path,
-                "-o",
-                output_json_path,
-                "-t",
-                "json",
-                *extra_options,
-            ],
-            env=env_with_tracking_uri(),
-            check=True,
-        )
+    x, _ = iris_data
+    with open(input_json_path, "w") as f:
+        json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+    pd.DataFrame(x).to_csv(input_csv_path, index=False)
 
-        actual = pd.read_json(output_json_path, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
+    return PredictTestData(
+        model_uri=model_uri,
+        model_registry_uri=model_registry_uri,
+        input_json_path=input_json_path,
+        input_csv_path=input_csv_path,
+        output_json_path=output_json_path,
+        x=x,
+        sk_model=sk_model,
+    )
 
-        # explicit json format with orient==split
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_uri,
-                "-i",
-                input_json_path,
-                "-o",
-                output_json_path,
-                "-t",
-                "json",
-                *extra_options,
-            ],
-            env=env_with_tracking_uri(),
-            check=True,
-        )
-        actual = pd.read_json(output_json_path, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
 
-        # read from stdin, write to stdout.
-        prc = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_uri,
-                "-t",
-                "json",
-                *extra_options,
-            ],
-            input=Path(input_json_path).read_text(),
-            stdout=subprocess.PIPE,
-            env=env_with_tracking_uri(),
-            text=True,
-            check=True,
-        )
-        predictions = re.search(r"{\"predictions\": .*}", prc.stdout).group(0)
-        actual = pd.read_json(predictions, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
+def test_predict_with_model_registry_uri(predict_test_setup: PredictTestData) -> None:
+    setup = predict_test_setup
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_registry_uri,
+            "-i",
+            setup.input_json_path,
+            "-o",
+            setup.output_json_path,
+            "--env-manager",
+            "local",
+        ],
+        env=env_with_tracking_uri(),
+    )
+    actual = pd.read_json(setup.output_json_path, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
 
-        # NB: We do not test orient=records here because records may loose column ordering.
-        # orient == records is tested in other test with simpler model.
 
-        # csv
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_uri,
-                "-i",
-                input_csv_path,
-                "-o",
-                output_json_path,
-                "-t",
-                "csv",
-                *extra_options,
-            ],
-            env=env_with_tracking_uri(),
-            check=True,
-        )
-        actual = pd.read_json(output_json_path, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
+def test_predict_with_conda_and_install_mlflow(predict_test_setup: PredictTestData) -> None:
+    setup = predict_test_setup
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_uri,
+            "-i",
+            setup.input_json_path,
+            "-o",
+            setup.output_json_path,
+            *extra_options,
+        ],
+        env=env_with_tracking_uri(),
+    )
+    actual = pd.read_json(setup.output_json_path, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
+
+
+def test_predict_explicit_json_format_default_orient(predict_test_setup: PredictTestData) -> None:
+    setup = predict_test_setup
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_uri,
+            "-i",
+            setup.input_json_path,
+            "-o",
+            setup.output_json_path,
+            "-t",
+            "json",
+            *extra_options,
+        ],
+        env=env_with_tracking_uri(),
+    )
+    actual = pd.read_json(setup.output_json_path, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
+
+
+def test_predict_explicit_json_format_split_orient(predict_test_setup: PredictTestData) -> None:
+    # Note: This test has the same command as the previous one but tests orient==split
+    # The comment in original code mentions this should be split orient
+    setup = predict_test_setup
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_uri,
+            "-i",
+            setup.input_json_path,
+            "-o",
+            setup.output_json_path,
+            "-t",
+            "json",
+            *extra_options,
+        ],
+        env=env_with_tracking_uri(),
+    )
+    actual = pd.read_json(setup.output_json_path, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
+
+
+def test_predict_stdin_stdout(predict_test_setup: PredictTestData) -> None:
+    setup = predict_test_setup
+    stdout = subprocess.check_output(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_uri,
+            "-t",
+            "json",
+            *extra_options,
+        ],
+        input=setup.input_json_path.read_text(),
+        env=env_with_tracking_uri(),
+        text=True,
+    )
+    predictions = re.search(r"{\"predictions\": .*}", stdout).group(0)
+    actual = pd.read_json(StringIO(predictions), orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
+    # NB: We do not test orient=records here because records may loose column ordering.
+    # orient == records is tested in other test with simpler model.
+
+
+def test_predict_csv_format(predict_test_setup: PredictTestData) -> None:
+    setup = predict_test_setup
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_uri,
+            "-i",
+            setup.input_csv_path,
+            "-o",
+            setup.output_json_path,
+            "-t",
+            "csv",
+            *extra_options,
+        ],
+        env=env_with_tracking_uri(),
+    )
+    actual = pd.read_json(setup.output_json_path, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
 
 
 def test_predict_check_content_type(iris_data, sk_model, tmp_path):

@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { fromPairs } from 'lodash';
 import { shouldUseRunRowsVisibilityMap } from '../../../../common/utils/FeatureUtils';
 import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
@@ -25,11 +26,22 @@ describe('determineIfRowIsHidden when using legacy runsHidden UI state', () => {
     ({ expected, mode, rowIndex }) => {
       const runsHidden = ['run1', 'run2'];
       const runUuid = 'run1';
-      const result = determineIfRowIsHidden(mode, runsHidden, runUuid, rowIndex, {});
+      const result = determineIfRowIsHidden(mode, runsHidden, runUuid, rowIndex, {}, 'RUNNING');
 
       expect(result).toBe(expected);
     },
   );
+
+  it('hides finished runs when mode is HIDE_FINISHED_RUNS', () => {
+    const runsHidden: string[] = [];
+    const runUuid = 'run1';
+    expect(
+      determineIfRowIsHidden(RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS, runsHidden, runUuid, 5, {}, 'FINISHED'),
+    ).toBe(true);
+    expect(determineIfRowIsHidden(RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS, runsHidden, runUuid, 5, {}, 'RUNNING')).toBe(
+      false,
+    );
+  });
 
   it.each([
     { mode: RUNS_VISIBILITY_MODE.HIDEALL, rowIndex: 5, expected: true },
@@ -39,7 +51,7 @@ describe('determineIfRowIsHidden when using legacy runsHidden UI state', () => {
     ({ expected, mode, rowIndex }) => {
       const runsHidden = ['run1', 'run2'];
       const runUuid = 'run3';
-      const result = determineIfRowIsHidden(mode, runsHidden, runUuid, rowIndex, {});
+      const result = determineIfRowIsHidden(mode, runsHidden, runUuid, rowIndex, {}, 'RUNNING');
 
       expect(result).toBe(expected);
     },
@@ -74,9 +86,22 @@ describe('determineIfRowIsHidden when using runsVisibilityMap UI state', () => {
   ])(
     'should return $expected if runs visibility mode is $mode and runsHidden includes runUuid having index $rowIndex',
     ({ expected, runUuid, mode, rowIndex }) => {
-      const result = determineIfRowIsHidden(mode, [], runUuid, rowIndex, runsVisibilityMap);
+      const result = determineIfRowIsHidden(mode, [], runUuid, rowIndex, runsVisibilityMap, 'RUNNING');
 
       expect(result).toBe(expected);
     },
   );
+
+  it('hides finished runs when mode is HIDE_FINISHED_RUNS using visibility map', () => {
+    const runUuid = 'run3';
+    expect(
+      determineIfRowIsHidden(RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS, [], runUuid, 5, runsVisibilityMap, 'FINISHED'),
+    ).toBe(true);
+    expect(
+      determineIfRowIsHidden(RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS, [], runUuid, 5, runsVisibilityMap, 'FAILED'),
+    ).toBe(true);
+    expect(
+      determineIfRowIsHidden(RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS, [], runUuid, 5, runsVisibilityMap, 'RUNNING'),
+    ).toBe(false);
+  });
 });

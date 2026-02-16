@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
@@ -37,10 +37,10 @@ class DeltaDatasetSource(DatasetSource):
 
     def __init__(
         self,
-        path: Optional[str] = None,
-        delta_table_name: Optional[str] = None,
-        delta_table_version: Optional[int] = None,
-        delta_table_id: Optional[str] = None,
+        path: str | None = None,
+        delta_table_name: str | None = None,
+        delta_table_version: int | None = None,
+        delta_table_id: str | None = None,
     ):
         if (path, delta_table_name).count(None) != 1:
             raise MlflowException(
@@ -85,19 +85,19 @@ class DeltaDatasetSource(DatasetSource):
             return spark_read_op.table(backticked_delta_table_name)
 
     @property
-    def path(self) -> Optional[str]:
+    def path(self) -> str | None:
         return self._path
 
     @property
-    def delta_table_name(self) -> Optional[str]:
+    def delta_table_name(self) -> str | None:
         return self._delta_table_name
 
     @property
-    def delta_table_id(self) -> Optional[str]:
+    def delta_table_id(self) -> str | None:
         return self._delta_table_id
 
     @property
-    def delta_table_version(self) -> Optional[int]:
+    def delta_table_version(self) -> int | None:
         return self._delta_table_version
 
     @staticmethod

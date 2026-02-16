@@ -1,7 +1,7 @@
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import React from 'react';
 import Utils from '../../../../../../common/utils/Utils';
-import { RunRowDateAndNestInfo } from '../../../utils/experimentPage.row-types';
+import type { RunRowDateAndNestInfo } from '../../../utils/experimentPage.row-types';
 import { RunStatusIcon } from '../../../../RunStatusIcon';
 import { useIntl } from 'react-intl';
 
@@ -9,6 +9,7 @@ export interface DateCellRendererProps {
   value: RunRowDateAndNestInfo;
 }
 
+// eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
 export const DateCellRenderer = React.memo(({ value }: DateCellRendererProps) => {
   const { startTime, referenceTime, runStatus } = value || {};
   const intl = useIntl();

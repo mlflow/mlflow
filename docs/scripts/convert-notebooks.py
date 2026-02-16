@@ -74,7 +74,7 @@ def add_download_button(
 
     # Insert the notebook underneath the first H1 header (assumed to be the title)
     pattern = r"(^#\s+.+$)"
-    return re.sub(pattern, rf"\1\n\n{download_button}", body, count=1, flags=re.M)
+    return re.sub(pattern, rf"\1\n\n{download_button}", body, count=1, flags=re.MULTILINE)
 
 
 # add the imports for our custom cell output components

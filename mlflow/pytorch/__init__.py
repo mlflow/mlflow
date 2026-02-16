@@ -10,12 +10,11 @@ PyTorch (native) format
 
 import atexit
 import importlib
+import itertools
 import logging
 import os
-import posixpath
-import shutil
 from functools import partial
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -24,7 +23,10 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
+from mlflow.environment_variables import (
+    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
+    MLFLOW_DEFAULT_PREDICTION_DEVICE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.models import Model, ModelSignature
@@ -37,6 +39,10 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.checkpoint_utils import download_checkpoint_artifact
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -56,6 +62,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -65,9 +72,9 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
+_EXPORTED_TORCH_MODEL_FILE_NAME = "model.pt2"
 _TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
-_EXTRA_FILES_KEY = "extra_files"
 _TORCH_CPU_DEVICE_NAME = "cpu"
 _TORCH_DEFAULT_GPU_DEVICE_NAME = "cuda"
 
@@ -136,7 +143,7 @@ def get_default_conda_env():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="torch"))
 def log_model(
     pytorch_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     pickle_module=None,
@@ -148,12 +155,13 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
+    export_model: bool = False,
     **kwargs,
 ):
     """
@@ -195,16 +203,7 @@ def log_model(
             being created and is in ``READY`` status. By default, the function waits for five
             minutes.  Specify 0 or None to skip waiting.
 
-        extra_files: A list containing the paths to corresponding extra files, if ``None``, no
-            extra files are added to the model. Remote URIs are resolved to absolute filesystem
-            paths. For example, consider the following ``extra_files`` list:
-
-            .. code-block:: python
-
-                extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
+        extra_files: {{ extra_files }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
@@ -214,6 +213,10 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        export_model: Save the model via `torch.export.save`. This saving format exports the model
+            as a traced graph. This format addresses the security vulnerability of `CloudPickle`
+            format. If using the format, the `input_example` is required and only the `Tensor` type
+            input is supported.
         kwargs: kwargs to pass to ``torch.save`` method.
 
     Returns:
@@ -306,6 +309,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        export_model=export_model,
         **kwargs,
     )
 
@@ -324,6 +328,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    export_model=False,
     **kwargs,
 ):
     """
@@ -352,18 +357,14 @@ def save_model(
         signature: {{ signature }}
         input_example: {{ input_example }}
 
-        extra_files: A list containing the paths to corresponding extra files. Remote URIs
-            are resolved to absolute filesystem paths.
-            For example, consider the following ``extra_files`` list -
-
-            extra_files = ["s3://my-bucket/path/to/my_file1", "s3://my-bucket/path/to/my_file2"]
-
-            In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
-
-            If ``None``, no extra files are added to the model.
+        extra_files: {{ extra_files }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:{{ metadata }}
+        export_model: Save the model via `torch.export.save`. This saving format exports the model
+            as a traced graph. This format addresses the security vulnerability of `CloudPickle`
+            format. If using the format, the `input_example` is required and only the `Tensor` type
+            input is supported.
         kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -412,6 +413,7 @@ def save_model(
 
     """
     import torch
+    from torch.export import Dim as ExportDim
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -443,48 +445,83 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
 
-    # Persist the pickle module name as a file in the model's `data` directory. This is necessary
-    # because the `data` directory is the only available parameter to `_load_pyfunc`, and it
-    # does not contain the MLmodel configuration; therefore, it is not sufficient to place
-    # the module name in the MLmodel
-    #
-    # TODO: Stop persisting this information to the filesystem once we have a mechanism for
-    # supplying the MLmodel configuration to `mlflow.pytorch._load_pyfunc`
-    pickle_module_path = os.path.join(model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
-    with open(pickle_module_path, "w") as f:
-        f.write(pickle_module.__name__)
     # Save pytorch model
-    model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
-    if isinstance(pytorch_model, torch.jit.ScriptModule):
-        torch.jit.ScriptModule.save(pytorch_model, model_path)
-    else:
-        torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
-
-    torchserve_artifacts_config = {}
-
-    if extra_files:
-        torchserve_artifacts_config[_EXTRA_FILES_KEY] = []
-        if not isinstance(extra_files, list):
-            raise TypeError("Extra files argument should be a list")
-
-        with TempDir() as tmp_extra_files_dir:
-            for extra_file in extra_files:
-                _download_artifact_from_uri(
-                    artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
-                )
-                rel_path = posixpath.join(_EXTRA_FILES_KEY, os.path.basename(extra_file))
-                torchserve_artifacts_config[_EXTRA_FILES_KEY].append({"path": rel_path})
-            shutil.move(
-                tmp_extra_files_dir.path(),
-                posixpath.join(path, _EXTRA_FILES_KEY),
+    if export_model:
+        if Version(torch.__version__) < Version("2.4"):
+            raise MlflowException(
+                "If `export_model` is set to True, `torch` package version must be >= 2.4"
             )
+
+        if isinstance(pytorch_model, torch.jit.ScriptModule):
+            raise MlflowException(
+                "torch.export does not support `torch.jit.ScriptModule` models. "
+                "If the model is a `torch.jit.ScriptModule` model, `export_model` must be False."
+            )
+
+        if input_example is None or not isinstance(input_example, np.ndarray):
+            raise MlflowException(
+                "If `export_model` is True, then `input_example` is required and "
+                "must be a numpy array."
+            )
+
+        if not (
+            signature is not None
+            and signature.inputs is not None
+            and len(signature.inputs) == 1
+            and signature.inputs.is_tensor_spec()
+        ):
+            raise MlflowException(
+                "If `export_model` is True, then the model input signature must contain "
+                "only one tensor spec."
+            )
+
+        tensor_spec = signature.inputs.inputs[0]
+
+        try:
+            dynamic_dim = tensor_spec.shape.index(-1)
+            dynamic_shapes = ({dynamic_dim: ExportDim("dynamic_dim")},)
+        except ValueError:
+            dynamic_shapes = None
+
+        exported_prog = torch.export.export(
+            pytorch_model, (torch.from_numpy(input_example),), dynamic_shapes=dynamic_shapes
+        )
+        model_path = os.path.join(model_data_path, _EXPORTED_TORCH_MODEL_FILE_NAME)
+        torch.export.save(exported_prog, model_path)
+    else:
+        if not is_in_databricks_runtime():
+            _logger.warning(
+                "Saving pytorch model by Pickle or CloudPickle format requires exercising "
+                "caution because these formats rely on Python's object serialization mechanism, "
+                "which can execute arbitrary code during deserialization."
+                "The recommended safe alternative is to set 'export_model' to True to save the "
+                "pytorch model using the safe graph model format."
+            )
+        # Persist the pickle module name as a file in the model's `data` directory. This is
+        # necessary
+        # because the `data` directory is the only available parameter to `_load_pyfunc`, and it
+        # does not contain the MLmodel configuration; therefore, it is not sufficient to place
+        # the module name in the MLmodel
+        #
+        # TODO: Stop persisting this information to the filesystem once we have a mechanism for
+        # supplying the MLmodel configuration to `mlflow.pytorch._load_pyfunc`
+        pickle_module_path = os.path.join(model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
+        with open(pickle_module_path, "w") as f:
+            f.write(pickle_module.__name__)
+        model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
+        if isinstance(pytorch_model, torch.jit.ScriptModule):
+            torch.jit.ScriptModule.save(pytorch_model, model_path)
+        else:
+            torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
+
+    extra_files_config = _copy_extra_files(extra_files, path)
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         model_data=model_data_subpath,
         pytorch_version=str(torch.__version__),
         code=code_dir_subpath,
-        **torchserve_artifacts_config,
+        **extra_files_config,
     )
     pyfunc.add_to_model(
         mlflow_model,
@@ -534,6 +571,20 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
+def _load_by_pickle_check():
+    if (
+        not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+        and not is_in_databricks_runtime()
+        and not is_in_databricks_model_serving_environment()
+    ):
+        raise MlflowException(
+            "Deserializing model using pickle is disallowed, but this model is saved "
+            "in pickle format. To address this issue, you need to set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true', or save the model with "
+            "'export_model=True' like `mlflow.pytorch.save_model(model, path, export_model=True)`."
+        )
+
+
 def _load_model(path, device=None, **kwargs):
     """
     Args:
@@ -546,37 +597,54 @@ def _load_model(path, device=None, **kwargs):
     if os.path.isdir(path):
         # `path` is a directory containing a serialized PyTorch model and a text file containing
         # information about the pickle module that should be used by PyTorch to load it
-        model_path = os.path.join(path, "model.pth")
-        pickle_module_path = os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME)
-        with open(pickle_module_path) as f:
-            pickle_module_name = f.read()
-        if "pickle_module" in kwargs and kwargs["pickle_module"].__name__ != pickle_module_name:
-            _logger.warning(
-                "Attempting to load the PyTorch model with a pickle module, '%s', that does not"
-                " match the pickle module that was used to save the model: '%s'.",
-                kwargs["pickle_module"].__name__,
-                pickle_module_name,
-            )
-        else:
-            try:
-                kwargs["pickle_module"] = importlib.import_module(pickle_module_name)
-            except ImportError as exc:
-                raise MlflowException(
-                    message=(
-                        "Failed to import the pickle module that was used to save the PyTorch"
-                        f" model. Pickle module name: `{pickle_module_name}`"
-                    ),
-                    error_code=RESOURCE_DOES_NOT_EXIST,
-                ) from exc
 
+        model_path = os.path.join(path, "model.pth")
+        if os.path.exists(model_path):
+            is_exported_model = False
+            pickle_module_path = os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME)
+            with open(pickle_module_path) as f:
+                pickle_module_name = f.read()
+            if "pickle_module" in kwargs and kwargs["pickle_module"].__name__ != pickle_module_name:
+                _logger.warning(
+                    "Attempting to load the PyTorch model with a pickle module, '%s', that does not"
+                    " match the pickle module that was used to save the model: '%s'.",
+                    kwargs["pickle_module"].__name__,
+                    pickle_module_name,
+                )
+            else:
+                try:
+                    kwargs["pickle_module"] = importlib.import_module(pickle_module_name)
+                except ImportError as exc:
+                    raise MlflowException(
+                        message=(
+                            "Failed to import the pickle module that was used to save the PyTorch"
+                            f" model. Pickle module name: `{pickle_module_name}`"
+                        ),
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    ) from exc
+        else:
+            is_exported_model = True
+            model_path = os.path.join(path, "model.pt2")
+            kwargs = {}
     else:
+        is_exported_model = False
         model_path = path
 
     if Version(torch.__version__) >= Version("1.5.0"):
-        pytorch_model = torch.load(model_path, **kwargs)
+        if is_exported_model:
+            if Version(torch.__version__) < Version("2.4"):
+                raise MlflowException(
+                    "The model is exported by `torch.export` API. To load the model, "
+                    "`torch` package version must be >= 2.4"
+                )
+            pytorch_model = torch.export.load(model_path, **kwargs).module()
+        else:
+            _load_by_pickle_check()
+            pytorch_model = torch.load(model_path, **kwargs)
     else:
         try:
             # load the model as an eager model.
+            _load_by_pickle_check()
             pytorch_model = torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
@@ -584,9 +652,29 @@ def _load_model(path, device=None, **kwargs):
             kwargs.pop("pickle_module", None)
             pytorch_model = torch.jit.load(model_path, **kwargs)
 
-    pytorch_model.eval()
+    if not is_exported_model:
+        pytorch_model.eval()
     if device:
-        pytorch_model.to(device=device)
+        if is_exported_model:
+            target_device_type = torch.device(device).type
+            # If the model is loaded from an exported model (pt2 format),
+            # the model weights / buffers can't be moved across devices.
+            # so we do device check instead.
+            for tensor in itertools.chain(
+                pytorch_model.parameters(),
+                pytorch_model.buffers(),
+            ):
+                if tensor.device.type != target_device_type:
+                    raise MlflowException(
+                        "The saved model is exported by `torch.export` API, the original model "
+                        f"contains weights / buffers on '{tensor.device.type}' device, it can't "
+                        f"be loaded on '{target_device_type}' device. To address this issue, "
+                        f"You should save the model in the following way: "
+                        f"`mlflow.pytorch.save_model("
+                        f"model.to('{target_device_type}'), path=..., export_model=True)`."
+                    )
+        else:
+            pytorch_model.to(device=device)
     return pytorch_model
 
 
@@ -657,7 +745,16 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
-def _load_pyfunc(path, model_config=None, weights_only=False):  # noqa: D417
+def _is_forecasting_model(model) -> bool:
+    try:
+        from pytorch_forecasting.models import BaseModel
+    except ImportError:
+        return False
+
+    return isinstance(model, BaseModel)
+
+
+def _load_pyfunc(path, model_config=None, weights_only=False):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
@@ -700,6 +797,7 @@ class _PyTorchWrapper:
     def __init__(self, pytorch_model, device):
         self.pytorch_model = pytorch_model
         self.device = device
+        self._is_forecasting_model = _is_forecasting_model(self.pytorch_model)
 
     def get_raw_model(self):
         """
@@ -707,7 +805,7 @@ class _PyTorchWrapper:
         """
         return self.pytorch_model
 
-    def predict(self, data, params: Optional[dict[str, Any]] = None):
+    def predict(self, data, params: dict[str, Any] | None = None):
         """
         Args:
             data: Model input data.
@@ -727,8 +825,13 @@ class _PyTorchWrapper:
             )
 
         if isinstance(data, pd.DataFrame):
-            inp_data = data.values.astype(np.float32)
+            inp_data = data if self._is_forecasting_model else data.to_numpy(dtype=np.float32)
         elif isinstance(data, np.ndarray):
+            if self._is_forecasting_model:
+                raise TypeError(
+                    "The pytorch forecasting model does not support numpy.ndarray input data, "
+                    "please provide pandas.DataFrame input data."
+                )
             inp_data = data
         elif isinstance(data, (list, dict)):
             raise TypeError(
@@ -740,8 +843,13 @@ class _PyTorchWrapper:
 
         device = self.device
         with torch.no_grad():
-            input_tensor = torch.from_numpy(inp_data).to(device)
-            preds = self.pytorch_model(input_tensor, **(params or {}))
+            if self._is_forecasting_model:
+                # forecasting model `predict` method supports
+                # dataframe input.
+                preds = self.pytorch_model.predict(inp_data)
+            else:
+                input_tensor = torch.from_numpy(inp_data).to(device)
+                preds = self.pytorch_model(input_tensor, **(params or {}))
             # if the predictions happened on a remote device, copy them back to
             # the host CPU for processing
             if device != _TORCH_CPU_DEVICE_NAME:
@@ -751,7 +859,7 @@ class _PyTorchWrapper:
                     "Expected PyTorch model to output a single output tensor, "
                     f"but got output of type '{type(preds)}'"
                 )
-            if isinstance(data, pd.DataFrame):
+            if isinstance(data, pd.DataFrame) and not self._is_forecasting_model:
                 predicted = pd.DataFrame(preds.numpy())
                 predicted.index = data.index
             else:
@@ -878,6 +986,7 @@ def autolog(
     checkpoint_save_best_only=True,
     checkpoint_save_weights_only=False,
     checkpoint_save_freq="epoch",
+    log_model_signatures=True,
 ):
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
@@ -948,6 +1057,7 @@ def autolog(
             epochs, the monitored metric may potentially be less reliable (it
             could reflect as little as 1 batch, since the metrics get reset
             every epoch). Defaults to `"epoch"`.
+        log_model_signatures: Whether to log model signature when `log_model` is True.
 
     .. code-block:: python
         :test:

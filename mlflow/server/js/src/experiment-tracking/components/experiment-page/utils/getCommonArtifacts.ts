@@ -1,4 +1,4 @@
-import { ArtifactFileInfo, ArtifactListFilesResponse } from '../../../types';
+import type { ArtifactFileInfo, ArtifactListFilesResponse } from '../../../types';
 
 /**
  * Gets the list of artifacts that are present in all runs in the given list of runs.

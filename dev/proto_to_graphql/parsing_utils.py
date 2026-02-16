@@ -47,7 +47,7 @@ def populate_message_types(field_descriptor, state, is_input, visited):
 
     for sub_field in field_descriptor.fields:
         type = sub_field.type
-        if type == FieldDescriptor.TYPE_MESSAGE or type == FieldDescriptor.TYPE_GROUP:
+        if type in (FieldDescriptor.TYPE_MESSAGE, FieldDescriptor.TYPE_GROUP):
             populate_message_types(sub_field.message_type, state, is_input, visited)
         elif type == FieldDescriptor.TYPE_ENUM:
             state.enums.add(sub_field.enum_type)

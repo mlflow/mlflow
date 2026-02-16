@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { ExperimentRunsChartsUIConfiguration } from '../../experiment-page/models/ExperimentPageUIState';
+import type { ExperimentRunsChartsUIConfiguration } from '../../experiment-page/models/ExperimentPageUIState';
 import { RunsChartsCardConfig } from '../runs-charts.types';
 import { getUUID } from '../../../../common/utils/ActionUtils';
 
@@ -94,69 +94,75 @@ export const useReorderRunsChartsFn = () => {
 
 export const useConfirmChartCardConfigurationFn = () => {
   const updateChartsUIState = useUpdateRunsChartsUIConfiguration();
-  return (configuredCard: Partial<RunsChartsCardConfig>) => {
-    const serializedCard = RunsChartsCardConfig.serialize({
-      ...configuredCard,
-      uuid: getUUID(),
-    });
+  return useCallback(
+    (configuredCard: Partial<RunsChartsCardConfig>) => {
+      const serializedCard = RunsChartsCardConfig.serialize({
+        ...configuredCard,
+        uuid: getUUID(),
+      });
 
-    // Creating new chart
-    if (!configuredCard.uuid) {
-      updateChartsUIState((current) => ({
-        ...current,
-        // This condition ensures that chart collection will remain undefined if not set previously
-        compareRunCharts: current.compareRunCharts && [...current.compareRunCharts, serializedCard],
-      }));
-    } /* Editing existing chart */ else {
-      updateChartsUIState((current) => ({
-        ...current,
-        compareRunCharts: current.compareRunCharts?.map((existingChartCard) => {
-          if (existingChartCard.uuid === configuredCard.uuid) {
-            return { ...serializedCard, uuid: existingChartCard.uuid };
-          }
-          return existingChartCard;
-        }),
-      }));
-    }
-  };
+      // Creating new chart
+      if (!configuredCard.uuid) {
+        updateChartsUIState((current) => ({
+          ...current,
+          // This condition ensures that chart collection will remain undefined if not set previously
+          compareRunCharts: current.compareRunCharts && [...current.compareRunCharts, serializedCard],
+        }));
+      } /* Editing existing chart */ else {
+        updateChartsUIState((current) => ({
+          ...current,
+          compareRunCharts: current.compareRunCharts?.map((existingChartCard) => {
+            if (existingChartCard.uuid === configuredCard.uuid) {
+              return { ...serializedCard, uuid: existingChartCard.uuid };
+            }
+            return existingChartCard;
+          }),
+        }));
+      }
+    },
+    [updateChartsUIState],
+  );
 };
 
 export const useInsertRunsChartsFn = () => {
   const updateChartsUIState = useUpdateRunsChartsUIConfiguration();
-  return (sourceChartUuid: string, targetSectionId: string) => {
-    updateChartsUIState((current) => {
-      const newChartsOrder = current.compareRunCharts?.slice();
-      const newSectionsState = current.compareRunSections?.slice();
-      if (!newChartsOrder || !newSectionsState) {
-        return current;
-      }
+  return useCallback(
+    (sourceChartUuid: string, targetSectionId: string) => {
+      updateChartsUIState((current) => {
+        const newChartsOrder = current.compareRunCharts?.slice();
+        const newSectionsState = current.compareRunSections?.slice();
+        if (!newChartsOrder || !newSectionsState) {
+          return current;
+        }
 
-      const indexSource = newChartsOrder.findIndex((c) => c.uuid === sourceChartUuid);
-      if (indexSource < 0) {
-        return current;
-      }
-      const sourceChart = newChartsOrder[indexSource];
-      // Set new chart metric group
-      const newSourceChart = { ...sourceChart };
-      newSourceChart.metricSectionId = targetSectionId;
+        const indexSource = newChartsOrder.findIndex((c) => c.uuid === sourceChartUuid);
+        if (indexSource < 0) {
+          return current;
+        }
+        const sourceChart = newChartsOrder[indexSource];
+        // Set new chart metric group
+        const newSourceChart = { ...sourceChart };
+        newSourceChart.metricSectionId = targetSectionId;
 
-      // Update the sections to indicate that the charts have been reordered
-      const sourceSectionIdx = newSectionsState.findIndex((c) => c.uuid === sourceChart.metricSectionId);
-      const targetSectionIdx = newSectionsState.findIndex((c) => c.uuid === targetSectionId);
-      newSectionsState.splice(sourceSectionIdx, 1, { ...newSectionsState[sourceSectionIdx], isReordered: true });
-      newSectionsState.splice(targetSectionIdx, 1, { ...newSectionsState[targetSectionIdx], isReordered: true });
+        // Update the sections to indicate that the charts have been reordered
+        const sourceSectionIdx = newSectionsState.findIndex((c) => c.uuid === sourceChart.metricSectionId);
+        const targetSectionIdx = newSectionsState.findIndex((c) => c.uuid === targetSectionId);
+        newSectionsState.splice(sourceSectionIdx, 1, { ...newSectionsState[sourceSectionIdx], isReordered: true });
+        newSectionsState.splice(targetSectionIdx, 1, { ...newSectionsState[targetSectionIdx], isReordered: true });
 
-      // Remove the source graph from array and append
-      newChartsOrder.splice(indexSource, 1);
-      newChartsOrder.push(newSourceChart);
+        // Remove the source graph from array and append
+        newChartsOrder.splice(indexSource, 1);
+        newChartsOrder.push(newSourceChart);
 
-      return {
-        ...current,
-        compareRunCharts: newChartsOrder,
-        compareRunSections: newSectionsState,
-      };
-    });
-  };
+        return {
+          ...current,
+          compareRunCharts: newChartsOrder,
+          compareRunSections: newSectionsState,
+        };
+      });
+    },
+    [updateChartsUIState],
+  );
 };
 
 export const useRemoveRunsChartFn = () => {

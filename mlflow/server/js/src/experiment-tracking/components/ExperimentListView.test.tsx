@@ -1,5 +1,6 @@
+import { jest, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
-import { screen, renderWithIntl } from '../../common/utils/TestUtils.react18';
+import { screen, renderWithIntl, waitFor } from '../../common/utils/TestUtils.react18';
 import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
@@ -22,10 +23,6 @@ jest.mock('./experiment-page/hooks/useUpdateExperimentTags', () => ({
 
 const mountComponent = (props: any) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
-  const experimentListViewProps = {
-    searchFilter: '',
-    setSearchFilter: jest.fn(),
-  };
 
   jest.mocked(useExperimentListQuery).mockImplementation(() => ({
     data: props.experiments.slice(25),
@@ -35,6 +32,7 @@ const mountComponent = (props: any) => {
     hasPreviousPage: false,
     onNextPage: jest.fn(),
     onPreviousPage: jest.fn(),
+    // @ts-expect-error Type 'Mock<UnknownFunction>' is not assignable to parameter
     refetch: jest.fn(),
     pageSizeSelect: {
       options: [10],
@@ -61,7 +59,7 @@ const mountComponent = (props: any) => {
         })}
       >
         <BrowserRouter>
-          <ExperimentListView {...experimentListViewProps} />
+          <ExperimentListView />
         </BrowserRouter>
       </Provider>
     </DesignSystemProvider>,
@@ -70,7 +68,7 @@ const mountComponent = (props: any) => {
 
 test('If button to create experiment is pressed then open CreateExperimentModal', async () => {
   mountComponent({ experiments: Fixtures.experiments });
-  await userEvent.click(screen.getByTestId('create-experiment-button'));
+  await userEvent.click(screen.getByTestId('create-experiment-table-empty-state-button'));
   expect(screen.getByText('Create Experiment')).toBeInTheDocument();
 });
 
@@ -80,7 +78,7 @@ test('should render when experiments are empty', () => {
   });
 
   // Get the sidebar header as proof that the component rendered
-  expect(screen.getByText('No experiments created')).toBeInTheDocument();
+  expect(screen.getByText('Create your first experiment')).toBeInTheDocument();
 });
 
 test('paginated list should not render everything when there are many experiments', () => {

@@ -9,9 +9,9 @@ import {
   PencilIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ChartSectionConfig } from '../../../../types';
+import type { ChartSectionConfig } from '../../../../types';
 import { RunsChartsAddChartMenu } from '../RunsChartsAddChartMenu';
-import { RunsChartType } from '../../runs-charts.types';
+import type { RunsChartType } from '../../runs-charts.types';
 import { useEffect, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useDragAndDropElement } from '@mlflow/mlflow/src/common/hooks/useDragAndDropElement';

@@ -6,13 +6,12 @@
  */
 
 import React, { Component } from 'react';
-import './RequestStateWrapper.css';
 import { connect } from 'react-redux';
 import { getApis } from '../../experiment-tracking/reducers/Reducers';
 import { Spinner } from './Spinner';
 import { ErrorCodes } from '../constants';
-import { ErrorWrapper } from '../utils/ErrorWrapper';
-import { ReduxState } from '../../redux-types';
+import type { ErrorWrapper } from '../utils/ErrorWrapper';
+import type { ReduxState } from '../../redux-types';
 
 export const DEFAULT_ERROR_MESSAGE = 'A request error occurred.';
 

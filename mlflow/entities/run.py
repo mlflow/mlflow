@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.run_data import RunData
@@ -18,8 +18,8 @@ class Run(_MlflowObject):
         self,
         run_info: RunInfo,
         run_data: RunData,
-        run_inputs: Optional[RunInputs] = None,
-        run_outputs: Optional[RunOutputs] = None,
+        run_inputs: RunInputs | None = None,
+        run_outputs: RunOutputs | None = None,
     ) -> None:
         if run_info is None:
             raise MlflowException("run_info cannot be None")

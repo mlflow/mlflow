@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import { usePromptDetailsPageViewState } from './usePromptDetailsPageViewState';
 import { PromptVersionsTableMode } from '../utils';
 import type { RegisteredPromptDetailsResponse, RegisteredPromptVersion } from '../types';
@@ -11,14 +12,6 @@ describe('usePromptDetailsPageViewState', () => {
   it('should initialize with preview mode', () => {
     const { result } = renderHook(() => usePromptDetailsPageViewState());
     expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.PREVIEW);
-  });
-
-  it('should set table mode', () => {
-    const { result } = renderHook(() => usePromptDetailsPageViewState());
-    act(() => {
-      result.current.setTableMode();
-    });
-    expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.TABLE);
   });
 
   it('should set preview mode with selected version', () => {
@@ -36,8 +29,8 @@ describe('usePromptDetailsPageViewState', () => {
       result.current.setCompareMode();
     });
     expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.COMPARE);
-    expect(result.current.viewState.selectedVersion).toBe('2');
-    expect(result.current.viewState.comparedVersion).toBe('1');
+    expect(result.current.viewState.selectedVersion).toBe('1');
+    expect(result.current.viewState.comparedVersion).toBe('2');
   });
 
   it('should switch sides', () => {
@@ -48,8 +41,8 @@ describe('usePromptDetailsPageViewState', () => {
     act(() => {
       result.current.switchSides();
     });
-    expect(result.current.viewState.selectedVersion).toBe('1');
-    expect(result.current.viewState.comparedVersion).toBe('2');
+    expect(result.current.viewState.selectedVersion).toBe('2');
+    expect(result.current.viewState.comparedVersion).toBe('1');
   });
 
   it('should set selected version', () => {

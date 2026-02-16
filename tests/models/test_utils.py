@@ -1,6 +1,6 @@
 import os
 import random
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -20,6 +20,7 @@ from mlflow.models.utils import (
     _convert_llm_input_data,
     _enforce_array,
     _enforce_datatype,
+    _enforce_mlflow_datatype,
     _enforce_object,
     _enforce_property,
     _flatten_nested_params,
@@ -31,7 +32,10 @@ from mlflow.pyfunc import _enforce_schema, _validate_prediction_input
 from mlflow.types import DataType, Schema
 from mlflow.types.schema import Array, ColSpec, Object, Property
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 @pytest.fixture(scope="module")
@@ -45,7 +49,7 @@ def sklearn_knn_model():
 
 
 def random_int(lo=1, hi=1000000000):
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 def test_adding_libraries_to_model_default(sklearn_knn_model):
@@ -208,6 +212,22 @@ def test_enforce_datatype_with_errors():
         MlflowException, match=r"Failed to enforce schema of data `123` with dtype `string`"
     ):
         _enforce_datatype(123, DataType.string)
+
+
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        pd.StringDtype(),
+        "string",
+        object,
+        None,  # infers object in pandas <3.0, StringDtype in pandas 3.0
+    ],
+)
+def test_enforce_mlflow_datatype_with_string_dtype(dtype):
+    # Test that string dtypes are handled correctly (pandas 3.0 compatibility)
+    series = pd.Series(["a", "b", "c"], dtype=dtype)
+    result = _enforce_mlflow_datatype("col", series, DataType.string)
+    assert result is series
 
 
 def test_enforce_object():

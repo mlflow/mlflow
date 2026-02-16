@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, test, expect } from '@jest/globals';
 import ModelRegistryReducers, {
   getAllModelVersions,
   getModelVersion,
@@ -260,8 +261,7 @@ describe('test modelVersionsByModel', () => {
     });
   });
 
-  test('SEARCH_MODEL_VERSION doesnt merge with states', () => {
-    // Reducers should not merge results for pagination
+  test('SEARCH_MODEL_VERSION updates states correctly', () => {
     const version1 = mockModelVersionDetailed('modelA', 1, 'Production', 'READY');
     const version2 = mockModelVersionDetailed('modelA', 2, 'Staging', 'READY');
     const state = { modelX: {} };
@@ -747,7 +747,7 @@ describe('test tagsByRegisteredModel', () => {
 });
 
 describe('test getRegisteredModelTags', () => {
-  test('test getRegisteredModelTags when model does not exist', () => {
+  test('getRegisteredModelTags when model does not exist', () => {
     const state = {
       entities: {
         tagsByRegisteredModel: {},
@@ -755,7 +755,7 @@ describe('test getRegisteredModelTags', () => {
     };
     expect(getRegisteredModelTags('modelA', state)).toEqual({});
   });
-  test('test getRegisteredModelTags when model exists', () => {
+  test('getRegisteredModelTags when model exists', () => {
     const state = {
       entities: {
         tagsByRegisteredModel: {
@@ -964,7 +964,7 @@ describe('test tagsByModelVersion', () => {
 });
 
 describe('test getModelVersionTags', () => {
-  test('test getModelVersionTags when model does not exist', () => {
+  test('getModelVersionTags when model does not exist', () => {
     const state = {
       entities: {
         tagsByModelVersion: {},
@@ -972,7 +972,7 @@ describe('test getModelVersionTags', () => {
     };
     expect(getModelVersionTags('modelA', 1, state)).toEqual({});
   });
-  test('test getModelVersionTags when version does not exist', () => {
+  test('getModelVersionTags when version does not exist', () => {
     const state = {
       entities: {
         tagsByModelVersion: {
@@ -989,7 +989,7 @@ describe('test getModelVersionTags', () => {
     };
     expect(getModelVersionTags('modelA', 2, state)).toEqual({});
   });
-  test('test getModelVersionTags when model exists', () => {
+  test('getModelVersionTags when model exists', () => {
     const state = {
       entities: {
         tagsByModelVersion: {

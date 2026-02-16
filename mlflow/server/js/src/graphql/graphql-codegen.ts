@@ -30,6 +30,7 @@ const config: CodegenConfig = {
       WellKnownFieldMask: 'any',
       WellKnownTimestamp: 'any',
       WellKnownDuration: 'any',
+      WellKnownStruct: 'Record<string, any>',
     },
     // Omit `__typename: 'QueryType'/'MutationType'` on operation types
     skipTypeNameForRoot: true,

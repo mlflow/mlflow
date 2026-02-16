@@ -1,16 +1,15 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { Config, Data, Layout } from 'plotly.js';
+import type { Config, Data, Layout } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
 import { highlightBarTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import type { RunsChartsRunData, RunsPlotsCommonProps } from './RunsCharts.common';
 import {
   commonRunsChartStyles,
-  RunsChartsRunData,
   runsChartDefaultMargin,
   runsChartHoverlabel,
-  RunsPlotsCommonProps,
   createThemedPlotlyLayout,
   normalizeChartValue,
   useDynamicPlotSize,
@@ -81,6 +80,7 @@ const getFixedPointValue = (val: string | number, places = 2) => (typeof val ===
  * set of experiments runs
  */
 export const RunsMetricsBarPlot = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     runsData,
     metricKey,

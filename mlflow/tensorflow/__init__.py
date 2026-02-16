@@ -13,7 +13,7 @@ import logging
 import os
 import shutil
 import tempfile
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import numpy as np
 import pandas
@@ -35,7 +35,7 @@ from mlflow.tensorflow.callback import MlflowCallback, MlflowModelCheckpointCall
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
-from mlflow.tracking.fluent import _shut_down_async_logging
+from mlflow.tracking.fluent import _initialize_logged_model, _shut_down_async_logging
 from mlflow.types.schema import TensorSpec
 from mlflow.utils import is_iterator
 from mlflow.utils.autologging_utils import (
@@ -65,6 +65,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -140,7 +141,7 @@ def get_global_custom_objects():
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     custom_objects=None,
     conda_env=None,
     code_paths=None,
@@ -153,12 +154,14 @@ def log_model(
     saved_model_kwargs=None,
     keras_model_kwargs=None,
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    extra_files=None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
+    **kwargs,
 ):
     """
     Log a TF2 core model (inheriting tf.Module) or a Keras model in MLflow Model format.
@@ -214,12 +217,14 @@ def log_model(
         saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method.
         keras_model_kwargs: a dict of kwargs to pass to ``keras_model.save`` method.
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
 
     Returns
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -243,11 +248,13 @@ def log_model(
         saved_model_kwargs=saved_model_kwargs,
         keras_model_kwargs=keras_model_kwargs,
         metadata=metadata,
+        extra_files=extra_files,
         params=params,
         tags=tags,
         model_type=model_type,
         step=step,
         model_id=model_id,
+        **kwargs,
     )
 
 
@@ -295,6 +302,7 @@ def save_model(
     saved_model_kwargs=None,
     keras_model_kwargs=None,
     metadata=None,
+    extra_files=None,
 ):
     """
     Save a TF2 core model (inheriting tf.Module) or Keras model in MLflow Model format to a path on
@@ -346,6 +354,7 @@ def save_model(
         keras_model_kwargs: a dict of kwargs to pass to ``model.save`` method if the model
             to be saved is a keras model.
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
     """
     import tensorflow as tf
     from tensorflow.keras.models import Model as KerasModel
@@ -476,8 +485,12 @@ def save_model(
     else:
         raise MlflowException(f"Unknown model type: {type(model)}")
 
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     # update flavor info to mlflow_model
-    mlflow_model.add_flavor(FLAVOR_NAME, code=code_dir_subpath, **flavor_options)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, code=code_dir_subpath, **flavor_options, **extra_files_config
+    )
 
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(
@@ -791,7 +804,7 @@ class _TF2Wrapper:
     def predict(
         self,
         data,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -850,7 +863,7 @@ class _TF2ModuleWrapper:
     def predict(
         self,
         data,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -889,7 +902,7 @@ class _KerasModelWrapper:
     def predict(
         self,
         data,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -1328,7 +1341,7 @@ def autolog(
 
             model_id = None
             if log_models:
-                model_id = mlflow.initialize_logged_model("model").model_id
+                model_id = _initialize_logged_model("model", flavor=FLAVOR_NAME).model_id
 
             if log_datasets:
                 try:

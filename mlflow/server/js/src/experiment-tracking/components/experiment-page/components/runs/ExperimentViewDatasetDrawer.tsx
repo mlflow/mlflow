@@ -7,9 +7,9 @@ import {
   Spacer,
   TableIcon,
   Tag,
-  LegacyTooltip,
   Typography,
   useDesignSystemTheme,
+  Tooltip,
 } from '@databricks/design-system';
 import type { RunDatasetWithTags } from '../../../../types';
 import { MLFLOW_RUN_DATASET_CONTEXT_TAG } from '../../../../constants';
@@ -84,7 +84,7 @@ const ExperimentViewDatasetDrawerImpl = ({
         componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetdrawer.tsx_81"
         title={
           <div css={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-            <Typography.Title level={4} css={{ marginRight: theme.spacing.sm, marginBottom: 0 }}>
+            <Typography.Title level={4} css={{ marginRight: theme.spacing.sm, marginBottom: 0 }} withoutMargins>
               <FormattedMessage
                 defaultMessage="Data details for "
                 description="Text for data details for the experiment run in the dataset drawer"
@@ -204,13 +204,19 @@ const ExperimentViewDatasetDrawerImpl = ({
               <div css={{ flex: '1' }}>
                 <Header
                   title={
-                    <div css={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                    <div css={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs }}>
                       <TableIcon css={{ marginRight: theme.spacing.xs }} />
-                      <LegacyTooltip title={datasetWithTags.dataset.name}>
-                        <Typography.Title ellipsis level={3} css={{ marginBottom: 0, maxWidth: 200 }}>
-                          {datasetWithTags.dataset.name}
-                        </Typography.Title>
-                      </LegacyTooltip>
+                      <Tooltip
+                        content={datasetWithTags.dataset.name}
+                        componentId="mlflow.dataset_drawer.dataset_name_tooltip"
+                        align="start"
+                      >
+                        <span>
+                          <Typography.Title ellipsis level={3} css={{ maxWidth: 200 }} withoutMargins>
+                            {datasetWithTags.dataset.name}
+                          </Typography.Title>
+                        </span>
+                      </Tooltip>
                       {contextTag && (
                         <Tag
                           componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetdrawer.tsx_206"
@@ -278,8 +284,9 @@ const styles = {
   runLink: {
     overflow: 'hidden',
     display: 'flex',
-    gap: 8,
+    gap: 4,
     alignItems: 'center',
+    fontWeight: 'normal',
   },
   runName: {
     overflow: 'hidden',

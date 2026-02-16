@@ -1,12 +1,14 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { MemoryRouter, createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import Utils from '../../../common/utils/Utils';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { KeyValueEntity } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import userEvent from '@testing-library/user-event';
-import { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
+import type { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
+import { prefixRouteWithWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 
 jest.mock('../../../model-registry/actions', () => ({
   searchRegisteredModelsApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),
@@ -32,7 +34,7 @@ const createLoggedModelHistoryTag = (models: ReturnType<typeof createModelArtifa
   ({
     key: Utils.loggedModelsTag,
     value: JSON.stringify(models),
-  } as any);
+  }) as any;
 
 describe('RunViewHeaderRegisterModelButton', () => {
   const mountComponent = ({
@@ -101,7 +103,7 @@ describe('RunViewHeaderRegisterModelButton', () => {
     expect(screen.queryByRole('button', { name: 'Register model' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Model registered' })).toHaveAttribute(
       'href',
-      createMLflowRoutePath('/models/test-model/versions/7'),
+      prefixRouteWithWorkspace(createMLflowRoutePath('/models/test-model/versions/7')),
     );
   });
 

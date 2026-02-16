@@ -8,6 +8,9 @@
  * bundles Infima by default. Infima is a CSS framework designed to
  * work well for content-centric websites.
  */
+:root {
+  --color-brand-red: #eb1700;
+}
 
 /* --------------------------------
  * 0. Override tailwinds reset of li and ul elements styling
@@ -436,6 +439,9 @@ html[data-genai-theme='true'] {
 /* Sidebar background color and spacing */
 .theme-doc-sidebar-container {
   background-color: transparent;
+  border-right: none !important;
+  padding-top: 1rem;
+  margin-right: 2rem;
 }
 
 /* Common sidebar styles for both themes */
@@ -445,12 +451,30 @@ html[data-genai-theme='true'] {
 
 .sidebar-top-level-category > .menu__link,
 .sidebar-top-level-category > .menu__list-item-collapsible > .menu__link {
+  font-size: var(--font-size-body-s);
   font-weight: var(--font-weight-medium);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 1.5rem;
 }
 
-.menu__list-item:not(.sidebar-top-level-category) > .menu__link,
-.menu__list-item:not(.sidebar-top-level-category) > .menu__list-item-collapsible > .menu__link {
+/* Style Overview doc link to match bold HTML section headers (e.g., "Getting Started")
+   Used in docs/sidebarsGenAI.ts */
+.sidebar-overview.menu__list-item {
+  padding: var(--ifm-menu-link-padding-vertical) var(--ifm-menu-link-padding-horizontal) !important;
+}
+
+.sidebar-overview.menu__list-item > .menu__link {
+  font-weight: bolder !important;
+  padding-left: 0 !important;
+}
+
+.menu__list-item:not(.sidebar-top-level-category):not(.sidebar-overview) > .menu__link,
+.menu__list-item:not(.sidebar-top-level-category):not(.sidebar-overview) > .menu__list-item-collapsible > .menu__link {
   font-size: var(--font-size-body-s);
+  padding-left: 1.5rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
 /* Regular menu links */
@@ -488,6 +512,18 @@ html[data-theme='dark'] .menu__link--active {
 .menu__link:hover:not(.menu__link--active) {
   color: var(--ifm-color-emphasis-hover); /* Use hover variable */
   background-color: transparent;
+}
+
+/* External link icon in sidebar - make existing icon smaller */
+.menu__link--external svg,
+.menu__link[href^='http'] svg,
+.menu__link[href^='https'] svg,
+.menu a[target='_blank'] svg,
+.menu a[rel*='noopener'] svg {
+  width: 10px;
+  height: 10px;
+  vertical-align: middle;
+  margin-left: 0.2em;
 }
 
 /* --------------------------------
@@ -761,6 +797,16 @@ must be applied to the wrapping div along with the desired max-height */
 }
 
 /* --------------------------------
+ * 7.1. Video Styling
+ * -------------------------------- */
+
+video {
+  border-radius: 12px;
+  border: 1px solid var(--ifm-color-gray-300);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* --------------------------------
  * 8. Accessibility
  * -------------------------------- */
 
@@ -788,6 +834,11 @@ In headlines Docusaurus adds this for us. */
 /* Code blocks */
 .codeBlockContainer {
   margin-bottom: 1.5rem;
+}
+
+.theme-code-block {
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* Inline code */
@@ -916,4 +967,9 @@ th {
 
 .col--3 {
   padding-left: 0;
+}
+
+.theme-layout-main {
+  margin-left: auto;
+  margin-right: auto;
 }

@@ -1,7 +1,7 @@
 import time
 import uuid
 from dataclasses import asdict, dataclass, field, fields
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 
@@ -192,11 +192,11 @@ class ChatMessage(_BaseDataclass):
     """
 
     role: str
-    content: Optional[str] = None
-    refusal: Optional[str] = None
-    name: Optional[str] = None
-    tool_calls: Optional[list[ToolCall]] = None
-    tool_call_id: Optional[str] = None
+    content: str | None = None
+    refusal: str | None = None
+    name: str | None = None
+    tool_calls: list[ToolCall] | None = None
+    tool_call_id: str | None = None
 
     def __post_init__(self):
         self._validate_field("role", str, True)
@@ -236,11 +236,11 @@ class ChatChoiceDelta(_BaseDataclass):
             **Optional** defaults to ``None``
     """
 
-    role: Optional[str] = "assistant"
-    content: Optional[str] = None
-    refusal: Optional[str] = None
-    name: Optional[str] = None
-    tool_calls: Optional[list[ToolCall]] = None
+    role: str | None = "assistant"
+    content: str | None = None
+    refusal: str | None = None
+    name: str | None = None
+    tool_calls: list[ToolCall] | None = None
 
     def __post_init__(self):
         self._validate_field("role", str, False)
@@ -278,9 +278,9 @@ class ParamProperty(ParamType):
             used to specify the type of its items. **Optional**, defaults to ``None``
     """
 
-    description: Optional[str] = None
-    enum: Optional[list[str]] = None
-    items: Optional[ParamType] = None
+    description: str | None = None
+    enum: list[str] | None = None
+    items: ParamType | None = None
 
     def __post_init__(self):
         self._validate_field("description", str, False)
@@ -305,8 +305,8 @@ class ToolParamsSchema(_BaseDataclass):
 
     properties: dict[str, ParamProperty]
     type: Literal["object"] = "object"
-    required: Optional[list[str]] = None
-    additionalProperties: Optional[bool] = None
+    required: list[str] | None = None
+    additionalProperties: bool | None = None
 
     def __post_init__(self):
         self._convert_dataclass_map("properties", ParamProperty, True)
@@ -332,8 +332,8 @@ class FunctionToolDefinition(_BaseDataclass):
     """
 
     name: str
-    description: Optional[str] = None
-    parameters: Optional[ToolParamsSchema] = None
+    description: str | None = None
+    parameters: ToolParamsSchema | None = None
     strict: bool = False
 
     def __post_init__(self):
@@ -407,18 +407,18 @@ class ChatParams(_BaseDataclass):
     """
 
     temperature: float = 1.0
-    max_tokens: Optional[int] = None
-    stop: Optional[list[str]] = None
+    max_tokens: int | None = None
+    stop: list[str] | None = None
     n: int = 1
     stream: bool = False
 
-    top_p: Optional[float] = None
-    top_k: Optional[int] = None
-    frequency_penalty: Optional[float] = None
-    presence_penalty: Optional[float] = None
+    top_p: float | None = None
+    top_k: int | None = None
+    frequency_penalty: float | None = None
+    presence_penalty: float | None = None
 
-    custom_inputs: Optional[dict[str, Any]] = None
-    tools: Optional[list[ToolDefinition]] = None
+    custom_inputs: dict[str, Any] | None = None
+    tools: list[ToolDefinition] | None = None
 
     def __post_init__(self):
         self._validate_field("temperature", float, True)
@@ -522,7 +522,7 @@ class TopTokenLogProb(_BaseDataclass):
 
     token: str
     logprob: float
-    bytes: Optional[list[int]] = None
+    bytes: list[int] | None = None
 
     def __post_init__(self):
         self._validate_field("token", str, True)
@@ -553,7 +553,7 @@ class TokenLogProb(_BaseDataclass):
     token: str
     logprob: float
     top_logprobs: list[TopTokenLogProb]
-    bytes: Optional[list[int]] = None
+    bytes: list[int] | None = None
 
     def __post_init__(self):
         self._validate_field("token", str, True)
@@ -571,7 +571,7 @@ class ChatChoiceLogProbs(_BaseDataclass):
         content: A list of message content tokens with log probability information.
     """
 
-    content: Optional[list[TokenLogProb]] = None
+    content: list[TokenLogProb] | None = None
 
     def __post_init__(self):
         self._convert_dataclass_list("content", TokenLogProb, False)
@@ -596,7 +596,7 @@ class ChatChoice(_BaseDataclass):
     message: ChatMessage
     index: int = 0
     finish_reason: str = "stop"
-    logprobs: Optional[ChatChoiceLogProbs] = None
+    logprobs: ChatChoiceLogProbs | None = None
 
     def __post_init__(self):
         self._validate_field("index", int, True)
@@ -623,8 +623,8 @@ class ChatChunkChoice(_BaseDataclass):
 
     delta: ChatChoiceDelta
     index: int = 0
-    finish_reason: Optional[str] = None
-    logprobs: Optional[ChatChoiceLogProbs] = None
+    finish_reason: str | None = None
+    logprobs: ChatChoiceLogProbs | None = None
 
     def __post_init__(self):
         self._validate_field("index", int, True)
@@ -647,9 +647,9 @@ class TokenUsageStats(_BaseDataclass):
             **Optional**, defaults to ``None``
     """
 
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
 
     def __post_init__(self):
         self._validate_field("prompt_tokens", int, False)
@@ -678,12 +678,12 @@ class ChatCompletionResponse(_BaseDataclass):
     """
 
     choices: list[ChatChoice]
-    usage: Optional[TokenUsageStats] = None
-    id: Optional[str] = None
-    model: Optional[str] = None
+    usage: TokenUsageStats | None = None
+    id: str | None = None
+    model: str | None = None
     object: str = "chat.completion"
     created: int = field(default_factory=lambda: int(time.time()))
-    custom_outputs: Optional[dict[str, Any]] = None
+    custom_outputs: dict[str, Any] | None = None
 
     def __post_init__(self):
         self._validate_field("id", str, False)
@@ -716,12 +716,12 @@ class ChatCompletionChunk(_BaseDataclass):
     """
 
     choices: list[ChatChunkChoice]
-    usage: Optional[TokenUsageStats] = None
-    id: Optional[str] = None
-    model: Optional[str] = None
+    usage: TokenUsageStats | None = None
+    id: str | None = None
+    model: str | None = None
     object: str = "chat.completion.chunk"
     created: int = field(default_factory=lambda: int(time.time()))
-    custom_outputs: Optional[dict[str, Any]] = None
+    custom_outputs: dict[str, Any] | None = None
 
     def __post_init__(self):
         self._validate_field("id", str, False)
@@ -826,7 +826,7 @@ CHAT_MODEL_OUTPUT_SCHEMA = Schema(
                     Property("content", DataType.string, False),
                     Property("name", DataType.string, False),
                     Property("refusal", DataType.string, False),
-                    Property("tool_calls",Array(Object([
+                    Property("tool_calls", Array(Object([
                         Property("id", DataType.string),
                         Property("function", Object([
                             Property("name", DataType.string),

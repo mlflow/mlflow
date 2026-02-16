@@ -5,6 +5,10 @@
   margin-top: 20px;
 }
 
+.NoGap {
+  grid-gap: 0;
+}
+
 .MaxThreeColumns {
   grid-template-columns: repeat(3, minmax(200px, 33%));
 }
@@ -34,6 +38,9 @@
   flex: 1;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .CardBordered {
@@ -41,6 +48,7 @@
   border: 1px solid var(--docusaurus-tag-list-border);
   border-radius: var(--card-border-radius);
   transition: box-shadow 0.2s ease-in-out;
+  color: var(--ifm-heading-color);
 }
 
 .CardBordered:hover {
@@ -107,18 +115,18 @@
   display: flex;
   justify-content: center;
   align-self: stretch;
+}
 
-  span {
-    font-size: 1.25rem;
-    align-items: center;
-    display: flex;
-    max-width: 80%;
+.LogoCardImage span {
+  font-size: 1.25rem;
+  align-items: center;
+  display: flex;
+  max-width: 80%;
+}
 
-    img {
-      max-height: 100%;
-      object-fit: contain;
-    }
-  }
+.LogoCardImage span img {
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .SmallLogoCardContent {
@@ -126,12 +134,62 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: stretch;
+  width: 100%;
+}
+
+.SmallLogoCardRounded {
+  border-radius: 12px;
 }
 
 .SmallLogoCardImage {
-  max-width: 150px;
-  max-height: 80px;
   justify-content: center;
+}
+
+.SmallLogoCardImageWithTitle {
+  max-width: 30px;
+  max-height: 30px;
+}
+
+.SmallLogoCardImageDefault {
+  max-width: 200px;
+  max-height: 60px;
+}
+
+.SmallLogoCardRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.SmallLogoCardLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+  font-weight: 600;
+  color: var(--ifm-heading-color);
+  font-size: 1.2rem;
+  text-align: left;
+}
+
+.SmallLogoCardArrow {
+  font-size: 1.1rem;
+}
+
+.SmallLogoCardLink {
+  color: var(--ifm-heading-color);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-decoration: none;
+}
+
+.SmallLogoCardLink:hover {
+  color: var(--ifm-heading-color);
+  text-decoration: none;
 }
 
 .NewFeatureCardContent {
@@ -168,6 +226,26 @@
 
 .TitleCardContent {
   width: 100%;
+}
+
+.TitleCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.TitleCardHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ifm-font-color-base);
+}
+
+/* Ensure right header keeps neutral color even when the card link applies hover styles */
+.Link .TitleCardHeaderRight,
+.Link:hover .TitleCardHeaderRight {
+  color: var(--ifm-font-color-base);
 }
 
 .TitleCardTitle {

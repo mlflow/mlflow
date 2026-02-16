@@ -1,18 +1,15 @@
 import { cloneDeep, fromPairs } from 'lodash';
-import { Action } from 'redux';
+import type { Action } from 'redux';
 import Utils from '../../common/utils/Utils';
-import { AsyncAction, ReduxState, ThunkDispatch } from '../../redux-types';
+import type { AsyncAction, ReduxState, ThunkDispatch } from '../../redux-types';
 import { uploadArtifactApi } from '../actions';
-import { RunRowType } from '../components/experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../components/experiment-page/utils/experimentPage.row-types';
 import { MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME } from '../constants';
-import { RawEvaluationArtifact, parseEvaluationTableArtifact } from '../sdk/EvaluationArtifactService';
-import {
-  ModelGatewayQueryPayload,
-  ModelGatewayRouteType,
-  ModelGatewayRoute,
-  ModelGatewayService,
-} from '../sdk/ModelGatewayService';
-import { EvaluationArtifactTable } from '../types';
+import type { RawEvaluationArtifact } from '../sdk/EvaluationArtifactService';
+import { parseEvaluationTableArtifact } from '../sdk/EvaluationArtifactService';
+import type { ModelGatewayQueryPayload, ModelGatewayRouteType, ModelGatewayRoute } from '../sdk/ModelGatewayService';
+import { ModelGatewayService } from '../sdk/ModelGatewayService';
+import type { EvaluationArtifactTable } from '../types';
 import { searchMlflowDeploymentsRoutesApi } from './ModelGatewayActions';
 import {
   PROMPTLAB_METADATA_COLUMN_LATENCY,
@@ -20,18 +17,17 @@ import {
 } from '../components/prompt-engineering/PromptEngineering.utils';
 
 const EVALUATE_PROMPT_TABLE_VALUE = 'EVALUATE_PROMPT_TABLE_VALUE';
-export interface EvaluatePromptTableValueAction
-  extends AsyncAction<
-    { metadata: any; text: string },
-    {
-      inputValues: Record<string, string>;
-      run: RunRowType;
-      compiledPrompt: string;
-      rowKey: string;
-      startTime: number;
-      gatewayRoute: ModelGatewayRoute;
-    }
-  > {
+export interface EvaluatePromptTableValueAction extends AsyncAction<
+  { metadata: any; text: string },
+  {
+    inputValues: Record<string, string>;
+    run: RunRowType;
+    compiledPrompt: string;
+    rowKey: string;
+    startTime: number;
+    gatewayRoute: ModelGatewayRoute;
+  }
+> {
   type: 'EVALUATE_PROMPT_TABLE_VALUE';
 }
 const evaluatePromptTableValueUnified =
@@ -95,11 +91,10 @@ export const discardPendingEvaluationData = () => ({
 
 export const WRITE_BACK_EVALUATION_ARTIFACTS = 'WRITE_BACK_EVALUATION_ARTIFACTS';
 
-export interface WriteBackEvaluationArtifactsAction
-  extends AsyncAction<
-    { runUuid: string; newEvaluationTable: EvaluationArtifactTable }[],
-    { runUuidsToUpdate: string[]; artifactPath: string }
-  > {
+export interface WriteBackEvaluationArtifactsAction extends AsyncAction<
+  { runUuid: string; newEvaluationTable: EvaluationArtifactTable }[],
+  { runUuidsToUpdate: string[]; artifactPath: string }
+> {
   type: 'WRITE_BACK_EVALUATION_ARTIFACTS';
 }
 
@@ -200,7 +195,6 @@ export const evaluatePromptTableValue = ({
     run,
   };
 
-  // END-EDGE
   return evaluatePromptTableValueUnified({
     ...evaluateParams,
     routeType,

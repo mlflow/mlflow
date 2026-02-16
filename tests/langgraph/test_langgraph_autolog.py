@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
@@ -57,24 +59,20 @@ def test_langgraph_save_as_code():
 
 
 @skip_when_testing_trace_sdk
-def test_langgraph_tracing_prebuilt():
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
+async def test_langgraph_tracing_prebuilt(is_async, mock_litellm_cost):
+    from tests.langgraph.sample_code.langgraph_prebuilt import graph
+
     mlflow.langchain.autolog()
 
     input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
+    config = {"configurable": {"thread_id": "1"}}
 
-    with mlflow.start_run():
-        model_info = mlflow.langchain.log_model(
-            "tests/langgraph/sample_code/langgraph_prebuilt.py",
-            name="langgraph",
-            input_example=input_example,
-        )
-
-    loaded_graph = mlflow.langchain.load_model(model_info.model_uri)
-
-    # No trace should be created for the first call
-    assert mlflow.get_trace(mlflow.get_last_active_trace_id()) is None
-
-    loaded_graph.invoke(input_example)
+    if is_async:
+        await graph.ainvoke(input_example, config)
+    else:
+        graph.invoke(input_example, config)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -112,6 +110,20 @@ def test_langgraph_tracing_prebuilt():
         TokenUsageKey.TOTAL_TOKENS: 45,
     }
 
+    # Thread ID should be recoded in the trace metadata
+    assert traces[0].info.trace_metadata[TraceMetadataKey.TRACE_SESSION] == "1"
+
+    # Verify chat model spans have model name extracted
+    chat_spans = [s for s in traces[0].data.spans if s.span_type == SpanType.CHAT_MODEL]
+    for chat_span in chat_spans:
+        assert chat_span.model_name == "gpt-3.5-turbo"
+        usage = chat_span.get_attribute("mlflow.chat.tokenUsage")
+        assert chat_span.llm_cost == {
+            "input_cost": usage["input_tokens"] * 1.0,
+            "output_cost": usage["output_tokens"] * 2.0,
+            "total_cost": usage["input_tokens"] * 1.0 + usage["output_tokens"] * 2.0,
+        }
+
 
 @skip_when_testing_trace_sdk
 def test_langgraph_tracing_diy_graph():
@@ -136,6 +148,9 @@ def test_langgraph_tracing_diy_graph():
 
     chat_spans = [span for span in traces[0].data.spans if span.name.startswith("ChatOpenAI")]
     assert len(chat_spans) == 3
+    # Verify all chat model spans have model name extracted
+    for chat_span in chat_spans:
+        assert chat_span.model_name == "gpt-3.5-turbo"
 
 
 @skip_when_testing_trace_sdk
@@ -169,6 +184,9 @@ def test_langgraph_tracing_with_custom_span():
     # Validate chat model spans
     chat_spans = [s for s in spans if s.span_type == SpanType.CHAT_MODEL]
     assert len(chat_spans) == 3
+    # Verify all chat model spans have model name extracted
+    for chat_span in chat_spans:
+        assert chat_span.model_name == "gpt-3.5-turbo"
 
     # Validate tool span
     tool_span = next(s for s in spans if s.span_type == SpanType.TOOL)
@@ -185,7 +203,45 @@ def test_langgraph_tracing_with_custom_span():
     assert inner_span.outputs == "It's always sunny in sf"
 
     inner_runnable_span = next(s for s in spans if s.parent_id == inner_span.span_id)
-    assert inner_runnable_span.name == "RunnableSequence_2"
+    assert inner_runnable_span.name == "RunnableSequence"
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
+async def test_langgraph_tracing_with_parent_span(is_async):
+    from tests.langgraph.sample_code.langgraph_prebuilt import graph
+
+    mlflow.langchain.autolog()
+
+    input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
+
+    with mlflow.start_span("parent"):
+        if is_async:
+            await graph.ainvoke(input_example)
+        else:
+            graph.invoke(input_example)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+    # Validate structure
+    span_id_to_span = {span.span_id: span for span in traces[0].data.spans}
+    tool_span = next(span for span in traces[0].data.spans if span.span_type == SpanType.TOOL)
+    assert tool_span.name == "get_weather"
+
+    tool_parent_span = span_id_to_span[tool_span.parent_id]
+    assert tool_parent_span.name == "tools"
+    assert tool_parent_span.span_type == SpanType.CHAIN
+
+    graph_span = span_id_to_span[tool_parent_span.parent_id]
+    assert graph_span.name == "LangGraph"
+    assert graph_span.span_type == SpanType.CHAIN
+
+    root_span = span_id_to_span[graph_span.parent_id]
+    assert root_span.name == "parent"
+    assert root_span.span_type == SpanType.UNKNOWN
 
 
 @skip_when_testing_trace_sdk

@@ -1,5 +1,5 @@
-import collections
 import os
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -21,14 +21,10 @@ class ToyModel(tf.Module):
         return tf.reshape(tf.add(tf.matmul(x, self.w), self.b), [-1])
 
 
-TF2ModelInfo = collections.namedtuple(
-    "TF2ModelInfo",
-    [
-        "model",
-        "inference_data",
-        "expected_results",
-    ],
-)
+class TF2ModelInfo(NamedTuple):
+    model: Any
+    inference_data: Any
+    expected_results: Any
 
 
 @pytest.fixture

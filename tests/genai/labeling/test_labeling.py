@@ -10,7 +10,10 @@ from mlflow.genai.labeling import (
     get_review_app,
 )
 
+from tests.genai.conftest import databricks_only
 
+
+@databricks_only
 def test_databricks_labeling_is_importable():
     assert labeling.Agent == Agent
     assert labeling.LabelingSession == LabelingSession

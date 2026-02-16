@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 _TORCH_DTYPE_KEY = "torch_dtype"
 
 
-def _extract_torch_dtype_if_set(pipeline) -> Optional[torch.dtype]:
+def _extract_torch_dtype_if_set(pipeline) -> torch.dtype | None:
     """
     Extract the torch datatype argument if set and return as a string encoded value.
     """
@@ -42,8 +42,7 @@ def _deserialize_torch_dtype(dtype_str: str) -> torch.dtype:
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
-    if dtype_str.startswith("torch."):
-        dtype_str = dtype_str[6:]
+    dtype_str = dtype_str.removeprefix("torch.")
 
     dtype = getattr(torch, dtype_str, None)
     if isinstance(dtype, torch.dtype):

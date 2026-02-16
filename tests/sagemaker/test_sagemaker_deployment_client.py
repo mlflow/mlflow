@@ -2,9 +2,9 @@ import json
 import os
 import re
 import time
-from collections import namedtuple
 from functools import wraps
 from io import BytesIO
+from typing import NamedTuple
 from unittest import mock
 
 import boto3
@@ -35,7 +35,11 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from tests.helper_functions import set_boto_credentials  # noqa: F401
 from tests.sagemaker.mock import Endpoint, EndpointOperation, mock_sagemaker
 
-TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id", "model_uri"])
+
+class TrainedModel(NamedTuple):
+    model_path: str
+    run_id: str
+    model_uri: str
 
 
 @pytest.fixture
@@ -627,7 +631,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             app_name,
             pretrained_model.model_uri,
             region_name,
-            {**environment_variables, **proxy_variables},
+            environment_variables | proxy_variables,
             config=[f"env={json.dumps(override_environment_variables)}"],
         )
     else:
@@ -641,7 +645,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             app_name,
             pretrained_model.model_uri,
             region_name,
-            {**environment_variables, **proxy_variables},
+            environment_variables | proxy_variables,
             config=[f"env={json.dumps(override_environment_variables)}"],
         )
 
@@ -795,7 +799,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             app_name,
             model_s3_uri,
             region_name,
-            {**environment_variables, **proxy_variables},
+            environment_variables | proxy_variables,
         )
     else:
         proxy_variables = {
@@ -808,7 +812,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
             app_name,
             model_s3_uri,
             region_name,
-            {**environment_variables, **proxy_variables},
+            environment_variables | proxy_variables,
         )
 
     region_name = sagemaker_client.meta.region_name

@@ -4,10 +4,6 @@ sidebar_label: AG2
 ---
 
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 
 # Tracing AG2🤖
 
@@ -88,7 +84,7 @@ assistant = ConversableAgent(
 # The user proxy agent is used for interacting with the assistant agent
 # and executes tool calls.
 user_proxy = ConversableAgent(
-    name="Tool Agent",
+    name="ToolAgent",
     llm_config=False,
     is_termination_msg=lambda msg: msg.get("content") is not None
     and "TERMINATE" in msg["content"],

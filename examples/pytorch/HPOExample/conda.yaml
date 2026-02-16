@@ -1,0 +1,10 @@
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - mlflow
+      - torch>=2.1
+      - torchvision>=0.15.1
+      - optuna>=3.0.0

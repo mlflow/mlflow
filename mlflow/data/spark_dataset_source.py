@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
@@ -12,9 +12,9 @@ class SparkDatasetSource(DatasetSource):
 
     def __init__(
         self,
-        path: Optional[str] = None,
-        table_name: Optional[str] = None,
-        sql: Optional[str] = None,
+        path: str | None = None,
+        table_name: str | None = None,
+        sql: str | None = None,
     ):
         if (path, table_name, sql).count(None) != 2:
             raise MlflowException(

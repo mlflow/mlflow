@@ -2,7 +2,7 @@ import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { Modal } from '@databricks/design-system';
 import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { RegisteredPrompt } from '../types';
+import type { RegisteredPrompt } from '../types';
 import { RegisteredPromptsApi } from '../api';
 
 export const useDeletePromptModal = ({

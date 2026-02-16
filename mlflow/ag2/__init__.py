@@ -1,10 +1,10 @@
-from mlflow.utils.annotations import experimental
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration
 
 FLAVOR_NAME = "ag2"
 
 
-@experimental(version="3.0.0")
 def autolog(
     log_traces: bool = True,
     disable: bool = False,
@@ -54,3 +54,6 @@ def _autolog(
     mentioned in the comment above. Note that this function MUST declare the same signature as the
     autolog(), otherwise the annotation will not work properly.
     """
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )

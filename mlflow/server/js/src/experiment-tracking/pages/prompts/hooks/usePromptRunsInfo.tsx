@@ -1,7 +1,8 @@
-import { QueryFunctionContext, useQueries } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import type { QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useQueries } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { transformGetRunResponse } from '../../../sdk/FieldNameTransformers';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { GetRunApiResponse } from '../../../types';
+import type { GetRunApiResponse } from '../../../types';
 
 type UseRegisteredModelRelatedRunNamesQueryKey = ['prompt_associated_runs', string];
 

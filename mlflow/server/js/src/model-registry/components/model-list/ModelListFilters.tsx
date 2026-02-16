@@ -1,9 +1,8 @@
 import {
-  LegacyTooltip,
   TableFilterLayout,
   Button,
   TableFilterInput,
-  InfoIcon,
+  InfoSmallIcon,
   Popover,
   Typography,
 } from '@databricks/design-system';
@@ -38,7 +37,7 @@ export const ModelSearchInputHelpTooltip = ({
         aria-label={labelText}
         css={{ border: 0, background: 'none', padding: 0, lineHeight: 0, cursor: 'pointer' }}
       >
-        <InfoIcon />
+        <InfoSmallIcon />
       </Popover.Trigger>
       <Popover.Content align="start">
         <div>
@@ -63,7 +62,7 @@ export const ModelSearchInputHelpTooltip = ({
           <FormattedMessage defaultMessage="Examples:" description="Text header for examples of mlflow search syntax" />
           <br />
           • tags.my_key = "my_value"
-          <br />• name ilike "%{exampleEntityName}%" and tags.my_key = "my_value"
+          <br />• name ILIKE "%{exampleEntityName}%" AND tags.my_key = "my_value"
         </div>
         <Popover.Arrow />
       </Popover.Content>
@@ -97,7 +96,7 @@ export const ModelListFilters = ({
       <TableFilterInput
         componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_118"
         placeholder={intl.formatMessage({
-          defaultMessage: 'Filter registered models by name or tags',
+          defaultMessage: 'Search registered models',
           description: 'Placeholder text inside model search bar',
         })}
         onSubmit={triggerSearch}

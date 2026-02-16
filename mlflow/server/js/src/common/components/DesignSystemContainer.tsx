@@ -15,6 +15,10 @@ const ThemeProvider = ({ children, isDarkTheme }: { children?: React.ReactNode; 
   return <DesignSystemThemeProvider isDarkMode={isDarkTheme}>{children}</DesignSystemThemeProvider>;
 };
 
+export const MLflowImagePreviewContainer = React.createContext({
+  getImagePreviewPopupContainer: () => document.body,
+});
+
 /**
  * MFE-safe DesignSystemProvider that checks if the application is
  * in the context of the Shadow DOM and if true, provides dedicated
@@ -32,11 +36,23 @@ export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
     return document.body;
   }, []);
 
+  // Specialized container for antd image previews, always rendered near MLflow
+  // to maintain prefixed CSS classes and styles.
+  const getImagePreviewPopupContainer = useCallback(() => {
+    const modelContainerEle = modalContainerElement.current;
+    if (modelContainerEle !== null) {
+      return modelContainerEle;
+    }
+    return document.body;
+  }, []);
+
   return (
     <ThemeProvider isDarkTheme={isDarkTheme}>
       <DesignSystemProvider getPopupContainer={getPopupContainer} {...props}>
-        {children}
-        <div ref={modalContainerElement} />
+        <MLflowImagePreviewContainer.Provider value={{ getImagePreviewPopupContainer }}>
+          {children}
+          <div ref={modalContainerElement} />
+        </MLflowImagePreviewContainer.Provider>
       </DesignSystemProvider>
       <ColorsPaletteDatalist />
     </ThemeProvider>

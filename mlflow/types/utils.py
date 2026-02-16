@@ -2,7 +2,7 @@ import logging
 import warnings
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -39,7 +39,7 @@ class TensorsNotSupportedException(MlflowException):
         super().__init__(f"Multidimensional arrays (aka tensors) are not supported. {msg}")
 
 
-def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple[int, ...]:
+def _get_tensor_shape(data, variable_dimension: int | None = 0) -> tuple[int, ...]:
     """Infer the shape of the inputted data.
 
     This method creates the shape of the tensor to store in the TensorSpec. The variable dimension
@@ -95,7 +95,7 @@ def clean_tensor_type(dtype: np.dtype):
     return dtype
 
 
-def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object, AnyType]:
+def _infer_colspec_type(data: Any) -> DataType | Array | Object | AnyType:
     """
     Infer an MLflow Colspec type from the dataset.
 
@@ -120,7 +120,7 @@ class InvalidDataForSignatureInferenceError(MlflowException):
         super().__init__(message=message, error_code=INVALID_PARAMETER_VALUE)
 
 
-def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyType]]:
+def _infer_datatype(data: Any) -> DataType | Array | Object | AnyType | None:
     """
     Infer the datatype of input data.
     Data type and inferred schema type mapping:
@@ -168,7 +168,7 @@ def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyTyp
     return _infer_scalar_datatype(data)
 
 
-def _infer_array_datatype(data: Union[list[Any], np.ndarray]) -> Optional[Array]:
+def _infer_array_datatype(data: list[Any] | np.ndarray) -> Array | None:
     """Infer schema from an array. This tries to infer type if there is at least one
     non-null item in the list, assuming the list has a homogeneous type. However,
     if the list is empty or all items are null, returns None as a sign of undetermined.
@@ -480,7 +480,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
 
     if dtype.kind == "b":
         return DataType.boolean
-    elif dtype.kind == "i" or dtype.kind == "u":
+    elif dtype.kind in {"i", "u"}:
         if dtype.itemsize < 4 or (dtype.kind == "i" and dtype.itemsize == 4):
             return DataType.integer
         elif dtype.itemsize < 8 or (dtype.kind == "i" and dtype.itemsize == 8):
@@ -534,7 +534,6 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
         except Exception as e:
             # For backwards compatibility, we fall back to string
             # if the provided array is of string type
-            # This is for diviner test where df field is ('key2', 'key1', 'key0')
             if pd.api.types.is_string_dtype(col):
                 return DataType.string
             raise MlflowException(f"Failed to infer schema for pandas.Series {col}. Error: {e}")

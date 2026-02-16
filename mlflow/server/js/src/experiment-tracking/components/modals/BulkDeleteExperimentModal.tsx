@@ -1,9 +1,9 @@
 import { Typography } from '@databricks/design-system';
-import { ExperimentEntity } from '../../types';
+import type { ExperimentEntity } from '../../types';
 import { ConfirmModal } from './ConfirmModal';
 import { deleteExperimentApi } from '../../actions';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
+import type { ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 

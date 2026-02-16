@@ -1,6 +1,7 @@
+import { describe, test, expect } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useExperimentLoggedModelsChartsUIState } from './useExperimentLoggedModelsChartsUIState';
-import { LoggedModelProto } from '../../../types';
+import type { LoggedModelProto } from '../../../types';
 import { useExperimentLoggedModelAllMetricsByDataset } from './useExperimentLoggedModelAllMetricsByDataset';
 import { getMetricByDatasetChartDataKey } from './useExperimentLoggedModelsChartsData';
 

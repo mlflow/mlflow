@@ -202,7 +202,9 @@ class WheeledModel:
         return mlflow_model
 
     @classmethod
-    def _download_wheels(cls, pip_requirements_path, dst_path):
+    def _download_wheels(
+        cls, pip_requirements_path, dst_path, extra_envs: dict[str, str] | None = None
+    ):
         """
         Downloads all the wheels of the dependencies specified in the requirements.txt file.
         The pip wheel download_command defaults to downloading only binary packages using
@@ -213,11 +215,45 @@ class WheeledModel:
         Args:
             pip_requirements_path: Path to requirements.txt in the model directory
             dst_path: Path to the directory where the wheels are to be downloaded
+            extra_envs: Extra environment variables to be passed to the subprocess.
         """
         if not os.path.exists(dst_path):
             os.makedirs(dst_path)
 
         pip_wheel_options = MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS.get()
+
+        allowed_options = {
+            "--only-binary=:all:",
+            "--only-binary=:none:",
+            "--no-binary=:all:",
+            "--no-binary=:none:",
+            "--prefer-binary",
+            "--no-build-isolation",
+            "--use-pep517",
+            "--check-build-dependencies",
+            "--ignore-requires-python",
+            "--no-deps",
+            "--no-verify",
+            "--pre",
+            "--require-hashes",
+            "--no-clean",
+        }
+        all_options = set(pip_wheel_options.split(" "))
+        if not all_options.issubset(allowed_options):
+            raise MlflowException.invalid_parameter_value(
+                "Invalid pip wheel option passed to `MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS`. "
+                f"Allowed options: {', '.join(allowed_options)}. "
+                "To use other options, set them as environment variables or use `extra_envs` to "
+                "apply them when downloading the wheels. Check "
+                "https://pip.pypa.io/en/stable/cli/pip_wheel/#options for corresponding "
+                "environment variables.",
+            )
+
+        if extra_envs:
+            env = os.environ.copy()
+            env.update(extra_envs)
+        else:
+            env = None
 
         try:
             subprocess.run(
@@ -237,6 +273,7 @@ class WheeledModel:
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                env=env,
             )
         except subprocess.CalledProcessError as e:
             raise MlflowException(

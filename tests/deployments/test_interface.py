@@ -25,11 +25,7 @@ def test_get_deploy_client_from_set_deployments_target():
 
 @pytest.fixture
 def set_deployment_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_DEPLOYMENTS_TARGET": "databricks",
-        }
-    )
+    monkeypatch.setenv("MLFLOW_DEPLOYMENTS_TARGET", "databricks")
 
 
 def test_get_deploy_client_from_env(set_deployment_envs):

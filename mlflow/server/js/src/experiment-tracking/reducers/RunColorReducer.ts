@@ -1,7 +1,7 @@
 import { fulfilled } from '../../common/utils/ActionUtils';
 import { GET_RUN_API, LOAD_MORE_RUNS_API, SEARCH_RUNS_API } from '../actions';
 import { MLFLOW_RUN_COLOR_TAG } from '../constants';
-import { RunEntity } from '../types';
+import type { RunEntity } from '../types';
 
 export const RUN_COLOR_ACTION_INITIALIZE_RUN_COLORS = 'INITIALIZE_RUN_COLORS';
 export const RUN_COLOR_ACTION_SET_RUN_COLOR = 'SET_RUN_COLOR';

@@ -1,24 +1,29 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
+  ModelsIcon,
   SearchIcon,
   Table,
   TableCell,
   TableHeader,
   TableRow,
-  LegacyTooltip,
+  Tooltip,
   Empty,
   PlusIcon,
   TableSkeletonRows,
+  Typography,
   WarningIcon,
 } from '@databricks/design-system';
-import { Interpolation, Theme } from '@emotion/react';
-import { ColumnDef, flexRender, getCoreRowModel, SortingState, useReactTable } from '@tanstack/react-table';
+import type { Interpolation, Theme } from '@emotion/react';
+import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
-import { RegisteringModelDocUrl } from '../../../common/constants';
+import { RegisteringModelDocUrl, ModelRegistryDocUrl } from '../../../common/constants';
 import Utils from '../../../common/utils/Utils';
-import type { KeyValueEntity, ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import type { ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import type { KeyValueEntity } from '../../../common/types';
 import { Stages } from '../../constants';
 import { ModelRegistryRoutes } from '../../routes';
 import { CreateModelButton } from '../CreateModelButton';
@@ -89,7 +94,9 @@ export const ModelListTable = ({
         accessorKey: 'name',
         cell: ({ getValue }) => (
           <Link to={ModelRegistryRoutes.getModelPageRoute(String(getValue()))}>
-            <LegacyTooltip title={getValue()}>{getValue()}</LegacyTooltip>
+            <Tooltip componentId="mlflow.model-registry.model-list.model-name.tooltip" content={getValue()}>
+              <span>{getValue()}</span>
+            </Tooltip>
           </Link>
         ),
         meta: { styles: { minWidth: 200, flex: 1 } },
@@ -206,11 +213,7 @@ export const ModelListTable = ({
     );
 
     return columns;
-  }, [
-    // prettier-ignore
-    intl,
-    usingNextModelsUI,
-  ]);
+  }, [intl, usingNextModelsUI]);
 
   const sorting: SortingState = [{ id: orderByKey, desc: !orderByAsc }];
 
@@ -233,59 +236,72 @@ export const ModelListTable = ({
     );
   })();
   const emptyComponent = error ? (
-    <Empty
-      image={<WarningIcon />}
-      description={error instanceof ErrorWrapper ? error.getMessageField() : error.message}
-      title={
-        <FormattedMessage
-          defaultMessage="Error fetching models"
-          description="Workspace models page > Error empty state title"
-        />
-      }
-    />
+    <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+      <Empty
+        image={<WarningIcon />}
+        description={error instanceof ErrorWrapper ? error.getMessageField() : error.message}
+        title={
+          <FormattedMessage
+            defaultMessage="Error fetching models"
+            description="Workspace models page > Error empty state title"
+          />
+        }
+      />
+    </div>
   ) : isFiltered ? (
     // Displayed when there is no results, but any filters have been applied
-    <Empty description={noResultsDescription} image={<SearchIcon />} data-testid="model-list-no-results" />
+    <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+      <Empty description={noResultsDescription} image={<SearchIcon />} data-testid="model-list-no-results" />
+    </div>
   ) : (
     // Displayed when there is no results with no filters applied
-    <Empty
-      description={
-        <FormattedMessage
-          defaultMessage="No models registered yet. <link>Learn more about registering models</link>."
-          description="Models table > no models present yet"
-          values={{
-            link: (content: any) => (
-              <a target="_blank" rel="noopener noreferrer" href={registerModelDocUrl}>
-                {content}
-              </a>
-            ),
-          }}
-        />
-      }
-      image={<PlusIcon />}
-      button={
-        <CreateModelButton
-          buttonType="primary"
-          buttonText={
-            <FormattedMessage defaultMessage="Create a model" description="Create button to register a new model" />
-          }
-        />
-      }
-    />
+    <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+      <Empty
+        description={
+          <FormattedMessage
+            defaultMessage="Share and manage machine learning models. <link>Learn more</link>"
+            description="Models table > no models present yet"
+            values={{
+              link: (content: any) => (
+                <Typography.Link
+                  componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellisttable.tsx_learn_more"
+                  href={ModelRegistryDocUrl}
+                  openInNewTab
+                >
+                  {content}
+                </Typography.Link>
+              ),
+            }}
+          />
+        }
+        image={<ModelsIcon />}
+        button={
+          <CreateModelButton
+            buttonType="primary"
+            buttonText={
+              <FormattedMessage defaultMessage="Create model" description="Create button to register a new model" />
+            }
+          />
+        }
+      />
+    </div>
   );
 
   const isEmpty = () => (!isLoading && table.getRowModel().rows.length === 0) || error;
 
-  const table = useReactTable<EnrichedModelEntity>({
-    data: enrichedModelsData,
-    columns: tableColumns,
-    state: {
-      sorting,
+  const table = useReactTable<EnrichedModelEntity>(
+    'mlflow/server/js/src/model-registry/components/model-list/ModelListTable.tsx',
+    {
+      data: enrichedModelsData,
+      columns: tableColumns,
+      state: {
+        sorting,
+      },
+      getCoreRowModel: getCoreRowModel(),
+      getRowId: ({ id }) => id,
+      onSortingChange: setSorting,
     },
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: ({ id }) => id,
-    onSortingChange: setSorting,
-  });
+  );
 
   return (
     <>

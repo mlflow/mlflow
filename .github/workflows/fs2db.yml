@@ -1,0 +1,58 @@
+name: fs2db
+
+on:
+  push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  fs2db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        mlflow-version:
+          - "2.22.4" # Latest 2.x release
+          - "3.6.0" # First version after FileStore deprecation
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+
+      - name: Install MLflow ${{ matrix.mlflow-version }}
+        run: uv run --with 'mlflow==${{ matrix.mlflow-version }}' --no-project mlflow --version
+
+      - name: Generate synthetic data for MLflow ${{ matrix.mlflow-version }}
+        run: |
+          uv run --with 'mlflow==${{ matrix.mlflow-version }}' --no-project python -I \
+            fs2db/src/generate_synthetic_data.py --output /tmp/fs2db/${{ matrix.mlflow-version }}/ --size full
+
+      # TODO: Run migration tests
+      - name: Run migration tests
+        run: echo "Not yet implemented"

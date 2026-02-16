@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 
 import { ModelVersionViewAliasEditor } from './ModelVersionViewAliasEditor';
@@ -12,6 +13,7 @@ import { useEffect, useState } from 'react';
 import type { ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
 import { Services as ModelRegistryServices } from '../../services';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // increase timeout since it's integration testing
 
 /**
@@ -144,8 +146,8 @@ class MockDatabase {
 describe('useEditRegisteredModelAliasesModal integration', () => {
   // Wire up service to the mocked "database" server
   const database = new MockDatabase();
-  ModelRegistryServices.setModelVersionAlias = jest.fn(database.setAlias);
-  ModelRegistryServices.deleteModelVersionAlias = jest.fn(database.deleteAlias);
+  jest.spyOn(ModelRegistryServices, 'setModelVersionAlias').mockImplementation(database.setAlias);
+  jest.spyOn(ModelRegistryServices, 'deleteModelVersionAlias').mockImplementation(database.deleteAlias);
 
   let unmountPage: () => void;
 

@@ -13,11 +13,28 @@ from mlflow.entities.assessment import (
 )
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.dataset_record import DatasetRecord
+from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.entities.dataset_summary import _DatasetSummary
 from mlflow.entities.document import Document
+from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.gateway_endpoint import (
+    FallbackConfig,
+    FallbackStrategy,
+    GatewayEndpoint,
+    GatewayEndpointBinding,
+    GatewayEndpointModelConfig,
+    GatewayEndpointModelMapping,
+    GatewayEndpointTag,
+    GatewayModelDefinition,
+    GatewayModelLinkageType,
+    GatewayResourceType,
+    RoutingStrategy,
+)
+from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
@@ -36,6 +53,8 @@ from mlflow.entities.run_inputs import RunInputs
 from mlflow.entities.run_outputs import RunOutputs
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
+from mlflow.entities.scorer import ScorerVersion
+from mlflow.entities.session import Session
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
@@ -48,12 +67,21 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocation,
     TraceLocationType,
+    UCSchemaLocation,
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.view_type import ViewType
+from mlflow.entities.webhook import (
+    Webhook,
+    WebhookEvent,
+    WebhookStatus,
+    WebhookTestResult,
+)
+from mlflow.entities.workspace import Workspace
 
 __all__ = [
     "Experiment",
+    "ExperimentTag",
     "FileInfo",
     "Metric",
     "Param",
@@ -63,7 +91,7 @@ __all__ = [
     "RunInfo",
     "RunStatus",
     "RunTag",
-    "ExperimentTag",
+    "ScorerVersion",
     "SourceType",
     "ViewType",
     "LifecycleStage",
@@ -81,10 +109,12 @@ __all__ = [
     "Trace",
     "TraceData",
     "TraceInfo",
+    "Session",
     "TraceLocation",
     "TraceLocationType",
     "MlflowExperimentLocation",
     "InferenceTableLocation",
+    "UCSchemaLocation",
     "TraceState",
     "SpanStatusCode",
     "_DatasetSummary",
@@ -101,4 +131,45 @@ __all__ = [
     "AssessmentSourceType",
     "Expectation",
     "Feedback",
+    # Note: EvaluationDataset is intentionally excluded from __all__ to prevent
+    # circular import issues during plugin registration. It can still be imported
+    # explicitly via: from mlflow.entities import EvaluationDataset
+    "DatasetRecord",
+    "DatasetRecordSource",
+    "DatasetRecordSourceType",
+    "EntityAssociationType",
+    "FallbackConfig",
+    "FallbackStrategy",
+    "GatewayEndpoint",
+    "GatewayEndpointBinding",
+    "GatewayEndpointModelConfig",
+    "GatewayEndpointModelMapping",
+    "GatewayEndpointTag",
+    "GatewayModelDefinition",
+    "GatewayResourceType",
+    "GatewaySecretInfo",
+    "GatewayModelLinkageType",
+    "RoutingStrategy",
+    "Webhook",
+    "WebhookEvent",
+    "WebhookStatus",
+    "WebhookTestResult",
+    "Workspace",
 ]
+
+
+def __getattr__(name):
+    """Lazy loading for EvaluationDataset to avoid circular imports."""
+    if name == "EvaluationDataset":
+        try:
+            from mlflow.entities.evaluation_dataset import EvaluationDataset
+
+            return EvaluationDataset
+        except ImportError:
+            # EvaluationDataset requires mlflow.data which may not be available
+            # in minimal installations like mlflow-tracing
+            raise AttributeError(
+                "EvaluationDataset is not available. It requires the mlflow.data module "
+                "which is not included in this installation."
+            )
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

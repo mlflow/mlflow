@@ -13,9 +13,10 @@ class ForbiddenSetActiveModelUsage(Rule):
     @staticmethod
     def check(node: ast.Call, resolver: Resolver) -> bool:
         """Check if this is a call to set_active_model function."""
-        return (
-            (resolved := resolver.resolve(node))
-            and len(resolved) >= 1
-            and resolved[0] == "mlflow"
-            and resolved[-1] == "set_active_model"
-        )
+        if names := resolver.resolve(node):
+            match names:
+                case ["mlflow", *_, "set_active_model"]:
+                    return True
+                case _:
+                    return False
+        return False

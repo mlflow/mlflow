@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { EditableTagsTableView } from './EditableTagsTableView';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';

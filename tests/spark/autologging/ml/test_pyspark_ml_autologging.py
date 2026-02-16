@@ -2,7 +2,7 @@ import importlib
 import json
 import math
 import pathlib
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -159,7 +159,12 @@ def get_run_data(run_id):
     tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
     artifacts = [f.path for f in client.list_artifacts(run_id)]
 
-    RunData = namedtuple("RunData", ["params", "metrics", "tags", "artifacts"])
+    class RunData(NamedTuple):
+        params: Any
+        metrics: Any
+        tags: Any
+        artifacts: Any
+
     return RunData(data.params, data.metrics, tags, artifacts)
 
 
@@ -1050,7 +1055,7 @@ def _read_model_conf_as_dict(run):
     ml_model_path = artifacts_dir.joinpath("model", ml_model_filename).absolute()
     assert ml_model_path.relative_to(artifacts_dir.absolute()).as_posix() in artifacts
     with open(ml_model_path) as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
+        return yaml.safe_load(f)
 
 
 def _read_schema(schema_str):

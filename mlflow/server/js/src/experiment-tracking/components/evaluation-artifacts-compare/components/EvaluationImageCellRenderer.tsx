@@ -1,10 +1,10 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { ICellRendererParams } from '@ag-grid-community/core';
 import { FormattedMessage } from 'react-intl';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
-import { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
 import { ImagePlot } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/components/charts/ImageGridPlot.common';
-import { EvaluateCellImage } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { EvaluateCellImage } from '@mlflow/mlflow/src/experiment-tracking/types';
 
 interface EvaluationImageCellRendererProps extends ICellRendererParams {
   value: EvaluateCellImage;

@@ -1,18 +1,20 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { Provider } from 'react-redux';
 import type { EvaluationDataReduxState } from '../../reducers/EvaluationDataReducer';
 import { EvaluationArtifactCompareView } from './EvaluationArtifactCompareView';
 import configureStore from 'redux-mock-store';
-import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
 import { renderWithIntl, act, within, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { getEvaluationTableArtifact } from '../../actions';
 import { MLFLOW_LOGGED_ARTIFACTS_TAG, MLFLOW_RUN_SOURCE_TYPE_TAG, MLflowRunSourceType } from '../../constants';
-import { EvaluationArtifactCompareTableProps } from './components/EvaluationArtifactCompareTable';
+import type { EvaluationArtifactCompareTableProps } from './components/EvaluationArtifactCompareTable';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import { useState } from 'react';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 // Disable pointer events check for DialogCombobox which masks the elements we want to click
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -186,12 +188,14 @@ describe('EvaluationArtifactCompareView', () => {
       setVisibleRunsFn = setVisibleRuns;
       return (
         <Provider store={mockStore}>
-          <EvaluationArtifactCompareView
-            comparedRuns={visibleRuns}
-            updateViewState={updateViewStateMock}
-            viewState={viewState}
-            onDatasetSelected={() => {}}
-          />
+          <DesignSystemProvider>
+            <EvaluationArtifactCompareView
+              comparedRuns={visibleRuns}
+              updateViewState={updateViewStateMock}
+              viewState={viewState}
+              onDatasetSelected={() => {}}
+            />
+          </DesignSystemProvider>
         </Provider>
       );
     };
@@ -207,8 +211,8 @@ describe('EvaluationArtifactCompareView', () => {
   test('checks if the initial tables are properly fetched', async () => {
     mountTestComponent();
 
-    expect(getEvaluationTableArtifact).toBeCalledWith('run_a', '/table.json', false);
-    expect(getEvaluationTableArtifact).toBeCalledWith('run_b', '/table.json', false);
+    expect(getEvaluationTableArtifact).toHaveBeenCalledWith('run_a', '/table.json', false);
+    expect(getEvaluationTableArtifact).toHaveBeenCalledWith('run_b', '/table.json', false);
   });
   test('checks if the newly selected table is being fetched', async () => {
     const { renderResult } = mountTestComponent();
@@ -217,7 +221,7 @@ describe('EvaluationArtifactCompareView', () => {
 
     await userEvent.click(within(screen.getByRole('listbox')).getByLabelText('/table_c.json'));
 
-    expect(getEvaluationTableArtifact).toBeCalledWith('run_c', '/table_c.json', false);
+    expect(getEvaluationTableArtifact).toHaveBeenCalledWith('run_c', '/table_c.json', false);
   });
 
   test('checks if the fetch artifact is properly called for differing tables', async () => {
@@ -247,10 +251,10 @@ describe('EvaluationArtifactCompareView', () => {
     await userEvent.click(renderResult.getByTestId('dropdown-tables'));
     await userEvent.click(within(screen.getByRole('listbox')).getByLabelText('/table_a.json'));
 
-    expect(getEvaluationTableArtifact).toBeCalledWith('run_a', '/table_a.json', false);
-    expect(getEvaluationTableArtifact).not.toBeCalledWith('run_a', '/table_b.json', false);
-    expect(getEvaluationTableArtifact).not.toBeCalledWith('run_b', '/table_a.json', false);
-    expect(getEvaluationTableArtifact).not.toBeCalledWith('run_b', '/table_b.json', false);
+    expect(getEvaluationTableArtifact).toHaveBeenCalledWith('run_a', '/table_a.json', false);
+    expect(getEvaluationTableArtifact).not.toHaveBeenCalledWith('run_a', '/table_b.json', false);
+    expect(getEvaluationTableArtifact).not.toHaveBeenCalledWith('run_b', '/table_a.json', false);
+    expect(getEvaluationTableArtifact).not.toHaveBeenCalledWith('run_b', '/table_b.json', false);
   });
 
   test('checks if the table component receives proper result set based on the store data and selected table', async () => {
@@ -534,8 +538,8 @@ describe('EvaluationArtifactCompareView', () => {
   test('checks that image columns are correctly assigned to only be output columns', async () => {
     mountTestComponent({ mockState: SAMPLE_STATE_WITH_IMAGES });
 
-    expect(getEvaluationTableArtifact).toBeCalledWith('run_a', '/table.json', false);
-    expect(getEvaluationTableArtifact).toBeCalledWith('run_b', '/table.json', false);
+    expect(getEvaluationTableArtifact).toHaveBeenCalledWith('run_a', '/table.json', false);
+    expect(getEvaluationTableArtifact).toHaveBeenCalledWith('run_b', '/table.json', false);
 
     await userEvent.click(screen.getByLabelText('Select "group by" columns'));
 

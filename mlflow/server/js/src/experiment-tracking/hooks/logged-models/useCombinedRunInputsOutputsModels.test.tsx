@@ -1,13 +1,12 @@
-import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { describe, it, expect } from '@jest/globals';
 import { renderHook, waitFor } from '../../../common/utils/TestUtils.react18';
-import {
+import type {
   UseGetRunQueryResponseInputs,
   UseGetRunQueryResponseOutputs,
 } from '../../components/run-page/hooks/useGetRunQuery';
 import { useCombinedRunInputsOutputsModels } from './useCombinedRunInputsOutputsModels';
-import { LoggedModelStatusProtoEnum, RunInfoEntity } from '../../types';
-import { setupServer } from '../../../common/utils/setup-msw';
-import { rest } from 'msw';
+import type { RunInfoEntity } from '../../types';
+import { LoggedModelStatusProtoEnum } from '../../types';
 
 describe('useCombinedRunInputsOutputsModels', () => {
   const generateTestModel = (modelId: string) => ({
@@ -42,17 +41,6 @@ describe('useCombinedRunInputsOutputsModels', () => {
     },
   });
 
-  const server = setupServer(
-    rest.get('/ajax-api/2.0/mlflow/logged-models/:modelId', (req, res, ctx) => {
-      const modelId = req.params['modelId'].toString();
-      return res(
-        ctx.json({
-          model: generateTestModel(modelId),
-        }),
-      );
-    }),
-  );
-
   const testRunInfo: RunInfoEntity = {
     runUuid: 'test-run-id',
     experimentId: 'experiment-id',
@@ -64,12 +52,9 @@ describe('useCombinedRunInputsOutputsModels', () => {
     runName: 'run-name',
   };
 
-  const renderTestHook = (...params: Parameters<typeof useCombinedRunInputsOutputsModels>) => {
-    const queryClient = new QueryClient();
-    return renderHook(() => useCombinedRunInputsOutputsModels(...params), {
-      wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
-    });
-  };
+  const renderTestHook = (...params: Parameters<typeof useCombinedRunInputsOutputsModels>) =>
+    renderHook(() => useCombinedRunInputsOutputsModels(...params));
+
   it('returns an empty array if no inputs or outputs are provided', () => {
     const { result } = renderTestHook();
     expect(result.current.models).toEqual([]);
@@ -93,7 +78,14 @@ describe('useCombinedRunInputsOutputsModels', () => {
       ],
     };
 
-    const { result } = renderTestHook(inputs, outputs, testRunInfo);
+    const testModels = [
+      generateTestModel('input-model-1'),
+      generateTestModel('input-model-2'),
+      generateTestModel('output-model-1'),
+      generateTestModel('output-model-2'),
+    ];
+
+    const { result } = renderTestHook(inputs, outputs, testRunInfo, testModels);
 
     // Wait for models to be fetched
     await waitFor(() => {
@@ -118,44 +110,5 @@ describe('useCombinedRunInputsOutputsModels', () => {
 
     expect(metrics?.length).toEqual(1);
     expect(metrics?.map((metric) => metric.key)).toContain('metric-test');
-  });
-
-  it('skips failed requests and report errors', async () => {
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-
-    server.use(
-      rest.get('/ajax-api/2.0/mlflow/logged-models/:modelId', (req, res, ctx) => {
-        const modelId = req.params['modelId'].toString();
-        if (modelId === 'input-model-2') {
-          return res(ctx.json({}), ctx.status(500));
-        }
-        return res(
-          ctx.json({
-            model: generateTestModel(modelId),
-          }),
-        );
-      }),
-    );
-    const inputs: UseGetRunQueryResponseInputs = {
-      __typename: 'MlflowRunInputs',
-      datasetInputs: null,
-      modelInputs: [
-        { __typename: 'MlflowModelInput', modelId: 'input-model-1' },
-        { __typename: 'MlflowModelInput', modelId: 'input-model-2' },
-      ],
-    };
-
-    const { result } = renderTestHook(inputs, undefined, testRunInfo);
-
-    // Wait for models to be fetched
-    await waitFor(() => {
-      expect(result.current.isLoading).toEqual(false);
-    });
-
-    expect(result.current.models?.length).toEqual(1);
-    expect(result.current.models?.map((model) => model.info?.model_id)).toContain('input-model-1');
-    expect(result.current.errors).toEqual([expect.any(Error)]);
-
-    jest.restoreAllMocks();
   });
 });

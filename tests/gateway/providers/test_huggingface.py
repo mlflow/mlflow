@@ -4,7 +4,7 @@ import pytest
 from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
@@ -72,7 +72,7 @@ async def test_completions():
         mock.patch("time.time", return_value=1677858242),
         mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
     ):
-        provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
+        provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
             "n": 1,
@@ -98,7 +98,6 @@ async def test_completions():
             json={
                 "inputs": "This is a test",
                 "parameters": {
-                    "temperature": 0.001,
                     "max_new_tokens": 1000,
                     "details": True,
                     "decoder_input_details": True,
@@ -115,7 +114,7 @@ async def test_completions_temperature_is_scaled_correctly():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
+        provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
             "temperature": 0.5,
@@ -127,7 +126,7 @@ async def test_completions_temperature_is_scaled_correctly():
 @pytest.mark.asyncio
 async def test_completion_fails_with_multiple_candidates():
     config = chat_config()
-    provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
+    provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
     payload = {"prompt": "This is a test", "n": 2}
     with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
@@ -138,7 +137,7 @@ async def test_completion_fails_with_multiple_candidates():
 @pytest.mark.asyncio
 async def test_chat_is_not_supported_for_tgi():
     config = chat_config()
-    provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
+    provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
     payload = {"messages": [{"role": "user", "content": "TGI, can you chat with me? I'm lonely."}]}
 
     with pytest.raises(AIGatewayException, match=r".*") as e:
@@ -153,7 +152,7 @@ async def test_chat_is_not_supported_for_tgi():
 @pytest.mark.asyncio
 async def test_embeddings_are_not_supported_for_tgi():
     config = embedding_config()
-    provider = HFTextGenerationInferenceServerProvider(RouteConfig(**config))
+    provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
     payload = {"input": "give me that sweet, sweet vector, please."}
 
     with pytest.raises(AIGatewayException, match=r".*") as e:

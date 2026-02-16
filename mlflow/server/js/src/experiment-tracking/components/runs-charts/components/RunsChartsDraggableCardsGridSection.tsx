@@ -1,12 +1,13 @@
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useUpdateRunsChartsUIConfiguration } from '../hooks/useRunsChartsUIConfiguration';
-import { RunsChartsCardConfig } from '../runs-charts.types';
-import { isEmptyChartCard, RunsChartsRunData } from './RunsCharts.common';
+import type { RunsChartsCardConfig } from '../runs-charts.types';
+import type { RunsChartsRunData } from './RunsCharts.common';
+import { isEmptyChartCard } from './RunsCharts.common';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { Global } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
-import { ChartSectionConfig } from '../../../types';
+import type { ChartSectionConfig } from '../../../types';
 import { RunsChartsDraggableCard } from './RunsChartsDraggableCard';
 import {
   useRunsChartsDraggableGridActionsContext,
@@ -43,6 +44,7 @@ interface RunsChartsDraggableCardsGridProps {
 
 // Renders draggable cards grid in a single chart section
 export const RunsChartsDraggableCardsGridSection = memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     cardsConfig,
     sectionConfig,
@@ -56,7 +58,7 @@ export const RunsChartsDraggableCardsGridSection = memo(
     // If below medium breakpoint, display only 1 card per row.
     // Otherwise, use section configuration or fall back to 3 columns.
     const isCompactMode = useMediaQuery(`(max-width: ${theme.responsive.breakpoints.md}px)`);
-    const columns = isCompactMode ? 1 : sectionConfig.columns ?? 3;
+    const columns = isCompactMode ? 1 : (sectionConfig.columns ?? 3);
 
     // Use card height from the section configuration or fall back to 360 pixels.
     const cardHeight = sectionConfig.cardHeight ?? 360;
@@ -371,9 +373,13 @@ export const RunsChartsDraggableCardsGridSection = memo(
               height={cardHeight}
               canMoveDown={Boolean(array[index + 1])}
               canMoveUp={Boolean(array[index - 1])}
+              canMoveToTop={index > 0}
+              canMoveToBottom={index < array.length - 1}
               previousChartUuid={array[index - 1]?.uuid}
               nextChartUuid={array[index + 1]?.uuid}
               hideEmptyCharts={hideEmptyCharts}
+              firstChartUuid={array[0]?.uuid}
+              lastChartUuid={array[array.length - 1]?.uuid}
               {...cardProps}
             />
           );

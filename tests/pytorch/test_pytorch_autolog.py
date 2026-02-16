@@ -1,12 +1,9 @@
+from unittest import mock
+
+import numpy as np
 import pytest
 import pytorch_lightning as pl
 import torch
-from iris import (
-    IrisClassification,
-    IrisClassificationMultiOptimizer,
-    IrisClassificationWithoutValidation,
-)
-from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 from packaging.version import Version
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -16,7 +13,15 @@ import mlflow.pytorch
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
+from mlflow.types.schema import Schema, TensorSpec
 from mlflow.utils.file_utils import TempDir
+
+from tests.pytorch.iris import (
+    IrisClassification,
+    IrisClassificationMultiOptimizer,
+    IrisClassificationWithoutValidation,
+)
+from tests.pytorch.iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 
 NUM_EPOCHS = 20
 
@@ -85,6 +90,56 @@ def test_pytorch_autolog_log_models_configuration(log_models):
     trainer.fit(model, dm)
     logged_model = mlflow.last_logged_model()
     assert (logged_model is not None) == log_models
+
+
+@pytest.mark.parametrize("use_ddp", [False, True])
+def test_pytorch_autolog_log_model_signature(use_ddp):
+    mlflow.pytorch.autolog()
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+
+    if use_ddp:
+        devices_kwarg_name = (
+            "devices" if Version(pl.__version__) > Version("1.6.4") else "num_processes"
+        )
+        extra_kwargs = {
+            "accelerator": "cpu" if Version(pl.__version__) > Version("1.6.4") else "ddp_cpu",
+            devices_kwarg_name: 4,
+        }
+        if Version(pl.__version__) > Version("1.9.3"):
+            extra_kwargs["strategy"] = "ddp_spawn"
+    else:
+        extra_kwargs = {}
+
+    trainer = pl.Trainer(max_epochs=2, **extra_kwargs)
+    trainer.fit(model, dm)
+    logged_model = mlflow.last_logged_model()
+    model_signature = mlflow.models.get_model_info(logged_model.model_uri).signature
+    assert model_signature.inputs == Schema([TensorSpec(np.dtype("float32"), (-1, 4))])
+    assert model_signature.outputs == Schema([TensorSpec(np.dtype("float32"), (-1, 3))])
+
+
+def test_pytorch_autolog_log_model_signature_infer_fail():
+    mlflow.pytorch.autolog()
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=2)
+    with (
+        mock.patch(
+            "mlflow.pytorch._lightning_autolog.infer_signature",
+            side_effect=RuntimeError("infer-failure-XXYY"),
+        ),
+        mock.patch("mlflow.pytorch._lightning_autolog._logger.warning") as patched_warning,
+    ):
+        trainer.fit(model, dm)
+
+        warning_call_msg = patched_warning.call_args_list[0].args[0]
+        assert "Inferring model signature failed" in warning_call_msg
+        assert "infer-failure-XXYY" in warning_call_msg
+    logged_model = mlflow.last_logged_model()
+    assert mlflow.models.get_model_info(logged_model.model_uri).signature is None
 
 
 def test_pytorch_autolog_logs_default_params(pytorch_model):
@@ -753,3 +808,24 @@ def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
         ]
         == 2
     )
+
+
+def test_autologging_disabled_for_forecasting_model_predict():
+    from tests.pytorch.test_forecasting_model import _gen_forecasting_model_and_data
+
+    mlflow.pytorch.autolog()
+
+    n_series = 10
+    max_prediction_length = 20
+
+    deepar, data = _gen_forecasting_model_and_data(
+        n_series=n_series,
+        timesteps=100,
+        max_prediction_length=max_prediction_length,
+    )
+
+    last_run_id = mlflow.last_active_run().info.run_id
+    deepar.predict(data)
+
+    # assert `deepar.predict` does not trigger autologging (i.e. no new run is created)
+    assert mlflow.last_active_run().info.run_id == last_run_id

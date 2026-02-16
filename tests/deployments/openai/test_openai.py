@@ -13,27 +13,19 @@ def mock_openai_creds(monkeypatch):
 
 @pytest.fixture
 def mock_azure_openai_creds(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "my-secret-key",
-            "OPENAI_API_TYPE": "azure",
-            "OPENAI_API_BASE": "my-base",
-            "OPENAI_DEPLOYMENT_NAME": "my-deployment",
-            "OPENAI_API_VERSION": "2023-05-15",
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "my-secret-key")
+    monkeypatch.setenv("OPENAI_API_TYPE", "azure")
+    monkeypatch.setenv("OPENAI_API_BASE", "my-base")
+    monkeypatch.setenv("OPENAI_DEPLOYMENT_NAME", "my-deployment")
+    monkeypatch.setenv("OPENAI_API_VERSION", "2023-05-15")
 
 
 @pytest.fixture
 def mock_bad_azure_openai_creds(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_TYPE": "azure",
-            "OPENAI_API_VERSION": "2023-05-15",
-            "OPENAI_API_BASE": "https://openai-for.openai.azure.com/",
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_TYPE", "azure")
+    monkeypatch.setenv("OPENAI_API_VERSION", "2023-05-15")
+    monkeypatch.setenv("OPENAI_API_BASE", "https://openai-for.openai.azure.com/")
 
 
 def test_get_deploy_client(mock_openai_creds):

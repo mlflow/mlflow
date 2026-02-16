@@ -69,7 +69,7 @@ class PyFuncBackend(FlavorBackend):
     Flavor backend implementation for the generic python models.
     """
 
-    def __init__(  # noqa: D417
+    def __init__(
         self,
         config,
         env_manager,
@@ -81,15 +81,21 @@ class PyFuncBackend(FlavorBackend):
     ):
         """
         Args:
+            config: Configuration for the backend.
             env_manager: Environment manager to use for preparing the environment. If None,
                 MLflow will automatically pick the env manager based on the model's flavor
                 configuration for generate_dockerfile. It can't be None for other methods.
+            workers: Number of workers to use for serving the model. Defaults to 1.
+            install_mlflow: Whether to install MLflow in the environment. Defaults to False.
+            create_env_root_dir: Whether to create the environment root directory if it doesn't
+                exist. Defaults to False.
             env_root_dir: Root path for conda env. If None, use Conda's default environments
                 directory. Note if this is set, conda package cache path becomes
                 "{env_root_dir}/conda_cache_pkgs" instead of the global package cache
                 path, and pip package cache path becomes
                 "{env_root_dir}/pip_cache_pkgs" instead of the global package cache
                 path.
+            kwargs: Additional keyword arguments to pass to the parent class.
         """
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
@@ -139,6 +145,7 @@ class PyFuncBackend(FlavorBackend):
                 capture_output=capture_output,
                 pip_requirements_override=pip_requirements_override,
                 env_manager=self._env_manager,
+                extra_envs=extra_envs,
             )
             self._environment = Environment(activate_cmd, extra_env=extra_envs)
         elif self._env_manager == em.CONDA:

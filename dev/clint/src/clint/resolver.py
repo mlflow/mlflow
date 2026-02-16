@@ -1,10 +1,10 @@
 import ast
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Optional
 
 
 class Resolver:
-    def __init__(self):
+    def __init__(self) -> None:
         self.name_map: dict[str, list[str]] = {}
         self._scope_stack: list[dict[str, list[str]]] = []
 
@@ -23,7 +23,7 @@ class Resolver:
             self.name_map = self._scope_stack.pop()
 
     @contextmanager
-    def scope(self):
+    def scope(self) -> Iterator[None]:
         """Context manager for automatic scope management."""
         self.enter_scope()
         try:
@@ -44,11 +44,11 @@ class Resolver:
             return
 
         for alias in node.names:
-            name = alias.asname if alias.asname else alias.name
+            name = alias.asname or alias.name
             module_parts = node.module.split(".")
             self.name_map[name] = module_parts + [alias.name]
 
-    def resolve(self, node: ast.expr) -> Optional[list[str]]:
+    def resolve(self, node: ast.expr) -> list[str] | None:
         """
         Resolve a node to its fully qualified name parts.
 
@@ -69,7 +69,7 @@ class Resolver:
 
         return self._resolve_parts(parts) if parts else None
 
-    def _extract_call_parts(self, node: ast.AST) -> list[str]:
+    def _extract_call_parts(self, node: ast.expr) -> list[str]:
         if isinstance(node, ast.Name):
             return [node.id]
         elif isinstance(node, ast.Attribute) and (
@@ -78,7 +78,7 @@ class Resolver:
             return base_parts + [node.attr]
         return []
 
-    def _resolve_parts(self, parts: list[str]) -> Optional[list[str]]:
+    def _resolve_parts(self, parts: list[str]) -> list[str] | None:
         if not parts:
             return None
 

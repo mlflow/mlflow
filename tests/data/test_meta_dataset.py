@@ -3,10 +3,13 @@ from unittest.mock import patch
 
 import pytest
 
+pd = pytest.importorskip("pandas")
+
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.data.meta_dataset import MetaDataset
+from mlflow.data.pandas_dataset import from_pandas
 from mlflow.data.uc_volume_dataset_source import UCVolumeDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.types import DataType
@@ -103,3 +106,18 @@ def test_meta_dataset_with_uc_source():
         assert parsed_json["digest"] is not None
         assert path in parsed_json["source"]
         assert parsed_json["source_type"] == "uc_volume"
+
+
+def test_create_meta_dataset_from_dataset():
+    pandas_dataset = from_pandas(
+        df=pd.DataFrame({"a": [1, 2, 3]}),
+        source="/tmp/test.csv",
+    )
+
+    meta_dataset = MetaDataset(source=pandas_dataset)
+
+    parsed_json = json.loads(meta_dataset.to_json())
+
+    assert parsed_json["source_type"] == pandas_dataset._get_source_type()
+    dataset_json = json.loads(parsed_json["source"])
+    assert dataset_json["source_type"] == pandas_dataset.source._get_source_type()

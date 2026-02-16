@@ -11,7 +11,7 @@ get_mock_client <- function() {
 }
 
 test_that("mlflow can register a model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
             mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/create")
@@ -39,8 +39,8 @@ test_that("mlflow can register a model", {
 })
 
 test_that("mlflow can register a model with tags and description", {
-  with_mock(
-    .env = "mlflow",
+  with_mocked_bindings(
+    .package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/create")
@@ -76,7 +76,7 @@ test_that("mlflow can register a model with tags and description", {
 })
 
 test_that("mlflow can get a registered model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/get")
@@ -93,7 +93,7 @@ test_that("mlflow can get a registered model", {
 })
 
 test_that("mlflow can rename a registered model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_equal(paste(args[1:2], collapse = "/"), "registered-models/rename")
@@ -112,7 +112,7 @@ test_that("mlflow can rename a registered model", {
 })
 
 test_that("mlflow can update a model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_equal(paste(args[1:2], collapse = "/"), "registered-models/update")
@@ -132,7 +132,7 @@ test_that("mlflow can update a model", {
 })
 
 test_that("mlflow can delete a model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_equivalent(paste(args[1:2], collapse = "/"), "registered-models/delete")
@@ -145,7 +145,7 @@ test_that("mlflow can delete a model", {
 })
 
 test_that("mlflow can retrieve a list of registered models without args", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/search")
@@ -163,7 +163,7 @@ test_that("mlflow can retrieve a list of registered models without args", {
 })
 
 test_that("mlflow can retrieve a list of registered models with args", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/search")
@@ -208,7 +208,7 @@ test_that("mlflow can retrieve a list of registered models with args", {
 })
 
 test_that("mlflow can retrieve a list of model versions", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -223,7 +223,7 @@ test_that("mlflow can retrieve a list of model versions", {
 })
 
 test_that("mlflow can retrieve a list of model versions for given stages", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -239,7 +239,7 @@ test_that("mlflow can retrieve a list of model versions for given stages", {
 })
 
 test_that("mlflow can create a model version", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -259,7 +259,7 @@ test_that("mlflow can create a model version", {
 })
 
 test_that("mlflow can get a model version", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -279,7 +279,7 @@ test_that("mlflow can get a model version", {
 })
 
 test_that("mlflow can update a model version", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -300,7 +300,7 @@ test_that("mlflow can update a model version", {
 })
 
 test_that("mlflow can delete a model version", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
             mlflow_rest = function(...) {
               args <- list(...)
               expect_true(paste(args[1:2],
@@ -320,7 +320,7 @@ test_that("mlflow can delete a model version", {
 })
 
 test_that("mlflow can transition a model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -341,7 +341,7 @@ test_that("mlflow can transition a model", {
 })
 
 test_that("mlflow can set model version tag", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],

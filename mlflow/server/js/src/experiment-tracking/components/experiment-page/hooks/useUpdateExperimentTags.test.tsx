@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import {
   renderHook,
   act,
@@ -9,11 +10,15 @@ import {
   renderWithIntl,
 } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { useUpdateExperimentTags } from './useUpdateExperimentTags';
-import { ExperimentEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { IntlProvider } from 'react-intl';
 import userEvent from '@testing-library/user-event';
+import { DesignSystemProvider } from '@databricks/design-system';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 
 jest.mock('../../../../common/utils/LocalStorageUtils');
 
@@ -41,7 +46,9 @@ describe('useUpdateExperimentTags', () => {
     }
     renderWithIntl(
       <QueryClientProvider client={new QueryClient()}>
-        <TestComponent />
+        <DesignSystemProvider>
+          <TestComponent />
+        </DesignSystemProvider>
       </QueryClientProvider>,
     );
   }
@@ -50,7 +57,9 @@ describe('useUpdateExperimentTags', () => {
     renderHook(() => useUpdateExperimentTags({ onSuccess }), {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
-          <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+          <DesignSystemProvider>
+            <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+          </DesignSystemProvider>
         </IntlProvider>
       ),
     });

@@ -1,7 +1,9 @@
+import { describe, jest, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 
 import { useEditKeyValueTagsModal } from './useEditKeyValueTagsModal';
-import { KeyValueEntity } from '../../experiment-tracking/types';
+import type { KeyValueEntity } from '../types';
+import { DesignSystemProvider } from '@databricks/design-system';
 import {
   act,
   fireEvent,
@@ -16,7 +18,7 @@ describe('useEditKeyValueTagsModal', () => {
   function renderTestComponent(
     editedEntity: { tags?: KeyValueEntity[] } = {},
     allAvailableTags: string[],
-    saveTagsHandler = jest.fn(),
+    saveTagsHandler = jest.fn<Parameters<typeof useEditKeyValueTagsModal>[0]['saveTagsHandler']>(),
     onSuccess = jest.fn(),
   ) {
     function TestComponent() {
@@ -32,8 +34,19 @@ describe('useEditKeyValueTagsModal', () => {
         </>
       );
     }
-    const { rerender } = renderWithIntl(<TestComponent />);
-    return { rerender: () => rerender(<TestComponent />) };
+    const { rerender } = renderWithIntl(
+      <DesignSystemProvider>
+        <TestComponent />
+      </DesignSystemProvider>,
+    );
+    return {
+      rerender: () =>
+        rerender(
+          <DesignSystemProvider>
+            <TestComponent />
+          </DesignSystemProvider>,
+        ),
+    };
   }
 
   test('it should open and close the creation modal properly', async () => {
@@ -69,7 +82,9 @@ describe('useEditKeyValueTagsModal', () => {
   const existingTaggedEntity = { tags: existingTags };
 
   test('it should properly add tag with key only', async () => {
-    const saveHandlerFn = jest.fn().mockResolvedValue({});
+    const saveHandlerFn = jest
+      .fn<Parameters<typeof useEditKeyValueTagsModal>[0]['saveTagsHandler']>()
+      .mockResolvedValue({});
 
     renderTestComponent(existingTaggedEntity, ['tag1', 'tag2'], saveHandlerFn);
 
@@ -87,14 +102,16 @@ describe('useEditKeyValueTagsModal', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
-    expect(saveHandlerFn).toBeCalledWith(existingTaggedEntity, existingTags, [
+    expect(saveHandlerFn).toHaveBeenCalledWith(existingTaggedEntity, existingTags, [
       { key: 'tag1', value: 'tagvalue1' },
       { key: 'newtag', value: '' },
     ]);
   });
 
   test('it should properly select already existing tag', async () => {
-    const saveHandlerFn = jest.fn().mockResolvedValue({});
+    const saveHandlerFn = jest
+      .fn<Parameters<typeof useEditKeyValueTagsModal>[0]['saveTagsHandler']>()
+      .mockResolvedValue({});
 
     renderTestComponent(existingTaggedEntity, ['tag1', 'tag2'], saveHandlerFn);
 
@@ -108,14 +125,16 @@ describe('useEditKeyValueTagsModal', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
-    expect(saveHandlerFn).toBeCalledWith(existingTaggedEntity, existingTags, [
+    expect(saveHandlerFn).toHaveBeenCalledWith(existingTaggedEntity, existingTags, [
       { key: 'tag1', value: 'tagvalue1' },
       { key: 'tag2', value: '' },
     ]);
   });
 
   test('it should properly add tag with key and value', async () => {
-    const saveHandlerFn = jest.fn().mockResolvedValue({});
+    const saveHandlerFn = jest
+      .fn<Parameters<typeof useEditKeyValueTagsModal>[0]['saveTagsHandler']>()
+      .mockResolvedValue({});
 
     renderTestComponent(existingTaggedEntity, ['tag1', 'tag2'], saveHandlerFn);
 
@@ -136,14 +155,16 @@ describe('useEditKeyValueTagsModal', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
-    expect(saveHandlerFn).toBeCalledWith(existingTaggedEntity, existingTags, [
+    expect(saveHandlerFn).toHaveBeenCalledWith(existingTaggedEntity, existingTags, [
       { key: 'tag1', value: 'tagvalue1' },
       { key: 'newtag', value: 'newvalue' },
     ]);
   });
 
   test('it should properly display error when saving tags', async () => {
-    const saveHandlerFn = jest.fn().mockRejectedValue({ message: 'This is a test exception' });
+    const saveHandlerFn = jest
+      .fn<Parameters<typeof useEditKeyValueTagsModal>[0]['saveTagsHandler']>()
+      .mockRejectedValue({ message: 'This is a test exception' });
 
     renderTestComponent(existingTaggedEntity, ['tag1', 'tag2'], saveHandlerFn);
 

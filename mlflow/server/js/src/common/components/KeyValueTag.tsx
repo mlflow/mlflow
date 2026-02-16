@@ -1,9 +1,9 @@
-import { Tag, LegacyTooltip, Typography } from '@databricks/design-system';
-import { KeyValueEntity } from '../../experiment-tracking/types';
+import { Tag, Tooltip, Typography } from '@databricks/design-system';
+import type { KeyValueEntity } from '../types';
 import React, { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
-import { Interpolation, Theme } from '@emotion/react';
+import type { Interpolation, Theme } from '@emotion/react';
 
 /**
  * An arbitrary number that is used to determine if a tag is too
@@ -64,7 +64,10 @@ export const KeyValueTag = ({
         title={tag.key}
         className={className}
       >
-        <LegacyTooltip title={allowFullViewModal ? fullViewModalLabel : ''}>
+        <Tooltip
+          content={allowFullViewModal ? fullViewModalLabel : ''}
+          componentId="mlflow.common.components.key-value-tag.tooltip"
+        >
           <span
             css={{ maxWidth, display: 'inline-flex' }}
             onClick={() => (allowFullViewModal ? setIsKeyValueTagFullViewModalVisible(true) : undefined)}
@@ -78,7 +81,7 @@ export const KeyValueTag = ({
               </Typography.Text>
             )}
           </span>
-        </LegacyTooltip>
+        </Tooltip>
       </Tag>
       <div>
         {isKeyValueTagFullViewModalVisible && (

@@ -1,11 +1,13 @@
 import json
 import os
 import pickle
+import shutil
 import tempfile
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
+import cloudpickle
 import numpy as np
 import pandas as pd
 import pytest
@@ -13,6 +15,7 @@ import sklearn
 import sklearn.linear_model as glm
 import sklearn.naive_bayes as nb
 import sklearn.neighbors as knn
+import skops
 import yaml
 from packaging.version import Version
 from sklearn import datasets
@@ -22,7 +25,6 @@ from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
-import mlflow.utils
 from mlflow import pyfunc
 from mlflow.entities.model_registry.model_version import ModelVersion, ModelVersionStatus
 from mlflow.exceptions import MlflowException
@@ -57,7 +59,10 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--env-manager", "local"]
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 @pytest.fixture(scope="module")
@@ -90,6 +95,15 @@ def sklearn_knn_model(iris_df):
     knn_model = knn.KNeighborsClassifier()
     knn_model.fit(X, y)
     return ModelWithData(model=knn_model, inference_data=X)
+
+
+# To load sklearn KNN model as skops format,
+# We need to mark these types as `skops_trusted_types`
+# related ticket: https://github.com/skops-dev/skops/issues/498
+sklearn_knn_model_skops_trusted_types = [
+    "sklearn.metrics._dist_metrics.EuclideanDistance64",
+    "sklearn.neighbors._kd_tree.KDTree",
+]
 
 
 @pytest.fixture(scope="module")
@@ -131,21 +145,75 @@ def sklearn_custom_env(tmp_path):
     return conda_env
 
 
-def test_model_save_load(sklearn_knn_model, model_path):
-    knn_model = sklearn_knn_model.model
+@pytest.mark.parametrize("serialization_format", mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS)
+def test_model_save_load(sklearn_logreg_model, model_path, serialization_format):
+    from mlflow.utils.requirements_utils import _parse_requirements
 
-    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path)
-    reloaded_knn_model = mlflow.sklearn.load_model(model_uri=model_path)
-    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
+    sk_model = sklearn_logreg_model.model
+    mlflow.sklearn.save_model(
+        sk_model=sk_model, path=model_path, serialization_format=serialization_format
+    )
+    reloaded_model = mlflow.sklearn.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    sklearn_conf = _get_flavor_configuration(
+        model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
+    )
+    assert "serialization_format" in sklearn_conf
+    assert sklearn_conf["serialization_format"] == serialization_format
+
+    req_map = {
+        mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS: f"skops=={skops.__version__}",
+        mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE: f"cloudpickle=={cloudpickle.__version__}",
+    }
+
+    logged_reqs = [
+        req.req_str
+        for req in _parse_requirements(
+            os.path.join(model_path, "requirements.txt"), is_constraint=False
+        )
+    ]
+    if serialization_format != mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE:
+        assert req_map[serialization_format] in logged_reqs
 
     np.testing.assert_array_equal(
-        knn_model.predict(sklearn_knn_model.inference_data),
-        reloaded_knn_model.predict(sklearn_knn_model.inference_data),
+        sk_model.predict(sklearn_logreg_model.inference_data),
+        reloaded_model.predict(sklearn_logreg_model.inference_data),
     )
 
     np.testing.assert_array_equal(
-        reloaded_knn_model.predict(sklearn_knn_model.inference_data),
-        reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
+        reloaded_model.predict(sklearn_logreg_model.inference_data),
+        reloaded_pyfunc.predict(sklearn_logreg_model.inference_data),
+    )
+
+
+def test_model_skops_format_trusted_type(sklearn_knn_model, model_path):
+    sk_model = sklearn_knn_model.model
+
+    with pytest.raises(MlflowException, match="The saved sklearn model references untrusted type"):
+        mlflow.sklearn.save_model(
+            sk_model=sk_model,
+            path=model_path,
+            serialization_format="skops",
+        )
+
+    shutil.rmtree(model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model.model,
+        path=model_path,
+        serialization_format="skops",
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
+    reloaded_model = mlflow.sklearn.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    np.testing.assert_array_equal(
+        sk_model.predict(sklearn_knn_model.inference_data),
+        reloaded_model.predict(sklearn_knn_model.inference_data),
+    )
+
+    np.testing.assert_array_equal(
+        reloaded_model.predict(sklearn_knn_model.inference_data),
+        reloaded_pyfunc.predict(sklearn_knn_model.inference_data),
     )
 
 
@@ -272,7 +340,7 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
         ) as mock_create_mv,
         TempDir(chdr=True, remove_on_exit=True) as tmp,
     ):
-        with mlflow.start_run():
+        with mlflow.start_run() as run:
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
             model_info = mlflow.sklearn.log_model(
@@ -281,8 +349,9 @@ def test_log_model_call_register_model_to_uc(configure_client_for_uc, sklearn_lo
                 conda_env=conda_env,
                 registered_model_name="AdsModel1",
             )
+            source = model_info.artifact_path
             [(args, kwargs)] = mock_create_mv.call_args_list
-            assert args[1:] == ("AdsModel1", model_info.model_uri, None, [], None, None)
+            assert args[1:] == ("AdsModel1", source, run.info.run_id, [], None, None)
             assert kwargs["local_model_path"].startswith(tempfile.gettempdir())
 
 
@@ -335,10 +404,12 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
 
 
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
-    sklearn_knn_model, model_path, sklearn_custom_env
+    sklearn_logreg_model, model_path, sklearn_custom_env
 ):
     mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model.model, path=model_path, conda_env=sklearn_custom_env
+        sk_model=sklearn_logreg_model.model,
+        path=model_path,
+        conda_env=sklearn_custom_env,
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -580,14 +651,14 @@ def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environmen
 
 
 def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda_environment(
-    sklearn_knn_model, model_path
+    sklearn_logreg_model, model_path
 ):
     non_cloudpickle_serialization_formats = list(mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS)
     non_cloudpickle_serialization_formats.remove(mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE)
 
     for serialization_format in non_cloudpickle_serialization_formats:
         mlflow.sklearn.save_model(
-            sk_model=sklearn_knn_model.model,
+            sk_model=sklearn_logreg_model.model,
             path=model_path,
             serialization_format=serialization_format,
         )
@@ -608,6 +679,8 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         assert all(
             "cloudpickle" not in dependency for dependency in saved_conda_env_parsed["dependencies"]
         )
+
+        shutil.rmtree(model_path)
 
 
 def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
@@ -695,7 +768,7 @@ flavors:
     loader_module: mlflow.sklearn
     model_path: model.pkl
     predict_fn: predict
-    python_version: 3.10.16
+    python_version: 3.11.14
   sklearn:
     code: null
     pickled_model: model.pkl
@@ -709,7 +782,7 @@ utc_time_created: '2023-07-04 07:19:43.561797'
     )
     tmp_path.joinpath("python_env.yaml").write_text(
         """
-python: 3.10.16
+python: 3.11.14
 build_dependencies:
    - pip==25.1.1
    - setuptools==80.4.0

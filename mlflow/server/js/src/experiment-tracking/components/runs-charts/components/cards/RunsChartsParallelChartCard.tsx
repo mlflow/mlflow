@@ -6,12 +6,11 @@ import LazyParallelCoordinatesPlot from '../charts/LazyParallelCoordinatesPlot';
 import { isParallelChartConfigured, processParallelCoordinateData } from '../../utils/parallelCoordinatesPlot.utils';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import type { RunsChartsParallelCardConfig } from '../../runs-charts.types';
+import type { RunsChartCardFullScreenProps, RunsChartCardVisibilityProps } from './ChartCard.common';
 import {
   type RunsChartCardReorderProps,
   RunsChartCardWrapper,
   RunsChartsChartsDragGroup,
-  RunsChartCardFullScreenProps,
-  RunsChartCardVisibilityProps,
   RunsChartCardLoadingPlaceholder,
 } from './ChartCard.common';
 import { FormattedMessage } from 'react-intl';
@@ -21,9 +20,7 @@ import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimen
 import { RunsChartsNoDataFoundIndicator } from '../RunsChartsNoDataFoundIndicator';
 
 export interface RunsChartsParallelChartCardProps
-  extends RunsChartCardReorderProps,
-    RunsChartCardFullScreenProps,
-    RunsChartCardVisibilityProps {
+  extends RunsChartCardReorderProps, RunsChartCardFullScreenProps, RunsChartCardVisibilityProps {
   config: RunsChartsParallelCardConfig;
   chartRunData: RunsChartsRunData[];
 

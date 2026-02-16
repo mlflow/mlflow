@@ -8,12 +8,8 @@ from tests.helper_functions import start_mock_openai_server
 
 @pytest.fixture(autouse=True)
 def set_envs(monkeypatch, mock_openai):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
     importlib.reload(openai)
 
 

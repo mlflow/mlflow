@@ -1,9 +1,10 @@
 import time
+import warnings
 from contextlib import contextmanager
 from typing import Any
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import MosaicMLConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, MosaicMLConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request
@@ -14,8 +15,13 @@ class MosaicMLProvider(BaseProvider):
     NAME = "MosaicML"
     CONFIG_TYPE = MosaicMLConfig
 
-    def __init__(self, config: RouteConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
+        warnings.warn(
+            "MosaicML provider is deprecated and will be removed in a future MLflow version.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
         if config.model.config is None or not isinstance(config.model.config, MosaicMLConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.mosaicml_config: MosaicMLConfig = config.model.config
@@ -47,7 +53,7 @@ class MosaicMLProvider(BaseProvider):
         """
         prompt = "<s>"  # Always start with an opening <s> tag
         for m in messages:
-            if m.role == "system" or m.role == "user":
+            if m.role in {"system", "user"}:
                 inst = m.content
 
                 # Wrap system messages in <<SYS>> tags
@@ -76,11 +82,9 @@ class MosaicMLProvider(BaseProvider):
 
         # Remove the last </s><s> tags if they exist to allow for
         # assistant completion prompts.
-        if prompt.endswith("</s><s>"):
-            prompt = prompt[:-7]
-        return prompt
+        return prompt.removesuffix("</s><s>")
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         # Extract the List[RequestMessage] from the RequestPayload
@@ -150,7 +154,9 @@ class MosaicMLProvider(BaseProvider):
             ),
         )
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -217,7 +223,7 @@ class MosaicMLProvider(BaseProvider):
             ),
         )
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)

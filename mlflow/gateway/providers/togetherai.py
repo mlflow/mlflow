@@ -2,7 +2,7 @@ import json
 from typing import Any, AsyncGenerator, AsyncIterable
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import RouteConfig, TogetherAIConfig
+from mlflow.gateway.config import EndpointConfig, TogetherAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
@@ -294,8 +294,8 @@ class TogetherAIProvider(BaseProvider):
     NAME = "TogetherAI"
     CONFIG_TYPE = TogetherAIConfig
 
-    def __init__(self, config: RouteConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, TogetherAIConfig):
             # Should be unreachable
             raise MlflowException.invalid_parameter_value(
@@ -334,9 +334,7 @@ class TogetherAIProvider(BaseProvider):
             payload=payload,
         )
 
-    async def _stream_request(
-        self, path: str, payload: dict[str, Any]
-    ) -> AsyncGenerator[bytes, None]:
+    def _stream_request(self, path: str, payload: dict[str, Any]) -> AsyncGenerator[bytes, None]:
         return send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
@@ -344,7 +342,7 @@ class TogetherAIProvider(BaseProvider):
             payload=payload,
         )
 
-    async def embeddings(
+    async def _embeddings(
         self, payload: embeddings_schema.RequestPayload
     ) -> embeddings_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -358,7 +356,7 @@ class TogetherAIProvider(BaseProvider):
 
         return TogetherAIAdapter.model_to_embeddings(resp, self.config)
 
-    async def completions_stream(
+    async def _completions_stream(
         self, payload: completions_schema.RequestPayload
     ) -> AsyncIterable[completions_schema.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -374,7 +372,7 @@ class TogetherAIProvider(BaseProvider):
                 ),
             )
 
-        stream = await self._stream_request(
+        stream = self._stream_request(
             path="completions",
             payload=TogetherAIAdapter.completions_streaming_to_model(payload, self.config),
         )
@@ -391,7 +389,7 @@ class TogetherAIProvider(BaseProvider):
             resp = json.loads(chunk)
             yield TogetherAIAdapter.model_to_completions_streaming(resp, self.config)
 
-    async def completions(
+    async def _completions(
         self, payload: completions_schema.RequestPayload
     ) -> completions_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -413,12 +411,14 @@ class TogetherAIProvider(BaseProvider):
 
         return TogetherAIAdapter.model_to_completions(resp, self.config)
 
-    async def chat_stream(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
+    async def _chat_stream(
+        self, payload: chat_schema.RequestPayload
+    ) -> chat_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
 
-        stream = await self._stream_request(
+        stream = self._stream_request(
             path="chat/completions",
             payload=TogetherAIAdapter.chat_streaming_to_model(payload, self.config),
         )
@@ -435,7 +435,7 @@ class TogetherAIProvider(BaseProvider):
             resp = json.loads(chunk)
             yield TogetherAIAdapter.model_to_chat_streaming(resp, self.config)
 
-    async def chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
+    async def _chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)

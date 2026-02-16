@@ -1,5 +1,5 @@
 import { combineReducers } from 'redux';
-import { ModelGatewayRouteLegacy, ModelGatewayRoute } from '../sdk/ModelGatewayService';
+import type { ModelGatewayRouteLegacy, ModelGatewayRoute } from '../sdk/ModelGatewayService';
 import { ModelGatewayRouteTask } from '../sdk/MlflowEnums';
 import { fulfilled, pending, rejected } from '../../common/utils/ActionUtils';
 

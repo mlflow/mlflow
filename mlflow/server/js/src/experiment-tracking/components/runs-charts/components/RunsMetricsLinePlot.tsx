@@ -4,16 +4,15 @@ import type { Config, Dash, Data as PlotlyData, Layout, LayoutAxis } from 'plotl
 import { type Figure } from 'react-plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { MetricEntity } from '../../../types';
+import type { MetricEntity } from '../../../types';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
 import { highlightLineTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import type { RunsChartsRunData, RunsPlotsCommonProps } from './RunsCharts.common';
 import {
   commonRunsChartStyles,
-  RunsChartsRunData,
   runsChartDefaultMargin,
   runsChartHoverlabel,
-  RunsPlotsCommonProps,
   createThemedPlotlyLayout,
   normalizeChartValue,
   useDynamicPlotSize,
@@ -27,7 +26,6 @@ import {
 import { EMA } from '../../MetricsPlotView';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import {
-  shouldEnableChartsOriginalLinesWhenSmoothing,
   shouldEnableRelativeTimeDateAxis,
   shouldEnableChartExpressions,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
@@ -270,10 +268,13 @@ const getBandTraceForRun = ({
  * return = [{step: 2, value: 3}, {step: 0, value: 1}, {step: 1, value: 2}]
  */
 const orderBySteps = (dataPoints: MetricEntity[], stepOrder: number[]) => {
-  const stepIndexes = stepOrder.reduce((acc, step, idx) => {
-    acc[step] = idx;
-    return acc;
-  }, {} as Record<number, number>);
+  const stepIndexes = stepOrder.reduce(
+    (acc, step, idx) => {
+      acc[step] = idx;
+      return acc;
+    },
+    {} as Record<number, number>,
+  );
 
   // if there's a step mismatch, send all non-existing values to the end
   return dataPoints.slice().sort((a, b) => (stepIndexes[a.step] ?? Infinity) - (stepIndexes[b.step] ?? Infinity));
@@ -487,6 +488,7 @@ const getXAxisPlotlyType = (
  * set of experiments runs
  */
 export const RunsMetricsLinePlot = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
     runsData,
     metricKey,
@@ -549,18 +551,15 @@ export const RunsMetricsLinePlot = React.memo(
 
     const getTraceAndOriginalTrace = (props: any) => {
       const dataTrace = getDataTraceForRun(props);
-      if (shouldEnableChartsOriginalLinesWhenSmoothing()) {
-        const originalLineProps = {
-          ...props,
-          lineSmoothness: 0,
-          useDefaultHoverBox: false,
-          displayPoints: false,
-          displayOriginalLine: true,
-        };
-        const originalDataTrace = getDataTraceForRun(originalLineProps);
-        return [dataTrace, originalDataTrace];
-      }
-      return [dataTrace];
+      const originalLineProps = {
+        ...props,
+        lineSmoothness: 0,
+        useDefaultHoverBox: false,
+        displayPoints: false,
+        displayOriginalLine: true,
+      };
+      const originalDataTrace = getDataTraceForRun(originalLineProps);
+      return [dataTrace, originalDataTrace];
     };
 
     const plotData = useMemo(() => {

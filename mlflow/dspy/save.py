@@ -1,11 +1,14 @@
 """Functions for saving DSPY models to MLflow."""
 
+import json
+import logging
 import os
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import cloudpickle
 import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -28,7 +31,6 @@ from mlflow.models.utils import _save_example
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import DataType
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -49,6 +51,11 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 _MODEL_SAVE_PATH = "model"
 _MODEL_DATA_PATH = "data"
+_MODEL_CONFIG_FILE_NAME = "model_config.json"
+_DSPY_SETTINGS_FILE_NAME = "dspy_config.pkl"
+_DSPY_RM_FILE_NAME = "dspy_rm.pkl"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_default_pip_requirements():
@@ -70,23 +77,23 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental(version="2.18.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def save_model(
     model,
     path: str,
-    task: Optional[str] = None,
-    model_config: Optional[dict[str, Any]] = None,
-    code_paths: Optional[list[str]] = None,
-    mlflow_model: Optional[Model] = None,
-    conda_env: Optional[Union[list[str], str]] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    resources: Optional[Union[str, Path, list[Resource]]] = None,
+    task: str | None = None,
+    model_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    mlflow_model: Model | None = None,
+    conda_env: list[str] | str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
+    metadata: dict[str, Any] | None = None,
+    resources: str | Path | list[Resource] | None = None,
+    use_dspy_model_save: bool = False,
 ):
     """
     Save a Dspy model.
@@ -112,6 +119,8 @@ def save_model(
         metadata: {{ metadata }}
         resources: A list of model resources or a resources.yaml file containing a list of
             resources required to serve the model.
+        use_dspy_model_save: Whether to save the Dspy model by dspy builtin `dspy.Module.save`
+            method.
     """
 
     import dspy
@@ -120,6 +129,7 @@ def save_model(
         _LLM_INFERENCE_TASK_KEY,
         _METADATA_LLM_INFERENCE_TASK_KEY,
     )
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
     if signature:
         num_inputs = len(signature.inputs.inputs)
@@ -133,6 +143,15 @@ def save_model(
             "Invalid task: {task} at `mlflow.dspy.save_model()` call. The task must be None or one "
             f"of: {list(SIGNATURE_FOR_LLM_INFERENCE_TASK.keys())}",
             error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not use_dspy_model_save and not is_in_databricks_runtime():
+        _logger.warning(
+            "Saving DSPy model by Pickle or CloudPickle format requires exercising "
+            "caution because these formats rely on Python's object serialization mechanism, "
+            "which can execute arbitrary code during deserialization."
+            "The recommended alternative is to set 'use_dspy_model_save' to True "
+            "(requiring dspy >= 3.1.0) to save the "
+            "DSPy model using the DSPy builtin saving method."
         )
 
     if mlflow_model is None:
@@ -158,9 +177,20 @@ def save_model(
     # Construct new data folder in existing path.
     data_path = os.path.join(path, model_data_subpath)
     os.makedirs(data_path, exist_ok=True)
-    # Set the model path to end with ".pkl" as we use cloudpickle for serialization.
-    model_subpath = os.path.join(model_data_subpath, _MODEL_SAVE_PATH) + ".pkl"
+    model_subpath = os.path.join(model_data_subpath, _MODEL_SAVE_PATH)
+    if not use_dspy_model_save:
+        # Set the model path to end with ".pkl" as we use cloudpickle for serialization.
+        model_subpath += ".pkl"
+
     model_path = os.path.join(path, model_subpath)
+
+    if use_dspy_model_save:
+        if Version(dspy.__version__) <= Version("3.1.0"):
+            raise MlflowException(
+                "'use_dspy_model_save' option is only supported for DSPy version > 3.1.0."
+            )
+        os.makedirs(model_path, exist_ok=True)
+
     # Dspy has a global context `dspy.settings`, and we need to save it along with the model.
     dspy_settings = dict(dspy.settings.config)
 
@@ -199,8 +229,18 @@ def save_model(
         if all(spec.type == DataType.string for spec in mlflow_model.signature.outputs):
             streamable = True
 
-    with open(model_path, "wb") as f:
-        cloudpickle.dump(wrapped_dspy_model, f)
+    if use_dspy_model_save:
+        wrapped_dspy_model.model.save(model_path, save_program=True)
+
+        with open(os.path.join(data_path, _MODEL_CONFIG_FILE_NAME), "w") as f:
+            json.dump(model_config, f)
+
+        dspy.settings.save(
+            os.path.join(data_path, _DSPY_SETTINGS_FILE_NAME), exclude_keys=["trace"]
+        )
+    else:
+        with open(model_path, "wb") as f:
+            cloudpickle.dump(wrapped_dspy_model, f)
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -262,31 +302,31 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental(version="2.18.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     dspy_model,
-    artifact_path: Optional[str] = None,
-    task: Optional[str] = None,
-    model_config: Optional[dict[str, Any]] = None,
-    code_paths: Optional[list[str]] = None,
-    conda_env: Optional[Union[list[str], str]] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    registered_model_name: Optional[str] = None,
+    artifact_path: str | None = None,
+    task: str | None = None,
+    model_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    conda_env: list[str] | str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    registered_model_name: str | None = None,
     await_registration_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    resources: Optional[Union[str, Path, list[Resource]]] = None,
-    prompts: Optional[list[Union[str, Prompt]]] = None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
+    metadata: dict[str, Any] | None = None,
+    resources: str | Path | list[Resource] | None = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
+    use_dspy_model_save: bool = False,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -325,6 +365,8 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        use_dspy_model_save: Whether to save the Dspy model by dspy builtin `dspy.Module.save`
+            method.
 
     .. code-block:: python
         :caption: Example
@@ -390,4 +432,5 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        use_dspy_model_save=use_dspy_model_save,
     )

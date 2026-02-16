@@ -1,0 +1,175 @@
+name: review
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    timeout-minutes: 30
+    # Security: Only run for authorized users.
+    # - pull_request_target: Only run for maintainers
+    # - issue_comment: BOTH PR author and commenter must be authorized (can't trust external PRs)
+    # TODO: Remove `github.event.pull_request.user.login == 'harupy'` after testing
+    if: >
+      (github.event_name == 'pull_request_target' &&
+       github.event.pull_request.draft == false &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) &&
+       github.event.pull_request.user.login == 'harupy')
+      ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       (
+        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) ||
+        (github.event.issue.user.login == 'Copilot' && github.event.issue.user.type == 'Bot')
+       ) &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+       startsWith(github.event.comment.body, '/review'))
+    steps:
+      - name: React to comment
+        if: ${{ github.event_name == 'issue_comment' }}
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const { comment } = context.payload;
+
+            // Check user association - only allow OWNER, MEMBER, or COLLABORATOR
+            const authorAssociation = comment.author_association;
+            const isAllowed = ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(authorAssociation);
+
+            let message;
+            if (isAllowed) {
+              const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
+              message = `🚀 [Review workflow started](${workflowUrl})`;
+            } else {
+              message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
+            }
+
+            const updatedBody = `${comment.body}\n\n---\n${message}`;
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: comment.id,
+              body: updatedBody,
+            });
+
+            if (!isAllowed) {
+              throw new Error(`User not allowed to trigger workflow: ${comment.user.login} (association: ${authorAssociation})`);
+            }
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
+        with:
+          resolution-strategy: "lowest"
+      - name: Install Claude CLI
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.29
+
+      - name: Extract optional prompt from comment
+        if: github.event_name == 'issue_comment'
+        id: prompt
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/review\s*||' | xargs)
+          echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
+
+      - name: Review
+        id: review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          PROMPT: ${{ steps.prompt.outputs.prompt }}
+        run: |
+          OUTPUT_FILE="/tmp/output.json"
+
+          # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
+          ARGS=("/pr-review")
+          [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
+
+          EXIT_CODE=0
+          timeout 20m claude --model claude-opus-4-5-20251101 --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
+          if [ "${EXIT_CODE:-0}" -eq 124 ]; then
+            echo "Warning: Claude command timed out after 20 minutes"
+          elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            echo "Error: Claude command failed with exit code $EXIT_CODE"
+            cat "$OUTPUT_FILE"
+            exit $EXIT_CODE
+          fi
+
+          # Display output in workflow logs (pretty print if valid JSON)
+          echo "=== Claude Output ==="
+          if [ ! -s "$OUTPUT_FILE" ]; then
+            echo "(empty output)"
+          elif jq empty "$OUTPUT_FILE" 2>/dev/null; then
+            jq . "$OUTPUT_FILE"
+          else
+            cat "$OUTPUT_FILE"
+          fi
+          echo "===================="
+
+      - name: Report review results
+        if: ${{ github.event_name == 'issue_comment' }}
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const { comment } = context.payload;
+
+            // Read Claude output from file instead of environment variable
+            const outputPath = '/tmp/output.json';
+            let claudeOutput = '';
+            try {
+              if (fs.existsSync(outputPath)) {
+                claudeOutput = fs.readFileSync(outputPath, 'utf8');
+              }
+            } catch (e) {
+              console.log('Failed to read Claude output file:', e);
+            }
+
+            let resultMessage = '✅ Review completed.';
+
+            // Extract and display Claude's result from JSON output
+            if (claudeOutput) {
+              try {
+                const events = JSON.parse(claudeOutput);
+                const resultEvent = events.findLast(({ type }) => type === 'result');
+                if (resultEvent) {
+                  resultMessage += `\n\n<details>\n<summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;
+                }
+              } catch (e) {
+                console.log('Failed to parse Claude output as JSON:', e);
+              }
+            }
+
+            console.log('Result message to post:', resultMessage);
+
+            const { data: currentComment } = await github.rest.issues.getComment({
+              owner,
+              repo,
+              comment_id: comment.id,
+            });
+
+            const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
+
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: comment.id,
+              body: updatedBody
+            });

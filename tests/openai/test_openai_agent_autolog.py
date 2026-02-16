@@ -1,12 +1,12 @@
 import copy
+import json
 from unittest import mock
 
 import openai
 import pytest
-from packaging.version import Version
 
 try:
-    import agents
+    import agents  # noqa: F401
 except ImportError:
     pytest.skip("OpenAI SDK is not installed. Skipping tests.", allow_module_level=True)
 
@@ -129,12 +129,17 @@ async def test_autolog_agent():
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.status == "OK"
+    assert json.loads(trace.info.request_preview) == messages
+    assert json.loads(trace.info.response_preview) == response.final_output
     spans = trace.data.spans
     assert len(spans) == 6  # 1 root + 2 agent + 1 handoff + 2 response
-    assert spans[0].name == "Agent workflow"
+    assert spans[0].name == "AgentRunner.run"
+    assert spans[0].span_type == SpanType.AGENT
+    assert spans[0].inputs == messages
+    assert spans[0].outputs == response.final_output
     assert spans[1].name == "Triage Agent"
     assert spans[1].parent_id == spans[0].span_id
-    assert spans[2].name == "Response_1"
+    assert spans[2].name == "Response"
     assert spans[2].parent_id == spans[1].span_id
     assert spans[2].inputs == [{"role": "user", "content": "Hola.  ¿Como estás?"}]
     assert spans[2].outputs == [
@@ -153,42 +158,10 @@ async def test_autolog_agent():
     assert spans[3].parent_id == spans[1].span_id
     assert spans[4].name == "Spanish Agent"
     assert spans[4].parent_id == spans[0].span_id
-    assert spans[5].name == "Response_2"
+    assert spans[5].name == "Response"
     assert spans[5].parent_id == spans[4].span_id
 
     # Validate chat attributes
-    assert spans[2].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "system",
-            "content": "Handoff to the appropriate agent based on the language of the request.",
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": None,
-        },
-        {
-            "role": "user",
-            "content": "Hola.  ¿Como estás?",
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": None,
-        },
-        {
-            "role": "assistant",
-            "content": "",
-            "refusal": None,
-            "tool_calls": [
-                {
-                    "id": "123",
-                    "function": {
-                        "name": "transfer_to_spanish_agent",
-                        "arguments": "{}",
-                    },
-                    "type": "function",
-                }
-            ],
-            "tool_call_id": None,
-        },
-    ]
     assert spans[2].attributes[SpanAttributeKey.CHAT_TOOLS] == [
         {
             "function": {
@@ -203,62 +176,6 @@ async def test_autolog_agent():
                 "strict": False,
             },
             "type": "function",
-        },
-    ]
-
-    if Version(agents.__version__) >= Version("0.0.18"):
-        tool_content = '{"assistant": "Spanish Agent"}'
-    else:
-        tool_content = "{'assistant': 'Spanish Agent'}"
-    assert spans[5].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "system",
-            "content": "You only speak Spanish",
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": None,
-        },
-        {
-            "role": "user",
-            "content": "Hola.  ¿Como estás?",
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": None,
-        },
-        {
-            "role": "assistant",
-            "content": "",
-            "refusal": None,
-            "tool_calls": [
-                {
-                    "id": "123",
-                    "function": {
-                        "name": "transfer_to_spanish_agent",
-                        "arguments": "{}",
-                    },
-                    "type": "function",
-                }
-            ],
-            "tool_call_id": None,
-        },
-        {
-            "role": "tool",
-            "content": tool_content,
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": "123",
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "text": "¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?",
-                    "type": "text",
-                }
-            ],
-            "refusal": None,
-            "tool_calls": None,
-            "tool_call_id": None,
         },
     ]
     assert SpanAttributeKey.CHAT_TOOLS not in spans[5].attributes
@@ -345,7 +262,7 @@ async def test_autolog_agent_llm_exception():
     assert trace.info.status == "ERROR"
     spans = trace.data.spans
     assert len(spans) == 3
-    assert spans[0].name == "Agent workflow"
+    assert spans[0].name == "AgentRunner.run"
     assert spans[2].status.status_code == "ERROR"
     assert spans[2].status.description == "Error getting response"
     assert spans[2].events[0].name == "exception"
@@ -401,11 +318,12 @@ async def test_autolog_agent_with_manual_trace():
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     spans = traces[0].data.spans
-    assert len(spans) == 4
+    assert len(spans) == 5
     assert spans[0].name == "Parent span"
     assert spans[1].name == "Joke workflow"
-    assert spans[2].name == "Joke agent"
-    assert spans[3].name == "Response"
+    assert spans[2].name == "AgentRunner.run"
+    assert spans[3].name == "Joke agent"
+    assert spans[4].name == "Response"
 
 
 @pytest.mark.asyncio

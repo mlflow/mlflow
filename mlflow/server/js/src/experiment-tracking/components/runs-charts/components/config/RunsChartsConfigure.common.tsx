@@ -7,7 +7,8 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import React, { ComponentProps, PropsWithChildren, useMemo } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
+import React, { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { makeCanonicalSortKey } from '../../../experiment-page/utils/experimentPage.common-utils';
 

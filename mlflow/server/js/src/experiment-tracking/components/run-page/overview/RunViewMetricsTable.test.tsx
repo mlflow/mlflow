@@ -1,10 +1,12 @@
+import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 import { keyBy } from 'lodash';
-import { renderWithIntl, fastFillInput, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { MetricEntitiesByName, RunInfoEntity } from '../../../types';
+import { renderWithIntl, fastFillInput, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import type { LoggedModelProto, MetricEntitiesByName, RunInfoEntity } from '../../../types';
 import { RunViewMetricsTable } from './RunViewMetricsTable';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 
 // Larger timeout for integration testing (table rendering)
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000);
 
 const testRunUuid = 'test-run-uuid';
@@ -30,10 +32,13 @@ const sampleLatestMetrics = keyBy(
 ) as any;
 
 describe('RunViewMetricsTable', () => {
-  const renderComponent = (latestMetrics: MetricEntitiesByName = sampleLatestMetrics) => {
+  const renderComponent = (
+    latestMetrics: MetricEntitiesByName = sampleLatestMetrics,
+    loggedModels?: LoggedModelProto[],
+  ) => {
     return renderWithIntl(
       <MemoryRouter>
-        <RunViewMetricsTable runInfo={testRunInfo} latestMetrics={latestMetrics} />
+        <RunViewMetricsTable runInfo={testRunInfo} latestMetrics={latestMetrics} loggedModels={loggedModels} />
       </MemoryRouter>,
     );
   };
@@ -92,5 +97,29 @@ describe('RunViewMetricsTable', () => {
     // Expect no result rows, a header row and a message
     expect(screen.queryAllByRole('row')).toHaveLength(0 + 1);
     expect(screen.getByText('No metrics match the search filter')).toBeInTheDocument();
+  });
+  test('Renders the table with logged models', () => {
+    renderComponent(sampleLatestMetrics, [
+      {
+        data: { metrics: [sampleLatestMetrics['metric_a2']] },
+        info: { name: 'model_a2', model_id: 'm-a2' },
+      },
+      {
+        data: { metrics: [sampleLatestMetrics['metric_c1']] },
+        info: { name: 'model_c1', model_id: 'm-c1' },
+      },
+    ]);
+    const rowWithMetricA2 = screen.getByRole('row', { name: /metric_a2/ });
+    const rowWithMetricC1 = screen.getByRole('row', { name: /metric_c1/ });
+
+    expect(within(rowWithMetricA2).getByRole('link', { name: 'model_a2' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/models\/m-a2/),
+    );
+
+    expect(within(rowWithMetricC1).getByRole('link', { name: 'model_c1' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/models\/m-c1/),
+    );
   });
 });

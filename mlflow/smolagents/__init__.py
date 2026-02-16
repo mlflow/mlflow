@@ -7,7 +7,8 @@ import logging
 from mlflow.smolagents.autolog import (
     patched_class_call,
 )
-from mlflow.utils.annotations import experimental
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 _logger = logging.getLogger(__name__)
@@ -15,7 +16,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "smolagents"
 
 
-@experimental(version="3.0.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
@@ -64,3 +64,7 @@ def autolog(
         _logger.error(
             "An exception happens when applying auto-tracing to smolagents. Exception: %s", e
         )
+
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )

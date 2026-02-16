@@ -1,6 +1,5 @@
 import re
 from functools import reduce
-from typing import Union
 
 try:
     # For spark >= 4.0
@@ -15,7 +14,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql import types as t
 
 
-def cast_spark_df_with_vector_to_array(input_spark_df):  # noqa: D417
+def cast_spark_df_with_vector_to_array(input_spark_df):
     """
     Finds columns of vector type in a spark dataframe and
     casts them to array<double> type.
@@ -36,7 +35,7 @@ def cast_spark_df_with_vector_to_array(input_spark_df):  # noqa: D417
     )
 
 
-def _do_pipeline_transform(df: DataFrame, transformer: Union[Transformer, PipelineModel]):  # noqa: D417
+def _do_pipeline_transform(df: DataFrame, transformer: Transformer | PipelineModel):
     """
     A util method that runs transform on a pipeline model/transformer
 
@@ -67,7 +66,7 @@ def _get_struct_type_by_cols(input_fields: set[str], df_schema: t.StructType) ->
 
 def get_feature_cols(
     df: DataFrame,
-    transformer: Union[Transformer, PipelineModel],
+    transformer: Transformer | PipelineModel,
 ) -> set[str]:
     """
     Finds feature columns from an input dataset. If a dataset
@@ -89,7 +88,7 @@ def get_feature_cols(
         try:
             transformer.transform(df_subset.drop(column))
         except IllegalArgumentException as iae:
-            if re.search("does not exist|no such struct field", str(iae), re.IGNORECASE):
+            if re.search(r"does not exist|no such struct field", str(iae), re.IGNORECASE):
                 feature_cols.add(column)
                 continue
             raise

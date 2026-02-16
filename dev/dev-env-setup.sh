@@ -124,7 +124,6 @@ quiet_command(){
 
 minor_to_micro() {
   case $1 in
-    "3.9") echo "3.9.20" ;;
     "3.10") echo "3.10.13" ;;
   esac
 }
@@ -214,7 +213,7 @@ check_and_install_pyenv() {
 
 check_and_install_min_py_version() {
   # Get the minimum supported version for development purposes
-  min_py_version="3.9"
+  min_py_version="3.10"
 
   echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(
     tput bold
@@ -228,7 +227,7 @@ check_and_install_min_py_version() {
     elif [[ $version_levels -eq 2 ]]; then
       PY_INSTALL_VERSION=$override_py_ver
     else
-      echo "You must supply a python override version with either minor (e.g., '3.9') or micro (e.g., '3.9.5'). '$override_py_ver' is invalid."
+      echo "You must supply a python override version with either minor (e.g., '3.10') or micro (e.g., '3.10.13'). '$override_py_ver' is invalid."
       exit 1
     fi
   else

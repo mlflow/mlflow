@@ -1,3 +1,4 @@
+import os
 import pathlib
 import posixpath
 
@@ -26,6 +27,7 @@ from mlflow.utils.uri import (
     resolve_uri_if_local,
     strip_scheme,
     validate_path_is_safe,
+    validate_path_within_directory,
 )
 
 
@@ -191,7 +193,7 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
 
     def create_char_case(special_char):
         def char_case(*case_args):
-            return tuple([item.format(c=special_char) for item in case_args])
+            return tuple(item.format(c=special_char) for item in case_args)
 
         return char_case
 
@@ -914,3 +916,67 @@ def test_validate_path_is_safe_windows_bad(path):
 )
 def test_strip_scheme(uri: str, expected: str):
     assert strip_scheme(uri) == expected
+
+
+def test_validate_path_within_directory_allows_valid_paths(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "subdir" / "file.txt"
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)
+
+
+def test_validate_path_within_directory_blocks_symlink_escape(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    external_dir = tmp_path / "external"
+    external_dir.mkdir()
+    external_file = external_dir / "secret.txt"
+    external_file.write_text("SECRET")
+    symlink_path = base_dir / "leak"
+    os.symlink(str(external_dir), str(symlink_path))
+    constructed_path = symlink_path / "secret.txt"
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        validate_path_within_directory(str(base_dir), str(constructed_path))
+
+
+def test_validate_path_within_directory_blocks_parent_symlink(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    symlink_path = base_dir / "parent"
+    os.symlink(str(tmp_path), str(symlink_path))
+    constructed_path = symlink_path / "artifacts" / ".." / "external"
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        validate_path_within_directory(str(base_dir), str(constructed_path))
+
+
+def test_validate_path_within_directory_allows_internal_symlink(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    real_file = base_dir / "real_file.txt"
+    real_file.write_text("CONTENT")
+    symlink_path = base_dir / "link"
+    os.symlink(str(real_file), str(symlink_path))
+    result = validate_path_within_directory(str(base_dir), str(symlink_path))
+    assert result == str(symlink_path)
+
+
+def test_validate_path_within_directory_allows_base_dir_itself(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    result = validate_path_within_directory(str(base_dir), str(base_dir))
+    assert result == str(base_dir)
+
+
+def test_validate_path_within_directory_allows_subdirectory_symlink(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    subdir = base_dir / "subdir"
+    subdir.mkdir()
+    file_in_subdir = subdir / "file.txt"
+    file_in_subdir.write_text("CONTENT")
+    symlink_to_subdir = base_dir / "link_to_subdir"
+    os.symlink(str(subdir), str(symlink_to_subdir))
+    constructed_path = symlink_to_subdir / "file.txt"
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)

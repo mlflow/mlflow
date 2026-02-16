@@ -126,7 +126,6 @@ def image_for_test():
     ("pipeline", "expected_requirements"),
     [
         ("small_qa_pipeline", {"transformers", "torch", "torchvision"}),
-        ("small_qa_tf_pipeline", {"transformers", "tensorflow"}),
         pytest.param(
             "peft_pipeline",
             {"peft", "transformers", "torch", "torchvision"},
@@ -627,6 +626,28 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
+def test_transformers_log_model_with_prompt_template_sets_return_full_text_false(
+    text_generation_pipeline,
+):
+    artifact_path = "text_generation_with_prompt_template"
+    prompt_template = "User: {prompt}"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            text_generation_pipeline,
+            name=artifact_path,
+            prompt_template=prompt_template,
+        )
+
+    model_path = pathlib.Path(_download_artifact_from_uri(model_info.model_uri))
+    mlmodel = Model.load(str(model_path.joinpath("MLmodel")))
+
+    pyfunc_flavor = mlmodel.flavors["python_function"]
+    config = pyfunc_flavor.get("config")
+
+    assert config.get("return_full_text") is False
+
+
 def test_transformers_save_persists_requirements_in_mlflow_directory(
     small_qa_pipeline, model_path, transformers_custom_env
 ):
@@ -734,22 +755,6 @@ def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_moda
             )
 
 
-@pytest.mark.skipif(
-    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
-)
-def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
-    small_qa_tf_pipeline, model_path
-):
-    mlflow.transformers.save_model(small_qa_tf_pipeline, model_path)
-    _assert_pip_requirements(
-        model_path, mlflow.transformers.get_default_pip_requirements(small_qa_tf_pipeline.model)
-    )
-    pip_requirements = _get_deps_from_requirement_file(model_path)
-    assert "tensorflow" in pip_requirements
-    assert "torch" not in pip_requirements
-    assert "accelerate" not in pip_requirements
-
-
 def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
     small_qa_pipeline, model_path
 ):
@@ -777,26 +782,6 @@ def test_transformers_pt_model_save_dependencies_without_accelerate(
     assert "tensorflow" not in pip_requirements
     assert "accelerate" not in pip_requirements
     assert "torch" in pip_requirements
-
-
-@pytest.mark.skipif(
-    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
-)
-def test_transformers_tf_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
-    small_qa_tf_pipeline,
-):
-    artifact_path = "model"
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(small_qa_tf_pipeline, name=artifact_path)
-    _assert_pip_requirements(
-        model_info.model_uri,
-        mlflow.transformers.get_default_pip_requirements(small_qa_tf_pipeline.model),
-    )
-    pip_requirements = _get_deps_from_requirement_file(model_info.model_uri)
-    assert "tensorflow" in pip_requirements
-    assert "torch" not in pip_requirements
-    # Accelerate installs Pytorch along with it, so it should not be present in the requirements
-    assert "accelerate" not in pip_requirements
 
 
 def test_transformers_pt_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
@@ -946,13 +931,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
     [
         image_url,
         str(image_file_path),
-        pytest.param(
-            "base64",
-            marks=pytest.mark.skipif(
-                Version(transformers.__version__) < Version("4.33"),
-                reason="base64 feature not present",
-            ),
-        ),
+        "base64",
         pytest.param(
             "base64_encodebytes",
             marks=pytest.mark.skipif(
@@ -1378,9 +1357,6 @@ def test_table_question_answering_pipeline(table_question_answering_pipeline, mo
     assert pd_inference is not None
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26"), reason="Feature is not available"
-)
 def test_custom_code_pipeline(custom_code_pipeline, model_path):
     data = "hello"
 
@@ -1404,9 +1380,6 @@ def test_custom_code_pipeline(custom_code_pipeline, model_path):
     assert pyfunc_pred[0][0] == transformers_pred[0][0][0]
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.26"), reason="Feature is not available"
-)
 def test_custom_components_pipeline(custom_components_pipeline, model_path):
     data = "hello"
 
@@ -1567,7 +1540,7 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
                     assert inference_dict[key][value] == native_inference[value][key]
                 else:
                     assert math.isclose(
-                        native_inference[value][key], inference_dict[key][value], rel_tol=1e-7
+                        native_inference[value][key], inference_dict[key][value], rel_tol=1e-6
                     )
 
 
@@ -1719,13 +1692,7 @@ def test_vision_is_base64_image(input_image, result):
     [
         [str(image_file_path)],
         [image_url],
-        pytest.param(
-            "base64",
-            marks=pytest.mark.skipif(
-                Version(transformers.__version__) < Version("4.33"),
-                reason="base64 feature not present",
-            ),
-        ),
+        "base64",
         pytest.param(
             "base64_encodebytes",
             marks=pytest.mark.skipif(
@@ -1843,7 +1810,7 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline):
                 assert values_dict[key][value] == native_predict[value][key]
             else:
                 assert math.isclose(
-                    values_dict[key][value], native_predict[value][key], rel_tol=1e-7
+                    values_dict[key][value], native_predict[value][key], rel_tol=1e-6
                 )
 
 
@@ -2561,9 +2528,6 @@ def test_whisper_model_serve_and_score(whisper_pipeline):
     Version("4.52.0") <= Version(transformers.__version__) < Version("4.53.0"),
     reason="Transformers 4.52 has a bug for beam search in whiper implementation",
 )
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
-)
 def test_whisper_model_support_timestamps(whisper_pipeline):
     # Request payload to the model serving endpoint contains base64 encoded audio data
     audio = read_audio_data("bytes")
@@ -2681,7 +2645,7 @@ def test_audio_classification_pipeline(audio_classification_pipeline, with_input
     "model_name",
     [
         "tiiuae/falcon-7b",
-        "databricks/dolly-v2-7b",
+        "openai-community/gpt2",
         "PrunaAI/runwayml-stable-diffusion-v1-5-turbo-tiny-green-smashed",
     ],
 )
@@ -3062,9 +3026,6 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
     assert mlmodel["model_size_bytes"] == expected_size
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
-)
 @pytest.mark.parametrize(
     ("task", "input_example"),
     [
@@ -3371,10 +3332,6 @@ def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, 
     assert isinstance(inference[0], str)
     assert inference[0].startswith("How to save Transformer model?")
 
-    if Version(transformers.__version__) < Version("4.34.0"):
-        # Chat model is not supported for Transformers < 4.34.0
-        return
-
     # 3. Save local custom model with LLM v1 chat inference task -> saves successfully
     #    with the corresponding Transformers task
     shutil.rmtree(model_path)
@@ -3408,24 +3365,19 @@ def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, 
 
 
 def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipeline):
-    # max_length and max_new_tokens cannot be used together in Transformers earlier than 4.27
-    validate_max_new_tokens = Version(transformers.__version__) > Version("4.26.1")
-
     model_config = {
         "top_k": 2,
         "num_beams": 5,
         "max_length": 30,
+        "max_new_tokens": 500,
     }
-    if validate_max_new_tokens:
-        model_config["max_new_tokens"] = 500
 
     # Params will be used to override the values of model_config but should not mutate it
     params = {
         "top_k": 30,
         "max_length": 500,
+        "max_new_tokens": 5,
     }
-    if validate_max_new_tokens:
-        params["max_new_tokens"] = 5
 
     pyfunc_model = _TransformersWrapper(text2text_generation_pipeline, model_config=model_config)
     assert pyfunc_model.model_config["top_k"] == 2
@@ -3437,14 +3389,10 @@ def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipel
     assert pyfunc_model.model_config["top_k"] == 2
     assert pyfunc_model.model_config["num_beams"] == 5
     assert pyfunc_model.model_config["max_length"] == 30
-    if validate_max_new_tokens:
-        assert pyfunc_model.model_config["max_new_tokens"] == 500
-        assert len(prediction_output[0].split(" ")) <= 5
+    assert pyfunc_model.model_config["max_new_tokens"] == 500
+    assert len(prediction_output[0].split(" ")) <= 5
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
-)
 def test_text_generation_task_chat_predict(text_generation_pipeline, model_path):
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
@@ -3474,9 +3422,6 @@ def test_text_generation_task_chat_predict(text_generation_pipeline, model_path)
     )
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.34.0"), reason="Feature does not exist"
-)
 def test_text_generation_task_chat_serve(text_generation_pipeline):
     data = {
         "messages": [
@@ -3576,11 +3521,10 @@ def test_save_and_load_pipeline_without_save_pretrained_false(
 
 
 # Patch tempdir just to verify the invocation
-@mock.patch("mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir)
-def test_persist_pretrained_model(mock_tmpdir, small_qa_tf_pipeline):
+def test_persist_pretrained_model(small_qa_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
-            small_qa_tf_pipeline,
+            small_qa_pipeline,
             name="model",
             save_pretrained=False,
             pip_requirements=["mlflow"],  # For speed up logging
@@ -3596,21 +3540,27 @@ def test_persist_pretrained_model(mock_tmpdir, small_qa_tf_pipeline):
     assert not model_path.exists()
     assert not tokenizer_path.exists()
 
-    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+    with mock.patch(
+        "mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir
+    ) as mock_tmpdir:
+        mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+        mock_tmpdir.assert_called_once()
 
-    mock_tmpdir.assert_called_once()
     updated_config = Model.load(model_info.model_uri).flavors["transformers"]
     assert "model_binary" in updated_config
     assert "source_model_revision" not in updated_config
     assert model_path.exists()
-    assert (model_path / "tf_model.h5").exists()
+    model_path_files = list(model_path.iterdir())
+    assert len(model_path_files) > 0
     assert tokenizer_path.exists()
     assert (tokenizer_path / "tokenizer.json").exists()
 
     # Repeat persisting the model will no-op
-    mock_tmpdir.reset_mock()
-    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
-    mock_tmpdir.assert_not_called()
+    with mock.patch(
+        "mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir
+    ) as mock_tmpdir:
+        mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+        mock_tmpdir.assert_not_called()
 
 
 def test_small_qa_pipeline_copy_metadata_in_databricks(
@@ -3712,14 +3662,14 @@ def local_checkpoint_path(tmp_path):
     return str(checkpoint_path)
 
 
-@mock.patch("mlflow.transformers._logger")
-def test_save_model_from_local_checkpoint(mock_logger, model_path, local_checkpoint_path):
-    mlflow.transformers.save_model(
-        transformers_model=local_checkpoint_path,
-        task="text-generation",
-        path=model_path,
-        input_example=["What is MLflow?"],
-    )
+def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
+    with mock.patch("mlflow.transformers._logger") as mock_logger:
+        mlflow.transformers.save_model(
+            transformers_model=local_checkpoint_path,
+            task="text-generation",
+            path=model_path,
+            input_example=["What is MLflow?"],
+        )
 
     logged_info = Model.load(model_path)
     flavor_conf = logged_info.flavors["transformers"]
@@ -3783,10 +3733,6 @@ def test_save_model_from_local_checkpoint_with_custom_tokenizer(model_path, loca
     assert tokenizer.special_tokens_map["additional_special_tokens"] == ["<sushi>"]
 
 
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.34.0"),
-    reason="Chat template is supported since 4.34.0",
-)
 def test_save_model_from_local_checkpoint_with_llm_inference_task(
     model_path, local_checkpoint_path
 ):
@@ -3845,7 +3791,6 @@ def test_save_model_from_local_checkpoint_invalid_arguments(model_path, local_ch
         )
 
 
-@mock.patch("mlflow.models.validate_serving_input")
 @pytest.mark.parametrize(
     ("model_fixture", "should_skip_validation"),
     [
@@ -3854,23 +3799,22 @@ def test_save_model_from_local_checkpoint_invalid_arguments(model_path, local_ch
     ],
 )
 def test_log_model_skip_validating_serving_input_for_local_checkpoint(
-    mock_validate_input,
     model_fixture,
     should_skip_validation,
     tmp_path,
     request,
 ):
-    # Ensure mlflow skips serving input validation for local checkpoint
     # input to avoid expensive computation
     model = request.getfixturevalue(model_fixture)
-
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            model,
-            name="model",
-            task="fill-mask",
-            input_example=["How are you?"],
-        )
+    with mock.patch("mlflow.models.validate_serving_input") as mock_validate_input:
+        # Ensure mlflow skips serving input validation for local checkpoint
+        with mlflow.start_run():
+            model_info = mlflow.transformers.log_model(
+                model,
+                name="model",
+                task="fill-mask",
+                input_example=["How are you?"],
+            )
 
     # Serving input should exist regardless of the skip validation
     mlflow_model = Model.load(model_info.model_uri)

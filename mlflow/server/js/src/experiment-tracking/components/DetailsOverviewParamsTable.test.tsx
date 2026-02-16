@@ -1,6 +1,7 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { keyBy } from 'lodash';
 import { renderWithIntl, fastFillInput, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { KeyValueEntity } from '../types';
+import type { KeyValueEntity } from '../../common/types';
 import { DetailsOverviewParamsTable } from './DetailsOverviewParamsTable';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import userEvent from '@testing-library/user-event';
@@ -8,6 +9,7 @@ import userEvent from '@testing-library/user-event';
 const testRunUuid = 'test-run-uuid';
 
 // Larger timeout for integration testing (table rendering)
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000);
 
 // Generates array of param_a1, param_a2, ..., param_b2, ..., param_c3 param keys with values "value_1.0"..."value_9.0"

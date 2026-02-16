@@ -1,4 +1,4 @@
-import { Alert, PageWrapper, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, PageWrapper, TableSkeleton, useDesignSystemTheme, Spacer } from '@databricks/design-system';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import { ExperimentLoggedModelDetailsHeader } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsHeader';
@@ -7,11 +7,13 @@ import { ExperimentLoggedModelDetailsNav } from '../../components/experiment-log
 import { ExperimentLoggedModelDetailsOverview } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsOverview';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
+import { useExperimentKind } from '../../utils/ExperimentKindUtils';
 import React from 'react';
 import { ExperimentLoggedModelDetailsArtifacts } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsArtifacts';
+import { ExperimentLoggedModelDetailsTraces } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsTraces';
 import { useUserActionErrorHandler } from '@databricks/web-shared/metrics';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentLoggedModelDetailsTraces } from '../../components/experiment-logged-models/ExperimentLoggedModelDetailsTraces';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 /**
  * Temporary "in construction" placeholder box, to be removed after implementing the actual content.
@@ -56,12 +58,18 @@ const ExperimentLoggedModelDetailsPageImpl = () => {
     apolloError: experimentApolloError,
   } = useGetExperimentQuery({ experimentId });
 
+  // Register model name context for Assistant
+  useRegisterAssistantContext('modelName', loggedModel?.info?.name);
+
   // If there is an unrecoverable error loading the model, throw it to be handled by the error boundary
   if (loggedModelLoadError) {
     throw loggedModelLoadError;
   }
 
   const experimentLoadError = experimentApiError ?? experimentApolloError;
+
+  const experiment = experimentData;
+  const experimentKind = useExperimentKind(experiment?.tags);
 
   const renderSelectedTab = () => {
     if (loggedModelLoading) {
@@ -74,12 +82,24 @@ const ExperimentLoggedModelDetailsPageImpl = () => {
     }
 
     if (tabName === 'traces') {
-      return <ExperimentLoggedModelDetailsTraces loggedModel={loggedModel} />;
+      return (
+        <ExperimentLoggedModelDetailsTraces
+          loggedModel={loggedModel}
+          experimentTags={experiment?.tags ?? []}
+          isLoadingExperiment={experimentLoading}
+        />
+      );
     } else if (tabName === 'artifacts') {
       return <ExperimentLoggedModelDetailsArtifacts loggedModel={loggedModel} />;
     }
 
-    return <ExperimentLoggedModelDetailsOverview onDataUpdated={refetch} loggedModel={loggedModel} />;
+    return (
+      <ExperimentLoggedModelDetailsOverview
+        onDataUpdated={refetch}
+        loggedModel={loggedModel}
+        experimentKind={experimentKind}
+      />
+    );
   };
 
   return (
@@ -127,15 +147,15 @@ const ExperimentLoggedModelDetailsPage = () => {
     <ExperimentLoggedModelPageWrapper>
       <PageWrapper
         css={{
-          paddingTop: theme.spacing.md,
           display: 'flex',
-          paddingBottom: theme.spacing.md,
           overflow: 'hidden',
           height: '100%',
           flexDirection: 'column',
         }}
       >
+        <Spacer shrinks={false} />
         <ExperimentLoggedModelDetailsPageImpl />
+        <Spacer shrinks={false} />
       </PageWrapper>
     </ExperimentLoggedModelPageWrapper>
   );

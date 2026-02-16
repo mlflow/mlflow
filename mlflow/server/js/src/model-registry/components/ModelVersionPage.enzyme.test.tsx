@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
@@ -57,8 +58,10 @@ describe('ModelVersionPage', () => {
     let counter = 0;
     (getUUID as any).mockImplementation(() => `${counter++}`);
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
-    // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
-    global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
+    jest
+      .spyOn(global, 'fetch')
+      // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
+      .mockImplementation(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     jest
       .mocked(getModelVersionApi)
       .mockImplementation(jest.requireActual<typeof import('../actions')>('../actions').getModelVersionApi);
@@ -110,7 +113,7 @@ describe('ModelVersionPage', () => {
     // Initial mount
     wrapper = mountWithIntl(<TestComponent />);
     // Assert first (original) call for model version
-    expect(global.fetch).toBeCalledWith(endpoint + '?name=Model+A&version=1', expect.anything());
+    expect(global.fetch).toHaveBeenCalledWith(endpoint + '?name=Model+A&version=1', expect.anything());
     // Update the mocked params object with new params
     wrapper.setProps({
       params: {
@@ -119,7 +122,7 @@ describe('ModelVersionPage', () => {
       },
     });
     // Assert second call for model version
-    expect(global.fetch).toBeCalledWith(endpoint + '?name=Model+A&version=5', expect.anything());
+    expect(global.fetch).toHaveBeenCalledWith(endpoint + '?name=Model+A&version=5', expect.anything());
   });
   test('should redirect to model page when model version is deleted', async () => {
     wrapper = mountComponent();
@@ -129,8 +132,8 @@ describe('ModelVersionPage', () => {
         return 'RESOURCE_DOES_NOT_EXIST';
       },
     };
-    Utils.isBrowserTabVisible = jest.fn(() => true);
-    instance.loadData = jest.fn(() => Promise.reject(mockError));
+    jest.spyOn(Utils, 'isBrowserTabVisible').mockImplementation(() => true);
+    jest.spyOn(instance, 'loadData').mockImplementation(() => Promise.reject(mockError));
     expect(instance.props.modelName).toEqual('Model A');
     await instance.pollData();
     expect(navigate).toHaveBeenCalledWith(ModelRegistryRoutes.getModelPageRoute('Model A'));

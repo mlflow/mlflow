@@ -66,7 +66,7 @@ message Expectation {
     optional string value = 2;
   }
 
-  // The value of the expecation-based assessment serialized as a string in a specified format. Only one of either 
+  // The value of the expecation-based assessment serialized as a string in a specified format. Only one of either
   // ``serialized_value`` or ``value`` may be defined.
   optional SerializedValue serialized_value = 3;
 }
@@ -137,7 +137,5 @@ message Assessment {
   // Whether this assessment is valid (i.e. has not been superseded)
   // defaults to true, and is set to false if a new superseding assessment
   // is created.
-  optional bool valid = 15 [
-    default = true
-  ];
+  optional bool valid = 15 [default = true];
 }

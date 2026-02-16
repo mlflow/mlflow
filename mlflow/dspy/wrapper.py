@@ -1,7 +1,7 @@
 import importlib.metadata
 import json
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from packaging.version import Version
 
@@ -34,14 +34,14 @@ class DspyModelWrapper(PythonModel):
         self,
         model: "dspy.Module",
         dspy_settings: dict[str, Any],
-        model_config: Optional[dict[str, Any]] = None,
+        model_config: dict[str, Any] | None = None,
     ):
         self.model = model
         self.dspy_settings = dspy_settings
         self.model_config = model_config or {}
-        self.output_schema: Optional[Schema] = None
+        self.output_schema: Schema | None = None
 
-    def predict(self, inputs: Any, params: Optional[dict[str, Any]] = None):
+    def predict(self, inputs: Any, params: dict[str, Any] | None = None):
         import dspy
 
         converted_inputs = self._get_model_input(inputs)
@@ -50,9 +50,14 @@ class DspyModelWrapper(PythonModel):
             if isinstance(converted_inputs, dict):
                 # We pass a dict as keyword args and don't allow DSPy models
                 # to receive a single dict.
-                return self.model(**converted_inputs).toDict()
+                result = self.model(**converted_inputs)
             else:
-                return self.model(converted_inputs).toDict()
+                result = self.model(converted_inputs)
+
+            if isinstance(result, dspy.Prediction):
+                return result.toDict()
+            else:
+                return result
 
     def predict_stream(self, inputs: Any, params=None):
         import dspy
@@ -86,7 +91,7 @@ class DspyModelWrapper(PythonModel):
                 else:
                     yield output
 
-    def _get_model_input(self, inputs: Any) -> Union[str, dict[str, Any]]:
+    def _get_model_input(self, inputs: Any) -> str | dict[str, Any]:
         """Convert the PythonModel input into the DSPy program input
 
         Examples of expected conversions:
@@ -153,7 +158,7 @@ class DspyModelWrapper(PythonModel):
 class DspyChatModelWrapper(DspyModelWrapper):
     """MLflow PyFunc wrapper class for Dspy chat models."""
 
-    def predict(self, inputs: Any, params: Optional[dict[str, Any]] = None):
+    def predict(self, inputs: Any, params: dict[str, Any] | None = None):
         import dspy
 
         converted_inputs = self._get_model_input(inputs)
@@ -201,7 +206,7 @@ class DspyChatModelWrapper(DspyModelWrapper):
             "Streaming is not supported for DSPy model with task 'llm/v1/chat'."
         )
 
-    def _get_model_input(self, inputs: Any) -> Union[str, list[dict[str, Any]]]:
+    def _get_model_input(self, inputs: Any) -> str | list[dict[str, Any]]:
         import pandas as pd
 
         if isinstance(inputs, dict):

@@ -1,4 +1,5 @@
-import { Button, ColumnsIcon, DropdownMenu, Tree, TreeDataNode, useDesignSystemTheme } from '@databricks/design-system';
+import type { TreeDataNode } from '@databricks/design-system';
+import { Button, ColumnsIcon, DropdownMenu, Tree, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { compact } from 'lodash';

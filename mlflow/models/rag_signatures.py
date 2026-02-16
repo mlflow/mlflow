@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Optional
 
 from mlflow.models import ModelSignature
 from mlflow.types.schema import (
@@ -30,14 +29,14 @@ class ChatCompletionRequest:
 @dataclass
 class SplitChatMessagesRequest:
     query: str = "What is mlflow?"
-    history: Optional[list[Message]] = field(default_factory=list)
+    history: list[Message] | None = field(default_factory=list)
 
 
 @deprecated("mlflow.types.llm.ChatCompletionRequest")
 @dataclass
 class MultiturnChatRequest:
     query: str = "What is mlflow?"
-    history: Optional[list[Message]] = field(default_factory=list)
+    history: list[Message] | None = field(default_factory=list)
 
 
 @deprecated("mlflow.types.llm.ChatChoice")

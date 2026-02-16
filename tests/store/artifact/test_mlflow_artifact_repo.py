@@ -295,8 +295,7 @@ def test_download_artifacts(mlflow_artifact_repo, tmp_path):
     # ---------
     def http_request(_host_creds, endpoint, _method, **kwargs):
         # Responses for list_artifacts
-        params = kwargs.get("params")
-        if params:
+        if params := kwargs.get("params"):
             if params.get("path") == "":
                 return MockResponse(
                     {

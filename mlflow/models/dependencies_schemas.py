@@ -1,12 +1,11 @@
 import json
 import logging
+import warnings
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional
-
-from mlflow.utils.annotations import experimental
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mlflow.models.model import Model
@@ -22,20 +21,22 @@ class DependenciesSchemasType(Enum):
     RETRIEVERS = "retrievers"
 
 
-@experimental(version="2.13.0")
 def set_retriever_schema(
     *,
     primary_key: str,
     text_column: str,
-    doc_uri: Optional[str] = None,
-    other_columns: Optional[list[str]] = None,
-    name: Optional[str] = "retriever",
+    doc_uri: str | None = None,
+    other_columns: list[str] | None = None,
+    name: str | None = "retriever",
 ):
     """
     Specify the return schema of a retriever span within your agent or generative AI app code.
 
+    .. deprecated:: 3.3.2
+        This function is deprecated and will be removed in a future version.
+
     **Note**: MLflow recommends that your retriever return the default MLflow retriever output
-    schema described in https://mlflow.org/docs/latest/tracing/tracing-schema#retriever-spans,
+    schema described in https://mlflow.org/docs/latest/genai/data-model/traces/#retriever-spans,
     in which case you do not need to call `set_retriever_schema`. APIs that read MLflow traces
     and look for retriever spans, such as MLflow evaluation, will automatically detect retriever
     spans that match MLflow's default retriever schema.
@@ -85,6 +86,17 @@ def set_retriever_schema(
                 name="my_custom_retriever",
             )
     """
+    warnings.warn(
+        "set_retriever_schema is deprecated and will be removed in a future version. "
+        "Please migrate to use VectorSearchRetrieverTool in the 'databricks-ai-bridge' package, "
+        "or match the default schema so your retriever spans can be detected without requiring "
+        "explicit configuration. See "
+        "https://mlflow.org/docs/latest/genai/data-model/traces/#retriever-spans "
+        "for more information.",
+        category=FutureWarning,
+        stacklevel=2,
+    )
+
     retriever_schemas = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
 
     # Check if a retriever schema with the same name already exists
@@ -172,7 +184,7 @@ def _get_dependencies_schemas():
         _clear_dependencies_schemas()
 
 
-def _get_dependencies_schema_from_model(model: "Model") -> Optional[dict[str, Any]]:
+def _get_dependencies_schema_from_model(model: "Model") -> dict[str, Any] | None:
     """
     Get the dependencies schema from the logged model metadata.
 
@@ -235,8 +247,8 @@ class RetrieverSchema(Schema):
         name: str,
         primary_key: str,
         text_column: str,
-        doc_uri: Optional[str] = None,
-        other_columns: Optional[list[str]] = None,
+        doc_uri: str | None = None,
+        other_columns: list[str] | None = None,
     ):
         super().__init__(type=DependenciesSchemasType.RETRIEVERS)
         self.name = name

@@ -1,0 +1,25 @@
+export const ACTIVE_HIGHLIGHT_COLOR = 'yellow500';
+export const INACTIVE_HIGHLIGHT_COLOR = 'yellow200';
+
+// Trace tag keys
+export const MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG = 'mlflow.trace.sourceScorer';
+// Assessment metadata keys
+export const MLFLOW_ASSESSMENT_SOURCE_RUN_ID = 'mlflow.assessment.sourceRunId';
+export const MLFLOW_ASSESSMENT_SCORER_TRACE_ID = 'mlflow.assessment.scorerTraceId';
+export const MLFLOW_ASSESSMENT_JUDGE_COST = 'mlflow.assessment.judgeCost';
+
+// Various metadata keys used in traces
+export const SESSION_ID_METADATA_KEY = 'mlflow.trace.session';
+export const SOURCE_NAME_METADATA_KEY = 'mlflow.source.name';
+export const SOURCE_TYPE_METADATA_KEY = 'mlflow.source.type';
+export const TOKEN_USAGE_METADATA_KEY = 'mlflow.trace.tokenUsage';
+export const COST_METADATA_KEY = 'mlflow.trace.cost';
+export const MLFLOW_TRACE_USER_KEY = 'mlflow.trace.user';
+
+// Span attribute keys for model and cost info
+export const SPAN_ATTRIBUTE_MODEL_KEY = 'mlflow.llm.model';
+export const SPAN_ATTRIBUTE_COST_KEY = 'mlflow.llm.cost';
+
+// Query parameter for selected trace ID in session pages
+export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
+export const ASSESSMENT_SESSION_METADATA_KEY = 'mlflow.trace.session';

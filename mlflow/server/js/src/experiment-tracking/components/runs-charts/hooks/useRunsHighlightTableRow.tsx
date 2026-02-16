@@ -1,6 +1,6 @@
 import { type RefObject, useCallback, useEffect } from 'react';
 import { ChartsTraceHighlightSource, useRunsChartTraceHighlight } from './useRunsChartTraceHighlight';
-import { CellMouseOverEvent } from '@ag-grid-community/core';
+import type { CellMouseOverEvent } from '@ag-grid-community/core';
 
 const DEFAULT_HIGH_LIGHT_CLASS_NAME = 'is-highlighted';
 
@@ -60,7 +60,7 @@ export const useRunsHighlightTableRow = (
   // Create event handlers for table cell mouse over and out events
   const cellMouseOverHandler = useCallback(
     ({ data }: CellMouseOverEvent) => {
-      const isGroupRow = 'groupParentInfo' in data;
+      const isGroupRow = typeof data === 'object' && 'groupParentInfo' in data;
       // Extract the trace UUID from the data
       // Use runUuid for non-group rows and rowUuid for group rows
       const dataTraceUuid = getRowUuid ? getRowUuid({ data }) : isGroupRow ? data.rowUuid : data.runUuid;

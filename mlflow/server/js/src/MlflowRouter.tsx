@@ -1,68 +1,79 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { useDocumentTitle } from '@databricks/web-shared/routing';
 
 import ErrorModal from './experiment-tracking/components/modals/ErrorModal';
 import AppErrorBoundary from './common/components/error-boundaries/AppErrorBoundary';
-import { HashRouter, Route, Routes, createLazyRouteElement } from './common/utils/RoutingUtils';
-import { MlflowHeader } from './common/components/MlflowHeader';
+import {
+  createHashRouter,
+  RouterProvider,
+  Outlet,
+  createLazyRouteElement,
+  useLocation,
+  useNavigate,
+  useParams,
+  usePageTitle,
+  useSearchParams,
+} from './common/utils/RoutingUtils';
+import { useWorkflowType, WorkflowType, WorkflowTypeProvider } from './common/contexts/WorkflowTypeContext';
+import { shouldEnableWorkflowBasedNavigation } from './common/utils/FeatureUtils';
+import { useWorkspacesEnabled } from './experiment-tracking/hooks/useServerInfo';
 
 // Route definition imports:
 import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/route-defs';
 import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/route-defs';
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
+import { getGatewayRouteDefs } from './gateway/route-defs';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
+import { AssistantProvider, AssistantRouteContextProvider } from './assistant';
+import { RootAssistantLayout } from './common/components/RootAssistantLayout';
+import {
+  extractWorkspaceFromSearchParams,
+  getActiveWorkspace,
+  isGlobalRoute,
+  setActiveWorkspace,
+} from './workspaces/utils/WorkspaceUtils';
+import { useWorkspaces } from './workspaces/hooks/useWorkspaces';
 
-/**
- * This is the MLflow default entry/landing route.
- */
-const landingRoute = {
-  path: '/',
-  element: createLazyRouteElement(() => import('./experiment-tracking/components/HomePage')),
-  pageId: 'mlflow.experiments.list',
+type MlflowRouteDef = {
+  path?: string;
+  element?: React.ReactNode;
+  pageId?: string;
+  children?: MlflowRouteDef[];
+  [key: string]: unknown;
 };
 
-export const MlflowRouter = ({
-  isDarkTheme,
-  setIsDarkTheme,
+/**
+ * Inner layout component that has access to WorkflowType context
+ */
+const MlflowRootLayout = ({
+  showSidebar,
+  setShowSidebar,
 }: {
-  isDarkTheme?: boolean;
-  setIsDarkTheme?: (isDarkTheme: boolean) => void;
+  showSidebar: boolean;
+  setShowSidebar: (showSidebar: boolean) => void;
 }) => {
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useInitializeExperimentRunColors();
-
-  const [showSidebar, setShowSidebar] = useState(true);
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const routes = useMemo(
-    () => [...getExperimentTrackingRouteDefs(), ...getModelRegistryRouteDefs(), landingRoute, ...getCommonRouteDefs()],
-    [],
-  );
-
   const { theme } = useDesignSystemTheme();
+  const { workflowType } = useWorkflowType();
 
   return (
-    <>
+    <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <ErrorModal />
-      <HashRouter>
-        <AppErrorBoundary>
-          <MlflowHeader
-            isDarkTheme={isDarkTheme}
-            setIsDarkTheme={setIsDarkTheme}
-            sidebarOpen={showSidebar}
-            toggleSidebar={() => setShowSidebar((isOpen) => !isOpen)}
-          />
+      <AppErrorBoundary>
+        <RootAssistantLayout>
           <div
             css={{
-              backgroundColor: theme.colors.backgroundSecondary,
               display: 'flex',
               flexDirection: 'row',
-              flexGrow: 1,
-              minHeight: 0,
+              width: '100%',
+              background:
+                workflowType === WorkflowType.GENAI
+                  ? `linear-gradient(163deg, rgba(66, 153, 224, 0.06) 20%, rgba(202, 66, 224, 0.06) 35%, rgba(255, 95, 70, 0.06) 50%, transparent 80%), ${theme.colors.backgroundSecondary}`
+                  : theme.colors.backgroundSecondary,
             }}
           >
-            {showSidebar && <MlflowSidebar />}
+            <MlflowSidebar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
             <main
               css={{
                 width: '100%',
@@ -73,17 +84,157 @@ export const MlflowRouter = ({
                 overflowX: 'auto',
               }}
             >
-              <React.Suspense fallback={<LegacySkeleton css={{ padding: theme.spacing.md }} />}>
-                <Routes>
-                  {routes.map(({ element, pageId, path }) => (
-                    <Route key={pageId} path={path} element={element} />
-                  ))}
-                </Routes>
+              <React.Suspense fallback={<LegacySkeleton />}>
+                <Outlet />
               </React.Suspense>
             </main>
           </div>
-        </AppErrorBoundary>
-      </HashRouter>
-    </>
+        </RootAssistantLayout>
+      </AppErrorBoundary>
+    </div>
+  );
+};
+
+/**
+ * This is root element for MLflow routes, containing app header.
+ */
+const MlflowRootRoute = () => {
+  useInitializeExperimentRunColors();
+
+  const routeTitle = usePageTitle();
+  useDocumentTitle({ title: routeTitle });
+
+  const [showSidebar, setShowSidebar] = useState(true);
+  const { experimentId } = useParams();
+  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
+
+  // Hide sidebar if we are in a single experiment page (only when feature flag is disabled)
+  const isSingleExperimentPage = Boolean(experimentId);
+  useEffect(() => {
+    // When feature flag is enabled, sidebar should always retain its current state
+    if (enableWorkflowBasedNavigation) {
+      return;
+    }
+    setShowSidebar(enableWorkflowBasedNavigation || !isSingleExperimentPage);
+  }, [isSingleExperimentPage, enableWorkflowBasedNavigation]);
+
+  return (
+    <AssistantProvider>
+      <AssistantRouteContextProvider />
+      <WorkflowTypeProvider>
+        <MlflowRootLayout showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
+      </WorkflowTypeProvider>
+    </AssistantProvider>
+  );
+};
+
+const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean }) => {
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate({ bypassWorkspacePrefix: true });
+  const { workspaces, isLoading } = useWorkspaces(workspacesEnabled);
+
+  useEffect(() => {
+    if (!workspacesEnabled) {
+      setActiveWorkspace(null);
+      return;
+    }
+
+    // Extract workspace from query param
+    const workspaceFromQuery = extractWorkspaceFromSearchParams(searchParams);
+    const activeWorkspace = getActiveWorkspace();
+    const isRootPath = location.pathname === '/' || location.pathname === '';
+
+    // If workspace is in query param, validate it once workspaces are loaded
+    if (workspaceFromQuery) {
+      if (isLoading) {
+        // Still loading workspaces, optimistically set the workspace
+        // (will validate once loaded)
+        if (activeWorkspace !== workspaceFromQuery) {
+          setActiveWorkspace(workspaceFromQuery);
+        }
+        return;
+      }
+
+      // Workspaces loaded - validate
+      const workspaceExists = workspaces.some((ws) => ws.name === workspaceFromQuery);
+      if (!workspaceExists) {
+        // Invalid workspace - clear it and redirect to workspace selector
+        setActiveWorkspace(null);
+        navigate('/', { replace: true });
+        return;
+      }
+
+      // Valid workspace - sync to active state
+      if (activeWorkspace !== workspaceFromQuery) {
+        setActiveWorkspace(workspaceFromQuery);
+      }
+      return;
+    }
+
+    // No workspace query param - check if this is a global route
+    const isOnGlobalRoute = isRootPath || isGlobalRoute(location.pathname);
+
+    if (isOnGlobalRoute) {
+      // Clear active workspace on global routes (workspace selector, settings)
+      if (activeWorkspace) {
+        setActiveWorkspace(null);
+      }
+      return;
+    }
+
+    // No workspace query param on a workspace-scoped route - redirect to selector
+    setActiveWorkspace(null);
+    navigate('/', { replace: true });
+  }, [location, navigate, workspacesEnabled, searchParams, workspaces, isLoading]);
+
+  return null;
+};
+
+const WorkspaceAwareRootRoute = ({ workspacesEnabled }: { workspacesEnabled: boolean }) => (
+  <>
+    <WorkspaceRouterSync workspacesEnabled={workspacesEnabled} />
+    <MlflowRootRoute />
+  </>
+);
+
+export const MlflowRouter = () => {
+  const { workspacesEnabled, loading: featuresLoading } = useWorkspacesEnabled();
+
+  // Routes are the same regardless of workspace mode - workspace context comes from query param
+  const routes = useMemo<MlflowRouteDef[]>(
+    () => [
+      ...getExperimentTrackingRouteDefs(),
+      ...getModelRegistryRouteDefs(),
+      ...getGatewayRouteDefs(),
+      ...getCommonRouteDefs(),
+    ],
+    [],
+  );
+
+  const hashRouter = useMemo(
+    () =>
+      // Don't create router while still loading features
+      featuresLoading
+        ? null
+        : createHashRouter([
+            {
+              path: '/',
+              element: <WorkspaceAwareRootRoute workspacesEnabled={workspacesEnabled} />,
+              children: routes,
+            },
+          ]),
+    [routes, workspacesEnabled, featuresLoading],
+  );
+
+  // Show loading skeleton while determining if workspaces are enabled
+  if (featuresLoading || !hashRouter) {
+    return <LegacySkeleton />;
+  }
+
+  return (
+    <React.Suspense fallback={<LegacySkeleton />}>
+      <RouterProvider router={hashRouter} />
+    </React.Suspense>
   );
 };

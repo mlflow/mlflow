@@ -1,11 +1,9 @@
+import { describe, beforeAll, afterAll, jest, it, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { CellDifference } from './DifferenceViewPlot.utils';
-import { RunsChartsRunData } from '../RunsCharts.common';
-import {
-  DifferenceCardConfigCompareGroup,
-  RunsChartType,
-  RunsChartsDifferenceCardConfig,
-} from '../../runs-charts.types';
+import type { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsDifferenceCardConfig } from '../../runs-charts.types';
+import { DifferenceCardConfigCompareGroup, RunsChartType } from '../../runs-charts.types';
 import { IntlProvider } from 'react-intl';
 import { DifferenceChartCellDirection } from '../../utils/differenceView';
 import { DifferenceViewPlot } from './DifferenceViewPlot';
@@ -15,7 +13,7 @@ describe('DifferenceViewPlot', () => {
 
   // Required to see virtualized entities
   beforeAll(() => {
-    window.Element.prototype.getBoundingClientRect = () => ({ height: 300, width: 100 } as DOMRect);
+    window.Element.prototype.getBoundingClientRect = () => ({ height: 300, width: 100 }) as DOMRect;
   });
   afterAll(() => {
     window.Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;

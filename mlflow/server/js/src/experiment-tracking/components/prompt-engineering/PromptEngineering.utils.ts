@@ -1,6 +1,6 @@
 import { MLFLOW_RUN_SOURCE_TYPE_TAG, MLflowRunSourceType } from '../../constants';
-import { ModelGatewayRouteType } from '../../sdk/ModelGatewayService';
-import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
+import type { ModelGatewayRouteType } from '../../sdk/ModelGatewayService';
+import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import {
   extractRunRowParam,
   extractRunRowParamFloat,

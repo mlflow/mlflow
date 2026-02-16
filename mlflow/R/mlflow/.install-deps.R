@@ -2,6 +2,7 @@
 # could be too short to download large packages such as h2o.
 options(timeout=300)
 install.packages("devtools", dependencies = TRUE)
+devtools::install_version("usethis", "3.2.1")
 devtools::install_dev_deps(dependencies = TRUE)
 
 # Install dependencies for documentation build

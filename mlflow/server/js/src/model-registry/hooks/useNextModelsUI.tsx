@@ -27,11 +27,14 @@ export const withNextModelsUIContext =
   <
     BaseProps,
     P extends JSX.IntrinsicAttributes &
-      JSX.LibraryManagedAttributes<React.ComponentType<BaseProps>, React.PropsWithChildren<BaseProps>> & {
+      JSX.LibraryManagedAttributes<
+        React.ComponentType<React.PropsWithChildren<BaseProps>>,
+        React.PropsWithChildren<BaseProps>
+      > & {
         usingNextModelsUI?: boolean;
       },
   >(
-    Component: React.ComponentType<BaseProps>,
+    Component: React.ComponentType<React.PropsWithChildren<BaseProps>>,
   ) =>
   (props: P) => {
     const [usingNextModelsUI, setUsingNextModelsUI] = useState(

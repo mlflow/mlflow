@@ -1,19 +1,14 @@
 import pytest
-
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-# Skip the entire module if not using pydantic v2
-if not IS_PYDANTIC_V2_OR_NEWER:
-    pytest.skip(
-        "ResponsesAgent and its pydantic classes are not supported in pydantic v1. Skipping test.",
-        allow_module_level=True,
-    )
+from pydantic import ValidationError
 
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
+    responses_to_cc,
+    to_chat_completions_input,
 )
+from mlflow.types.responses_helpers import FunctionCallOutput, Message
 
 
 def test_responses_request_validation():
@@ -55,6 +50,20 @@ def test_responses_request_validation():
                 ],
             }
         )
+
+
+def test_message_content_validation():
+    # Test that None content is rejected (by Pydantic validation)
+    with pytest.raises(ValidationError, match="Input should be a valid"):
+        Message(role="assistant", content=None, type="message")
+
+    # Test that empty string content is allowed
+    message_empty_str = Message(role="assistant", content="", type="message")
+    assert message_empty_str.content == ""
+
+    # Test that empty list content is allowed
+    message_empty_list = Message(role="assistant", content=[], type="message")
+    assert message_empty_list.content == []
 
 
 def test_responses_response_validation():
@@ -167,3 +176,65 @@ def test_responses_stream_event_validation():
                 },
             },
         )
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "hello",
+        [{"type": "input_text", "text": "result"}],
+        [
+            {
+                "type": "input_text",
+                "text": '{"content":{"queryAttachments":[]},"status":"COMPLETED"}',
+            }
+        ],
+    ],
+)
+def test_function_call_output_accepts_string_and_list(output):
+    FunctionCallOutput(call_id="c", output=output)
+    ResponsesAgentStreamEvent(
+        type="response.output_item.done",
+        item={"type": "function_call_output", "call_id": "c", "output": output},
+    )
+
+
+@pytest.mark.parametrize(
+    ("output", "expected"),
+    [
+        ("hello", "hello"),
+        ([{"key": "value"}], '[{"key": "value"}]'),
+        ({"a": 1}, '{"a": 1}'),
+        (12345, "12345"),
+    ],
+)
+def test_responses_to_cc_stringifies_function_call_output(output, expected):
+    result = responses_to_cc({"type": "function_call_output", "call_id": "c", "output": output})
+    assert result[0]["content"] == expected
+
+
+def test_responses_to_cc_fallback_to_str_on_non_serializable():
+    class NonSerializable:
+        pass
+
+    result = responses_to_cc(
+        {"type": "function_call_output", "call_id": "c", "output": [NonSerializable()]}
+    )
+    assert isinstance(result[0]["content"], str)
+
+
+def test_function_call_output_round_trip():
+    raw_item = {
+        "call_id": "toolu_bdrk_017fvUyTS6oaCDYg6GVL3X7j",
+        "output": [{"type": "input_text", "text": '{"status":"COMPLETED"}'}],
+        "type": "function_call_output",
+    }
+    event = ResponsesAgentStreamEvent(type="response.output_item.done", item=raw_item)
+    response_items = [event.item]
+    dumped_items = [
+        item.model_dump() if hasattr(item, "model_dump") else item for item in response_items
+    ]
+    cc_messages = to_chat_completions_input(dumped_items)
+    assert cc_messages[0]["role"] == "tool"
+    assert isinstance(cc_messages[0]["content"], str)
+    assert "input_text" in cc_messages[0]["content"]

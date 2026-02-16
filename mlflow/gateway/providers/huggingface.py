@@ -1,7 +1,7 @@
 import time
 from typing import Any
 
-from mlflow.gateway.config import HuggingFaceTextGenerationInferenceConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, HuggingFaceTextGenerationInferenceConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import (
@@ -15,8 +15,8 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
     NAME = "Hugging Face Text Generation Inference"
     CONFIG_TYPE = HuggingFaceTextGenerationInferenceConfig
 
-    def __init__(self, config: RouteConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(
             config.model.config, HuggingFaceTextGenerationInferenceConfig
         ):
@@ -32,7 +32,9 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
             payload=payload,
         )
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -58,10 +60,10 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         parameters = rename_payload_keys(payload, key_mapping)
 
         # The range of HF TGI's temperature is 0-100, but ours is 0-2, so we multiply
-        # by 50
-        payload["temperature"] = 50 * payload["temperature"]
-        # HF TGI does not support 0 temperature
-        parameters["temperature"] = max(payload["temperature"], 1e-3)
+        # by 50. HF TGI does not support 0 temperature so we use a small default.
+        if "temperature" in payload:
+            scaled_temp = 50 * payload["temperature"]
+            parameters["temperature"] = max(scaled_temp, 1e-3)
         parameters["details"] = True
         parameters["decoder_input_details"] = True
 

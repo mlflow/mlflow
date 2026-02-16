@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
-import {
-  EXPERIMENT_PAGE_UI_STATE_FIELDS,
-  ExperimentPageUIState,
-  createExperimentPageUIState,
-} from '../models/ExperimentPageUIState';
+import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import { EXPERIMENT_PAGE_UI_STATE_FIELDS, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { loadExperimentViewState } from '../utils/persistSearchFacets';
 import { keys, pick } from 'lodash';
-import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
-import { UseExperimentsResult } from './useExperiments';
+import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
+import type { UseExperimentsResult } from './useExperiments';
 import { useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { expandedEvaluationRunRowsUIStateInitializer } from '../utils/expandedRunsViewStateInitializer';
-import { shouldRerunExperimentUISeeding } from '../../../../common/utils/FeatureUtils';
 
 // prettier-ignore
 const uiStateInitializers = [
@@ -117,11 +113,6 @@ export const useInitializeUIState = (
 
       if (experimentHash === newHash && isSeeded) {
         // Do not re-seed if the hash is the same, as we don't expect changes in the UI state
-        return;
-      }
-
-      if (isSeeded && !shouldRerunExperimentUISeeding()) {
-        // Do not re-seed if the feature is not enabled
         return;
       }
 

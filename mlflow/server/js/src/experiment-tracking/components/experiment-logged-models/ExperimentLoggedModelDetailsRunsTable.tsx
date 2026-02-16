@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Empty,
   Input,
@@ -12,19 +13,12 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
-import {
-  CellContext,
-  ColumnDef,
-  ColumnDefTemplate,
-  flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
+import type { CellContext, ColumnDef, ColumnDefTemplate } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getExpandedRowModel } from '@tanstack/react-table';
 import { entries, groupBy, isEmpty, uniqBy } from 'lodash';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { LoggedModelProto, RunEntity } from '../../types';
+import type { LoggedModelProto, RunEntity } from '../../types';
 import { ExperimentLoggedModelDetailsTableRunCellRenderer } from './ExperimentLoggedModelDetailsTableRunCellRenderer';
 import { ExperimentLoggedModelDatasetButton } from './ExperimentLoggedModelDatasetButton';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
@@ -73,8 +67,7 @@ export const ExperimentLoggedModelDetailsPageRunsTable = ({
   relatedRunsLoading?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { detailsPageTableStyles, detailsPageNoEntriesStyles, detailsPageNoResultsWrapperStyles } =
-    useExperimentTrackingDetailsPageLayoutStyles();
+  const { detailsPageTableStyles, detailsPageNoEntriesStyles } = useExperimentTrackingDetailsPageLayoutStyles();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
 
@@ -150,15 +143,18 @@ export const ExperimentLoggedModelDetailsPageRunsTable = ({
     [intl],
   );
 
-  const table = useReactTable({
-    data: filteredRunsWithDatasets,
-    getCoreRowModel: getCoreRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-    getRowId: (row) => row.key,
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    columns,
-  });
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/components/experiment-logged-models/ExperimentLoggedModelDetailsRunsTable.tsx',
+    {
+      data: filteredRunsWithDatasets,
+      getCoreRowModel: getCoreRowModel(),
+      getExpandedRowModel: getExpandedRowModel(),
+      getRowId: (row) => row.key,
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
+      columns,
+    },
+  );
 
   const renderTableContent = () => {
     if (relatedRunsLoading) {
@@ -201,7 +197,7 @@ export const ExperimentLoggedModelDetailsPageRunsTable = ({
           ref={(element) => element?.setAttribute('data-testid', 'logged-model-details-runs-table')}
           empty={
             areAllResultsFiltered ? (
-              <div css={detailsPageNoResultsWrapperStyles}>
+              <div>
                 <Empty
                   description={
                     <FormattedMessage
@@ -257,14 +253,13 @@ export const ExperimentLoggedModelDetailsPageRunsTable = ({
   };
 
   return (
-    <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div css={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: 400 }}>
       <Typography.Title css={{ fontSize: 16 }}>Runs</Typography.Title>
       <div
         css={{
           padding: theme.spacing.sm,
-          border: `1px solid ${theme.colors.borderDecorative}`,
+          border: `1px solid ${theme.colors.border}`,
           borderRadius: theme.general.borderRadiusBase,
-          flex: 1,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

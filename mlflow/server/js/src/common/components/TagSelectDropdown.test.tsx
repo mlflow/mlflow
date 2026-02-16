@@ -1,16 +1,23 @@
+import { describe, test, expect } from '@jest/globals';
 import { fireEvent, renderHook, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Control, useForm } from 'react-hook-form';
+import type { Control } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 
-import { KeyValueEntity } from '../../experiment-tracking/types';
+import type { KeyValueEntity } from '../types';
 import { screen, waitFor, act, selectAntdOption } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { TagKeySelectDropdown } from './TagSelectDropdown';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 describe('TagKeySelectDropdown', () => {
   function renderTestComponent(allAvailableTags: string[], control: Control<KeyValueEntity>) {
-    return renderWithIntl(<TagKeySelectDropdown allAvailableTags={allAvailableTags} control={control} />);
+    return renderWithIntl(
+      <DesignSystemProvider>
+        <TagKeySelectDropdown allAvailableTags={allAvailableTags} control={control} />
+      </DesignSystemProvider>,
+    );
   }
 
   test('it should render list of tags', async () => {

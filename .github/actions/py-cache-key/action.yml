@@ -22,5 +22,5 @@ runs:
         # Refresh cache daily
         DATE=$(date -u "+%Y%m%d")
         # Change this value to force a cache refresh
-        N=0
+        N=1
         echo "value=$RUNNER_IMAGE-$PYTHON_VERSION-$DATE-$REQUIREMENTS_HASH-$N" >> $GITHUB_OUTPUT

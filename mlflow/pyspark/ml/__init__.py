@@ -1,11 +1,12 @@
+import importlib.resources
 import json
 import logging
 import os
-import sys
 import traceback
 import weakref
-from collections import OrderedDict, defaultdict, namedtuple
+from collections import OrderedDict, defaultdict
 from itertools import zip_longest
+from typing import Any, NamedTuple
 from urllib.parse import urlparse
 
 import numpy as np
@@ -96,17 +97,10 @@ def _read_log_model_allowlist():
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
 
-    # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
-    if sys.version_info.major > 2 and sys.version_info.minor > 8:
-        from importlib.resources import as_file, files  # clint: disable=lazy-builtin-import
-
-        with as_file(files(__name__).joinpath("log_model_allowlist.txt")) as file:
-            builtin_allowlist_file = file.as_posix()
-    else:
-        from importlib.resources import path  # clint: disable=lazy-builtin-import
-
-        with path(__name__, "log_model_allowlist.txt") as file:
-            builtin_allowlist_file = file.as_posix()
+    with importlib.resources.as_file(
+        importlib.resources.files(__name__).joinpath("log_model_allowlist.txt")
+    ) as file:
+        builtin_allowlist_file = file.as_posix()
     spark_session = _get_active_spark_session()
     if not spark_session:
         _logger.info(
@@ -218,10 +212,10 @@ def _should_log_hierarchy(estimator):
     )
 
 
-_AutologgingEstimatorMetadata = namedtuple(
-    "_AutologgingEstimatorMetadata",
-    ["hierarchy", "uid_to_indexed_name_map", "param_search_estimators"],
-)
+class _AutologgingEstimatorMetadata(NamedTuple):
+    hierarchy: dict[str, Any]
+    uid_to_indexed_name_map: dict[str, str]
+    param_search_estimators: list[Any]
 
 
 def _traverse_stage(stage):
@@ -265,10 +259,10 @@ def _gen_stage_hierarchy_recursively(stage, uid_to_indexed_name_map):
     stage_name = uid_to_indexed_name_map[stage.uid]
 
     if isinstance(stage, Pipeline):
-        sub_stages = []
-        for sub_stage in stage.getStages():
-            sub_hierarchy = _gen_stage_hierarchy_recursively(sub_stage, uid_to_indexed_name_map)
-            sub_stages.append(sub_hierarchy)
+        sub_stages = [
+            _gen_stage_hierarchy_recursively(sub_stage, uid_to_indexed_name_map)
+            for sub_stage in stage.getStages()
+        ]
         return {"name": stage_name, "stages": sub_stages}
     elif isinstance(stage, OneVsRest):
         classifier_hierarchy = _gen_stage_hierarchy_recursively(
@@ -478,8 +472,6 @@ def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
 
 
 def _get_tuning_param_maps(param_search_estimator, uid_to_indexed_name_map):
-    tuning_param_maps = []
-
     def gen_log_key(param):
         if param.parent not in uid_to_indexed_name_map:
             raise ValueError(
@@ -488,16 +480,17 @@ def _get_tuning_param_maps(param_search_estimator, uid_to_indexed_name_map):
             )
         return f"{uid_to_indexed_name_map[param.parent]}.{param.name}"
 
-    for eps in param_search_estimator.getEstimatorParamMaps():
-        tuning_param_maps.append({gen_log_key(k): v for k, v in eps.items()})
-    return tuning_param_maps
+    return [
+        {gen_log_key(k): v for k, v in eps.items()}
+        for eps in param_search_estimator.getEstimatorParamMaps()
+    ]
 
 
 def _get_param_search_metrics_and_best_index(param_search_estimator, param_search_model):
     """
     Return a tuple of `(metrics_dict, best_index)`
     `metrics_dict` is a dict of metric_name --> metric_values for each param map
-    - For CrossValidatorModel, the result dict contains metrics of avg_metris and std_metrics
+    - For CrossValidatorModel, the result dict contains metrics of avg_metrics and std_metrics
       for each param map.
     - For TrainValidationSplitModel, the result dict contains metrics for each param map.
 
@@ -758,13 +751,12 @@ def _get_columns_with_unsupported_data_type(df):
     from mlflow.types.schema import DataType
 
     supported_spark_types = DataType.get_spark_types()
-    unsupported_columns = []
-    for field in df.schema.fields:
-        if (field.dataType not in supported_spark_types) and not isinstance(
-            field.dataType, VectorUDT
-        ):
-            unsupported_columns.append(field)
-    return unsupported_columns
+    return [
+        field
+        for field in df.schema.fields
+        if (field.dataType not in supported_spark_types)
+        and not isinstance(field.dataType, VectorUDT)
+    ]
 
 
 def _check_or_set_model_prediction_column(spark_model, input_spark_df):
@@ -924,7 +916,7 @@ def autolog(
             to the path of your allowlist file.
         log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
             If ``False``, dataset information is not logged.
-        disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
+        disable: If ``True``, disables the PySpark ML autologging integration. If ``False``,
             enables the pyspark ML autologging integration.
         exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
             If ``False``, autologged content is logged to the active fluent run,

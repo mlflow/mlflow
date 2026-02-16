@@ -54,11 +54,11 @@ def test_artifact_uri_factory(mock_client, monkeypatch):
     assert isinstance(repo, AzureBlobArtifactRepository)
 
 
-@mock.patch("azure.identity.DefaultAzureCredential")
-def test_default_az_cred_if_no_env_vars(mock_default_azure_credential, mock_client):
+def test_default_az_cred_if_no_env_vars(mock_client):
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it
-    AzureBlobArtifactRepository(TEST_URI)
-    assert mock_default_azure_credential.call_count == 1
+    with mock.patch("azure.identity.DefaultAzureCredential") as mock_default_azure_credential:
+        AzureBlobArtifactRepository(TEST_URI)
+        assert mock_default_azure_credential.call_count == 1
 
 
 def test_parse_global_wasbs_uri():

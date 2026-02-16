@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 import { Provider } from 'react-redux';
 import { useLocation, createMLflowRoutePath } from '../../common/utils/RoutingUtils';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
@@ -7,6 +8,12 @@ import { getRunApi } from '../actions';
 import { DirectRunPage } from './DirectRunPage';
 import { useEffect } from 'react';
 import { renderWithIntl, screen, act } from '../../common/utils/TestUtils.react18';
+
+jest.mock('../hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../hooks/useServerInfo')>('../hooks/useServerInfo'),
+  getWorkspacesEnabledSync: () => false,
+  useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
+}));
 
 jest.mock('../../common/components/PageNotFoundView', () => ({
   PageNotFoundView: () => <div>Page not found</div>,
@@ -85,7 +92,7 @@ describe('DirectRunPage', () => {
   test('properly dispatches redux actions for fetching the run', async () => {
     await mountComponent({}, '321-run-id');
 
-    expect(getRunApi).toBeCalledWith('321-run-id');
+    expect(getRunApi).toHaveBeenCalledWith('321-run-id');
     expect(mockStore.getActions()).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'getRunApi' })]));
   });
 

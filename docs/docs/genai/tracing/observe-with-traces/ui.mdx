@@ -1,8 +1,49 @@
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # MLflow Tracing UI
+
+## GenAI Experiment Overview
+
+The **Overview** tab in GenAI experiments provides comprehensive analytics and visualizations for your GenAI application traces. This tab is organized into three sub-tabs to help you monitor different aspects of your application.
+
+All tabs include a **time range selector** and **time unit selector** to customize the granularity and range of the displayed data.
+
+<video src={useBaseUrl("/images/llms/tracing/overview_demo.mp4")} controls loop autoPlay muted aria-label="Experiment Overview Tab" />
+
+### Usage
+
+The Usage tab displays key metrics about your trace requests over time:
+
+- **Requests**: Shows the total number of trace requests, with an average reference line
+- **Latency**: Visualizes response time distribution to help identify performance bottlenecks
+- **Errors**: Tracks error rates to quickly spot issues
+- **Token Usage & Token Stats**: Monitors token consumption across your traces
+
+![Experiment Overview Usage Tab](/images/llms/tracing/overview_usage_tab.png)
+
+### Quality
+
+The Quality tab provides insights into the quality of your GenAI outputs:
+
+- **Quality Summary**: Provides overview of scorers result
+- **Quality Insights**: Displays metrics computed by [scorers](/genai/eval-monitor/scorers/), with a dedicated chart for each assessment type
+- Charts are dynamically generated based on the assessments available in your traces
+
+![Experiment Overview Quality Tab](/images/llms/tracing/overview_quality_tab.png)
+
+### Tool Calls
+
+The Tool Calls tab provides insights into agent tool usage:
+
+- **Statistics Cards**: Shows at-a-glance metrics including total tool calls, average latency, success rate, and failed calls
+- **Tool Performance Summary**: Provides an overview of how each tool is performing
+- **Tool Usage & Latency**: Visualizes tool invocation patterns and response times
+- **Tool Error Rate**: Tracks error rates per tool
+
+![Experiment Overview Tool Calls Tab](/images/llms/tracing/overview_tool_calls_tab.png)
 
 ## Traces within MLflow Experiments
 
@@ -16,19 +57,19 @@ This table includes high-level information about the traces, such as the trace I
   <TabItem value="search" label="Search" default>
     Using the search bar in the UI, you can easily filter your traces based on name, tags, or other metadata. Check out the [search docs](/genai/tracing/search-traces) for details about the query string format.
 
-    ![Searching traces](/images/llms/tracing/trace-session-id.gif)
+    <video src={useBaseUrl("/images/llms/tracing/trace-session-id.mp4")} controls loop autoPlay muted aria-label="Searching traces" />
 
   </TabItem>
   <TabItem value="delete" label="Delete">
     The UI supports bulk deletion of traces. Simply select the traces you want to delete by checking the checkboxes, and then pressing the "Delete" button.
 
-    ![Deleting traces](/images/llms/tracing/trace-delete.gif)
+    <video src={useBaseUrl("/images/llms/tracing/trace-delete.mp4")} controls loop autoPlay muted aria-label="Deleting traces" />
 
   </TabItem>
   <TabItem value="edit-tags" label="Edit Tags">
     You can also edit key-value tags on your traces via the UI.
 
-    ![Traces tag update](/images/llms/tracing/trace-set-tag.gif)
+    <video src={useBaseUrl("/images/llms/tracing/trace-set-tag.mp4")} controls loop autoPlay muted aria-label="Traces tag update" />
 
   </TabItem>
 </Tabs>
@@ -37,7 +78,7 @@ This table includes high-level information about the traces, such as the trace I
 
 In order to browse the span data of an individual trace, simply click on the link in the "Trace ID" or "Trace name" columns to open the trace viewer:
 
-![Trace Browser](/images/llms/tracing/tracing-top.gif)
+<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
 
 ## Jupyter Notebook integration
 
@@ -50,7 +91,7 @@ you to debug your applications without having to tab out of your development env
 
 ![Jupyter Trace UI](/images/llms/tracing/jupyter-trace-ui.png)
 
-This feature requires using an [MLflow Tracking Server](/ml/tracking/server), as
+This feature requires using an [MLflow Tracking Server](/self-hosting/architecture/tracking-server), as
 this is where the UI assets are fetched from. To get started, simply ensure that the MLflow
 Tracking URI is set to your tracking server (e.g. `mlflow.set_tracking_uri("http://localhost:5000")`).
 

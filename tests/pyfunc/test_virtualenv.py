@@ -1,8 +1,8 @@
 import os
 import sys
-from collections import namedtuple
 from io import BytesIO
 from stat import S_IRGRP, S_IROTH, S_IRUSR, S_IXGRP, S_IXOTH, S_IXUSR
+from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -15,20 +15,23 @@ import mlflow
 from mlflow.environment_variables import MLFLOW_ENV_ROOT
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME, _REQUIREMENTS_FILE_NAME
-from mlflow.utils.virtualenv import (
-    _is_pyenv_available,
-    _is_virtualenv_available,
-)
+from mlflow.utils.virtualenv import _is_pyenv_available
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
 pytestmark = pytest.mark.skipif(
-    not (_is_pyenv_available() and _is_virtualenv_available()),
-    reason="requires pyenv and virtualenv",
+    not _is_pyenv_available(),
+    reason="requires pyenv",
 )
 
 TEST_DIR = "tests"
 TEST_MLFLOW_1X_MODEL_DIR = os.path.join(TEST_DIR, "resources", "example_mlflow_1x_sklearn_model")
+
+
+class Model(NamedTuple):
+    model: LogisticRegression
+    X_pred: pd.DataFrame
+    y_pred: np.ndarray
 
 
 @pytest.fixture(scope="module")
@@ -37,7 +40,7 @@ def sklearn_model():
     model = LogisticRegression().fit(X, y)
     X_pred = X.sample(frac=0.1, random_state=0)
     y_pred = model.predict(X_pred)
-    return namedtuple("Model", ["model", "X_pred", "y_pred"])(model, X_pred, y_pred)
+    return Model(model, X_pred, y_pred)
 
 
 def serve_and_score(model_uri, data, extra_args=None):

@@ -1,5 +1,6 @@
 import React from 'react';
-import { ErrorBoundary, ErrorBoundaryPropsWithComponent, FallbackProps } from 'react-error-boundary';
+import type { ErrorBoundaryPropsWithComponent, FallbackProps } from 'react-error-boundary';
+import { ErrorBoundary } from 'react-error-boundary';
 import ErrorUtils from './ErrorUtils';
 import { DangerIcon, Empty } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
@@ -48,10 +49,10 @@ function CustomErrorBoundary({ children, customFallbackComponent }: React.PropsW
 
 export function withErrorBoundary<P>(
   service: string,
-  Component: React.ComponentType<P>,
+  Component: React.ComponentType<React.PropsWithChildren<P>>,
   errorMessage?: React.ReactNode,
-  customFallbackComponent?: React.ComponentType<FallbackProps>,
-): React.ComponentType<P> {
+  customFallbackComponent?: React.ComponentType<React.PropsWithChildren<FallbackProps>>,
+): React.ComponentType<React.PropsWithChildren<P>> {
   return function CustomErrorBoundaryWrapper(props: P) {
     return (
       <CustomErrorBoundary customFallbackComponent={customFallbackComponent}>

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, TypeVar
 
 from mlflow.genai.utils.enum_utils import StrEnum
 
@@ -88,10 +88,10 @@ class InputTextList(InputType):
         `pip install mlflow[databricks]` to use it.
     """
 
-    max_length_each: Optional[int] = None
+    max_length_each: int | None = None
     """Maximum character length for each individual text entry. None means no limit."""
 
-    max_count: Optional[int] = None
+    max_count: int | None = None
     """Maximum number of text entries allowed. None means no limit."""
 
     def _to_databricks_input(self) -> "_InputTextList":
@@ -117,7 +117,7 @@ class InputText(InputType):
         `pip install mlflow[databricks]` to use it.
     """
 
-    max_length: Optional[int] = None
+    max_length: int | None = None
     """Maximum character length for the text input. None means no limit."""
 
     def _to_databricks_input(self) -> "_InputText":
@@ -141,10 +141,10 @@ class InputNumeric(InputType):
         `pip install mlflow[databricks]` to use it.
     """
 
-    min_value: Optional[float] = None
+    min_value: float | None = None
     """Minimum allowed numeric value. None means no minimum limit."""
 
-    max_value: Optional[float] = None
+    max_value: float | None = None
     """Maximum allowed numeric value. None means no maximum limit."""
 
     def _to_databricks_input(self) -> "_InputNumeric":
@@ -184,16 +184,35 @@ class LabelSchema:
     title: str
     """Display title shown to stakeholders in the labeling review UI."""
 
-    input: Union[InputCategorical, InputCategoricalList, InputText, InputTextList, InputNumeric]
+    input: InputCategorical | InputCategoricalList | InputText | InputTextList | InputNumeric
     """
     Input type specification that defines how stakeholders will provide their assessment
     (e.g., dropdown, text box, numeric input)
     """
-    instruction: Optional[str] = None
+    instruction: str | None = None
     """Optional detailed instructions shown to stakeholders for guidance."""
 
     enable_comment: bool = False
     """Whether to enable additional comment functionality for reviewers."""
+
+    @classmethod
+    def _convert_databricks_input(cls, input_obj):
+        """Convert a Databricks input type to the corresponding MLflow input type."""
+        from databricks.agents.review_app import label_schemas as _label_schemas
+
+        input_type_mapping = {
+            _label_schemas.InputCategorical: InputCategorical,
+            _label_schemas.InputCategoricalList: InputCategoricalList,
+            _label_schemas.InputText: InputText,
+            _label_schemas.InputTextList: InputTextList,
+            _label_schemas.InputNumeric: InputNumeric,
+        }
+
+        input_class = input_type_mapping.get(type(input_obj))
+        if input_class is None:
+            raise ValueError(f"Unknown input type: {type(input_obj)}")
+
+        return input_class._from_databricks_input(input_obj)
 
     @classmethod
     def _from_databricks_label_schema(cls, schema: "_LabelSchema") -> "LabelSchema":
@@ -203,7 +222,7 @@ class LabelSchema:
             name=schema.name,
             type=schema.type,
             title=schema.title,
-            input=schema.input._from_databricks_input(),
+            input=cls._convert_databricks_input(schema.input),
             instruction=schema.instruction,
             enable_comment=schema.enable_comment,
         )

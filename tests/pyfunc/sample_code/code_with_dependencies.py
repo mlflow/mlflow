@@ -8,27 +8,27 @@ test_trace = os.environ.get("TEST_TRACE", "true").lower() == "true"
 
 
 class MyModel(PythonModel):
-    def _call_retriver(self, id):
+    def _call_retriever(self, id):
         return f"Retriever called with ID: {id}. Output: 42."
 
     def predict(self, context, model_input):
-        return f"Input: {model_input}. {self._call_retriver(model_input)}"
+        return f"Input: {model_input}. {self._call_retriever(model_input)}"
 
     def predict_stream(self, context, model_input, params=None):
-        yield f"Input: {model_input}. {self._call_retriver(model_input)}"
+        yield f"Input: {model_input}. {self._call_retriever(model_input)}"
 
 
 class MyModelWithTrace(PythonModel):
-    def _call_retriver(self, id):
+    def _call_retriever(self, id):
         return f"Retriever called with ID: {id}. Output: 42."
 
     @mlflow.trace
     def predict(self, context, model_input):
-        return f"Input: {model_input}. {self._call_retriver(model_input)}"
+        return f"Input: {model_input}. {self._call_retriever(model_input)}"
 
     @mlflow.trace
     def predict_stream(self, context, model_input, params=None):
-        yield f"Input: {model_input}. {self._call_retriver(model_input)}"
+        yield f"Input: {model_input}. {self._call_retriever(model_input)}"
 
 
 model = MyModelWithTrace() if test_trace else MyModel()

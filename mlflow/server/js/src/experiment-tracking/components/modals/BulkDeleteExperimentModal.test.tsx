@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { BulkDeleteExperimentModal } from './BulkDeleteExperimentModal';
 import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { IntlProvider } from 'react-intl';
@@ -64,7 +65,7 @@ describe('RenameExperimentModal', () => {
     const error = new Error('123');
     jest
       .mocked(deleteExperimentApi)
-      .mockImplementation(() => ({ type: 'action', meta: {}, payload: Promise.reject(error) } as any));
+      .mockImplementation(() => ({ type: 'action', meta: {}, payload: Promise.reject(error) }) as any);
 
     renderTestComponent();
     await userEvent.click(screen.getByText('Delete'));

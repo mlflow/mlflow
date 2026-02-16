@@ -7,7 +7,7 @@
   padding: 2rem;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 996px) {
   .tilesGrid {
     grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
@@ -16,7 +16,7 @@
 
 @media (max-width: 768px) {
   .tilesGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 1rem;
     padding: 1rem;
   }

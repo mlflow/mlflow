@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import posixpath
-from typing import Optional
 
 import mlflow.tracking
 from mlflow.entities import FileInfo
@@ -54,17 +53,21 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     when the client is pointing to a Databricks-hosted model registry.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
-        if not is_using_databricks_registry(artifact_uri):
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
+        if not is_using_databricks_registry(artifact_uri, registry_uri):
             raise MlflowException(
                 message="A valid databricks profile is required to instantiate this repository",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        super().__init__(artifact_uri, tracking_uri)
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         from mlflow.tracking.client import MlflowClient
 
         self.databricks_profile_uri = (
-            get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
+            get_databricks_profile_uri_from_artifact_uri(artifact_uri)
+            or registry_uri
+            or mlflow.get_registry_uri()
         )
         warn_on_deprecated_cross_workspace_registry_uri(self.databricks_profile_uri)
         client = MlflowClient(registry_uri=self.databricks_profile_uri)
@@ -85,7 +88,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             body["page_token"] = page_token
         return body
 
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         infos = []
         page_token = None
         if not path:

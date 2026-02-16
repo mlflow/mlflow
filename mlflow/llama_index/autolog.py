@@ -1,9 +1,9 @@
 from mlflow.llama_index.constant import FLAVOR_NAME
-from mlflow.utils.annotations import experimental
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration
 
 
-@experimental(version="2.15.0")
 def autolog(
     log_traces: bool = True,
     disable: bool = False,
@@ -53,3 +53,6 @@ def _autolog(
     """
     TODO: Implement patching logic for autologging models and artifacts.
     """
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )

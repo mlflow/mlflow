@@ -1,7 +1,5 @@
 """add V3 trace schema columns
 
-Revision ID: cbc13b556ace
-Revises: bda7b8c39065
 Create Date: 2025-06-17 12:00:00.000000
 
 """

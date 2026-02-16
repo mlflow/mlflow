@@ -80,14 +80,17 @@ export const matchPredefinedErrorFromResponse = (response: Response, originalErr
 
 interface NetworkRequestErrorDetails {
   status?: number;
+  response?: Response;
 }
 
 export abstract class NetworkRequestError extends PredefinedError {
   status?: number;
+  response?: Response;
 
   constructor(message: string, details: NetworkRequestErrorDetails, cause?: CausableError) {
     super(message, cause);
     this.status = details.status;
+    this.response = details.response;
   }
 
   static getNetworkRequestErrorDetailsFromResponse = getNetworkRequestErrorDetailsFromResponse;

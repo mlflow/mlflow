@@ -1,5 +1,3 @@
-from unittest import mock
-
 import openai
 import pytest
 from packaging.version import Version
@@ -19,12 +17,8 @@ if Version(openai.__version__) < Version("1.66.00"):
 
 @pytest.fixture(params=[True, False], ids=["sync", "async"])
 def client(request, monkeypatch, mock_openai):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
     if request.param:
         client = openai.OpenAI(api_key="test", base_url=mock_openai)
         client._is_async = False
@@ -65,10 +59,6 @@ async def test_responses_autolog(client, _input):
     assert span.outputs["id"] == "responses-123"
     assert span.attributes["model"] == "gpt-4o"
     assert span.attributes["temperature"] == 0
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {"role": "user", "content": "Hello"},
-        {"role": "assistant", "content": [{"type": "text", "text": "Dummy output"}]},
-    ]
 
     # Token usage should be aggregated correctly
     assert traces[0].info.token_usage == {
@@ -108,25 +98,6 @@ async def test_responses_image_input_autolog(client):
     assert len(traces[0].data.spans) == 1
     span = traces[0].data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "what is in this image?"},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
-                        "detail": None,
-                    },
-                },
-            ],
-        },
-        {
-            "role": "assistant",
-            "content": [{"type": "text", "text": "Dummy output"}],
-        },
-    ]
 
 
 @pytest.mark.asyncio
@@ -147,36 +118,6 @@ async def test_responses_web_search_autolog(client):
     assert traces[0].info.status == "OK"
     assert len(traces[0].data.spans) == 1
     span = traces[0].data.spans[0]
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "user",
-            "content": "What was a positive news story from today?",
-        },
-        {
-            "role": "assistant",
-            "tool_calls": [
-                {
-                    "id": "tool_call_1",
-                    "type": "function",
-                    "function": {"name": "web_search_call", "arguments": ""},
-                }
-            ],
-        },
-        {
-            "role": "tool",
-            "content": mock.ANY,
-            "tool_call_id": "tool_call_1",
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "As of today, March 9, 2025, one notable positive news story...",
-                }
-            ],
-        },
-    ]
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == [
         {"type": "function", "function": {"name": "web_search_preview"}}
     ]
@@ -206,39 +147,6 @@ async def test_responses_file_search_autolog(client):
     assert traces[0].info.status == "OK"
     assert len(traces[0].data.spans) == 1
     span = traces[0].data.spans[0]
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "user",
-            "content": "What are the attributes of an ancient brown dragon?",
-        },
-        {
-            "role": "assistant",
-            "tool_calls": [
-                {
-                    "id": "file_search_1",
-                    "type": "function",
-                    "function": {
-                        "name": "file_search_call",
-                        "arguments": '{"queries": ["attributes of an ancient brown dragon"]}',
-                    },
-                }
-            ],
-        },
-        {
-            "role": "tool",
-            "content": mock.ANY,
-            "tool_call_id": "file_search_1",
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "The attributes of an ancient brown dragon include...",
-                }
-            ],
-        },
-    ]
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == [
         {"type": "function", "function": {"name": "file_search"}}
     ]
@@ -292,56 +200,8 @@ async def test_responses_computer_use_autolog(client):
     assert llm_span_1.span_type == SpanType.CHAT_MODEL
     assert llm_span_1.inputs["model"] == "computer-use-preview"
     assert llm_span_1.outputs["id"] == "responses-123"
-    assert llm_span_1.attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "user",
-            "content": "Check the latest OpenAI news on bing.com.",
-        },
-        {
-            "role": "assistant",
-            "content": "Clicking on the browser address bar.",
-        },
-        {
-            "role": "assistant",
-            "tool_calls": [
-                {
-                    "id": "computer_call_1",
-                    "type": "function",
-                    "function": {"name": "computer_call", "arguments": mock.ANY},
-                }
-            ],
-        },
-    ]
     assert llm_span_1.attributes[SpanAttributeKey.CHAT_TOOLS] == [
         {"type": "function", "function": {"name": "computer_use_preview"}}
-    ]
-
-    llm_span_2 = traces[0].data.spans[2]
-    assert llm_span_2.attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "tool",
-            "content": [
-                {
-                    "image_url": {"url": "data:image/png;base64,screenshot_base64"},
-                    "type": "image_url",
-                }
-            ],
-            "tool_call_id": "computer_call_1",
-        },
-        {
-            "role": "assistant",
-            "content": "Clicking on the browser address bar.",
-        },
-        {
-            "role": "assistant",
-            "tool_calls": [
-                {
-                    "id": "computer_call_1",
-                    "type": "function",
-                    "function": {"name": "computer_call", "arguments": mock.ANY},
-                }
-            ],
-        },
     ]
 
 
@@ -386,28 +246,10 @@ async def test_responses_function_calling_autolog(client):
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs["model"] == "gpt-4o"
     assert span.outputs["id"] == "responses-123"
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "user",
-            "content": "What is the weather like in Boston today?",
-        },
-        {
-            "role": "assistant",
-            "tool_calls": [
-                {
-                    "id": "function_call_1",
-                    "type": "function",
-                    "function": {
-                        "name": "get_current_weather",
-                        "arguments": '{"location":"Boston, MA","unit":"celsius"}',
-                    },
-                }
-            ],
-        },
-    ]
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == [
         {"type": "function", "function": {k: v for k, v in tools[0].items() if k != "type"}}
     ]
+    assert span.attributes[SpanAttributeKey.MESSAGE_FORMAT] == "openai"
 
 
 @pytest.mark.asyncio
@@ -434,6 +276,8 @@ async def test_responses_stream_autolog(client):
     span = traces[0].data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.outputs["id"] == "responses-123"
+    # "logprobs" is only returned from certain version of OpenAI SDK
+    span.outputs["output"][0]["content"][0].pop("logprobs", None)
     assert span.outputs["output"][0]["content"] == [
         {
             "text": "Dummy output",
@@ -443,10 +287,6 @@ async def test_responses_stream_autolog(client):
     ]
     assert span.attributes["model"] == "gpt-4o"
     assert span.attributes["stream"] is True
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {"role": "user", "content": "Hello"},
-        {"role": "assistant", "content": [{"type": "text", "text": "Dummy output"}]},
-    ]
 
     # Token usage should be aggregated correctly
     assert traces[0].info.token_usage == {

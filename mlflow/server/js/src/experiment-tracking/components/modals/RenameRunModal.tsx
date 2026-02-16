@@ -7,7 +7,8 @@
 
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { IntlShape, injectIntl } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { injectIntl } from 'react-intl';
 
 import { GenericInputModal } from './GenericInputModal';
 import { RenameForm, NEW_NAME_FIELD } from './RenameForm';

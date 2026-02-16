@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, beforeEach, afterEach, describe, it, expect } from '@jest/globals';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -16,7 +17,6 @@ import {
   getParentRunTagName,
   searchRunsPayload,
 } from './actions';
-import { MLFLOW_LOGGED_ARTIFACTS_TAG } from './constants';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import { ViewType } from './sdk/MlflowEnums';
 import { MlflowService } from './sdk/MlflowService';
@@ -258,10 +258,10 @@ const searchRunsPayloadTests = () => {
   });
   it('should make only a single call when no pinned rows are requested', async () => {
     await searchRunsPayload({ shouldFetchParents: false });
-    expect(MlflowService.searchRuns).toBeCalledTimes(1);
+    expect(MlflowService.searchRuns).toHaveBeenCalledTimes(1);
     (MlflowService.searchRuns as any).mockClear();
     await searchRunsPayload({ shouldFetchParents: false, runsPinned: [] });
-    expect(MlflowService.searchRuns).toBeCalledTimes(1);
+    expect(MlflowService.searchRuns).toHaveBeenCalledTimes(1);
   });
   it('should make an additional call for pinned rows', async () => {
     await searchRunsPayload({
@@ -271,13 +271,13 @@ const searchRunsPayloadTests = () => {
       runViewType: ViewType.ACTIVE_ONLY,
     });
     // We expect creating two requests
-    expect(MlflowService.searchRuns).toBeCalledTimes(2);
+    expect(MlflowService.searchRuns).toHaveBeenCalledTimes(2);
     // One regular call for the runs including filters...
-    expect(MlflowService.searchRuns).toBeCalledWith(
+    expect(MlflowService.searchRuns).toHaveBeenCalledWith(
       expect.objectContaining({ filter: 'metric.m1 > 2', run_view_type: ViewType.ACTIVE_ONLY }),
     );
     // ...and the second dedicated to the pinned runs
-    expect(MlflowService.searchRuns).toBeCalledWith(
+    expect(MlflowService.searchRuns).toHaveBeenCalledWith(
       expect.objectContaining({ filter: "run_id IN ('r1','r2')", run_view_type: ViewType.ALL }),
     );
   });
@@ -354,7 +354,7 @@ describe('getEvaluationArtifact', () => {
   it('should invoke downloading single artifact', () => {
     const mockStore = mockStoreFactory(emptyStore);
     mockStore.dispatch(getEvaluationTableArtifact('run_1', '/path/to/artifact'));
-    expect(fetchEvaluationTableArtifact).toBeCalledWith('run_1', '/path/to/artifact');
+    expect(fetchEvaluationTableArtifact).toHaveBeenCalledWith('run_1', '/path/to/artifact');
   });
 
   it('should invoke downloading missing artifacts', () => {
@@ -366,8 +366,8 @@ describe('getEvaluationArtifact', () => {
     });
     mockStore.dispatch(getEvaluationTableArtifact('run_1', '/path/to/artifact'));
     mockStore.dispatch(getEvaluationTableArtifact('run_1', '/path/to/other/artifact'));
-    expect(fetchEvaluationTableArtifact).toBeCalledTimes(1);
-    expect(fetchEvaluationTableArtifact).toBeCalledWith('run_1', '/path/to/other/artifact');
+    expect(fetchEvaluationTableArtifact).toHaveBeenCalledTimes(1);
+    expect(fetchEvaluationTableArtifact).toHaveBeenCalledWith('run_1', '/path/to/other/artifact');
   });
 
   it('should invoke downloading all artifacts if force refreshing', () => {
@@ -381,8 +381,8 @@ describe('getEvaluationArtifact', () => {
     });
     mockStore.dispatch(getEvaluationTableArtifact('run_1', '/path/to/artifact', true));
     mockStore.dispatch(getEvaluationTableArtifact('run_1', '/path/to/other/artifact', true));
-    expect(fetchEvaluationTableArtifact).toBeCalledTimes(2);
-    expect(fetchEvaluationTableArtifact).toBeCalledWith('run_1', '/path/to/artifact');
-    expect(fetchEvaluationTableArtifact).toBeCalledWith('run_1', '/path/to/other/artifact');
+    expect(fetchEvaluationTableArtifact).toHaveBeenCalledTimes(2);
+    expect(fetchEvaluationTableArtifact).toHaveBeenCalledWith('run_1', '/path/to/artifact');
+    expect(fetchEvaluationTableArtifact).toHaveBeenCalledWith('run_1', '/path/to/other/artifact');
   });
 });

@@ -1,5 +1,4 @@
 import re
-from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
 from mlflow.exceptions import MlflowException
@@ -48,9 +47,13 @@ def _validate_uri_scheme(parsed_uri):
 class MlflowArtifactsRepository(HttpArtifactRepository):
     """Scheme wrapper around HttpArtifactRepository for mlflow-artifacts server functionality"""
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         effective_tracking_uri = tracking_uri or get_tracking_uri()
-        super().__init__(self.resolve_uri(artifact_uri, effective_tracking_uri), tracking_uri)
+        super().__init__(
+            self.resolve_uri(artifact_uri, effective_tracking_uri), tracking_uri, registry_uri
+        )
 
     @classmethod
     def resolve_uri(cls, artifact_uri, tracking_uri):
@@ -72,14 +75,14 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
             resolved = base_url
         else:
             resolved = f"{track_parse.path}/{base_url}/{uri_parse.path}"
-        resolved = re.sub("//+", "/", resolved)
+        resolved = re.sub(r"//+", "/", resolved)
 
         resolved_artifacts_uri = urlunparse(
             (
                 # scheme
                 track_parse.scheme,
                 # netloc
-                uri_parse.netloc if uri_parse.netloc else track_parse.netloc,
+                uri_parse.netloc or track_parse.netloc,
                 # path
                 resolved,
                 # params

@@ -1,7 +1,43 @@
 import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtils';
-import { ExperimentPageTabName } from './constants';
+import type { ExperimentPageTabName } from './constants';
+
+/**
+ * Page identifiers for MLflow experiment tracking pages.
+ * Keys should correspond to route paths.
+ */
+export enum PageId {
+  home = 'mlflow.home',
+  workspacesPage = 'mlflow.workspaces',
+  settingsPage = 'mlflow.settings',
+  promptsPage = 'mlflow.prompts',
+  promptDetailsPage = 'mlflow.prompts.details',
+  experimentPageTabbed = 'mlflow.experiment.details.tab',
+  experimentLoggedModelDetailsPageTab = 'mlflow.logged-model.details.tab',
+  experimentLoggedModelDetailsPage = 'mlflow.logged-model.details',
+  experimentPage = 'mlflow.experiment.details',
+  // Child routes for experiment page:
+  experimentPageTabOverview = 'mlflow.experiment.tab.overview',
+  experimentPageTabRuns = 'mlflow.experiment.tab.runs',
+  experimentPageTabModels = 'mlflow.experiment.tab.models',
+  experimentPageTabTraces = 'mlflow.experiment.tab.traces',
+  experimentPageTabEvaluationRuns = 'mlflow.experiment.tab.evaluation-runs',
+  experimentPageTabDatasets = 'mlflow.experiment.tab.datasets',
+  experimentPageTabChatSessions = 'mlflow.experiment.tab.chat-sessions',
+  experimentPageTabSingleChatSession = 'mlflow.experiment.tab.single-chat-session',
+  experimentPageTabScorers = 'mlflow.experiment.tab.scorers',
+  experimentPageTabPrompts = 'mlflow.experiment.prompts.list',
+  experimentPageTabPromptDetails = 'mlflow.experiment.prompt.details',
+  // Child routes for experiment page - end
+  experimentPageSearch = 'mlflow.experiment.details.search',
+  compareExperimentsSearch = 'mlflow.experiment.compare',
+  runPageWithTab = 'mlflow.experiment.run.details',
+  runPageDirect = 'mlflow.experiment.run.details.direct',
+  compareRuns = 'mlflow.experiment.run.compare',
+  metricPage = 'mlflow.metric.details',
+}
 
 // Route path definitions (used in defining route elements)
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class RoutePaths {
   static get rootRoute() {
     return createMLflowRoutePath('/');
@@ -12,6 +48,35 @@ export class RoutePaths {
   static get experimentPage() {
     return createMLflowRoutePath('/experiments/:experimentId');
   }
+  // Child routes for experiment page:
+  static get experimentPageTabOverview() {
+    return createMLflowRoutePath('/experiments/:experimentId/overview/:overviewTab?');
+  }
+  static get experimentPageTabRuns() {
+    return createMLflowRoutePath('/experiments/:experimentId/runs');
+  }
+  static get experimentPageTabTraces() {
+    return createMLflowRoutePath('/experiments/:experimentId/traces');
+  }
+  static get experimentPageTabChatSessions() {
+    return createMLflowRoutePath('/experiments/:experimentId/chat-sessions');
+  }
+  static get experimentPageTabSingleChatSession() {
+    return createMLflowRoutePath('/experiments/:experimentId/chat-sessions/:sessionId');
+  }
+  static get experimentPageTabModels() {
+    return createMLflowRoutePath('/experiments/:experimentId/models');
+  }
+  static get experimentPageTabEvaluationRuns() {
+    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs');
+  }
+  static get experimentPageTabDatasets() {
+    return createMLflowRoutePath('/experiments/:experimentId/datasets');
+  }
+  static get experimentPageTabScorers() {
+    return createMLflowRoutePath('/experiments/:experimentId/judges');
+  }
+  // Child routes for experiment page - end
   static get experimentLoggedModelDetailsPageTab() {
     return createMLflowRoutePath('/experiments/:experimentId/models/:loggedModelId/:tabName');
   }
@@ -34,6 +99,13 @@ export class RoutePaths {
   }
   static get runPageWithArtifact() {
     return createMLflowRoutePath('/experiments/:experimentId/runs/:runUuid/artifactPath/*');
+  }
+  // OSS experiment prompt page routes
+  static get experimentPageTabPrompts() {
+    return createMLflowRoutePath('/experiments/:experimentId/prompts');
+  }
+  static get experimentPageTabPromptDetails() {
+    return createMLflowRoutePath('/experiments/:experimentId/prompts/:promptName');
   }
   static get runPageDirect() {
     return createMLflowRoutePath('/runs/:runUuid');
@@ -60,9 +132,13 @@ export class RoutePaths {
   static get promptDetailsPage() {
     return createMLflowRoutePath('/prompts/:promptName');
   }
+  static get settingsPage() {
+    return createMLflowRoutePath('/settings');
+  }
 }
 
 // Concrete routes and functions for generating parametrized paths
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class Routes {
   static get rootRoute() {
     return RoutePaths.rootRoute;
@@ -80,6 +156,10 @@ class Routes {
     return RoutePaths.experimentPageSearch;
   }
 
+  static get settingsPageRoute() {
+    return RoutePaths.settingsPage;
+  }
+
   static getExperimentPageRoute(experimentId: string, isComparingRuns = false, shareState?: string) {
     const path = generatePath(RoutePaths.experimentPage, { experimentId });
     if (shareState) {
@@ -91,8 +171,16 @@ class Routes {
     return path;
   }
 
+  static getExperimentPageTracesTabRoute(experimentId: string) {
+    return `${Routes.getExperimentPageRoute(experimentId)}/traces`;
+  }
+
   static getExperimentPageTabRoute(experimentId: string, tabName: ExperimentPageTabName) {
     return generatePath(RoutePaths.experimentPageTabbed, { experimentId, tabName });
+  }
+
+  static getExperimentPageTabSingleChatSessionRoute(experimentId: string, sessionId: string) {
+    return generatePath(RoutePaths.experimentPageTabSingleChatSession, { experimentId, sessionId });
   }
 
   static getExperimentLoggedModelDetailsPage(experimentId: string, loggedModelId: string) {
@@ -167,7 +255,7 @@ class Routes {
     experimentIds: string[],
     plotMetricKeys: string[] | null = null,
     plotLayout: any = {},
-    selectedXAxis: 'wall' | 'step' | 'relative' = 'relative',
+    selectedXAxis: 'wall' | 'step' | 'relative' = 'step',
     yAxisLogScale = false,
     lineSmoothness = 1,
     showPoint = false,
@@ -217,11 +305,15 @@ class Routes {
    * Routes for prompts management.
    * Featured exclusively in open source MLflow.
    */
+
   static get promptsPageRoute() {
     return RoutePaths.promptsPage;
   }
 
-  static getPromptDetailsPageRoute(promptName: string) {
+  static getPromptDetailsPageRoute(promptName: string, experimentId?: string) {
+    if (experimentId) {
+      return generatePath(RoutePaths.experimentPageTabPromptDetails, { experimentId, promptName });
+    }
     return generatePath(RoutePaths.promptDetailsPage, { promptName });
   }
 }

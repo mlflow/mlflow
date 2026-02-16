@@ -25,10 +25,10 @@ export const withRouterNext =
   <
     T,
     Props extends JSX.IntrinsicAttributes &
-      JSX.LibraryManagedAttributes<React.ComponentType<T>, React.PropsWithChildren<T>>,
+      JSX.LibraryManagedAttributes<React.ComponentType<React.PropsWithChildren<T>>, React.PropsWithChildren<T>>,
     Params extends RouterDOMParams = RouterDOMParams,
   >(
-    Component: React.ComponentType<T>,
+    Component: React.ComponentType<React.PropsWithChildren<T>>,
   ) =>
   (
     props: Omit<
@@ -44,6 +44,7 @@ export const withRouterNext =
     const navigate = useNavigate();
     const params = useParams<Params>();
     const [searchParams, setSearchParams] = useSearchParams();
+
     return (
       <Component
         /* prettier-ignore */

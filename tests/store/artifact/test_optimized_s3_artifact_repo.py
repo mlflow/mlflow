@@ -1,6 +1,6 @@
 import os
 import posixpath
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import ANY
 
@@ -68,7 +68,7 @@ def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
 
         with mock.patch(
             "mlflow.store.artifact.s3_artifact_repo._get_utcnow_timestamp",
-            return_value=datetime.utcnow().timestamp() + _MAX_CACHE_SECONDS,
+            return_value=datetime.now(timezone.utc).timestamp() + _MAX_CACHE_SECONDS,
         ):
             repo._get_s3_client()
         cache_info = _cached_get_s3_client.cache_info()
@@ -230,9 +230,7 @@ def test_download_file_in_parallel_when_necessary(
 ):
     repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
     remote_file_path = "file_1.txt"
-    list_artifacts_result = (
-        [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
-    )
+    list_artifacts_result = [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)]
     with (
         mock.patch(
             f"{S3_ARTIFACT_REPOSITORY}.list_artifacts",
@@ -284,10 +282,8 @@ def test_refresh_credentials():
             session_token="my-session-1",
             credential_refresh_def=credential_refresh_def,
         )
-        try:
+        with pytest.raises(requests.HTTPError, match=r".*", check=lambda e: e == err):
             repo._download_from_cloud("file_1.txt", "local_path")
-        except requests.HTTPError as e:
-            assert e == err
 
         mock_get_s3_client.assert_any_call(
             addressing_style=None,

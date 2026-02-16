@@ -2,6 +2,9 @@ name: Dev environment setup
 
 on:
   push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
     paths:
       - "dev/dev-env-setup.sh"
       - "dev/test-dev-env-setup.sh"
@@ -35,7 +38,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 jobs:
   linux-env-setup:

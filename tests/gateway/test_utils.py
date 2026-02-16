@@ -1,16 +1,25 @@
 import pytest
+from fastapi import HTTPException
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.utils import (
     SearchRoutesToken,
     _is_valid_uri,
     assemble_uri_path,
     check_configuration_route_name_collisions,
     get_gateway_uri,
+    handle_incomplete_chunks,
     is_valid_endpoint_name,
+    parse_sse_lines,
     resolve_route_url,
+    safe_stream,
     set_gateway_uri,
+    stream_sse_data,
+    to_sse_error_chunk,
+    translate_http_exception,
 )
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 @pytest.mark.parametrize(
@@ -41,10 +50,17 @@ def test_resolve_route_url_qualified_url_ignores_base(base_url):
     ("name", "expected"),
     [
         ("validName", True),
+        ("valid-name", True),
+        ("valid_name", True),
+        ("valid.name", True),
+        ("valid123", True),
         ("invalid name", False),
         ("invalid/name", False),
         ("invalid?name", False),
         ("", False),
+        ("日本語", False),  # Japanese characters
+        ("naïve", False),  # accented characters
+        ("名前", False),  # Chinese characters
     ],
 )
 def test_is_valid_endpoint_name(name, expected):
@@ -53,7 +69,9 @@ def test_is_valid_endpoint_name(name, expected):
 
 def test_check_configuration_route_name_collisions():
     config = {"endpoints": [{"name": "name1"}, {"name": "name2"}, {"name": "name1"}]}
-    with pytest.raises(MlflowException, match="Duplicate names found in endpoint configurations"):
+    with pytest.raises(
+        MlflowException, match="Duplicate names found in endpoint / route configurations"
+    ):
         check_configuration_route_name_collisions(config)
 
 
@@ -136,3 +154,257 @@ def test_search_routes_token_with_invalid_token_values(index):
     encoded_token = token.encode()
     with pytest.raises(MlflowException, match="Invalid SearchRoutes token"):
         SearchRoutesToken.decode(encoded_token)
+
+
+@pytest.mark.asyncio
+async def test_translate_http_exception_handles_ai_gateway_exception():
+    @translate_http_exception
+    async def raise_ai_gateway_exception():
+        raise AIGatewayException(status_code=503, detail="AI Gateway error")
+
+    with pytest.raises(HTTPException, match="AI Gateway error") as exc_info:
+        await raise_ai_gateway_exception()
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "AI Gateway error"
+
+
+@pytest.mark.asyncio
+async def test_translate_http_exception_handles_mlflow_exception():
+    @translate_http_exception
+    async def raise_mlflow_exception():
+        raise MlflowException("Invalid parameter", error_code=INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(HTTPException, match="Invalid parameter") as exc_info:
+        await raise_mlflow_exception()
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == {
+        "error_code": "INVALID_PARAMETER_VALUE",
+        "message": "Invalid parameter",
+    }
+
+
+@pytest.mark.asyncio
+async def test_translate_http_exception_passes_through_other_exceptions():
+    @translate_http_exception
+    async def raise_value_error():
+        raise ValueError("Some value error")
+
+    with pytest.raises(ValueError, match="Some value error"):
+        await raise_value_error()
+
+
+def test_parse_sse_lines_single_data_line():
+    chunk = b'data: {"message": "hello"}\n'
+    result = list(parse_sse_lines(chunk))
+    assert result == [{"message": "hello"}]
+
+
+def test_parse_sse_lines_multiple_data_lines():
+    chunk = b'data: {"id": 1}\ndata: {"id": 2}\n'
+    result = list(parse_sse_lines(chunk))
+    assert result == [{"id": 1}, {"id": 2}]
+
+
+def test_parse_sse_lines_with_event_lines():
+    chunk = b'event: message\ndata: {"content": "test"}\n'
+    result = list(parse_sse_lines(chunk))
+    assert result == [{"content": "test"}]
+
+
+def test_parse_sse_lines_done_marker():
+    chunk = b"data: [DONE]\n"
+    result = list(parse_sse_lines(chunk))
+    assert result == []
+
+
+def test_parse_sse_lines_empty_data():
+    chunk = b"data: \n"
+    result = list(parse_sse_lines(chunk))
+    assert result == []
+
+
+def test_parse_sse_lines_empty_chunk():
+    result = list(parse_sse_lines(b""))
+    assert result == []
+
+
+def test_parse_sse_lines_string_input():
+    chunk = 'data: {"key": "value"}\n'
+    result = list(parse_sse_lines(chunk))
+    assert result == [{"key": "value"}]
+
+
+def test_parse_sse_lines_invalid_json():
+    chunk = b"data: {invalid json}\n"
+    result = list(parse_sse_lines(chunk))
+    assert result == []
+
+
+def test_parse_sse_lines_mixed_valid_invalid():
+    chunk = b'data: {"valid": true}\ndata: invalid\ndata: {"also": "valid"}\n'
+    result = list(parse_sse_lines(chunk))
+    assert result == [{"valid": True}, {"also": "valid"}]
+
+
+def test_parse_sse_lines_invalid_utf8():
+    chunk = b"\xff\xfe"
+    result = list(parse_sse_lines(chunk))
+    assert result == []
+
+
+def test_parse_sse_lines_non_data_lines_ignored():
+    chunk = b'id: 123\nretry: 1000\ndata: {"message": "test"}\n'
+    result = list(parse_sse_lines(chunk))
+    assert result == [{"message": "test"}]
+
+
+@pytest.mark.asyncio
+async def test_stream_sse_data_yields_parsed_json():
+    async def mock_stream():
+        yield b'data: {"chunk": 1}\n'
+        yield b'data: {"chunk": 2}\n'
+
+    results = [data async for data in stream_sse_data(mock_stream())]
+    assert results == [{"chunk": 1}, {"chunk": 2}]
+
+
+@pytest.mark.asyncio
+async def test_stream_sse_data_skips_done():
+    async def mock_stream():
+        yield b'data: {"chunk": 1}\n'
+        yield b"data: [DONE]\n"
+
+    results = [data async for data in stream_sse_data(mock_stream())]
+    assert results == [{"chunk": 1}]
+
+
+@pytest.mark.asyncio
+async def test_stream_sse_data_skips_empty_lines():
+    async def mock_stream():
+        yield b""
+        yield b'data: {"chunk": 1}\n'
+        yield b"   "
+        yield b'data: {"chunk": 2}\n'
+
+    results = [data async for data in stream_sse_data(mock_stream())]
+    assert results == [{"chunk": 1}, {"chunk": 2}]
+
+
+@pytest.mark.asyncio
+async def test_stream_sse_data_skips_invalid_json():
+    async def mock_stream():
+        yield b'data: {"valid": true}\n'
+        yield b"data: not json\n"
+        yield b'data: {"also_valid": true}\n'
+
+    results = [data async for data in stream_sse_data(mock_stream())]
+    assert results == [{"valid": True}, {"also_valid": True}]
+
+
+@pytest.mark.asyncio
+async def test_handle_incomplete_chunks_complete_lines():
+    async def mock_stream():
+        yield b"line1\nline2\n"
+
+    results = [chunk async for chunk in handle_incomplete_chunks(mock_stream())]
+    assert results == [b"line1", b"line2"]
+
+
+@pytest.mark.asyncio
+async def test_handle_incomplete_chunks_split_across_chunks():
+    async def mock_stream():
+        yield b"he"
+        yield b"llo\nwor"
+        yield b"ld\n"
+
+    results = [chunk async for chunk in handle_incomplete_chunks(mock_stream())]
+    assert results == [b"hello", b"world"]
+
+
+@pytest.mark.asyncio
+async def test_handle_incomplete_chunks_trailing_data():
+    async def mock_stream():
+        yield b"line1\nline2"
+
+    results = [chunk async for chunk in handle_incomplete_chunks(mock_stream())]
+    assert results == [b"line1", b"line2"]
+
+
+@pytest.mark.asyncio
+async def test_handle_incomplete_chunks_no_newline():
+    async def mock_stream():
+        yield b"no newline at all"
+
+    results = [chunk async for chunk in handle_incomplete_chunks(mock_stream())]
+    assert results == [b"no newline at all"]
+
+
+def test_to_sse_error_chunk():
+    error = ValueError("Something went wrong")
+    result = to_sse_error_chunk(error)
+    assert (
+        result == 'data: {"error": {"message": "Something went wrong", "type": "ValueError"}}\n\n'
+    )
+
+
+def test_to_sse_error_chunk_with_custom_exception():
+    class CustomError(Exception):
+        pass
+
+    error = CustomError("Custom error message")
+    result = to_sse_error_chunk(error)
+    assert (
+        result == 'data: {"error": {"message": "Custom error message", "type": "CustomError"}}\n\n'
+    )
+
+
+@pytest.mark.asyncio
+async def test_safe_stream_passes_through_chunks():
+    async def mock_stream():
+        yield "chunk1"
+        yield "chunk2"
+        yield "chunk3"
+
+    results = [chunk async for chunk in safe_stream(mock_stream())]
+    assert results == ["chunk1", "chunk2", "chunk3"]
+
+
+@pytest.mark.asyncio
+async def test_safe_stream_catches_exception_and_yields_error_chunk():
+    async def mock_stream():
+        yield "chunk1"
+        raise RuntimeError("Stream failed")
+
+    results = [chunk async for chunk in safe_stream(mock_stream())]
+    assert len(results) == 2
+    assert results[0] == "chunk1"
+    assert '"error"' in results[1]
+    assert '"message": "Stream failed"' in results[1]
+    assert '"type": "RuntimeError"' in results[1]
+
+
+@pytest.mark.asyncio
+async def test_safe_stream_as_bytes():
+    async def mock_stream():
+        yield b"chunk1"
+        raise ValueError("Bytes stream failed")
+
+    results = [chunk async for chunk in safe_stream(mock_stream(), as_bytes=True)]
+    assert len(results) == 2
+    assert results[0] == b"chunk1"
+    assert isinstance(results[1], bytes)
+    assert b'"error"' in results[1]
+    assert b'"message": "Bytes stream failed"' in results[1]
+    assert b'"type": "ValueError"' in results[1]
+
+
+@pytest.mark.asyncio
+async def test_safe_stream_no_exception():
+    async def mock_stream():
+        yield "data1"
+        yield "data2"
+
+    results = [chunk async for chunk in safe_stream(mock_stream())]
+    assert results == ["data1", "data2"]

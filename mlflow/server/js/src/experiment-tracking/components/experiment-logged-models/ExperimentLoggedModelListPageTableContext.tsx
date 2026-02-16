@@ -4,27 +4,29 @@ type ExperimentLoggedModelListPageTableContextType = {
   moreResultsAvailable?: boolean;
   isLoadingMore?: boolean;
   loadMoreResults?: () => void;
+  expandedGroups?: string[];
+  onGroupToggle?: (groupId: string) => void;
 };
 
-const ExperimentLoggedModelListPageTableContext = createContext<{
-  moreResultsAvailable?: boolean;
-  isLoadingMore?: boolean;
-  loadMoreResults?: () => void;
-}>({});
+const ExperimentLoggedModelListPageTableContext = createContext<ExperimentLoggedModelListPageTableContextType>({});
 
 export const ExperimentLoggedModelListPageTableContextProvider = ({
   loadMoreResults,
   moreResultsAvailable,
   isLoadingMore,
   children,
+  expandedGroups,
+  onGroupToggle,
 }: React.PropsWithChildren<ExperimentLoggedModelListPageTableContextType>) => {
   const contextValue = useMemo(
     () => ({
       moreResultsAvailable,
       loadMoreResults,
       isLoadingMore,
+      expandedGroups,
+      onGroupToggle,
     }),
-    [moreResultsAvailable, loadMoreResults, isLoadingMore],
+    [moreResultsAvailable, loadMoreResults, isLoadingMore, expandedGroups, onGroupToggle],
   );
 
   return (

@@ -6,7 +6,6 @@ import pytest
 from click.testing import CliRunner
 
 import mlflow
-import mlflow.pyfunc
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.cli import _file_infos_to_json, download_artifacts
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -44,7 +43,7 @@ def test_download_from_uri():
         def download_artifacts(self, artifact_path, **kwargs):
             return (self.scheme, artifact_path)
 
-    def test_get_artifact_repository(artifact_uri, tracking_uri=None):
+    def test_get_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=None):
         return TestArtifactRepo(artifact_uri)
 
     pairs = [
@@ -82,7 +81,7 @@ def test_download_from_uri():
             assert expected_result == actual_result
 
 
-def _run_download_artifact_command(args) -> pathlib.Path:  # noqa: D417
+def _run_download_artifact_command(args) -> pathlib.Path:
     """
     Args:
         command: An `mlflow artifacts` command list.

@@ -1,4 +1,5 @@
 import { MouseEvent, ReactNode, useCallback } from 'react';
+import { Version } from '@site/src/constants';
 
 interface NotebookDownloadButtonProps {
   children: ReactNode;
@@ -18,6 +19,12 @@ export function NotebookDownloadButton({ children, href }: NotebookDownloadButto
         } catch {
           // do nothing if the gtag call fails
         }
+      }
+
+      if (!Version.includes('dev')) {
+        // Replace 'master' with the current version to pin the download to the released version
+        // and avoid 404 errors
+        href = href.replace(/\/master\//, `/v${Version}/`);
       }
 
       const response = await fetch(href);

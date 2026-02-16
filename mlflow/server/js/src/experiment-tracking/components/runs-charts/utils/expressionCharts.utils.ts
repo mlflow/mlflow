@@ -1,8 +1,9 @@
 import { intersection } from 'lodash';
-import { MetricEntity } from '../../../types';
-import { RunsChartsLineChartXAxisType, RunsChartsRunData } from '../components/RunsCharts.common';
-import { RunsMetricsLinePlotProps } from '../components/RunsMetricsLinePlot';
-import { RunsChartsLineChartExpression } from '../runs-charts.types';
+import type { MetricEntity } from '../../../types';
+import type { RunsChartsRunData } from '../components/RunsCharts.common';
+import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
+import type { RunsMetricsLinePlotProps } from '../components/RunsMetricsLinePlot';
+import type { RunsChartsLineChartExpression } from '../runs-charts.types';
 
 const getCompareValue = (element: MetricEntity, xAxisKey: RunsMetricsLinePlotProps['xAxisKey']) => {
   if (xAxisKey === RunsChartsLineChartXAxisType.STEP) {
@@ -50,14 +51,17 @@ export const getExpressionChartsSortedMetricHistory = ({
 
   // For each xDataPoint, extract variables and evaluate expression
   return xDataPoints.flatMap((xDataPoint) => {
-    const variables = expression.variables.reduce((obj, variable) => {
-      const elements = runEntry.metricsHistory?.[variable];
-      const value = elements?.find((element) => getCompareValue(element, xAxisKey) === xDataPoint)?.value;
-      if (value !== undefined) {
-        obj[variable] = value;
-      }
-      return obj;
-    }, {} as Record<string, number>);
+    const variables = expression.variables.reduce(
+      (obj, variable) => {
+        const elements = runEntry.metricsHistory?.[variable];
+        const value = elements?.find((element) => getCompareValue(element, xAxisKey) === xDataPoint)?.value;
+        if (value !== undefined) {
+          obj[variable] = value;
+        }
+        return obj;
+      },
+      {} as Record<string, number>,
+    );
 
     const expressionValue = evaluateExpression(expression, variables);
     if (expressionValue !== undefined) {

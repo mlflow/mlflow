@@ -1,4 +1,4 @@
-import { ModelEntity, ModelVersionInfoEntity } from '../../types';
+import type { ModelEntity, ModelVersionInfoEntity } from '../../types';
 
 /**
  * Represents a registered prompt entry. For the time being, it uses
@@ -25,3 +25,39 @@ export type RegisteredPromptDetailsResponse = {
 export type PromptVersionsForRunResponse = {
   model_versions?: RegisteredPromptVersion[];
 };
+
+export interface ChatPromptMessage {
+  role: string;
+  content: string;
+}
+
+/**
+ * Represents a prompt model configuration, in the backend format (snake_case).
+ */
+export interface PromptModelConfig {
+  provider?: string;
+  model_name?: string;
+  temperature?: number;
+  max_tokens?: number;
+  top_p?: number;
+  top_k?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
+  stop_sequences?: string[];
+  extra_params?: Record<string, any>;
+}
+
+/**
+ * Represents a prompt model configuration, in the UI form format (camelCase with string inputs).
+ */
+export interface PromptModelConfigFormData {
+  provider?: string;
+  modelName?: string;
+  temperature?: string;
+  maxTokens?: string;
+  topP?: string;
+  topK?: string;
+  frequencyPenalty?: string;
+  presencePenalty?: string;
+  stopSequences?: string;
+}

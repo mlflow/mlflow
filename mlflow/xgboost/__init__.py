@@ -25,7 +25,7 @@ import os
 import tempfile
 from copy import deepcopy
 from functools import partial
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from packaging.version import Version
@@ -45,6 +45,7 @@ from mlflow.sklearn import _SklearnTrainingSession
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.fluent import _initialize_logged_model
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
@@ -79,6 +80,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -120,8 +122,10 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    model_format="xgb",
+    model_format="ubj",
     metadata=None,
+    extra_files=None,
+    **kwargs,
 ):
     """Save an XGBoost model to a path on the local file system.
 
@@ -136,8 +140,12 @@ def save_model(
         input_example: {{ input_example }}
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        model_format: File format in which the model is to be saved.
+        model_format: File format in which the model is to be saved. Defaults to "ubj" (UBJSON),
+            which is the recommended format for optimal performance and cross-platform
+            compatibility. Also supports "json" and "xgb" formats.
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
     """
     import xgboost as xgb
 
@@ -165,8 +173,11 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
 
     # Save an XGBoost model
-    xgb_model.save_model(model_data_path)
+    xgb_model.save_model(model_data_path, **kwargs)
     xgb_model_class = _get_fully_qualified_class_name(xgb_model)
+
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.xgboost",
@@ -182,6 +193,7 @@ def save_model(
         model_class=xgb_model_class,
         model_format=model_format,
         code=code_dir_subpath,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -224,7 +236,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     xgb_model,
-    artifact_path: Optional[str] = None,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -233,14 +245,15 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
-    model_format="xgb",
+    model_format="ubj",
     metadata=None,
-    name: Optional[str] = None,
-    params: Optional[dict[str, Any]] = None,
-    tags: Optional[dict[str, Any]] = None,
-    model_type: Optional[str] = None,
+    extra_files=None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
     step: int = 0,
-    model_id: Optional[str] = None,
+    model_id: str | None = None,
     **kwargs,
 ):
     """Log an XGBoost model as an MLflow artifact for the current run.
@@ -261,8 +274,11 @@ def log_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
-        model_format: File format in which the model is to be saved.
+        model_format: File format in which the model is to be saved. Defaults to "ubj" (UBJSON),
+            which is the recommended format for optimal performance and cross-platform
+            compatibility. Also supports "json" and "xgb" formats.
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -289,6 +305,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        extra_files=extra_files,
         metadata=metadata,
         params=params,
         tags=tags,
@@ -371,7 +388,7 @@ class _XGBModelWrapper:
     def predict(
         self,
         dataframe,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -398,7 +415,7 @@ def _exclude_unrecognized_kwargs(predict_fn, kwargs):
     filtered_kwargs = {}
     allowed_params = inspect.signature(predict_fn).parameters
     # avoid excluding kwargs when predict function uses args or kwargs
-    if any(p.kind == p.VAR_POSITIONAL or p.kind == p.VAR_KEYWORD for p in allowed_params.values()):
+    if any(p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in allowed_params.values()):
         return kwargs
     invalid_params = set()
     for key, value in kwargs.items():
@@ -456,7 +473,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     registered_model_name=None,
-    model_format="xgb",
+    model_format="ubj",
     extra_tags=None,
 ):
     """
@@ -505,7 +522,9 @@ def autolog(
         registered_model_name: If given, each time a model is trained, it is registered as a
             new model version of the registered model with this name.
             The registered model is created if it does not already exist.
-        model_format: File format in which the model is to be saved.
+        model_format: File format in which the model is to be saved. Defaults to "ubj" (UBJSON),
+            which is the recommended format for optimal performance and cross-platform
+            compatibility. Also supports "json" and "xgb" formats.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
     """
     import numpy as np
@@ -714,7 +733,7 @@ def autolog(
 
         model_id = None
         if _log_models:
-            model_id = mlflow.initialize_logged_model("model").model_id
+            model_id = _initialize_logged_model("model", flavor=FLAVOR_NAME).model_id
         with batch_metrics_logger(run_id, model_id=model_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:

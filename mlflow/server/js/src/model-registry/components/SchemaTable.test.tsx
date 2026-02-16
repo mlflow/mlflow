@@ -5,12 +5,20 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import userEvent from '@testing-library/user-event';
 
 import { SchemaTable } from './SchemaTable';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
-import { getByPlaceholderText, renderWithIntl, within } from '../../common/utils/TestUtils.react18';
+import { renderWithIntl, within } from '../../common/utils/TestUtils.react18';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(60000); // Higher timeout due to testing heavier table
+
+function normalizeHtml(html: string): string {
+  return html.replaceAll('You have tried to stringify object returned from `css` function.', '');
+}
 
 async function clickHeaderRow(container: HTMLElement, name: string | RegExp): Promise<void> {
   const row = within(container).getByRole('row', { name });
@@ -56,14 +64,15 @@ describe('SchemaTable', () => {
         <SchemaTable {...props} />
       </MemoryRouter>,
     );
-    expect(container.innerHTML).toContain('Inputs');
-    expect(container.innerHTML).toContain('Outputs');
-    expect(container.innerHTML).toContain('Name');
-    expect(container.innerHTML).toContain('Type');
-    expect(container.innerHTML).not.toContain('column1');
-    expect(container.innerHTML).not.toContain('string');
-    expect(container.innerHTML).not.toContain('score1');
-    expect(container.innerHTML).not.toContain('long');
+    const html = normalizeHtml(container.innerHTML);
+    expect(html).toContain('Inputs');
+    expect(html).toContain('Outputs');
+    expect(html).toContain('Name');
+    expect(html).toContain('Type');
+    expect(html).not.toContain('column1');
+    expect(html).not.toContain('string');
+    expect(html).not.toContain('score1');
+    expect(html).not.toContain('long');
   });
 
   test('should inputs table render by click', async () => {
@@ -77,14 +86,15 @@ describe('SchemaTable', () => {
     // click to render inputs table
     await clickHeaderRow(container, /Inputs/);
 
-    expect(container.innerHTML).toContain('Inputs');
-    expect(container.innerHTML).toContain('Outputs');
-    expect(container.innerHTML).toContain('Name');
-    expect(container.innerHTML).toContain('Type');
-    expect(container.innerHTML).toContain('column1');
-    expect(container.innerHTML).toContain('string');
-    expect(container.innerHTML).not.toContain('score1');
-    expect(container.innerHTML).not.toContain('long');
+    const html = normalizeHtml(container.innerHTML);
+    expect(html).toContain('Inputs');
+    expect(html).toContain('Outputs');
+    expect(html).toContain('Name');
+    expect(html).toContain('Type');
+    expect(html).toContain('column1');
+    expect(html).toContain('string');
+    expect(html).not.toContain('score1');
+    expect(html).not.toContain('long');
   });
 
   test('Should display optional input field schema as expected', async () => {
@@ -105,12 +115,12 @@ describe('SchemaTable', () => {
     );
     // click to render input schema table
     await clickHeaderRow(wrapper.container, /Inputs/);
-    expect(wrapper.container.innerHTML).toContain('column1');
+    expect(normalizeHtml(wrapper.container.innerHTML)).toContain('column1');
     // the optional input param should have (optional) after the name"
     const col2 = wrapper.getByText('column2');
     expect(col2.textContent).toEqual('column2 (optional)');
-    expect(wrapper.container.innerHTML).toContain('string');
-    expect(wrapper.container.innerHTML).toContain('float');
+    expect(normalizeHtml(wrapper.container.innerHTML)).toContain('string');
+    expect(normalizeHtml(wrapper.container.innerHTML)).toContain('float');
   });
 
   test('Should display required input field schema as expected', async () => {
@@ -128,7 +138,7 @@ describe('SchemaTable', () => {
     );
     // click to render input schema table
     await clickHeaderRow(wrapper.container, /Inputs/);
-    expect(wrapper.container.innerHTML).toContain('column');
+    expect(normalizeHtml(wrapper.container.innerHTML)).toContain('column');
     // the optional input param should have (optional) after the name"
     const col2 = wrapper.getByText('column');
     expect(col2.textContent).toEqual('column (required)');
@@ -164,14 +174,15 @@ describe('SchemaTable', () => {
     expect(getByRole('table')).toBeInTheDocument();
     await clickHeaderRow(container, /Outputs/);
 
-    expect(container.innerHTML).toContain('Inputs');
-    expect(container.innerHTML).toContain('Outputs');
-    expect(container.innerHTML).toContain('Name');
-    expect(container.innerHTML).toContain('Type');
-    expect(container.innerHTML).not.toContain('column1');
-    expect(container.innerHTML).not.toContain('string');
-    expect(container.innerHTML).toContain('score1');
-    expect(container.innerHTML).toContain('long');
+    const html = normalizeHtml(container.innerHTML);
+    expect(html).toContain('Inputs');
+    expect(html).toContain('Outputs');
+    expect(html).toContain('Name');
+    expect(html).toContain('Type');
+    expect(html).not.toContain('column1');
+    expect(html).not.toContain('string');
+    expect(html).toContain('score1');
+    expect(html).toContain('long');
   });
 
   test('should inputs and outputs table render by click', async () => {
@@ -301,5 +312,73 @@ describe('SchemaTable', () => {
         'Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing 1 results from 500 total rows.',
       ),
     ).toBeInTheDocument();
+  });
+
+  test('should handle non-string column names', async () => {
+    // Create a large schema with > 100 fields to trigger the search functionality
+    type Column =
+      | { name: string; type: 'string' }
+      | { name: number; type: 'integer' | 'float' }
+      | { name: boolean; type: 'boolean' };
+
+    const manyInputs: Column[] = Array.from(
+      { length: 101 },
+      (_, i): Column => ({
+        name: `regular_column_${i}`,
+        type: 'string',
+      }),
+    );
+
+    // Add non-string column names
+    manyInputs.push(
+      { name: 123, type: 'integer' },
+      { name: true, type: 'boolean' },
+      { name: 0, type: 'integer' },
+      { name: 3.14, type: 'float' },
+    );
+
+    const { container, getByRole, getByPlaceholderText } = renderWithIntl(
+      <MemoryRouter>
+        <SchemaTable
+          schema={{
+            ...props.schema,
+            inputs: manyInputs,
+          }}
+        />
+      </MemoryRouter>,
+    );
+    expect(getByRole('table')).toBeInTheDocument();
+    await clickHeaderRow(container, /Inputs/);
+
+    // Verify that search field appears (since we have > 100 columns)
+    const searchField = getByPlaceholderText('Search for a field');
+    expect(searchField).toBeInTheDocument();
+
+    // Search for the numeric column name
+    await userEvent.click(searchField);
+    await userEvent.paste('123');
+
+    // The numeric column should be found and displayed
+    let html = normalizeHtml(container.innerHTML);
+    expect(html).toContain('123');
+    expect(html).toContain('integer');
+
+    // Clear search and try a boolean column name
+    await userEvent.clear(searchField);
+    await userEvent.paste('true');
+
+    // The boolean column should be found and displayed
+    html = normalizeHtml(container.innerHTML);
+    expect(html).toContain('true');
+    expect(html).toContain('boolean');
+
+    // Clear search and try a float column name
+    await userEvent.clear(searchField);
+    await userEvent.paste('3.14');
+
+    // The float column should be found and displayed
+    html = normalizeHtml(container.innerHTML);
+    expect(html).toContain('3.14');
+    expect(html).toContain('float');
   });
 });

@@ -3,7 +3,7 @@ import 'react-virtualized/styles.css';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import { isUserFacingTag } from '../../common/utils/TagUtils';
-import { ExperimentTableColumnDef, ExperimentTableMetadata } from './ExperimentListTable';
+import type { ExperimentTableColumnDef, ExperimentTableMetadata } from './ExperimentListTable';
 
 export const ExperimentListTableTagsCell: ExperimentTableColumnDef['cell'] = ({
   row: { original },

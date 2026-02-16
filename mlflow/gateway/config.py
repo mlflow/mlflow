@@ -4,12 +4,11 @@ import os
 import pathlib
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 import pydantic
 import yaml
-from packaging.version import Version
-from pydantic import ConfigDict, ValidationError
+from pydantic import ConfigDict, ValidationError, field_validator, model_validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
@@ -25,13 +24,15 @@ from mlflow.gateway.utils import (
     is_valid_ai21labs_model,
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
+    normalize_databricks_base_url,
 )
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, field_validator, model_validator
 
 _logger = logging.getLogger(__name__)
 
-if IS_PYDANTIC_V2_OR_NEWER:
-    from pydantic import SerializeAsAny
+from pydantic import SerializeAsAny
+
+if TYPE_CHECKING:
+    from mlflow.deployments.server.config import Endpoint
 
 
 class Provider(str, Enum):
@@ -51,6 +52,8 @@ class Provider(str, Enum):
     DATABRICKS = "databricks"
     MISTRAL = "mistral"
     TOGETHERAI = "togetherai"
+    LITELLM = "litellm"
+    AZURE = "azure"
 
     @classmethod
     def values(cls):
@@ -65,7 +68,7 @@ class TogetherAIConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class RouteType(str, Enum):
+class EndpointType(str, Enum):
     LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
@@ -89,7 +92,7 @@ class AI21LabsConfig(ConfigModel):
 
 class MosaicMLConfig(ConfigModel):
     mosaicml_api_key: str
-    mosaicml_api_base: Optional[str] = None
+    mosaicml_api_base: str | None = None
 
     @field_validator("mosaicml_api_key", mode="before")
     def validate_mosaicml_api_key(cls, value):
@@ -116,10 +119,10 @@ class OpenAIAPIType(str, Enum):
 class OpenAIConfig(ConfigModel):
     openai_api_key: str
     openai_api_type: OpenAIAPIType = OpenAIAPIType.OPENAI
-    openai_api_base: Optional[str] = None
-    openai_api_version: Optional[str] = None
-    openai_deployment_name: Optional[str] = None
-    openai_organization: Optional[str] = None
+    openai_api_base: str | None = None
+    openai_api_version: str | None = None
+    openai_deployment_name: str | None = None
+    openai_organization: str | None = None
 
     @field_validator("openai_api_key", mode="before")
     def validate_openai_api_key(cls, value):
@@ -202,7 +205,7 @@ class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
 
 
 class AWSBaseConfig(pydantic.BaseModel):
-    aws_region: Optional[str] = None
+    aws_region: str | None = None
 
 
 class AWSRole(AWSBaseConfig):
@@ -213,12 +216,12 @@ class AWSRole(AWSBaseConfig):
 class AWSIdAndKey(AWSBaseConfig):
     aws_access_key_id: str
     aws_secret_access_key: str
-    aws_session_token: Optional[str] = None
+    aws_session_token: str | None = None
 
 
 class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
-    aws_config: Union[AWSRole, AWSIdAndKey, AWSBaseConfig]
+    aws_config: AWSRole | AWSIdAndKey | AWSBaseConfig
 
 
 class MistralConfig(ConfigModel):
@@ -229,8 +232,50 @@ class MistralConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
+class _AuthConfigKey:
+    """Keys used in auth configuration."""
+
+    AUTH_MODE = "auth_mode"
+    API_KEY = "api_key"
+    API_BASE = "api_base"
+
+
+class LiteLLMConfig(ConfigModel):
+    litellm_provider: str | None = None
+    litellm_auth_config: dict[str, Any] | None = None
+
+    @model_validator(mode="before")
+    def validate_litellm_auth_config(cls, values):
+        if not isinstance(values, dict):
+            return values
+
+        auth_config = values.get("litellm_auth_config")
+        if auth_config is None or not isinstance(auth_config, dict):
+            return values
+
+        auth_config = dict(auth_config)
+
+        # Remove MLflow-specific auth_mode as it's not supported by LiteLLM
+        auth_config.pop(_AuthConfigKey.AUTH_MODE, None)
+
+        # Resolve API key from environment variable or file
+        api_key = auth_config.get(_AuthConfigKey.API_KEY)
+        if isinstance(api_key, str):
+            auth_config[_AuthConfigKey.API_KEY] = _resolve_api_key_from_input(api_key)
+
+        # Normalize Databricks base URL to include /serving-endpoints
+        provider = values.get("litellm_provider")
+        if provider == Provider.DATABRICKS and (
+            api_base := auth_config.get(_AuthConfigKey.API_BASE)
+        ):
+            auth_config[_AuthConfigKey.API_BASE] = normalize_databricks_base_url(api_base)
+
+        values["litellm_auth_config"] = auth_config
+        return values
+
+
 class ModelInfo(ResponseModel):
-    name: Optional[str] = None
+    name: str | None = None
     provider: Provider
 
 
@@ -276,12 +321,9 @@ def _resolve_api_key_from_input(api_key_input):
 
 
 class Model(ConfigModel):
-    name: Optional[str] = None
-    provider: Union[str, Provider]
-    if IS_PYDANTIC_V2_OR_NEWER:
-        config: Optional[SerializeAsAny[ConfigModel]] = None
-    else:
-        config: Optional[ConfigModel] = None
+    name: str | None = None
+    provider: str | Provider
+    config: SerializeAsAny[ConfigModel] | None = None
 
     @field_validator("provider", mode="before")
     def validate_provider(cls, value):
@@ -302,12 +344,7 @@ class Model(ConfigModel):
 
         # For Pydantic v2: 'context' is a ValidationInfo object with a 'data' attribute.
         # For Pydantic v1: 'context' is dict-like 'values'.
-        if IS_PYDANTIC_V2_OR_NEWER:
-            provider = context.data.get("provider")
-        else:
-            provider = context.get("provider") if context else None
-
-        if provider:
+        if provider := context.data.get("provider"):
             config_type = provider_registry.get(provider).CONFIG_TYPE
             return config_type(**val) if isinstance(val, dict) else val
         raise MlflowException.invalid_parameter_value(
@@ -324,29 +361,24 @@ class AliasedConfigModel(ConfigModel):
     Enables use of field aliases in a configuration model for backwards compatibility
     """
 
-    if Version(pydantic.__version__) >= Version("2.0"):
-        model_config = ConfigDict(populate_by_name=True)
-    else:
-
-        class Config:
-            allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Limit(LimitModel):
     calls: int
-    key: Optional[str] = None
+    key: str | None = None
     renewal_period: str
 
 
 class LimitsConfig(ConfigModel):
-    limits: Optional[list[Limit]] = []
+    limits: list[Limit] | None = []
 
 
-class RouteConfig(AliasedConfigModel):
+class EndpointConfig(AliasedConfigModel):
     name: str
-    endpoint_type: RouteType
+    endpoint_type: EndpointType
     model: Model
-    limit: Optional[Limit] = None
+    limit: Limit | None = None
 
     @field_validator("name")
     def validate_endpoint_name(cls, route_name):
@@ -369,35 +401,33 @@ class RouteConfig(AliasedConfigModel):
                 )
         return model
 
-    @model_validator(mode="after", skip_on_failure=True)
-    def validate_route_type_and_model_name(cls, values):
-        if IS_PYDANTIC_V2_OR_NEWER:
-            route_type = values.endpoint_type
-            model = values.model
-        else:
-            route_type = values.get("endpoint_type")
-            model = values.get("model")
+    @model_validator(mode="after")
+    def validate_route_type_and_model_name(self):
         if (
-            model
-            and model.provider == "mosaicml"
-            and route_type == RouteType.LLM_V1_CHAT
-            and not is_valid_mosiacml_chat_model(model.name)
+            self.model
+            and self.model.provider == "mosaicml"
+            and self.endpoint_type == EndpointType.LLM_V1_CHAT
+            and not is_valid_mosiacml_chat_model(self.model.name)
         ):
             raise MlflowException.invalid_parameter_value(
-                f"An invalid model has been specified for the chat route. '{model.name}'. "
+                f"An invalid model has been specified for the chat route. '{self.model.name}'. "
                 f"Ensure the model selected starts with one of: "
                 f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
             )
-        if model and model.provider == "ai21labs" and not is_valid_ai21labs_model(model.name):
+        if (
+            self.model
+            and self.model.provider == "ai21labs"
+            and not is_valid_ai21labs_model(self.model.name)
+        ):
             raise MlflowException.invalid_parameter_value(
-                f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
+                f"An Unsupported AI21Labs model has been specified: '{self.model.name}'. "
                 f"Please see documentation for supported models."
             )
-        return values
+        return self
 
     @field_validator("endpoint_type", mode="before")
     def validate_route_type(cls, value):
-        if value in RouteType._value2member_map_:
+        if value in EndpointType._value2member_map_:
             return value
         raise MlflowException.invalid_parameter_value(f"The route_type '{value}' is not supported.")
 
@@ -418,11 +448,11 @@ class RouteConfig(AliasedConfigModel):
 
         return value
 
-    def to_route(self) -> "Route":
-        return Route(
+    def _to_legacy_route(self) -> "_LegacyRoute":
+        return _LegacyRoute(
             name=self.name,
             route_type=self.endpoint_type,
-            model=RouteModelInfo(
+            model=EndpointModelInfo(
                 name=self.model.name,
                 provider=self.model.provider,
             ),
@@ -430,9 +460,35 @@ class RouteConfig(AliasedConfigModel):
             limit=self.limit,
         )
 
+    def to_endpoint(self) -> "Endpoint":
+        from mlflow.deployments.server.config import Endpoint
 
-class RouteModelInfo(ResponseModel):
-    name: Optional[str] = None
+        return Endpoint(
+            name=self.name,
+            endpoint_type=self.endpoint_type,
+            model=EndpointModelInfo(
+                name=self.model.name,
+                provider=self.model.provider,
+            ),
+            endpoint_url=f"{MLFLOW_GATEWAY_ROUTE_BASE}{self.name}{MLFLOW_QUERY_SUFFIX}",
+            limit=self.limit,
+        )
+
+
+class RouteDestinationConfig(ConfigModel):
+    name: str
+    traffic_percentage: int
+
+
+class TrafficRouteConfig(ConfigModel):
+    name: str
+    task_type: EndpointType
+    destinations: list[RouteDestinationConfig]
+    routing_strategy: Literal["TRAFFIC_SPLIT"] = "TRAFFIC_SPLIT"
+
+
+class EndpointModelInfo(ResponseModel):
+    name: str | None = None
     # Use `str` instead of `Provider` enum to allow gateway backends such as Databricks to
     # support new providers without breaking the gateway client.
     provider: str
@@ -451,18 +507,14 @@ _ROUTE_EXTRA_SCHEMA = {
 }
 
 
-class Route(ConfigModel):
+class _LegacyRoute(ConfigModel):
     name: str
     route_type: str
-    model: RouteModelInfo
+    model: EndpointModelInfo
     route_url: str
-    limit: Optional[Limit] = None
+    limit: Limit | None = None
 
-    class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _ROUTE_EXTRA_SCHEMA
-        else:
-            schema_extra = _ROUTE_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_ROUTE_EXTRA_SCHEMA)
 
     def to_endpoint(self):
         from mlflow.deployments.server.config import Endpoint
@@ -477,10 +529,11 @@ class Route(ConfigModel):
 
 
 class GatewayConfig(AliasedConfigModel):
-    endpoints: list[RouteConfig]
+    endpoints: list[EndpointConfig]
+    routes: list[TrafficRouteConfig] | None = None
 
 
-def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
+def _load_gateway_config(path: str | Path) -> GatewayConfig:
     """
     Reads the gateway configuration yaml file from the storage location and returns an instance
     of the configuration RouteConfig class
@@ -503,10 +556,12 @@ def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
         ) from e
 
 
-def _save_route_config(config: GatewayConfig, path: Union[str, Path]) -> None:
+def _save_route_config(config: GatewayConfig, path: str | Path) -> None:
     if isinstance(path, str):
         path = Path(path)
-    path.write_text(yaml.safe_dump(json.loads(json.dumps(config.dict(), default=pydantic_encoder))))
+    path.write_text(
+        yaml.safe_dump(json.loads(json.dumps(config.model_dump(), default=pydantic_encoder)))
+    )
 
 
 def _validate_config(config_path: str) -> GatewayConfig:
@@ -514,6 +569,6 @@ def _validate_config(config_path: str) -> GatewayConfig:
         raise MlflowException.invalid_parameter_value(f"{config_path} does not exist")
 
     try:
-        return _load_route_config(config_path)
-    except ValidationError as e:
+        return _load_gateway_config(config_path)
+    except Exception as e:
         raise MlflowException.invalid_parameter_value(f"Invalid gateway configuration: {e}") from e

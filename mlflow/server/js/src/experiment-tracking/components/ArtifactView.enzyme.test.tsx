@@ -5,8 +5,9 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
-import { Typography } from '@databricks/design-system';
+import { DesignSystemProvider, Typography } from '@databricks/design-system';
 import { shallowWithIntl, mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ArtifactView, ArtifactViewImpl } from './ArtifactView';
 import ShowArtifactTextView from './artifact-view-components/ShowArtifactTextView';
@@ -51,15 +52,19 @@ describe('ArtifactView', () => {
   const getWrapper = (fakeStore: any, mockProps: any) =>
     mountWithIntl(
       <Provider store={fakeStore}>
-        <BrowserRouter>
-          <ArtifactView {...mockProps} />
-        </BrowserRouter>
+        <DesignSystemProvider>
+          <BrowserRouter>
+            <ArtifactView {...mockProps} />
+          </BrowserRouter>
+        </DesignSystemProvider>
       </Provider>,
     );
   beforeEach(() => {
     // TODO: remove global fetch mock by explicitly mocking all the service API calls
-    // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
-    global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
+    jest
+      .spyOn(global, 'fetch')
+      // @ts-expect-error TS(2322): Type 'Mock<Promise<{ ok: true; status: number; tex... Remove this comment to see the full error message
+      .mockImplementation(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     const node = getTestArtifactNode();
     minimalProps = {
       runUuid: 'fakeUuid',
