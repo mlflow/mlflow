@@ -69,6 +69,18 @@ const ScorersTabConfig = {
   getRoute: (experimentId: string) => Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Judges),
 };
 
+const LabelingSessionsTabConfig = {
+  label: (
+    <FormattedMessage
+      defaultMessage="Labeling sessions"
+      description="Label for the labeling sessions tab in the MLflow experiment navbar"
+    />
+  ),
+  icon: <UserIcon />,
+  getRoute: (experimentId: string) =>
+    Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.LabelingSessions),
+};
+
 export type GenAIExperimentTabConfigMapProps = {
   includeRunsTab?: boolean;
 };
@@ -81,6 +93,7 @@ export const getGenAIExperimentTabConfigMap = ({
   [ExperimentPageTabName.EvaluationRuns]: EvaluationsTabConfig,
   [ExperimentPageTabName.Models]: ModelsTabConfig,
   ...(enableScorersUI() && { [ExperimentPageTabName.Judges]: ScorersTabConfig }),
+  [ExperimentPageTabName.LabelingSessions]: LabelingSessionsTabConfig,
 });
 
 export const getGenAIExperimentWithPromptsTabConfigMap = ({
@@ -90,6 +103,7 @@ export const getGenAIExperimentWithPromptsTabConfigMap = ({
   [ExperimentPageTabName.Traces]: TracesTabConfig,
   [ExperimentPageTabName.Models]: ModelsTabConfig,
   ...(enableScorersUI() && { [ExperimentPageTabName.Judges]: ScorersTabConfig }),
+  [ExperimentPageTabName.LabelingSessions]: LabelingSessionsTabConfig,
 });
 
 export const GenAIExperimentWithPromptsTabConfigMap = getGenAIExperimentTabConfigMap();
