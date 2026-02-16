@@ -4654,13 +4654,13 @@ message Scorer {
 // Status enum for labeling session items.
 enum LabelingSessionItemStatus {
   // Item is pending labeling.
-  PENDING = 1;
+  LABELING_ITEM_PENDING = 1;
   // Item labeling is in progress.
-  IN_PROGRESS = 2;
+  LABELING_ITEM_IN_PROGRESS = 2;
   // Item labeling is completed.
-  COMPLETED = 3;
+  LABELING_ITEM_COMPLETED = 3;
   // Item was skipped.
-  SKIPPED = 4;
+  LABELING_ITEM_SKIPPED = 4;
 }
 
 // Labeling session entity.
