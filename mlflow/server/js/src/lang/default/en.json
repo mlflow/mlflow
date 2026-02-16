@@ -4113,6 +4113,10 @@
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
   },
+  "SJciqt": {
+    "defaultMessage": "Scroll to zoom, drag background to pan, drag nodes to reposition",
+    "description": "Navigation hint for graph view"
+  },
   "SJk8DQ": {
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for pre-built LLM judge type filter option"
@@ -6358,10 +6362,6 @@
   "hWHLjo": {
     "defaultMessage": "True",
     "description": "Label for an assessment with a 'true' boolean value"
-  },
-  "hWLYiI": {
-    "defaultMessage": "Scroll to zoom, drag to pan",
-    "description": "Navigation hint for graph view"
   },
   "hYrjzD": {
     "defaultMessage": "Create",

@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ReactFlow, useReactFlow, useNodesInitialized, ReactFlowProvider } from '@xyflow/react';
+import {
+  ReactFlow,
+  useReactFlow,
+  useNodesInitialized,
+  ReactFlowProvider,
+  applyNodeChanges,
+  type OnNodesChange,
+} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useDesignSystemTheme } from '@databricks/design-system';
 
@@ -46,13 +53,14 @@ const GraphViewWorkflowCanvasInner = ({
     onViewSpanDetailsRef.current(span);
   }, []);
 
-  // Convert layout nodes to React Flow nodes
-  const nodes: WorkflowFlowNode[] = useMemo(() => {
+  // Build React Flow nodes from layout, stored in state to support dragging
+  const buildFlowNodes = useCallback((): WorkflowFlowNode[] => {
     return layout.nodes.map(
       (node): WorkflowFlowNode => ({
         id: node.id,
         type: 'workflowNode',
         position: { x: node.x, y: node.y },
+        draggable: true,
         data: {
           displayName: node.displayName,
           nodeType: node.nodeType,
@@ -65,6 +73,43 @@ const GraphViewWorkflowCanvasInner = ({
       }),
     );
   }, [layout.nodes, selectedNodeId, highlightedPathNodeIds, stableOnViewSpanDetails]);
+
+  const [nodes, setNodes] = useState<WorkflowFlowNode[]>(buildFlowNodes);
+
+  // Update nodes when layout or selection changes, preserving user-dragged positions
+  const layoutVersionRef = useRef(0);
+  const prevLayoutRef = useRef(layout);
+  useEffect(() => {
+    const layoutChanged = prevLayoutRef.current !== layout;
+    prevLayoutRef.current = layout;
+
+    if (layoutChanged) {
+      // Full layout change: reset positions from the new layout
+      layoutVersionRef.current++;
+      setNodes(buildFlowNodes());
+    } else {
+      // Only selection/highlight changed: update data but keep current positions
+      setNodes((prev) =>
+        prev.map((flowNode) => {
+          const layoutNode = nodeMap.get(flowNode.id);
+          if (!layoutNode) return flowNode;
+          return {
+            ...flowNode,
+            data: {
+              ...flowNode.data,
+              isSelected: flowNode.id === selectedNodeId,
+              isOnHighlightedPath: highlightedPathNodeIds.has(flowNode.id),
+            },
+          };
+        }),
+      );
+    }
+  }, [layout, selectedNodeId, highlightedPathNodeIds, buildFlowNodes, nodeMap]);
+
+  // Handle node changes (drag, select, etc.) to persist dragged positions
+  const onNodesChange: OnNodesChange<WorkflowFlowNode> = useCallback((changes) => {
+    setNodes((nds) => applyNodeChanges(changes, nds));
+  }, []);
 
   // Convert layout edges to React Flow edges
   const edges: WorkflowFlowEdge[] = useMemo(() => {
@@ -89,7 +134,7 @@ const GraphViewWorkflowCanvasInner = ({
   const nodesInitialized = useNodesInitialized();
   useEffect(() => {
     if (nodesInitialized && layout.nodes.length > 0) {
-      fitView({ padding: 0.15, duration: 200 });
+      fitView({ padding: 0.2, duration: 200 });
     }
   }, [nodesInitialized, layout.nodes.length, layout.width, layout.height, fitView]);
 
@@ -115,12 +160,14 @@ const GraphViewWorkflowCanvasInner = ({
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        onNodesChange={onNodesChange}
         nodeTypes={workflowNodeTypes}
         edgeTypes={workflowEdgeTypes}
         onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
+        nodesDraggable
         fitView
-        fitViewOptions={{ padding: 0.15 }}
+        fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}
         maxZoom={3}
         defaultEdgeOptions={{

@@ -319,7 +319,7 @@ export const GraphView = ({ className }: GraphViewProps) => {
             </Typography.Text>
             <Typography.Text size="sm" color="secondary">
               <FormattedMessage
-                defaultMessage="Scroll to zoom, drag to pan"
+                defaultMessage="Scroll to zoom, drag background to pan, drag nodes to reposition"
                 description="Navigation hint for graph view"
               />
             </Typography.Text>
