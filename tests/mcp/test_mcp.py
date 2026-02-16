@@ -15,7 +15,10 @@ async def client() -> AsyncIterator[Client]:
     transport = StdioTransport(
         command=sys.executable,
         args=[server.__file__],
-        env={"MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()},
+        env={
+            "MLFLOW_TRACKING_URI": mlflow.get_tracking_uri(),
+            "MLFLOW_MCP_TOOLS": "all",  # Test all tools
+        },
     )
     async with Client(transport) as client:
         yield client
@@ -25,19 +28,50 @@ async def client() -> AsyncIterator[Client]:
 async def test_list_tools(client: Client):
     tools = await client.list_tools()
     assert sorted(t.name for t in tools) == [
-        "delete_assessment",
+        "build_model_docker",
+        "create_deployment",
+        "create_deployment_endpoint",
+        "create_experiment",
+        "create_run",
+        "delete_deployment",
+        "delete_deployment_endpoint",
+        "delete_experiment",
+        "delete_run",
+        "delete_trace_assessment",
         "delete_trace_tag",
         "delete_traces",
+        "describe_run",
         "evaluate_traces",
-        "get_assessment",
+        "explain_deployment",
+        "generate_model_dockerfile",
+        "get_deployment",
+        "get_deployment_endpoint",
+        "get_experiment",
         "get_trace",
+        "get_trace_assessment",
+        "link_traces_to_run",
+        "list_deployment_endpoints",
+        "list_deployments",
+        "list_runs",
         "list_scorers",
-        "log_expectation",
-        "log_feedback",
-        "register_llm_judge",
+        "log_trace_expectation",
+        "log_trace_feedback",
+        "predict_with_deployment",
+        "predict_with_model",
+        "prepare_model_env",
+        "register_llm_judge_scorer",
+        "rename_experiment",
+        "restore_experiment",
+        "restore_run",
+        "run_deployment_locally",
+        "search_experiments",
         "search_traces",
+        "serve_model",
         "set_trace_tag",
-        "update_assessment",
+        "update_deployment",
+        "update_deployment_endpoint",
+        "update_model_pip_requirements",
+        "update_trace_assessment",
     ]
 
 
