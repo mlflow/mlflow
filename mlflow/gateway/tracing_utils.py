@@ -1,3 +1,4 @@
+import dataclasses
 import functools
 import inspect
 import logging
@@ -13,6 +14,12 @@ from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 _logger = logging.getLogger(__name__)
+
+
+@dataclasses.dataclass
+class _ProviderSpanInfo:
+    name: str
+    attributes: dict[str, Any]
 
 
 def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
@@ -56,20 +63,21 @@ _PROVIDER_SPAN_ATTRIBUTE_KEYS = [
 ]
 
 
-def _get_provider_span_attributes(gateway_trace_id: str) -> dict[str, Any]:
-    """Read attributes from the provider span within a gateway trace."""
+def _get_provider_span_info(gateway_trace_id: str) -> list[_ProviderSpanInfo]:
+    """Read name and attributes from provider spans within a gateway trace."""
     trace_manager = InMemoryTraceManager.get_instance()
+    results: list[_ProviderSpanInfo] = []
     with trace_manager.get_trace(gateway_trace_id) as trace:
         if trace is None:
-            return {}
+            return results
         for span in trace.span_dict.values():
             attrs = {}
             for key in _PROVIDER_SPAN_ATTRIBUTE_KEYS:
                 if value := span.get_attribute(key):
                     attrs[key] = value
             if attrs:
-                return attrs
-    return {}
+                results.append(_ProviderSpanInfo(name=span.name, attributes=attrs))
+    return results
 
 
 def _maybe_create_distributed_span(
@@ -86,19 +94,25 @@ def _maybe_create_distributed_span(
     if span := mlflow.get_current_active_span():
         gateway_trace_id = span.trace_id
 
-    provider_attrs = _get_provider_span_attributes(gateway_trace_id) if gateway_trace_id else {}
+    provider_infos = _get_provider_span_info(gateway_trace_id) if gateway_trace_id else []
 
     try:
         with set_tracing_context_from_http_request_headers(request_headers):
             with mlflow.start_span(
                 name=_gateway_span_name(endpoint_config),
                 span_type=SpanType.LLM,
-            ) as span:
+            ) as gw_span:
                 attrs = _gateway_span_attributes(endpoint_config)
                 if gateway_trace_id:
                     attrs[SpanAttributeKey.LINKED_GATEWAY_TRACE_ID] = gateway_trace_id
-                attrs.update(provider_attrs)
-                span.set_attributes(attrs)
+                gw_span.set_attributes(attrs)
+
+                for info in provider_infos:
+                    with mlflow.start_span(
+                        name=info.name,
+                        span_type=SpanType.LLM,
+                    ) as provider_span:
+                        provider_span.set_attributes(info.attributes)
     except Exception:
         _logger.debug("Failed to create distributed trace span for gateway call", exc_info=True)
 

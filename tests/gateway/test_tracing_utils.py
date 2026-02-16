@@ -4,8 +4,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.tracing_utils import (
-    _get_provider_span_attributes,
-    _has_traceparent,
+    _get_provider_span_info,
     aggregate_chat_stream_chunks,
     maybe_traced_gateway_call,
 )
@@ -329,30 +328,14 @@ async def test_maybe_traced_gateway_call_with_payload_kwarg(endpoint_config):
 # ---------------------------------------------------------------------------
 
 
-def test_has_traceparent_lowercase():
-    assert _has_traceparent({"traceparent": "00-abc-def-01"})
-
-
-def test_has_traceparent_uppercase():
-    assert _has_traceparent({"Traceparent": "00-abc-def-01"})
-
-
-def test_has_traceparent_missing():
-    assert not _has_traceparent({"content-type": "application/json"})
-
-
-def test_has_traceparent_empty():
-    assert not _has_traceparent({})
-
-
-def test_get_provider_span_attributes_returns_empty_for_unknown_trace():
-    assert _get_provider_span_attributes("nonexistent-trace-id") == {}
+def test_get_provider_span_info_returns_empty_for_unknown_trace():
+    assert _get_provider_span_info("nonexistent-trace-id") == []
 
 
 @pytest.mark.asyncio
-async def test_get_provider_span_attributes_reads_child_span(endpoint_config):
+async def test_get_provider_span_info_reads_child_span(endpoint_config):
     async def func_with_child_span(payload):
-        with mlflow.start_span("provider/test", span_type=SpanType.LLM) as child:
+        with mlflow.start_span("provider/openai/gpt-4", span_type=SpanType.LLM) as child:
             child.set_attributes(
                 {
                     SpanAttributeKey.CHAT_USAGE: {
@@ -376,7 +359,7 @@ async def test_get_provider_span_attributes_reads_child_span(endpoint_config):
     # After the trace is exported, spans are removed from InMemoryTraceManager,
     # so we expect empty here. The actual reading happens inside the wrapper
     # while the trace is still in memory.
-    assert _get_provider_span_attributes(gateway_trace_id) == {}
+    assert _get_provider_span_info(gateway_trace_id) == []
 
 
 # ---------------------------------------------------------------------------
@@ -394,7 +377,7 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
     )
 
     async def func_with_usage(payload):
-        with mlflow.start_span("provider/test", span_type=SpanType.LLM) as child:
+        with mlflow.start_span("provider/openai/gpt-4", span_type=SpanType.LLM) as child:
             child.set_attributes(
                 {
                     SpanAttributeKey.CHAT_USAGE: {
@@ -428,7 +411,7 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
     # The gateway trace should be separate from the agent trace
     assert gateway_trace_id != agent_trace_id
 
-    # Agent trace should contain the distributed gateway span
+    # Agent trace should contain two distributed spans (gateway + provider)
     mlflow.flush_trace_async_logging()
     agent_trace = mlflow.get_trace(agent_trace_id)
     assert agent_trace is not None
@@ -436,25 +419,31 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
     spans_by_name = {s.name: s for s in agent_trace.data.spans}
     assert "agent-root" in spans_by_name
     assert f"gateway/{ep_config.endpoint_name}" in spans_by_name
+    assert "provider/openai/gpt-4" in spans_by_name
 
+    # Gateway span: child of agent root, has endpoint attrs + link
     gw_span = spans_by_name[f"gateway/{ep_config.endpoint_name}"]
     assert gw_span.parent_id == agent_span_id
     assert gw_span.attributes.get("endpoint_id") == ep_config.endpoint_id
     assert gw_span.attributes.get("endpoint_name") == ep_config.endpoint_name
+    assert gw_span.attributes.get(SpanAttributeKey.LINKED_GATEWAY_TRACE_ID) == gateway_trace_id
 
-    # Should have a link to the gateway trace
-    linked_trace_id = gw_span.attributes.get(SpanAttributeKey.LINKED_GATEWAY_TRACE_ID)
-    assert linked_trace_id == gateway_trace_id
+    # Provider span: child of gateway span, has provider attrs
+    provider_span = spans_by_name["provider/openai/gpt-4"]
+    assert provider_span.parent_id == gw_span.span_id
+    assert provider_span.attributes.get(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "total_tokens": 15,
+    }
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "gpt-4"
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "openai"
 
-    # Should have provider attributes copied from gateway spans
-    token_usage = gw_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
-    assert token_usage == {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
-    assert gw_span.attributes.get(SpanAttributeKey.MODEL) == "gpt-4"
-    assert gw_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "openai"
-
-    # Should NOT have request/response payloads
+    # Neither span should have request/response payloads
     assert gw_span.inputs is None
     assert gw_span.outputs is None
+    assert provider_span.inputs is None
+    assert provider_span.outputs is None
 
 
 @pytest.mark.asyncio
@@ -486,7 +475,7 @@ async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_expe
     )
 
     async def mock_stream_with_usage(payload):
-        with mlflow.start_span("provider/test", span_type=SpanType.LLM) as child:
+        with mlflow.start_span("provider/openai/gpt-4", span_type=SpanType.LLM) as child:
             child.set_attributes(
                 {
                     SpanAttributeKey.CHAT_USAGE: {
@@ -524,7 +513,7 @@ async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_expe
     gateway_trace_id = gateway_traces[0].info.trace_id
     assert gateway_trace_id != agent_trace_id
 
-    # Agent trace should have the distributed gateway span
+    # Agent trace should contain two distributed spans (gateway + provider)
     mlflow.flush_trace_async_logging()
     agent_trace = mlflow.get_trace(agent_trace_id)
     assert agent_trace is not None
@@ -532,27 +521,105 @@ async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_expe
     spans_by_name = {s.name: s for s in agent_trace.data.spans}
     assert "agent-root" in spans_by_name
     assert f"gateway/{ep_config.endpoint_name}" in spans_by_name
+    assert "provider/openai/gpt-4" in spans_by_name
 
+    # Gateway span: child of agent root, has endpoint attrs + link
     gw_span = spans_by_name[f"gateway/{ep_config.endpoint_name}"]
     assert gw_span.parent_id == agent_span_id
     assert gw_span.attributes.get("endpoint_id") == ep_config.endpoint_id
     assert gw_span.attributes.get("endpoint_name") == ep_config.endpoint_name
-
-    # Should have a link to the gateway trace
     assert gw_span.attributes.get(SpanAttributeKey.LINKED_GATEWAY_TRACE_ID) == gateway_trace_id
 
-    # Should have provider attributes copied from gateway spans
-    assert gw_span.attributes.get(SpanAttributeKey.CHAT_USAGE) == {
+    # Provider span: child of gateway span, has provider attrs
+    provider_span = spans_by_name["provider/openai/gpt-4"]
+    assert provider_span.parent_id == gw_span.span_id
+    assert provider_span.attributes.get(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 20,
         "output_tokens": 10,
         "total_tokens": 30,
     }
-    assert gw_span.attributes.get(SpanAttributeKey.MODEL) == "gpt-4"
-    assert gw_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "openai"
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "gpt-4"
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "openai"
 
-    # Should NOT have request/response payloads
+    # Neither span should have request/response payloads
     assert gw_span.inputs is None
     assert gw_span.outputs is None
+    assert provider_span.inputs is None
+    assert provider_span.outputs is None
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_with_traceparent_multiple_providers(gateway_experiment_id):
+    ep_config = GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id",
+        endpoint_name="test-endpoint",
+        experiment_id=gateway_experiment_id,
+        models=[],
+    )
+
+    async def func_with_multiple_providers(payload):
+        with mlflow.start_span("provider/openai/gpt-4", span_type=SpanType.LLM) as child:
+            child.set_attributes(
+                {
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 10,
+                        "output_tokens": 5,
+                        "total_tokens": 15,
+                    },
+                    SpanAttributeKey.MODEL: "gpt-4",
+                    SpanAttributeKey.MODEL_PROVIDER: "openai",
+                }
+            )
+        with mlflow.start_span("provider/anthropic/claude-3", span_type=SpanType.LLM) as child:
+            child.set_attributes(
+                {
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 20,
+                        "output_tokens": 10,
+                        "total_tokens": 30,
+                    },
+                    SpanAttributeKey.MODEL: "claude-3",
+                    SpanAttributeKey.MODEL_PROVIDER: "anthropic",
+                }
+            )
+        return {"result": "ok"}
+
+    with mlflow.start_span("agent-root") as agent_span:
+        headers = get_tracing_context_headers_for_http_request()
+        agent_trace_id = agent_span.trace_id
+
+    traced = maybe_traced_gateway_call(
+        func_with_multiple_providers, ep_config, request_headers=headers
+    )
+    await traced({"input": "test"})
+
+    mlflow.flush_trace_async_logging()
+    agent_trace = mlflow.get_trace(agent_trace_id)
+    assert agent_trace is not None
+
+    spans_by_name = {s.name: s for s in agent_trace.data.spans}
+    gw_span = spans_by_name[f"gateway/{ep_config.endpoint_name}"]
+
+    # Both provider spans should be children of the gateway span
+    provider_openai = spans_by_name["provider/openai/gpt-4"]
+    assert provider_openai.parent_id == gw_span.span_id
+    assert provider_openai.attributes.get(SpanAttributeKey.MODEL) == "gpt-4"
+    assert provider_openai.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "openai"
+    assert provider_openai.attributes.get(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "total_tokens": 15,
+    }
+
+    provider_anthropic = spans_by_name["provider/anthropic/claude-3"]
+    assert provider_anthropic.parent_id == gw_span.span_id
+    assert provider_anthropic.attributes.get(SpanAttributeKey.MODEL) == "claude-3"
+    assert provider_anthropic.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
+    assert provider_anthropic.attributes.get(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 20,
+        "output_tokens": 10,
+        "total_tokens": 30,
+    }
 
 
 @pytest.mark.asyncio
