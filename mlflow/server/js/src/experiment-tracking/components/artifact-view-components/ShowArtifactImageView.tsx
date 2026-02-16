@@ -93,6 +93,7 @@ const classNames = {
   },
   imageWrapper: { display: 'inline-block' },
   image: {
+    maxWidth: '100%',
     cursor: 'pointer',
     '&:hover': {
       boxShadow: '0 0 4px gray',
