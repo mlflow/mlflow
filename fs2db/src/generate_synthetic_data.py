@@ -12,6 +12,7 @@ It must only depend on mlflow + stdlib (no local imports).
 
 import argparse
 import enum
+import logging
 import math
 import os
 import uuid
@@ -377,9 +378,9 @@ def main() -> None:
     tracking_uri = Path(output).as_uri()
     mlflow.set_tracking_uri(tracking_uri)
 
-    warnings.filterwarnings(
-        "ignore", message=".*Inferred schema contains integer.*", category=UserWarning
-    )
+    # Suppress noisy warnings and logs from mlflow internals
+    warnings.filterwarnings("ignore")
+    logging.getLogger("mlflow").setLevel(logging.ERROR)
 
     size: Size = args.size
     cfg = SIZES[size]

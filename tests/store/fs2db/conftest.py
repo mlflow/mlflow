@@ -34,9 +34,7 @@ def clients(
 
     mlruns = _resolve_mlruns(Path(source))
     with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message=".*filesystem.*deprecated.*", category=FutureWarning
-        )
+        warnings.filterwarnings("ignore", module="mlflow")
         src = MlflowClient(tracking_uri=mlruns.as_uri())
         dst = MlflowClient(tracking_uri=target_uri)
         yield src, dst
