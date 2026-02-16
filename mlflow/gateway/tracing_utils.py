@@ -16,6 +16,8 @@ def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
         return
 
     # For passthrough endpoints with kwargs, extract the payload key
+    # This takes precedence to handle cases where functions are called with
+    # keyword arguments (e.g., action=..., payload=..., headers=...)
     if "payload" in kwargs:
         span.set_inputs(kwargs["payload"])
     # For other endpoints with a single positional argument
