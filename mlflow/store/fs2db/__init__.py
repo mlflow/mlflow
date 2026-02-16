@@ -129,8 +129,8 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
     total = len(experiments)
 
     with Session(engine) as session:
-        for i, (exp_dir, exp_id) in enumerate(experiments, 1):
-            try:
+        try:
+            for i, (exp_dir, exp_id) in enumerate(experiments, 1):
                 log(f"[{i}/{total}] Migrating experiment {exp_id}...")
                 _migrate_one_experiment(session, exp_dir, exp_id, stats)
                 _migrate_runs_in_dir(session, exp_dir, int(exp_id), stats)
@@ -141,27 +141,21 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
                 session.flush()
                 _migrate_assessments_for_experiment(session, exp_dir, stats)
                 _migrate_logged_models_for_experiment(session, exp_dir, int(exp_id), stats)
-                session.commit()
-                # Release ORM objects from the identity map to keep memory
-                # proportional to one experiment, not the entire FileStore.
+                session.flush()
                 session.expunge_all()
-            except Exception:
-                session.rollback()
-                log(f"[{i}/{total}] Experiment {exp_id} FAILED — rolled back")
-                raise
 
-        # Model registry is independent of experiments
-        models = list_registered_models(mlruns)
-        for j, model_dir in enumerate(models, 1):
-            try:
+            # Model registry is independent of experiments
+            models = list_registered_models(mlruns)
+            for j, model_dir in enumerate(models, 1):
                 log(f"[{j}/{len(models)}] Migrating model {model_dir.name}...")
                 _migrate_one_registered_model(session, model_dir, stats)
-                session.commit()
+                session.flush()
                 session.expunge_all()
-            except Exception:
-                session.rollback()
-                log(f"[{j}/{len(models)}] Model {model_dir.name} FAILED — rolled back")
-                raise
+
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
 
     log("")
     log("Migration completed successfully!")
