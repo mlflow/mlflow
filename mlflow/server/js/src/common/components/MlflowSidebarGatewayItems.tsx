@@ -5,7 +5,8 @@ import { matchPath } from '../utils/RoutingUtils';
 import type { Location } from '../utils/RoutingUtils';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 
-const isEndpointsActive = (location: Location) => Boolean(matchPath('/gateway', location.pathname));
+const isEndpointsActive = (location: Location) =>
+  Boolean(matchPath('/gateway', location.pathname)) || Boolean(matchPath('/gateway/endpoints/*', location.pathname));
 const isUsageActive = (location: Location) => Boolean(matchPath('/gateway/usage', location.pathname));
 const isApiKeysActive = (location: Location) => Boolean(matchPath('/gateway/api-keys', location.pathname));
 

@@ -33,7 +33,7 @@ import { useAssistant } from '../../assistant/AssistantContext';
 import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { MlflowLogo } from './MlflowLogo';
-import { HomePageDocsUrl, GenAIDocsUrl, MLDocsUrl, Version } from '../constants';
+import { DOCS_ROOT, GenAIDocsUrl, MLDocsUrl, Version } from '../constants';
 import { WorkspaceSelector } from '../../workspaces/components/WorkspaceSelector';
 import { MlflowSidebarExperimentItems } from './MlflowSidebarExperimentItems';
 import { MlflowSidebarGatewayItems } from './MlflowSidebarGatewayItems';
@@ -240,7 +240,7 @@ export function MlflowSidebar({
     ? workflowType === WorkflowType.GENAI
       ? GenAIDocsUrl
       : MLDocsUrl
-    : HomePageDocsUrl;
+    : DOCS_ROOT;
 
   return (
     <aside
@@ -281,6 +281,18 @@ export function MlflowSidebar({
         />
       </div>
       {workspacesEnabled && showSidebar && <WorkspaceSelector />}
+      {workspacesEnabled && !showWorkspaceMenuItems && (
+        <MlflowSidebarLink
+          key="mlflow.sidebar.workspace_home_link"
+          to={ExperimentTrackingRoutes.rootRoute}
+          componentId="mlflow.sidebar.workspace_home_link"
+          isActive={isHomeActive}
+          icon={<HomeIcon />}
+          collapsed={!showSidebar}
+        >
+          <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />
+        </MlflowSidebarLink>
+      )}
       {enableWorkflowBasedNavigation && showWorkspaceMenuItems && showSidebar && (
         <MlflowSidebarWorkflowSwitch workflowType={workflowType} setWorkflowType={setWorkflowType} />
       )}
@@ -340,7 +352,6 @@ export function MlflowSidebar({
                   borderRadius: theme.borders.borderRadiusMd - 2,
                   justifyContent: showSidebar ? 'flex-start' : 'center',
                   cursor: 'pointer',
-                  background: theme.colors.backgroundSecondary,
                   color: isPanelOpen ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
                   '&:hover': {
                     color: theme.colors.actionLinkHover,
@@ -386,7 +397,6 @@ export function MlflowSidebar({
             </span>
           </MlflowSidebarLink>
           <MlflowSidebarLink
-            disableWorkspacePrefix
             css={{ paddingBlock: theme.spacing.sm }}
             to={ExperimentTrackingRoutes.settingsPageRoute}
             componentId="mlflow.sidebar.settings_tab_link"
