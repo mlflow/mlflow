@@ -378,17 +378,13 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
         agent_span_id = agent_span.span_id
 
     # Step 2: Gateway processes request (no active agent span, simulating separate server)
-    traced = maybe_traced_gateway_call(
-        func_with_usage, ep_config, request_headers=headers
-    )
+    traced = maybe_traced_gateway_call(func_with_usage, ep_config, request_headers=headers)
     result = await traced({"input": "test"})
 
     assert result == {"result": "ok"}
 
     # Gateway trace should exist in the gateway experiment
-    gateway_traces = TracingClient().search_traces(
-        locations=[gateway_experiment_id]
-    )
+    gateway_traces = TracingClient().search_traces(locations=[gateway_experiment_id])
     assert len(gateway_traces) == 1
     gateway_trace_id = gateway_traces[0].info.trace_id
 
@@ -477,9 +473,7 @@ async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_expe
     assert len(chunks) == 2
 
     # Gateway trace should exist
-    gateway_traces = TracingClient().search_traces(
-        locations=[gateway_experiment_id]
-    )
+    gateway_traces = TracingClient().search_traces(locations=[gateway_experiment_id])
     assert len(gateway_traces) == 1
     gateway_trace_id = gateway_traces[0].info.trace_id
     assert gateway_trace_id != agent_trace_id

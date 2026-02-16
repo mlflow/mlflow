@@ -62,9 +62,7 @@ def _create_distributed_span(
                 if token_usage:
                     span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
     except Exception:
-        _logger.debug(
-            "Failed to create distributed trace span for gateway call", exc_info=True
-        )
+        _logger.debug("Failed to create distributed trace span for gateway call", exc_info=True)
 
 
 def _maybe_create_distributed_span(
