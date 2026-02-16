@@ -36,7 +36,7 @@ export function GenAiTracesTableSearchInput({
       placeholder={
         placeholder ??
         intl.formatMessage({
-          defaultMessage: 'Search traces by request',
+          defaultMessage: 'Search traces by request & response',
           description: 'Placeholder text for the search input in the trace results table',
         })
       }
