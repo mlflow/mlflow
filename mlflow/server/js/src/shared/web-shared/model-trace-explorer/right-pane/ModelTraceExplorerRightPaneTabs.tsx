@@ -16,6 +16,7 @@ import { getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceEx
 import { ModelTraceExplorerBadge } from '../ModelTraceExplorerBadge';
 import ModelTraceExplorerResizablePane from '../ModelTraceExplorerResizablePane';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { AddToDatasetButton } from '../assessments-pane/AddToDatasetButton';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { AssessmentsPane } from '../assessments-pane/AssessmentsPane';
 import { ASSESSMENT_PANE_MIN_WIDTH } from '../assessments-pane/AssessmentsPane.utils';
@@ -95,8 +96,12 @@ function ModelTraceExplorerRightPaneTabsImpl({
             top: theme.spacing.xs,
             zIndex: 1,
             backgroundColor: theme.colors.backgroundPrimary,
+            display: 'flex',
+            gap: theme.spacing.sm,
+            alignItems: 'center',
           }}
         >
+          <AddToDatasetButton />
           <AssessmentPaneToggle />
         </div>
       )}

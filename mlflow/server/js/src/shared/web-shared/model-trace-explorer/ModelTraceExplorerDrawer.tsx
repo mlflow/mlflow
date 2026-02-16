@@ -5,13 +5,11 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
-  PlusIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
-import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
+import { ModelTraceExplorerAddToDatasetProvider, useModelTraceExplorerContext } from './ModelTraceExplorerContext';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
 
 export interface ModelTraceExplorerDrawerProps {
@@ -103,18 +101,6 @@ export const ModelTraceExplorerDrawer = ({
               <ChevronRightIcon />
             </Button>
             <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
-            {showAddToDatasetButton && (
-              <Button
-                componentId="mlflow.evaluations_review.modal.add_to_evaluation_dataset"
-                onClick={() => setShowDatasetModal(true)}
-                icon={<PlusIcon />}
-              >
-                <FormattedMessage
-                  defaultMessage="Add to dataset"
-                  description="Button text for adding a trace to a evaluation dataset"
-                />
-              </Button>
-            )}
           </div>
         }
         expandContentToFullHeight
@@ -135,7 +121,15 @@ export const ModelTraceExplorerDrawer = ({
         ]}
       >
         <ApplyDesignSystemContextOverrides zIndexBase={2 * theme.options.zIndexBase}>
-          {isLoading ? <ModelTraceExplorerSkeleton /> : <>{children}</>}
+          {isLoading ? (
+            <ModelTraceExplorerSkeleton />
+          ) : showAddToDatasetButton ? (
+            <ModelTraceExplorerAddToDatasetProvider openModal={() => setShowDatasetModal(true)}>
+              {children}
+            </ModelTraceExplorerAddToDatasetProvider>
+          ) : (
+            <>{children}</>
+          )}
         </ApplyDesignSystemContextOverrides>
         {renderExportTracesToDatasetsModal?.({
           selectedTraceInfos: traceInfo ? [traceInfo] : [],
