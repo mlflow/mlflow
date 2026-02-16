@@ -41,8 +41,7 @@ class LabelingSession:
     """A session for labeling items in the review app.
 
     .. note::
-        This functionality is only available in Databricks. Please run
-        `pip install mlflow[databricks]` to use it.
+        Available in both OSS MLflow and Databricks. Some features are Databricks-only.
     """
 
     def __init__(
@@ -53,21 +52,21 @@ class LabelingSession:
         agent: str | None,
         label_schemas: list[str],
         labeling_session_id: str,
-        mlflow_run_id: str,
-        review_app_id: str,
         experiment_id: str,
-        url: str,
-        enable_multi_turn_chat: bool,
-        custom_inputs: dict[str, Any] | None,
+        mlflow_run_id: str | None = None,
+        review_app_id: str | None = None,
+        url: str | None = None,
+        enable_multi_turn_chat: bool = False,
+        custom_inputs: dict[str, Any] | None = None,
     ):
         self._name = name
         self._assigned_users = assigned_users
         self._agent = agent
         self._label_schemas = label_schemas
         self._labeling_session_id = labeling_session_id
+        self._experiment_id = experiment_id
         self._mlflow_run_id = mlflow_run_id
         self._review_app_id = review_app_id
-        self._experiment_id = experiment_id
         self._url = url
         self._enable_multi_turn_chat = enable_multi_turn_chat
         self._custom_inputs = custom_inputs
@@ -98,13 +97,13 @@ class LabelingSession:
         return self._labeling_session_id
 
     @property
-    def mlflow_run_id(self) -> str:
-        """The MLflow run ID associated with the session."""
+    def mlflow_run_id(self) -> str | None:
+        """The MLflow run ID associated with the session (Databricks only)."""
         return self._mlflow_run_id
 
     @property
-    def review_app_id(self) -> str:
-        """The review app ID associated with the session."""
+    def review_app_id(self) -> str | None:
+        """The review app ID associated with the session (Databricks only)."""
         return self._review_app_id
 
     @property
@@ -113,8 +112,8 @@ class LabelingSession:
         return self._experiment_id
 
     @property
-    def url(self) -> str:
-        """The URL of the labeling session in the review app."""
+    def url(self) -> str | None:
+        """The URL of the labeling session in the review app (Databricks only)."""
         return self._url
 
     @property
