@@ -20,6 +20,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
+from mlflow.tracing.session_context import _get_session_id_for_trace
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
     aggregate_cost_from_spans,
@@ -138,6 +139,11 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
             metadata[TraceMetadataKey.MODEL_ID] = active_model_id
         elif model_id := maybe_get_logged_model_id():
             metadata[TraceMetadataKey.MODEL_ID] = model_id
+
+        # Capture session ID from the session context if set. This allows grouping
+        # related traces (e.g., multi-turn conversations) into logical sessions.
+        if session_id := _get_session_id_for_trace():
+            metadata[TraceMetadataKey.TRACE_SESSION] = session_id
 
         return metadata
 

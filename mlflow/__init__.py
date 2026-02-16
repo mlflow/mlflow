@@ -188,6 +188,11 @@ from mlflow.tracing.fluent import (
     trace,
     update_current_trace,
 )
+from mlflow.tracing.session_context import (
+    get_session_id,
+    set_session,
+    set_session_id,
+)
 from mlflow.tracking import (
     get_tracking_uri,
     is_tracking_uri_set,
@@ -223,6 +228,10 @@ __all__ = [
     "start_span_no_context",
     "trace",
     "update_current_trace",
+    # Session context APIs
+    "get_session_id",
+    "set_session",
+    "set_session_id",
     # Assessment APIs
     "get_assessment",
     "delete_assessment",
