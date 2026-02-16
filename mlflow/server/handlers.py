@@ -2630,7 +2630,14 @@ def _create_model_version():
     is_prompt = _is_prompt_request(request_message)
     if is_prompt:
         # Prompt sources must not point to local filesystem paths
-        if is_local_uri(request_message.source, is_tracking_or_registry_uri=False):
+        try:
+            is_local = is_local_uri(request_message.source, is_tracking_or_registry_uri=False)
+        except MlflowException as exc:
+            raise MlflowException(
+                f"Invalid model version source: '{request_message.source}'. {exc}",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from exc
+        if is_local:
             raise MlflowException(
                 f"Invalid model version source: '{request_message.source}'. "
                 "Local source paths are not allowed for prompts.",

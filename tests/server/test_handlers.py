@@ -778,6 +778,8 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
         "file:///",
         "/etc/passwd",
         "file:///proc/self/environ",
+        "file://remote-host/etc/passwd",
+        "file://remote-host/",
     ],
 )
 def test_create_model_version_rejects_local_source_for_prompts(
@@ -791,7 +793,28 @@ def test_create_model_version_rejects_local_source_for_prompts(
     resp = _create_model_version()
     assert resp.status_code == 400
     data = json.loads(resp.get_data())
-    assert "Local source paths are not allowed for prompts" in data["message"]
+    assert "Invalid model version source" in data["message"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "https://example.com/../../etc/passwd",
+        "http://example.com/path/..%2f..%2fsecret",
+    ],
+)
+def test_create_model_version_rejects_traversal_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    data = json.loads(resp.get_data())
+    assert "Invalid model version source" in data["message"]
 
 
 def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):
