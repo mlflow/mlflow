@@ -126,8 +126,14 @@ def migrate_runs(session: Session, mlruns: Path, stats: MigrationStats) -> None:
 
 
 def _migrate_runs_in_dir(
-    session: Session, exp_dir: Path, exp_id: int, stats: MigrationStats
+    session: Session,
+    exp_dir: Path,
+    exp_id: int,
+    stats: MigrationStats,
+    *,
+    batch_size: int = 1000,
 ) -> None:
+    count = 0
     for name in list_subdirs(exp_dir):
         if name in RESERVED_FOLDERS:
             continue
@@ -135,6 +141,10 @@ def _migrate_runs_in_dir(
         if not (run_dir / FileStore.META_DATA_FILE_NAME).is_file():
             continue
         _migrate_one_run(session, run_dir, exp_id, stats)
+        count += 1
+        if count % batch_size == 0:
+            session.flush()
+            session.expunge_all()
 
 
 def _migrate_one_run(session: Session, run_dir: Path, exp_id: int, stats: MigrationStats) -> None:
@@ -404,12 +414,18 @@ def _parse_timestamp_ms(request_time: str) -> int:
 
 
 def _migrate_traces_for_experiment(
-    session: Session, exp_dir: Path, exp_id: int, stats: MigrationStats
+    session: Session,
+    exp_dir: Path,
+    exp_id: int,
+    stats: MigrationStats,
+    *,
+    batch_size: int = 1000,
 ) -> None:
     traces_dir = exp_dir / FileStore.TRACES_FOLDER_NAME
     if not traces_dir.is_dir():
         return
 
+    count = 0
     for trace_dir_name in list_subdirs(traces_dir):
         trace_dir = traces_dir / trace_dir_name
         if not (trace_dir / FileStore.TRACE_INFO_FILE_NAME).is_file():
@@ -476,6 +492,11 @@ def _migrate_traces_for_experiment(
                 )
             )
             stats.trace_metadata += 1
+
+        count += 1
+        if count % batch_size == 0:
+            session.flush()
+            session.expunge_all()
 
 
 def migrate_assessments(session: Session, mlruns: Path, stats: MigrationStats) -> None:
