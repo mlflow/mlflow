@@ -16,8 +16,21 @@ _logger = logging.getLogger(__name__)
 
 
 def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
-    """Unwrap single-argument inputs so trace shows the request body directly"""
-    if len(args) == 1 and not kwargs and (span := mlflow.get_current_active_span()):
+    """Unwrap inputs so trace shows the request body directly.
+
+    Extracts the payload kwarg if present, otherwise unwraps single-argument inputs.
+    """
+    span = mlflow.get_current_active_span()
+    if not span:
+        return
+
+    # For passthrough endpoints with kwargs, extract the payload key
+    # This takes precedence to handle cases where functions are called with
+    # keyword arguments (e.g., action=..., payload=..., headers=...)
+    if "payload" in kwargs:
+        span.set_inputs(kwargs["payload"])
+    # For other endpoints with a single positional argument
+    elif len(args) == 1 and not kwargs:
         span.set_inputs(args[0])
 
 

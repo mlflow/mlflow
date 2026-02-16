@@ -301,6 +301,29 @@ async def test_maybe_traced_gateway_call_with_output_reducer(endpoint_config):
     assert output["usage"]["total_tokens"] == 7
 
 
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_with_payload_kwarg(endpoint_config):
+    async def mock_passthrough_func(action, payload, headers=None):
+        return {"result": "success", "action": action, "payload": payload}
+
+    traced_func = maybe_traced_gateway_call(mock_passthrough_func, endpoint_config)
+    result = await traced_func(
+        action="test_action", payload={"messages": [{"role": "user", "content": "hi"}]}, headers={}
+    )
+
+    assert result["result"] == "success"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
+
+    # Input should be unwrapped to just the payload dict
+    assert gateway_span.inputs == {"messages": [{"role": "user", "content": "hi"}]}
+
+
 # ---------------------------------------------------------------------------
 # Tests for distributed tracing helpers
 # ---------------------------------------------------------------------------
