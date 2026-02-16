@@ -11,7 +11,15 @@ from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 
 def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
     """Unwrap single-argument inputs so trace shows the request body directly"""
-    if len(args) == 1 and not kwargs and (span := mlflow.get_current_active_span()):
+    span = mlflow.get_current_active_span()
+    if not span:
+        return
+
+    # For passthrough endpoints with kwargs, extract the payload key
+    if "payload" in kwargs:
+        span.set_inputs(kwargs["payload"])
+    # For other endpoints with a single positional argument
+    elif len(args) == 1 and not kwargs:
         span.set_inputs(args[0])
 
 
