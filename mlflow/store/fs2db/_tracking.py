@@ -40,8 +40,6 @@ from sqlalchemy.orm import Session
 
 from mlflow.entities import RunStatus
 from mlflow.entities.logged_model_status import LoggedModelStatus
-
-_logger = logging.getLogger(__name__)
 from mlflow.store.fs2db._utils import (
     META_YAML,
     MigrationStats,
@@ -72,6 +70,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 def migrate_experiments(session: Session, mlruns: Path, stats: MigrationStats) -> None:
