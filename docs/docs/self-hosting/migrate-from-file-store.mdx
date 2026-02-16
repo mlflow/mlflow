@@ -23,16 +23,16 @@ This reads all data from the `./mlruns` directory and writes it to a new SQLite 
 
 The migration tool transfers **all metadata** stored in the file-based backend:
 
-| Category       | Entities                                              |
-| -------------- | ----------------------------------------------------- |
-| Experiments    | Experiments, experiment tags                          |
-| Runs           | Runs, params, metrics, latest metrics, tags           |
-| Datasets       | Datasets, inputs, input tags                          |
+| Category       | Entities                                                |
+| -------------- | ------------------------------------------------------- |
+| Experiments    | Experiments, experiment tags                            |
+| Runs           | Runs, params, metrics, latest metrics, tags             |
+| Datasets       | Datasets, inputs, input tags                            |
 | Run I/O        | Model inputs (run → model), model outputs (run → model) |
-| Traces         | Trace info, trace tags, trace request metadata        |
-| Assessments    | Assessments (feedback, expectations)                  |
-| Logged Models  | Logged models, tags                                   |
-| Model Registry | Registered models, model versions, tags, aliases      |
+| Traces         | Trace info, trace tags, trace request metadata          |
+| Assessments    | Assessments (feedback, expectations)                    |
+| Logged Models  | Logged models, tags                                     |
+| Model Registry | Registered models, model versions, tags, aliases        |
 
 ### What Is NOT Migrated
 
