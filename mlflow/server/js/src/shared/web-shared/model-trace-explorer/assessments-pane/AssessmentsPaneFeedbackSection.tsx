@@ -82,7 +82,7 @@ const AddFeedbackButton = ({
             >
               <FormattedMessage
                 defaultMessage="Add feedback"
-                description="Label for the button to add a new feedback"
+                description="Label for the button to add new feedback"
               />
             </Button>
           </DropdownMenu.Trigger>
@@ -90,7 +90,7 @@ const AddFeedbackButton = ({
             <DropdownMenu.Item componentId="mlflow.model-trace-explorer.add-human-feedback" onClick={onClick}>
               <FormattedMessage
                 defaultMessage="Human feedback"
-                description="Label for the button to add a human feedback to the trace"
+                description="Label for the button to add human feedback to the trace"
               />
             </DropdownMenu.Item>
             <DropdownMenu.Item
@@ -99,7 +99,7 @@ const AddFeedbackButton = ({
             >
               <FormattedMessage
                 defaultMessage="LLM judge feedback"
-                description="Label for the button to add a LLM judge feedback to the trace"
+                description="Label for the button to add LLM judge feedback to the trace"
               />
             </DropdownMenu.Item>
           </DropdownMenu.Content>
@@ -121,7 +121,7 @@ const AddFeedbackButton = ({
       icon={<PlusIcon />}
       onClick={onClick}
     >
-      <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add a new feedback" />
+      <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add new feedback" />
     </Button>
   );
 };
@@ -296,8 +296,8 @@ export const AssessmentsPaneFeedbackSection = ({
         >
           <Typography.Hint>
             <FormattedMessage
-              defaultMessage="Add a custom feedback to this trace."
-              description="Hint message prompting user to add a new feedback"
+              defaultMessage="Add custom feedback to this trace."
+              description="Hint message prompting user to add new feedback"
             />{' '}
             <Typography.Link
               componentId="shared.model-trace-explorer.feedback-learn-more-link"
