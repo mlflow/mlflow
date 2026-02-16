@@ -45,6 +45,8 @@ def invoke_judge_model(
     response_format: type[pydantic.BaseModel] | None = None,
     use_case: str | None = None,
     inference_params: dict[str, Any] | None = None,
+    proxy_url: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     Invoke the judge model.
@@ -69,6 +71,10 @@ def invoke_judge_model(
         inference_params: Optional dictionary of inference parameters to pass to the
             model (e.g., temperature, top_p, max_tokens). These parameters allow
             fine-grained control over the model's behavior during evaluation.
+        proxy_url: Optional proxy URL to route requests through. When specified, all
+            requests to the LLM provider will be routed through this URL.
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the LLM provider.
 
     Returns:
         Feedback object with the judge's assessment.
@@ -87,6 +93,8 @@ def invoke_judge_model(
         response_format=response_format,
         use_case=use_case,
         inference_params=inference_params,
+        proxy_url=proxy_url,
+        extra_headers=extra_headers,
     )
 
     output = adapter.invoke(input_params)

@@ -388,6 +388,15 @@ class DatabricksManagedJudgeAdapter(BaseJudgeAdapter):
         return model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        if input_params.proxy_url is not None or input_params.extra_headers is not None:
+            from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+            raise MlflowException(
+                "proxy_url and extra_headers are not supported for Databricks Managed Judge. "
+                "The endpoint is determined by Databricks workspace configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         feedback = _invoke_databricks_default_judge(
             prompt=input_params.prompt,
             assessment_name=input_params.assessment_name,

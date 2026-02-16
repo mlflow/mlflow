@@ -145,8 +145,34 @@ def list_scorers(
     required=False,
     help="Description of what the judge evaluates.",
 )
+@click.option(
+    "--proxy-url",
+    type=click.STRING,
+    required=False,
+    help=(
+        "Proxy URL to route requests through. Useful for enterprise environments "
+        "requiring LLM access through internal gateways or security proxies. "
+        "Note: This value is not persisted when the judge is registered."
+    ),
+)
+@click.option(
+    "--extra-headers",
+    type=click.STRING,
+    required=False,
+    help=(
+        "JSON string of additional HTTP headers to include in requests to the LLM provider. "
+        'Example: \'{"X-API-Key": "secret"}\'. '
+        "Note: This value is not persisted when the judge is registered."
+    ),
+)
 def register_llm_judge(
-    name: str, instructions: str, model: str | None, experiment_id: str, description: str | None
+    name: str,
+    instructions: str,
+    model: str | None,
+    experiment_id: str,
+    description: str | None,
+    proxy_url: str | None,
+    extra_headers: str | None,
 ) -> None:
     """
     Register an LLM judge scorer in the specified experiment.
@@ -180,12 +206,29 @@ def register_llm_judge(
         mlflow scorers register-llm-judge -n my_judge \\
             -i "Check whether {{ outputs }} contains PII"
     """
+    parsed_extra_headers = None
+    if extra_headers is not None:
+        try:
+            parsed_extra_headers = json.loads(extra_headers)
+            if not isinstance(parsed_extra_headers, dict):
+                raise click.BadParameter(
+                    "--extra-headers must be a JSON object (dictionary).",
+                    param_hint="--extra-headers",
+                )
+        except json.JSONDecodeError as e:
+            raise click.BadParameter(
+                f"--extra-headers must be valid JSON: {e}",
+                param_hint="--extra-headers",
+            ) from e
+
     judge = make_judge(
         name=name,
         instructions=instructions,
         model=model,
         description=description,
         feedback_value_type=str,
+        proxy_url=proxy_url,
+        extra_headers=parsed_extra_headers,
     )
     registered_judge = judge.register(experiment_id=experiment_id)
     click.echo(

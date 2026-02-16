@@ -133,6 +133,7 @@ def _invoke_litellm(
     inference_params: dict[str, Any] | None = None,
     api_base: str | None = None,
     api_key: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> "litellm.ModelResponse":
     """
     Invoke litellm completion with retry support.
@@ -147,8 +148,10 @@ def _invoke_litellm(
         include_response_format: Whether to include response_format in the request.
         inference_params: Optional dictionary of additional inference parameters to pass
             to the model (e.g., temperature, top_p, max_tokens).
-        api_base: Optional API base URL (used for gateway routing).
-        api_key: Optional API key (used for gateway routing).
+        api_base: Optional API base URL (used for gateway routing or proxy).
+        api_key: Optional API key (used for gateway routing or proxy).
+        extra_headers: Optional dictionary of additional HTTP headers to include
+            in requests to the LLM provider.
 
     Returns:
         The litellm ModelResponse object.
@@ -178,6 +181,8 @@ def _invoke_litellm(
         kwargs["api_base"] = api_base
     if api_key is not None:
         kwargs["api_key"] = api_key
+    if extra_headers is not None:
+        kwargs["extra_headers"] = extra_headers
 
     if include_response_format:
         # LiteLLM supports passing Pydantic models directly for response_format
@@ -199,6 +204,8 @@ def _invoke_litellm_and_handle_tools(
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
+    proxy_url: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> InvokeLiteLLMOutput:
     """
     Invoke litellm with retry support and handle tool calling loop.
@@ -240,8 +247,14 @@ def _invoke_litellm_and_handle_tools(
         model = config.model
     else:
         model = f"{provider}/{model_name}"
-        api_base = None
-        api_key = None
+        if proxy_url is not None:
+            api_base = proxy_url
+            # When using a proxy, provide a dummy API key if none is set,
+            # because litellm requires an api_key for most providers.
+            api_key = "dummy"
+        else:
+            api_base = None
+            api_key = None
 
     tools = []
     if trace is not None:
@@ -286,6 +299,7 @@ def _invoke_litellm_and_handle_tools(
                     inference_params=inference_params,
                     api_base=api_base,
                     api_key=api_key,
+                    extra_headers=extra_headers,
                 )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 error_str = str(e).lower()
@@ -521,6 +535,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
         return _is_litellm_available()
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
         from mlflow.types.llm import ChatMessage
 
         messages = (
@@ -530,6 +545,17 @@ class LiteLLMAdapter(BaseJudgeAdapter):
         )
 
         is_model_provider_databricks = input_params.model_provider in ("databricks", "endpoints")
+
+        # Reject proxy_url / extra_headers for Databricks providers
+        if is_model_provider_databricks and (
+            input_params.proxy_url is not None or input_params.extra_headers is not None
+        ):
+            raise MlflowException(
+                "proxy_url and extra_headers are not supported for Databricks endpoints. "
+                "The endpoint URL is determined by Databricks workspace configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         try:
             output = _invoke_litellm_and_handle_tools(
                 provider=input_params.model_provider,
@@ -539,6 +565,8 @@ class LiteLLMAdapter(BaseJudgeAdapter):
                 num_retries=input_params.num_retries,
                 response_format=input_params.response_format,
                 inference_params=input_params.inference_params,
+                proxy_url=input_params.proxy_url,
+                extra_headers=input_params.extra_headers,
             )
 
             cleaned_response = _strip_markdown_code_blocks(output.response)

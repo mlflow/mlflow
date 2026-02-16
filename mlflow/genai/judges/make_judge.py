@@ -98,6 +98,8 @@ def make_judge(
     description: str | None = None,
     feedback_value_type: Any = None,
     inference_params: dict[str, Any] | None = None,
+    proxy_url: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Judge:
     """
 
@@ -139,6 +141,15 @@ def make_judge(
                         fine-grained control over the model's behavior during evaluation.
                         For example, setting a lower temperature can produce more
                         deterministic and reproducible evaluation results.
+        proxy_url: Optional proxy URL to route requests through. When specified, all
+                        requests to the LLM provider will be routed through this URL.
+                        This is useful when LLM access must go through an internal gateway,
+                        security proxy, or custom API endpoint.
+                        Not supported for Databricks endpoints.
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+                        requests to the LLM provider. Can be used for authentication,
+                        tracking, or other custom requirements.
+                        Not supported for Databricks endpoints.
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -241,4 +252,6 @@ def make_judge(
         description=description,
         feedback_value_type=feedback_value_type,
         inference_params=inference_params,
+        proxy_url=proxy_url,
+        extra_headers=extra_headers,
     )
