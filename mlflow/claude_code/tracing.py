@@ -16,6 +16,7 @@ from mlflow.claude_code.config import (
     get_env_var,
 )
 from mlflow.entities import SpanType
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
@@ -280,6 +281,7 @@ def _find_tool_results(
     Returns a mapping from tool_use_id to a dict with:
       - "content": the tool result content
       - "agent_id": the sub-agent ID if this is a Task tool (from toolUseResult.agentId)
+      - "is_error": True if the tool execution was rejected or errored
 
     The agentId can be found in two places depending on the transcript format:
       1. Entry-level `toolUseResult.agentId` field (real Claude Code transcripts)
@@ -315,6 +317,7 @@ def _find_tool_results(
                         tool_results[tool_use_id] = {
                             "content": result_content,
                             "agent_id": agent_id,
+                            "is_error": part.get("is_error", False),
                         }
 
         # Stop looking once we hit the next assistant response
@@ -385,12 +388,15 @@ def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
         return
 
     input_tokens = usage.get("input_tokens", 0)
+    cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0)
+    cache_read_input_tokens = usage.get("cache_read_input_tokens", 0)
     output_tokens = usage.get("output_tokens", 0)
+    total_input_tokens = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
 
     usage_dict = {
-        TokenUsageKey.INPUT_TOKENS: input_tokens,
+        TokenUsageKey.INPUT_TOKENS: total_input_tokens,
         TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
+        TokenUsageKey.TOTAL_TOKENS: total_input_tokens + output_tokens,
     }
 
     span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
@@ -581,6 +587,13 @@ def _create_llm_and_tool_spans(
                     )
 
                 tool_span.set_outputs({"result": tool_result})
+
+                is_error = tool_result_info.get("is_error", False) if isinstance(
+                    tool_result_info, dict
+                ) else False
+                if is_error:
+                    tool_span.set_status(SpanStatusCode.ERROR)
+
                 tool_span.end(end_time_ns=tool_start_ns + tool_duration_ns)
 
 
@@ -781,12 +794,16 @@ def process_transcript(
                     in_memory_trace.info.request_preview = user_prompt_text[:MAX_PREVIEW_LENGTH]
                 if final_response:
                     in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
-                in_memory_trace.info.trace_metadata = {
+                metadata = {
                     **in_memory_trace.info.trace_metadata,
                     TraceMetadataKey.TRACE_SESSION: session_id,
                     TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
                     "mlflow.trace.working_directory": os.getcwd(),
                 }
+                permission_mode = last_user_entry.get("permissionMode")
+                if permission_mode:
+                    metadata["mlflow.trace.permission_mode"] = permission_mode
+                in_memory_trace.info.trace_metadata = metadata
         except Exception as e:
             get_logger().warning("Failed to update trace metadata and previews: %s", e)
 

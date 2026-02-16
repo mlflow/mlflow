@@ -15,6 +15,7 @@ from mlflow.claude_code.tracing import (
     setup_logging,
 )
 from mlflow.entities.span import SpanType
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 
 # ============================================================================
@@ -269,7 +270,12 @@ DUMMY_TRANSCRIPT_WITH_USAGE = [
             "role": "assistant",
             "content": [{"type": "text", "text": "Hello! How can I help you today?"}],
             "model": "claude-sonnet-4-20250514",
-            "usage": {"input_tokens": 150, "output_tokens": 25},
+            "usage": {
+                "input_tokens": 10,
+                "cache_creation_input_tokens": 100,
+                "cache_read_input_tokens": 40,
+                "output_tokens": 25,
+            },
         },
         "timestamp": "2025-01-15T10:00:01.000Z",
     },
@@ -297,7 +303,7 @@ def test_process_transcript_tracks_token_usage(mock_transcript_file_with_usage):
     assert len(llm_spans) == 1
     llm_span = llm_spans[0]
 
-    # Verify token usage is tracked using the standardized CHAT_USAGE attribute
+    # input_tokens should include input + cache_creation + cache_read (10 + 100 + 40 = 150)
     token_usage = llm_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
     assert token_usage is not None
     assert token_usage["input_tokens"] == 150
@@ -661,3 +667,90 @@ def test_process_transcript_reads_subagent_from_file(mock_transcript_with_subage
     tool_names = {s.name for s in child_tool}
     assert "tool_Grep" in tool_names
     assert "tool_Read" in tool_names
+<<<<<<< HEAD
+=======
+
+
+# Transcript with a rejected tool (permission denied)
+DUMMY_TRANSCRIPT_WITH_TOOL_ERROR = [
+    {
+        "type": "user",
+        "message": {"role": "user", "content": "Delete all files"},
+        "timestamp": "2025-01-15T10:00:00.000Z",
+        "permissionMode": "default",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_rejected_001",
+                    "name": "Bash",
+                    "input": {"command": "rm -rf /"},
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:01.000Z",
+    },
+    {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "toolu_rejected_001",
+                    "content": "The user doesn't want to proceed with this tool use.",
+                    "is_error": True,
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:02.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": "I understand, I won't proceed with that."}
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:03.000Z",
+    },
+]
+
+
+@pytest.fixture
+def mock_transcript_with_tool_error(tmp_path):
+    transcript_path = tmp_path / "transcript_tool_error.jsonl"
+    with open(transcript_path, "w") as f:
+        for entry in DUMMY_TRANSCRIPT_WITH_TOOL_ERROR:
+            f.write(json.dumps(entry) + "\n")
+    return str(transcript_path)
+
+
+def test_process_transcript_marks_rejected_tool_as_error(mock_transcript_with_tool_error):
+    trace = process_transcript(mock_transcript_with_tool_error, "test-session-error")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    # Find the Bash tool span
+    tool_spans = [s for s in spans if s.name == "tool_Bash"]
+    assert len(tool_spans) == 1
+    tool_span = tool_spans[0]
+
+    # Tool span should have ERROR status
+    assert tool_span.status.status_code == SpanStatusCode.ERROR
+
+
+def test_process_transcript_captures_permission_mode(mock_transcript_with_tool_error):
+    trace = process_transcript(mock_transcript_with_tool_error, "test-session-perm")
+
+    assert trace is not None
+    assert trace.info.trace_metadata.get("mlflow.trace.permission_mode") == "default"
+
+
+>>>>>>> db2f98b86a (Include cache tokens in usage and capture tool errors and permission mode)
