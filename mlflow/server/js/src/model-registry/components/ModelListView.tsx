@@ -19,7 +19,15 @@ import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { Alert, CursorPagination, ModelsIcon, Spacer as DuBoisSpacer, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Alert,
+  CursorPagination,
+  ModelsIcon,
+  Spacer as DuBoisSpacer,
+  Spacer,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { shouldShowModelsNextUI, shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
 import { ModelListFilters } from './model-list/ModelListFilters';
 import { ModelListTable } from './model-list/ModelListTable';
