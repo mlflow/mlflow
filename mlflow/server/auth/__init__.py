@@ -2927,10 +2927,6 @@ def _get_otel_validator(
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
     """
     Get a validator for OpenTelemetry trace ingestion routes.
-
-    Writing traces is analogous to ``CreateRun`` / ``LogBatch`` on the Flask side,
-    so the validator checks ``can_update`` on the target experiment.  The experiment
-    ID is conveyed via the ``X-Mlflow-Experiment-Id`` request header.
     """
 
     async def validator(username: str, request: StarletteRequest) -> bool:
