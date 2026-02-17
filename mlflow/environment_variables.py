@@ -712,6 +712,27 @@ MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", int, 10
 )
 
+#: Maximum predict_fn calls per second during mlflow.genai.evaluate. A token-bucket
+#: rate limiter throttles predict_fn invocations across all worker threads.
+#: Accepted values: ``auto`` (adaptive rate starting at 10 rps), a positive number
+#: (fixed rate), or ``0`` to disable rate limiting. (default: ``auto``)
+MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT = _EnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", str, "auto"
+)
+
+#: Maximum scorer calls per second during mlflow.genai.evaluate. A token-bucket
+#: rate limiter throttles individual scorer invocations across all worker threads.
+#: Accepted values: ``auto`` (auto-derived from predict rate x num_scorers),
+#: a positive number (fixed rate), or ``0`` to disable. (default: ``auto``)
+MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT = _EnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", str, None
+)
+
+#: Maximum number of retries for rate-limit (429) errors during evaluate.
+#: Applies to both predict_fn and scorer calls. Set to 0 to disable retries.
+#: (default: ``3``)
+MLFLOW_GENAI_EVAL_MAX_RETRIES = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_RETRIES", int, 3)
+
 #: Maximum number of workers to use for running conversation simulations in parallel.
 #: Controls concurrency when simulating multiple test cases and fetching traces.
 #: (default: ``10``)
@@ -747,6 +768,13 @@ MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION = _BooleanEnvironmentVariable(
 #: function calls. To trace the scorer functions for debugging purpose, set this to True.
 MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
     "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", False
+)
+
+#: Enable periodic heartbeat logging during mlflow.genai.evaluate. When True, pipeline
+#: progress (predicted/scored counts, pending futures, current rate limits) is logged at
+#: DEBUG level every 15 seconds. Useful for diagnosing throughput issues. (default: ``False``)
+MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT = _BooleanEnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT", False
 )
 
 #: Timeout in seconds for async predict functions in mlflow.genai.evaluate. When an async
