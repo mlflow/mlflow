@@ -878,7 +878,7 @@ def test_single_tenant_startup_prompts_for_non_default_workspace_experiments(
 
     # User declines the confirmation prompt — startup should abort
     with mock.patch("click.confirm", side_effect=SystemExit(1)):
-        with pytest.raises(SystemExit):
+        with pytest.raises(SystemExit):  # noqa: PT011
             SqlAlchemyStore(db_uri, artifact_root.as_uri())
 
     SqlAlchemyStore._engine_map.pop(db_uri, None)
