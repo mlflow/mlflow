@@ -738,26 +738,52 @@ def _build_tool_result_map(messages: list[Any]) -> dict[str, str]:
     return tool_result_map
 
 
-def _sdk_msg_to_chat_message(msg) -> dict[str, str] | None:
-    """Convert an SDK message to an OpenAI-style chat message dict."""
-    from claude_agent_sdk.types import AssistantMessage, TextBlock, UserMessage
+def _sdk_msg_to_dict(msg) -> dict[str, Any] | None:
+    """Convert an SDK message to an Anthropic-format message dict."""
+    from claude_agent_sdk.types import (
+        AssistantMessage,
+        TextBlock,
+        ToolResultBlock,
+        ToolUseBlock,
+        UserMessage,
+    )
 
     if isinstance(msg, UserMessage):
-        if msg.tool_use_result is not None:
-            return None
         content = msg.content
         if isinstance(content, str):
-            text = content
+            if content.strip():
+                return {"role": "user", "content": content}
         elif isinstance(content, list):
-            text = "\n".join(b.text for b in content if isinstance(b, TextBlock))
-        else:
-            return None
-        if text and text.strip():
-            return {"role": "user", "content": text}
+            parts = []
+            for block in content:
+                if isinstance(block, TextBlock):
+                    parts.append({"type": "text", "text": block.text})
+                elif isinstance(block, ToolResultBlock):
+                    parts.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.tool_use_id,
+                            "content": block.content or "",
+                        }
+                    )
+            if parts:
+                return {"role": "user", "content": parts}
     elif isinstance(msg, AssistantMessage) and msg.content:
-        text_parts = [b.text for b in msg.content if isinstance(b, TextBlock)]
-        if text_parts:
-            return {"role": "assistant", "content": "\n".join(text_parts)}
+        parts = []
+        for block in msg.content:
+            if isinstance(block, TextBlock):
+                parts.append({"type": "text", "text": block.text})
+            elif isinstance(block, ToolUseBlock):
+                parts.append(
+                    {
+                        "type": "tool_use",
+                        "id": block.id,
+                        "name": block.name,
+                        "input": block.input,
+                    }
+                )
+        if parts:
+            return {"role": "assistant", "content": parts}
     return None
 
 
@@ -768,72 +794,61 @@ def _create_sdk_child_spans(
 ) -> str | None:
     """Create LLM and tool child spans under ``parent_span`` from SDK messages.
 
-    Iterates through messages, building a running conversation history. For each
-    text-only AssistantMessage, creates an LLM span with the conversation context
-    as input. For tool use blocks, creates TOOL spans with results from
-    ``tool_result_map``.
-
-    Args:
-        messages: Full list of SDK message objects from the conversation.
-        parent_span: The root AGENT span to attach children to.
-        tool_result_map: Mapping of tool_use_id to result content, built by
-            ``_build_tool_result_map``.
-
-    Returns:
-        The final assistant text response (for trace preview), or None if no
-        text responses were found.
+    Uses Anthropic message format. Only includes messages since the previous
+    LLM span as input context (not the full conversation history).
     """
     from claude_agent_sdk.types import AssistantMessage, TextBlock, ToolUseBlock
 
-    llm_call_num = 0
     final_response = None
-    conversation_history: list[dict[str, str]] = []
+    pending_messages: list[dict[str, Any]] = []
 
     for msg in messages:
-        # Build running conversation context from user and assistant messages
-        if chat_msg := _sdk_msg_to_chat_message(msg):
-            conversation_history.append(chat_msg)
+        if isinstance(msg, AssistantMessage) and msg.content:
+            text_blocks = [b for b in msg.content if isinstance(b, TextBlock)]
+            tool_blocks = [b for b in msg.content if isinstance(b, ToolUseBlock)]
 
-        if not isinstance(msg, AssistantMessage) or not msg.content:
-            continue
+            if text_blocks and not tool_blocks:
+                text = "\n".join(b.text for b in text_blocks)
+                if text.strip():
+                    final_response = text
 
-        text_blocks = [block for block in msg.content if isinstance(block, TextBlock)]
-        tool_use_blocks = [block for block in msg.content if isinstance(block, ToolUseBlock)]
+                llm_span = mlflow.start_span_no_context(
+                    name="llm",
+                    parent_span=parent_span,
+                    span_type=SpanType.LLM,
+                    inputs={
+                        "model": getattr(msg, "model", "unknown"),
+                        "messages": pending_messages,
+                    },
+                    attributes={
+                        "model": getattr(msg, "model", "unknown"),
+                        SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
+                    },
+                )
+                llm_span.set_outputs(
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": b.text} for b in text_blocks],
+                    }
+                )
+                llm_span.end()
+                pending_messages = []
+                continue
 
-        # Text-only responses become LLM spans with conversation context as input
-        if text_blocks and not tool_use_blocks:
-            llm_call_num += 1
-            text = "\n".join(block.text for block in text_blocks)
-            if text.strip():
-                final_response = text
+            for tool_block in tool_blocks:
+                tool_span = mlflow.start_span_no_context(
+                    name=f"tool_{tool_block.name}",
+                    parent_span=parent_span,
+                    span_type=SpanType.TOOL,
+                    inputs=tool_block.input,
+                    attributes={"tool_name": tool_block.name, "tool_id": tool_block.id},
+                )
+                tool_span.set_outputs({"result": tool_result_map.get(tool_block.id, "")})
+                tool_span.end()
 
-            # Input is the conversation up to (not including) this response
-            input_messages = conversation_history[:-1] if conversation_history else []
-            llm_span = mlflow.start_span_no_context(
-                name=f"llm_call_{llm_call_num}",
-                parent_span=parent_span,
-                span_type=SpanType.LLM,
-                inputs={
-                    "model": getattr(msg, "model", "unknown"),
-                    "messages": list(input_messages),
-                },
-                attributes={"model": getattr(msg, "model", "unknown")},
-            )
-            llm_span.set_outputs({"response": text})
-            llm_span.end()
-
-        # Tool use blocks each become a tool span
-        for tool_block in tool_use_blocks:
-            tool_span = mlflow.start_span_no_context(
-                name=f"tool_{tool_block.name}",
-                parent_span=parent_span,
-                span_type=SpanType.TOOL,
-                inputs=tool_block.input,
-                attributes={"tool_name": tool_block.name, "tool_id": tool_block.id},
-            )
-            tool_result = tool_result_map.get(tool_block.id, "No result found")
-            tool_span.set_outputs({"result": tool_result})
-            tool_span.end()
+        if anthropic_msg := _sdk_msg_to_dict(msg):
+            pending_messages.append(anthropic_msg)
 
     return final_response
 

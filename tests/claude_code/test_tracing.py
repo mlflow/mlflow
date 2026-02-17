@@ -349,12 +349,19 @@ def test_process_sdk_messages_simple_conversation():
     assert root_span.name == "claude_code_conversation"
     assert root_span.span_type == SpanType.AGENT
 
-    # LLM span should have conversation context as input
+    # LLM span should have conversation context as input in Anthropic format
     llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
     assert len(llm_spans) == 1
-    assert llm_spans[0].name == "llm_call_1"
+    assert llm_spans[0].name == "llm"
     assert llm_spans[0].inputs["model"] == "claude-sonnet-4-20250514"
     assert llm_spans[0].inputs["messages"] == [{"role": "user", "content": "What is 2 + 2?"}]
+    assert llm_spans[0].get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    # Output should be in Anthropic response format
+    outputs = llm_spans[0].outputs
+    assert outputs["type"] == "message"
+    assert outputs["role"] == "assistant"
+    assert outputs["content"] == [{"type": "text", "text": "The answer is 4."}]
 
     # Token usage from ResultMessage should be on the root span and trace level
     token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
