@@ -64,12 +64,14 @@ The migration tool preserves your data exactly as it was in the FileStore. No ti
 
 ### Comparison with `mlflow-export-import`
 
+[`mlflow-export-import`](https://github.com/mlflow/mlflow-export-import) is a separate tool for copying MLflow objects (runs, experiments, registered models, etc.) from one tracking server to another. It is useful for moving between environments but **does not preserve original IDs or timestamps**.
+
 |                                  | `mlflow migrate-filestore`      | [`mlflow-export-import`](https://github.com/mlflow/mlflow-export-import) |
 | -------------------------------- | ------------------------------- | ------------------------------------------------------------------------ |
 | **Use case**                     | Migrate FileStore to a database | Recreate data between MLflow servers                                     |
 | **Preserves IDs and timestamps** | Yes                             | No (regenerated on import)                                               |
 | **Requires a running server**    | No                              | Yes (both source and target)                                             |
-| **Target**                       | SQLite                          | Any MLflow server                                                        |
+| **Target**                       | SQLite Only                     | Any MLflow server                                                        |
 
 ## Important Notes
 
