@@ -21,6 +21,8 @@ _logger = logging.getLogger(__name__)
 class _ProviderSpanInfo:
     name: str
     attributes: dict[str, Any]
+    start_time_ns: int | None = None
+    end_time_ns: int | None = None
 
 
 def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
@@ -42,17 +44,8 @@ def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
         span.set_inputs(args[0])
 
 
-_W3C_TRACE_CONTEXT_HEADERS = ("traceparent", "tracestate")
-
-
 def _has_traceparent(headers: dict[str, str]) -> bool:
     return "traceparent" in headers or "Traceparent" in headers
-
-
-def _extract_trace_context_headers(headers: dict[str, str]) -> dict[str, str]:
-    """Extract only W3C trace context headers, ignoring sensitive headers."""
-    lower = {k.lower(): v for k, v in headers.items()}
-    return {k: lower[k] for k in _W3C_TRACE_CONTEXT_HEADERS if k in lower}
 
 
 def _gateway_span_name(endpoint_config: GatewayEndpointConfig) -> str:
@@ -88,7 +81,14 @@ def _get_provider_span_info(gateway_trace_id: str) -> list[_ProviderSpanInfo]:
                 if value := span.get_attribute(key):
                     attrs[key] = value
             if attrs:
-                results.append(_ProviderSpanInfo(name=span.name, attributes=attrs))
+                results.append(
+                    _ProviderSpanInfo(
+                        name=span.name,
+                        attributes=attrs,
+                        start_time_ns=span.start_time_ns,
+                        end_time_ns=span.end_time_ns,
+                    )
+                )
     return results
 
 
@@ -100,8 +100,6 @@ def _maybe_create_distributed_span(
     if not request_headers or not _has_traceparent(request_headers):
         return
 
-    trace_headers = _extract_trace_context_headers(request_headers)
-
     gateway_trace_id = None
     if span := mlflow.get_current_active_span():
         gateway_trace_id = span.trace_id
@@ -109,7 +107,7 @@ def _maybe_create_distributed_span(
     provider_infos = _get_provider_span_info(gateway_trace_id) if gateway_trace_id else []
 
     try:
-        with set_tracing_context_from_http_request_headers(trace_headers):
+        with set_tracing_context_from_http_request_headers(request_headers):
             with mlflow.start_span(
                 name=_gateway_span_name(endpoint_config),
                 span_type=SpanType.LLM,
@@ -120,11 +118,14 @@ def _maybe_create_distributed_span(
                 gw_span.set_attributes(attrs)
 
                 for info in provider_infos:
-                    with mlflow.start_span(
+                    provider_span = mlflow.start_span_no_context(
                         name=info.name,
                         span_type=SpanType.LLM,
-                    ) as provider_span:
-                        provider_span.set_attributes(info.attributes)
+                        parent_span=gw_span,
+                        attributes=info.attributes,
+                        start_time_ns=info.start_time_ns,
+                    )
+                    provider_span.end(end_time_ns=info.end_time_ns)
     except Exception:
         _logger.debug("Failed to create distributed trace span for gateway call", exc_info=True)
 
@@ -170,9 +171,11 @@ def maybe_traced_gateway_call(
             _maybe_unwrap_single_arg_input(args, kwargs)
             if metadata:
                 mlflow.update_current_trace(metadata=metadata)
-            async for item in func(*args, **kwargs):
-                yield item
-            _maybe_create_distributed_span(request_headers, endpoint_config)
+            try:
+                async for item in func(*args, **kwargs):
+                    yield item
+            finally:
+                _maybe_create_distributed_span(request_headers, endpoint_config)
 
     elif inspect.iscoroutinefunction(func):
 
@@ -181,8 +184,10 @@ def maybe_traced_gateway_call(
             _maybe_unwrap_single_arg_input(args, kwargs)
             if metadata:
                 mlflow.update_current_trace(metadata=metadata)
-            result = await func(*args, **kwargs)
-            _maybe_create_distributed_span(request_headers, endpoint_config)
+            try:
+                result = await func(*args, **kwargs)
+            finally:
+                _maybe_create_distributed_span(request_headers, endpoint_config)
             return result
 
     else:
@@ -192,8 +197,10 @@ def maybe_traced_gateway_call(
             _maybe_unwrap_single_arg_input(args, kwargs)
             if metadata:
                 mlflow.update_current_trace(metadata=metadata)
-            result = func(*args, **kwargs)
-            _maybe_create_distributed_span(request_headers, endpoint_config)
+            try:
+                result = func(*args, **kwargs)
+            finally:
+                _maybe_create_distributed_span(request_headers, endpoint_config)
             return result
 
     return mlflow.trace(wrapper, **trace_kwargs)
