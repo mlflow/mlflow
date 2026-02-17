@@ -72,3 +72,17 @@ def test_rest_exception_pickleable():
 
     assert e1.error_code == e2.error_code
     assert e1.message == e2.message
+
+
+def test_rest_exception_with_null_error_code():
+    # Test that RestException handles null error_code values gracefully
+    exception = RestException({"error_code": None, "message": "test message"})
+    assert exception.error_code == "INTERNAL_ERROR"
+    assert "test message" in str(exception)
+
+
+def test_rest_exception_with_missing_error_code():
+    # Test that RestException handles missing error_code gracefully
+    exception = RestException({"message": "test message"})
+    assert exception.error_code == "INTERNAL_ERROR"
+    assert "test message" in str(exception)
