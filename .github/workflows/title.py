@@ -137,9 +137,6 @@ def build_prompt(
 ) -> str:
     body = extract_description(body).strip() or "(No description provided)"
 
-    # Build linked issues section with leading/trailing newlines for consistent spacing.
-    # When empty, this is "", when populated it's "\n## Linked Issues\n...\n"
-    # This ensures one blank line between sections in both cases.
     linked_issues_section = ""
     if linked_issues:
         linked_issues_section = "\n## Linked Issues\n"
