@@ -1035,8 +1035,6 @@ def _save_model_with_class_artifacts_params(
     model_code_path=None,
     infer_code_paths=False,
     uv_project_path=None,
-    uv_groups=None,
-    uv_extras=None,
 ):
     """
     Args:
@@ -1076,7 +1074,7 @@ def _save_model_with_class_artifacts_params(
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
     """
-    # Capture original working directory for UV project detection
+    # Capture original working directory for uv project detection
     # This must be done before any operations that might change cwd
     original_cwd = Path.cwd()
 
@@ -1221,16 +1219,14 @@ def _save_model_with_class_artifacts_params(
             )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
-            # Infer requirements from model or UV project (either/or, not merged)
-            # - If UV project detected: uses uv export (complete lockfile)
+            # Infer requirements from model or uv project (either/or, not merged)
+            # - If uv project detected: uses uv export (complete lockfile)
             # - Otherwise: infers dependencies by capturing imported packages
             default_reqs = mlflow.models.infer_pip_requirements(
                 path,
                 mlflow.pyfunc.FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
-                uv_groups=uv_groups,
-                uv_extras=uv_extras,
             )
         else:
             default_reqs = None
@@ -1252,11 +1248,11 @@ def _save_model_with_class_artifacts_params(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    # Copy UV project files (uv.lock and pyproject.toml) if detected
+    # Copy uv project files (uv.lock and pyproject.toml) if detected
     uv_source_dir = uv_project_path or original_cwd
     copy_uv_project_files(dest_dir=path, source_dir=uv_source_dir)
 
-    # Use UV project's Python version if available, otherwise use current
+    # Use uv project's Python version if available, otherwise use current
     if uv_python_version := get_python_version_from_uv_project(uv_source_dir):
         python_env = _PythonEnv(
             python=uv_python_version,

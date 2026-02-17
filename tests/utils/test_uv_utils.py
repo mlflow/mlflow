@@ -10,17 +10,12 @@ from mlflow.utils.uv_utils import (
     _MIN_UV_VERSION,
     _PYPROJECT_FILE,
     _UV_LOCK_FILE,
-    _evaluate_marker,
-    _parse_comma_separated_env,
     copy_uv_project_files,
     create_uv_sync_pyproject,
     detect_uv_project,
     export_uv_requirements,
     extract_index_urls_from_uv_lock,
     get_python_version_from_uv_project,
-    get_uv_extras_from_env,
-    get_uv_groups_from_env,
-    get_uv_only_groups_from_env,
     get_uv_version,
     has_uv_lock_artifact,
     is_uv_available,
@@ -122,72 +117,6 @@ def test_detect_uv_project_uses_cwd_when_directory_not_specified(tmp_path, monke
     assert result.uv_lock == tmp_path / _UV_LOCK_FILE
 
 
-# --- _evaluate_marker tests ---
-
-
-@pytest.fixture
-def version_info():
-    return type("VersionInfo", (), {"major": 3, "minor": 11, "micro": 5})()
-
-
-@pytest.mark.parametrize(
-    ("marker", "expected"),
-    [
-        ("python_version < '3.12'", True),
-        ("python_version > '3.12'", False),
-        ("python_version == '3.11'", True),
-        ("python_version != '3.11'", False),
-        ("python_version >= '3.10'", True),
-        ("python_version <= '3.11'", True),
-    ],
-)
-def test_evaluate_marker_python_version(marker, expected, version_info):
-    assert _evaluate_marker(marker, version_info) == expected
-
-
-@pytest.mark.parametrize(
-    ("marker", "expected"),
-    [
-        ("python_full_version < '3.11.6'", True),
-        ("python_full_version > '3.11.4'", True),
-        ("python_full_version == '3.11.5'", True),
-        ("python_full_version != '3.11.5'", False),
-    ],
-)
-def test_evaluate_marker_python_full_version(marker, expected, version_info):
-    assert _evaluate_marker(marker, version_info) == expected
-
-
-def test_evaluate_marker_and_condition(version_info):
-    marker = "python_version >= '3.10' and python_version < '3.12'"
-    assert _evaluate_marker(marker, version_info) is True
-
-    marker = "python_version >= '3.10' and python_version < '3.11'"
-    assert _evaluate_marker(marker, version_info) is False
-
-
-def test_evaluate_marker_or_condition(version_info):
-    marker = "python_version == '3.10' or python_version == '3.11'"
-    assert _evaluate_marker(marker, version_info) is True
-
-    marker = "python_version == '3.9' or python_version == '3.10'"
-    assert _evaluate_marker(marker, version_info) is False
-
-
-def test_evaluate_marker_platform_markers(version_info):
-    with mock.patch("sys.platform", "darwin"):
-        assert _evaluate_marker("sys_platform == 'darwin'", version_info) is True
-        assert _evaluate_marker("sys_platform == 'win32'", version_info) is False
-
-    with mock.patch("platform.system", return_value="Darwin"):
-        assert _evaluate_marker("platform_system == 'Darwin'", version_info) is True
-        assert _evaluate_marker("platform_system == 'Windows'", version_info) is False
-
-
-def test_evaluate_marker_unparsable_marker_returns_true(version_info):
-    assert _evaluate_marker("unparsable marker", version_info) is True
-
-
 # --- export_uv_requirements tests ---
 
 
@@ -219,7 +148,7 @@ pandas==2.0.0
         mock_run.assert_called_once()
 
 
-def test_export_uv_requirements_filters_environment_markers(tmp_path):
+def test_export_uv_requirements_preserves_environment_markers(tmp_path):
     uv_output = """requests==2.28.0
 pywin32==306 ; sys_platform == 'win32'
 numpy==1.24.0
@@ -231,19 +160,19 @@ numpy==1.24.0
         mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
         mock.patch("shutil.which", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", return_value=mock_result),
-        mock.patch("sys.platform", "darwin"),
     ):
         result = export_uv_requirements(tmp_path)
 
         assert result is not None
-        assert "pywin32==306" not in result
+        assert len(result) == 3
         assert "requests==2.28.0" in result
+        assert "pywin32==306 ; sys_platform == 'win32'" in result
         assert "numpy==1.24.0" in result
 
 
-def test_export_uv_requirements_deduplicates_packages(tmp_path):
+def test_export_uv_requirements_keeps_all_marker_variants(tmp_path):
     uv_output = """numpy==2.2.6 ; python_version < '3.11'
-numpy==2.4.1
+numpy==2.4.1 ; python_version >= '3.11'
 """
     mock_result = mock.Mock()
     mock_result.stdout = uv_output
@@ -257,7 +186,7 @@ numpy==2.4.1
 
         assert result is not None
         numpy_entries = [r for r in result if r.startswith("numpy")]
-        assert len(numpy_entries) == 1
+        assert len(numpy_entries) == 2
 
 
 def test_export_uv_requirements_returns_none_on_subprocess_error(tmp_path):
@@ -536,12 +465,13 @@ def test_copy_uv_project_files_with_uv_project_path_missing_pyproject(tmp_path):
     assert result is False
 
 
-# --- Integration tests for infer_pip_requirements UV path ---
+# --- Integration tests for infer_pip_requirements uv path ---
 
 
 def test_infer_pip_requirements_uses_uv_when_project_detected(tmp_path, monkeypatch):
-    # Setup UV project
+    # Setup uv project
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "true")
     (tmp_path / _UV_LOCK_FILE).touch()
     (tmp_path / _PYPROJECT_FILE).touch()
 
@@ -554,7 +484,7 @@ def test_infer_pip_requirements_uses_uv_when_project_detected(tmp_path, monkeypa
         mock.patch("shutil.which", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", return_value=mock_result),
     ):
-        # Call with a dummy model_uri - UV path should be taken before model loading
+        # Call with a dummy model_uri - uv path should be taken before model loading
         result = infer_pip_requirements("runs:/fake/model", "sklearn")
 
         assert "requests==2.28.0" in result
@@ -562,155 +492,25 @@ def test_infer_pip_requirements_uses_uv_when_project_detected(tmp_path, monkeypa
 
 
 def test_infer_pip_requirements_falls_back_when_uv_not_available(tmp_path, monkeypatch):
-    # Setup UV project (but UV not available)
+    # Setup uv project (but uv not available)
     monkeypatch.chdir(tmp_path)
     (tmp_path / _UV_LOCK_FILE).touch()
     (tmp_path / _PYPROJECT_FILE).touch()
 
-    # UV not available - should not call subprocess.run for uv export
+    # uv not available - should not call subprocess.run for uv export
     with mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=False):
         # This will fall back to model inference which may fail without a real model
-        # We just verify UV export is not attempted
+        # We just verify uv export is not attempted
         result = export_uv_requirements(tmp_path)
-        assert result is None  # UV path returns None, triggering fallback
+        assert result is None  # uv path returns None, triggering fallback
 
 
 def test_detect_uv_project_not_detected_when_files_missing(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    # No UV project files
+    # No uv project files
 
     result = detect_uv_project()
-    assert result is None  # Not a UV project
-
-
-# --- Phase 2: Dependency Groups Tests ---
-
-
-def test_export_uv_requirements_with_groups(tmp_path):
-    uv_output = """requests==2.28.0
-numpy==1.24.0
-gunicorn==21.0.0
-"""
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
-    ):
-        result = export_uv_requirements(tmp_path, groups=["serving"])
-
-        assert result is not None
-        assert "requests==2.28.0" in result
-        assert "gunicorn==21.0.0" in result
-        mock_run.assert_called_once()
-        # Verify --group flag was added
-        call_args = mock_run.call_args[0][0]
-        assert "--group" in call_args
-        assert "serving" in call_args
-
-
-def test_export_uv_requirements_with_only_groups(tmp_path):
-    uv_output = """gunicorn==21.0.0
-uvicorn==0.24.0
-"""
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
-    ):
-        result = export_uv_requirements(tmp_path, only_groups=["serving"])
-
-        assert result is not None
-        assert "gunicorn==21.0.0" in result
-        assert "uvicorn==0.24.0" in result
-        mock_run.assert_called_once()
-        # Verify --only-group flag was added
-        call_args = mock_run.call_args[0][0]
-        assert "--only-group" in call_args
-        assert "serving" in call_args
-
-
-def test_export_uv_requirements_with_extras(tmp_path):
-    uv_output = """numpy==1.24.0
-torch==2.0.0
-cuda-toolkit==12.0.0
-"""
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
-    ):
-        result = export_uv_requirements(tmp_path, extras=["gpu"])
-
-        assert result is not None
-        assert "torch==2.0.0" in result
-        mock_run.assert_called_once()
-        # Verify --extra flag was added
-        call_args = mock_run.call_args[0][0]
-        assert "--extra" in call_args
-        assert "gpu" in call_args
-
-
-def test_export_uv_requirements_only_groups_takes_precedence_over_groups(tmp_path):
-    uv_output = """gunicorn==21.0.0
-"""
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
-    ):
-        # Both groups and only_groups provided - only_groups should take precedence
-        result = export_uv_requirements(tmp_path, groups=["dev"], only_groups=["serving"])
-
-        assert result is not None
-        mock_run.assert_called_once()
-        call_args = mock_run.call_args[0][0]
-        assert "--only-group" in call_args
-        assert "--group" not in call_args
-
-
-# --- Phase 2: Environment Variable Tests ---
-
-
-def test_get_uv_groups_from_env(monkeypatch):
-    monkeypatch.setenv("MLFLOW_UV_GROUPS", "serving,production")
-    result = get_uv_groups_from_env()
-    assert result == ["serving", "production"]
-
-
-def test_get_uv_groups_from_env_empty(monkeypatch):
-    monkeypatch.delenv("MLFLOW_UV_GROUPS", raising=False)
-    result = get_uv_groups_from_env()
-    assert result is None
-
-
-def test_get_uv_only_groups_from_env(monkeypatch):
-    monkeypatch.setenv("MLFLOW_UV_ONLY_GROUPS", "minimal")
-    result = get_uv_only_groups_from_env()
-    assert result == ["minimal"]
-
-
-def test_get_uv_extras_from_env(monkeypatch):
-    monkeypatch.setenv("MLFLOW_UV_EXTRAS", "gpu,experimental")
-    result = get_uv_extras_from_env()
-    assert result == ["gpu", "experimental"]
-
-
-def test_parse_comma_separated_env_handles_whitespace(monkeypatch):
-    monkeypatch.setenv("TEST_ENV", "  item1 , item2 ,  item3  ")
-    result = _parse_comma_separated_env("TEST_ENV")
-    assert result == ["item1", "item2", "item3"]
+    assert result is None  # Not a uv project
 
 
 # --- MLFLOW_UV_AUTO_DETECT Environment Variable Tests ---
@@ -734,15 +534,15 @@ def test_mlflow_uv_auto_detect_returns_true_when_enabled(monkeypatch, env_value)
 
 
 def test_infer_pip_requirements_skips_uv_when_auto_detect_disabled(tmp_path, monkeypatch):
-    # Setup UV project
+    # Setup uv project
     monkeypatch.chdir(tmp_path)
     (tmp_path / "uv.lock").touch()
     (tmp_path / "pyproject.toml").touch()
 
-    # Without disabling - should detect UV project
+    # Without disabling - should detect uv project
     assert detect_uv_project() is not None
 
-    # With auto-detect disabled - infer_pip_requirements should skip UV entirely
+    # With auto-detect disabled - infer_pip_requirements should skip uv entirely
     monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
 
     # Note: detect_uv_project itself still works, but infer_pip_requirements
@@ -824,7 +624,7 @@ def test_extract_index_urls_from_uv_lock_file_not_exists(tmp_path):
     assert result == []
 
 
-# --- Phase 2: UV Sync Environment Setup Tests ---
+# --- uv Sync Environment Setup Tests ---
 
 
 def test_create_uv_sync_pyproject(tmp_path):

@@ -408,14 +408,12 @@ def infer_pip_requirements(
     fallback=None,
     timeout=None,
     extra_env_vars=None,
-    uv_groups=None,
-    uv_extras=None,
 ):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
-    If the current working directory is a UV project (contains both uv.lock and pyproject.toml),
-    this function will first attempt to export dependencies via `uv export`. If UV export
+    If the current working directory is a uv project (contains both uv.lock and pyproject.toml),
+    this function will first attempt to export dependencies via ``uv export``. If that
     succeeds, those requirements are returned. Otherwise, falls back to inferring
     dependencies by capturing imported packages during model inference.
 
@@ -427,37 +425,29 @@ def infer_pip_requirements(
         timeout: If specified, the inference operation is bound by the timeout (in seconds).
         extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
             Default to None.
-        uv_groups: Optional list of UV dependency groups to include when exporting
-            requirements. Maps to ``uv export --group <name>``.
-        uv_extras: Optional list of UV extras (optional dependency sets) to include
-            when exporting requirements. Maps to ``uv export --extra <name>``.
 
     Returns:
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
 
     """
-    # Check for UV project first - if detected, use uv export instead of
+    # Check for uv project first - if detected, use uv export instead of
     # inferring model dependencies by capturing imported packages during model inference.
     # Can be disabled via MLFLOW_UV_AUTO_DETECT=false
     if MLFLOW_UV_AUTO_DETECT.get():
         if uv_project := detect_uv_project():
             _logger.info(
-                f"Detected UV project at {uv_project.uv_lock.parent}. "
+                f"Detected uv project at {uv_project.uv_lock.parent}. "
                 "Attempting to export requirements via 'uv export'."
             )
-            if uv_requirements := export_uv_requirements(
-                uv_project.uv_lock.parent,
-                groups=uv_groups,
-                extras=uv_extras,
-            ):
+            if uv_requirements := export_uv_requirements(uv_project.uv_lock.parent):
                 _logger.info(
-                    f"Successfully exported {len(uv_requirements)} requirements from UV project. "
+                    f"Successfully exported {len(uv_requirements)} requirements from uv project. "
                     "Skipping package capture based inference."
                 )
                 return uv_requirements
             else:
                 _logger.warning(
-                    "UV export failed or returned no requirements. "
+                    "uv export failed or returned no requirements. "
                     "Falling back to package capture based inference."
                 )
 

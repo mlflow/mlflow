@@ -1,38 +1,36 @@
 """
-Utilities for UV package manager integration.
+Utilities for uv package manager integration.
 
-This module provides functions for detecting UV projects and exporting dependencies
-via `uv export` for automatic dependency inference during model logging.
+This module provides functions for detecting uv projects and exporting dependencies
+via ``uv export`` for automatic dependency inference during model logging.
 """
 
 import logging
 import os
-import platform
 import re
 import shutil
 import subprocess
-import sys
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 from packaging.version import Version
 
 _logger = logging.getLogger(__name__)
 
-# Minimum UV version required for `uv export` functionality
+# Minimum uv version required for ``uv export`` functionality
 _MIN_UV_VERSION = Version("0.5.0")
 
-# File names used for UV project detection
+# File names used for uv project detection
 _UV_LOCK_FILE = "uv.lock"
 _PYPROJECT_FILE = "pyproject.toml"
 
 
 def get_uv_version() -> Version | None:
     """
-    Get the installed UV version.
+    Get the installed uv version.
 
     Returns:
-        The UV version as a packaging.version.Version object, or None if UV is not installed
+        The uv version as a packaging.version.Version object, or None if uv is not installed
         or version cannot be determined.
     """
     uv_bin = shutil.which("uv")
@@ -50,30 +48,30 @@ def get_uv_version() -> Version | None:
         version_str = result.stdout.strip().split()[1]
         return Version(version_str)
     except (subprocess.CalledProcessError, IndexError, ValueError) as e:
-        _logger.debug(f"Failed to determine UV version: {e}")
+        _logger.debug(f"Failed to determine uv version: {e}")
         return None
 
 
 def is_uv_available() -> bool:
     """
-    Check if UV is installed and meets the minimum version requirement.
+    Check if uv is installed and meets the minimum version requirement.
 
     Returns:
-        True if UV is installed and version >= 0.5.0, False otherwise.
+        True if uv is installed and version >= 0.5.0, False otherwise.
     """
     version = get_uv_version()
     if version is None:
         return False
 
     if version < _MIN_UV_VERSION:
-        _logger.debug(f"UV version {version} is below minimum required version {_MIN_UV_VERSION}")
+        _logger.debug(f"uv version {version} is below minimum required version {_MIN_UV_VERSION}")
         return False
 
     return True
 
 
 class UVProjectInfo(NamedTuple):
-    """Paths for a detected UV project."""
+    """Paths for a detected uv project."""
 
     uv_lock: Path
     pyproject: Path
@@ -81,9 +79,9 @@ class UVProjectInfo(NamedTuple):
 
 def detect_uv_project(directory: str | Path | None = None) -> UVProjectInfo | None:
     """
-    Detect if the given directory is a UV project.
+    Detect if the given directory is a uv project.
 
-    A UV project is identified by the presence of BOTH `uv.lock` and `pyproject.toml`
+    A uv project is identified by the presence of BOTH ``uv.lock`` and ``pyproject.toml``
     in the specified directory.
 
     Args:
@@ -91,7 +89,7 @@ def detect_uv_project(directory: str | Path | None = None) -> UVProjectInfo | No
 
     Returns:
         A UVProjectInfo with paths to uv.lock and pyproject.toml,
-        or None if the directory is not a UV project.
+        or None if the directory is not a uv project.
     """
     directory = Path.cwd() if directory is None else Path(directory)
 
@@ -100,99 +98,11 @@ def detect_uv_project(directory: str | Path | None = None) -> UVProjectInfo | No
 
     if uv_lock_path.exists() and pyproject_path.exists():
         _logger.info(
-            f"Detected UV project: found {_UV_LOCK_FILE} and {_PYPROJECT_FILE} in {directory}"
+            f"Detected uv project: found {_UV_LOCK_FILE} and {_PYPROJECT_FILE} in {directory}"
         )
         return UVProjectInfo(uv_lock=uv_lock_path, pyproject=pyproject_path)
 
     return None
-
-
-def _evaluate_marker(marker: str, version_info: Any) -> bool:
-    """
-    Evaluate a PEP 508 environment marker against the current Python version.
-
-    This is a simplified evaluator that handles common markers like:
-    - python_version < '3.11'
-    - python_full_version >= '3.11'
-    - platform_python_implementation != 'PyPy'
-
-    Args:
-        marker: The marker string (e.g., "python_version < '3.11'")
-        version_info: The Python version info (sys.version_info)
-
-    Returns:
-        True if the marker matches the current environment, False otherwise.
-    """
-    # Extract the current Python version
-    py_version = f"{version_info.major}.{version_info.minor}"
-    py_full_version = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
-
-    # Normalize the marker
-    marker = marker.strip()
-
-    # Handle 'and' conditions by checking all parts
-    if " and " in marker:
-        parts = marker.split(" and ")
-        return all(_evaluate_marker(part.strip(), version_info) for part in parts)
-
-    # Handle 'or' conditions
-    if " or " in marker:
-        parts = marker.split(" or ")
-        return any(_evaluate_marker(part.strip(), version_info) for part in parts)
-
-    # Match pattern: variable operator 'value'
-    if not (match := re.match(r"(\w+)\s*(==|!=|<=|>=|<|>)\s*['\"]([^'\"]+)['\"]", marker)):
-        # If we can't parse the marker, assume it matches (conservative)
-        return True
-
-    var_name, operator, value = match.groups()
-
-    # Get the actual value for comparison
-    if var_name in ("python_version", "python_full_version"):
-        actual = py_full_version if var_name == "python_full_version" else py_version
-    elif var_name == "platform_python_implementation":
-        actual = platform.python_implementation()
-    elif var_name == "sys_platform":
-        actual = sys.platform
-    elif var_name == "platform_system":
-        actual = platform.system()
-    elif var_name == "platform_machine":
-        actual = platform.machine()
-    elif var_name == "os_name":
-        actual = os.name
-    else:
-        # Unknown marker variable, assume it matches
-        return True
-
-    # Compare versions
-    if var_name in ("python_version", "python_full_version"):
-        actual_v = Version(actual)
-        value_v = Version(value)
-
-        match operator:
-            case "==":
-                return actual_v == value_v
-            case "!=":
-                return actual_v != value_v
-            case "<":
-                return actual_v < value_v
-            case "<=":
-                return actual_v <= value_v
-            case ">":
-                return actual_v > value_v
-            case ">=":
-                return actual_v >= value_v
-    else:
-        # String comparison for platform_python_implementation, etc.
-        match operator:
-            case "==":
-                return actual == value
-            case "!=":
-                return actual != value
-            case _:
-                return True
-
-    return True
 
 
 def export_uv_requirements(
@@ -200,34 +110,27 @@ def export_uv_requirements(
     no_dev: bool = True,
     no_hashes: bool = True,
     frozen: bool = True,
-    groups: list[str] | None = None,
-    only_groups: list[str] | None = None,
-    extras: list[str] | None = None,
 ) -> list[str] | None:
     """
-    Export dependencies from a UV project to pip-compatible requirements.
+    Export dependencies from a uv project to pip-compatible requirements.
 
-    Runs `uv export` to generate a list of pinned dependencies from the UV lock file.
+    Runs ``uv export`` to generate a list of pinned dependencies from the uv lock file.
+    Environment markers (e.g. ``; python_version < '3.12'``) are preserved in the output
+    so that pip can evaluate them at install time.
 
     Args:
-        directory: The UV project directory. Defaults to the current working directory.
+        directory: The uv project directory. Defaults to the current working directory.
         no_dev: Exclude development dependencies. Defaults to True.
         no_hashes: Omit hashes from output. Defaults to True.
         frozen: Use frozen lockfile without updating. Defaults to True.
-        groups: Optional list of dependency groups to include (additive with project deps).
-            Maps to `uv export --group <name>`.
-        only_groups: Optional list of dependency groups to export exclusively (no project deps).
-            Maps to `uv export --only-group <name>`. Mutually exclusive with `groups`.
-        extras: Optional list of optional dependency extras to include.
-            Maps to `uv export --extra <name>`.
 
     Returns:
-        A list of requirement strings (e.g., ["requests==2.28.0", "numpy==1.24.0"]),
+        A list of requirement strings (e.g., ``["requests==2.28.0", "numpy==1.24.0"]``),
         or None if export fails.
     """
     if not is_uv_available():
         _logger.warning(
-            "UV is not available or version is below minimum required. "
+            "uv is not available or version is below minimum required. "
             "Falling back to pip-based inference."
         )
         return None
@@ -244,19 +147,6 @@ def export_uv_requirements(
     if frozen:
         cmd.append("--frozen")
 
-    # Handle dependency groups (mutually exclusive: only_groups takes precedence)
-    if only_groups:
-        for group in only_groups:
-            cmd.extend(["--only-group", group])
-    elif groups:
-        for group in groups:
-            cmd.extend(["--group", group])
-
-    # Handle optional extras
-    if extras:
-        for extra in extras:
-            cmd.extend(["--extra", extra])
-
     # Additional flags for cleaner output
     cmd.extend(
         [
@@ -266,7 +156,7 @@ def export_uv_requirements(
     )
 
     try:
-        _logger.debug(f"Running UV export: {' '.join(str(c) for c in cmd)}")
+        _logger.debug(f"Running uv export: {' '.join(str(c) for c in cmd)}")
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -275,54 +165,25 @@ def export_uv_requirements(
             cwd=directory,
         )
 
-        # Parse output into list of requirements
-        # UV may output multiple entries for the same package with different environment
-        # markers (e.g., numpy==2.2.6 ; python_version < '3.11' vs numpy==2.4.1).
-        # We filter to keep only requirements matching the current Python version.
+        # Parse output lines, keeping environment markers intact for pip to evaluate
         requirements = []
-        seen_packages = set()
-
         for line in result.stdout.strip().splitlines():
             line = line.strip()
-            # Skip empty lines and comments
-            if not line or line.startswith("#"):
+            if not line or line.startswith("#") or line.startswith(" "):
                 continue
-            # Handle indented "# via" comments that uv may include
-            if line.startswith(" "):
-                continue
-
-            # Check for environment markers (separated by ';')
-            if ";" in line:
-                req_part, marker_part = line.split(";", 1)
-                req_part = req_part.strip()
-                marker_part = marker_part.strip()
-
-                # Evaluate marker against current Python version
-                if not _evaluate_marker(marker_part, sys.version_info):
-                    continue
-                line = req_part  # Use requirement without marker
-
-            # Extract package name (before ==, >=, <=, <, >, [, etc.)
-            pkg_name = line.split("==")[0].split(">=")[0].split("<=")[0]
-            pkg_name = pkg_name.split("<")[0].split(">")[0].split("[")[0].strip().lower()
-
-            # Skip if we've already seen this package
-            if pkg_name in seen_packages:
-                continue
-            seen_packages.add(pkg_name)
             requirements.append(line)
 
-        _logger.info(f"Exported {len(requirements)} dependencies via UV")
+        _logger.info(f"Exported {len(requirements)} dependencies via uv")
         return requirements
 
     except subprocess.CalledProcessError as e:
         _logger.warning(
-            f"UV export failed with exit code {e.returncode}. "
+            f"uv export failed with exit code {e.returncode}. "
             f"stderr: {e.stderr}. Falling back to pip-based inference."
         )
         return None
     except Exception as e:
-        _logger.warning(f"UV export failed: {e}. Falling back to pip-based inference.")
+        _logger.warning(f"uv export failed: {e}. Falling back to pip-based inference.")
         return None
 
 
@@ -330,13 +191,13 @@ def get_python_version_from_uv_project(
     directory: str | Path | None = None,
 ) -> str | None:
     """
-    Extract Python version from a UV project.
+    Extract Python version from a uv project.
 
     Checks for `.python-version` file first, then falls back to parsing
     `requires-python` from `pyproject.toml`.
 
     Args:
-        directory: The UV project directory. Defaults to the current working directory.
+        directory: The uv project directory. Defaults to the current working directory.
 
     Returns:
         Python version string (e.g., "3.11.5" or "3.11"), or None if not found.
@@ -373,17 +234,17 @@ def get_python_version_from_uv_project(
     return None
 
 
-# File names for UV artifacts
+# File names for uv artifacts
 _UV_LOCK_ARTIFACT_NAME = "uv.lock"
 _PYPROJECT_ARTIFACT_NAME = "pyproject.toml"
 _PYTHON_VERSION_FILE = ".python-version"
 
-# Environment variable to disable UV file logging (for large projects)
+# Environment variable to disable uv file logging (for large projects)
 _MLFLOW_LOG_UV_FILES_ENV = "MLFLOW_LOG_UV_FILES"
 
 
 def _should_log_uv_files() -> bool:
-    """Check if UV files (uv.lock, pyproject.toml) should be logged as artifacts."""
+    """Check if uv files (uv.lock, pyproject.toml) should be logged as artifacts."""
     env_value = os.environ.get(_MLFLOW_LOG_UV_FILES_ENV, "true").lower()
     return env_value not in ("false", "0", "no")
 
@@ -393,24 +254,24 @@ def copy_uv_project_files(
     source_dir: str | Path,
 ) -> bool:
     """
-    Copy UV project files to the model artifact directory.
+    Copy uv project files to the model artifact directory.
 
     Copies uv.lock, pyproject.toml, and .python-version (if present) to preserve
-    UV project configuration as model artifacts for reproducibility.
+    uv project configuration as model artifacts for reproducibility.
 
     Can be disabled by setting MLFLOW_LOG_UV_FILES=false environment variable
     for large projects where uv.lock size is a concern.
 
     Args:
         dest_dir: The destination directory (model artifact directory).
-        source_dir: The source directory containing UV project files.
+        source_dir: The source directory containing uv project files.
 
     Returns:
-        True if UV files were copied, False otherwise.
+        True if uv files were copied, False otherwise.
     """
     if not _should_log_uv_files():
         _logger.info(
-            f"UV file logging disabled via {_MLFLOW_LOG_UV_FILES_ENV} environment variable"
+            f"uv file logging disabled via {_MLFLOW_LOG_UV_FILES_ENV} environment variable"
         )
         return False
 
@@ -444,37 +305,8 @@ def copy_uv_project_files(
 
         return True
     except Exception as e:
-        _logger.warning(f"Failed to copy UV project files: {e}")
+        _logger.warning(f"Failed to copy uv project files: {e}")
         return False
-
-
-# Environment variables for dependency groups (Phase 2)
-_MLFLOW_UV_GROUPS_ENV = "MLFLOW_UV_GROUPS"
-_MLFLOW_UV_ONLY_GROUPS_ENV = "MLFLOW_UV_ONLY_GROUPS"
-_MLFLOW_UV_EXTRAS_ENV = "MLFLOW_UV_EXTRAS"
-
-
-def _parse_comma_separated_env(env_var: str) -> list[str] | None:
-    """Parse a comma-separated environment variable into a list."""
-    value = os.environ.get(env_var, "").strip()
-    if not value:
-        return None
-    return [item.strip() for item in value.split(",") if item.strip()]
-
-
-def get_uv_groups_from_env() -> list[str] | None:
-    """Get UV dependency groups from MLFLOW_UV_GROUPS environment variable."""
-    return _parse_comma_separated_env(_MLFLOW_UV_GROUPS_ENV)
-
-
-def get_uv_only_groups_from_env() -> list[str] | None:
-    """Get UV-only dependency groups from MLFLOW_UV_ONLY_GROUPS environment variable."""
-    return _parse_comma_separated_env(_MLFLOW_UV_ONLY_GROUPS_ENV)
-
-
-def get_uv_extras_from_env() -> list[str] | None:
-    """Get UV extras from MLFLOW_UV_EXTRAS environment variable."""
-    return _parse_comma_separated_env(_MLFLOW_UV_EXTRAS_ENV)
 
 
 def extract_index_urls_from_uv_lock(uv_lock_path: str | Path) -> list[str]:
@@ -518,7 +350,7 @@ def extract_index_urls_from_uv_lock(uv_lock_path: str | Path) -> list[str]:
         if private_urls:
             _logger.info(f"Extracted {len(private_urls)} private index URL(s) from uv.lock")
             _logger.warning(
-                "Private package indexes detected in UV lockfile. "
+                "Private package indexes detected in uv lockfile. "
                 "Ensure credentials are available at model load time via "
                 "UV_INDEX_* environment variables or .netrc file."
             )
@@ -579,13 +411,13 @@ def setup_uv_sync_environment(
     python_version: str,
 ) -> bool:
     """
-    Setup a UV project structure for environment restoration via `uv sync --frozen`.
+    Set up a uv project structure for environment restoration via ``uv sync --frozen``.
 
     Copies uv.lock from model artifacts and creates a minimal pyproject.toml
-    to enable exact environment restoration using UV.
+    to enable exact environment restoration using uv.
 
     Args:
-        env_dir: The environment directory where UV project will be set up.
+        env_dir: The environment directory where the uv project will be set up.
         model_path: Path to the model artifacts containing uv.lock.
         python_version: Python version for the environment.
 
@@ -620,7 +452,7 @@ def setup_uv_sync_environment(
         shutil.copy2(python_version_artifact, env_dir / _PYTHON_VERSION_FILE)
         _logger.debug(f"Copied .python-version to {env_dir}")
 
-    _logger.info(f"Set up UV sync environment at {env_dir}")
+    _logger.info(f"Set up uv sync environment at {env_dir}")
     return True
 
 
@@ -646,7 +478,7 @@ def run_uv_sync(
         True if sync succeeded, False otherwise.
     """
     if not is_uv_available():
-        _logger.warning("UV is not available for environment sync")
+        _logger.warning("uv is not available for environment sync")
         return False
 
     uv_bin = shutil.which("uv")
@@ -659,8 +491,8 @@ def run_uv_sync(
         cmd.append("--no-dev")
 
     try:
-        _logger.info(f"Running UV sync in {project_dir}")
-        _logger.debug(f"UV sync command: {' '.join(str(c) for c in cmd)}")
+        _logger.info(f"Running uv sync in {project_dir}")
+        _logger.debug(f"uv sync command: {' '.join(str(c) for c in cmd)}")
 
         subprocess.run(
             cmd,
@@ -670,14 +502,14 @@ def run_uv_sync(
             text=True,
         )
 
-        _logger.info("UV sync completed successfully")
+        _logger.info("uv sync completed successfully")
         return True
 
     except subprocess.CalledProcessError as e:
-        _logger.warning(f"UV sync failed with exit code {e.returncode}: {e.stderr}")
+        _logger.warning(f"uv sync failed with exit code {e.returncode}: {e.stderr}")
         return False
     except Exception as e:
-        _logger.warning(f"UV sync failed: {e}")
+        _logger.warning(f"uv sync failed: {e}")
         return False
 
 
