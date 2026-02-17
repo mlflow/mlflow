@@ -891,9 +891,7 @@ def process_sdk_messages(
 
         tool_result_map = _build_tool_result_map(messages)
 
-        # Use real duration from ResultMessage to set span timestamps
-        duration_ms = getattr(result_msg, "duration_ms", None) if result_msg else None
-        if duration_ms:
+        if duration_ms := (getattr(result_msg, "duration_ms", None) if result_msg else None):
             duration_ns = int(duration_ms * NANOSECONDS_PER_MS)
             now_ns = int(datetime.now().timestamp() * NANOSECONDS_PER_S)
             start_time_ns = now_ns - duration_ns

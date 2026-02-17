@@ -428,7 +428,6 @@ def test_process_sdk_messages_multiple_tools():
 
 
 def test_process_sdk_messages_cache_tokens():
-    """Cache tokens (cache_creation + cache_read) are included in input token count."""
     messages = [
         UserMessage(content="Hello"),
         AssistantMessage(
