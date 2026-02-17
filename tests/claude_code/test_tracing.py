@@ -368,6 +368,10 @@ def test_process_sdk_messages_simple_conversation():
     assert trace.info.token_usage["output_tokens"] == 20
     assert trace.info.token_usage["total_tokens"] == 120
 
+    # Duration should reflect ResultMessage.duration_ms (1000ms = 1s)
+    duration_ns = root_span.end_time_ns - root_span.start_time_ns
+    assert abs(duration_ns - 1_000_000_000) < 1_000_000  # within 1ms tolerance
+
     assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-sdk-session"
     assert trace.info.request_preview == "What is 2 + 2?"
     assert trace.info.response_preview == "The answer is 4."

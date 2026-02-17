@@ -540,6 +540,7 @@ def _finalize_trace(
     final_response: str | None,
     session_id: str,
     end_time_ns: int | None = None,
+    usage: dict[str, Any] | None = None,
 ) -> mlflow.entities.Trace:
     try:
         # Set trace previews and metadata for UI display
@@ -548,11 +549,31 @@ def _finalize_trace(
                 in_memory_trace.info.request_preview = user_prompt[:MAX_PREVIEW_LENGTH]
             if final_response:
                 in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
-            in_memory_trace.info.trace_metadata = {
-                **in_memory_trace.info.trace_metadata,
+
+            metadata = {
                 TraceMetadataKey.TRACE_SESSION: session_id,
                 TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
                 "mlflow.trace.working_directory": os.getcwd(),
+            }
+
+            # Set token usage directly on trace metadata so it survives
+            # even if span-level aggregation doesn't pick it up
+            if usage:
+                input_tokens = (
+                    usage.get("input_tokens", 0)
+                    + usage.get("cache_creation_input_tokens", 0)
+                    + usage.get("cache_read_input_tokens", 0)
+                )
+                output_tokens = usage.get("output_tokens", 0)
+                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps({
+                    TokenUsageKey.INPUT_TOKENS: input_tokens,
+                    TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+                    TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
+                })
+
+            in_memory_trace.info.trace_metadata = {
+                **in_memory_trace.info.trace_metadata,
+                **metadata,
             }
     except Exception as e:
         get_logger().warning("Failed to update trace metadata and previews: %s", e)
@@ -858,10 +879,22 @@ def process_sdk_messages(
 
         tool_result_map = _build_tool_result_map(messages)
 
+        # Use real duration from ResultMessage to set span timestamps
+        duration_ms = getattr(result_msg, "duration_ms", None) if result_msg else None
+        if duration_ms:
+            duration_ns = int(duration_ms * NANOSECONDS_PER_MS)
+            now_ns = int(datetime.now().timestamp() * NANOSECONDS_PER_S)
+            start_time_ns = now_ns - duration_ns
+            end_time_ns = now_ns
+        else:
+            start_time_ns = None
+            end_time_ns = None
+
         parent_span = mlflow.start_span_no_context(
             name="claude_code_conversation",
             inputs={"prompt": user_prompt},
             span_type=SpanType.AGENT,
+            start_time_ns=start_time_ns,
         )
 
         final_response = _create_sdk_child_spans(
@@ -869,14 +902,17 @@ def process_sdk_messages(
         )
 
         # Set token usage on the root span so it aggregates into trace-level usage
-        if result_msg and result_msg.usage:
-            _set_token_usage_attribute(parent_span, result_msg.usage)
+        usage = getattr(result_msg, "usage", None) if result_msg else None
+        if usage:
+            _set_token_usage_attribute(parent_span, usage)
 
         return _finalize_trace(
             parent_span,
             user_prompt,
             final_response,
             session_id,
+            end_time_ns=end_time_ns,
+            usage=usage,
         )
 
     except Exception as e:

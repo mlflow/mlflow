@@ -18,17 +18,32 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 _logger = logging.getLogger(__name__)
 
 
+def _build_trace(messages_buffer: list[Any], session_id: str | None = None) -> None:
+    """Build an MLflow trace from accumulated SDK messages."""
+    from mlflow.utils.autologging_utils import autologging_is_disabled
+
+    if autologging_is_disabled("anthropic"):
+        return
+
+    try:
+        from mlflow.claude_code.tracing import process_sdk_messages
+
+        process_sdk_messages(list(messages_buffer), session_id)
+    except Exception as e:
+        _logger.debug("Error building trace from SDK messages: %s", e, exc_info=True)
+    finally:
+        messages_buffer.clear()
+
+
 def patched_claude_sdk_init(original, self, options=None):
-    """Wrap query/receive_messages to capture messages and inject a Stop hook
-    that builds an MLflow trace from the accumulated conversation.
+    """Wrap query/receive_messages/receive_response to capture messages and
+    build an MLflow trace when the conversation completes.
 
-    Args:
-        original: The original ``ClaudeSDKClient.__init__`` method.
-        self: The ``ClaudeSDKClient`` instance being initialized.
-        options: Optional ``ClaudeAgentOptions`` forwarded to the original init.
-
-    Returns:
-        The result of the original ``__init__`` call.
+    The SDK fires the Stop hook BEFORE yielding ResultMessage (which carries
+    token usage and duration).  Therefore we build the trace when
+    receive_response() is fully consumed — at that point the buffer contains
+    all conversation messages plus ResultMessage.  A Stop hook is still
+    injected as a fallback for code paths that never call receive_response().
     """
     try:
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
@@ -37,6 +52,8 @@ def patched_claude_sdk_init(original, self, options=None):
         result = original(self, options)
 
         messages_buffer: list[Any] = []
+        trace_built = False
+        receiving_response = False
 
         # Wrap query() to capture user prompts — query() sends the prompt to
         # the CLI subprocess but doesn't echo it through receive_messages
@@ -61,45 +78,48 @@ def patched_claude_sdk_init(original, self, options=None):
 
         self.receive_messages = wrapped_receive_messages
 
-        # Wrap receive_response() to capture ResultMessage, which contains
-        # token usage and duration but is only yielded by receive_response()
-        # (not by receive_messages())
+        # Wrap receive_response() to capture all messages including
+        # ResultMessage (which carries token usage + duration).  Build
+        # the trace once the generator is exhausted so that ResultMessage
+        # is guaranteed to be in the buffer.
         original_receive_response = self.receive_response
 
         @functools.wraps(original_receive_response)
         async def wrapped_receive_response(*args, **kwargs):
-            async for message in original_receive_response(*args, **kwargs):
-                if isinstance(message, ResultMessage):
-                    messages_buffer.append(message)
-                yield message
+            nonlocal trace_built, receiving_response
+            receiving_response = True
+            try:
+                async for message in original_receive_response(*args, **kwargs):
+                    if isinstance(message, ResultMessage):
+                        messages_buffer.append(message)
+                    yield message
+            finally:
+                receiving_response = False
+
+            # Generator exhausted — all messages including ResultMessage are
+            # now in the buffer.  Build the trace here.
+            result_msg = next(
+                (m for m in messages_buffer if isinstance(m, ResultMessage)), None
+            )
+            session_id = getattr(result_msg, "session_id", None) if result_msg else None
+            _build_trace(messages_buffer, session_id)
+            trace_built = True
 
         self.receive_response = wrapped_receive_response
 
-        # Inject a Stop hook that builds the trace from accumulated messages
+        # Stop hook fallback — only used if receive_response() was never
+        # consumed (e.g. user only called receive_messages()).
+        # When receive_response() IS being consumed, the stop hook fires
+        # mid-stream (before ResultMessage is yielded), so we must defer.
         async def stop_hook(input_data, tool_use_id, context):
             from mlflow.claude_code.hooks import get_hook_response
-            from mlflow.utils.autologging_utils import autologging_is_disabled
 
-            if autologging_is_disabled("anthropic"):
+            if trace_built or receiving_response:
                 return get_hook_response()
 
-            try:
-                from mlflow.claude_code.tracing import process_sdk_messages
-
-                session_id = input_data.get("session_id")
-                trace = process_sdk_messages(list(messages_buffer), session_id)
-
-                if trace is not None:
-                    return get_hook_response()
-                return get_hook_response(
-                    error="Failed to process SDK messages, check "
-                    ".claude/mlflow/claude_tracing.log for details",
-                )
-            except Exception as e:
-                _logger.debug("Error in SDK stop hook: %s", e, exc_info=True)
-                return get_hook_response(error=str(e))
-            finally:
-                messages_buffer.clear()
+            session_id = input_data.get("session_id") if input_data else None
+            _build_trace(messages_buffer, session_id)
+            return get_hook_response()
 
         if self.options is None:
             self.options = ClaudeAgentOptions()
