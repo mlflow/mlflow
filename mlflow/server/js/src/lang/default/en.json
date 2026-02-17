@@ -8352,7 +8352,7 @@
     "description": "Run page > Overview > Run status section label"
   },
   "vyB+Og": {
-    "defaultMessage": "Search traces by request & response",
+    "defaultMessage": "Search traces by id, request, and response",
     "description": "Placeholder text for the search input in the trace results table"
   },
   "w/sljb": {

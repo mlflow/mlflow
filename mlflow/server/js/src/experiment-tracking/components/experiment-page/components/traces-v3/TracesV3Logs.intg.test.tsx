@@ -311,7 +311,7 @@ describe('TracesV3Logs - integration test', () => {
     expect(screen.getByText('0.85')).toBeInTheDocument(); // quality_score value
 
     // Verify search input is also present
-    expect(screen.getByPlaceholderText('Search traces by request & response')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search traces by id, request, and response')).toBeInTheDocument();
   });
 
   it('handles traces error state', async () => {
@@ -420,6 +420,6 @@ describe('TracesV3Logs - integration test', () => {
     expect(screen.getByText('0.75')).toBeInTheDocument(); // trace-2 quality_score
 
     // Verify search input is also present
-    expect(screen.getByPlaceholderText('Search traces by request & response')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search traces by id, request, and response')).toBeInTheDocument();
   });
 });

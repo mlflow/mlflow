@@ -672,6 +672,8 @@ export const traceInfoCellRenderer = (
   } else if (colId === TRACE_ID_COLUMN_ID) {
     const value = currentTraceInfo?.trace_id;
     const otherValue = otherTraceInfo?.trace_id;
+    const displayValue = value && searchQuery ? highlightSearchInText(value, searchQuery) : value;
+    const displayOtherValue = otherValue && searchQuery ? highlightSearchInText(otherValue, searchQuery) : otherValue;
     return (
       <StackedComponents
         first={
@@ -690,7 +692,7 @@ export const traceInfoCellRenderer = (
                   whiteSpace: 'nowrap',
                 }}
               >
-                {value}
+                {displayValue}
               </span>
             </Tag>
           ) : (
@@ -715,7 +717,7 @@ export const traceInfoCellRenderer = (
                   whiteSpace: 'nowrap',
                 }}
               >
-                {otherValue}
+                {displayOtherValue}
               </span>
             </Tag>
           ) : (
