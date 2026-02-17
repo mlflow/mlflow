@@ -3270,6 +3270,10 @@
     "defaultMessage": "No metrics available",
     "description": "Text shown in a disabled multi-selector when there are no selectable metrics."
   },
+  "M65Hoy": {
+    "defaultMessage": "Search traces by id, request, or response",
+    "description": "Placeholder text for the search input in the trace results table"
+  },
   "M8cEQy": {
     "defaultMessage": "No",
     "description": "Label for an assessment with a 'no' value"
@@ -8858,10 +8862,6 @@
   "zMv2ev": {
     "defaultMessage": "Learn more.",
     "description": "Link text for learning more about expectations"
-  },
-  "zNWzj6": {
-    "defaultMessage": "Search traces by request",
-    "description": "Placeholder text for the search input in the trace results table"
   },
   "zRKlAL": {
     "defaultMessage": "Metadata",
