@@ -455,12 +455,12 @@ def test_process_sdk_messages_cache_tokens():
     assert trace is not None
     root_span = trace.data.spans[0]
 
-    # input_tokens should include cache tokens: 36 + 23554 + 139035 = 162625
+    # input_tokens should include cache_creation but not cache_read: 36 + 23554 = 23590
     token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
-    assert token_usage["input_tokens"] == 162625
+    assert token_usage["input_tokens"] == 23590
     assert token_usage["output_tokens"] == 3344
-    assert token_usage["total_tokens"] == 162625 + 3344
+    assert token_usage["total_tokens"] == 23590 + 3344
 
     # Trace-level aggregation should match
-    assert trace.info.token_usage["input_tokens"] == 162625
+    assert trace.info.token_usage["input_tokens"] == 23590
     assert trace.info.token_usage["output_tokens"] == 3344

@@ -23,7 +23,6 @@ from mlflow.environment_variables import (
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracking.fluent import _get_trace_exporter
 
 # ============================================================================
 # CONSTANTS
@@ -431,8 +430,9 @@ def _process_assistant_entry(msg: dict[str, Any], messages: list[dict[str, Any]]
 def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     """Set token usage on a span using the standardized CHAT_USAGE attribute.
 
-    Includes cache tokens (cache_creation_input_tokens, cache_read_input_tokens)
-    in the input token count for accurate totals.
+    Includes cache_creation_input_tokens in the input token count since its cost
+    is in a similar range to regular input tokens. cache_read_input_tokens is excluded
+    because it is significantly cheaper and would inflate cost estimates.
 
     Args:
         span: The MLflow span to set token usage on
@@ -441,11 +441,7 @@ def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     if not usage:
         return
 
-    input_tokens = (
-        usage.get("input_tokens", 0)
-        + usage.get("cache_creation_input_tokens", 0)
-        + usage.get("cache_read_input_tokens", 0)
-    )
+    input_tokens = usage.get("input_tokens", 0) + usage.get("cache_creation_input_tokens", 0)
     output_tokens = usage.get("output_tokens", 0)
 
     usage_dict = {
@@ -538,7 +534,7 @@ def _finalize_trace(
     parent_span,
     user_prompt: str,
     final_response: str | None,
-    session_id: str,
+    session_id: str | None,
     end_time_ns: int | None = None,
     usage: dict[str, Any] | None = None,
 ) -> mlflow.entities.Trace:
@@ -551,18 +547,17 @@ def _finalize_trace(
                 in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
 
             metadata = {
-                TraceMetadataKey.TRACE_SESSION: session_id,
                 TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
                 "mlflow.trace.working_directory": os.getcwd(),
             }
+            if session_id:
+                metadata[TraceMetadataKey.TRACE_SESSION] = session_id
 
             # Set token usage directly on trace metadata so it survives
             # even if span-level aggregation doesn't pick it up
             if usage:
-                input_tokens = (
-                    usage.get("input_tokens", 0)
-                    + usage.get("cache_creation_input_tokens", 0)
-                    + usage.get("cache_read_input_tokens", 0)
+                input_tokens = usage.get("input_tokens", 0) + usage.get(
+                    "cache_creation_input_tokens", 0
                 )
                 output_tokens = usage.get("output_tokens", 0)
                 metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(
@@ -580,14 +575,14 @@ def _finalize_trace(
     except Exception as e:
         get_logger().warning("Failed to update trace metadata and previews: %s", e)
 
-    parent_span.set_outputs(
-        {"response": final_response or "Conversation completed", "status": "completed"}
-    )
+    outputs = {"status": "completed"}
+    if final_response:
+        outputs["response"] = final_response
+    parent_span.set_outputs(outputs)
     parent_span.end(end_time_ns=end_time_ns)
 
     try:
-        if hasattr(_get_trace_exporter(), "_async_queue"):
-            mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging()
     except Exception as e:
         get_logger().debug("Failed to flush trace async logging: %s", e)
 
@@ -876,12 +871,8 @@ def process_sdk_messages(
 
         result_msg = next((msg for msg in messages if isinstance(msg, ResultMessage)), None)
 
-        # Prefer the SDK's own session_id, fall back to caller arg, then generate one
-        session_id = (
-            (result_msg.session_id if result_msg else None)
-            or session_id
-            or f"claude-sdk-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        )
+        # Prefer the SDK's own session_id, fall back to caller arg
+        session_id = (result_msg.session_id if result_msg else None) or session_id
 
         get_logger().log(
             CLAUDE_TRACING_LEVEL,
