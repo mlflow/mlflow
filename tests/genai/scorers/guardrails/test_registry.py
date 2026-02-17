@@ -2,8 +2,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-pytest.importorskip("guardrails")
-
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.guardrails.registry import get_validator_class
 
