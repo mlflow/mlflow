@@ -9,9 +9,6 @@ import subprocess
 import sys
 import urllib.request
 
-# Maximum number of linked issues to fetch from GitHub API
-MAX_LINKED_ISSUES = 10
-
 
 def run_gh(*args: str) -> str:
     return subprocess.check_output(["gh", *args], text=True)
@@ -82,7 +79,7 @@ def get_closing_issues(repo: str, pr_number: str) -> list[tuple[int, str]]:
     {{
       repository(owner: "{owner}", name: "{name}") {{
         pullRequest(number: {pr_number}) {{
-          closingIssuesReferences(first: {MAX_LINKED_ISSUES}) {{
+          closingIssuesReferences(first: 10) {{
             nodes {{
               number
               title
