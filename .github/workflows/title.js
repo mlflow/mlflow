@@ -1,21 +1,3 @@
-/**
- * Generate improved PR or issue title using AI.
- *
- * This script uses the Anthropic API to generate descriptive titles for PRs and issues.
- * It supports stacked PR incremental diffs and linked issues.
- */
-
-/**
- * Extract the base SHA from the stacked PR incremental diff link.
- *
- * In stacked PR descriptions, the current PR is marked with bold (double asterisks).
- * We find the bold entry matching the branch name and extract the base SHA from
- * the files URL pattern /files/<base>..<head>.
- *
- * @param {string|null} prBody - The PR body text
- * @param {string} headRef - The head branch name
- * @returns {string|null} The base SHA if found, null otherwise
- */
 function extractStackedPrBaseSha(prBody, headRef) {
   if (!prBody || !prBody.includes("Stacked PR")) {
     return null;
@@ -36,15 +18,6 @@ function extractStackedPrBaseSha(prBody, headRef) {
   return null;
 }
 
-/**
- * Get PR information using GitHub API.
- *
- * @param {object} github - Octokit instance
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {number} prNumber - PR number
- * @returns {Promise<{title: string, body: string, headSha: string, headRef: string}>}
- */
 async function getPrInfo(github, owner, repo, prNumber) {
   console.error("Fetching PR information...");
 
@@ -62,18 +35,6 @@ async function getPrInfo(github, owner, repo, prNumber) {
   };
 }
 
-/**
- * Fetch PR diff with stacked PR support.
- *
- * @param {object} github - Octokit instance
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {number} prNumber - PR number
- * @param {string} body - PR body
- * @param {string} headSha - Head commit SHA
- * @param {string} headRef - Head branch name
- * @returns {Promise<string>} The diff text
- */
 async function getPrDiff(github, owner, repo, prNumber, body, headSha, headRef) {
   console.error("Fetching PR diff...");
 
@@ -116,15 +77,6 @@ async function getPrDiff(github, owner, repo, prNumber, body, headSha, headRef) 
   return diff;
 }
 
-/**
- * Get closing issues references for a PR via GraphQL.
- *
- * @param {object} github - Octokit instance
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {number} prNumber - PR number
- * @returns {Promise<Array<{number: number, title: string}>>}
- */
 async function getClosingIssues(github, owner, repo, prNumber) {
   console.error("Fetching closing issues...");
 
@@ -164,12 +116,6 @@ async function getClosingIssues(github, owner, repo, prNumber) {
   }
 }
 
-/**
- * Extract the "What changes are proposed" section from PR body.
- *
- * @param {string} body - PR body text
- * @returns {string} Extracted description or full body
- */
 function extractDescription(body) {
   const pattern = /### What changes are proposed in this pull request\?\s*(.+?)(?=###|$)/is;
   const match = body.match(pattern);
@@ -181,15 +127,6 @@ function extractDescription(body) {
   return body;
 }
 
-/**
- * Build prompt for PR title generation.
- *
- * @param {string} title - Current PR title
- * @param {string} body - PR body
- * @param {string} diff - PR diff
- * @param {Array<{number: number, title: string}>|null} linkedIssues - Linked issues
- * @returns {string} The prompt text
- */
 function buildPrompt(title, body, diff, linkedIssues = null) {
   const description = extractDescription(body).trim() || "(No description provided)";
 
@@ -227,13 +164,6 @@ ${diff}
 Rewrite the PR title following these guidelines.`;
 }
 
-/**
- * Build prompt for issue title generation.
- *
- * @param {string} title - Current issue title
- * @param {string} body - Issue body
- * @returns {string} The prompt text
- */
 function buildIssuePrompt(title, body) {
   const description = body.trim() || "(No description provided)";
 
@@ -258,13 +188,6 @@ ${description}
 Rewrite the issue title following these guidelines.`;
 }
 
-/**
- * Call Anthropic API to generate new title.
- *
- * @param {string} prompt - The prompt text
- * @param {string} apiKey - Anthropic API key
- * @returns {Promise<string>} The generated title
- */
 async function callAnthropicApi(prompt, apiKey) {
   console.error("Calling Claude API...");
 
@@ -312,15 +235,6 @@ async function callAnthropicApi(prompt, apiKey) {
   return content.title;
 }
 
-/**
- * Get issue information using GitHub API.
- *
- * @param {object} github - Octokit instance
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {number} issueNumber - Issue number
- * @returns {Promise<{title: string, body: string}>}
- */
 async function getIssueInfo(github, owner, repo, issueNumber) {
   console.error("Fetching issue information...");
 
@@ -336,14 +250,6 @@ async function getIssueInfo(github, owner, repo, issueNumber) {
   };
 }
 
-/**
- * Main entry point for the script.
- *
- * @param {object} params - Parameters
- * @param {object} params.github - Octokit instance from actions/github-script
- * @param {object} params.context - GitHub Actions context
- * @param {object} params.core - GitHub Actions core utilities
- */
 module.exports = async ({ github, context, core }) => {
   // Parse inputs from environment
   const repo = process.env.REPO;
