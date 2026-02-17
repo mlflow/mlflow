@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 from typing import Callable, TypeVar
 
-from mlflow.entities.workspace import Workspace
+from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
@@ -125,8 +125,6 @@ def delete_workspace(name: str, *, mode: str = "SET_DEFAULT") -> None:
         mode: Deletion mode — ``"SET_DEFAULT"`` (reassign resources to the default workspace),
             ``"CASCADE"`` (delete all resources), or ``"RESTRICT"`` (refuse if resources exist).
     """
-    from mlflow.entities.workspace import WorkspaceDeletionMode
-
     deletion_mode = WorkspaceDeletionMode(mode)
     if name != DEFAULT_WORKSPACE_NAME:
         WorkspaceNameValidator.validate(name)
