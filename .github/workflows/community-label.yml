@@ -10,7 +10,7 @@ defaults:
     shell: bash
 
 jobs:
-  label-external:
+  label-community:
     if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -51,6 +51,6 @@ jobs:
             exit 0
           fi
 
-          # Add external label for community PRs
-          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "external"
-          echo "Added 'external' label to community PR #$PR_NUMBER"
+          # Add community label
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "community"
+          echo "Added 'community' label to community PR #$PR_NUMBER"
