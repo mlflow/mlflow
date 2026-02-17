@@ -42,8 +42,17 @@ def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
         span.set_inputs(args[0])
 
 
+_W3C_TRACE_CONTEXT_HEADERS = ("traceparent", "tracestate")
+
+
 def _has_traceparent(headers: dict[str, str]) -> bool:
     return "traceparent" in headers or "Traceparent" in headers
+
+
+def _extract_trace_context_headers(headers: dict[str, str]) -> dict[str, str]:
+    """Extract only W3C trace context headers, ignoring sensitive headers."""
+    lower = {k.lower(): v for k, v in headers.items()}
+    return {k: lower[k] for k in _W3C_TRACE_CONTEXT_HEADERS if k in lower}
 
 
 def _gateway_span_name(endpoint_config: GatewayEndpointConfig) -> str:
@@ -91,6 +100,8 @@ def _maybe_create_distributed_span(
     if not request_headers or not _has_traceparent(request_headers):
         return
 
+    trace_headers = _extract_trace_context_headers(request_headers)
+
     gateway_trace_id = None
     if span := mlflow.get_current_active_span():
         gateway_trace_id = span.trace_id
@@ -98,7 +109,7 @@ def _maybe_create_distributed_span(
     provider_infos = _get_provider_span_info(gateway_trace_id) if gateway_trace_id else []
 
     try:
-        with set_tracing_context_from_http_request_headers(request_headers):
+        with set_tracing_context_from_http_request_headers(trace_headers):
             with mlflow.start_span(
                 name=_gateway_span_name(endpoint_config),
                 span_type=SpanType.LLM,

@@ -18,7 +18,11 @@ from mlflow.types.chat import ChatChoiceDelta, ChatChunkChoice, ChatUsage, Funct
 
 @pytest.fixture
 def gateway_experiment_id():
-    return mlflow.create_experiment("gateway-test-endpoint")
+    experiment_name = "gateway-test-endpoint"
+    experiment = mlflow.get_experiment_by_name(experiment_name)
+    if experiment is not None:
+        return experiment.experiment_id
+    return mlflow.create_experiment(experiment_name)
 
 
 def get_traces():
