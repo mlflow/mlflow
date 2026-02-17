@@ -3642,6 +3642,122 @@ def test_get_metric_history_on_non_existent_metric_key(store: SqlAlchemyStore):
     assert metrics == []
 
 
+def test_get_metric_history_bulk_interval(store: SqlAlchemyStore):
+    """Test that the SQL-optimized bulk interval override returns correct results."""
+    run = _run_factory(store)
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    # Log 100 metric values at steps 0..99
+    for i in range(100):
+        store.log_metric(
+            run_id,
+            models.SqlMetric(
+                key=metric_key, value=float(i), timestamp=1000 + i, step=i
+            ).to_mlflow_entity(),
+        )
+
+    # Request downsampled to 10 results
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run_id],
+        metric_key=metric_key,
+        max_results=10,
+        start_step=None,
+        end_step=None,
+    )
+
+    # Should return roughly 10 sampled entries (plus min/max boundaries)
+    assert len(result) <= 12
+    assert len(result) >= 10
+
+    # All results should have the correct run_id and metric key
+    for m in result:
+        assert m.run_id == run_id
+        assert m.key == metric_key
+
+    # Min and max steps should be preserved
+    returned_steps = {m.step for m in result}
+    assert 0 in returned_steps
+    assert 99 in returned_steps
+
+
+def test_get_metric_history_bulk_interval_no_metrics(store: SqlAlchemyStore):
+    """Test bulk interval with no logged metrics returns empty list."""
+    run = _run_factory(store)
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run.info.run_id],
+        metric_key="nonexistent",
+        max_results=10,
+        start_step=None,
+        end_step=None,
+    )
+    assert result == []
+
+
+def test_get_metric_history_bulk_interval_multiple_runs(store: SqlAlchemyStore):
+    """Test bulk interval across multiple runs."""
+    exp_id = _create_experiments(store, "test_bulk_interval_multi")
+    run1 = _run_factory(store, config=_get_run_configs(experiment_id=exp_id))
+    run2 = _run_factory(store, config=_get_run_configs(experiment_id=exp_id))
+
+    metric_key = "shared_metric"
+    for i in range(50):
+        store.log_metric(
+            run1.info.run_id,
+            models.SqlMetric(
+                key=metric_key, value=float(i), timestamp=1000 + i, step=i
+            ).to_mlflow_entity(),
+        )
+        store.log_metric(
+            run2.info.run_id,
+            models.SqlMetric(
+                key=metric_key, value=float(i * 2), timestamp=2000 + i, step=i
+            ).to_mlflow_entity(),
+        )
+
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run1.info.run_id, run2.info.run_id],
+        metric_key=metric_key,
+        max_results=10,
+        start_step=None,
+        end_step=None,
+    )
+
+    # Should have results from both runs
+    run_ids_in_result = {m.run_id for m in result}
+    assert run1.info.run_id in run_ids_in_result
+    assert run2.info.run_id in run_ids_in_result
+
+
+def test_get_metric_history_bulk_interval_with_step_range(store: SqlAlchemyStore):
+    """Test bulk interval respects start_step and end_step."""
+    run = _run_factory(store)
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    for i in range(100):
+        store.log_metric(
+            run_id,
+            models.SqlMetric(
+                key=metric_key, value=float(i), timestamp=1000 + i, step=i
+            ).to_mlflow_entity(),
+        )
+
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run_id],
+        metric_key=metric_key,
+        max_results=320,
+        start_step=20,
+        end_step=30,
+    )
+
+    returned_steps = {m.step for m in result}
+    # All returned steps should be within the requested range
+    assert all(20 <= s <= 30 for s in returned_steps)
+    # Should contain all steps in range since max_results > range size
+    assert returned_steps == set(range(20, 31))
+
+
 def test_insert_large_text_in_dataset_table(store: SqlAlchemyStore):
     with store.engine.begin() as conn:
         # cursor = conn.cursor()
