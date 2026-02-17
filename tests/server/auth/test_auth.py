@@ -155,7 +155,6 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
 
 @pytest.mark.parametrize("mpu_action", ["create", "complete", "abort"])
 def test_mpu_authorization_required(client, monkeypatch, mpu_action):
-    """MPU endpoints must enforce the same permission checks as regular artifact uploads."""
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
 
