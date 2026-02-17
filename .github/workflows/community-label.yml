@@ -53,4 +53,4 @@ jobs:
 
           # Add community label
           gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "community"
-          echo "Added 'community' label to community PR #$PR_NUMBER"
+          echo "Added 'community' label to PR #$PR_NUMBER"
