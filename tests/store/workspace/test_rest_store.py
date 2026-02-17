@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 
-from mlflow.entities.workspace import Workspace
+from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.service_pb2 import (
     CreateWorkspace,
@@ -130,6 +130,25 @@ def test_delete_workspace_returns_on_success(store, host_creds):
     assert kwargs["method"] == "DELETE"
     assert kwargs["expected_status"] == 204
     assert kwargs["json_body"] is None
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_suffix"),
+    [
+        (WorkspaceDeletionMode.SET_DEFAULT, ""),
+        (WorkspaceDeletionMode.CASCADE, "?mode=CASCADE"),
+        (WorkspaceDeletionMode.RESTRICT, "?mode=RESTRICT"),
+    ],
+)
+def test_delete_workspace_sends_mode_query_param(store, host_creds, mode, expected_suffix):
+    response = DeleteWorkspace.Response()
+    with mock.patch(
+        "mlflow.store.workspace.rest_store.call_endpoint", return_value=response
+    ) as call_endpoint:
+        store.delete_workspace("team-f", mode=mode)
+
+    kwargs = call_endpoint.call_args.kwargs
+    assert kwargs["endpoint"] == f"{WORKSPACES_ENDPOINT}/team-f{expected_suffix}"
 
 
 def test_get_default_workspace_not_supported(store):

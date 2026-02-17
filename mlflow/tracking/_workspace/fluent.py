@@ -117,12 +117,20 @@ def update_workspace(
 
 
 @experimental(version="3.10.0")
-def delete_workspace(name: str) -> None:
-    """Delete an existing workspace."""
+def delete_workspace(name: str, *, mode: str = "SET_DEFAULT") -> None:
+    """Delete an existing workspace.
 
+    Args:
+        name: Name of the workspace to delete.
+        mode: Deletion mode — ``"SET_DEFAULT"`` (reassign resources to the default workspace),
+            ``"CASCADE"`` (delete all resources), or ``"RESTRICT"`` (refuse if resources exist).
+    """
+    from mlflow.entities.workspace import WorkspaceDeletionMode
+
+    deletion_mode = WorkspaceDeletionMode(mode)
     if name != DEFAULT_WORKSPACE_NAME:
         WorkspaceNameValidator.validate(name)
-    _workspace_client_call(lambda client: client.delete_workspace(name=name))
+    _workspace_client_call(lambda client: client.delete_workspace(name=name, mode=deletion_mode))
 
 
 __all__ = [

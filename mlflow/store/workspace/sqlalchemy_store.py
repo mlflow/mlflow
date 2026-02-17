@@ -4,11 +4,12 @@ import logging
 from threading import Lock
 from typing import Iterable
 
+import sqlalchemy as sa
 from cachetools import TTLCache
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from mlflow.entities.workspace import Workspace
+from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.environment_variables import (
     MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY,
     MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS,
@@ -27,6 +28,21 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 _logger = logging.getLogger(__name__)
 
 _CACHE_MISS = object()
+
+# Root workspace-aware tables whose workspace column must be reset before deleting a workspace.
+# "registered_models" is first because its onupdate="CASCADE" foreign keys automatically
+# propagate the change to model_versions, registered_model_tags, model_version_tags,
+# and registered_model_aliases.
+_WORKSPACE_ROOT_TABLES = [
+    sa.table("registered_models", sa.column("workspace")),
+    sa.table("experiments", sa.column("workspace")),
+    sa.table("evaluation_datasets", sa.column("workspace")),
+    sa.table("webhooks", sa.column("workspace")),
+    sa.table("secrets", sa.column("workspace")),
+    sa.table("endpoints", sa.column("workspace")),
+    sa.table("model_definitions", sa.column("workspace")),
+    sa.table("jobs", sa.column("workspace")),
+]
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -102,7 +118,11 @@ class SqlAlchemyStore(AbstractStore):
             self._artifact_root_cache[workspace.name] = workspace_entity.default_artifact_root
         return workspace_entity
 
-    def delete_workspace(self, workspace_name: str) -> None:
+    def delete_workspace(
+        self,
+        workspace_name: str,
+        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.SET_DEFAULT,
+    ) -> None:
         if workspace_name == DEFAULT_WORKSPACE_NAME:
             raise MlflowException(
                 f"Cannot delete the reserved '{DEFAULT_WORKSPACE_NAME}' workspace",
@@ -111,8 +131,40 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             entity = self._get_workspace(session, workspace_name)
-            session.delete(entity)
-            _logger.info("Deleted workspace '%s'", workspace_name)
+            try:
+                if mode == WorkspaceDeletionMode.RESTRICT:
+                    for table in _WORKSPACE_ROOT_TABLES:
+                        count = session.execute(
+                            sa.select(sa.func.count())
+                            .select_from(table)
+                            .where(table.c.workspace == workspace_name)
+                        ).scalar()
+                        if count:
+                            raise MlflowException(
+                                f"Cannot delete workspace '{workspace_name}': table "
+                                f"'{table.name}' still contains {count} resource(s). "
+                                "Remove or reassign them before deleting the workspace.",
+                                INVALID_STATE,
+                            )
+                elif mode == WorkspaceDeletionMode.CASCADE:
+                    for table in _WORKSPACE_ROOT_TABLES:
+                        session.execute(table.delete().where(table.c.workspace == workspace_name))
+                elif mode == WorkspaceDeletionMode.SET_DEFAULT:
+                    for table in _WORKSPACE_ROOT_TABLES:
+                        session.execute(
+                            table.update()
+                            .where(table.c.workspace == workspace_name)
+                            .values(workspace=DEFAULT_WORKSPACE_NAME)
+                        )
+                session.delete(entity)
+            except IntegrityError as exc:
+                raise MlflowException(
+                    f"Cannot delete workspace '{workspace_name}': resources in this workspace "
+                    f"conflict with existing resources in the '{DEFAULT_WORKSPACE_NAME}' "
+                    f"workspace. Resolve naming conflicts before deleting. Error: {exc}",
+                    INVALID_STATE,
+                ) from exc
+            _logger.info("Deleted workspace '%s' (mode=%s)", workspace_name, mode.value)
         with self._artifact_root_cache_lock:
             self._artifact_root_cache.pop(workspace_name, None)
 

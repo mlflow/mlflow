@@ -373,10 +373,16 @@ class MlflowClient:
             name, description, default_artifact_root=default_artifact_root
         )
 
-    def delete_workspace(self, name: str) -> None:
-        """Delete an existing workspace."""
+    def delete_workspace(self, name: str, mode: str = "SET_DEFAULT") -> None:
+        """Delete an existing workspace.
 
-        self._get_workspace_client().delete_workspace(name)
+        Args:
+            name: Name of the workspace to delete.
+            mode: Deletion mode — ``"SET_DEFAULT"``, ``"CASCADE"``, or ``"RESTRICT"``.
+        """
+        from mlflow.entities.workspace import WorkspaceDeletionMode
+
+        self._get_workspace_client().delete_workspace(name, mode=WorkspaceDeletionMode(mode))
 
     def get_run(self, run_id: str) -> Run:
         """
