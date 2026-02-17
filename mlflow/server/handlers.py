@@ -2629,21 +2629,21 @@ def _create_model_version():
 
     is_prompt = _is_prompt_request(request_message)
     if is_prompt:
-        # Prompt sources must not point to local filesystem paths
-        try:
-            is_local = is_local_uri(request_message.source, is_tracking_or_registry_uri=False)
-        except MlflowException as exc:
+        # Prompt sources must not point to local filesystem paths.
+        # Block file:// URIs and absolute paths (e.g. /etc/passwd) but allow
+        # the legitimate schemeless placeholder sources used internally
+        # (e.g. "prompt-template", "dummy-source").
+        source = request_message.source
+        parsed = urllib.parse.urlparse(source)
+        if parsed.scheme == "file" or (parsed.scheme == "" and source.startswith("/")):
             raise MlflowException(
-                f"Invalid model version source: '{request_message.source}'. {exc}",
-                error_code=INVALID_PARAMETER_VALUE,
-            ) from exc
-        if is_local:
-            raise MlflowException(
-                f"Invalid model version source: '{request_message.source}'. "
+                f"Invalid model version source: '{source}'. "
                 "Local source paths are not allowed for prompts.",
                 INVALID_PARAMETER_VALUE,
             )
-        _validate_non_local_source_contains_relative_paths(request_message.source)
+        # Only validate traversal for sources with a URL scheme (http, https, etc.)
+        if parsed.scheme:
+            _validate_non_local_source_contains_relative_paths(source)
     else:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
