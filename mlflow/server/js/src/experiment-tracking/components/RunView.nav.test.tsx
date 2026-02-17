@@ -14,7 +14,8 @@ import { useRunDetailsPageData } from './run-page/hooks/useRunDetailsPageData';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { DesignSystemProvider } from '@databricks/design-system';
 
-jest.mock('../../common/utils/ServerFeaturesContext', () => ({
+jest.mock('../hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../hooks/useServerInfo')>('../hooks/useServerInfo'),
   getWorkspacesEnabledSync: () => false,
   useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
 }));

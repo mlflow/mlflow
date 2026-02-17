@@ -346,10 +346,11 @@ def test_version():
 
 def test_server_info():
     with app.test_client() as c:
-        response = c.get("/server-info")
+        response = c.get("/api/3.0/mlflow/server-info")
         assert response.status_code == 200
         data = response.get_json()
         assert data["store_type"] == "SqlStore"
+        assert data["workspaces_enabled"] is False
 
 
 def test_get_endpoints():
@@ -768,6 +769,50 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert args["run_link"] == run_link
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "file:///etc/passwd",
+        "file:///",
+        "/etc/passwd",
+        "file:///proc/self/environ",
+        "file://remote-host/etc/passwd",
+        "file://remote-host/",
+    ],
+)
+def test_create_model_version_rejects_local_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "Invalid prompt source" in resp.get_json()["message"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "https://example.com/../../etc/passwd",
+        "http://example.com/path/..%2f..%2fsecret",
+    ],
+)
+def test_create_model_version_rejects_traversal_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "Invalid model version source" in resp.get_json()["message"]
 
 
 def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):

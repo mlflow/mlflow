@@ -5,8 +5,29 @@ from typing import Any
 
 import mlflow
 from mlflow.entities.trace_location import MlflowExperimentLocation
+from mlflow.gateway.config import GatewayRequestType
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
+from mlflow.tracing.constant import TraceMetadataKey
+
+
+def _maybe_unwrap_single_arg_input(args: tuple[Any], kwargs: dict[str, Any]):
+    """Unwrap inputs so trace shows the request body directly.
+
+    Extracts the payload kwarg if present, otherwise unwraps single-argument inputs.
+    """
+    span = mlflow.get_current_active_span()
+    if not span:
+        return
+
+    # For passthrough endpoints with kwargs, extract the payload key
+    # This takes precedence to handle cases where functions are called with
+    # keyword arguments (e.g., action=..., payload=..., headers=...)
+    if "payload" in kwargs:
+        span.set_inputs(kwargs["payload"])
+    # For other endpoints with a single positional argument
+    elif len(args) == 1 and not kwargs:
+        span.set_inputs(args[0])
 
 
 def maybe_traced_gateway_call(
@@ -14,6 +35,7 @@ def maybe_traced_gateway_call(
     endpoint_config: GatewayEndpointConfig,
     metadata: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
+    request_type: GatewayRequestType | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a gateway function with tracing.
@@ -23,6 +45,7 @@ def maybe_traced_gateway_call(
         endpoint_config: The gateway endpoint configuration.
         metadata: Additional metadata to include in the trace (e.g., auth user info).
         output_reducer: A function to aggregate streaming chunks into a single output.
+        request_type: The type of gateway request (e.g., GatewayRequestType.CHAT).
 
     Returns:
         A traced version of the function.
@@ -43,30 +66,35 @@ def maybe_traced_gateway_call(
         "trace_destination": MlflowExperimentLocation(endpoint_config.experiment_id),
     }
 
-    if not metadata:
-        return mlflow.trace(func, **trace_kwargs)
+    # Build combined metadata with gateway-specific fields
+    combined_metadata = metadata.copy() if metadata else {}
+    combined_metadata[TraceMetadataKey.GATEWAY_ENDPOINT_ID] = endpoint_config.endpoint_id
+    if request_type:
+        combined_metadata[TraceMetadataKey.GATEWAY_REQUEST_TYPE] = request_type
 
     # Wrap function to set metadata inside the trace context
     if inspect.isasyncgenfunction(func):
 
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            mlflow.update_current_trace(metadata=metadata)
+            mlflow.update_current_trace(metadata=combined_metadata)
+            _maybe_unwrap_single_arg_input(args, kwargs)
             async for item in func(*args, **kwargs):
                 yield item
-
     elif inspect.iscoroutinefunction(func):
 
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            mlflow.update_current_trace(metadata=metadata)
+            mlflow.update_current_trace(metadata=combined_metadata)
+            _maybe_unwrap_single_arg_input(args, kwargs)
             return await func(*args, **kwargs)
 
     else:
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            mlflow.update_current_trace(metadata=metadata)
+            mlflow.update_current_trace(metadata=combined_metadata)
+            _maybe_unwrap_single_arg_input(args, kwargs)
             return func(*args, **kwargs)
 
     return mlflow.trace(wrapper, **trace_kwargs)

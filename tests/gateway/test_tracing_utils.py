@@ -188,6 +188,8 @@ async def test_maybe_traced_gateway_call_basic(endpoint_config):
     gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
     assert gateway_span.attributes.get("endpoint_id") == "test-endpoint-id"
     assert gateway_span.attributes.get("endpoint_name") == "test-endpoint"
+    # Input should be unwrapped (not nested under "payload" key)
+    assert gateway_span.inputs == {"input": "test"}
     # No user metadata should be present in trace
     assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USERNAME) is None
     assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USER_ID) is None
@@ -216,6 +218,8 @@ async def test_maybe_traced_gateway_call_with_user_metadata(endpoint_config):
 
     assert gateway_span.attributes.get("endpoint_id") == "test-endpoint-id"
     assert gateway_span.attributes.get("endpoint_name") == "test-endpoint"
+    # Input should be unwrapped (not nested under "payload" key)
+    assert gateway_span.inputs == {"input": "test"}
     # User metadata should be in trace info, not span attributes
     assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USERNAME) == "alice"
     assert trace.info.request_metadata.get(TraceMetadataKey.AUTH_USER_ID) == "123"
@@ -273,9 +277,35 @@ async def test_maybe_traced_gateway_call_with_output_reducer(endpoint_config):
     span_name_to_span = {span.name: span for span in trace.data.spans}
     gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
 
+    # Input should be unwrapped (not nested under "payload" key)
+    assert gateway_span.inputs == {"messages": [{"role": "user", "content": "hi"}]}
+
     # The output should be the reduced aggregated response, not raw chunks
     output = gateway_span.outputs
     assert output["object"] == "chat.completion"
     assert output["choices"][0]["message"]["content"] == "Hello world"
     assert output["choices"][0]["finish_reason"] == "stop"
     assert output["usage"]["total_tokens"] == 7
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_with_payload_kwarg(endpoint_config):
+    async def mock_passthrough_func(action, payload, headers=None):
+        return {"result": "success", "action": action, "payload": payload}
+
+    traced_func = maybe_traced_gateway_call(mock_passthrough_func, endpoint_config)
+    result = await traced_func(
+        action="test_action", payload={"messages": [{"role": "user", "content": "hi"}]}, headers={}
+    )
+
+    assert result["result"] == "success"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
+
+    # Input should be unwrapped to just the payload dict
+    assert gateway_span.inputs == {"messages": [{"role": "user", "content": "hi"}]}
