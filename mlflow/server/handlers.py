@@ -1149,10 +1149,11 @@ def _create_workspace_handler():
         raise _workspace_not_supported("Workspace creation is not supported by this provider")
 
     tracking_store = _get_tracking_store()
+    default_experiment_name = f"{Experiment.DEFAULT_EXPERIMENT_NAME} ({workspace.name})"
     with workspace_context.WorkspaceContext(workspace.name):
-        if tracking_store.get_experiment_by_name(Experiment.DEFAULT_EXPERIMENT_NAME) is None:
+        if tracking_store.get_experiment_by_name(default_experiment_name) is None:
             try:
-                tracking_store.create_experiment(Experiment.DEFAULT_EXPERIMENT_NAME)
+                tracking_store.create_experiment(default_experiment_name)
             except MlflowException as exc:
                 if exc.error_code != databricks_pb2.ErrorCode.Name(
                     databricks_pb2.RESOURCE_ALREADY_EXISTS

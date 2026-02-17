@@ -78,12 +78,9 @@ def test_create_workspace_endpoint(app, mock_workspace_store, mock_tracking_stor
     payload = _workspace_to_json(response.get_data(True))
     assert payload == {"workspace": {"name": "team-b", "description": "Team B"}}
     mock_workspace_store.create_workspace.assert_called_once()
-    mock_tracking_store.get_experiment_by_name.assert_called_once_with(
-        Experiment.DEFAULT_EXPERIMENT_NAME
-    )
-    mock_tracking_store.create_experiment.assert_called_once_with(
-        Experiment.DEFAULT_EXPERIMENT_NAME
-    )
+    expected_name = f"{Experiment.DEFAULT_EXPERIMENT_NAME} (team-b)"
+    mock_tracking_store.get_experiment_by_name.assert_called_once_with(expected_name)
+    mock_tracking_store.create_experiment.assert_called_once_with(expected_name)
 
 
 def test_get_workspace_endpoint(app, mock_workspace_store):
