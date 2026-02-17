@@ -72,15 +72,11 @@ def get_pr_diff(repo: str, pr_number: str, body: str, head_sha: str, head_ref: s
 
 
 def get_closing_issues(repo: str, pr_number: str) -> list[tuple[int, str]]:
-    """Fetch linked issues via GitHub GraphQL API.
-
-    Returns a list of (issue_number, issue_title) tuples for issues
-    linked via closing keywords (e.g., "Fixes #123").
-    """
-    if "/" not in repo:
-        raise ValueError(f"Invalid repo format: '{repo}'. Expected format: 'owner/name'")
-
-    owner, name = repo.split("/", 1)
+    match repo.split("/"):
+        case [owner, name]:
+            pass
+        case _:
+            raise ValueError(f"Invalid repo format: {repo!r}")
 
     # Validate inputs to prevent GraphQL injection
     # GitHub usernames/org names: alphanumeric, hyphens, max 39 chars
@@ -112,9 +108,17 @@ def get_closing_issues(repo: str, pr_number: str) -> list[tuple[int, str]]:
     try:
         output = run_gh("api", "graphql", "-f", f"query={query}")
         data = json.loads(output)
-        pr_data = data.get("data", {}).get("repository", {}).get("pullRequest", {})
-        nodes = pr_data.get("closingIssuesReferences", {}).get("nodes", [])
-        return [(node["number"], node["title"]) for node in nodes]
+        match data:
+            case {
+                "data": {
+                    "repository": {
+                        "pullRequest": {"closingIssuesReferences": {"nodes": list(nodes)}}
+                    }
+                }
+            }:
+                return [(node["number"], node["title"]) for node in nodes]
+            case _:
+                return []
     except (subprocess.CalledProcessError, KeyError, json.JSONDecodeError) as e:
         print(f"Warning: Failed to fetch closing issues: {e}", file=sys.stderr)
         return []
