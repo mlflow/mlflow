@@ -17,6 +17,23 @@ except ImportError:
     # If tqdm is not installed, we don't show a progress bar
     tqdm = None
 
+# Optional dependencies — imported eagerly in the main thread so that worker
+# threads never trigger first-time imports (which can deadlock under Python's
+# per-module import lock when many threads import simultaneously).
+try:
+    import litellm  # noqa: F401
+except ImportError:
+    pass
+
+
+def _warmup_databricks_sdk() -> None:
+    """Import databricks.sdk in the main thread to avoid import-lock deadlocks in workers."""
+    try:
+        import databricks.sdk  # noqa: F401
+    except ImportError:
+        pass
+
+
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
@@ -26,9 +43,15 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
     MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS,
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
+    MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT,
 )
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
+from mlflow.genai.evaluation.rate_limiter import (
+    NoOpRateLimiter,
+    RateLimiter,
+    RPSRateLimiter,
+)
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
     evaluate_session_level_scorers,
@@ -91,6 +114,84 @@ def _log_multi_turn_assessments_to_traces(
             eval_result.assessments.extend(assessments_list)
         except Exception as e:
             _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
+
+
+def _parse_rate_limit(raw: str | None) -> tuple[float | None, bool]:
+    """Parse a rate-limit env var into (rps_or_none, adaptive).
+
+    Returns:
+        (None, False)          when rate limiting is disabled ("0" or None)
+        (rps, True)            when "auto"
+        (rps, False)           when a fixed numeric value
+    """
+    auto_initial_rps = 10.0
+    if raw is None:
+        return None, False
+    if raw.strip().lower() == "auto":
+        return auto_initial_rps, True
+    rate = float(raw)
+    if rate <= 0:
+        return None, False
+    return rate, False
+
+
+def _make_rate_limiter(
+    rps: float | None, adaptive: bool = False, max_rps_multiplier: float = 5.0
+) -> RateLimiter:
+    if rps is None or rps <= 0:
+        return NoOpRateLimiter()
+    return RPSRateLimiter(rps, adaptive=adaptive, max_rps_multiplier=max_rps_multiplier)
+
+
+def _pool_size(rps: float | None) -> int:
+    """Derive thread count from rate limit, capped at [10, 500].
+
+    Assumes each LLM call takes about ``_AVG_LLM_LATENCY_SECS`` seconds on
+    average, so we need ``rps * latency`` threads to keep the pipeline busy.
+    The rate limiter handles queueing — threads that can't get a token just
+    block in acquire(). The HTTP connection pool is auto-sized to match.
+    """
+    avg_llm_latency_secs = 2
+    if not rps:
+        return 10
+    return min(500, max(10, int(rps * avg_llm_latency_secs)))
+
+
+def backpressure_buffer(score_workers: int) -> int:
+    """Max items that may be predicted but not yet scored, bounding memory usage."""
+    backpressure_multiplier = 2
+    return backpressure_multiplier * score_workers
+
+
+def _get_scorer_rate_config(
+    predict_rps: float | None,
+    predict_adaptive: bool,
+    num_scorers: int,
+) -> tuple[float | None, bool]:
+    """Derive scorer rate limit from env var or predict rate.
+
+    When MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT is explicitly set, parse it.
+    Otherwise auto-derive as predict_rps * num_scorers.
+    """
+    if MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT.is_set():
+        return _parse_rate_limit(MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT.get())
+    scorer_rps = (predict_rps * num_scorers) if predict_rps and num_scorers else predict_rps
+    return scorer_rps, predict_adaptive
+
+
+def _get_pool_sizes(
+    predict_rps: float | None,
+    scorer_rps: float | None,
+) -> tuple[int, int]:
+    """Determine predict and score thread pool sizes.
+
+    Uses MLFLOW_GENAI_EVAL_MAX_WORKERS as an override when set, otherwise
+    derives independently from each rate limit.
+    """
+    if MLFLOW_GENAI_EVAL_MAX_WORKERS.is_set():
+        size = MLFLOW_GENAI_EVAL_MAX_WORKERS.get()
+        return size, size
+    return _pool_size(predict_rps), _pool_size(scorer_rps)
 
 
 @context.eval_context
