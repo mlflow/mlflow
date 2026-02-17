@@ -23,6 +23,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_URI,
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
+from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 # ============================================================================
@@ -579,17 +580,12 @@ def _finalize_trace(
         outputs["response"] = final_response
     parent_span.set_outputs(outputs)
     parent_span.end(end_time_ns=end_time_ns)
-
     _flush_trace_async_logging()
-
     get_logger().log(CLAUDE_TRACING_LEVEL, "Created MLflow trace: %s", parent_span.trace_id)
-
     return mlflow.get_trace(parent_span.trace_id)
 
 
 def _flush_trace_async_logging() -> None:
-    from mlflow.tracing.provider import _get_trace_exporter
-
     try:
         if hasattr(_get_trace_exporter(), "_async_queue"):
             mlflow.flush_trace_async_logging()
@@ -739,7 +735,10 @@ def _build_tool_result_map(messages: list[Any]) -> dict[str, str]:
     return tool_result_map
 
 
-_CONTENT_BLOCK_TYPE = {
+# Maps SDK dataclass names to Anthropic API "type" discriminators.
+# dataclasses.asdict() gives us the fields but not the type tag that
+# the Anthropic message format requires on every content block.
+_CONTENT_BLOCK_TYPES = {
     "TextBlock": "text",
     "ToolUseBlock": "tool_use",
     "ToolResultBlock": "tool_result",
@@ -747,12 +746,12 @@ _CONTENT_BLOCK_TYPE = {
 
 
 def _serialize_content_block(block) -> dict[str, Any] | None:
-    block_type = _CONTENT_BLOCK_TYPE.get(type(block).__name__)
+    block_type = _CONTENT_BLOCK_TYPES.get(type(block).__name__)
     if not block_type:
         return None
-    d = {k: v for k, v in dataclasses.asdict(block).items() if v is not None}
-    d["type"] = block_type
-    return d
+    fields = {key: value for key, value in dataclasses.asdict(block).items() if value is not None}
+    fields["type"] = block_type
+    return fields
 
 
 def _serialize_sdk_message(msg) -> dict[str, Any] | None:

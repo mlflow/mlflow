@@ -139,28 +139,20 @@ def test_get_hook_response_with_additional_fields():
 
 
 def test_flush_trace_async_logging_calls_flush(monkeypatch):
-    from mlflow.claude_code import tracing as _tracing
-    from mlflow.tracing import provider as _provider
-
     mock_exporter = type("MockExporter", (), {"_async_queue": True})()
-    monkeypatch.setattr(_provider, "_get_trace_exporter", lambda: mock_exporter)
-
+    monkeypatch.setattr(tracing_module, "_get_trace_exporter", lambda: mock_exporter)
     flushed = []
     monkeypatch.setattr(mlflow, "flush_trace_async_logging", lambda: flushed.append(True))
-    _tracing._flush_trace_async_logging()
+    tracing_module._flush_trace_async_logging()
     assert len(flushed) == 1
 
 
 def test_flush_trace_async_logging_skips_without_async_queue(monkeypatch):
-    from mlflow.claude_code import tracing as _tracing
-    from mlflow.tracing import provider as _provider
-
     mock_exporter = object()  # no _async_queue attribute
-    monkeypatch.setattr(_provider, "_get_trace_exporter", lambda: mock_exporter)
-
+    monkeypatch.setattr(tracing_module, "_get_trace_exporter", lambda: mock_exporter)
     flushed = []
     monkeypatch.setattr(mlflow, "flush_trace_async_logging", lambda: flushed.append(True))
-    _tracing._flush_trace_async_logging()
+    tracing_module._flush_trace_async_logging()
     assert len(flushed) == 0
 
 
