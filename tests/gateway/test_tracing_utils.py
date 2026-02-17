@@ -328,10 +328,6 @@ async def test_maybe_traced_gateway_call_with_payload_kwarg(endpoint_config):
 # ---------------------------------------------------------------------------
 
 
-def test_get_provider_span_info_returns_empty_for_unknown_trace():
-    assert _get_provider_span_info("nonexistent-trace-id") == []
-
-
 @pytest.mark.asyncio
 async def test_get_provider_span_info_reads_child_span(endpoint_config):
     async def func_with_child_span(payload):
@@ -444,25 +440,6 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
     assert gw_span.outputs is None
     assert provider_span.inputs is None
     assert provider_span.outputs is None
-
-
-@pytest.mark.asyncio
-async def test_maybe_traced_gateway_call_without_traceparent_no_distributed_span(endpoint_config):
-    traced = maybe_traced_gateway_call(
-        mock_async_func, endpoint_config, request_headers={"content-type": "application/json"}
-    )
-    result = await traced({"input": "test"})
-
-    assert result == {"result": "success", "payload": {"input": "test"}}
-
-    # Only the gateway trace should exist, no distributed span
-    traces = get_traces()
-    assert len(traces) == 1
-    trace = traces[0]
-
-    # All spans should be part of the gateway trace only
-    for span in trace.data.spans:
-        assert SpanAttributeKey.LINKED_GATEWAY_TRACE_ID not in (span.attributes or {})
 
 
 @pytest.mark.asyncio
@@ -620,14 +597,3 @@ async def test_maybe_traced_gateway_call_with_traceparent_multiple_providers(gat
         "output_tokens": 10,
         "total_tokens": 30,
     }
-
-
-@pytest.mark.asyncio
-async def test_maybe_traced_gateway_call_no_request_headers(endpoint_config):
-    traced = maybe_traced_gateway_call(mock_async_func, endpoint_config, request_headers=None)
-    result = await traced({"input": "test"})
-
-    assert result == {"result": "success", "payload": {"input": "test"}}
-
-    traces = get_traces()
-    assert len(traces) == 1

@@ -11,6 +11,7 @@ from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 _logger = logging.getLogger(__name__)
@@ -64,13 +65,15 @@ _PROVIDER_SPAN_ATTRIBUTE_KEYS = [
 
 
 def _get_provider_span_info(gateway_trace_id: str) -> list[_ProviderSpanInfo]:
-    """Read name and attributes from provider spans within a gateway trace."""
+    """Read name and attributes from non-root provider spans within a gateway trace."""
     trace_manager = InMemoryTraceManager.get_instance()
     results: list[_ProviderSpanInfo] = []
     with trace_manager.get_trace(gateway_trace_id) as trace:
         if trace is None:
             return results
         for span in trace.span_dict.values():
+            if span.parent_id is None:
+                continue
             attrs = {}
             for key in _PROVIDER_SPAN_ATTRIBUTE_KEYS:
                 if value := span.get_attribute(key):
@@ -87,8 +90,6 @@ def _maybe_create_distributed_span(
     """Create a distributed span if traceparent header is present."""
     if not request_headers or not _has_traceparent(request_headers):
         return
-
-    from mlflow.tracing.distributed import set_tracing_context_from_http_request_headers
 
     gateway_trace_id = None
     if span := mlflow.get_current_active_span():
