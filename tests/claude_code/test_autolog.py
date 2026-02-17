@@ -86,6 +86,51 @@ async def test_receive_response_builds_trace():
 
 
 @pytest.mark.asyncio
+async def test_query_captures_async_generator_prompt():
+    from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock, UserMessage
+
+    mock_self = MagicMock()
+
+    async def fake_query(prompt, *args, **kwargs):
+        # Consume the generator like the real SDK would
+        async for _ in prompt:
+            pass
+
+    mock_self.query = fake_query
+
+    response_messages = [
+        AssistantMessage(content=[TextBlock(text="Hi!")], model="claude-sonnet-4-20250514"),
+        ResultMessage(
+            subtype="success",
+            duration_ms=1000,
+            duration_api_ms=800,
+            is_error=False,
+            num_turns=1,
+            session_id="s",
+        ),
+    ]
+    _patch_sdk_init(mock_self, response_messages)
+
+    async def prompt_generator():
+        yield {"type": "user", "message": {"role": "user", "content": "Hello from generator"}}
+
+    with (
+        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
+        patch(
+            "mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()
+        ) as mock_process,
+    ):
+        await mock_self.query(prompt_generator())
+        [msg async for msg in mock_self.receive_response()]
+
+    mock_process.assert_called_once()
+    called_messages = mock_process.call_args[0][0]
+    user_messages = [m for m in called_messages if isinstance(m, UserMessage)]
+    assert len(user_messages) == 1
+    assert user_messages[0].content == "Hello from generator"
+
+
+@pytest.mark.asyncio
 async def test_receive_response_skips_when_autologging_disabled():
     mock_self = MagicMock()
     _patch_sdk_init(mock_self, ["msg1", "msg2"])

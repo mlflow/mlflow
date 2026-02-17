@@ -30,6 +30,20 @@ def patched_claude_sdk_init(original, self, options=None):
         async def wrapped_query(prompt, *args, **kwargs):
             if isinstance(prompt, str):
                 messages.append(UserMessage(content=prompt))
+            elif hasattr(prompt, "__aiter__"):
+                # prompt is an async generator yielding message dicts — wrap it
+                # to capture the user content while passing items through to the SDK
+                original_prompt = prompt
+
+                async def capturing_prompt():
+                    async for item in original_prompt:
+                        if isinstance(item, dict):
+                            content = item.get("message", {}).get("content", "")
+                            if isinstance(content, str) and content.strip():
+                                messages.append(UserMessage(content=content))
+                        yield item
+
+                prompt = capturing_prompt()
             return await original_query(prompt, *args, **kwargs)
 
         self.query = wrapped_query
