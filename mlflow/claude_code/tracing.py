@@ -279,11 +279,7 @@ def _find_tool_results(
 
     Returns a mapping from tool_use_id to a dict with:
       - "content": the tool result content
-      - "agent_id": the sub-agent ID if this is a Task tool (from toolUseResult.agentId)
-
-    The agentId can be found in two places depending on the transcript format:
-      1. Entry-level `toolUseResult.agentId` field (real Claude Code transcripts)
-      2. Inside content part `toolUseResult.agentId` (some transcript formats)
+      - "agent_id": the sub-agent ID if this is a Task tool (from entry-level toolUseResult.agentId)
     """
     tool_results: dict[str, dict[str, Any]] = {}
 
@@ -292,8 +288,7 @@ def _find_tool_results(
         if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_USER:
             continue
 
-        # Entry-level toolUseResult (used in real Claude Code transcripts)
-        entry_tool_use_result = entry.get("toolUseResult", {})
+        agent_id = entry.get("toolUseResult", {}).get("agentId")
 
         msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
         content = msg.get(MESSAGE_FIELD_CONTENT, [])
@@ -305,16 +300,9 @@ def _find_tool_results(
                     and part.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TOOL_RESULT
                 ):
                     tool_use_id = part.get("tool_use_id")
-                    result_content = part.get("content", "")
                     if tool_use_id:
-                        # Check both entry-level and content-level toolUseResult for agentId
-                        part_tool_use_result = part.get("toolUseResult", {})
-                        agent_id = (
-                            entry_tool_use_result.get("agentId")
-                            or part_tool_use_result.get("agentId")
-                        )
                         tool_results[tool_use_id] = {
-                            "content": result_content,
+                            "content": part.get("content", ""),
                             "agent_id": agent_id,
                         }
 

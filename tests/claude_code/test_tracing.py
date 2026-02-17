@@ -504,6 +504,11 @@ DUMMY_TRANSCRIPT_WITH_SUBAGENT_FILE = [
     },
     {
         "type": "user",
+        "toolUseResult": {
+            "status": "completed",
+            "agentId": "abc1234",
+            "totalDurationMs": 5000,
+        },
         "message": {
             "role": "user",
             "content": [
@@ -511,11 +516,6 @@ DUMMY_TRANSCRIPT_WITH_SUBAGENT_FILE = [
                     "type": "tool_result",
                     "tool_use_id": "toolu_task_file_001",
                     "content": "Found auth.py with auth function.",
-                    "toolUseResult": {
-                        "status": "completed",
-                        "agentId": "abc1234",
-                        "totalDurationMs": 5000,
-                    },
                 }
             ],
         },
