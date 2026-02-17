@@ -1,5 +1,6 @@
 """MLflow tracing integration for Claude Code interactions."""
 
+import dataclasses
 import json
 import logging
 import os
@@ -430,10 +431,6 @@ def _process_assistant_entry(msg: dict[str, Any], messages: list[dict[str, Any]]
 def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     """Set token usage on a span using the standardized CHAT_USAGE attribute.
 
-    Includes cache_creation_input_tokens in the input token count since its cost
-    is in a similar range to regular input tokens. cache_read_input_tokens is excluded
-    because it is significantly cheaper and would inflate cost estimates.
-
     Args:
         span: The MLflow span to set token usage on
         usage: Dictionary containing token usage info from Claude Code transcript
@@ -441,6 +438,8 @@ def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     if not usage:
         return
 
+    # Include cache_creation_input_tokens (similar cost to input tokens) but not
+    # cache_read_input_tokens (much cheaper, would inflate cost estimates)
     input_tokens = usage.get("input_tokens", 0) + usage.get("cache_creation_input_tokens", 0)
     output_tokens = usage.get("output_tokens", 0)
 
@@ -581,14 +580,21 @@ def _finalize_trace(
     parent_span.set_outputs(outputs)
     parent_span.end(end_time_ns=end_time_ns)
 
-    try:
-        mlflow.flush_trace_async_logging()
-    except Exception as e:
-        get_logger().debug("Failed to flush trace async logging: %s", e)
+    if _is_async_trace_logging_enabled():
+        try:
+            mlflow.flush_trace_async_logging()
+        except Exception as e:
+            get_logger().debug("Failed to flush trace async logging: %s", e)
 
     get_logger().log(CLAUDE_TRACING_LEVEL, "Created MLflow trace: %s", parent_span.trace_id)
 
     return mlflow.get_trace(parent_span.trace_id)
+
+
+def _is_async_trace_logging_enabled() -> bool:
+    from mlflow.tracing.provider import _get_trace_exporter
+
+    return hasattr(_get_trace_exporter(), "_async_queue")
 
 
 def find_final_assistant_response(transcript: list[dict[str, Any]], start_idx: int) -> str | None:
@@ -733,50 +739,34 @@ def _build_tool_result_map(messages: list[Any]) -> dict[str, str]:
     return tool_result_map
 
 
+_CONTENT_BLOCK_TYPE = {
+    "TextBlock": "text",
+    "ToolUseBlock": "tool_use",
+    "ToolResultBlock": "tool_result",
+}
+
+
+def _serialize_content_block(block) -> dict[str, Any] | None:
+    block_type = _CONTENT_BLOCK_TYPE.get(type(block).__name__)
+    if not block_type:
+        return None
+    d = {k: v for k, v in dataclasses.asdict(block).items() if v is not None}
+    d["type"] = block_type
+    return d
+
+
 def _serialize_sdk_message(msg) -> dict[str, Any] | None:
-    from claude_agent_sdk.types import (
-        AssistantMessage,
-        TextBlock,
-        ToolResultBlock,
-        ToolUseBlock,
-        UserMessage,
-    )
+    from claude_agent_sdk.types import AssistantMessage, UserMessage
 
     if isinstance(msg, UserMessage):
         content = msg.content
         if isinstance(content, str):
-            if content.strip():
-                return {"role": "user", "content": content}
+            return {"role": "user", "content": content} if content.strip() else None
         elif isinstance(content, list):
-            parts = []
-            for block in content:
-                if isinstance(block, TextBlock):
-                    parts.append({"type": "text", "text": block.text})
-                elif isinstance(block, ToolResultBlock):
-                    parts.append(
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": block.tool_use_id,
-                            "content": block.content or "",
-                        }
-                    )
-            if parts:
+            if parts := [d for b in content if (d := _serialize_content_block(b))]:
                 return {"role": "user", "content": parts}
     elif isinstance(msg, AssistantMessage) and msg.content:
-        parts = []
-        for block in msg.content:
-            if isinstance(block, TextBlock):
-                parts.append({"type": "text", "text": block.text})
-            elif isinstance(block, ToolUseBlock):
-                parts.append(
-                    {
-                        "type": "tool_use",
-                        "id": block.id,
-                        "name": block.name,
-                        "input": block.input,
-                    }
-                )
-        if parts:
+        if parts := [d for b in msg.content if (d := _serialize_content_block(b))]:
             return {"role": "assistant", "content": parts}
     return None
 
@@ -852,7 +842,7 @@ def process_sdk_messages(
     Args:
         messages: List of SDK message objects (UserMessage, AssistantMessage,
             ResultMessage, etc.) captured during a conversation.
-        session_id: Optional session identifier; defaults to a timestamp-based ID.
+        session_id: Optional session identifier for grouping traces.
 
     Returns:
         MLflow Trace if successful, None if no user prompt is found or processing fails.
