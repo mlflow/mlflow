@@ -33,6 +33,7 @@ from mlflow.tracing.utils import (
     generate_trace_id_v4_from_otel_trace_id,
     get_active_spans_table_name,
     get_otel_attribute,
+    is_uc_table_tracing,
     maybe_get_request_id,
     parse_trace_id_v4,
 )
@@ -509,6 +510,22 @@ def test_get_spans_table_name_for_trace_no_destination():
 
         result = get_active_spans_table_name()
         assert result is None
+
+
+def test_is_uc_table_tracing_with_uc_destination():
+    mock_destination = UCSchemaLocation(catalog_name="catalog", schema_name="schema")
+
+    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
+        mock_ctx.get.return_value = mock_destination
+
+        assert is_uc_table_tracing() is True
+
+
+def test_is_uc_table_tracing_with_no_destination():
+    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
+        mock_ctx.get.return_value = None
+
+        assert is_uc_table_tracing() is False
 
 
 def test_generate_trace_id_v4_from_otel_trace_id():

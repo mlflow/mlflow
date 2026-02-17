@@ -47,6 +47,7 @@ from mlflow.tracing.utils import (
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
+    is_uc_table_tracing,
 )
 from mlflow.tracing.utils.search import traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
@@ -1404,6 +1405,17 @@ def update_current_trace(
         trace.info.trace_metadata.update(metadata)
         if client_request_id is not None:
             trace.info.client_request_id = str(client_request_id)
+
+        # For UC table (V4) traces, propagate user/session IDs to root span attributes
+        # so they are available in the standard OTLP span payload.
+        if is_uc_table_tracing():
+            if root_span := trace.get_root_span():
+                for meta_key, attr_key in (
+                    (TraceMetadataKey.TRACE_USER, SpanAttributeKey.USER_ID),
+                    (TraceMetadataKey.TRACE_SESSION, SpanAttributeKey.SESSION_ID),
+                ):
+                    if value := trace.info.trace_metadata.get(meta_key):
+                        root_span.set_attribute(attr_key, value)
 
 
 @deprecated_parameter("request_id", "trace_id")
