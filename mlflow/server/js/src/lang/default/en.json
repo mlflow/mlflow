@@ -3270,6 +3270,10 @@
     "defaultMessage": "No metrics available",
     "description": "Text shown in a disabled multi-selector when there are no selectable metrics."
   },
+  "M65Hoy": {
+    "defaultMessage": "Search traces by id, request, or response",
+    "description": "Placeholder text for the search input in the trace results table"
+  },
   "M8cEQy": {
     "defaultMessage": "No",
     "description": "Label for an assessment with a 'no' value"
@@ -8358,10 +8362,6 @@
   "vxY1CI": {
     "defaultMessage": "Status",
     "description": "Run page > Overview > Run status section label"
-  },
-  "vyB+Og": {
-    "defaultMessage": "Search traces by id, request, or response",
-    "description": "Placeholder text for the search input in the trace results table"
   },
   "w/sljb": {
     "defaultMessage": "Sort descending",
