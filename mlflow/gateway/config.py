@@ -75,6 +75,10 @@ class EndpointType(str, Enum):
 
 
 class GatewayRequestType(str, Enum):
+    """
+    Gateway request types for the Gateway endpoints.
+    """
+
     UNIFIED_CHAT = "unified/chat"
     UNIFIED_EMBEDDINGS = "unified/embeddings"
     PASSTHROUGH_MODEL_OPENAI_CHAT = "passthrough/model/openai-chat"
