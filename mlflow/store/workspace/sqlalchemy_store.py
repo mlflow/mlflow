@@ -155,9 +155,7 @@ class SqlAlchemyStore(AbstractStore):
                 elif mode == WorkspaceDeletionMode.CASCADE:
                     for model in _WORKSPACE_ROOT_MODELS:
                         instances = (
-                            session.query(model)
-                            .filter(model.workspace == workspace_name)
-                            .all()
+                            session.query(model).filter(model.workspace == workspace_name).all()
                         )
                         for obj in instances:
                             session.delete(obj)
@@ -225,7 +223,8 @@ class SqlAlchemyStore(AbstractStore):
     @staticmethod
     def _check_set_default_conflicts(session, workspace_name: str) -> None:
         """Preflight check: report all name conflicts that would arise from reassigning
-        resources in *workspace_name* to the default workspace."""
+        resources in *workspace_name* to the default workspace.
+        """
         conflicts: list[str] = []
         for model in _WORKSPACE_ROOT_MODELS:
             if not hasattr(model, "name"):
@@ -235,9 +234,7 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(model.workspace == workspace_name)
                 .filter(
                     model.name.in_(
-                        session.query(model.name).filter(
-                            model.workspace == DEFAULT_WORKSPACE_NAME
-                        )
+                        session.query(model.name).filter(model.workspace == DEFAULT_WORKSPACE_NAME)
                     )
                 )
                 .all()
