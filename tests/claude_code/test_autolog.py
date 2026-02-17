@@ -24,7 +24,6 @@ def test_anthropic_autolog_without_claude_sdk():
 
 
 def _patch_sdk_init(mock_self, response_messages):
-    """Set up a fake receive_response on mock_self and call patched_claude_sdk_init."""
     original_init = MagicMock()
 
     async def fake_receive_response():

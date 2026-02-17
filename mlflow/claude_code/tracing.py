@@ -738,8 +738,7 @@ def _build_tool_result_map(messages: list[Any]) -> dict[str, str]:
     return tool_result_map
 
 
-def _sdk_msg_to_dict(msg) -> dict[str, Any] | None:
-    """Convert an SDK message to an Anthropic-format message dict."""
+def _serialize_sdk_message(msg) -> dict[str, Any] | None:
     from claude_agent_sdk.types import (
         AssistantMessage,
         TextBlock,
@@ -792,11 +791,7 @@ def _create_sdk_child_spans(
     parent_span,
     tool_result_map: dict[str, str],
 ) -> str | None:
-    """Create LLM and tool child spans under ``parent_span`` from SDK messages.
-
-    Uses Anthropic message format. Only includes messages since the previous
-    LLM span as input context (not the full conversation history).
-    """
+    """Create LLM and tool child spans under ``parent_span`` from SDK messages."""
     from claude_agent_sdk.types import AssistantMessage, TextBlock, ToolUseBlock
 
     final_response = None
@@ -847,7 +842,7 @@ def _create_sdk_child_spans(
                 tool_span.set_outputs({"result": tool_result_map.get(tool_block.id, "")})
                 tool_span.end()
 
-        if anthropic_msg := _sdk_msg_to_dict(msg):
+        if anthropic_msg := _serialize_sdk_message(msg):
             pending_messages.append(anthropic_msg)
 
     return final_response

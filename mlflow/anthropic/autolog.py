@@ -18,10 +18,22 @@ _logger = logging.getLogger(__name__)
 
 
 def patched_claude_sdk_init(original, self, options=None):
-    """Wrap receive_response() to capture messages and build an MLflow trace."""
     try:
+        from claude_agent_sdk.types import UserMessage
+
         result = original(self, options)
         messages = []
+
+        # query() sends the user prompt but doesn't echo it through receive_response()
+        original_query = self.query
+
+        async def wrapped_query(prompt, *args, **kwargs):
+            if isinstance(prompt, str):
+                messages.append(UserMessage(content=prompt))
+            return await original_query(prompt, *args, **kwargs)
+
+        self.query = wrapped_query
+
         original_receive_response = self.receive_response
 
         async def wrapped_receive_response(*args, **kwargs):
