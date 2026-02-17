@@ -42,3 +42,7 @@ gepa
 testcontainers
 # required for testing cost tracking
 litellm
+# Required by mlflow.tensorrt
+tensorrt-cu12
+tensorrt-cu12-bindings
+tensorrt-cu12-libs
