@@ -762,10 +762,14 @@ def _serialize_sdk_message(msg) -> dict[str, Any] | None:
         if isinstance(content, str):
             return {"role": "user", "content": content} if content.strip() else None
         elif isinstance(content, list):
-            if parts := [d for b in content if (d := _serialize_content_block(b))]:
+            if parts := [
+                serialized for block in content if (serialized := _serialize_content_block(block))
+            ]:
                 return {"role": "user", "content": parts}
     elif isinstance(msg, AssistantMessage) and msg.content:
-        if parts := [d for b in msg.content if (d := _serialize_content_block(b))]:
+        if parts := [
+            serialized for block in msg.content if (serialized := _serialize_content_block(block))
+        ]:
             return {"role": "assistant", "content": parts}
     return None
 
@@ -783,11 +787,11 @@ def _create_sdk_child_spans(
 
     for msg in messages:
         if isinstance(msg, AssistantMessage) and msg.content:
-            text_blocks = [b for b in msg.content if isinstance(b, TextBlock)]
-            tool_blocks = [b for b in msg.content if isinstance(b, ToolUseBlock)]
+            text_blocks = [block for block in msg.content if isinstance(block, TextBlock)]
+            tool_blocks = [block for block in msg.content if isinstance(block, ToolUseBlock)]
 
             if text_blocks and not tool_blocks:
-                text = "\n".join(b.text for b in text_blocks)
+                text = "\n".join(block.text for block in text_blocks)
                 if text.strip():
                     final_response = text
 
@@ -808,7 +812,7 @@ def _create_sdk_child_spans(
                     {
                         "type": "message",
                         "role": "assistant",
-                        "content": [{"type": "text", "text": b.text} for b in text_blocks],
+                        "content": [{"type": "text", "text": block.text} for block in text_blocks],
                     }
                 )
                 llm_span.end()
