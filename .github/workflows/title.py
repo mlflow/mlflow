@@ -68,6 +68,48 @@ def get_pr_diff(repo: str, pr_number: str, body: str, head_sha: str, head_ref: s
     return diff
 
 
+def get_closing_issues(repo: str, pr_number: str) -> list[tuple[int, str]]:
+    match repo.split("/"):
+        case [owner, name]:
+            pass
+        case _:
+            raise ValueError(f"Invalid repo format: {repo!r}")
+
+    query = f"""
+    {{
+      repository(owner: "{owner}", name: "{name}") {{
+        pullRequest(number: {pr_number}) {{
+          closingIssuesReferences(first: 10) {{
+            nodes {{
+              number
+              title
+            }}
+          }}
+        }}
+      }}
+    }}
+    """
+
+    print("Fetching closing issues...", file=sys.stderr)
+    try:
+        output = run_gh("api", "graphql", "-f", f"query={query}")
+        data = json.loads(output)
+        match data:
+            case {
+                "data": {
+                    "repository": {
+                        "pullRequest": {"closingIssuesReferences": {"nodes": list(nodes)}}
+                    }
+                }
+            }:
+                return [(node["number"], node["title"]) for node in nodes]
+            case _:
+                return []
+    except (subprocess.CalledProcessError, KeyError, json.JSONDecodeError) as e:
+        print(f"Warning: Failed to fetch closing issues: {e}", file=sys.stderr)
+        return []
+
+
 def extract_description(body: str) -> str:
     """Extract the 'What changes are proposed' section from PR body."""
     pattern = r"### What changes are proposed in this pull request\?\s*(.+?)(?=###|$)"
@@ -76,8 +118,18 @@ def extract_description(body: str) -> str:
     return body
 
 
-def build_prompt(title: str, body: str, diff: str) -> str:
+def build_prompt(
+    title: str, body: str, diff: str, linked_issues: list[tuple[int, str]] | None = None
+) -> str:
     body = extract_description(body).strip() or "(No description provided)"
+
+    linked_issues_section = ""
+    if linked_issues:
+        linked_issues_section = "\n## Linked Issues\n"
+        for issue_num, issue_title in linked_issues:
+            linked_issues_section += f"- #{issue_num}: {issue_title}\n"
+        linked_issues_section += "\n"
+
     return f"""\
 Rewrite the PR title to be more descriptive and follow the guidelines below.
 
@@ -86,7 +138,7 @@ Rewrite the PR title to be more descriptive and follow the guidelines below.
 
 ## PR Description
 {body}
-
+{linked_issues_section}
 ## Code Changes (Diff)
 ```diff
 {diff}
@@ -193,7 +245,10 @@ def main() -> None:
         title, body, head_sha, head_ref = get_pr_info(args.repo, args.number)
         print(f"Original title: {title}", file=sys.stderr)
         diff = get_pr_diff(args.repo, args.number, body, head_sha, head_ref)
-        prompt = build_prompt(title, body, diff)
+        linked_issues = get_closing_issues(args.repo, args.number)
+        if linked_issues:
+            print(f"Found {len(linked_issues)} linked issue(s)", file=sys.stderr)
+        prompt = build_prompt(title, body, diff, linked_issues)
     else:
         title, body = get_issue_info(args.repo, args.number)
         print(f"Original title: {title}", file=sys.stderr)
