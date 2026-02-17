@@ -1,0 +1,273 @@
+name: TypeScript SDK Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "The branch, tag or SHA to release from."
+        required: true
+        default: "master"
+      packages:
+        description: "Packages to release: all, core, openai, anthropic, gemini (comma-separated)"
+        required: true
+        default: "all"
+        type: string
+      dry_run:
+        description: "Dry run (skip npm publish and git tag)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      publish_core: ${{ steps.check.outputs.publish_core }}
+      publish_openai: ${{ steps.check.outputs.publish_openai }}
+      publish_anthropic: ${{ steps.check.outputs.publish_anthropic }}
+      publish_gemini: ${{ steps.check.outputs.publish_gemini }}
+      core_version: ${{ steps.check.outputs.core_version }}
+      openai_version: ${{ steps.check.outputs.openai_version }}
+      anthropic_version: ${{ steps.check.outputs.anthropic_version }}
+      gemini_version: ${{ steps.check.outputs.gemini_version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Validate inputs and check for changes
+        id: check
+        run: |
+          RESULT=$(bash dev/validate-ts-release.sh --packages "${{ inputs.packages }}")
+          echo "$RESULT"
+          for pkg in core openai anthropic gemini; do
+            echo "publish_${pkg}=$(echo "$RESULT" | jq -r ".${pkg}.publish")" >> "$GITHUB_OUTPUT"
+            echo "${pkg}_version=$(echo "$RESULT" | jq -r ".${pkg}.version")" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Summary
+        run: |
+          echo "## Release Plan" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Package | Version | Publish |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|---------|---------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| @mlflow/core | ${{ steps.check.outputs.core_version }} | ${{ steps.check.outputs.publish_core }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| @mlflow/openai | ${{ steps.check.outputs.openai_version }} | ${{ steps.check.outputs.publish_openai }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| @mlflow/anthropic | ${{ steps.check.outputs.anthropic_version }} | ${{ steps.check.outputs.publish_anthropic }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| @mlflow/gemini | ${{ steps.check.outputs.gemini_version }} | ${{ steps.check.outputs.publish_gemini }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "> **DRY RUN** — no packages will be published" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  test:
+    needs: validate
+    if: >-
+      needs.validate.outputs.publish_core == 'true' ||
+      needs.validate.outputs.publish_openai == 'true' ||
+      needs.validate.outputs.publish_anthropic == 'true' ||
+      needs.validate.outputs.publish_gemini == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: libs/typescript
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: ./.github/actions/untracked
+
+      - uses: ./.github/actions/setup-python
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: libs/typescript/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run format check
+        run: npm run format:check
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run build
+        run: npm run build
+
+      - name: Run core tests
+        run: npm run test:core
+
+      - name: Run integration tests
+        run: npm run test:integrations
+
+  publish-test:
+    needs: [validate, test]
+    if: >-
+      needs.validate.outputs.publish_core == 'true' ||
+      needs.validate.outputs.publish_openai == 'true' ||
+      needs.validate.outputs.publish_anthropic == 'true' ||
+      needs.validate.outputs.publish_gemini == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: libs/typescript/package-lock.json
+
+      - name: Test publish with Verdaccio
+        run: bash dev/test-ts-publish.sh
+
+  publish:
+    needs: [validate, test, publish-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+    defaults:
+      run:
+        working-directory: libs/typescript
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+          cache-dependency-path: libs/typescript/package-lock.json
+
+      - name: Ensure npm supports trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      # Publish packages in dependency order: core first, then integrations
+
+      - name: Publish @mlflow/core
+        if: needs.validate.outputs.publish_core == 'true'
+        working-directory: libs/typescript/core
+        run: |
+          echo "Publishing @mlflow/core@${{ needs.validate.outputs.core_version }}..."
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "DRY RUN"
+            npm publish --dry-run
+          else
+            npm publish --provenance --access public
+          fi
+
+      - name: Tag @mlflow/core
+        if: needs.validate.outputs.publish_core == 'true' && inputs.dry_run == false
+        run: |
+          TAG="@mlflow/core@${{ needs.validate.outputs.core_version }}"
+          git tag "${TAG}"
+          git push origin "${TAG}"
+
+      - name: Publish @mlflow/openai
+        if: needs.validate.outputs.publish_openai == 'true'
+        working-directory: libs/typescript/integrations/openai
+        run: |
+          echo "Publishing @mlflow/openai@${{ needs.validate.outputs.openai_version }}..."
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "DRY RUN"
+            npm publish --dry-run
+          else
+            npm publish --provenance --access public
+          fi
+
+      - name: Tag @mlflow/openai
+        if: needs.validate.outputs.publish_openai == 'true' && inputs.dry_run == false
+        run: |
+          TAG="@mlflow/openai@${{ needs.validate.outputs.openai_version }}"
+          git tag "${TAG}"
+          git push origin "${TAG}"
+
+      - name: Publish @mlflow/anthropic
+        if: needs.validate.outputs.publish_anthropic == 'true'
+        working-directory: libs/typescript/integrations/anthropic
+        run: |
+          echo "Publishing @mlflow/anthropic@${{ needs.validate.outputs.anthropic_version }}..."
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "DRY RUN"
+            npm publish --dry-run
+          else
+            npm publish --provenance --access public
+          fi
+
+      - name: Tag @mlflow/anthropic
+        if: needs.validate.outputs.publish_anthropic == 'true' && inputs.dry_run == false
+        run: |
+          TAG="@mlflow/anthropic@${{ needs.validate.outputs.anthropic_version }}"
+          git tag "${TAG}"
+          git push origin "${TAG}"
+
+      - name: Publish @mlflow/gemini
+        if: needs.validate.outputs.publish_gemini == 'true'
+        working-directory: libs/typescript/integrations/gemini
+        run: |
+          echo "Publishing @mlflow/gemini@${{ needs.validate.outputs.gemini_version }}..."
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "DRY RUN"
+            npm publish --dry-run
+          else
+            npm publish --provenance --access public
+          fi
+
+      - name: Tag @mlflow/gemini
+        if: needs.validate.outputs.publish_gemini == 'true' && inputs.dry_run == false
+        run: |
+          TAG="@mlflow/gemini@${{ needs.validate.outputs.gemini_version }}"
+          git tag "${TAG}"
+          git push origin "${TAG}"
+
+      - name: Publish summary
+        if: always()
+        run: |
+          echo "## Publish Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "> **DRY RUN** — no packages were actually published" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "| Package | Version | Publish |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|---------|---------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| @mlflow/core | ${{ needs.validate.outputs.core_version }} | ${{ needs.validate.outputs.publish_core }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| @mlflow/openai | ${{ needs.validate.outputs.openai_version }} | ${{ needs.validate.outputs.publish_openai }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| @mlflow/anthropic | ${{ needs.validate.outputs.anthropic_version }} | ${{ needs.validate.outputs.publish_anthropic }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| @mlflow/gemini | ${{ needs.validate.outputs.gemini_version }} | ${{ needs.validate.outputs.publish_gemini }} |" >> "$GITHUB_STEP_SUMMARY"
