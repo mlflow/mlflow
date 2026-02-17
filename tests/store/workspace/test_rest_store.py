@@ -135,9 +135,9 @@ def test_delete_workspace_returns_on_success(store, host_creds):
 @pytest.mark.parametrize(
     ("mode", "expected_suffix"),
     [
-        (WorkspaceDeletionMode.SET_DEFAULT, ""),
+        (WorkspaceDeletionMode.RESTRICT, ""),
         (WorkspaceDeletionMode.CASCADE, "?mode=CASCADE"),
-        (WorkspaceDeletionMode.RESTRICT, "?mode=RESTRICT"),
+        (WorkspaceDeletionMode.SET_DEFAULT, "?mode=SET_DEFAULT"),
     ],
 )
 def test_delete_workspace_sends_mode_query_param(store, host_creds, mode, expected_suffix):

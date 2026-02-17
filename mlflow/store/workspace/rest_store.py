@@ -104,10 +104,10 @@ class RestWorkspaceStore(AbstractStore):
     def delete_workspace(
         self,
         workspace_name: str,
-        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.SET_DEFAULT,
+        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.RESTRICT,
     ) -> None:
         endpoint = f"{WORKSPACES_ENDPOINT}/{_quote_workspace(workspace_name)}"
-        if mode != WorkspaceDeletionMode.SET_DEFAULT:
+        if mode != WorkspaceDeletionMode.RESTRICT:
             endpoint += f"?mode={mode.value}"
         call_endpoint(
             host_creds=self.get_host_creds(),

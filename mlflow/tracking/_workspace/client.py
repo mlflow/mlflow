@@ -82,6 +82,6 @@ class WorkspaceProviderClient:
     def delete_workspace(
         self,
         name: str,
-        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.SET_DEFAULT,
+        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.RESTRICT,
     ) -> None:
         self.store.delete_workspace(name, mode=mode)

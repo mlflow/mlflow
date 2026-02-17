@@ -53,7 +53,7 @@ class AbstractStore(ABC):
     def delete_workspace(
         self,
         workspace_name: str,
-        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.SET_DEFAULT,
+        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.RESTRICT,
     ) -> None:
         """Delete an existing workspace.
 

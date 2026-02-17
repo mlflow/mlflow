@@ -117,7 +117,7 @@ def update_workspace(
 
 
 @experimental(version="3.10.0")
-def delete_workspace(name: str, *, mode: str = "SET_DEFAULT") -> None:
+def delete_workspace(name: str, *, mode: str = "RESTRICT") -> None:
     """Delete an existing workspace.
 
     Args:
@@ -125,7 +125,13 @@ def delete_workspace(name: str, *, mode: str = "SET_DEFAULT") -> None:
         mode: Deletion mode — ``"SET_DEFAULT"`` (reassign resources to the default workspace),
             ``"CASCADE"`` (delete all resources), or ``"RESTRICT"`` (refuse if resources exist).
     """
-    deletion_mode = WorkspaceDeletionMode(mode)
+    try:
+        deletion_mode = WorkspaceDeletionMode(mode)
+    except ValueError:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid deletion mode '{mode}'. "
+            f"Must be one of: {', '.join(m.value for m in WorkspaceDeletionMode)}"
+        )
     if name != DEFAULT_WORKSPACE_NAME:
         WorkspaceNameValidator.validate(name)
     _workspace_client_call(lambda client: client.delete_workspace(name=name, mode=deletion_mode))

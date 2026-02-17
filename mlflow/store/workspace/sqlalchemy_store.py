@@ -129,7 +129,7 @@ class SqlAlchemyStore(AbstractStore):
     def delete_workspace(
         self,
         workspace_name: str,
-        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.SET_DEFAULT,
+        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.RESTRICT,
     ) -> None:
         if workspace_name == DEFAULT_WORKSPACE_NAME:
             raise MlflowException(
@@ -154,24 +154,48 @@ class SqlAlchemyStore(AbstractStore):
                             )
                 elif mode == WorkspaceDeletionMode.CASCADE:
                     for model in _WORKSPACE_ROOT_MODELS:
-                        session.query(model).filter(model.workspace == workspace_name).delete(
-                            synchronize_session=False
+                        instances = (
+                            session.query(model)
+                            .filter(model.workspace == workspace_name)
+                            .all()
                         )
+                        for obj in instances:
+                            session.delete(obj)
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
+                    self._check_set_default_conflicts(session, workspace_name)
                     for model in _WORKSPACE_ROOT_MODELS:
                         session.query(model).filter(model.workspace == workspace_name).update(
                             {model.workspace: DEFAULT_WORKSPACE_NAME},
                             synchronize_session=False,
                         )
+                else:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid workspace deletion mode {mode!r}. "
+                        "Expected one of: RESTRICT, CASCADE, SET_DEFAULT."
+                    )
                 session.delete(entity)
             except IntegrityError as exc:
-                raise MlflowException(
-                    f"Cannot delete workspace '{workspace_name}': resources in this workspace "
-                    f"conflict with existing resources in the '{DEFAULT_WORKSPACE_NAME}' "
-                    f"workspace. Resolve naming conflicts before deleting. Error: {exc}",
-                    INVALID_STATE,
-                ) from exc
+                if mode == WorkspaceDeletionMode.SET_DEFAULT:
+                    message = (
+                        f"Cannot delete workspace '{workspace_name}': resources in this workspace "
+                        f"conflict with existing resources in the '{DEFAULT_WORKSPACE_NAME}' "
+                        f"workspace. Resolve naming conflicts before deleting. Error: {exc}"
+                    )
+                else:
+                    message = (
+                        f"Cannot delete workspace '{workspace_name}': deletion failed due to "
+                        f"database integrity constraints while operating in '{mode.value}' mode. "
+                        "This often indicates that related resources still reference this "
+                        f"workspace. Error: {exc}"
+                    )
+                raise MlflowException(message, INVALID_STATE) from exc
             _logger.info("Deleted workspace '%s' (mode=%s)", workspace_name, mode.value)
+            if mode == WorkspaceDeletionMode.CASCADE:
+                _logger.info(
+                    "Run 'mlflow gc --backend-store-uri %s' to permanently clean up "
+                    "artifacts associated with deleted resources.",
+                    self._workspace_uri,
+                )
         with self._artifact_root_cache_lock:
             self._artifact_root_cache.pop(workspace_name, None)
 
@@ -197,6 +221,38 @@ class SqlAlchemyStore(AbstractStore):
             return workspace_root, False
 
         return default_artifact_root, True
+
+    @staticmethod
+    def _check_set_default_conflicts(session, workspace_name: str) -> None:
+        """Preflight check: report all name conflicts that would arise from reassigning
+        resources in *workspace_name* to the default workspace."""
+        conflicts: list[str] = []
+        for model in _WORKSPACE_ROOT_MODELS:
+            if not hasattr(model, "name"):
+                continue
+            overlapping = (
+                session.query(model.name)
+                .filter(model.workspace == workspace_name)
+                .filter(
+                    model.name.in_(
+                        session.query(model.name).filter(
+                            model.workspace == DEFAULT_WORKSPACE_NAME
+                        )
+                    )
+                )
+                .all()
+            )
+            for (name,) in overlapping:
+                conflicts.append(f"  - {model.__tablename__}: {name!r}")
+        if conflicts:
+            details = "\n".join(conflicts)
+            raise MlflowException(
+                f"Cannot reassign resources from workspace '{workspace_name}' to "
+                f"'{DEFAULT_WORKSPACE_NAME}': the following names already exist in the "
+                f"default workspace and would cause conflicts:\n{details}\n"
+                "Rename or remove the conflicting resources before retrying.",
+                INVALID_STATE,
+            )
 
     def _get_workspace(self, session, workspace_name: str) -> SqlWorkspace:
         workspace = session.get(SqlWorkspace, workspace_name)

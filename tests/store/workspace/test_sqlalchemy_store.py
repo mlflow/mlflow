@@ -278,7 +278,7 @@ def test_delete_workspace_reassigns_resources_to_default(workspace_store):
             {"name": "exp-in-team-a", "ws": "team-a"},
         )
 
-    workspace_store.delete_workspace("team-a")
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
 
     with workspace_store.ManagedSessionMaker() as session:
         row = session.execute(
@@ -307,8 +307,8 @@ def test_delete_workspace_fails_on_naming_conflict(workspace_store):
             {"name": "shared-exp", "ws": DEFAULT_WORKSPACE_NAME},
         )
 
-    with pytest.raises(MlflowException, match="conflict") as exc:
-        workspace_store.delete_workspace("team-a")
+    with pytest.raises(MlflowException, match="already exist in the default workspace") as exc:
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
     assert exc.value.error_code == "INVALID_STATE"
 
     # Workspace should still exist (transaction rolled back)
@@ -339,6 +339,41 @@ def test_delete_workspace_cascade_removes_resources(workspace_store):
 
     with pytest.raises(MlflowException, match="not found"):
         workspace_store.get_workspace("team-a")
+
+
+def test_delete_workspace_cascade_removes_experiment_with_runs(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+
+    with workspace_store.ManagedSessionMaker() as session:
+        session.execute(
+            sa.text(
+                "INSERT INTO experiments (experiment_id, name, workspace, lifecycle_stage) "
+                "VALUES (:id, :name, :ws, 'active')"
+            ),
+            {"id": 999, "name": "exp-with-runs", "ws": "team-a"},
+        )
+        session.execute(
+            sa.text(
+                "INSERT INTO runs (run_uuid, name, experiment_id, lifecycle_stage, status, "
+                "source_type, start_time, end_time) "
+                "VALUES (:run_id, :name, :exp_id, 'active', 'FINISHED', 'LOCAL', 0, 0)"
+            ),
+            {"run_id": "run-in-team-a", "name": "test-run", "exp_id": 999},
+        )
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.CASCADE)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        exp_count = session.execute(
+            sa.text("SELECT count(*) FROM experiments WHERE name = :name"),
+            {"name": "exp-with-runs"},
+        ).scalar()
+        assert exp_count == 0
+        run_count = session.execute(
+            sa.text("SELECT count(*) FROM runs WHERE run_uuid = :run_id"),
+            {"run_id": "run-in-team-a"},
+        ).scalar()
+        assert run_count == 0
 
 
 def test_delete_workspace_restrict_blocks_when_resources_exist(workspace_store):

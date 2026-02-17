@@ -1234,7 +1234,7 @@ def _delete_workspace_handler(workspace_name: str):
             f"The '{DEFAULT_WORKSPACE_NAME}' workspace is reserved and cannot be deleted"
         )
     WorkspaceNameValidator.validate(workspace_name)
-    mode_str = request.args.get("mode", WorkspaceDeletionMode.SET_DEFAULT.value)
+    mode_str = request.args.get("mode", WorkspaceDeletionMode.RESTRICT.value)
     try:
         mode = WorkspaceDeletionMode(mode_str)
     except ValueError:

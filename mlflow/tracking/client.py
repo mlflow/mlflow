@@ -373,7 +373,7 @@ class MlflowClient:
             name, description, default_artifact_root=default_artifact_root
         )
 
-    def delete_workspace(self, name: str, mode: str = "SET_DEFAULT") -> None:
+    def delete_workspace(self, name: str, mode: str = "RESTRICT") -> None:
         """Delete an existing workspace.
 
         Args:
@@ -382,7 +382,14 @@ class MlflowClient:
         """
         from mlflow.entities.workspace import WorkspaceDeletionMode
 
-        self._get_workspace_client().delete_workspace(name, mode=WorkspaceDeletionMode(mode))
+        try:
+            deletion_mode = WorkspaceDeletionMode(mode)
+        except ValueError:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid deletion mode '{mode}'. "
+                f"Must be one of: {', '.join(m.value for m in WorkspaceDeletionMode)}"
+            )
+        self._get_workspace_client().delete_workspace(name, mode=deletion_mode)
 
     def get_run(self, run_id: str) -> Run:
         """
