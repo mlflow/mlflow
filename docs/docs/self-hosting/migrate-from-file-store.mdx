@@ -78,4 +78,6 @@ The migration tool preserves your data exactly as it was in the FileStore. No ti
 - **Target database must be empty.** The migration tool refuses to write to a database that already contains data to prevent conflicts. If the target file already exists, you will be prompted to overwrite it.
 - **SQLite only.** The migration tool only supports SQLite as the target database. FileStore generates large experiment IDs that exceed the 32-bit integer limit enforced by PostgreSQL and MySQL, but SQLite handles them natively.
 
+## Feedback
+
 If you run into issues or have feedback (e.g., support for PostgreSQL/MySQL), please comment on [GitHub issue #18534](https://github.com/mlflow/mlflow/issues/18534).
