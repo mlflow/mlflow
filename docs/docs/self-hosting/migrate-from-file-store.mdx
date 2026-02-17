@@ -16,11 +16,21 @@ pip install 'mlflow>=3.10'
 
 ## Quick Start
 
+If you're running a tracking server, stop it before migrating. Then run:
+
 ```bash
 mlflow migrate-filestore --source /path/to/mlruns --target sqlite:///path/to/mlflow.db
 ```
 
-This reads all data from the specified directory and writes it to the specified SQLite database.
+This reads all data from the specified directory and writes it to the specified SQLite database. The migration is atomic. If any error occurs, the entire migration is rolled back and the database remains empty, so you can safely re-run the command after fixing the issue.
+
+Once complete, start the server with the new database:
+
+```bash
+mlflow server --backend-store-uri sqlite:///path/to/mlflow.db
+```
+
+Open the MLflow UI and confirm your experiments, runs, and models are present.
 
 ## What Gets Migrated
 
@@ -42,32 +52,6 @@ The migration tool transfers **all metadata** stored in the file-based backend:
 
 - **Artifacts** (model files, images, etc.) stay in their original location. The database stores the same artifact URIs that point to the existing files.
 - **Trace spans** are stored as artifact files, not in the database.
-
-## Step-by-Step Guide
-
-### 1. Stop the MLflow server
-
-If you're running a tracking server, stop it before migrating.
-
-### 2. Run the migration
-
-```bash
-mlflow migrate-filestore --source /path/to/mlruns --target sqlite:///path/to/mlflow.db
-```
-
-The command prints progress for each experiment and registered model, followed by a summary of migrated entity counts and actual database row counts.
-
-The migration is atomic. If any error occurs, the entire migration is rolled back and the database remains empty, so you can safely re-run the command after fixing the issue.
-
-### 3. Start the server with the new database
-
-```bash
-mlflow server --backend-store-uri sqlite:///path/to/mlflow.db
-```
-
-### 4. Verify
-
-Open the MLflow UI and confirm your experiments, runs, and models are present.
 
 ## Lossless Migration
 
