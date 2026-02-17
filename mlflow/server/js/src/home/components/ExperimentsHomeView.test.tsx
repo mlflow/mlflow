@@ -12,6 +12,14 @@ jest.mock('../../experiment-tracking/components/ExperimentListTable', () => ({
   ),
 }));
 
+jest.mock('../../experiment-tracking/components/experiment-page/hooks/useUpdateExperimentTags', () => ({
+  useUpdateExperimentTags: () => ({
+    EditTagsModal: null,
+    showEditExperimentTagsModal: jest.fn(),
+    isLoading: false,
+  }),
+}));
+
 const renderWithRouter = (ui: React.ReactElement) => renderWithDesignSystem(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe('ExperimentsHomeView', () => {
