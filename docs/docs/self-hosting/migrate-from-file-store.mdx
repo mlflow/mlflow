@@ -8,7 +8,11 @@ If you have existing data in a file-based backend (`./mlruns`), you can migrate 
 
 ## Prerequisites
 
-- MLflow 3.10 or later installed (`pip install "mlflow>=3.10"`)
+MLflow 3.10 or later installed. Run the following command to upgrade if needed:
+
+```bash
+pip install 'mlflow>=3.10'
+```
 
 ## Quick Start
 
@@ -22,16 +26,16 @@ This reads all data from the specified directory and writes it to the specified 
 
 The migration tool transfers **all metadata** stored in the file-based backend:
 
-| Category       | Entities                                                |
-| -------------- | ------------------------------------------------------- |
-| Experiments    | Experiments, experiment tags                            |
-| Runs           | Runs, params, metrics, latest metrics, tags             |
-| Datasets       | Datasets, inputs, input tags                            |
-| Run I/O        | Model inputs (run → model), model outputs (run → model) |
-| Traces         | Trace info, trace tags, trace request metadata          |
-| Assessments    | Assessments (feedback, expectations)                    |
-| Logged Models  | Logged models, tags                                     |
-| Model Registry | Registered models, model versions, tags, aliases        |
+| Category       | Entities                                                 |
+| -------------- | -------------------------------------------------------- |
+| Experiments    | Experiments, experiment tags                             |
+| Runs           | Runs, params, metrics, latest metrics, tags              |
+| Datasets       | Datasets, inputs, input tags                             |
+| Run I/O        | Model inputs (run → model), model outputs (run → model)  |
+| Traces         | Trace info, trace tags, trace request metadata           |
+| Assessments    | Assessments (feedback, expectations)                     |
+| Logged Models  | Logged models, tags                                      |
+| Model Registry | Registered models, model versions, tags, aliases         |
 | Prompts        | Prompts (stored as registered models and model versions) |
 
 ### What Is NOT Migrated
