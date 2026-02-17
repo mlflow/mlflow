@@ -1022,10 +1022,6 @@
     "defaultMessage": "Image grid",
     "description": "Experiment tracking > runs charts > add chart menu > image grid"
   },
-  "5pkRII": {
-    "defaultMessage": "View traces",
-    "description": "Link to view traces for endpoint"
-  },
   "5qRFq/": {
     "defaultMessage": "Delete",
     "description": "Delete button text"
@@ -4101,6 +4097,10 @@
     "defaultMessage": "Resources using this endpoint ({count})",
     "description": "Gateway > Delete endpoint modal > Bindings list header"
   },
+  "SHoy6d": {
+    "defaultMessage": "Open full trace viewer",
+    "description": "Link to open the full trace viewer for the endpoint's experiment"
+  },
   "SI6n4L": {
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
@@ -5738,10 +5738,6 @@
   "dNaKCA": {
     "defaultMessage": "Created",
     "description": "Created column header"
-  },
-  "dOhi2U": {
-    "defaultMessage": "Usage log",
-    "description": "Summary usage log label"
   },
   "dPn3az": {
     "defaultMessage": "Tool",
@@ -8019,6 +8015,10 @@
     "defaultMessage": "User",
     "description": "Display text for the 'user' role in a GenAI chat message."
   },
+  "t/59XU": {
+    "defaultMessage": "Logs",
+    "description": "Tab label for endpoint logs"
+  },
   "t0Qkuc": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Metrics table > Value column header"
@@ -8622,6 +8622,10 @@
   "xZ/PkV": {
     "defaultMessage": "Search prompts",
     "description": "Placeholder text for the search input in the prompts table on the logged model details page"
+  },
+  "xcmW/z": {
+    "defaultMessage": "Enable Usage Tracking in the Configuration tab to view logs",
+    "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
   },
   "xdFMIN": {
     "defaultMessage": "Dataset name",
