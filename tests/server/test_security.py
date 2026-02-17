@@ -1,9 +1,12 @@
 import pytest
+from fastapi import FastAPI
 from flask import Flask
+from starlette.testclient import TestClient
 from werkzeug.test import Client
 
 from mlflow.server import security
-from mlflow.server.security_utils import is_allowed_host_header
+from mlflow.server.fastapi_security import init_fastapi_security
+from mlflow.server.security_utils import is_allowed_host_header, is_api_endpoint
 
 
 def test_default_allowed_hosts():
@@ -47,16 +50,16 @@ def test_dns_rebinding_protection(
 
 
 @pytest.mark.parametrize(
-    ("method", "origin", "expected_cors_header"),
+    ("method", "origin", "expected_status", "expected_cors_header"),
     [
-        ("POST", "http://localhost:3000", "http://localhost:3000"),
-        ("POST", "http://evil.com", None),
-        ("POST", None, None),
-        ("GET", "http://evil.com", None),
+        ("POST", "http://localhost:3000", 200, "http://localhost:3000"),
+        ("POST", "http://evil.com", 403, None),
+        ("POST", None, 200, None),
+        ("GET", "http://evil.com", 200, None),
     ],
 )
 def test_cors_protection(
-    test_app, method, origin, expected_cors_header, monkeypatch: pytest.MonkeyPatch
+    test_app, method, origin, expected_status, expected_cors_header, monkeypatch: pytest.MonkeyPatch
 ):
     monkeypatch.setenv(
         "MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", "http://localhost:3000,https://app.example.com"
@@ -65,8 +68,8 @@ def test_cors_protection(
     client = Client(test_app)
 
     headers = {"Origin": origin} if origin else {}
-    response = getattr(client, method.lower())("/api/test", headers=headers)
-    assert response.status_code == 200
+    response = getattr(client, method.lower())("/api/2.0/mlflow/experiments/list", headers=headers)
+    assert response.status_code == expected_status
 
     if expected_cors_header:
         assert response.headers.get("Access-Control-Allow-Origin") == expected_cors_header
@@ -77,7 +80,9 @@ def test_insecure_cors_mode(test_app, monkeypatch: pytest.MonkeyPatch):
     security.init_security_middleware(test_app)
     client = Client(test_app)
 
-    response = client.post("/api/test", headers={"Origin": "http://evil.com"})
+    response = client.post(
+        "/api/2.0/mlflow/experiments/list", headers={"Origin": "http://evil.com"}
+    )
     assert response.status_code == 200
     assert response.headers.get("Access-Control-Allow-Origin") == "http://evil.com"
 
@@ -97,14 +102,14 @@ def test_preflight_options_request(
     client = Client(test_app)
 
     response = client.options(
-        "/api/test",
+        "/api/2.0/mlflow/experiments/list",
         headers={
             "Origin": origin,
             "Access-Control-Request-Method": "POST",
             "Access-Control-Request-Headers": "Content-Type",
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 204
 
     if expected_cors_header:
         assert response.headers.get("Access-Control-Allow-Origin") == expected_cors_header
@@ -263,3 +268,63 @@ def test_environment_variable_configuration(
         result = security.get_allowed_hosts()
         for expected in expected_result:
             assert expected in result
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("/api/2.0/mlflow/experiments/list", True),
+        ("/ajax-api/2.0/mlflow/experiments/list", True),
+        ("/ajax-api/3.0/mlflow/runs/search", True),
+        ("/api/test", False),
+        ("/test", False),
+        ("/health", False),
+        ("/static/index.html", False),
+    ],
+)
+def test_is_api_endpoint(path, expected):
+    assert is_api_endpoint(path) == expected
+
+
+@pytest.mark.parametrize(
+    ("origin", "expect_cors_header"),
+    [
+        ("http://localhost:3000", True),
+        ("http://127.0.0.1:5000", True),
+        ("http://[::1]:8080", True),
+        ("http://evil.com", False),
+    ],
+)
+def test_fastapi_cors_allows_localhost_origins(fastapi_client, origin, expect_cors_header):
+    response = fastapi_client.get(
+        "/api/2.0/mlflow/experiments/list", headers={"Host": "localhost", "Origin": origin}
+    )
+    if expect_cors_header:
+        assert response.headers.get("access-control-allow-origin") == origin
+    else:
+        assert response.headers.get("access-control-allow-origin") is None
+
+
+def test_fastapi_cors_allows_configured_origin(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", "https://trusted.com")
+
+    app = FastAPI()
+
+    @app.api_route("/api/2.0/mlflow/experiments/list", methods=["GET", "POST", "OPTIONS"])
+    async def api_endpoint():
+        return {"ok": True}
+
+    init_fastapi_security(app)
+    client = TestClient(app, raise_server_exceptions=False)
+
+    response = client.get(
+        "/api/2.0/mlflow/experiments/list",
+        headers={"Host": "localhost", "Origin": "https://trusted.com"},
+    )
+    assert response.headers.get("access-control-allow-origin") == "https://trusted.com"
+
+    response = client.get(
+        "/api/2.0/mlflow/experiments/list",
+        headers={"Host": "localhost", "Origin": "http://evil.com"},
+    )
+    assert response.headers.get("access-control-allow-origin") is None

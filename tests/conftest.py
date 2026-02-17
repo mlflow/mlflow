@@ -733,6 +733,7 @@ def remote_backend_for_tracing_sdk_test():
             [
                 "uv",
                 "run",
+                "--no-dev",
                 "--directory",
                 # Install from the dev version
                 mlflow_root,

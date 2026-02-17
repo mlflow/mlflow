@@ -22,6 +22,7 @@ import { EndpointUsageModal } from '../endpoints/EndpointUsageModal';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint } from '../../types';
+import { TracesV3Logs } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
 
 export interface EditEndpointFormRendererProps {
   form: UseFormReturn<EditEndpointFormData>;
@@ -158,6 +159,22 @@ export const EditEndpointFormRenderer = ({
             >
               <Tabs.Trigger value="usage" disabled={!experimentId}>
                 <FormattedMessage defaultMessage="Usage" description="Tab label for endpoint usage metrics" />
+              </Tabs.Trigger>
+            </Tooltip>
+            <Tooltip
+              componentId="mlflow.gateway.endpoint.traces-tab-tooltip"
+              content={
+                !experimentId
+                  ? intl.formatMessage({
+                      defaultMessage: 'Enable Usage Tracking in the Configuration tab to view logs',
+                      description:
+                        'Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first',
+                    })
+                  : undefined
+              }
+            >
+              <Tabs.Trigger value="traces" disabled={!experimentId}>
+                <FormattedMessage defaultMessage="Logs" description="Tab label for endpoint logs" />
               </Tabs.Trigger>
             </Tooltip>
           </Tabs.List>
@@ -302,146 +319,156 @@ export const EditEndpointFormRenderer = ({
             <Tabs.Content value="usage">
               {experimentId && <GatewayUsageSection experimentId={experimentId} />}
             </Tabs.Content>
-          </div>
 
-          <div
-            css={{
-              width: 280,
-              flexShrink: 0,
-              position: 'sticky',
-              top: 0,
-              alignSelf: 'flex-start',
-            }}
-          >
-            <LongFormSummary
-              title={intl.formatMessage({
-                defaultMessage: 'Summary',
-                description: 'Summary sidebar title',
-              })}
-            >
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-                {experimentId && (
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                    <Typography.Text bold color="secondary">
-                      <FormattedMessage defaultMessage="Usage log" description="Summary usage log label" />
-                    </Typography.Text>
+            <Tabs.Content value="traces" css={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              {experimentId && (
+                <>
+                  <div css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}>
                     <Link
                       to={`/experiments/${experimentId}/traces`}
                       css={{
                         color: theme.colors.actionPrimaryBackgroundDefault,
                         textDecoration: 'none',
-                        '&:hover': {
-                          textDecoration: 'underline',
-                        },
+                        '&:hover': { textDecoration: 'underline' },
                       }}
                     >
-                      <FormattedMessage defaultMessage="View traces" description="Link to view traces for endpoint" />
+                      <FormattedMessage
+                        defaultMessage="Open full trace viewer"
+                        description="Link to open the full trace viewer for the endpoint's experiment"
+                      />
                     </Link>
                   </div>
-                )}
-
-                {trafficSplitModels.length > 0 && (
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                    <Typography.Text bold color="secondary">
-                      <FormattedMessage defaultMessage="Traffic Split" description="Summary traffic split label" />
-                    </Typography.Text>
-                    {trafficSplitModels.map((model, idx) => (
-                      <div
-                        key={idx}
-                        css={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: theme.spacing.xs,
-                          fontSize: theme.typography.fontSizeSm,
-                        }}
-                      >
-                        <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
-                          {model.provider && model.modelName
-                            ? `${model.provider}/${model.modelName}`
-                            : `Model ${idx + 1}`}{' '}
-                          - {model.weight}%
-                        </Typography.Text>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {fallbackModels.length > 0 && (
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                    <Typography.Text bold color="secondary">
-                      <FormattedMessage defaultMessage="Fallback Models" description="Summary fallback models label" />
-                    </Typography.Text>
-                    {fallbackModels.map((model, idx) => (
-                      <div
-                        key={idx}
-                        css={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: theme.spacing.xs,
-                          fontSize: theme.typography.fontSizeSm,
-                        }}
-                      >
-                        <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
-                          {idx + 1}.{' '}
-                          {model.provider && model.modelName
-                            ? `${model.provider}/${model.modelName}`
-                            : `Model ${idx + 1}`}
-                        </Typography.Text>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </LongFormSummary>
+                  <TracesV3Logs experimentId={experimentId} disableActions />
+                </>
+              )}
+            </Tabs.Content>
           </div>
+
+          {activeTab !== 'traces' && (
+            <div
+              css={{
+                width: 280,
+                flexShrink: 0,
+                position: 'sticky',
+                top: 0,
+                alignSelf: 'flex-start',
+              }}
+            >
+              <LongFormSummary
+                title={intl.formatMessage({
+                  defaultMessage: 'Summary',
+                  description: 'Summary sidebar title',
+                })}
+              >
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+                  {trafficSplitModels.length > 0 && (
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                      <Typography.Text bold color="secondary">
+                        <FormattedMessage defaultMessage="Traffic Split" description="Summary traffic split label" />
+                      </Typography.Text>
+                      {trafficSplitModels.map((model, idx) => (
+                        <div
+                          key={idx}
+                          css={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: theme.spacing.xs,
+                            fontSize: theme.typography.fontSizeSm,
+                          }}
+                        >
+                          <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
+                            {model.provider && model.modelName
+                              ? `${model.provider}/${model.modelName}`
+                              : `Model ${idx + 1}`}{' '}
+                            - {model.weight}%
+                          </Typography.Text>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {fallbackModels.length > 0 && (
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                      <Typography.Text bold color="secondary">
+                        <FormattedMessage
+                          defaultMessage="Fallback Models"
+                          description="Summary fallback models label"
+                        />
+                      </Typography.Text>
+                      {fallbackModels.map((model, idx) => (
+                        <div
+                          key={idx}
+                          css={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: theme.spacing.xs,
+                            fontSize: theme.typography.fontSizeSm,
+                          }}
+                        >
+                          <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
+                            {idx + 1}.{' '}
+                            {model.provider && model.modelName
+                              ? `${model.provider}/${model.modelName}`
+                              : `Model ${idx + 1}`}
+                          </Typography.Text>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </LongFormSummary>
+            </div>
+          )}
         </div>
       </Tabs.Root>
 
-      <div
-        css={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: theme.spacing.sm,
-          padding: theme.spacing.md,
-          borderTop: `1px solid ${theme.colors.border}`,
-          flexShrink: 0,
-        }}
-      >
-        <Button componentId="mlflow.gateway.edit-endpoint.cancel" onClick={onCancel}>
-          <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
-        </Button>
-        <Tooltip
-          componentId="mlflow.gateway.edit-endpoint.save-tooltip"
-          content={
-            !isFormComplete && trafficSplitModels.length > 0 && !isValidTotal
-              ? intl.formatMessage({
-                  defaultMessage: 'Traffic split percentages must total 100%',
-                  description: 'Tooltip shown when save button is disabled due to invalid traffic split total',
-                })
-              : !isFormComplete
-                ? intl.formatMessage({
-                    defaultMessage: 'Please configure at least one model in traffic split',
-                    description: 'Tooltip shown when save button is disabled due to incomplete form',
-                  })
-                : !hasChanges
-                  ? intl.formatMessage({
-                      defaultMessage: 'No changes to save',
-                      description: 'Tooltip shown when save button is disabled due to no changes',
-                    })
-                  : undefined
-          }
+      {activeTab === 'configuration' && (
+        <div
+          css={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: theme.spacing.sm,
+            padding: theme.spacing.md,
+            borderTop: `1px solid ${theme.colors.border}`,
+            flexShrink: 0,
+          }}
         >
-          <Button
-            componentId="mlflow.gateway.edit-endpoint.save"
-            type="primary"
-            onClick={form.handleSubmit(onSubmit)}
-            loading={isSubmitting}
-            disabled={!isFormComplete || !hasChanges}
-          >
-            <FormattedMessage defaultMessage="Save changes" description="Save changes button" />
+          <Button componentId="mlflow.gateway.edit-endpoint.cancel" onClick={onCancel}>
+            <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
           </Button>
-        </Tooltip>
-      </div>
+          <Tooltip
+            componentId="mlflow.gateway.edit-endpoint.save-tooltip"
+            content={
+              !isFormComplete && trafficSplitModels.length > 0 && !isValidTotal
+                ? intl.formatMessage({
+                    defaultMessage: 'Traffic split percentages must total 100%',
+                    description: 'Tooltip shown when save button is disabled due to invalid traffic split total',
+                  })
+                : !isFormComplete
+                  ? intl.formatMessage({
+                      defaultMessage: 'Please configure at least one model in traffic split',
+                      description: 'Tooltip shown when save button is disabled due to incomplete form',
+                    })
+                  : !hasChanges
+                    ? intl.formatMessage({
+                        defaultMessage: 'No changes to save',
+                        description: 'Tooltip shown when save button is disabled due to no changes',
+                      })
+                    : undefined
+            }
+          >
+            <Button
+              componentId="mlflow.gateway.edit-endpoint.save"
+              type="primary"
+              onClick={form.handleSubmit(onSubmit)}
+              loading={isSubmitting}
+              disabled={!isFormComplete || !hasChanges}
+            >
+              <FormattedMessage defaultMessage="Save changes" description="Save changes button" />
+            </Button>
+          </Tooltip>
+        </div>
+      )}
 
       <EndpointUsageModal
         open={isUsageModalOpen}

@@ -231,6 +231,10 @@
     "defaultMessage": "Service unavailable error",
     "description": "Request failed due to service being available (HTTP STATUS 503) generic error message"
   },
+  "/ZsbLo": {
+    "defaultMessage": "Add feedback",
+    "description": "Label for the button to add new feedback"
+  },
   "/aYVif": {
     "defaultMessage": "Please fix the validation errors in the instructions",
     "description": "Tooltip message when instructions have validation errors"
@@ -306,10 +310,6 @@
   "033qfw": {
     "defaultMessage": "Select a framework and follow the instructions to log traces with MLflow.",
     "description": "Helper text shown at the top of the log traces drawer"
-  },
-  "03HDrw": {
-    "defaultMessage": "Add a custom feedback to this trace.",
-    "description": "Hint message prompting user to add a new feedback"
   },
   "050N3C": {
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
@@ -430,6 +430,10 @@
   "0z3Ko0": {
     "defaultMessage": "{sampleRatePercent}%",
     "description": "Sample rate value for scorer"
+  },
+  "1+JyrI": {
+    "defaultMessage": "LLM judge feedback",
+    "description": "Label for the button to add LLM judge feedback to the trace"
   },
   "1/M8+x": {
     "defaultMessage": "X-axis:",
@@ -1017,10 +1021,6 @@
   "5m2VPy": {
     "defaultMessage": "Image grid",
     "description": "Experiment tracking > runs charts > add chart menu > image grid"
-  },
-  "5pkRII": {
-    "defaultMessage": "View traces",
-    "description": "Link to view traces for endpoint"
   },
   "5qRFq/": {
     "defaultMessage": "Delete",
@@ -2153,10 +2153,6 @@
   "CvNffK": {
     "defaultMessage": "Provider",
     "description": "Provider column header"
-  },
-  "Cwuzyr": {
-    "defaultMessage": "Human feedback",
-    "description": "Label for the button to add a human feedback to the trace"
   },
   "CyTYL6": {
     "defaultMessage": "Line chart",
@@ -3310,6 +3306,10 @@
     "defaultMessage": "Calls",
     "description": "Column header for call count"
   },
+  "MNLhKO": {
+    "defaultMessage": "Add custom feedback to this trace.",
+    "description": "Hint message prompting user to add new feedback"
+  },
   "MQ4Voz": {
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
     "description": "Evaluation review > input section > title"
@@ -3490,6 +3490,10 @@
     "defaultMessage": "Is the text grammatically correct and naturally flowing?",
     "description": "Hint for Fluency template"
   },
+  "NekUba": {
+    "defaultMessage": "Add to dataset",
+    "description": "Button text for adding a trace to an evaluation dataset"
+  },
   "NhEmyj": {
     "defaultMessage": "Training runs",
     "description": "Label for the training runs tab in the MLflow experiment navbar"
@@ -3649,10 +3653,6 @@
   "OlytgO": {
     "defaultMessage": "Field",
     "description": "Label for the column field in the GenAI Traces Table Filter form"
-  },
-  "OmK5nx": {
-    "defaultMessage": "Add feedback",
-    "description": "Label for the button to add a new feedback"
   },
   "On3g1B": {
     "defaultMessage": "Running",
@@ -3993,10 +3993,6 @@
     "defaultMessage": "All {groupLabel}",
     "description": "Evaluation review > evaluations list > select all columns in group"
   },
-  "RXUGmX": {
-    "defaultMessage": "LLM judge feedback",
-    "description": "Label for the button to add a LLM judge feedback to the trace"
-  },
   "RaGnOQ": {
     "defaultMessage": "Compare",
     "description": "String for the compare button to compare experiment runs to find an ideal model"
@@ -4100,6 +4096,10 @@
   "SDClGN": {
     "defaultMessage": "Resources using this endpoint ({count})",
     "description": "Gateway > Delete endpoint modal > Bindings list header"
+  },
+  "SHoy6d": {
+    "defaultMessage": "Open full trace viewer",
+    "description": "Link to open the full trace viewer for the endpoint's experiment"
   },
   "SI6n4L": {
     "defaultMessage": "Compare",
@@ -4228,6 +4228,10 @@
   "T3Ew34": {
     "defaultMessage": "Used by",
     "description": "Used by column header"
+  },
+  "T3RjOb": {
+    "defaultMessage": "Go to the run",
+    "description": "Tooltip for the run name cell in the evaluation runs table, opening the run page in a new tab"
   },
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
@@ -5019,6 +5023,10 @@
     "defaultMessage": "PASS",
     "description": "Header label for pass/fail assessment type for the pass rate"
   },
+  "YeCF5P": {
+    "defaultMessage": "Human feedback",
+    "description": "Label for the button to add human feedback to the trace"
+  },
   "YeIhTa": {
     "defaultMessage": "Enter artifact root URI",
     "description": "Placeholder for artifact root input in edit modal"
@@ -5162,10 +5170,6 @@
   "ZlokCq": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt modal"
-  },
-  "ZmiY49": {
-    "defaultMessage": "Add to dataset",
-    "description": "Button text for adding a trace to a evaluation dataset"
   },
   "ZoBXpz": {
     "defaultMessage": "Model attributes",
@@ -5455,6 +5459,10 @@
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
   },
+  "ba7/ni": {
+    "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
+    "description": "Tooltip explaining the demo experiment in the experiments list"
+  },
   "bcw06n": {
     "defaultMessage": "Is the output semantically equivalent to the expected output?",
     "description": "Hint for Equivalence template"
@@ -5691,10 +5699,6 @@
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
   },
-  "d402vp": {
-    "defaultMessage": "Explore Features",
-    "description": "Feature cards section title"
-  },
   "d44IPd": {
     "defaultMessage": "Reopen review",
     "description": "Evaluation review > assessments > reopen review tooltip"
@@ -5734,10 +5738,6 @@
   "dNaKCA": {
     "defaultMessage": "Created",
     "description": "Created column header"
-  },
-  "dOhi2U": {
-    "defaultMessage": "Usage log",
-    "description": "Summary usage log label"
   },
   "dPn3az": {
     "defaultMessage": "Tool",
@@ -7423,6 +7423,10 @@
     "defaultMessage": "Delete",
     "description": "A label for the confirm button in the delete prompt version modal"
   },
+  "ot8KVZ": {
+    "defaultMessage": "MLflow Demo Experiment",
+    "description": "Badge label for the demo experiment in the experiments list"
+  },
   "ov1whU": {
     "defaultMessage": "AI Judge",
     "description": "Label for AI judge in the tooltip for the assessment in the evaluation metrics."
@@ -8010,6 +8014,10 @@
   "t+aG6y": {
     "defaultMessage": "User",
     "description": "Display text for the 'user' role in a GenAI chat message."
+  },
+  "t/59XU": {
+    "defaultMessage": "Logs",
+    "description": "Tab label for endpoint logs"
   },
   "t0Qkuc": {
     "defaultMessage": "Value",
@@ -8618,6 +8626,10 @@
   "xZ/PkV": {
     "defaultMessage": "Search prompts",
     "description": "Placeholder text for the search input in the prompts table on the logged model details page"
+  },
+  "xcmW/z": {
+    "defaultMessage": "Enable Usage Tracking in the Configuration tab to view logs",
+    "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
   },
   "xdFMIN": {
     "defaultMessage": "Dataset name",
