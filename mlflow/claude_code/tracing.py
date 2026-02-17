@@ -580,21 +580,21 @@ def _finalize_trace(
     parent_span.set_outputs(outputs)
     parent_span.end(end_time_ns=end_time_ns)
 
-    if _is_async_trace_logging_enabled():
-        try:
-            mlflow.flush_trace_async_logging()
-        except Exception as e:
-            get_logger().debug("Failed to flush trace async logging: %s", e)
+    _flush_trace_async_logging()
 
     get_logger().log(CLAUDE_TRACING_LEVEL, "Created MLflow trace: %s", parent_span.trace_id)
 
     return mlflow.get_trace(parent_span.trace_id)
 
 
-def _is_async_trace_logging_enabled() -> bool:
+def _flush_trace_async_logging() -> None:
     from mlflow.tracing.provider import _get_trace_exporter
 
-    return hasattr(_get_trace_exporter(), "_async_queue")
+    try:
+        if hasattr(_get_trace_exporter(), "_async_queue"):
+            mlflow.flush_trace_async_logging()
+    except Exception as e:
+        get_logger().debug("Failed to flush trace async logging: %s", e)
 
 
 def find_final_assistant_response(transcript: list[dict[str, Any]], start_idx: int) -> str | None:
