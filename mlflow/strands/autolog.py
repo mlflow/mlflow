@@ -34,19 +34,19 @@ from mlflow.tracing.utils import (
 
 _logger = logging.getLogger(__name__)
 
-# Thread-local storage for recursion guard
-_processing_local = threading.local()
-
 
 class StrandsSpanProcessor(SimpleSpanProcessor):
     def __init__(self):
         self.span_exporter = SpanExporter()
+        self._processing_local = threading.local()
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
-        # Recursion guard - prevent infinite loop with shared provider
-        if getattr(_processing_local, "in_on_start", False):
+        # Recursion guard: with MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false (shared provider),
+        # tracer.span_processor.on_start() routes back through the same composite processor,
+        # re-entering this method and causing infinite recursion.
+        if getattr(self._processing_local, "in_on_start", False):
             return
-        _processing_local.in_on_start = True
+        self._processing_local.in_on_start = True
         try:
             tracer = _get_tracer(__name__)
             if isinstance(tracer, NoOpTracer):
@@ -57,13 +57,15 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
             mlflow_span = create_mlflow_span(span, trace_id)
             InMemoryTraceManager.get_instance().register_span(mlflow_span)
         finally:
-            _processing_local.in_on_start = False
+            self._processing_local.in_on_start = False
 
     def on_end(self, span: OTelReadableSpan) -> None:
-        # Recursion guard - prevent infinite loop with shared provider
-        if getattr(_processing_local, "in_on_end", False):
+        # Recursion guard: with MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false (shared provider),
+        # tracer.span_processor.on_end() routes back through the same composite processor,
+        # re-entering this method and causing infinite recursion.
+        if getattr(self._processing_local, "in_on_end", False):
             return
-        _processing_local.in_on_end = True
+        self._processing_local.in_on_end = True
         try:
             mlflow_span = get_mlflow_span_for_otel_span(span)
             if mlflow_span is None:
@@ -78,7 +80,7 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
             tracer = _get_tracer(__name__)
             tracer.span_processor.on_end(span)
         finally:
-            _processing_local.in_on_end = False
+            self._processing_local.in_on_end = False
 
 
 def setup_strands_tracing():
