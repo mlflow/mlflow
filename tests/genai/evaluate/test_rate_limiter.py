@@ -115,6 +115,44 @@ def test_noop_acquire_does_nothing():
         limiter.acquire()
 
 
+# ── _make_rate_limiter / _parse_rate_limit tests ──
+
+
+def test_make_rate_limiter_positive_rate():
+    assert isinstance(_make_rate_limiter(10.0), RPSRateLimiter)
+
+
+def test_make_rate_limiter_zero_returns_noop():
+    assert isinstance(_make_rate_limiter(0.0), NoOpRateLimiter)
+
+
+def test_make_rate_limiter_none_returns_noop():
+    assert isinstance(_make_rate_limiter(None), NoOpRateLimiter)
+
+
+def test_make_rate_limiter_adaptive():
+    limiter = _make_rate_limiter(10.0, adaptive=True)
+    assert isinstance(limiter, RPSRateLimiter)
+    assert limiter._adaptive is True
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected_rps", "expected_adaptive"),
+    [
+        ("auto", 10.0, True),
+        ("AUTO", 10.0, True),
+        (" Auto ", 10.0, True),
+        ("25", 25.0, False),
+        ("0", None, False),
+        (None, None, False),
+    ],
+)
+def test_parse_rate_limit(raw, expected_rps, expected_adaptive):
+    rps, adaptive = _parse_rate_limit(raw)
+    assert rps == expected_rps
+    assert adaptive == expected_adaptive
+
+
 # ── is_rate_limit_error tests ──
 
 
@@ -310,44 +348,6 @@ def test_call_with_retry_reports_throttle_and_success():
     assert result == "ok"
     # After throttle: 10.0 * 0.5 = 5.0, then success bumps it back up slightly
     assert limiter._rps < 10.0
-
-
-# ── _make_rate_limiter / _parse_rate_limit tests ──
-
-
-def test_make_rate_limiter_positive_rate():
-    assert isinstance(_make_rate_limiter(10.0), RPSRateLimiter)
-
-
-def test_make_rate_limiter_zero_returns_noop():
-    assert isinstance(_make_rate_limiter(0.0), NoOpRateLimiter)
-
-
-def test_make_rate_limiter_none_returns_noop():
-    assert isinstance(_make_rate_limiter(None), NoOpRateLimiter)
-
-
-def test_make_rate_limiter_adaptive():
-    limiter = _make_rate_limiter(10.0, adaptive=True)
-    assert isinstance(limiter, RPSRateLimiter)
-    assert limiter._adaptive is True
-
-
-@pytest.mark.parametrize(
-    ("raw", "expected_rps", "expected_adaptive"),
-    [
-        ("auto", 10.0, True),
-        ("AUTO", 10.0, True),
-        (" Auto ", 10.0, True),
-        ("25", 25.0, False),
-        ("0", None, False),
-        (None, None, False),
-    ],
-)
-def test_parse_rate_limit(raw, expected_rps, expected_adaptive):
-    rps, adaptive = _parse_rate_limit(raw)
-    assert rps == expected_rps
-    assert adaptive == expected_adaptive
 
 
 # ── eval_retry_context tests ──
