@@ -39,6 +39,7 @@ from mlflow.entities import (
     RunTag,
     ViewType,
     Workspace,
+    WorkspaceDeletionMode,
 )
 from mlflow.entities import (
     RoutingStrategy as RoutingStrategyEntity,
@@ -1228,8 +1229,6 @@ def _update_workspace_handler(workspace_name: str):
 @catch_mlflow_exception
 @_disable_if_workspaces_disabled
 def _delete_workspace_handler(workspace_name: str):
-    from mlflow.entities.workspace import WorkspaceDeletionMode
-
     if workspace_name == DEFAULT_WORKSPACE_NAME:
         raise MlflowException.invalid_parameter_value(
             f"The '{DEFAULT_WORKSPACE_NAME}' workspace is reserved and cannot be deleted"
