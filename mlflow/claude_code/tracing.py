@@ -431,8 +431,8 @@ def _process_assistant_entry(msg: dict[str, Any], messages: list[dict[str, Any]]
 def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     """Set token usage on a span using the standardized CHAT_USAGE attribute.
 
-    This ensures token usage is tracked consistently with other LLM providers and
-    can be aggregated in the trace info.
+    Includes cache tokens (cache_creation_input_tokens, cache_read_input_tokens)
+    in the input token count for accurate totals.
 
     Args:
         span: The MLflow span to set token usage on
@@ -441,7 +441,11 @@ def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     if not usage:
         return
 
-    input_tokens = usage.get("input_tokens", 0)
+    input_tokens = (
+        usage.get("input_tokens", 0)
+        + usage.get("cache_creation_input_tokens", 0)
+        + usage.get("cache_read_input_tokens", 0)
+    )
     output_tokens = usage.get("output_tokens", 0)
 
     usage_dict = {
@@ -535,7 +539,7 @@ def _finalize_trace(
     user_prompt: str,
     final_response: str | None,
     session_id: str,
-    end_time_ns: int,
+    end_time_ns: int | None = None,
 ) -> mlflow.entities.Trace:
     try:
         # Set trace previews and metadata for UI display
@@ -738,7 +742,6 @@ def _create_sdk_child_spans(
     messages: list[Any],
     parent_span,
     tool_result_map: dict[str, str],
-    conv_start_ns: int,
 ) -> str | None:
     """Create LLM and tool child spans under ``parent_span`` from SDK messages.
 
@@ -752,7 +755,6 @@ def _create_sdk_child_spans(
         parent_span: The root AGENT span to attach children to.
         tool_result_map: Mapping of tool_use_id to result content, built by
             ``_build_tool_result_map``.
-        conv_start_ns: Conversation start time in nanoseconds.
 
     Returns:
         The final assistant text response (for trace preview), or None if no
@@ -788,7 +790,6 @@ def _create_sdk_child_spans(
                 name=f"llm_call_{llm_call_num}",
                 parent_span=parent_span,
                 span_type=SpanType.LLM,
-                start_time_ns=conv_start_ns,
                 inputs={
                     "model": getattr(msg, "model", "unknown"),
                     "messages": list(input_messages),
@@ -796,7 +797,7 @@ def _create_sdk_child_spans(
                 attributes={"model": getattr(msg, "model", "unknown")},
             )
             llm_span.set_outputs({"response": text})
-            llm_span.end(end_time_ns=conv_start_ns)
+            llm_span.end()
 
         # Tool use blocks each become a tool span
         for tool_block in tool_use_blocks:
@@ -804,13 +805,12 @@ def _create_sdk_child_spans(
                 name=f"tool_{tool_block.name}",
                 parent_span=parent_span,
                 span_type=SpanType.TOOL,
-                start_time_ns=conv_start_ns,
                 inputs=tool_block.input,
                 attributes={"tool_name": tool_block.name, "tool_id": tool_block.id},
             )
             tool_result = tool_result_map.get(tool_block.id, "No result found")
             tool_span.set_outputs({"result": tool_result})
-            tool_span.end(end_time_ns=conv_start_ns)
+            tool_span.end()
 
     return final_response
 
@@ -858,22 +858,17 @@ def process_sdk_messages(
 
         tool_result_map = _build_tool_result_map(messages)
 
-        # Use real duration from ResultMessage, fall back to 1s default
-        duration_ms = result_msg.duration_ms if result_msg else 1000
-        duration_ns = int(duration_ms * NANOSECONDS_PER_MS)
-        conv_start_ns = int(datetime.now().timestamp() * NANOSECONDS_PER_S) - duration_ns
-
         parent_span = mlflow.start_span_no_context(
             name="claude_code_conversation",
             inputs={"prompt": user_prompt},
-            start_time_ns=conv_start_ns,
             span_type=SpanType.AGENT,
         )
 
         final_response = _create_sdk_child_spans(
-            messages, parent_span, tool_result_map, conv_start_ns
+            messages, parent_span, tool_result_map
         )
 
+        # Set token usage on the root span so it aggregates into trace-level usage
         if result_msg and result_msg.usage:
             _set_token_usage_attribute(parent_span, result_msg.usage)
 
@@ -882,7 +877,6 @@ def process_sdk_messages(
             user_prompt,
             final_response,
             session_id,
-            conv_start_ns + duration_ns,
         )
 
     except Exception as e:

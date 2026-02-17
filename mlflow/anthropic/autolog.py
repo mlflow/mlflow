@@ -32,7 +32,7 @@ def patched_claude_sdk_init(original, self, options=None):
     """
     try:
         from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
-        from claude_agent_sdk.types import UserMessage
+        from claude_agent_sdk.types import ResultMessage, UserMessage
 
         result = original(self, options)
 
@@ -60,6 +60,20 @@ def patched_claude_sdk_init(original, self, options=None):
                 yield message
 
         self.receive_messages = wrapped_receive_messages
+
+        # Wrap receive_response() to capture ResultMessage, which contains
+        # token usage and duration but is only yielded by receive_response()
+        # (not by receive_messages())
+        original_receive_response = self.receive_response
+
+        @functools.wraps(original_receive_response)
+        async def wrapped_receive_response(*args, **kwargs):
+            async for message in original_receive_response(*args, **kwargs):
+                if isinstance(message, ResultMessage):
+                    messages_buffer.append(message)
+                yield message
+
+        self.receive_response = wrapped_receive_response
 
         # Inject a Stop hook that builds the trace from accumulated messages
         async def stop_hook(input_data, tool_use_id, context):

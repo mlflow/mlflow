@@ -47,7 +47,10 @@ def test_patched_claude_sdk_init_wraps_client_and_injects_hook():
     original_init = MagicMock()
     mock_self = MagicMock()
     mock_self.options = _make_mock_options(hooks=None)
-    mock_self.receive_messages = AsyncMock()
+    original_receive_messages = AsyncMock()
+    original_receive_response = AsyncMock()
+    mock_self.receive_messages = original_receive_messages
+    mock_self.receive_response = original_receive_response
 
     with patch.dict(
         "sys.modules",
@@ -61,13 +64,22 @@ def test_patched_claude_sdk_init_wraps_client_and_injects_hook():
         patched_claude_sdk_init(original_init, mock_self, mock_self.options)
 
     original_init.assert_called_once_with(mock_self, mock_self.options)
-    assert mock_self.receive_messages is not original_init
+    # Both receive_messages and receive_response should be wrapped
+    assert mock_self.receive_messages is not original_receive_messages
+    assert mock_self.receive_response is not original_receive_response
     assert "Stop" in mock_self.options.hooks
     assert len(mock_self.options.hooks["Stop"]) == 1
 
 
-async def _setup_patched_client_and_consume(messages):
-    """Patch a mock SDK client, stream messages through it, and return the stop hook."""
+async def _setup_patched_client_and_consume(messages, response_messages=None):
+    """Patch a mock SDK client, stream messages through it, and return the stop hook.
+
+    Args:
+        messages: Messages yielded by receive_messages().
+        response_messages: If provided, messages yielded by receive_response() instead of
+            using receive_messages(). Used to test that receive_response() wrapper captures
+            ResultMessage separately from receive_messages().
+    """
     original_init = MagicMock()
     mock_self = MagicMock()
     mock_self.options = _make_mock_options(hooks={"Stop": []})
@@ -77,6 +89,14 @@ async def _setup_patched_client_and_consume(messages):
             yield msg
 
     mock_self.receive_messages = fake_receive_messages
+
+    # receive_response() normally calls receive_messages() internally,
+    # then appends a ResultMessage. We simulate this with a separate generator.
+    async def fake_receive_response():
+        for msg in (response_messages if response_messages is not None else messages):
+            yield msg
+
+    mock_self.receive_response = fake_receive_response
 
     with patch.dict(
         "sys.modules",
@@ -89,8 +109,12 @@ async def _setup_patched_client_and_consume(messages):
     ):
         patched_claude_sdk_init(original_init, mock_self, mock_self.options)
 
-    # Consume messages to populate the internal buffer
+    # Consume via receive_messages to populate the buffer with conversation messages
     collected = [msg async for msg in mock_self.receive_messages()]
+
+    # If response_messages provided, also consume receive_response (which captures ResultMessage)
+    if response_messages is not None:
+        [msg async for msg in mock_self.receive_response()]
 
     stop_hook_fn = mock_self.options.hooks["Stop"][0].hooks[0]
     return mock_self, collected, stop_hook_fn
@@ -159,6 +183,50 @@ async def test_stop_hook_skips_when_autologging_disabled():
 
     mock_process.assert_not_called()
     assert result == {"continue": True}
+
+
+@pytest.mark.asyncio
+async def test_receive_response_wrapper_captures_result_message():
+    """receive_response() yields ResultMessage after receive_messages() is done.
+    The wrapper should capture ResultMessage into the buffer so token usage
+    and duration are available for tracing."""
+    from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock, UserMessage
+
+    # receive_messages() only yields conversation messages
+    conversation_msgs = [
+        UserMessage(content="Hello"),
+        AssistantMessage(content=[TextBlock(text="Hi!")], model="claude-sonnet-4-20250514"),
+    ]
+    # receive_response() yields conversation + ResultMessage
+    result_msg = ResultMessage(
+        subtype="success",
+        duration_ms=5000,
+        duration_api_ms=4000,
+        is_error=False,
+        num_turns=1,
+        session_id="test",
+        usage={"input_tokens": 100, "output_tokens": 20},
+    )
+    response_msgs = [*conversation_msgs, result_msg]
+
+    _, _, stop_hook_fn = await _setup_patched_client_and_consume(
+        conversation_msgs, response_messages=response_msgs
+    )
+
+    # The stop hook should see conversation messages + ResultMessage in the buffer
+    with (
+        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
+        patch("mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()) as mock,
+    ):
+        await stop_hook_fn({"session_id": "test"}, None, None)
+
+    # Buffer should contain: conversation msgs from receive_messages + ResultMessage
+    # from receive_response. The conversation msgs appear twice (once from each wrapper),
+    # but that's fine — process_sdk_messages handles duplicates.
+    called_messages = mock.call_args[0][0]
+    result_messages = [m for m in called_messages if isinstance(m, ResultMessage)]
+    assert len(result_messages) == 1
+    assert result_messages[0].usage == {"input_tokens": 100, "output_tokens": 20}
 
 
 @pytest.mark.asyncio

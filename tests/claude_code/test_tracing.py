@@ -356,16 +356,17 @@ def test_process_sdk_messages_simple_conversation():
     assert llm_spans[0].inputs["model"] == "claude-sonnet-4-20250514"
     assert llm_spans[0].inputs["messages"] == [{"role": "user", "content": "What is 2 + 2?"}]
 
-    # Token usage from ResultMessage should be on the root span
+    # Token usage from ResultMessage should be on the root span and trace level
     token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
     assert token_usage is not None
     assert token_usage["input_tokens"] == 100
     assert token_usage["output_tokens"] == 20
     assert token_usage["total_tokens"] == 120
 
-    # Duration should reflect ResultMessage.duration_ms (1000ms = 1s)
-    duration_ns = root_span.end_time_ns - root_span.start_time_ns
-    assert abs(duration_ns - 1_000_000_000) < 1_000_000  # within 1ms tolerance
+    assert trace.info.token_usage is not None
+    assert trace.info.token_usage["input_tokens"] == 100
+    assert trace.info.token_usage["output_tokens"] == 20
+    assert trace.info.token_usage["total_tokens"] == 120
 
     assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-sdk-session"
     assert trace.info.request_preview == "What is 2 + 2?"
@@ -413,3 +414,43 @@ def test_process_sdk_messages_multiple_tools():
     assert all(s.name == "tool_Read" for s in tool_spans)
     tool_results = {s.outputs["result"] for s in tool_spans}
     assert tool_results == {"content of a", "content of b"}
+
+
+def test_process_sdk_messages_cache_tokens():
+    """Cache tokens (cache_creation + cache_read) are included in input token count."""
+    messages = [
+        UserMessage(content="Hello"),
+        AssistantMessage(
+            content=[TextBlock(text="Hi!")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=5000,
+            duration_api_ms=4000,
+            is_error=False,
+            num_turns=1,
+            session_id="cache-session",
+            usage={
+                "input_tokens": 36,
+                "cache_creation_input_tokens": 23554,
+                "cache_read_input_tokens": 139035,
+                "output_tokens": 3344,
+            },
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "cache-session")
+
+    assert trace is not None
+    root_span = trace.data.spans[0]
+
+    # input_tokens should include cache tokens: 36 + 23554 + 139035 = 162625
+    token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage["input_tokens"] == 162625
+    assert token_usage["output_tokens"] == 3344
+    assert token_usage["total_tokens"] == 162625 + 3344
+
+    # Trace-level aggregation should match
+    assert trace.info.token_usage["input_tokens"] == 162625
+    assert trace.info.token_usage["output_tokens"] == 3344
