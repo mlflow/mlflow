@@ -9,6 +9,9 @@ import subprocess
 import sys
 import urllib.request
 
+# Maximum number of linked issues to fetch from GitHub API
+MAX_LINKED_ISSUES = 10
+
 
 def run_gh(*args: str) -> str:
     return subprocess.check_output(["gh", *args], text=True)
@@ -74,12 +77,27 @@ def get_closing_issues(repo: str, pr_number: str) -> list[tuple[int, str]]:
     Returns a list of (issue_number, issue_title) tuples for issues
     linked via closing keywords (e.g., "Fixes #123").
     """
-    owner, name = repo.split("/")
+    if "/" not in repo:
+        raise ValueError(f"Invalid repo format: '{repo}'. Expected format: 'owner/name'")
+
+    owner, name = repo.split("/", 1)
+
+    # Validate inputs to prevent GraphQL injection
+    # GitHub usernames/org names: alphanumeric, hyphens, max 39 chars
+    # Repository names: alphanumeric, hyphens, underscores, dots
+    # PR numbers: positive integers
+    if not re.match(r"^[a-zA-Z0-9-]{1,39}$", owner):
+        raise ValueError(f"Invalid owner format: '{owner}'")
+    if not re.match(r"^[a-zA-Z0-9._-]+$", name):
+        raise ValueError(f"Invalid repository name format: '{name}'")
+    if not pr_number.isdigit():
+        raise ValueError(f"Invalid PR number: '{pr_number}'")
+
     query = f"""
     {{
       repository(owner: "{owner}", name: "{name}") {{
         pullRequest(number: {pr_number}) {{
-          closingIssuesReferences(first: 10) {{
+          closingIssuesReferences(first: {MAX_LINKED_ISSUES}) {{
             nodes {{
               number
               title
