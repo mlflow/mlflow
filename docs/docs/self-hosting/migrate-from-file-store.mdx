@@ -36,8 +36,8 @@ The migration tool transfers **all metadata** stored in the file-based backend:
 
 ### What Is NOT Migrated
 
-- **Artifacts** (model files, images, etc.) — these stay in their original location. The database stores the same artifact URIs that point to the existing files.
-- **Trace spans** — stored as artifact files, not in the database.
+- **Artifacts** (model files, images, etc.) stay in their original location. The database stores the same artifact URIs that point to the existing files.
+- **Trace spans** are stored as artifact files, not in the database.
 
 ## Options
 
@@ -72,7 +72,7 @@ mlflow migrate-filestore --source ./mlruns --target sqlite:///mlflow.db
 
 The command prints progress for each experiment and registered model, followed by a summary of migrated entity counts and actual database row counts.
 
-The migration is atomic — all data is committed in a single transaction at the end. If any error occurs, the entire migration is rolled back and the database remains empty, so you can safely re-run the command after fixing the issue. Entity types that don't exist in your FileStore (e.g., traces if you never used tracing) are automatically skipped.
+The migration is atomic. If any error occurs, the entire migration is rolled back and the database remains empty, so you can safely re-run the command after fixing the issue.
 
 ### 4. Start the server with the new database
 
@@ -84,12 +84,27 @@ mlflow server --backend-store-uri sqlite:///mlflow.db
 
 Open the MLflow UI and confirm your experiments, runs, and models are present.
 
+## Lossless Migration
+
+The migration tool preserves your data exactly as it was in the FileStore. No IDs are regenerated and no timestamps are altered.
+
+- **All IDs** (experiment, run, trace, model, etc.) are preserved as-is.
+- **All timestamps** (`creation_time`, `start_time`, `end_time`, `last_update_time`) retain their original millisecond precision.
+- **Deleted items are included.** Experiments and runs in the `.trash` directory are migrated with their `deleted` lifecycle stage preserved.
+- **Artifact URIs** remain unchanged, pointing to the same files on disk.
+
+### Comparison with `mlflow-export-import`
+
+|                                  | `mlflow migrate-filestore`      | [`mlflow-export-import`](https://github.com/mlflow/mlflow-export-import) |
+| -------------------------------- | ------------------------------- | ------------------------------------------------------------------------ |
+| **Use case**                     | Migrate FileStore to a database | Recreate data between MLflow servers                                     |
+| **Preserves IDs and timestamps** | Yes                             | No (regenerated on import)                                               |
+| **Requires a running server**    | No                              | Yes (both source and target)                                             |
+| **Target**                       | SQLite                          | Any MLflow server                                                        |
+
 ## Important Notes
 
 - **Target database must be empty.** The migration tool refuses to write to a database that already contains data to prevent conflicts. If the target file already exists, you will be prompted to overwrite it.
-- **Lossless.** Experiment IDs, run UUIDs, timestamps, and all metadata are preserved exactly as they were in the file store.
-- **Deleted items are included.** Experiments and runs in the `.trash` directory are migrated with their `deleted` lifecycle stage preserved.
-- **SQLite only.** The initial version supports SQLite as the target database. FileStore generates large experiment IDs that exceed the 32-bit integer limit enforced by PostgreSQL and MySQL, but SQLite handles them natively.
-- **Atomic migration.** The entire migration runs in a single transaction. If any error occurs, everything is rolled back and the database stays empty — no partial data is left behind.
+- **SQLite only.** The migration tool only supports SQLite as the target database. FileStore generates large experiment IDs that exceed the 32-bit integer limit enforced by PostgreSQL and MySQL, but SQLite handles them natively.
 
 If you run into issues or have feedback, please comment on [GitHub issue #18534](https://github.com/mlflow/mlflow/issues/18534).
