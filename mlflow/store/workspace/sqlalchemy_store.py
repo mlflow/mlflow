@@ -4,7 +4,6 @@ import logging
 from threading import Lock
 from typing import Iterable
 
-import sqlalchemy as sa
 from cachetools import TTLCache
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -20,6 +19,15 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlWebhook
+from mlflow.store.tracking.dbmodels.models import (
+    SqlEvaluationDataset,
+    SqlExperiment,
+    SqlGatewayEndpoint,
+    SqlGatewayModelDefinition,
+    SqlGatewaySecret,
+    SqlJob,
+)
 from mlflow.store.workspace.abstract_store import AbstractStore, WorkspaceNameValidator
 from mlflow.store.workspace.dbmodels import SqlWorkspace
 from mlflow.utils.uri import extract_db_type_from_uri
@@ -29,19 +37,19 @@ _logger = logging.getLogger(__name__)
 
 _CACHE_MISS = object()
 
-# Root workspace-aware tables whose workspace column must be reset before deleting a workspace.
-# "registered_models" is first because its onupdate="CASCADE" foreign keys automatically
-# propagate the change to model_versions, registered_model_tags, model_version_tags,
-# and registered_model_aliases.
-_WORKSPACE_ROOT_TABLES = [
-    sa.table("registered_models", sa.column("workspace")),
-    sa.table("experiments", sa.column("workspace")),
-    sa.table("evaluation_datasets", sa.column("workspace")),
-    sa.table("webhooks", sa.column("workspace")),
-    sa.table("secrets", sa.column("workspace")),
-    sa.table("endpoints", sa.column("workspace")),
-    sa.table("model_definitions", sa.column("workspace")),
-    sa.table("jobs", sa.column("workspace")),
+# Root workspace-aware ORM models whose workspace column must be handled before deleting a
+# workspace. SqlRegisteredModel is first because its onupdate="CASCADE" foreign keys
+# automatically propagate the change to model_versions, registered_model_tags,
+# model_version_tags, and registered_model_aliases.
+_WORKSPACE_ROOT_MODELS = [
+    SqlRegisteredModel,
+    SqlExperiment,
+    SqlEvaluationDataset,
+    SqlWebhook,
+    SqlGatewaySecret,
+    SqlGatewayEndpoint,
+    SqlGatewayModelDefinition,
+    SqlJob,
 ]
 
 
@@ -133,28 +141,27 @@ class SqlAlchemyStore(AbstractStore):
             entity = self._get_workspace(session, workspace_name)
             try:
                 if mode == WorkspaceDeletionMode.RESTRICT:
-                    for table in _WORKSPACE_ROOT_TABLES:
-                        count = session.execute(
-                            sa.select(sa.func.count())
-                            .select_from(table)
-                            .where(table.c.workspace == workspace_name)
-                        ).scalar()
+                    for model in _WORKSPACE_ROOT_MODELS:
+                        count = (
+                            session.query(model).filter(model.workspace == workspace_name).count()
+                        )
                         if count:
                             raise MlflowException(
                                 f"Cannot delete workspace '{workspace_name}': table "
-                                f"'{table.name}' still contains {count} resource(s). "
+                                f"'{model.__tablename__}' still contains {count} resource(s). "
                                 "Remove or reassign them before deleting the workspace.",
                                 INVALID_STATE,
                             )
                 elif mode == WorkspaceDeletionMode.CASCADE:
-                    for table in _WORKSPACE_ROOT_TABLES:
-                        session.execute(table.delete().where(table.c.workspace == workspace_name))
+                    for model in _WORKSPACE_ROOT_MODELS:
+                        session.query(model).filter(model.workspace == workspace_name).delete(
+                            synchronize_session=False
+                        )
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
-                    for table in _WORKSPACE_ROOT_TABLES:
-                        session.execute(
-                            table.update()
-                            .where(table.c.workspace == workspace_name)
-                            .values(workspace=DEFAULT_WORKSPACE_NAME)
+                    for model in _WORKSPACE_ROOT_MODELS:
+                        session.query(model).filter(model.workspace == workspace_name).update(
+                            {model.workspace: DEFAULT_WORKSPACE_NAME},
+                            synchronize_session=False,
                         )
                 session.delete(entity)
             except IntegrityError as exc:
