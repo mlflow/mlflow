@@ -55,7 +55,7 @@ def _patch_sdk_init(mock_self, messages, response_messages=None):
     mock_self.receive_messages = fake_receive_messages
 
     async def fake_receive_response():
-        for msg in (response_messages if response_messages is not None else messages):
+        for msg in response_messages if response_messages is not None else messages:
             yield msg
 
     mock_self.receive_response = fake_receive_response
@@ -126,7 +126,9 @@ async def test_stop_hook_builds_trace_when_receive_response_not_used():
 
     with (
         patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
-        patch("mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()) as mock_process,
+        patch(
+            "mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()
+        ) as mock_process,
     ):
         result = await stop_hook_fn({"session_id": "test-session"}, None, None)
 
@@ -159,7 +161,8 @@ async def test_stop_hook_skips_when_autologging_disabled():
 @pytest.mark.asyncio
 async def test_receive_response_builds_trace_with_result_message():
     """When receive_response() is consumed, the trace is built after the
-    generator is exhausted — at which point ResultMessage is in the buffer."""
+    generator is exhausted — at which point ResultMessage is in the buffer.
+    """
     from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock, UserMessage
 
     mock_self = MagicMock()
@@ -187,7 +190,9 @@ async def test_receive_response_builds_trace_with_result_message():
     # Consume receive_response — trace should be built when generator finishes
     with (
         patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
-        patch("mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()) as mock_process,
+        patch(
+            "mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()
+        ) as mock_process,
     ):
         [msg async for msg in mock_self.receive_response()]
 
@@ -205,7 +210,8 @@ async def test_receive_response_builds_trace_with_result_message():
 @pytest.mark.asyncio
 async def test_stop_hook_defers_during_receive_response():
     """When receive_response() is in progress, the stop hook should be a no-op
-    (the trace will be built when the generator is exhausted instead)."""
+    (the trace will be built when the generator is exhausted instead).
+    """
     from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock, UserMessage
 
     mock_self = MagicMock()
@@ -247,7 +253,9 @@ async def test_stop_hook_defers_during_receive_response():
     # Now exhaust the generator — trace should be built
     with (
         patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
-        patch("mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()) as mock_process,
+        patch(
+            "mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()
+        ) as mock_process,
     ):
         async for _ in gen:
             pass

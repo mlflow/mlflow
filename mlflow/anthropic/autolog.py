@@ -98,9 +98,7 @@ def patched_claude_sdk_init(original, self, options=None):
 
             # Generator exhausted — all messages including ResultMessage are
             # now in the buffer.  Build the trace here.
-            result_msg = next(
-                (m for m in messages_buffer if isinstance(m, ResultMessage)), None
-            )
+            result_msg = next((m for m in messages_buffer if isinstance(m, ResultMessage)), None)
             session_id = getattr(result_msg, "session_id", None) if result_msg else None
             _build_trace(messages_buffer, session_id)
             trace_built = True

@@ -565,11 +565,13 @@ def _finalize_trace(
                     + usage.get("cache_read_input_tokens", 0)
                 )
                 output_tokens = usage.get("output_tokens", 0)
-                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps({
-                    TokenUsageKey.INPUT_TOKENS: input_tokens,
-                    TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-                    TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
-                })
+                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(
+                    {
+                        TokenUsageKey.INPUT_TOKENS: input_tokens,
+                        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+                        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
+                    }
+                )
 
             in_memory_trace.info.trace_metadata = {
                 **in_memory_trace.info.trace_metadata,
@@ -897,9 +899,7 @@ def process_sdk_messages(
             start_time_ns=start_time_ns,
         )
 
-        final_response = _create_sdk_child_spans(
-            messages, parent_span, tool_result_map
-        )
+        final_response = _create_sdk_child_spans(messages, parent_span, tool_result_map)
 
         # Set token usage on the root span so it aggregates into trace-level usage
         usage = getattr(result_msg, "usage", None) if result_msg else None
