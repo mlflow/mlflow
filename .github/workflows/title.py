@@ -78,17 +78,6 @@ def get_closing_issues(repo: str, pr_number: str) -> list[tuple[int, str]]:
         case _:
             raise ValueError(f"Invalid repo format: {repo!r}")
 
-    # Validate inputs to prevent GraphQL injection
-    # GitHub usernames/org names: alphanumeric, hyphens, max 39 chars
-    # Repository names: alphanumeric, hyphens, underscores, dots
-    # PR numbers: positive integers
-    if not re.match(r"^[a-zA-Z0-9-]{1,39}$", owner):
-        raise ValueError(f"Invalid owner format: '{owner}'")
-    if not re.match(r"^[a-zA-Z0-9._-]+$", name):
-        raise ValueError(f"Invalid repository name format: '{name}'")
-    if not pr_number.isdigit():
-        raise ValueError(f"Invalid PR number: '{pr_number}'")
-
     query = f"""
     {{
       repository(owner: "{owner}", name: "{name}") {{
