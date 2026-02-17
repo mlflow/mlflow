@@ -792,8 +792,7 @@ def test_create_model_version_rejects_local_source_for_prompts(
     )
     resp = _create_model_version()
     assert resp.status_code == 400
-    data = json.loads(resp.get_data())
-    assert "Invalid model version source" in data["message"]
+    assert "Invalid prompt source" in resp.get_json()["message"]
 
 
 @pytest.mark.parametrize(
@@ -813,8 +812,7 @@ def test_create_model_version_rejects_traversal_source_for_prompts(
     )
     resp = _create_model_version()
     assert resp.status_code == 400
-    data = json.loads(resp.get_data())
-    assert "Invalid model version source" in data["message"]
+    assert "Invalid model version source" in resp.get_json()["message"]
 
 
 def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):

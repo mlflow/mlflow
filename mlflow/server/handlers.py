@@ -2637,7 +2637,7 @@ def _create_model_version():
         parsed = urllib.parse.urlparse(source)
         if parsed.scheme == "file" or (parsed.scheme == "" and source.startswith("/")):
             raise MlflowException(
-                f"Invalid model version source: '{source}'. "
+                f"Invalid prompt source: '{source}'. "
                 "Local source paths are not allowed for prompts.",
                 INVALID_PARAMETER_VALUE,
             )
