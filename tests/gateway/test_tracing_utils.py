@@ -439,6 +439,13 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
     assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "gpt-4"
     assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "openai"
 
+    # Provider span should preserve timing from the gateway trace
+    gateway_provider_span = next(
+        s for s in gateway_traces[0].data.spans if s.name == "provider/openai/gpt-4"
+    )
+    assert provider_span.start_time_ns == gateway_provider_span.start_time_ns
+    assert provider_span.end_time_ns == gateway_provider_span.end_time_ns
+
     # Neither span should have request/response payloads
     assert gw_span.inputs is None
     assert gw_span.outputs is None
@@ -522,6 +529,13 @@ async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_expe
     assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "gpt-4"
     assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "openai"
 
+    # Provider span should preserve timing from the gateway trace
+    gateway_provider_span = next(
+        s for s in gateway_traces[0].data.spans if s.name == "provider/openai/gpt-4"
+    )
+    assert provider_span.start_time_ns == gateway_provider_span.start_time_ns
+    assert provider_span.end_time_ns == gateway_provider_span.end_time_ns
+
     # Neither span should have request/response payloads
     assert gw_span.inputs is None
     assert gw_span.outputs is None
@@ -601,3 +615,16 @@ async def test_maybe_traced_gateway_call_with_traceparent_multiple_providers(gat
         "output_tokens": 10,
         "total_tokens": 30,
     }
+
+    # Provider spans should preserve timing from the gateway trace
+    gateway_traces = TracingClient().search_traces(locations=[gateway_experiment_id])
+    assert len(gateway_traces) == 1
+    gw_spans_by_name = {s.name: s for s in gateway_traces[0].data.spans}
+
+    gw_openai = gw_spans_by_name["provider/openai/gpt-4"]
+    assert provider_openai.start_time_ns == gw_openai.start_time_ns
+    assert provider_openai.end_time_ns == gw_openai.end_time_ns
+
+    gw_anthropic = gw_spans_by_name["provider/anthropic/claude-3"]
+    assert provider_anthropic.start_time_ns == gw_anthropic.start_time_ns
+    assert provider_anthropic.end_time_ns == gw_anthropic.end_time_ns
