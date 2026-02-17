@@ -3326,10 +3326,6 @@
     "defaultMessage": "Save",
     "description": "Save button for the edit model config modal"
   },
-  "MXLMc4": {
-    "defaultMessage": "Search traces by id, request, and response",
-    "description": "Placeholder text for the search input in the trace results table"
-  },
   "MXhKKt": {
     "defaultMessage": "avg per trace",
     "description": "Subtitle for average tokens per trace"
@@ -8362,6 +8358,10 @@
   "vxY1CI": {
     "defaultMessage": "Status",
     "description": "Run page > Overview > Run status section label"
+  },
+  "vyB+Og": {
+    "defaultMessage": "Search traces by id, request, or response",
+    "description": "Placeholder text for the search input in the trace results table"
   },
   "w/sljb": {
     "defaultMessage": "Sort descending",
