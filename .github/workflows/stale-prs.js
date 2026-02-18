@@ -18,6 +18,9 @@ const QUERY = `
           number
           createdAt
           authorAssociation
+          closingIssuesReferences(first: 1) {
+            totalCount
+          }
           timelineItems(
             last: 5
             itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW, PULL_REQUEST_COMMIT]
@@ -96,7 +99,16 @@ const isStale = (lastActivityDate) => {
 const shouldProcessPR = (pr) => {
   // Only process PRs from org members
   const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
-  return memberAssociations.includes(pr.authorAssociation);
+  if (!memberAssociations.includes(pr.authorAssociation)) {
+    return false;
+  }
+
+  // Skip PRs that are linked to issues
+  if (pr.closingIssuesReferences.totalCount > 0) {
+    return false;
+  }
+
+  return true;
 };
 
 module.exports = async ({ context, github }) => {
