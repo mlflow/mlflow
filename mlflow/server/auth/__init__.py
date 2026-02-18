@@ -3127,16 +3127,12 @@ def create_app(app: Flask = app):
         view_func=get_user,
         methods=["GET"],
     )
-    app.add_url_rule(
-        rule=LIST_USERS,
-        view_func=list_users,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=AJAX_LIST_USERS,
-        view_func=list_users,
-        methods=["GET"],
-    )
+    for rule in [LIST_USERS, AJAX_LIST_USERS]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=list_users,
+            methods=["GET"],
+        )
     app.add_url_rule(
         rule=UPDATE_USER_PASSWORD,
         view_func=update_user_password,
