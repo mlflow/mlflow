@@ -402,6 +402,43 @@ def test_search_registered_models(client, monkeypatch):
         assert names == [f"rm{i}" for i in readable]
 
 
+def test_search_model_versions(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    readable = [0, 2, 4]
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("mv_test_exp")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+        for i in range(5):
+            rm = client.create_registered_model(f"mv_model{i}")
+            client.create_model_version(rm.name, f"runs:/{run_id}/model", run_id=run_id)
+            _send_rest_tracking_post_request(
+                client.tracking_uri,
+                "/api/2.0/mlflow/registered-models/permissions/create",
+                json_payload={
+                    "name": rm.name,
+                    "username": username2,
+                    "permission": "READ" if i in readable else "NO_PERMISSIONS",
+                },
+                auth=(username1, password1),
+            )
+
+    # user1 (owner) sees all model versions
+    with User(username1, password1, monkeypatch):
+        versions = client.search_model_versions(filter_string="name LIKE 'mv_model%'")
+        names = sorted({mv.name for mv in versions})
+        assert names == [f"mv_model{i}" for i in range(5)]
+
+    # user2 only sees model versions for readable models
+    with User(username2, password2, monkeypatch):
+        versions = client.search_model_versions(filter_string="name LIKE 'mv_model%'")
+        names = sorted({mv.name for mv in versions})
+        assert names == [f"mv_model{i}" for i in readable]
+
+
 def test_create_and_delete_registered_model(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
 

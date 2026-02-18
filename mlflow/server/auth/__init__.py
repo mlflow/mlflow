@@ -66,6 +66,7 @@ from mlflow.protos.model_registry_pb2 import (
     GetModelVersionDownloadUri,
     GetRegisteredModel,
     RenameRegisteredModel,
+    SearchModelVersions,
     SearchRegisteredModels,
     SetModelVersionTag,
     SetRegisteredModelAlias,
@@ -2078,6 +2079,26 @@ def filter_search_registered_models(resp: Response):
     resp.data = message_to_json(response_message)
 
 
+def filter_search_model_versions(resp: Response):
+    if sender_is_admin():
+        return
+
+    response_message = SearchModelVersions.Response()
+    parse_dict(resp.json, response_message)
+
+    # fetch permissions
+    username = authenticate_request().username
+    perms = store.list_registered_model_permissions(username)
+    can_read = {p.name: get_permission(p.permission).can_read for p in perms}
+    default_can_read = get_permission(auth_config.default_permission).can_read
+    # filter out model versions whose parent model is unreadable
+    for mv in list(response_message.model_versions):
+        if not _has_registered_model_read_access(username, mv.name, can_read, default_can_read):
+            response_message.model_versions.remove(mv)
+
+    resp.data = message_to_json(response_message)
+
+
 def rename_registered_model_permission(resp: Response):
     """
     A model registry can be assigned to multiple users with different permissions.
@@ -2154,6 +2175,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
     SearchLoggedModels: filter_search_logged_models,
+    SearchModelVersions: filter_search_model_versions,
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
@@ -2688,6 +2710,7 @@ class GraphQLAuthorizationMiddleware:
         "mlflowGetMetricHistoryBulkInterval",
         "mlflowSearchRuns",
         "mlflowSearchDatasets",
+        "mlflowSearchModelVersions",
     }
 
     def resolve(self, next, root, info, **args):
@@ -2730,7 +2753,12 @@ class GraphQLAuthorizationMiddleware:
             _logger.warning(f"GraphQL authorization error for {field_name}", exc_info=True)
             return None
 
-        return next(root, info, **args)
+        result = next(root, info, **args)
+
+        if field_name == "mlflowSearchModelVersions" and result is not None:
+            result = self._filter_model_versions_result(result, username)
+
+        return result
 
     def _check_authorization(self, field_name: str, args: dict[str, Any], username: str) -> bool:
         """
@@ -2777,6 +2805,19 @@ class GraphQLAuthorizationMiddleware:
                 input_obj.experiment_ids = readable_ids
 
         return True
+
+    def _filter_model_versions_result(self, result, username: str):
+        """Filter model versions the user doesn't have read access to."""
+        perms = store.list_registered_model_permissions(username)
+        can_read = {p.name: get_permission(p.permission).can_read for p in perms}
+        default_can_read = get_permission(auth_config.default_permission).can_read
+        if hasattr(result, "model_versions") and result.model_versions is not None:
+            result.model_versions = [
+                mv
+                for mv in result.model_versions
+                if _has_registered_model_read_access(username, mv.name, can_read, default_can_read)
+            ]
+        return result
 
 
 def get_graphql_authorization_middleware():
