@@ -30,12 +30,14 @@ const QUERY = `
               ... on IssueComment {
                 createdAt
                 author {
+                  __typename
                   login
                 }
               }
               ... on PullRequestReview {
                 createdAt
                 author {
+                  __typename
                   login
                 }
               }
@@ -44,6 +46,7 @@ const QUERY = `
                   committedDate
                   author {
                     user {
+                      __typename
                       login
                     }
                   }
@@ -57,8 +60,14 @@ const QUERY = `
   }
 `;
 
-const isBot = (login) => {
-  return login && login.endsWith("[bot]");
+const isBot = (author) => {
+  if (!author) return true;
+  // Check if author is a Bot via __typename
+  if (author.__typename === "Bot") return true;
+  // Also check for bot-like logins as fallback
+  const login = author.login;
+  if (!login) return true;
+  return login.endsWith("[bot]") || login === "github-actions";
 };
 
 const getLastHumanActivity = (pr) => {
@@ -69,18 +78,16 @@ const getLastHumanActivity = (pr) => {
     const item = items[i];
 
     if (item.__typename === "IssueComment") {
-      const login = item.author?.login;
-      if (login && !isBot(login)) {
+      if (!isBot(item.author)) {
         return new Date(item.createdAt);
       }
     } else if (item.__typename === "PullRequestReview") {
-      const login = item.author?.login;
-      if (login && !isBot(login)) {
+      if (!isBot(item.author)) {
         return new Date(item.createdAt);
       }
     } else if (item.__typename === "PullRequestCommit") {
-      const login = item.commit?.author?.user?.login;
-      if (login && !isBot(login)) {
+      const user = item.commit?.author?.user;
+      if (user && !isBot(user)) {
         return new Date(item.commit.committedDate);
       }
     }
