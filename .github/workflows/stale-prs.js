@@ -2,7 +2,7 @@
 // Detects last human activity (ignoring bot events) and closes inactive PRs
 
 const STALE_DAYS = 30;
-const MAX_OPERATIONS = 100;
+const MAX_CLOSES = 10;
 const CLOSE_MESSAGE = "Closing due to inactivity. Feel free to reopen if still relevant.";
 
 // GraphQL query to fetch open PRs with timeline data
@@ -104,13 +104,13 @@ const isStale = (lastActivityDate) => {
 };
 
 const shouldProcessPR = (pr) => {
-  // Only process PRs from org members
+  // Skip community PRs — only close internal (org member) PRs
   const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
   if (!memberAssociations.includes(pr.authorAssociation)) {
     return false;
   }
 
-  // Skip PRs that are linked to issues
+  // Skip PRs that close issues
   if (pr.closingIssuesReferences.totalCount > 0) {
     return false;
   }
@@ -133,8 +133,8 @@ module.exports = async ({ context, github }) => {
 
       for (const pr of prs) {
         // Check if we've hit the operations limit
-        if (operationsCount >= MAX_OPERATIONS) {
-          console.log(`Reached maximum operations limit (${MAX_OPERATIONS}). Stopping.`);
+        if (operationsCount >= MAX_CLOSES) {
+          console.log(`Reached maximum operations limit (${MAX_CLOSES}). Stopping.`);
           return;
         }
 
