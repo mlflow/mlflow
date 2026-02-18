@@ -1670,7 +1670,7 @@ def test_scorer_retries_on_429(monkeypatch):
     def flaky_scorer(outputs):
         attempts.append(1)
         if len(attempts) < 3:
-            raise Exception("rate limit exceeded")
+            raise Exception("429 Too Many Requests")
         return True
 
     data = [{"inputs": {"q": "Q1"}, "outputs": "a"}]
