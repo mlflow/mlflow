@@ -1308,3 +1308,10 @@ MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
 MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
 )
+
+
+#: Specifies whether to enable safe_mode when loading Keras models.
+#: When True (default), Keras will restrict deserialization to prevent arbitrary code execution.
+#: Set to False to allow loading models with custom Lambda layers or other unsafe objects.
+#: (default: ``True``)
+MLFLOW_KERAS_SAFE_MODE = _BooleanEnvironmentVariable("MLFLOW_KERAS_SAFE_MODE", True)

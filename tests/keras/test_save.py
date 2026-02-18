@@ -1,3 +1,5 @@
+from unittest import mock
+
 import keras
 import numpy as np
 import pytest
@@ -115,3 +117,37 @@ def test_save_model_with_signature():
 
     # Clean up the global policy.
     keras.mixed_precision.set_dtype_policy("float32")
+
+
+def test_load_model_safe_mode_default():
+    model = _get_keras_model()
+    with mlflow.start_run():
+        model_info = mlflow.keras.log_model(model, name="model")
+
+    with mock.patch("keras.saving.load_model", wraps=keras.saving.load_model) as mock_load:
+        mlflow.keras.load_model(model_info.model_uri)
+        call_kwargs = mock_load.call_args[1]
+        assert call_kwargs["safe_mode"] is True
+
+
+def test_load_model_safe_mode_disabled_via_env_var(monkeypatch):
+    model = _get_keras_model()
+    with mlflow.start_run():
+        model_info = mlflow.keras.log_model(model, name="model")
+
+    monkeypatch.setenv("MLFLOW_KERAS_SAFE_MODE", "false")
+    with mock.patch("keras.saving.load_model", wraps=keras.saving.load_model) as mock_load:
+        mlflow.keras.load_model(model_info.model_uri)
+        call_kwargs = mock_load.call_args[1]
+        assert call_kwargs["safe_mode"] is False
+
+
+def test_load_model_safe_mode_explicit_override():
+    model = _get_keras_model()
+    with mlflow.start_run():
+        model_info = mlflow.keras.log_model(model, name="model")
+
+    with mock.patch("keras.saving.load_model", wraps=keras.saving.load_model) as mock_load:
+        mlflow.keras.load_model(model_info.model_uri, load_model_kwargs={"safe_mode": False})
+        call_kwargs = mock_load.call_args[1]
+        assert call_kwargs["safe_mode"] is False

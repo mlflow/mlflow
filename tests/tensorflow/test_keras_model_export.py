@@ -697,6 +697,33 @@ def test_load_tf_keras_model_with_options(tf_keras_model, model_path):
         )
 
 
+def test_load_tf_keras_model_safe_mode_default(tf_keras_model, model_path):
+    mlflow.tensorflow.save_model(tf_keras_model, path=model_path)
+    with mock.patch(
+        "mlflow.tensorflow._load_keras_model", wraps=mlflow.tensorflow._load_keras_model
+    ) as mock_load:
+        mlflow.tensorflow.load_model(model_path)
+        call_kwargs = mock_load.call_args[1]
+        assert call_kwargs.get("safe_mode") is None or "safe_mode" not in call_kwargs
+    # Verify safe_mode is injected inside _load_keras_model for non-h5 formats
+    keras_model_kwargs = {"safe_mode": True}
+    with mock.patch("mlflow.tensorflow._load_keras_model") as mock_load:
+        mlflow.tensorflow.load_model(model_path, keras_model_kwargs=keras_model_kwargs)
+        mock_load.assert_called_once_with(
+            model_path=mock.ANY, keras_module=mock.ANY, save_format=mock.ANY, **keras_model_kwargs
+        )
+
+
+def test_load_tf_keras_model_safe_mode_explicit_override(tf_keras_model, model_path):
+    mlflow.tensorflow.save_model(tf_keras_model, path=model_path)
+    keras_model_kwargs = {"safe_mode": False}
+    with mock.patch("mlflow.tensorflow._load_keras_model") as mock_load:
+        mlflow.tensorflow.load_model(model_path, keras_model_kwargs=keras_model_kwargs)
+        mock_load.assert_called_once_with(
+            model_path=mock.ANY, keras_module=mock.ANY, save_format=mock.ANY, **keras_model_kwargs
+        )
+
+
 def test_model_save_load_with_metadata(tf_keras_model, model_path):
     mlflow.tensorflow.save_model(
         tf_keras_model, path=model_path, metadata={"metadata_key": "metadata_value"}
