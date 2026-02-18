@@ -198,6 +198,31 @@ def run_tests() -> None:
     print(f"\nTotal usage: {json.dumps(total_usage, indent=2)}")
 
 
+def write_step_summary(result: dict[str, Any]) -> None:
+    step_summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not step_summary_path:
+        return
+
+    comment = result.get("comment")
+    reason = result.get("reason", "")
+    usage = result.get("usage", {})
+    usage_json = json.dumps({"usage": usage}, indent=2)
+
+    summary = f"""## Comment
+{comment or "None"}
+
+## Reason
+{reason}
+
+## Usage
+```json
+{usage_json}
+```
+"""
+    with open(step_summary_path, "a") as f:
+        f.write(summary)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Triage GitHub issues")
     subparsers = parser.add_subparsers(dest="command")
@@ -212,6 +237,7 @@ def main() -> None:
     match args.command:
         case "triage":
             result = triage_issue(args.title, args.body)
+            write_step_summary(result)
             print(json.dumps(result))
         case "test":
             run_tests()

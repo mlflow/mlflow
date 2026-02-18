@@ -36,10 +36,12 @@ import {
 } from './FetchUtils';
 import { ErrorWrapper } from './ErrorWrapper';
 import { setActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
-import { getWorkspacesEnabledSync } from './ServerFeaturesContext';
+import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
 
-jest.mock('./ServerFeaturesContext', () => ({
-  ...jest.requireActual<typeof import('./ServerFeaturesContext')>('./ServerFeaturesContext'),
+jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../../experiment-tracking/hooks/useServerInfo')>(
+    '../../experiment-tracking/hooks/useServerInfo',
+  ),
   getWorkspacesEnabledSync: jest.fn(),
 }));
 

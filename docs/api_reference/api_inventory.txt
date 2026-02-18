@@ -723,6 +723,7 @@ mlflow.gateway.config.EndpointConfig.validate_route_type_and_model_name
 mlflow.gateway.config.EndpointModelInfo
 mlflow.gateway.config.EndpointType
 mlflow.gateway.config.GatewayConfig
+mlflow.gateway.config.GatewayRequestType
 mlflow.gateway.config.GeminiConfig
 mlflow.gateway.config.GeminiConfig.validate_gemini_api_key
 mlflow.gateway.config.HuggingFaceTextGenerationInferenceConfig

@@ -7,6 +7,7 @@ import pathlib
 import posixpath
 import re
 import tempfile
+import threading
 import time
 import urllib
 from functools import partial, wraps
@@ -1098,24 +1099,6 @@ def _ensure_artifact_root_available(workspace_artifact_root: str | None) -> None
             "'default_artifact_root' for this workspace or start the server with "
             "'--default-artifact-root'."
         )
-
-
-@catch_mlflow_exception
-def _server_features_handler():
-    """
-    Returns a dictionary containing the server features state.
-
-    This helps clients determine if workspaces are enabled.
-    """
-    response = Response(mimetype="application/json")
-    response.set_data(
-        json.dumps(
-            {
-                "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
-            }
-        )
-    )
-    return response
 
 
 @catch_mlflow_exception
@@ -2644,9 +2627,24 @@ def _create_model_version():
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    # If the model version is a prompt, we don't validate the source
     is_prompt = _is_prompt_request(request_message)
-    if not is_prompt:
+    if is_prompt:
+        # Prompt sources must not point to local filesystem paths.
+        # Block file:// URIs and absolute paths (e.g. /etc/passwd) but allow
+        # the legitimate schemeless placeholder sources used internally
+        # (e.g. "prompt-template", "dummy-source").
+        source = request_message.source
+        parsed = urllib.parse.urlparse(source)
+        if parsed.scheme == "file" or (parsed.scheme == "" and source.startswith("/")):
+            raise MlflowException(
+                f"Invalid prompt source: '{source}'. "
+                "Local source paths are not allowed for prompts.",
+                INVALID_PARAMETER_VALUE,
+            )
+        # Only validate traversal for sources with a URL scheme (http, https, etc.)
+        if parsed.scheme:
+            _validate_non_local_source_contains_relative_paths(source)
+    else:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
         else:
@@ -5035,6 +5033,7 @@ def _delete_gateway_endpoint_tag():
     return response
 
 
+@catch_mlflow_exception
 def _get_server_info():
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -5047,7 +5046,12 @@ def _get_server_info():
         store_type = "SqlStore"
     else:
         store_type = None
-    return jsonify({"store_type": store_type})
+    return jsonify(
+        {
+            "store_type": store_type,
+            "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
+        }
+    )
 
 
 @catch_mlflow_exception
@@ -5224,19 +5228,20 @@ def get_endpoints(get_handler=get_handler):
     Returns:
         List of tuples (path, handler, methods)
     """
-    server_feature_paths = [
-        (_path, _server_features_handler, ["GET"])
-        for _path in _get_paths("/mlflow/server-features", version=3)
-    ]
     return (
         get_service_endpoints(MlflowService, get_handler)
         + get_internal_online_scoring_endpoints()
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
-        + server_feature_paths
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
-        + [(_add_static_prefix("/server-info"), _get_server_info, ["GET"])]
+        # NB: Use _get_paths() (not _add_static_prefix()) so that the endpoint is reachable
+        # both at /api/3.0/mlflow/server-info (for the Python client, unaffected by static prefix)
+        # and at <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
+        + [
+            (_path, _get_server_info, ["GET"])
+            for _path in _get_paths("/mlflow/server-info", version=3)
+        ]
         + get_gateway_endpoints()
         + get_demo_endpoints()
     )
@@ -5274,6 +5279,11 @@ def get_gateway_endpoints():
 
 
 # Demo APIs
+
+# Serialize demo generation so concurrent requests (e.g. FastAPI running Flask
+# handlers in a thread pool) cannot race on the process-wide MLFLOW_WORKSPACE
+# env var that WorkspaceContext temporarily sets during generate_all_demos.
+_demo_generate_lock = threading.Lock()
 
 
 def get_demo_endpoints():
@@ -5325,15 +5335,16 @@ def _generate_demo():
                 "status": "exists",
                 "experiment_id": experiment.experiment_id,
                 "features_generated": [],
-                "navigation_url": f"/experiments/{experiment.experiment_id}/traces",
+                "navigation_url": f"/experiments/{experiment.experiment_id}",
             }
         )
 
-    results = generate_all_demos(features=features)
+    with _demo_generate_lock:
+        results = generate_all_demos(features=features)
 
     experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     experiment_id = experiment.experiment_id if experiment else None
-    navigation_url = f"/experiments/{experiment_id}/traces" if experiment_id else "/experiments"
+    navigation_url = f"/experiments/{experiment_id}" if experiment_id else "/experiments"
 
     return jsonify(
         {

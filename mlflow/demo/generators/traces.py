@@ -76,6 +76,29 @@ def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
+# Model names and approximate per-token pricing (USD per 1M tokens).
+# Using three distinct models so the cost breakdown chart shows a nice distribution.
+_DEMO_MODELS = ("gpt-5.2", "claude-sonnet-4-5", "gemini-3-pro")
+_MODEL_PRICING: dict[str, tuple[float, float]] = {
+    # (input $/1M tokens, output $/1M tokens)
+    "gpt-5.2": (1.75, 14.00),
+    "claude-sonnet-4-5": (3.00, 15.00),
+    "gemini-3-pro": (2.00, 12.00),
+}
+
+
+def _compute_cost(model: str, prompt_tokens: int, completion_tokens: int) -> dict[str, float]:
+    """Compute synthetic cost using approximate per-model pricing."""
+    input_rate, output_rate = _MODEL_PRICING[model]
+    input_cost = prompt_tokens * input_rate / 1_000_000
+    output_cost = completion_tokens * output_rate / 1_000_000
+    return {
+        "input_cost": input_cost,
+        "output_cost": output_cost,
+        "total_cost": input_cost + output_cost,
+    }
+
+
 class TracesDemoGenerator(BaseDemoGenerator):
     """Generates demo traces for the MLflow UI.
 
@@ -99,6 +122,14 @@ class TracesDemoGenerator(BaseDemoGenerator):
     def generate(self) -> DemoResult:
         self._restore_experiment_if_deleted()
         experiment = mlflow.set_experiment(DEMO_EXPERIMENT_NAME)
+        mlflow.MlflowClient().set_experiment_tag(
+            experiment.experiment_id, "mlflow.experimentKind", "genai_development"
+        )
+        mlflow.set_experiment_tag(
+            "mlflow.note.content",
+            "Sample experiment with pre-populated demo data including traces, evaluations, "
+            "and prompts. Explore MLflow's GenAI features with this experiment.",
+        )
 
         v1_trace_ids = self._generate_trace_set("v1")
         v2_trace_ids = self._generate_trace_set("v2")
@@ -108,7 +139,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         return DemoResult(
             feature=self.name,
             entity_ids=all_trace_ids,
-            navigation_url=f"#/experiments/{experiment.experiment_id}/traces",
+            navigation_url=f"#/experiments/{experiment.experiment_id}",
         )
 
     def _generate_trace_set(self, version: Literal["v1", "v2"]) -> list[str]:
@@ -244,6 +275,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         retrieve.set_outputs({"documents": docs})
         retrieve.end(end_time_ns=retrieve_end)
 
+        model = "gpt-5.2"
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -254,13 +286,16 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "user", "content": trace_def.query},
                 ],
                 "context": docs,
+                "model": model,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -308,6 +343,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             tool_span.end(end_time_ns=tool_start + tool_duration // len(trace_def.tools))
             tool_start += tool_duration // len(trace_def.tools) + 1000
 
+        model = "claude-sonnet-4-5"
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -318,13 +354,16 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "user", "content": trace_def.query},
                 ],
                 "tool_results": [t.output for t in trace_def.tools],
+                "model": model,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -403,6 +442,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         render.set_outputs({"rendered_prompt": rendered_prompt})
         render.end(end_time_ns=render_end)
 
+        model = "gemini-3-pro"
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -411,14 +451,16 @@ class TracesDemoGenerator(BaseDemoGenerator):
                 "messages": [
                     {"role": "user", "content": rendered_prompt},
                 ],
-                "model": "gpt-4o-mini",
+                "model": model,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -581,6 +623,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             tool_span.end(end_time_ns=tool_end)
             tool_start = tool_end + 1000
 
+        model = _DEMO_MODELS[turn % len(_DEMO_MODELS)]
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -590,14 +633,16 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "system", "content": "You are an MLflow assistant."},
                     {"role": "user", "content": trace_def.query},
                 ],
-                "model": "gpt-4o-mini",
+                "model": model,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )

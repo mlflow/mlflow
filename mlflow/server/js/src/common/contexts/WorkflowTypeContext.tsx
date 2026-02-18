@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useMemo } from 'react';
 import { useLocalStorage } from '../../shared/web-shared/hooks/useLocalStorage';
+import { useNavigate, useParams } from '../utils/RoutingUtils';
+import Routes from '../../experiment-tracking/routes';
 
 export enum WorkflowType {
   GENAI = 'genai',
@@ -21,18 +23,35 @@ const WorkflowTypeContext = createContext<WorkflowTypeContextType>({
 });
 
 export const WorkflowTypeProvider = ({ children }: { children: React.ReactNode }) => {
+  const navigate = useNavigate();
   const [workflowType, setWorkflowType] = useLocalStorage<WorkflowType>({
     key: WORKFLOW_TYPE_STORAGE_KEY,
     version: WORKFLOW_TYPE_STORAGE_VERSION,
     initialValue: DEFAULT_WORKFLOW_TYPE,
   });
 
+  const { experimentId } = useParams();
+  const handleWorkflowTypeChange = useCallback(
+    (newWorkflowType: WorkflowType) => {
+      if (newWorkflowType === workflowType) {
+        return;
+      }
+
+      setWorkflowType(newWorkflowType);
+      if (experimentId) {
+        // if an experiment is active, redirect to experiment default tab on change
+        navigate(Routes.getExperimentPageRoute(experimentId));
+      }
+    },
+    [experimentId, navigate, setWorkflowType, workflowType],
+  );
+
   const contextValue = useMemo(
     () => ({
       workflowType,
-      setWorkflowType,
+      setWorkflowType: handleWorkflowTypeChange,
     }),
-    [workflowType, setWorkflowType],
+    [workflowType, handleWorkflowTypeChange],
   );
 
   return <WorkflowTypeContext.Provider value={contextValue}>{children}</WorkflowTypeContext.Provider>;

@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Location } from '../utils/RoutingUtils';
+import type { Location, To } from '../utils/RoutingUtils';
 import { Link, useLocation } from '../utils/RoutingUtils';
 import {
   DesignSystemEventProviderAnalyticsEventTypes,
@@ -24,7 +24,7 @@ export const MlflowSidebarLink = ({
   tooltipContent,
 }: {
   className?: string;
-  to: string;
+  to: To;
   componentId: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
@@ -59,10 +59,9 @@ export const MlflowSidebarLink = ({
             alignItems: 'center',
             gap: theme.spacing.sm,
             color: theme.colors.textPrimary,
-            paddingInline: collapsed ? 0 : theme.spacing.sm,
+            paddingInline: theme.spacing.sm,
             justifyContent: collapsed ? 'center' : 'flex-start',
-            // 5 seems to be the magic number to match the text line height
-            paddingBlock: collapsed ? 5 : theme.spacing.xs,
+            paddingBlock: theme.spacing.sm,
             borderRadius: theme.borders.borderRadiusSm,
             '&:hover': {
               color: theme.colors.actionLinkHover,

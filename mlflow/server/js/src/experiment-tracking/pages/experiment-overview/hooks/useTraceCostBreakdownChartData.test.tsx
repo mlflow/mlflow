@@ -13,10 +13,17 @@ import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
 
-// Helper to create a cost breakdown data point
+// Helper to create a cost breakdown data point grouped by model
 const createCostDataPoint = (modelName: string, totalCost: number) => ({
   metric_name: SpanMetricKey.TOTAL_COST,
   dimensions: { [SpanDimensionKey.MODEL_NAME]: modelName },
+  values: { [AggregationType.SUM]: totalCost },
+});
+
+// Helper to create a cost breakdown data point grouped by provider
+const createProviderCostDataPoint = (provider: string, totalCost: number) => ({
+  metric_name: SpanMetricKey.TOTAL_COST,
+  dimensions: { [SpanDimensionKey.MODEL_PROVIDER]: provider },
   values: { [AggregationType.SUM]: totalCost },
 });
 
@@ -348,27 +355,6 @@ describe('useTraceCostBreakdownChartData', () => {
       expect(capturedBody.aggregations).toContainEqual({ aggregation_type: AggregationType.SUM });
     });
 
-    it('should request MODEL_NAME dimension', async () => {
-      let capturedBody: any = null;
-
-      server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
-          capturedBody = await req.json();
-          return res(ctx.json({ data_points: [] }));
-        }),
-      );
-
-      renderHook(() => useTraceCostBreakdownChartData(), {
-        wrapper: createWrapper(),
-      });
-
-      await waitFor(() => {
-        expect(capturedBody).not.toBeNull();
-      });
-
-      expect(capturedBody.dimensions).toContain(SpanDimensionKey.MODEL_NAME);
-    });
-
     it('should use SPANS view type', async () => {
       let capturedBody: any = null;
 
@@ -452,6 +438,166 @@ describe('useTraceCostBreakdownChartData', () => {
       });
 
       expect(capturedBody.experiment_ids).toContain(testExperimentId);
+    });
+
+    it('should request MODEL_NAME dimension by default', async () => {
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
+      renderHook(() => useTraceCostBreakdownChartData(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(capturedBody).not.toBeNull();
+      });
+
+      expect(capturedBody.dimensions).toContain(SpanDimensionKey.MODEL_NAME);
+      expect(capturedBody.dimensions).not.toContain(SpanDimensionKey.MODEL_PROVIDER);
+    });
+
+    it('should request MODEL_PROVIDER dimension when provider is specified', async () => {
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
+      renderHook(() => useTraceCostBreakdownChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(capturedBody).not.toBeNull();
+      });
+
+      expect(capturedBody.dimensions).toContain(SpanDimensionKey.MODEL_PROVIDER);
+      expect(capturedBody.dimensions).not.toContain(SpanDimensionKey.MODEL_NAME);
+    });
+  });
+
+  describe('provider dimension', () => {
+    it('should group cost data by provider', async () => {
+      setupTraceMetricsHandler([
+        createProviderCostDataPoint('openai', 0.5),
+        createProviderCostDataPoint('anthropic', 0.3),
+        createProviderCostDataPoint('cohere', 0.2),
+      ]);
+
+      const { result } = renderHook(() => useTraceCostBreakdownChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.chartData).toHaveLength(3);
+      expect(result.current.chartData[0].name).toBe('openai');
+      expect(result.current.chartData[1].name).toBe('anthropic');
+      expect(result.current.chartData[2].name).toBe('cohere');
+    });
+
+    it('should calculate percentages correctly for providers', async () => {
+      setupTraceMetricsHandler([
+        createProviderCostDataPoint('openai', 0.5),
+        createProviderCostDataPoint('anthropic', 0.3),
+        createProviderCostDataPoint('cohere', 0.2),
+      ]);
+
+      const { result } = renderHook(() => useTraceCostBreakdownChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.chartData[0].percentage).toBeCloseTo(50, 1);
+      expect(result.current.chartData[1].percentage).toBeCloseTo(30, 1);
+      expect(result.current.chartData[2].percentage).toBeCloseTo(20, 1);
+    });
+
+    it('should sort providers by cost descending', async () => {
+      setupTraceMetricsHandler([
+        createProviderCostDataPoint('cohere', 0.01),
+        createProviderCostDataPoint('openai', 0.1),
+        createProviderCostDataPoint('anthropic', 0.05),
+      ]);
+
+      const { result } = renderHook(() => useTraceCostBreakdownChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.chartData[0].name).toBe('openai');
+      expect(result.current.chartData[1].name).toBe('anthropic');
+      expect(result.current.chartData[2].name).toBe('cohere');
+    });
+
+    it('should calculate total cost across all providers', async () => {
+      setupTraceMetricsHandler([
+        createProviderCostDataPoint('openai', 0.05),
+        createProviderCostDataPoint('anthropic', 0.03),
+        createProviderCostDataPoint('cohere', 0.02),
+      ]);
+
+      const { result } = renderHook(() => useTraceCostBreakdownChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.totalCost).toBeCloseTo(0.1, 10);
+    });
+
+    it('should filter out providers with zero cost', async () => {
+      setupTraceMetricsHandler([createProviderCostDataPoint('openai', 0.05), createProviderCostDataPoint('cohere', 0)]);
+
+      const { result } = renderHook(() => useTraceCostBreakdownChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.chartData).toHaveLength(1);
+      expect(result.current.chartData[0].name).toBe('openai');
+    });
+
+    it('should use "Unknown" for missing provider name', async () => {
+      setupTraceMetricsHandler([
+        {
+          metric_name: SpanMetricKey.TOTAL_COST,
+          dimensions: {},
+          values: { [AggregationType.SUM]: 0.05 },
+        },
+      ]);
+
+      const { result } = renderHook(() => useTraceCostBreakdownChartData('provider'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.chartData[0].name).toBe('Unknown');
     });
   });
 });

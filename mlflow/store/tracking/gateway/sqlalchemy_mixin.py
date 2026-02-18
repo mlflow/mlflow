@@ -19,6 +19,7 @@ from mlflow.entities import (
     GatewaySecretInfo,
     RoutingStrategy,
 )
+from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -60,6 +61,7 @@ from mlflow.utils.crypto import (
     _encrypt_secret,
     _mask_secret_value,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID, MLFLOW_EXPERIMENT_SOURCE_TYPE
 from mlflow.utils.time import get_current_time_millis
 
 
@@ -97,18 +99,19 @@ class SqlAlchemyGatewayStoreMixin:
             self._secret_cache = SecretCache(ttl_seconds=ttl, max_size=max_size)
         return self._secret_cache
 
-    def _get_or_create_experiment_id(self, experiment_name: str) -> str:
+    def _get_or_create_experiment_id(self, experiment_name: str, tags=None) -> str:
         """Get an existing experiment ID or create a new experiment if it doesn't exist.
 
         Args:
             experiment_name: Name of the experiment to get or create.
+            tags: Optional list of ExperimentTag instances to set on the experiment.
 
         Returns:
             The experiment ID.
         """
         try:
             # The class that inherits from this mixin must implement the create_experiment method
-            return self.create_experiment(experiment_name)
+            return self.create_experiment(experiment_name, tags=tags)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 experiment = self.get_experiment_by_name(experiment_name)
@@ -607,7 +610,13 @@ class SqlAlchemyGatewayStoreMixin:
 
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None:
-                experiment_id = self._get_or_create_experiment_id(f"gateway/{name}")
+                experiment_id = self._get_or_create_experiment_id(
+                    f"gateway/{name}",
+                    tags=[
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                    ],
+                )
 
             # Build fallback_config_json if fallback_config provided or fallback models exist
             fallback_model_def_ids = [
@@ -739,7 +748,13 @@ class SqlAlchemyGatewayStoreMixin:
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None and sql_endpoint.experiment_id is None:
                 endpoint_name = name if name is not None else sql_endpoint.name
-                experiment_id = self._get_or_create_experiment_id(f"gateway/{endpoint_name}")
+                experiment_id = self._get_or_create_experiment_id(
+                    f"gateway/{endpoint_name}",
+                    tags=[
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                    ],
+                )
 
             if experiment_id is not None:
                 sql_endpoint.experiment_id = int(experiment_id)
