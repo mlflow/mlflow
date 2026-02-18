@@ -926,10 +926,6 @@
     "defaultMessage": "No endpoints created",
     "description": "Empty state title for endpoints list"
   },
-  "513m15": {
-    "defaultMessage": "Select your workflow type. This changes the tabs that are visible in the navigation sidebar.",
-    "description": "Tooltip for workflow switch"
-  },
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
@@ -2489,6 +2485,10 @@
   "FpjDSq": {
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
+  },
+  "FxQYyX": {
+    "defaultMessage": "Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems.",
+    "description": "Tooltip for workflow switch"
   },
   "G/zTTY": {
     "defaultMessage": "Error",
