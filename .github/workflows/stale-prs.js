@@ -2,12 +2,14 @@
 // Detects last human activity (ignoring bot events) and closes inactive PRs
 
 const STALE_DAYS = 30;
+// TODO: Increase once we're confident the workflow works correctly
 const MAX_CLOSES = 10;
 const CLOSE_MESSAGE = "Closing due to inactivity. Feel free to reopen if still relevant.";
 
 // GraphQL query to fetch open PRs with timeline data
 const QUERY = `
   query($cursor: String) {
+    rateLimit { remaining resetAt }
     repository(owner: "mlflow", name: "mlflow") {
       pullRequests(states: OPEN, first: 50, after: $cursor) {
         pageInfo {
@@ -60,36 +62,21 @@ const QUERY = `
   }
 `;
 
-const isBot = (author) => {
-  if (!author) return true;
-  // Check if author is a Bot via __typename
-  if (author.__typename === "Bot") return true;
-  // Also check for bot-like logins as fallback
-  const login = author.login;
-  if (!login) return true;
-  return login.endsWith("[bot]") || login === "github-actions";
-};
+const isBot = (author) => !author || author.__typename === "Bot";
 
 const getLastHumanActivity = (pr) => {
   const items = pr.timelineItems.nodes || [];
 
-  // Iterate in reverse to find the most recent human activity
   for (let i = items.length - 1; i >= 0; i--) {
     const item = items[i];
 
-    if (item.__typename === "IssueComment") {
-      if (!isBot(item.author)) {
-        return new Date(item.createdAt);
-      }
-    } else if (item.__typename === "PullRequestReview") {
-      if (!isBot(item.author)) {
-        return new Date(item.createdAt);
-      }
-    } else if (item.__typename === "PullRequestCommit") {
+    if (item.__typename === "PullRequestCommit") {
       const user = item.commit?.author?.user;
       if (user && !isBot(user)) {
         return new Date(item.commit.committedDate);
       }
+    } else if (!isBot(item.author)) {
+      return new Date(item.createdAt);
     }
   }
 
@@ -120,73 +107,53 @@ const shouldProcessPR = (pr) => {
 
 module.exports = async ({ context, github }) => {
   const { owner, repo } = context.repo;
-  let operationsCount = 0;
+  let closeCount = 0;
 
   try {
-    console.log("Fetching open pull requests...");
-
-    // Use paginate to fetch all open PRs
     const iterator = github.graphql.paginate.iterator(QUERY);
 
     for await (const response of iterator) {
-      const prs = response.repository.pullRequests.nodes;
+      const { remaining, resetAt } = response.rateLimit;
+      console.log(`Rate limit: ${remaining} remaining, resets at ${resetAt}`);
 
-      for (const pr of prs) {
-        // Check if we've hit the operations limit
-        if (operationsCount >= MAX_CLOSES) {
-          console.log(`Reached maximum operations limit (${MAX_CLOSES}). Stopping.`);
+      for (const pr of response.repository.pullRequests.nodes) {
+        if (closeCount >= MAX_CLOSES) {
+          console.log(`Reached close limit (${MAX_CLOSES}). Stopping.`);
           return;
         }
 
-        // Skip community PRs (non-org members)
         if (!shouldProcessPR(pr)) {
           continue;
         }
 
-        // Get last human activity
         const lastActivity = getLastHumanActivity(pr);
-
-        // Check if PR is stale
-        if (isStale(lastActivity)) {
-          const daysSinceActivity = Math.floor((new Date() - lastActivity) / (1000 * 60 * 60 * 24));
-
-          console.log(`Closing PR #${pr.number} (inactive for ${daysSinceActivity} days)`);
-
-          try {
-            // Add comment
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: pr.number,
-              body: CLOSE_MESSAGE,
-            });
-
-            // Close PR
-            await github.rest.pulls.update({
-              owner,
-              repo,
-              pull_number: pr.number,
-              state: "closed",
-            });
-
-            operationsCount++;
-          } catch (error) {
-            // Check for rate limit error
-            if (error.status === 429) {
-              console.log("Rate limit reached. Exiting gracefully.");
-              return;
-            }
-            throw error;
-          }
+        if (!isStale(lastActivity)) {
+          continue;
         }
+
+        const days = Math.floor((Date.now() - lastActivity) / 86400000);
+        console.log(`Closing PR #${pr.number} (inactive for ${days} days)`);
+
+        await github.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: pr.number,
+          body: CLOSE_MESSAGE,
+        });
+        await github.rest.pulls.update({
+          owner,
+          repo,
+          pull_number: pr.number,
+          state: "closed",
+        });
+        closeCount++;
       }
     }
 
-    console.log(`Processed ${operationsCount} stale PRs.`);
+    console.log(`Closed ${closeCount} stale PRs.`);
   } catch (error) {
-    // Handle rate limit errors gracefully
     if (error.status === 429 || error.message?.includes("rate limit")) {
-      console.log("Rate limit error encountered. Exiting gracefully.");
+      console.log(`Rate limit hit after closing ${closeCount} PRs. Exiting gracefully.`);
       return;
     }
     throw error;
