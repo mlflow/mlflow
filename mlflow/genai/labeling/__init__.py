@@ -1,5 +1,7 @@
 """
-Databricks Agent Labeling Python SDK. For more details see Databricks Agent Evaluation:
+MLflow Labeling Python SDK. Available in both OSS MLflow and Databricks.
+
+For Databricks-specific features, see:
 <https://docs.databricks.com/en/generative-ai/agent-evaluation/index.html>
 
 The API docs can be found here:
@@ -39,19 +41,17 @@ def create_labeling_session(
     enable_multi_turn_chat: bool = False,
     custom_inputs: dict[str, Any] | None = None,
 ) -> LabelingSession:
-    """Create a new labeling session in the review app.
+    """Create a new labeling session.
 
-    .. note::
-        This functionality is only available in Databricks. Please run
-        `pip install mlflow[databricks]` to use it.
+    Available in both OSS MLflow and Databricks. Some parameters are Databricks-only.
 
     Args:
         name: The name of the labeling session.
-        assigned_users: The users that will be assigned to label items in the session.
-        agent: The agent to be used to generate responses for the items in the session.
-        label_schemas: The label schemas to be used in the session.
-        enable_multi_turn_chat: Whether to enable multi-turn chat labeling for the session.
-        custom_inputs: Optional. Custom inputs to be used in the session.
+        assigned_users: (Databricks only) The users that will be assigned to label items.
+        agent: (Databricks only) The agent to be used to generate responses.
+        label_schemas: (Databricks only) The label schemas to be used in the session.
+        enable_multi_turn_chat: (Databricks only) Whether to enable multi-turn chat labeling.
+        custom_inputs: (Databricks only) Custom inputs to be used in the session.
 
     Returns:
         LabelingSession: The created labeling session.
@@ -68,11 +68,9 @@ def create_labeling_session(
 
 
 def get_labeling_sessions() -> list[LabelingSession]:
-    """Get all labeling sessions from the review app.
+    """Get all labeling sessions.
 
-    .. note::
-        This functionality is only available in Databricks. Please run
-        `pip install mlflow[databricks]` to use it.
+    Available in both OSS MLflow and Databricks.
 
     Returns:
         list[LabelingSession]: The list of labeling sessions.
