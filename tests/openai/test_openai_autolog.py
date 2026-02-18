@@ -204,14 +204,14 @@ async def test_chat_completions_autolog_with_cached_tokens(client, mock_litellm_
         TokenUsageKey.INPUT_TOKENS: 50,
         TokenUsageKey.OUTPUT_TOKENS: 20,
         TokenUsageKey.TOTAL_TOKENS: 70,
-        TokenUsageKey.CACHED_INPUT_TOKENS: 30,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
     }
 
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 50,
         TokenUsageKey.OUTPUT_TOKENS: 20,
         TokenUsageKey.TOTAL_TOKENS: 70,
-        TokenUsageKey.CACHED_INPUT_TOKENS: 30,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
     }
 
 

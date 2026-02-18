@@ -325,14 +325,14 @@ async def test_responses_autolog_with_cached_tokens(client):
         TokenUsageKey.INPUT_TOKENS: 100,
         TokenUsageKey.OUTPUT_TOKENS: 50,
         TokenUsageKey.TOTAL_TOKENS: 150,
-        TokenUsageKey.CACHED_INPUT_TOKENS: 40,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 40,
     }
 
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 100,
         TokenUsageKey.OUTPUT_TOKENS: 50,
         TokenUsageKey.TOTAL_TOKENS: 150,
-        TokenUsageKey.CACHED_INPUT_TOKENS: 40,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 40,
     }
 
 

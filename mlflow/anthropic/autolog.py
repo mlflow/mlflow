@@ -168,7 +168,7 @@ def _parse_usage(output: Any) -> dict[str, int] | None:
                 TokenUsageKey.TOTAL_TOKENS: usage.input_tokens + usage.output_tokens,
             }
             if (cached := getattr(usage, "cache_read_input_tokens", None)) and cached > 0:
-                usage_dict[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+                usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
             if (created := getattr(usage, "cache_creation_input_tokens", None)) and created > 0:
                 usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
             return usage_dict

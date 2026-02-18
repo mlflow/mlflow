@@ -437,7 +437,7 @@ def test_messages_autolog_with_cached_tokens(is_async, mock_litellm_cost):
         TokenUsageKey.INPUT_TOKENS: 50,
         TokenUsageKey.OUTPUT_TOKENS: 20,
         TokenUsageKey.TOTAL_TOKENS: 70,
-        TokenUsageKey.CACHED_INPUT_TOKENS: 25,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
         TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
     }
 
@@ -445,6 +445,6 @@ def test_messages_autolog_with_cached_tokens(is_async, mock_litellm_cost):
         TokenUsageKey.INPUT_TOKENS: 50,
         TokenUsageKey.OUTPUT_TOKENS: 20,
         TokenUsageKey.TOTAL_TOKENS: 70,
-        TokenUsageKey.CACHED_INPUT_TOKENS: 25,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
         TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
     }

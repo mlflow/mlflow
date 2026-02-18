@@ -43,7 +43,7 @@ _TOKEN_USAGE_KEY_MAPPING = {
     "input_tokens": TokenUsageKey.INPUT_TOKENS,
     "output_tokens": TokenUsageKey.OUTPUT_TOKENS,
     # Cache-related keys (Anthropic)
-    "cache_read_input_tokens": TokenUsageKey.CACHED_INPUT_TOKENS,
+    "cache_read_input_tokens": TokenUsageKey.CACHE_READ_INPUT_TOKENS,
     "cache_creation_input_tokens": TokenUsageKey.CACHE_CREATION_INPUT_TOKENS,
 }
 
