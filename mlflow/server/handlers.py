@@ -5409,7 +5409,6 @@ def _delete_demo():
     if experiment and experiment.lifecycle_stage == "active":
         store.delete_experiment(experiment.experiment_id)
 
-
     return jsonify(
         {
             "status": "deleted",
