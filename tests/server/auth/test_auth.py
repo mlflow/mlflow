@@ -2596,7 +2596,7 @@ def test_get_online_scoring_configs_with_auth(client, monkeypatch):
         assert isinstance(data["configs"], list)
 
 
-def test_list_users(client, monkeypatch):
+def test_list_users(client):
     username1, password1 = create_user(client.tracking_uri)
     username2, _password2 = create_user(client.tracking_uri)
 
