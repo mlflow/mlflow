@@ -1349,3 +1349,40 @@ def test_mlflow_gc_only_deletes_finalized_jobs(sqlite_store_with_jobs):
         job_store.get_job(timeout_job.job_id)
     with pytest.raises(MlflowException, match=r"Job .+ not found"):
         job_store.get_job(canceled_job.job_id)
+
+def test_mlflow_gc_continues_when_artifact_deletion_fails(sqlite_store):
+    """
+    Regression test for https://github.com/mlflow/mlflow/issues/15461
+
+    mlflow gc was crashing with MlflowException when a run had no artifacts
+    (e.g. the artifact directory didn't exist on Azure Blob / proxied storage).
+    It should warn and continue, still hard-deleting the run metadata.
+    """
+    store = sqlite_store[0]
+    run = _create_run_in_store(store)
+    store.delete_run(run.info.run_id)
+
+    # Simulate what happens with proxied artifact serving when the artifact
+    # folder doesn't exist — delete_artifacts raises MlflowException with 500
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository"
+    ) as mock_get_repo:
+        mock_repo = mock.MagicMock()
+        mock_repo.delete_artifacts.side_effect = MlflowException(
+            "API request failed with exception: too many 500 error responses"
+        )
+        mock_get_repo.return_value = mock_repo
+
+        runner = CliRunner()
+        result = runner.invoke(
+            gc,
+            ["--backend-store-uri", sqlite_store[1]],
+        )
+
+
+    assert result.exit_code == 0, f"gc crashed with: {result.output}"
+
+    runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
+    assert len(runs) == 0
+    with pytest.raises(MlflowException, match=r"Run .+ not found"):
+        store.get_run(run.info.run_id)
