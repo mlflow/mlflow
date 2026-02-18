@@ -2,8 +2,7 @@
 // Detects last human activity (ignoring bot events) and closes inactive PRs
 
 const STALE_DAYS = 30;
-// TODO: Increase once we're confident the workflow works correctly
-const MAX_CLOSES = 10;
+const MAX_CLOSES = 50;
 const CLOSE_MESSAGE = "Closing due to inactivity. Feel free to reopen if still relevant.";
 
 // GraphQL query to fetch open PRs with timeline data
@@ -134,18 +133,19 @@ module.exports = async ({ context, github }) => {
         const days = Math.floor((Date.now() - lastActivity) / 86400000);
         console.log(`Closing PR #${pr.number} (inactive for ${days} days)`);
 
-        await github.rest.issues.createComment({
-          owner,
-          repo,
-          issue_number: pr.number,
-          body: CLOSE_MESSAGE,
-        });
-        await github.rest.pulls.update({
-          owner,
-          repo,
-          pull_number: pr.number,
-          state: "closed",
-        });
+        // TODO: Uncomment once we've verified the workflow logs look correct
+        // await github.rest.issues.createComment({
+        //   owner,
+        //   repo,
+        //   issue_number: pr.number,
+        //   body: CLOSE_MESSAGE,
+        // });
+        // await github.rest.pulls.update({
+        //   owner,
+        //   repo,
+        //   pull_number: pr.number,
+        //   state: "closed",
+        // });
         closeCount++;
       }
     }
