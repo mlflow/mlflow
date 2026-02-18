@@ -962,6 +962,10 @@
     "defaultMessage": "This request exceeds the maximum queries per second limit. Please wait and try again.",
     "description": "Too many requests (HTTP STATUS 429) generic error message"
   },
+  "5QUJoX": {
+    "defaultMessage": "Cache creation tokens",
+    "description": "Label for cache creation input token usage"
+  },
   "5RWIet": {
     "defaultMessage": "Schema {sectionName}",
     "description": "Field name text for schema table in the model comparison page"
@@ -3038,6 +3042,10 @@
     "defaultMessage": "Section title loading",
     "description": "Loading skeleton label for overview page section title in Catalog Explorer"
   },
+  "KKTpw7": {
+    "defaultMessage": "Cached input tokens",
+    "description": "Label for cached input token usage"
+  },
   "KLTGMn": {
     "defaultMessage": "Full conversation between a user and an assistant",
     "description": "Description for conversation variable"
@@ -3461,6 +3469,10 @@
   "NPlcrl": {
     "defaultMessage": "Clear filters",
     "description": "Button to clear filters in the tags filter popover for experiments page search by tags"
+  },
+  "NQYTBb": {
+    "defaultMessage": "Cached",
+    "description": "Label for the cached input tokens in the tooltip for the tokens cell."
   },
   "NRNNnk": {
     "defaultMessage": "Click to expand",
@@ -4443,6 +4455,10 @@
   "UYSMKb": {
     "defaultMessage": "Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows.",
     "description": "Text for model inputs/outputs schema table when schema is too large to display all rows"
+  },
+  "UawNBQ": {
+    "defaultMessage": "Cache write",
+    "description": "Label for the cache creation input tokens in the tooltip for the tokens cell."
   },
   "Ub+VQh": {
     "defaultMessage": "Please select 2 runs to compare",

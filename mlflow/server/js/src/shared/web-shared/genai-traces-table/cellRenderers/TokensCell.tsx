@@ -183,30 +183,32 @@ export const TokenComponent = ({
               </div>
             </div>
           )}
-          {cacheCreationInputTokens !== null && cacheCreationInputTokens !== undefined && cacheCreationInputTokens > 0 && (
-            <div
-              css={{
-                display: 'flex',
-                flexDirection: 'row',
-              }}
-            >
+          {cacheCreationInputTokens !== null &&
+            cacheCreationInputTokens !== undefined &&
+            cacheCreationInputTokens > 0 && (
               <div
                 css={{
-                  width: '35%',
+                  display: 'flex',
+                  flexDirection: 'row',
                 }}
               >
-                <Typography.Text>
-                  {intl.formatMessage({
-                    defaultMessage: 'Cache write',
-                    description: 'Label for the cache creation input tokens in the tooltip for the tokens cell.',
-                  })}
-                </Typography.Text>
+                <div
+                  css={{
+                    width: '35%',
+                  }}
+                >
+                  <Typography.Text>
+                    {intl.formatMessage({
+                      defaultMessage: 'Cache write',
+                      description: 'Label for the cache creation input tokens in the tooltip for the tokens cell.',
+                    })}
+                  </Typography.Text>
+                </div>
+                <div>
+                  <Typography.Text color="secondary">{cacheCreationInputTokens}</Typography.Text>
+                </div>
               </div>
-              <div>
-                <Typography.Text color="secondary">{cacheCreationInputTokens}</Typography.Text>
-              </div>
-            </div>
-          )}
+            )}
         </div>
       }
     />
