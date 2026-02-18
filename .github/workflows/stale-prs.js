@@ -31,27 +31,16 @@ const QUERY = `
               __typename
               ... on IssueComment {
                 createdAt
-                author {
-                  __typename
-                  login
-                }
+                author { __typename }
               }
               ... on PullRequestReview {
                 createdAt
-                author {
-                  __typename
-                  login
-                }
+                author { __typename }
               }
               ... on PullRequestCommit {
                 commit {
                   committedDate
-                  author {
-                    user {
-                      __typename
-                      login
-                    }
-                  }
+                  author { user { __typename } }
                 }
               }
             }
