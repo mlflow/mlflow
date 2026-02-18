@@ -47,7 +47,7 @@ import {
 } from '../hooks/useTableColumns';
 import { TracesTableColumnType, type TracesTableColumn } from '../types';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
-import { escapeCssSpecialCharacters } from '../utils/DisplayUtils';
+import { escapeCssSpecialCharacters, highlightSearchInText } from '../utils/DisplayUtils';
 import {
   convertFeedbackAssessmentToRunEvalAssessment,
   getTraceInfoInputs,
@@ -78,6 +78,8 @@ interface SessionHeaderCellProps {
   runUuid?: string;
   compareToRunUuid?: string;
   onExpandSession?: () => void;
+  /** When set, matching text in the Request column is highlighted. */
+  searchQuery?: string;
 }
 
 /**
@@ -98,6 +100,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
   runUuid,
   compareToRunUuid,
   onExpandSession,
+  searchQuery,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -196,6 +199,9 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     // In comparison mode, show stacked inputs with run colors
     const inputTitle = firstTrace ? getTraceInfoInputs(firstTrace) : undefined;
     const otherInputTitle = firstOtherTrace ? getTraceInfoInputs(firstOtherTrace) : undefined;
+    const displayInputTitle = inputTitle && searchQuery ? highlightSearchInText(inputTitle, searchQuery) : inputTitle;
+    const displayOtherInputTitle =
+      otherInputTitle && searchQuery ? highlightSearchInText(otherInputTitle, searchQuery) : otherInputTitle;
 
     if (isComparing) {
       cellContent = (
@@ -211,7 +217,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
           <div css={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             <StackedComponents
               first={
-                inputTitle ? (
+                displayInputTitle ? (
                   <div
                     css={{
                       overflow: 'hidden',
@@ -219,16 +225,16 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
                       whiteSpace: 'nowrap',
                       minWidth: 0,
                     }}
-                    title={inputTitle}
+                    title={typeof inputTitle === 'string' ? inputTitle : undefined}
                   >
-                    {inputTitle}
+                    {displayInputTitle}
                   </div>
                 ) : (
                   <NullCell isComparing />
                 )
               }
               second={
-                otherInputTitle ? (
+                displayOtherInputTitle ? (
                   <div
                     css={{
                       overflow: 'hidden',
@@ -236,9 +242,9 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
                       whiteSpace: 'nowrap',
                       minWidth: 0,
                     }}
-                    title={otherInputTitle}
+                    title={typeof otherInputTitle === 'string' ? otherInputTitle : undefined}
                   >
-                    {otherInputTitle}
+                    {displayOtherInputTitle}
                   </div>
                 ) : (
                   <NullCell isComparing />
@@ -257,7 +263,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
         </div>
       );
     } else {
-      cellContent = inputTitle ? (
+      cellContent = displayInputTitle ? (
         <SessionIdLinkWrapper sessionId={sessionId} experimentId={experimentId}>
           <span
             css={{
@@ -271,9 +277,9 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
                 textDecoration: 'underline',
               },
             }}
-            title={inputTitle}
+            title={typeof inputTitle === 'string' ? inputTitle : undefined}
           >
-            {inputTitle}
+            {displayInputTitle}
           </span>
         </SessionIdLinkWrapper>
       ) : (
@@ -428,29 +434,31 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     const lastOtherTrace = otherTraces?.[otherTraces.length - 1];
     const value = lastTrace ? formatResponseTitle(getTraceInfoOutputs(lastTrace)) : undefined;
     const otherValue = lastOtherTrace ? formatResponseTitle(getTraceInfoOutputs(lastOtherTrace)) : undefined;
+    const displayValue = value && searchQuery ? highlightSearchInText(value, searchQuery) : value;
+    const displayOtherValue = otherValue && searchQuery ? highlightSearchInText(otherValue, searchQuery) : otherValue;
 
     if (isComparing) {
       cellContent = (
         <StackedComponents
           first={
-            value ? (
+            displayValue ? (
               <div
                 css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
-                title={value}
+                title={typeof value === 'string' ? value : undefined}
               >
-                {value}
+                {displayValue}
               </div>
             ) : (
               <NullCell isComparing />
             )
           }
           second={
-            otherValue ? (
+            displayOtherValue ? (
               <div
                 css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
-                title={otherValue}
+                title={typeof otherValue === 'string' ? otherValue : undefined}
               >
-                {otherValue}
+                {displayOtherValue}
               </div>
             ) : (
               <NullCell isComparing />
@@ -459,7 +467,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
         />
       );
     } else {
-      cellContent = value ? (
+      cellContent = displayValue ? (
         <div
           css={{
             overflow: 'hidden',
@@ -467,9 +475,9 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
             whiteSpace: 'nowrap',
             minWidth: 0,
           }}
-          title={value}
+          title={typeof value === 'string' ? value : undefined}
         >
-          {value}
+          {displayValue}
         </div>
       ) : (
         <NullCell />
