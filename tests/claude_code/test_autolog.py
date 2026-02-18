@@ -2,6 +2,7 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
+from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock, UserMessage
 
 import mlflow.anthropic
 from mlflow.anthropic.autolog import patched_claude_sdk_init
@@ -51,8 +52,6 @@ def test_patched_claude_sdk_init_wraps_receive_response():
 
 @pytest.mark.asyncio
 async def test_receive_response_builds_trace():
-    from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock, UserMessage
-
     mock_self = MagicMock()
     messages = [
         UserMessage(content="Hello"),
@@ -87,8 +86,6 @@ async def test_receive_response_builds_trace():
 
 @pytest.mark.asyncio
 async def test_query_captures_async_generator_prompt():
-    from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock, UserMessage
-
     mock_self = MagicMock()
 
     async def fake_query(prompt, *args, **kwargs):

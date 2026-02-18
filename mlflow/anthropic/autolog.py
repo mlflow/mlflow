@@ -37,7 +37,7 @@ def patched_claude_sdk_init(original, self, options=None):
 
                 async def capturing_prompt():
                     async for item in original_prompt:
-                        if isinstance(item, dict):
+                        if isinstance(item, dict) and item.get("type") == "user":
                             content = item.get("message", {}).get("content", "")
                             if isinstance(content, str) and content.strip():
                                 messages.append(UserMessage(content=content))
