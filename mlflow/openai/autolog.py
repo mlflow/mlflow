@@ -283,9 +283,11 @@ def _start_span(
     if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai"
 
+    span_name = instance.__class__.__name__
+
     # If there is an active span, create a child span under it, otherwise create a new trace
     span = start_span_no_context(
-        name=instance.__class__.__name__,
+        name=span_name,
         span_type=span_type,
         inputs=inputs,
         attributes=attributes,

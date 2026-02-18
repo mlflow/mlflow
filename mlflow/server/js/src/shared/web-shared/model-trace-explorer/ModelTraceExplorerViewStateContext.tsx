@@ -13,6 +13,7 @@ type PaneSizeRatios = {
   summarySidebar: number;
   detailsSidebar: number;
   detailsPane: number;
+  graphPane: number;
 };
 
 // Default ratios of pane sizes in the model trace explorer.
@@ -23,13 +24,15 @@ const getDefaultPaneSizeRatios = (): PaneSizeRatios => ({
   detailsSidebar: 0.7,
   // Details pane (based on the window width)
   detailsPane: window.innerWidth <= 768 ? 0.33 : 0.25,
+  // Graph view pane — graph canvas takes majority of the space
+  graphPane: 0.75,
 });
 
 export type ModelTraceExplorerViewState = {
   rootNode: ModelTraceSpanNode | null;
   nodeMap: Record<string, ModelTraceSpanNode>;
-  activeView: 'summary' | 'detail';
-  setActiveView: (view: 'summary' | 'detail') => void;
+  activeView: 'summary' | 'detail' | 'graph';
+  setActiveView: (view: 'summary' | 'detail' | 'graph') => void;
   selectedNode: ModelTraceSpanNode | undefined;
   setSelectedNode: (node: ModelTraceSpanNode | undefined) => void;
   activeTab: ModelTraceExplorerTab;
@@ -90,7 +93,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   readOnly = false,
 }: {
   modelTrace: ModelTrace;
-  initialActiveView?: 'summary' | 'detail';
+  initialActiveView?: 'summary' | 'detail' | 'graph';
   selectedSpanIdOnRender?: string;
   children: React.ReactNode;
   assessmentsPaneEnabled: boolean;
@@ -122,7 +125,7 @@ export const ModelTraceExplorerViewStateProvider = ({
     };
   }, []);
 
-  const [activeView, setActiveView] = useState<'summary' | 'detail'>(() => {
+  const [activeView, setActiveView] = useState<'summary' | 'detail' | 'graph'>(() => {
     // Default to detail view when rootNode is null
     if (!rootNode) {
       return 'detail';

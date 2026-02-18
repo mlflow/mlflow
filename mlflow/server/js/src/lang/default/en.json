@@ -1590,6 +1590,10 @@
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description for default error message in experiment datasets UI"
   },
+  "9KK8Z2": {
+    "defaultMessage": "Unable to generate graph layout",
+    "description": "Empty state message when graph layout computation fails"
+  },
   "9KLNi5": {
     "defaultMessage": "Delete",
     "description": "Experiments page list, delete bulk experiments modal primary button"
@@ -2801,6 +2805,10 @@
   "IMkDgM": {
     "defaultMessage": "Experiments",
     "description": "Link label for the experiments page"
+  },
+  "ITTdzC": {
+    "defaultMessage": "Graph",
+    "description": "Label for the graph view tab in the model trace explorer"
   },
   "IUAmWX": {
     "defaultMessage": "No common artifacts to display.",
@@ -4121,6 +4129,10 @@
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
   },
+  "SJciqt": {
+    "defaultMessage": "Scroll to zoom, drag background to pan, drag nodes to reposition",
+    "description": "Navigation hint for graph view"
+  },
   "SJk8DQ": {
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for pre-built LLM judge type filter option"
@@ -4284,6 +4296,10 @@
   "TQ3N+4": {
     "defaultMessage": "Select",
     "description": "Label for the checkbox column in the evaluation runs table"
+  },
+  "TRutFE": {
+    "defaultMessage": "Click a graph node to navigate spans",
+    "description": "Hint text shown in graph view span navigator when no node is selected"
   },
   "TSXmaB": {
     "defaultMessage": "Create",
@@ -5426,6 +5442,10 @@
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
+  },
+  "bNi9b/": {
+    "defaultMessage": "{count} {count, plural, one {node} other {nodes}}",
+    "description": "Count of workflow nodes displayed in graph view"
   },
   "bO1IlR": {
     "defaultMessage": "Select all",
@@ -6870,6 +6890,10 @@
   "lCfyQO": {
     "defaultMessage": "Dataset",
     "description": "Label for the dataset column in the logged model details metrics table"
+  },
+  "lD8vTI": {
+    "defaultMessage": "No trace data available",
+    "description": "Empty state message when there is no trace data to display in graph view"
   },
   "lDGQGa": {
     "defaultMessage": "Toggle detailed view",
