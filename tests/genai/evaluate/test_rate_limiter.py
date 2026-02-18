@@ -1,6 +1,6 @@
 import pytest
 
-from mlflow.genai.evaluation.harness import _make_rate_limiter, _parse_rate_limit
+from mlflow.genai.evaluation.harness import AUTO_INITIAL_RPS, _make_rate_limiter, _parse_rate_limit
 from mlflow.genai.evaluation.rate_limiter import (
     NoOpRateLimiter,
     RPSRateLimiter,
@@ -139,9 +139,9 @@ def test_make_rate_limiter_adaptive():
 @pytest.mark.parametrize(
     ("raw", "expected_rps", "expected_adaptive"),
     [
-        ("auto", 10.0, True),
-        ("AUTO", 10.0, True),
-        (" Auto ", 10.0, True),
+        ("auto", AUTO_INITIAL_RPS, True),
+        ("AUTO", AUTO_INITIAL_RPS, True),
+        (" Auto ", AUTO_INITIAL_RPS, True),
         ("25", 25.0, False),
         ("0", None, False),
         (None, None, False),
