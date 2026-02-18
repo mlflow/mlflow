@@ -104,6 +104,7 @@ from mlflow.store.analytics import trace_correlation
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
+    MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
     SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
@@ -1403,8 +1404,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             ]
 
     def get_metric_history_bulk_interval(
-        self, run_ids, metric_key, max_results, start_step, end_step
-    ):
+        self,
+        run_ids: list[str],
+        metric_key: str,
+        max_results: int,
+        start_step: int,
+        end_step: int,
+    ) -> list[MetricWithRunId]:
         """Override the base implementation to avoid loading all metric rows into Python.
 
         The base class implementation calls get_metric_history() for each run, which loads
@@ -1413,8 +1419,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         SELECT DISTINCT query in SQL, which is dramatically faster when metrics tables
         are large.
         """
-        from mlflow.store.tracking import MAX_RESULTS_GET_METRIC_HISTORY
-
         with self.ManagedSessionMaker() as session:
             for run_id in run_ids:
                 self._validate_run_accessible(session, run_id)
@@ -1436,15 +1440,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # Preserve min/max steps per run for data boundary accuracy
             all_mins_and_maxes = set()
-            for run_id in run_ids:
-                min_max = (
-                    session.query(func.min(SqlMetric.step), func.max(SqlMetric.step))
-                    .filter(SqlMetric.key == metric_key, SqlMetric.run_uuid == run_id)
-                    .one()
-                )
-                if min_max[0] is not None:
-                    all_mins_and_maxes.add(min_max[0])
-                    all_mins_and_maxes.add(min_max[1])
+            for min_step, max_step in (
+                session.query(func.min(SqlMetric.step), func.max(SqlMetric.step))
+                .filter(SqlMetric.key == metric_key, SqlMetric.run_uuid.in_(run_ids))
+                .group_by(SqlMetric.run_uuid)
+                .all()
+            ):
+                all_mins_and_maxes.add(min_step)
+                all_mins_and_maxes.add(max_step)
 
             if start_step is None and end_step is None:
                 start_step = 0
