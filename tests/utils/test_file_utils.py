@@ -287,7 +287,7 @@ def test_check_tarfile_security(tmp_path):
     ):
         check_tarfile_security(tar3_path)
 
-    # Backslash path traversal (Windows Zip Slip bypass)
+    # Backslash-based path traversal in tar (Windows tar slip / path traversal)
     tar4_path = str(tmp_path.joinpath("file4.tar"))
     create_tar_with_escaped_path(tar4_path, "..\\..\\pwned.txt", b"ABX")
     with pytest.raises(
