@@ -427,6 +427,43 @@ def test_create_provider_from_endpoint_name_databricks_normalizes_base_url(
     assert provider.get_provider_name() == "databricks"
 
 
+def test_api_key_not_read_from_file(store: SqlAlchemyStore, tmp_path: Path):
+    # Create a file whose path will be used as the "api_key" value
+    secret_file = tmp_path / "secret.txt"
+    secret_file.write_text("file-content-should-not-appear")
+
+    secret = store.create_gateway_secret(
+        secret_name="lfi-test-key",
+        # Use the file path as the api_key — the gateway must NOT read the file
+        secret_value={"api_key": str(secret_file)},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="lfi-test-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="lfi-test-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
+
+    # The key must be the literal file path string, NOT the file contents
+    assert provider.config.model.config.openai_api_key == str(secret_file)
+    assert provider.config.model.config.openai_api_key != "file-content-should-not-appear"
+
+
 def test_create_provider_from_endpoint_name_nonexistent_endpoint(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="not found"):
         _create_provider_from_endpoint_name(store, "nonexistent-id", EndpointType.LLM_V1_CHAT)
