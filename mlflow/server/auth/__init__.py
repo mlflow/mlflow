@@ -160,6 +160,7 @@ from mlflow.server.auth.permissions import (
     get_permission,
 )
 from mlflow.server.auth.routes import (
+    AJAX_LIST_USERS,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
     CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -196,6 +197,7 @@ from mlflow.server.auth.routes import (
     HOME,
     INVOKE_SCORER,
     LIST_USER_WORKSPACE_PERMISSIONS,
+    LIST_USERS,
     LIST_WORKSPACE_PERMISSIONS,
     SEARCH_DATASETS,
     SIGNUP,
@@ -1051,6 +1053,11 @@ def validate_can_read_user():
     return username_is_sender()
 
 
+def validate_can_list_users():
+    # only admins can list all users, but admins won't reach this validator
+    return False
+
+
 def validate_can_create_user():
     # only admins can create user, but admins won't reach this validator
     return False
@@ -1537,6 +1544,8 @@ BEFORE_REQUEST_VALIDATORS.update(
     {
         (SIGNUP, "GET"): validate_can_create_user,
         (GET_USER, "GET"): validate_can_read_user,
+        (LIST_USERS, "GET"): validate_can_list_users,
+        (AJAX_LIST_USERS, "GET"): validate_can_list_users,
         (CREATE_USER, "POST"): validate_can_create_user,
         (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
         (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
@@ -2384,6 +2393,12 @@ def get_user():
 
 
 @catch_mlflow_exception
+def list_users():
+    users = store.list_users()
+    return jsonify({"users": [{"id": u.id, "username": u.username} for u in users]})
+
+
+@catch_mlflow_exception
 def update_user_password():
     username = _get_request_param("username")
     password = _get_request_param("password")
@@ -3112,6 +3127,12 @@ def create_app(app: Flask = app):
         view_func=get_user,
         methods=["GET"],
     )
+    for rule in [LIST_USERS, AJAX_LIST_USERS]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=list_users,
+            methods=["GET"],
+        )
     app.add_url_rule(
         rule=UPDATE_USER_PASSWORD,
         view_func=update_user_password,
