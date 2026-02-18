@@ -1,6 +1,6 @@
-# MLflow with Docker Compose (PostgreSQL + MinIO)
+# MLflow with Docker Compose (PostgreSQL + Local Artifact Storage)
 
-This directory provides a **Docker Compose** setup for running **MLflow** locally with a **PostgreSQL** backend store and **MinIO** (S3-compatible) artifact storage. It's intended for quick evaluation and local development.
+This directory provides a **Docker Compose** setup for running **MLflow** locally with a **PostgreSQL** backend store and **local file system** artifact storage. It's intended for quick evaluation and local development.
 
 ---
 
@@ -8,7 +8,7 @@ This directory provides a **Docker Compose** setup for running **MLflow** locall
 
 - **MLflow Tracking Server** — exposed on your host (default `http://localhost:5000`).
 - **PostgreSQL** — persists MLflow's metadata (experiments, runs, params, metrics).
-- **MinIO** — stores run artifacts via an S3-compatible API.
+- **Local Artifact Storage** — artifacts are stored in `./mlartifacts` on your host machine (mounted into the container).
 
 Compose automatically reads configuration from a local `.env` file in this directory.
 
@@ -47,24 +47,17 @@ Copy the example environment file and modify as needed:
 cp .env.dev.example .env
 ```
 
-The `.env` file defines container image tags, ports, credentials, and storage configuration. Open it and review values before starting the stack.
+The `.env` file defines container image tags, ports, and storage configuration. Open it and review values before starting the stack.
 
-**Common variables** :
+**Common variables**:
 
 - **MLflow**
   - `MLFLOW_PORT=5000` — host port for the MLflow UI/API
-  - `MLFLOW_ARTIFACTS_DESTINATION=s3://mlflow/` — artifact store URI
-  - `MLFLOW_S3_ENDPOINT_URL=http://minio:9000` — S3 endpoint (inside the Compose network)
+  - `MLFLOW_ARTIFACTS_DESTINATION=file:///mlflow/mlartifacts` — artifacts stored locally
 - **PostgreSQL**
   - `POSTGRES_USER=mlflow`
   - `POSTGRES_PASSWORD=mlflow`
   - `POSTGRES_DB=mlflow`
-- **MinIO (S3-compatible)**
-  - `MINIO_ROOT_USER=minio`
-  - `MINIO_ROOT_PASSWORD=minio123`
-  - `MINIO_HOST=minio`
-  - `MINIO_PORT=9000`
-  - `MINIO_BUCKET=mlflow`
 
 ---
 
@@ -78,7 +71,7 @@ This:
 
 - Builds/pulls images as needed
 - Creates a user-defined network
-- Starts **postgres**, **minio**, and **mlflow** containers
+- Starts **postgres** and **mlflow** containers
 
 Check status:
 
@@ -102,6 +95,8 @@ Open the MLflow UI:
 
 You can now create experiments, run training scripts, and log metrics, parameters, and artifacts to this local MLflow instance.
 
+Artifacts will be stored in the `./mlartifacts` directory on your host machine.
+
 ---
 
 ## 5. Shutdown
@@ -112,7 +107,7 @@ To stop and remove the containers and network:
 docker compose down
 ```
 
-> Data is preserved in Docker **volumes**. To remove volumes as well (irreversible), run:
+> Data is preserved in Docker **volumes** and the `./mlartifacts` directory. To remove volumes as well (irreversible), run:
 >
 > ```bash
 > docker compose down -v
@@ -122,17 +117,15 @@ docker compose down
 
 ## Tips & Troubleshooting
 
-- **Verify connectivity**  
-  If MLflow can't write artifacts, confirm your S3 settings:
+- **Artifact storage**
+  Artifacts are stored in `./mlartifacts` on your host. This directory is created automatically on first run.
 
-  - `MLFLOW_DEFAULT_ARTIFACT_ROOT` points to your MinIO bucket (e.g., `s3://mlflow/`)
-  - `MLFLOW_S3_ENDPOINT_URL` is reachable from the MLflow container (often `http://minio:9000`)
-
-- **Resetting the environment**  
-  If you want a clean slate, stop the stack and remove volumes:
+- **Resetting the environment**
+  If you want a clean slate, stop the stack and remove volumes and artifacts:
 
   ```bash
   docker compose down -v
+  rm -rf ./mlartifacts
   docker compose up -d
   ```
 
@@ -140,10 +133,9 @@ docker compose down
 
   - MLflow server: `docker compose logs -f mlflow`
   - PostgreSQL: `docker compose logs -f postgres`
-  - MinIO: `docker compose logs -f minio`
 
-- **Port conflicts**  
-  If `5000` (or any other port) is in use, change it in `.env` and restart:
+- **Port conflicts**
+  If `5000` is in use, change it in `.env` and restart:
   ```bash
   docker compose down
   docker compose up -d
@@ -154,8 +146,8 @@ docker compose down
 ## How It Works (at a Glance)
 
 - MLflow uses **PostgreSQL** as the _backend store_ for experiment/run metadata.
-- MLflow uses **MinIO** as the _artifact store_ via S3 APIs.
-- Docker Compose wires services on a shared network; MLflow talks to PostgreSQL and MinIO by container name (e.g., `postgres`, `minio`).
+- MLflow uses the **local filesystem** (`./mlartifacts`) as the _artifact store_.
+- Docker Compose wires services on a shared network; MLflow talks to PostgreSQL by container name (e.g., `postgres`).
 
 ---
 
