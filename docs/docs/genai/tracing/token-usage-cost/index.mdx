@@ -9,6 +9,7 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { Coins, BarChart3, Calculator } from "lucide-react";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Token Usage and Cost Tracking
 
@@ -32,10 +33,35 @@ This information is available at both the span level (individual LLM calls) and 
 | Token Usage Tracking | >= 3.2.0       |
 | Cost Tracking        | >= 3.10.0      |
 
-:::note
-Cost tracking requires <ins>[LiteLLM](https://www.litellm.ai/)</ins> to be installed **on the client**. Install it with `pip install litellm`.
+To enable cost tracking, you need to start **MLflow Tracking Server** with the `[genai]` extra installed.
 
-Cost is calculated based on token usage and <ins>[model pricing data from LiteLLM](https://models.litellm.ai/)</ins>. Cost may not be available for all models, particularly custom or self-hosted models.
+<TabsWrapper>
+<Tabs>
+  <TabItem value="pip" label="pip" default>
+```bash
+pip install 'mlflow[genai]>=3.10.0'
+mlflow server
+```
+  </TabItem>
+  <TabItem value="uv" label="uv">
+```bash
+uv add mlflow[genai]>=3.10.0
+uv run mlflow server
+```
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+:::tip What is the GenAI extra?
+
+The `[genai]` extra enables other powerful features such as <ins>[AI Gateway](/genai/gateway)</ins>, <ins>[Online Evaluation](/genai/eval-monitor/scoring/online)</ins>, and <ins>[Prompt Optimization](/genai/prompts/optimize-prompt)</ins>. It is recommended to start your MLflow server with the extra installed, even if you don't need cost tracking.
+
+:::
+
+:::info
+
+When using Databricks managed MLflow, the cost computation requires the client application to install <ins>[LiteLLM](https://www.litellm.ai/)</ins> or <ins>[manually set the cost](../#manually-setting-token-and-cost-information) attributes on spans</ins>. This is not required for self-hosted MLflow.
+
 :::
 
 ## Viewing in the UI
