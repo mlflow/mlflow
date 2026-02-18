@@ -36,6 +36,7 @@ MAX_PREVIEW_LENGTH = 1000
 
 MESSAGE_TYPE_USER = "user"
 MESSAGE_TYPE_ASSISTANT = "assistant"
+MESSAGE_TYPE_PROGRESS = "progress"
 CONTENT_TYPE_TEXT = "text"
 CONTENT_TYPE_TOOL_USE = "tool_use"
 CONTENT_TYPE_TOOL_RESULT = "tool_result"
@@ -43,6 +44,7 @@ MESSAGE_FIELD_CONTENT = "content"
 MESSAGE_FIELD_TYPE = "type"
 MESSAGE_FIELD_MESSAGE = "message"
 MESSAGE_FIELD_TIMESTAMP = "timestamp"
+MESSAGE_FIELD_DATA = "data"
 
 # Custom logging level for Claude tracing
 CLAUDE_TRACING_LEVEL = logging.WARNING - 5
@@ -270,18 +272,23 @@ def _extract_content_and_tools(content: list[dict[str, Any]]) -> tuple[str, list
     return text_content, tool_uses
 
 
-def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict[str, Any]:
+def _find_tool_results(
+    transcript: list[dict[str, Any]], start_idx: int
+) -> dict[str, dict[str, Any]]:
     """Find tool results following the current assistant response.
 
-    Returns a mapping from tool_use_id to tool result content.
+    Returns a mapping from tool_use_id to a dict with:
+      - "content": the tool result content
+      - "agent_id": the sub-agent ID if this is a Task tool (from entry-level toolUseResult.agentId)
     """
-    tool_results = {}
+    tool_results: dict[str, dict[str, Any]] = {}
 
-    # Look for tool results in subsequent entries
     for i in range(start_idx + 1, len(transcript)):
         entry = transcript[i]
         if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_USER:
             continue
+
+        agent_id = entry.get("toolUseResult", {}).get("agentId")
 
         msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
         content = msg.get(MESSAGE_FIELD_CONTENT, [])
@@ -293,9 +300,11 @@ def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict
                     and part.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TOOL_RESULT
                 ):
                     tool_use_id = part.get("tool_use_id")
-                    result_content = part.get("content", "")
                     if tool_use_id:
-                        tool_results[tool_use_id] = result_content
+                        tool_results[tool_use_id] = {
+                            "content": part.get("content", ""),
+                            "agent_id": agent_id,
+                        }
 
         # Stop looking once we hit the next assistant response
         if entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_ASSISTANT:
@@ -304,128 +313,53 @@ def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict
     return tool_results
 
 
-def _reconstruct_conversation_messages(
-    transcript: list[dict[str, Any]], end_idx: int
+def _get_input_messages(
+    transcript: list[dict[str, Any]], current_idx: int
 ) -> list[dict[str, Any]]:
-    """Reconstruct conversation messages in OpenAI format for LLM span inputs.
+    """Get all messages between the previous text-bearing assistant response and the current one.
 
-    This function builds the message array that represents what was sent to the LLM.
-    It processes the transcript up to (but not including) end_idx to build the context.
+    Claude Code emits separate transcript entries for text and tool_use content.
+    A typical sequence looks like:
+        assistant [text]        ← previous LLM boundary (stop here)
+        assistant [tool_use]    ← include
+        user [tool_result]      ← include
+        assistant [tool_use]    ← include
+        user [tool_result]      ← include
+        assistant [text]        ← current (the span we're building inputs for)
+
+    We walk backward and collect everything, only stopping when we hit an
+    assistant entry that contains text content (which marks the previous LLM span).
 
     Args:
         transcript: List of conversation entries from Claude Code transcript
-        end_idx: Index to stop at (exclusive) - typically the current assistant response
+        current_idx: Index of the current assistant response
 
     Returns:
-        List of messages in format [{"role": "system"|"user"|"assistant"|"tool", "content": "..."}]
+        List of messages in Anthropic format
     """
     messages = []
-
-    for i in range(end_idx):
+    for i in range(current_idx - 1, -1, -1):
         entry = transcript[i]
-        entry_type = entry.get(MESSAGE_FIELD_TYPE)
         msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
 
-        # Check for system role explicitly
-        if msg.get("role") == "system":
-            _process_system_entry(msg, messages)
-        elif entry_type == MESSAGE_TYPE_USER:
-            _process_user_entry(msg, messages)
-        elif entry_type == MESSAGE_TYPE_ASSISTANT:
-            _process_assistant_entry(msg, messages)
+        # Stop at a previous assistant entry that has text content (previous LLM span)
+        if entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_ASSISTANT:
+            content = msg.get(MESSAGE_FIELD_CONTENT, [])
+            has_text = False
+            if isinstance(content, str):
+                has_text = bool(content.strip())
+            elif isinstance(content, list):
+                has_text = any(
+                    isinstance(p, dict) and p.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TEXT
+                    for p in content
+                )
+            if has_text:
+                break
 
+        if msg.get("role") and msg.get(MESSAGE_FIELD_CONTENT):
+            messages.append(msg)
+    messages.reverse()
     return messages
-
-
-def _process_system_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> None:
-    """Process a system entry from the transcript.
-
-    Args:
-        msg: The message object from the entry
-        messages: The messages list to append to
-    """
-    if content := msg.get(MESSAGE_FIELD_CONTENT):
-        text_content = extract_text_content(content)
-        if text_content.strip():
-            messages.append({"role": "system", "content": text_content})
-
-
-def _process_user_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> None:
-    """Process a user entry from the transcript and add appropriate messages.
-
-    User entries can contain:
-    - Regular user messages (text)
-    - Tool results from previous tool calls
-
-    Args:
-        msg: The message object from the entry
-        messages: The messages list to append to
-    """
-    content = msg.get(MESSAGE_FIELD_CONTENT, [])
-
-    # Handle list content (typical structure)
-    if isinstance(content, list):
-        # Use a buffer to preserve original message ordering
-        message_buffer = []
-        current_text_parts = []
-
-        for part in content:
-            if not isinstance(part, dict):
-                continue
-
-            part_type = part.get(MESSAGE_FIELD_TYPE)
-
-            if part_type == CONTENT_TYPE_TOOL_RESULT:
-                # If we have accumulated text, add it as a user message first
-                if current_text_parts:
-                    if combined_text := "\n".join(current_text_parts).strip():
-                        message_buffer.append({"role": "user", "content": combined_text})
-                    current_text_parts = []
-
-                # Extract tool result information
-                tool_id = part.get("tool_use_id")
-
-                # Add tool results with proper "tool" role
-                if result_content := part.get("content"):
-                    tool_msg = {
-                        "role": "tool",
-                        "content": result_content,
-                    }
-                    if tool_id:
-                        tool_msg["tool_use_id"] = tool_id
-                    message_buffer.append(tool_msg)
-
-            elif part_type == CONTENT_TYPE_TEXT:
-                # Accumulate text content
-                if text := part.get(CONTENT_TYPE_TEXT):
-                    current_text_parts.append(text)
-
-        # Add any remaining text content as user message
-        if current_text_parts:
-            if combined_text := "\n".join(current_text_parts).strip():
-                message_buffer.append({"role": "user", "content": combined_text})
-
-        # Add all messages in order to preserve sequence
-        messages.extend(message_buffer)
-
-    # Handle string content (simpler format)
-    elif isinstance(content, str) and content.strip():
-        messages.append({"role": "user", "content": content})
-
-
-def _process_assistant_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> None:
-    """Process an assistant entry from the transcript and add to messages.
-
-    Assistant entries represent previous LLM responses that are part of the conversation context.
-
-    Args:
-        msg: The message object from the entry
-        messages: The messages list to append to
-    """
-    if content := msg.get(MESSAGE_FIELD_CONTENT):
-        text_content = extract_text_content(content)
-        if text_content.strip():
-            messages.append({"role": "assistant", "content": text_content})
 
 
 def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
@@ -453,11 +387,85 @@ def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
 
+def _get_subagent_transcript_path(
+    transcript_path: str | None, agent_id: str
+) -> Path | None:
+    """Derive the sub-agent transcript file path from the main transcript path.
+
+    Claude Code stores sub-agent transcripts at:
+      {session_dir}/subagents/agent-{agentId}.jsonl
+
+    where {session_dir} is the main transcript path without the .jsonl extension.
+    For example:
+      Main: /path/to/b7a3d4b7-...jsonl
+      Sub:  /path/to/b7a3d4b7-.../subagents/agent-aafea96.jsonl
+    """
+    if not transcript_path or not agent_id:
+        return None
+
+    main_path = Path(transcript_path)
+    session_dir = main_path.with_suffix("")
+    subagent_path = session_dir / "subagents" / f"agent-{agent_id}.jsonl"
+
+    if subagent_path.exists():
+        return subagent_path
+    return None
+
+
+def _collect_subagent_groups(
+    transcript: list[dict[str, Any]], start_idx: int
+) -> dict[str, dict[str, Any]]:
+    """Group progress entries by sub-agent, extracting their inner messages.
+
+    Progress entries represent sub-agent (Task tool) executions. Each has:
+    - data.message: the inner message (same format as top-level user/assistant entries)
+    - data.agentId: identifies which sub-agent
+    - data.prompt: the prompt given to the sub-agent
+    - parentToolUseID: the tool_use id of the Task call that spawned it
+
+    Returns:
+        Dict mapping parentToolUseID to sub-agent info:
+        {parentToolUseID: {"prompt": str, "messages": [inner transcript entries]}}
+    """
+    groups: dict[str, dict[str, Any]] = {}
+    for i in range(start_idx, len(transcript)):
+        entry = transcript[i]
+        if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_PROGRESS:
+            continue
+
+        data = entry.get(MESSAGE_FIELD_DATA, {})
+        inner_msg = data.get(MESSAGE_FIELD_MESSAGE)
+        if not inner_msg or not isinstance(inner_msg, dict):
+            continue
+
+        parent_tool_id = entry.get("parentToolUseID", "")
+        if not parent_tool_id:
+            continue
+
+        if parent_tool_id not in groups:
+            groups[parent_tool_id] = {
+                "prompt": data.get("prompt", ""),
+                "messages": [],
+                "timestamp": entry.get(MESSAGE_FIELD_TIMESTAMP),
+            }
+
+        # inner_msg has the same structure as a top-level transcript entry:
+        # {"type": "user"|"assistant", "message": {...}, "timestamp": ...}
+        groups[parent_tool_id]["messages"].append(inner_msg)
+
+    return groups
+
+
 def _create_llm_and_tool_spans(
-    parent_span, transcript: list[dict[str, Any]], start_idx: int
+    parent_span,
+    transcript: list[dict[str, Any]],
+    start_idx: int,
+    transcript_path: str | None = None,
 ) -> None:
     """Create LLM and tool spans for assistant responses with proper timing."""
-    llm_call_num = 0
+    # Collect sub-agent groups from progress entries for nesting under Task tool spans
+    subagent_groups = _collect_subagent_groups(transcript, start_idx)
+
     for i in range(start_idx, len(transcript)):
         entry = transcript[i]
         if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_ASSISTANT:
@@ -481,27 +489,32 @@ def _create_llm_and_tool_spans(
         # Only create LLM span if there's text content (no tools)
         llm_span = None
         if text_content and text_content.strip() and not tool_uses:
-            llm_call_num += 1
-            conversation_messages = _reconstruct_conversation_messages(transcript, i)
+            messages = _get_input_messages(transcript, i)
 
             llm_span = mlflow.start_span_no_context(
-                name=f"llm_call_{llm_call_num}",
+                name="llm",
                 parent_span=parent_span,
                 span_type=SpanType.LLM,
                 start_time_ns=timestamp_ns,
                 inputs={
                     "model": msg.get("model", "unknown"),
-                    "messages": conversation_messages,
+                    "messages": messages,
                 },
                 attributes={
                     "model": msg.get("model", "unknown"),
+                    SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
                 },
             )
 
             # Set token usage using the standardized CHAT_USAGE attribute
             _set_token_usage_attribute(llm_span, usage)
 
-            llm_span.set_outputs({"response": text_content})
+            # Output in Anthropic response format for Chat UI rendering
+            llm_span.set_outputs({
+                "type": "message",
+                "role": "assistant",
+                "content": content,
+            })
             llm_span.end(end_time_ns=timestamp_ns + duration_ns)
 
         # Create tool spans with proportional timing and actual results
@@ -512,22 +525,143 @@ def _create_llm_and_tool_spans(
             for idx, tool_use in enumerate(tool_uses):
                 tool_start_ns = timestamp_ns + (idx * tool_duration_ns)
                 tool_use_id = tool_use.get("id", "")
-                tool_result = tool_results.get(tool_use_id, "No result found")
+                tool_result_info = tool_results.get(tool_use_id, {})
+                tool_result = tool_result_info.get("content", "No result found") if isinstance(
+                    tool_result_info, dict
+                ) else tool_result_info
+                tool_name = tool_use.get("name", "unknown")
 
                 tool_span = mlflow.start_span_no_context(
-                    name=f"tool_{tool_use.get('name', 'unknown')}",
+                    name=f"tool_{tool_name}",
                     parent_span=parent_span,
                     span_type=SpanType.TOOL,
                     start_time_ns=tool_start_ns,
                     inputs=tool_use.get("input", {}),
                     attributes={
-                        "tool_name": tool_use.get("name", "unknown"),
+                        "tool_name": tool_name,
                         "tool_id": tool_use_id,
                     },
                 )
 
+                # If this is a Task tool, try to read the sub-agent's separate transcript file
+                agent_id = tool_result_info.get("agent_id") if isinstance(
+                    tool_result_info, dict
+                ) else None
+                subagent_path = _get_subagent_transcript_path(transcript_path, agent_id)
+                tool_input = tool_use.get("input", {})
+
+                if subagent_path:
+                    _create_subagent_spans_from_file(
+                        tool_span, str(subagent_path), tool_start_ns, tool_duration_ns,
+                        tool_input,
+                    )
+                elif tool_use_id in subagent_groups:
+                    # Fallback: use progress entries from the main transcript
+                    group = subagent_groups[tool_use_id]
+                    _create_subagent_spans(
+                        tool_span, group, tool_start_ns, tool_duration_ns, tool_input,
+                    )
+
                 tool_span.set_outputs({"result": tool_result})
                 tool_span.end(end_time_ns=tool_start_ns + tool_duration_ns)
+
+
+def _create_subagent_spans(
+    parent_span,
+    group: dict[str, Any],
+    start_ns: int,
+    total_duration_ns: int,
+    tool_input: dict[str, Any] | None = None,
+) -> None:
+    """Create LLM and tool spans for a sub-agent's inner messages.
+
+    The sub-agent's messages are in the same format as top-level transcript entries,
+    so we can reuse the same span creation logic.
+    """
+    inner_messages = group["messages"]
+    if not inner_messages:
+        return
+
+    tool_input = tool_input or {}
+    agent_span = _create_agent_wrapper_span(
+        parent_span, tool_input, start_ns, total_duration_ns,
+    )
+
+    mini_transcript = inner_messages
+
+    # Find the first assistant message index in the mini-transcript
+    first_assistant_idx = 0
+    for idx, msg in enumerate(mini_transcript):
+        if msg.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_ASSISTANT:
+            first_assistant_idx = idx
+            break
+
+    _create_llm_and_tool_spans(agent_span, mini_transcript, first_assistant_idx)
+    agent_span.end(end_time_ns=start_ns + total_duration_ns)
+
+
+def _create_agent_wrapper_span(
+    parent_span,
+    tool_input: dict[str, Any],
+    start_ns: int,
+    total_duration_ns: int,
+):
+    """Create an AGENT span that wraps a sub-agent's execution."""
+    subagent_type = tool_input.get("subagent_type", "")
+    description = tool_input.get("description", "")
+    prompt = tool_input.get("prompt", "")
+    agent_name = f"subagent_{subagent_type}" if subagent_type else "subagent"
+
+    return mlflow.start_span_no_context(
+        name=agent_name,
+        parent_span=parent_span,
+        span_type=SpanType.AGENT,
+        start_time_ns=start_ns,
+        inputs={"prompt": prompt, "description": description},
+        attributes={"subagent_type": subagent_type},
+    )
+
+
+def _create_subagent_spans_from_file(
+    parent_span,
+    subagent_transcript_path: str,
+    start_ns: int,
+    total_duration_ns: int,
+    tool_input: dict[str, Any] | None = None,
+) -> None:
+    """Create LLM and tool spans for a sub-agent by reading its separate transcript file.
+
+    Claude Code stores sub-agent transcripts as separate JSONL files. This function
+    reads the file and creates nested spans under the parent tool_Task span.
+    """
+    try:
+        subagent_transcript = read_transcript(subagent_transcript_path)
+        if not subagent_transcript:
+            return
+
+        tool_input = tool_input or {}
+        agent_span = _create_agent_wrapper_span(
+            parent_span, tool_input, start_ns, total_duration_ns,
+        )
+
+        # Find the first assistant message to start creating spans
+        first_assistant_idx = 0
+        for idx, entry in enumerate(subagent_transcript):
+            if entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_ASSISTANT:
+                first_assistant_idx = idx
+                break
+
+        _create_llm_and_tool_spans(
+            agent_span,
+            subagent_transcript,
+            first_assistant_idx,
+            transcript_path=subagent_transcript_path,
+        )
+        agent_span.end(end_time_ns=start_ns + total_duration_ns)
+    except Exception as e:
+        get_logger().warning(
+            "Failed to process sub-agent transcript %s: %s", subagent_transcript_path, e
+        )
 
 
 def find_final_assistant_response(transcript: list[dict[str, Any]], start_idx: int) -> str | None:
@@ -608,7 +742,7 @@ def process_transcript(
         )
 
         # Create spans for all assistant responses and tool uses
-        _create_llm_and_tool_spans(parent_span, transcript, last_user_idx + 1)
+        _create_llm_and_tool_spans(parent_span, transcript, last_user_idx + 1, transcript_path)
 
         # Update trace with preview content and end timing
         final_response = find_final_assistant_response(transcript, last_user_idx + 1)
