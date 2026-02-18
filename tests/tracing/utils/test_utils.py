@@ -159,7 +159,7 @@ def test_aggregate_usage_from_spans_with_cached_tokens():
             TokenUsageKey.INPUT_TOKENS: 100,
             TokenUsageKey.OUTPUT_TOKENS: 50,
             TokenUsageKey.TOTAL_TOKENS: 150,
-            TokenUsageKey.CACHED_INPUT_TOKENS: 80,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 80,
         },
     )
     spans[1].set_attribute(
@@ -168,7 +168,7 @@ def test_aggregate_usage_from_spans_with_cached_tokens():
             TokenUsageKey.INPUT_TOKENS: 200,
             TokenUsageKey.OUTPUT_TOKENS: 100,
             TokenUsageKey.TOTAL_TOKENS: 300,
-            TokenUsageKey.CACHED_INPUT_TOKENS: 120,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 120,
             TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
         },
     )
@@ -187,7 +187,7 @@ def test_aggregate_usage_from_spans_with_cached_tokens():
         TokenUsageKey.INPUT_TOKENS: 310,
         TokenUsageKey.OUTPUT_TOKENS: 155,
         TokenUsageKey.TOTAL_TOKENS: 465,
-        TokenUsageKey.CACHED_INPUT_TOKENS: 200,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 200,
         TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
     }
 
@@ -212,7 +212,7 @@ def test_aggregate_usage_from_spans_without_cached_tokens_omits_keys():
         TokenUsageKey.TOTAL_TOKENS: 15,
     }
     # Cached keys should not be present
-    assert TokenUsageKey.CACHED_INPUT_TOKENS not in usage
+    assert TokenUsageKey.CACHE_READ_INPUT_TOKENS not in usage
     assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
 
 

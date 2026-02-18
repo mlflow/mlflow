@@ -598,13 +598,13 @@ def test_update_token_usage_with_cached_tokens():
         TokenUsageKey.INPUT_TOKENS: 100,
         TokenUsageKey.OUTPUT_TOKENS: 50,
         TokenUsageKey.TOTAL_TOKENS: 150,
-        TokenUsageKey.CACHED_INPUT_TOKENS: 80,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 80,
     }
     new = {
         TokenUsageKey.INPUT_TOKENS: 200,
         TokenUsageKey.OUTPUT_TOKENS: 100,
         TokenUsageKey.TOTAL_TOKENS: 300,
-        TokenUsageKey.CACHED_INPUT_TOKENS: 120,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 120,
         TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
     }
     result = update_token_usage(current, new)
@@ -612,7 +612,7 @@ def test_update_token_usage_with_cached_tokens():
         TokenUsageKey.INPUT_TOKENS: 300,
         TokenUsageKey.OUTPUT_TOKENS: 150,
         TokenUsageKey.TOTAL_TOKENS: 450,
-        TokenUsageKey.CACHED_INPUT_TOKENS: 200,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 200,
         TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
     }
 
@@ -635,5 +635,5 @@ def test_update_token_usage_without_cached_tokens():
         TokenUsageKey.TOTAL_TOKENS: 450,
     }
     # Cached keys should not appear
-    assert TokenUsageKey.CACHED_INPUT_TOKENS not in result
+    assert TokenUsageKey.CACHE_READ_INPUT_TOKENS not in result
     assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in result

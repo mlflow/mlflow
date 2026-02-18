@@ -300,7 +300,7 @@ def calculate_cost_by_model_and_token_usage(
         return None
 
     cache_kwargs = {}
-    if cached := usage.get(TokenUsageKey.CACHED_INPUT_TOKENS):
+    if cached := usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS):
         cache_kwargs["cache_read_input_tokens"] = cached
     if created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS):
         cache_kwargs["cache_creation_input_tokens"] = created
