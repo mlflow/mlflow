@@ -69,7 +69,7 @@ class WorkspaceRestStoreMixin:
             ) from exc
 
         if response.status_code == 404:
-            # This is expected for older servers that don't have the server-features endpoint.
+            # This is expected for older servers that don't have the server-info endpoint.
             return False
 
         if response.status_code != 200:
