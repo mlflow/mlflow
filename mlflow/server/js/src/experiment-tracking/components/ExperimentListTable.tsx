@@ -69,8 +69,7 @@ const useExperimentsTableColumns = () => {
         id: 'creation_time',
         accessorFn: ({ creationTime }) => Utils.formatTimestamp(creationTime, intl),
         enableSorting: true,
-        sortingFn: (rowA, rowB) =>
-          Number(rowA.original.creationTime ?? 0) - Number(rowB.original.creationTime ?? 0),
+        sortingFn: (rowA, rowB) => Number(rowA.original.creationTime ?? 0) - Number(rowB.original.creationTime ?? 0),
       },
       {
         header: intl.formatMessage({
