@@ -306,7 +306,7 @@ def test_autolog_does_not_raise_npe_when_tracing_disabled():
 
 
 def test_strands_autolog_shared_provider_no_recursion(monkeypatch):
-    """Verify strands.autolog() works with shared tracer provider (no RecursionError)."""
+    # Verify strands.autolog() works with shared tracer provider (no RecursionError)
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
 
     mlflow.strands.autolog()
