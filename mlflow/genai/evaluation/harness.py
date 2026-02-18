@@ -124,6 +124,9 @@ def _log_multi_turn_assessments_to_traces(
             _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
 
 
+AUTO_INITIAL_RPS = 10.0
+
+
 def _parse_rate_limit(raw: str | None) -> tuple[float | None, bool]:
     """Parse a rate-limit env var into (rps_or_none, adaptive).
 
@@ -132,11 +135,10 @@ def _parse_rate_limit(raw: str | None) -> tuple[float | None, bool]:
         (rps, True)            when "auto"
         (rps, False)           when a fixed numeric value
     """
-    auto_initial_rps = 10.0
     if raw is None:
         return None, False
     if raw.strip().lower() == "auto":
-        return auto_initial_rps, True
+        return AUTO_INITIAL_RPS, True
     rate = float(raw)
     if rate <= 0:
         return None, False

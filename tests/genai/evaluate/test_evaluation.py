@@ -17,7 +17,7 @@ from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvaluationResult
-from mlflow.genai.evaluation.harness import backpressure_buffer
+from mlflow.genai.evaluation.harness import AUTO_INITIAL_RPS, backpressure_buffer
 from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
@@ -1487,9 +1487,8 @@ def test_predict_rate_limiter_is_wired_to_predict_fn(monkeypatch):
         RPSRateLimiter, "acquire", autospec=True, side_effect=lambda self: None
     ) as mock_acquire:
         data = [{"inputs": {"q": f"Q{i}"}} for i in range(5)]
-        mlflow.genai.evaluate(data=data, predict_fn=lambda q: "answer", scorers=[always_pass])
-        # Called by both predict (5) and scorers (5), so at least 5
-        assert mock_acquire.call_count >= 5
+        mlflow.genai.evaluate(data=data, predict_fn=lambda q: "answer", scorers=[])
+        assert mock_acquire.call_count == 5
 
 
 def test_scorer_rate_limiter_is_wired_to_scorers(monkeypatch):
@@ -1498,19 +1497,10 @@ def test_scorer_rate_limiter_is_wired_to_scorers(monkeypatch):
     with mock.patch.object(
         RPSRateLimiter, "acquire", autospec=True, side_effect=lambda self: None
     ) as mock_acquire:
-
-        @scorer
-        def s1(outputs):
-            return True
-
-        @scorer
-        def s2(outputs):
-            return True
-
         data = [{"inputs": {"q": f"Q{i}"}, "outputs": "a"} for i in range(3)]
-        mlflow.genai.evaluate(data=data, scorers=[s1, s2])
-        # 3 items x 2 scorers = 6 scorer acquire calls (plus predict acquires)
-        assert mock_acquire.call_count >= 6
+        mlflow.genai.evaluate(data=data, scorers=[always_pass, always_pass])
+        # 3 items x 2 scorers = 6 scorer acquire calls (no predict_fn → no predict acquires)
+        assert mock_acquire.call_count == 6
 
 
 def test_pipelining_scores_while_predicts_pending(monkeypatch):
@@ -1537,7 +1527,9 @@ def test_pipelining_scores_while_predicts_pending(monkeypatch):
         # If we're scoring while predicts are still pending, signal success
         with predict_lock:
             current_predicts = predict_call_count
-        if current_predicts < 6:  # 6 total items, so some must still be pending
+        if (
+            current_predicts > 0 and current_predicts < 6
+        ):  # 6 total items, so some must still be pending
             scoring_started_while_predicts_pending.set()
         return True
 
@@ -1563,7 +1555,7 @@ def test_pipelining_scores_while_predicts_pending(monkeypatch):
         gate.set()
         eval_thread.join(timeout=30)
 
-        assert signaled, "Scoring should have started while predictions were still pending"
+        assert signaled
     finally:
         gate.set()  # Ensure we don't leave threads blocked
 
@@ -1622,10 +1614,12 @@ def test_backpressure_limits_in_flight_items(monkeypatch):
 
     # The semaphore bounds in-flight items. Without backpressure all
     # num_items would pile up.
-    assert observed_max <= buffer
+    assert observed_max == buffer
 
 
-def test_no_rate_limit_backward_compat():
+def test_no_rate_limit_backward_compat(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "0")
     data = [
         {
             "inputs": {"question": "What is MLflow?"},
@@ -1647,13 +1641,13 @@ def test_predict_retries_on_429(monkeypatch):
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_RETRIES", "3")
 
-    # Start counting after validation (first call is the pre-flight check)
-    call_count = 0
+    attempts = []
 
     def flaky_predict(q):
-        nonlocal call_count
-        call_count += 1
-        if call_count > 1 and call_count < 4:
+        attempts.append(1)
+        # First call is the pre-flight validation check — let it pass.
+        # Fail on calls 2 and 3, succeed on call 4.
+        if 1 < len(attempts) < 4:
             raise Exception("429 Too Many Requests")
         return "answer"
 
@@ -1661,7 +1655,7 @@ def test_predict_retries_on_429(monkeypatch):
     result = mlflow.genai.evaluate(data=data, predict_fn=flaky_predict, scorers=[always_pass])
 
     # 1 validation + 1 fail + 1 fail + 1 success = 4 total
-    assert call_count == 4
+    assert len(attempts) == 4
     assert result.metrics["always_pass/mean"] == 1.0
 
 
@@ -1716,4 +1710,4 @@ def test_adaptive_rate_reduces_on_429(monkeypatch):
     assert result.metrics["always_pass/mean"] == 1.0
     # At least one throttle event observed, and the rate was reduced
     assert len(rate_after_throttle) >= 1
-    assert rate_after_throttle[0] < 10.0  # auto starts at 10 rps
+    assert rate_after_throttle[0] < AUTO_INITIAL_RPS
