@@ -1322,3 +1322,10 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 #: directory and use ``uv export`` for dependency inference instead of capturing imported packages.
 #: (default: ``True``)
 MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", True)
+
+
+#: Specifies whether to log uv project files (uv.lock, pyproject.toml, .python-version)
+#: as model artifacts. Set to ``False`` to disable for large projects where uv.lock
+#: file size is a concern.
+#: (default: ``True``)
+MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)

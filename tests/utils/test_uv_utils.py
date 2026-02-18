@@ -338,7 +338,7 @@ def test_copy_uv_project_files_respects_mlflow_log_uv_files_env_false(tmp_path, 
     assert not (dest_dir / _PYPROJECT_FILE).exists()
 
 
-@pytest.mark.parametrize("env_value", ["0", "no", "FALSE", "No"])
+@pytest.mark.parametrize("env_value", ["0", "false", "FALSE", "False"])
 def test_copy_uv_project_files_env_var_false_variants(tmp_path, monkeypatch, env_value):
     monkeypatch.setenv("MLFLOW_LOG_UV_FILES", env_value)
 
@@ -354,7 +354,7 @@ def test_copy_uv_project_files_env_var_false_variants(tmp_path, monkeypatch, env
     assert result is False
 
 
-@pytest.mark.parametrize("env_value", ["true", "1", "yes", "TRUE"])
+@pytest.mark.parametrize("env_value", ["true", "1", "TRUE", "True"])
 def test_copy_uv_project_files_env_var_true_variants(tmp_path, monkeypatch, env_value):
     monkeypatch.setenv("MLFLOW_LOG_UV_FILES", env_value)
 

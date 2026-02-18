@@ -6,7 +6,6 @@ via ``uv export`` for automatic dependency inference during model logging.
 """
 
 import logging
-import os
 import re
 import shutil
 import subprocess
@@ -14,6 +13,8 @@ from pathlib import Path
 from typing import NamedTuple
 
 from packaging.version import Version
+
+from mlflow.environment_variables import MLFLOW_LOG_UV_FILES
 
 _logger = logging.getLogger(__name__)
 
@@ -165,7 +166,10 @@ def export_uv_requirements(
             cwd=directory,
         )
 
-        # Parse output lines, keeping environment markers intact for pip to evaluate
+        # Strip comment lines ("# via ...") and blank lines.  These must be
+        # removed because downstream code passes each line through
+        # packaging.requirements.Requirement which raises InvalidRequirement
+        # on comment strings.  Environment markers are kept intact.
         requirements = []
         for line in result.stdout.strip().splitlines():
             line = line.strip()
@@ -239,14 +243,9 @@ _UV_LOCK_ARTIFACT_NAME = "uv.lock"
 _PYPROJECT_ARTIFACT_NAME = "pyproject.toml"
 _PYTHON_VERSION_FILE = ".python-version"
 
-# Environment variable to disable uv file logging (for large projects)
-_MLFLOW_LOG_UV_FILES_ENV = "MLFLOW_LOG_UV_FILES"
-
 
 def _should_log_uv_files() -> bool:
-    """Check if uv files (uv.lock, pyproject.toml) should be logged as artifacts."""
-    env_value = os.environ.get(_MLFLOW_LOG_UV_FILES_ENV, "true").lower()
-    return env_value not in ("false", "0", "no")
+    return MLFLOW_LOG_UV_FILES.get()
 
 
 def copy_uv_project_files(
@@ -270,9 +269,7 @@ def copy_uv_project_files(
         True if uv files were copied, False otherwise.
     """
     if not _should_log_uv_files():
-        _logger.info(
-            f"uv file logging disabled via {_MLFLOW_LOG_UV_FILES_ENV} environment variable"
-        )
+        _logger.info("uv file logging disabled via MLFLOW_LOG_UV_FILES environment variable")
         return False
 
     dest_dir = Path(dest_dir)
@@ -282,25 +279,16 @@ def copy_uv_project_files(
     if uv_project is None:
         return False
 
-    uv_lock_src = uv_project.uv_lock
-    pyproject_src = uv_project.pyproject
-    python_version_src = source_dir / _PYTHON_VERSION_FILE
-
     try:
-        # Copy uv.lock
-        uv_lock_dest = dest_dir / _UV_LOCK_ARTIFACT_NAME
-        shutil.copy2(uv_lock_src, uv_lock_dest)
+        shutil.copy2(uv_project.uv_lock, dest_dir / _UV_LOCK_ARTIFACT_NAME)
         _logger.info(f"Copied {_UV_LOCK_ARTIFACT_NAME} to model artifacts")
 
-        # Copy pyproject.toml
-        pyproject_dest = dest_dir / _PYPROJECT_ARTIFACT_NAME
-        shutil.copy2(pyproject_src, pyproject_dest)
+        shutil.copy2(uv_project.pyproject, dest_dir / _PYPROJECT_ARTIFACT_NAME)
         _logger.info(f"Copied {_PYPROJECT_ARTIFACT_NAME} to model artifacts")
 
-        # Copy .python-version if it exists
+        python_version_src = source_dir / _PYTHON_VERSION_FILE
         if python_version_src.exists():
-            python_version_dest = dest_dir / _PYTHON_VERSION_FILE
-            shutil.copy2(python_version_src, python_version_dest)
+            shutil.copy2(python_version_src, dest_dir / _PYTHON_VERSION_FILE)
             _logger.info(f"Copied {_PYTHON_VERSION_FILE} to model artifacts")
 
         return True
@@ -383,10 +371,15 @@ def create_uv_sync_pyproject(
     """
     dest_dir = Path(dest_dir)
 
-    # Normalize version to major.minor format for requires-python
+    # Normalize to major.minor so that "3.11.5" becomes "3.11".  PEP 440
+    # treats "==3.11" as "==3.11.0" exactly, which would force uv to download
+    # CPython 3.11.0 even when a newer patch is available.
     version_parts = python_version.split(".")
     requires_python = ".".join(version_parts[:2])
 
+    # ">=" lets uv sync use whatever compatible patch version is already
+    # installed; exact versions are still enforced by the uv.lock file.
+    # "dependencies" is left empty because all deps come from uv.lock.
     pyproject_content = f"""[project]
 name = "{project_name}"
 version = "0.0.0"
