@@ -38,6 +38,18 @@ def convert_metric_value_to_float_if_possible(x) -> float:
     if x is None or type(x) == float:
         return x
 
+    # Explicitly reject booleans. In Python, bool is a subclass of int, so
+    # float(True) = 1.0 and float(False) = 0.0 silently. This is almost always
+    # a user mistake (e.g., logging a condition result as a metric). Users
+    # should use mlflow.set_tag() for boolean flags instead.
+    if isinstance(x, bool):
+        raise MlflowException(
+            f"Invalid metric value '{x!r}' (type: bool). "
+            "Metrics must be numeric (int or float). "
+            "If you intended to log a boolean flag, use mlflow.set_tag() instead.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     converter_fns_to_try = [
         convert_metric_value_to_float_if_ndarray,
         convert_metric_value_to_float_if_tensorflow_tensor,
