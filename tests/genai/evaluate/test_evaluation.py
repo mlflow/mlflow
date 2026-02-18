@@ -1692,13 +1692,13 @@ def test_adaptive_rate_reduces_on_429(monkeypatch):
         original_report_throttle(self)
         rate_after_throttle.append(self._rps)
 
-    # First call is the pre-flight validation check — let it pass
-    call_count = 0
+    attempts = []
 
     def flaky_predict(q):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 2:
+        attempts.append(1)
+        # First call is the pre-flight validation check — let it pass.
+        # Fail on call 2 to trigger a throttle event.
+        if len(attempts) == 2:
             raise Exception("429 Too Many Requests")
         return "answer"
 
