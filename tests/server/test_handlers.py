@@ -27,6 +27,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
 from mlflow.entities.trace_metrics import (
     AggregationType,
@@ -40,6 +41,7 @@ from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -134,6 +136,7 @@ from mlflow.server.handlers import (
     _get_model_version,
     _get_model_version_by_alias,
     _get_model_version_download_uri,
+    _get_presigned_download_url,
     _get_registered_model,
     _get_request_message,
     _get_scorer,
@@ -771,6 +774,50 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        "file:///etc/passwd",
+        "file:///",
+        "/etc/passwd",
+        "file:///proc/self/environ",
+        "file://remote-host/etc/passwd",
+        "file://remote-host/",
+    ],
+)
+def test_create_model_version_rejects_local_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "Invalid prompt source" in resp.get_json()["message"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "https://example.com/../../etc/passwd",
+        "http://example.com/path/..%2f..%2fsecret",
+    ],
+)
+def test_create_model_version_rejects_traversal_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "Invalid model version source" in resp.get_json()["message"]
+
+
 def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):
     name = "model1"
     tag = RegisteredModelTag(key="some weird key", value="some value")
@@ -1061,6 +1108,69 @@ def test_delete_artifact_mlflow_artifacts_throws_for_malicious_path(enable_serve
     json_response = json.loads(response.get_data())
     assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert json_response["message"] == "Invalid path"
+
+
+def test_get_presigned_download_url_success(enable_serve_artifacts):
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
+
+    class MockMultipartDownloadRepo(MultipartDownloadMixin):
+        def get_download_presigned_url(self, artifact_path, expiration=300):
+            return PresignedDownloadUrlResponse(
+                url="https://storage.example.com/presigned?token=abc",
+                headers={"x-custom-header": "value"},
+                file_size=1024,
+            )
+
+    artifact_path = "run_id/artifacts/model.pkl"
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=MockMultipartDownloadRepo(),
+        ),
+    ):
+        response = _get_presigned_download_url(artifact_path)
+
+    assert response.status_code == 200
+    data = json.loads(response.get_data())
+    assert data["url"] == "https://storage.example.com/presigned?token=abc"
+    assert data["headers"] == {"x-custom-header": "value"}
+    assert data["file_size"] == 1024
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/path",
+        "path/../to/file",
+        "/etc/passwd",
+        "/etc/passwd%00.jpg",
+        "/file://etc/passwd",
+        "%2E%2E%2F%2E%2E%2Fpath",
+    ],
+)
+def test_get_presigned_download_url_throws_for_malicious_path(enable_serve_artifacts, path):
+    response = _get_presigned_download_url(path)
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert json_response["message"] == "Invalid path"
+
+
+def test_get_presigned_download_url_unsupported_repo(enable_serve_artifacts, tmp_path):
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=LocalArtifactRepository(str(tmp_path)),
+        ),
+    ):
+        response = _get_presigned_download_url("some/artifact/path")
+
+    assert response.status_code == 501
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert "multipart" in json_response["message"].lower()
 
 
 @pytest.mark.parametrize(

@@ -125,6 +125,11 @@ class TracesDemoGenerator(BaseDemoGenerator):
         mlflow.MlflowClient().set_experiment_tag(
             experiment.experiment_id, "mlflow.experimentKind", "genai_development"
         )
+        mlflow.set_experiment_tag(
+            "mlflow.note.content",
+            "Sample experiment with pre-populated demo data including traces, evaluations, "
+            "and prompts. Explore MLflow's GenAI features with this experiment.",
+        )
 
         v1_trace_ids = self._generate_trace_set("v1")
         v2_trace_ids = self._generate_trace_set("v2")
