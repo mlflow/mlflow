@@ -2395,7 +2395,7 @@ def get_user():
 @catch_mlflow_exception
 def list_users():
     users = store.list_users()
-    return jsonify({"users": [u.to_json() for u in users]})
+    return jsonify({"users": [{"id": u.id, "username": u.username} for u in users]})
 
 
 @catch_mlflow_exception
