@@ -106,7 +106,7 @@ export const ModelTraceExplorerTokenUsageHoverCard = ({ tokenUsage }: { tokenUsa
                 <span>{outputTokens}</span>
               </Tag>
             </div>
-            {tokenUsage.cached_input_tokens != null && tokenUsage.cached_input_tokens > 0 && (
+            {tokenUsage.cached_input_tokens !== null && tokenUsage.cached_input_tokens !== undefined && tokenUsage.cached_input_tokens > 0 && (
               <div
                 css={{
                   display: 'flex',
@@ -126,7 +126,7 @@ export const ModelTraceExplorerTokenUsageHoverCard = ({ tokenUsage }: { tokenUsa
                 </Tag>
               </div>
             )}
-            {tokenUsage.cache_creation_input_tokens != null && tokenUsage.cache_creation_input_tokens > 0 && (
+            {tokenUsage.cache_creation_input_tokens !== null && tokenUsage.cache_creation_input_tokens !== undefined && tokenUsage.cache_creation_input_tokens > 0 && (
               <div
                 css={{
                   display: 'flex',

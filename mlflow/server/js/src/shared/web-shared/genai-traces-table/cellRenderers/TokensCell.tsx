@@ -159,7 +159,7 @@ export const TokenComponent = ({
               </div>
             </div>
           )}
-          {cachedInputTokens != null && cachedInputTokens > 0 && (
+          {cachedInputTokens !== null && cachedInputTokens !== undefined && cachedInputTokens > 0 && (
             <div
               css={{
                 display: 'flex',
@@ -183,7 +183,7 @@ export const TokenComponent = ({
               </div>
             </div>
           )}
-          {cacheCreationInputTokens != null && cacheCreationInputTokens > 0 && (
+          {cacheCreationInputTokens !== null && cacheCreationInputTokens !== undefined && cacheCreationInputTokens > 0 && (
             <div
               css={{
                 display: 'flex',
