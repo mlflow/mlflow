@@ -259,7 +259,8 @@ def cloud_storage_http_request(
         backoff_jitter: A random jitter to add to the backoff interval.
         retry_codes: a list of HTTP response error codes that qualifies for retry.
         timeout: wait for timeout seconds for response from remote server for connect and
-            read request. Default to None owing to long duration operation in read / write.
+            read request. Defaults to 120 seconds. Can be configured via the
+            MLFLOW_HTTP_REQUEST_TIMEOUT environment variable.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`.
 
     Returns:
@@ -267,6 +268,11 @@ def cloud_storage_http_request(
     """
     if method.lower() not in ("put", "get", "patch", "delete"):
         raise ValueError("Illegal http method: " + method)
+    if timeout is None:
+        try:
+            timeout = int(os.getenv("MLFLOW_HTTP_REQUEST_TIMEOUT", "120"))
+        except ValueError:
+            timeout = 120
     return _get_http_response_with_retries(
         method,
         url,
