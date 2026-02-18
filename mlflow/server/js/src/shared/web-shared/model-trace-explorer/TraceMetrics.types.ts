@@ -74,7 +74,7 @@ export const createTraceFilter = (field: TraceFilterKey, value: string): string 
  * Creates a trace metadata filter expression string with a specific key.
  * @param metadataKey - The metadata key (e.g., "mlflow.auth.userId")
  * @param value - The value to match (e.g., "123")
- * @returns Filter expression string (e.g., 'trace.metadata."mlflow.auth.userId" = "123"')
+ * @returns Filter expression string (e.g., 'trace.metadata.\`mlflow.auth.userId\` = "123"')
  */
 export const createTraceMetadataFilter = (metadataKey: string, value: string): string =>
   `${TRACE_FILTER_VIEW_TYPE}.${TraceFilterKey.METADATA}.\`${metadataKey}\` = "${value}"`;

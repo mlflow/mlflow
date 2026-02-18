@@ -13,6 +13,7 @@ interface ListUsersResponse {
 const queryFn = () => {
   return fetchEndpoint({
     relativeUrl: 'ajax-api/2.0/mlflow/users/list',
+    error: () => {},
   }) as Promise<ListUsersResponse>;
 };
 
