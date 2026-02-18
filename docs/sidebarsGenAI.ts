@@ -15,12 +15,6 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'doc',
-      id: 'demo/index',
-      label: 'Try the Demo',
-      className: 'sidebar-top-level-category',
-    },
-    {
-      type: 'doc',
       id: 'getting-started/connect-environment',
       className: 'sidebar-top-level-category',
     },
