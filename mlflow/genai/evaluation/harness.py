@@ -213,24 +213,28 @@ class _Heartbeat:
 
     def __init__(
         self,
-        predict_limiter: RateLimiter,
-        scorer_limiter: RateLimiter,
+        predictor: "_PredictSubmitter",
+        scorer: "_ScoreSubmitter",
         total_items: int,
         interval_secs: float = 15,
     ):
         self._enabled = MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT.get()
-        self._predict_limiter = predict_limiter
-        self._scorer_limiter = scorer_limiter
+        self._predictor = predictor
+        self._scorer = scorer
         self._total = total_items
         self._interval = interval_secs
         self._last_time = time.monotonic()
+
+    @property
+    def interval(self) -> float:
+        return self._interval
 
     @staticmethod
     def _format_rps(limiter: RateLimiter) -> str:
         rps = limiter.current_rps
         return f"{rps:.1f}" if rps is not None else "off"
 
-    def tick(self, stats: dict[str, int]) -> None:
+    def tick(self, items_predicted: int, items_scored: int) -> None:
         if not self._enabled:
             return
         now = time.monotonic()
@@ -238,17 +242,16 @@ class _Heartbeat:
             return
         self._last_time = now
         _logger.debug(
-            "[heartbeat] predicted=%d/%d, scored=%d/%d, pending=%d "
-            "(%d predict, %d score), rate: predict=%s rps, score=%s rps",
-            stats["predicted"],
+            "[heartbeat] predicted=%d/%d, scored=%d/%d, "
+            "pending: %d predict, %d score, rate: predict=%s rps, score=%s rps",
+            items_predicted,
             self._total,
-            stats["scored"],
+            items_scored,
             self._total,
-            stats["pending"],
-            stats["predict_pending"],
-            stats["score_pending"],
-            self._format_rps(self._predict_limiter),
-            self._format_rps(self._scorer_limiter),
+            self._predictor.pending_count,
+            self._scorer.pending_count,
+            self._format_rps(self._predictor.limiter),
+            self._format_rps(self._scorer.limiter),
         )
 
 
@@ -560,7 +563,7 @@ def _run_pipeline(
     )
 
     try:
-        heartbeat = _Heartbeat(predictor.limiter, scorer.limiter, len(eval_items))
+        heartbeat = _Heartbeat(predictor, scorer, len(eval_items))
 
         predictor.start()
         pending: set[Future] = set()
@@ -573,22 +576,11 @@ def _run_pipeline(
             if not pending:
                 continue
 
-            heartbeat.tick(
-                {
-                    "predicted": items_predicted,
-                    "scored": items_scored,
-                    "pending": len(pending),
-                    "predict_pending": predictor.pending_count,
-                    "score_pending": scorer.pending_count,
-                }
-            )
-            _logger.debug(
-                f"Pipeline loop: waiting on {len(pending)} pending futures "
-                f"({predictor.pending_count} predict, {scorer.pending_count} score), "
-                f"scored={items_scored}/{len(eval_items)}"
-            )
+            heartbeat.tick(items_predicted, items_scored)
 
-            done, pending = wait(pending, timeout=15, return_when=FIRST_COMPLETED)
+            # Timeout matches the heartbeat interval so the loop wakes periodically
+            # even if no futures complete, allowing the heartbeat to fire.
+            done, pending = wait(pending, timeout=heartbeat.interval, return_when=FIRST_COMPLETED)
             for future in done:
                 if predictor.owns(future):
                     idx = predictor.on_complete(future)
@@ -809,6 +801,15 @@ def _run_score(
     return eval_result
 
 
+def _invoke_scorer(scorer_func: Callable, eval_item: EvalItem):
+    return scorer_func(
+        inputs=eval_item.inputs,
+        outputs=eval_item.outputs,
+        expectations=eval_item.expectations,
+        trace=eval_item.trace,
+    )
+
+
 def _compute_eval_scores(
     *,
     eval_item: EvalItem,
@@ -830,15 +831,9 @@ def _compute_eval_scores(
                     scorer_func
                 )
 
-            def _invoke():
-                return scorer_func(
-                    inputs=eval_item.inputs,
-                    outputs=eval_item.outputs,
-                    expectations=eval_item.expectations,
-                    trace=eval_item.trace,
-                )
-
-            value = call_with_retry(_invoke, rate_limiter, max_retries)
+            value = call_with_retry(
+                lambda: _invoke_scorer(scorer_func, eval_item), rate_limiter, max_retries
+            )
             feedbacks = standardize_scorer_value(scorer.name, value)
 
         except Exception as e:
