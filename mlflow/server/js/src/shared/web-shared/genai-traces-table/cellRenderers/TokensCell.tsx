@@ -22,7 +22,7 @@ export const TokensCell = (props: {
           inputTokens={currentTokenUsage?.input_tokens}
           outputTokens={currentTokenUsage?.output_tokens}
           totalTokens={currentTokenUsage?.total_tokens}
-          cachedInputTokens={currentTokenUsage?.cached_input_tokens}
+          cachedInputTokens={currentTokenUsage?.cache_read_input_tokens}
           cacheCreationInputTokens={currentTokenUsage?.cache_creation_input_tokens}
           isComparing={isComparing}
         />
@@ -33,7 +33,7 @@ export const TokensCell = (props: {
             inputTokens={otherTokenUsage?.input_tokens}
             outputTokens={otherTokenUsage?.output_tokens}
             totalTokens={otherTokenUsage?.total_tokens}
-            cachedInputTokens={otherTokenUsage?.cached_input_tokens}
+            cachedInputTokens={otherTokenUsage?.cache_read_input_tokens}
             cacheCreationInputTokens={otherTokenUsage?.cache_creation_input_tokens}
             isComparing={isComparing}
           />

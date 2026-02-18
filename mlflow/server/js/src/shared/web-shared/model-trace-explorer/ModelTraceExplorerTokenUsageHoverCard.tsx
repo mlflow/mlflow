@@ -10,7 +10,7 @@ export interface TokenUsage {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
-  cached_input_tokens?: number;
+  cache_read_input_tokens?: number;
   cache_creation_input_tokens?: number;
 }
 
@@ -106,9 +106,9 @@ export const ModelTraceExplorerTokenUsageHoverCard = ({ tokenUsage }: { tokenUsa
                 <span>{outputTokens}</span>
               </Tag>
             </div>
-            {tokenUsage.cached_input_tokens !== null &&
-              tokenUsage.cached_input_tokens !== undefined &&
-              tokenUsage.cached_input_tokens > 0 && (
+            {tokenUsage.cache_read_input_tokens !== null &&
+              tokenUsage.cache_read_input_tokens !== undefined &&
+              tokenUsage.cache_read_input_tokens > 0 && (
                 <div
                   css={{
                     display: 'flex',
@@ -124,7 +124,7 @@ export const ModelTraceExplorerTokenUsageHoverCard = ({ tokenUsage }: { tokenUsa
                     />
                   </Typography.Text>
                   <Tag componentId="shared.model-trace-explorer.token-usage-hovercard.cached-input-tokens.tag">
-                    <span>{tokenUsage.cached_input_tokens.toString()}</span>
+                    <span>{tokenUsage.cache_read_input_tokens.toString()}</span>
                   </Tag>
                 </div>
               )}
