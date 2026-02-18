@@ -15,6 +15,7 @@ from mlflow.claude_code.tracing import (
     setup_logging,
 )
 from mlflow.entities.span import SpanType
+from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 
 # ============================================================================
@@ -224,6 +225,23 @@ def test_process_transcript_creates_spans(mock_transcript_file):
     tool_span = tool_spans[0]
     assert tool_span.name == "tool_Bash"
 
+    # Verify LLM spans have MESSAGE_FORMAT set to "anthropic" for Chat UI rendering
+    for llm_span in llm_spans:
+        assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    # Verify LLM span outputs are in Anthropic response format
+    first_llm = llm_spans[0]
+    outputs = first_llm.outputs
+    assert outputs["type"] == "message"
+    assert outputs["role"] == "assistant"
+    assert isinstance(outputs["content"], list)
+
+    # Verify LLM span inputs contain messages in Anthropic format
+    inputs = first_llm.inputs
+    assert "messages" in inputs
+    messages = inputs["messages"]
+    assert any(m["role"] == "user" for m in messages)
+
 
 def test_process_transcript_returns_none_for_nonexistent_file():
     result = process_transcript("/nonexistent/path/transcript.jsonl", "test-session-123")
@@ -252,7 +270,12 @@ DUMMY_TRANSCRIPT_WITH_USAGE = [
             "role": "assistant",
             "content": [{"type": "text", "text": "Hello! How can I help you today?"}],
             "model": "claude-sonnet-4-20250514",
-            "usage": {"input_tokens": 150, "output_tokens": 25},
+            "usage": {
+                "input_tokens": 10,
+                "cache_creation_input_tokens": 100,
+                "cache_read_input_tokens": 40,
+                "output_tokens": 25,
+            },
         },
         "timestamp": "2025-01-15T10:00:01.000Z",
     },
@@ -280,15 +303,465 @@ def test_process_transcript_tracks_token_usage(mock_transcript_file_with_usage):
     assert len(llm_spans) == 1
     llm_span = llm_spans[0]
 
-    # Verify token usage is tracked using the standardized CHAT_USAGE attribute
+    # input_tokens should include input + cache_creation (10 + 100 = 110)
+    # cache_read_input_tokens (40) is excluded because cache reads are free
     token_usage = llm_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
     assert token_usage is not None
-    assert token_usage["input_tokens"] == 150
+    assert token_usage["input_tokens"] == 110
     assert token_usage["output_tokens"] == 25
-    assert token_usage["total_tokens"] == 175
+    assert token_usage["total_tokens"] == 135
 
     # Verify trace-level token usage aggregation works
     assert trace.info.token_usage is not None
-    assert trace.info.token_usage["input_tokens"] == 150
+    assert trace.info.token_usage["input_tokens"] == 110
     assert trace.info.token_usage["output_tokens"] == 25
-    assert trace.info.token_usage["total_tokens"] == 175
+    assert trace.info.token_usage["total_tokens"] == 135
+
+
+# Sample transcript with sub-agent (Task tool + progress entries)
+DUMMY_TRANSCRIPT_WITH_SUBAGENT = [
+    {
+        "type": "user",
+        "message": {"role": "user", "content": "Search the codebase for auth"},
+        "timestamp": "2025-01-15T10:00:00.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "I'll search for that."}],
+        },
+        "timestamp": "2025-01-15T10:00:01.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_task_001",
+                    "name": "Task",
+                    "input": {"prompt": "Search for auth", "subagent_type": "Explore"},
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:02.000Z",
+    },
+    # Sub-agent progress entries
+    {
+        "type": "progress",
+        "parentToolUseID": "toolu_task_001",
+        "toolUseID": "agent_msg_001",
+        "timestamp": "2025-01-15T10:00:03.000Z",
+        "data": {
+            "type": "agent_progress",
+            "agentId": "sub_1",
+            "prompt": "Search for auth",
+            "message": {
+                "type": "assistant",
+                "timestamp": "2025-01-15T10:00:03.000Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "sub_tool_1",
+                            "name": "Grep",
+                            "input": {"pattern": "auth"},
+                        }
+                    ],
+                },
+            },
+        },
+    },
+    {
+        "type": "progress",
+        "parentToolUseID": "toolu_task_001",
+        "toolUseID": "agent_msg_001",
+        "timestamp": "2025-01-15T10:00:04.000Z",
+        "data": {
+            "type": "agent_progress",
+            "agentId": "sub_1",
+            "prompt": "Search for auth",
+            "message": {
+                "type": "user",
+                "message": {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "sub_tool_1",
+                            "content": "auth.py:1: def auth()",
+                        }
+                    ],
+                },
+            },
+        },
+    },
+    {
+        "type": "progress",
+        "parentToolUseID": "toolu_task_001",
+        "toolUseID": "agent_msg_001",
+        "timestamp": "2025-01-15T10:00:05.000Z",
+        "data": {
+            "type": "agent_progress",
+            "agentId": "sub_1",
+            "prompt": "Search for auth",
+            "message": {
+                "type": "assistant",
+                "timestamp": "2025-01-15T10:00:05.000Z",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "Found auth.py with auth function."}],
+                },
+            },
+        },
+    },
+    # Tool result for the Task tool
+    {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "toolu_task_001", "content": "Found auth.py"}
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:06.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "I found the auth module."}],
+        },
+        "timestamp": "2025-01-15T10:00:07.000Z",
+    },
+]
+
+
+@pytest.fixture
+def mock_transcript_file_with_subagent(tmp_path):
+    transcript_path = tmp_path / "transcript_subagent.jsonl"
+    with open(transcript_path, "w") as f:
+        for entry in DUMMY_TRANSCRIPT_WITH_SUBAGENT:
+            f.write(json.dumps(entry) + "\n")
+    return str(transcript_path)
+
+
+def test_process_transcript_creates_subagent_spans(mock_transcript_file_with_subagent):
+    trace = process_transcript(mock_transcript_file_with_subagent, "test-session-subagent")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    # Find spans by type
+    agent_spans = [s for s in spans if s.span_type == SpanType.AGENT]
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
+
+    # Root agent + sub-agent AGENT span
+    assert len(agent_spans) == 2  # root + "Explore" sub-agent
+    assert len(llm_spans) >= 3  # main LLM + sub-agent LLM
+
+    # tool_Task should exist
+    task_tools = [s for s in tool_spans if s.name == "tool_Task"]
+    assert len(task_tools) == 1
+    task_span = task_tools[0]
+
+    # tool_Task should have a child AGENT span named "Explore"
+    task_children = [s for s in spans if s.parent_id == task_span.span_id]
+    sub_agent_spans = [s for s in task_children if s.span_type == SpanType.AGENT]
+    assert len(sub_agent_spans) == 1
+    assert sub_agent_spans[0].name == "subagent_Explore"
+
+    # Sub-agent's LLM/tool spans should be children of the AGENT span
+    agent_children = [s for s in spans if s.parent_id == sub_agent_spans[0].span_id]
+    child_llm = [s for s in agent_children if s.span_type == SpanType.LLM]
+    child_tool = [s for s in agent_children if s.span_type == SpanType.TOOL]
+    assert len(child_llm) >= 1
+    assert len(child_tool) >= 1
+    assert child_tool[0].name == "tool_Grep"
+
+
+# Sample Claude Code transcript with Task tool that has a separate sub-agent file
+DUMMY_TRANSCRIPT_WITH_SUBAGENT_FILE = [
+    {
+        "type": "user",
+        "message": {"role": "user", "content": "Search the codebase for auth"},
+        "timestamp": "2025-01-15T10:00:00.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "I'll search for that."}],
+        },
+        "timestamp": "2025-01-15T10:00:01.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_task_file_001",
+                    "name": "Task",
+                    "input": {"prompt": "Search for auth", "subagent_type": "Explore"},
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:02.000Z",
+    },
+    {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "toolu_task_file_001",
+                    "content": "Found auth.py with auth function.",
+                    "toolUseResult": {
+                        "status": "completed",
+                        "agentId": "abc1234",
+                        "totalDurationMs": 5000,
+                    },
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:06.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "I found the auth module."}],
+        },
+        "timestamp": "2025-01-15T10:00:07.000Z",
+    },
+]
+
+# Sub-agent's own transcript (what would be in agent-abc1234.jsonl)
+DUMMY_SUBAGENT_TRANSCRIPT = [
+    {
+        "type": "user",
+        "message": {"role": "user", "content": "Search for auth"},
+        "timestamp": "2025-01-15T10:00:02.500Z",
+        "agentId": "abc1234",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "sub_tool_grep",
+                    "name": "Grep",
+                    "input": {"pattern": "auth"},
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:03.000Z",
+    },
+    {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "sub_tool_grep",
+                    "content": "auth.py:1: def auth()",
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:04.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "sub_tool_read",
+                    "name": "Read",
+                    "input": {"file_path": "auth.py"},
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:04.500Z",
+    },
+    {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "sub_tool_read",
+                    "content": "def auth():\n    pass",
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:05.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Found auth.py with auth function."}],
+        },
+        "timestamp": "2025-01-15T10:00:05.500Z",
+    },
+]
+
+
+@pytest.fixture
+def mock_transcript_with_subagent_file(tmp_path):
+    """Create a main transcript and a separate sub-agent transcript file."""
+    # Main transcript file: session-id.jsonl
+    main_transcript_path = tmp_path / "session-123.jsonl"
+    with open(main_transcript_path, "w") as f:
+        for entry in DUMMY_TRANSCRIPT_WITH_SUBAGENT_FILE:
+            f.write(json.dumps(entry) + "\n")
+
+    # Sub-agent transcript: session-123/subagents/agent-abc1234.jsonl
+    session_dir = tmp_path / "session-123"
+    subagent_dir = session_dir / "subagents"
+    subagent_dir.mkdir(parents=True)
+    subagent_path = subagent_dir / "agent-abc1234.jsonl"
+    with open(subagent_path, "w") as f:
+        for entry in DUMMY_SUBAGENT_TRANSCRIPT:
+            f.write(json.dumps(entry) + "\n")
+
+    return str(main_transcript_path)
+
+
+def test_process_transcript_reads_subagent_from_file(mock_transcript_with_subagent_file):
+    trace = process_transcript(mock_transcript_with_subagent_file, "test-session-subagent-file")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    # Find tool_Task span
+    task_tools = [s for s in spans if s.name == "tool_Task"]
+    assert len(task_tools) == 1
+    task_span = task_tools[0]
+
+    # tool_Task should have a child AGENT span named "Explore"
+    task_children = [s for s in spans if s.parent_id == task_span.span_id]
+    sub_agent_spans = [s for s in task_children if s.span_type == SpanType.AGENT]
+    assert len(sub_agent_spans) == 1
+    assert sub_agent_spans[0].name == "subagent_Explore"
+
+    # Sub-agent's tool/LLM spans should be children of the AGENT span
+    agent_children = [s for s in spans if s.parent_id == sub_agent_spans[0].span_id]
+    child_tool = [s for s in agent_children if s.span_type == SpanType.TOOL]
+    child_llm = [s for s in agent_children if s.span_type == SpanType.LLM]
+    assert len(child_tool) >= 2  # Grep + Read
+    assert len(child_llm) >= 1
+
+    tool_names = {s.name for s in child_tool}
+    assert "tool_Grep" in tool_names
+    assert "tool_Read" in tool_names
+<<<<<<< HEAD
+=======
+
+
+# Transcript with a rejected tool (permission denied)
+DUMMY_TRANSCRIPT_WITH_TOOL_ERROR = [
+    {
+        "type": "user",
+        "message": {"role": "user", "content": "Delete all files"},
+        "timestamp": "2025-01-15T10:00:00.000Z",
+        "permissionMode": "default",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_rejected_001",
+                    "name": "Bash",
+                    "input": {"command": "rm -rf /"},
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:01.000Z",
+    },
+    {
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "toolu_rejected_001",
+                    "content": "The user doesn't want to proceed with this tool use.",
+                    "is_error": True,
+                }
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:02.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": "I understand, I won't proceed with that."}
+            ],
+        },
+        "timestamp": "2025-01-15T10:00:03.000Z",
+    },
+]
+
+
+@pytest.fixture
+def mock_transcript_with_tool_error(tmp_path):
+    transcript_path = tmp_path / "transcript_tool_error.jsonl"
+    with open(transcript_path, "w") as f:
+        for entry in DUMMY_TRANSCRIPT_WITH_TOOL_ERROR:
+            f.write(json.dumps(entry) + "\n")
+    return str(transcript_path)
+
+
+def test_process_transcript_marks_rejected_tool_as_error(mock_transcript_with_tool_error):
+    trace = process_transcript(mock_transcript_with_tool_error, "test-session-error")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    # Find the Bash tool span
+    tool_spans = [s for s in spans if s.name == "tool_Bash"]
+    assert len(tool_spans) == 1
+    tool_span = tool_spans[0]
+
+    # Tool span should have ERROR status (set by record_exception)
+    assert tool_span.status.status_code == SpanStatusCode.ERROR
+
+    # Tool span should have an exception event with the rejection message
+    events = tool_span.events
+    assert len(events) >= 1
+    exception_events = [e for e in events if e.name == "exception"]
+    assert len(exception_events) == 1
+    event = exception_events[0]
+    assert "exception.message" in event.attributes
+    assert "doesn't want to proceed" in event.attributes["exception.message"]
+    assert event.attributes["exception.type"] == "Exception"
+
+
+def test_process_transcript_captures_permission_mode(mock_transcript_with_tool_error):
+    trace = process_transcript(mock_transcript_with_tool_error, "test-session-perm")
+
+    assert trace is not None
+    assert trace.info.trace_metadata.get("mlflow.trace.permission_mode") == "default"
+
+
+>>>>>>> db2f98b86a (Include cache tokens in usage and capture tool errors and permission mode)
