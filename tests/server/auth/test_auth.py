@@ -29,9 +29,11 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.routes import (
+    AJAX_LIST_USERS,
     CREATE_REGISTERED_MODEL_PERMISSION,
     GET_REGISTERED_MODEL_PERMISSION,
     GET_SCORER_PERMISSION,
+    LIST_USERS,
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -2592,3 +2594,47 @@ def test_get_online_scoring_configs_with_auth(client, monkeypatch):
         data = response.json()
         assert "configs" in data
         assert isinstance(data["configs"], list)
+
+
+def test_list_users(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, _password2 = create_user(client.tracking_uri)
+
+    # Admin can list all users
+    response = requests.get(
+        url=client.tracking_uri + LIST_USERS,
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "users" in data
+    usernames = [u["username"] for u in data["users"]]
+    assert ADMIN_USERNAME in usernames
+    assert username1 in usernames
+    assert username2 in usernames
+    for user in data["users"]:
+        assert "id" in user
+        assert "username" in user
+        assert "password" not in user
+        assert "password_hash" not in user
+
+    # Unauthenticated request should fail
+    response = requests.get(url=client.tracking_uri + LIST_USERS)
+    assert response.status_code == 401
+
+    # Non-admin user should not be able to list all users
+    response = requests.get(
+        url=client.tracking_uri + LIST_USERS,
+        auth=(username1, password1),
+    )
+    assert response.status_code == 403
+
+    # Ajax API path should also work for admin
+    response = requests.get(
+        url=client.tracking_uri + AJAX_LIST_USERS,
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "users" in data
+    assert len(data["users"]) >= 3
