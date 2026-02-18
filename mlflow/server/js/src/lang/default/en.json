@@ -926,10 +926,6 @@
     "defaultMessage": "No endpoints created",
     "description": "Empty state title for endpoints list"
   },
-  "513m15": {
-    "defaultMessage": "Select your workflow type. This changes the tabs that are visible in the navigation sidebar.",
-    "description": "Tooltip for workflow switch"
-  },
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
@@ -1021,10 +1017,6 @@
   "5m2VPy": {
     "defaultMessage": "Image grid",
     "description": "Experiment tracking > runs charts > add chart menu > image grid"
-  },
-  "5pkRII": {
-    "defaultMessage": "View traces",
-    "description": "Link to view traces for endpoint"
   },
   "5qRFq/": {
     "defaultMessage": "Delete",
@@ -2494,6 +2486,10 @@
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
   },
+  "FxQYyX": {
+    "defaultMessage": "Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems.",
+    "description": "Tooltip for workflow switch"
+  },
   "G/zTTY": {
     "defaultMessage": "Error",
     "description": "A generic error message for error state in MLflow UI"
@@ -3273,6 +3269,10 @@
   "M5bYHa": {
     "defaultMessage": "No metrics available",
     "description": "Text shown in a disabled multi-selector when there are no selectable metrics."
+  },
+  "M65Hoy": {
+    "defaultMessage": "Search traces by id, request, or response",
+    "description": "Placeholder text for the search input in the trace results table"
   },
   "M8cEQy": {
     "defaultMessage": "No",
@@ -4100,6 +4100,10 @@
   "SDClGN": {
     "defaultMessage": "Resources using this endpoint ({count})",
     "description": "Gateway > Delete endpoint modal > Bindings list header"
+  },
+  "SHoy6d": {
+    "defaultMessage": "Open full trace viewer",
+    "description": "Link to open the full trace viewer for the endpoint's experiment"
   },
   "SI6n4L": {
     "defaultMessage": "Compare",
@@ -5738,10 +5742,6 @@
   "dNaKCA": {
     "defaultMessage": "Created",
     "description": "Created column header"
-  },
-  "dOhi2U": {
-    "defaultMessage": "Usage log",
-    "description": "Summary usage log label"
   },
   "dPn3az": {
     "defaultMessage": "Tool",
@@ -8019,6 +8019,10 @@
     "defaultMessage": "User",
     "description": "Display text for the 'user' role in a GenAI chat message."
   },
+  "t/59XU": {
+    "defaultMessage": "Logs",
+    "description": "Tab label for endpoint logs"
+  },
   "t0Qkuc": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Metrics table > Value column header"
@@ -8623,6 +8627,10 @@
     "defaultMessage": "Search prompts",
     "description": "Placeholder text for the search input in the prompts table on the logged model details page"
   },
+  "xcmW/z": {
+    "defaultMessage": "Enable Usage Tracking in the Configuration tab to view logs",
+    "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
+  },
   "xdFMIN": {
     "defaultMessage": "Dataset name",
     "description": "Dataset name label"
@@ -8854,10 +8862,6 @@
   "zMv2ev": {
     "defaultMessage": "Learn more.",
     "description": "Link text for learning more about expectations"
-  },
-  "zNWzj6": {
-    "defaultMessage": "Search traces by request",
-    "description": "Placeholder text for the search input in the trace results table"
   },
   "zRKlAL": {
     "defaultMessage": "Metadata",

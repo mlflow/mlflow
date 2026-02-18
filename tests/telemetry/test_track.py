@@ -65,7 +65,7 @@ def test_record_usage_event(mock_requests, mock_telemetry_client: TelemetryClien
     assert telemetry_info.items() <= fail_record.items()
 
 
-def test_backend_store_info(tmp_path, mock_telemetry_client: TelemetryClient):
+def test_backend_store_info(tmp_path, mock_telemetry_client: TelemetryClient, monkeypatch):
     sqlite_uri = f"sqlite:///{tmp_path.joinpath('test.db')}"
     with _use_tracking_uri(sqlite_uri):
         mock_telemetry_client._update_backend_store()
@@ -74,6 +74,15 @@ def test_backend_store_info(tmp_path, mock_telemetry_client: TelemetryClient):
     with _use_tracking_uri(tmp_path):
         mock_telemetry_client._update_backend_store()
     assert mock_telemetry_client.info["tracking_uri_scheme"] == "file"
+
+    # Verify ws_enabled reflects MLFLOW_WORKSPACE env var
+    monkeypatch.delenv("MLFLOW_WORKSPACE", raising=False)
+    mock_telemetry_client._update_backend_store()
+    assert mock_telemetry_client.info["ws_enabled"] is False
+
+    monkeypatch.setenv("MLFLOW_WORKSPACE", "my-workspace")
+    mock_telemetry_client._update_backend_store()
+    assert mock_telemetry_client.info["ws_enabled"] is True
 
 
 @pytest.mark.parametrize(
