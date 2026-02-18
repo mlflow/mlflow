@@ -1,6 +1,7 @@
 // Custom stale PR workflow using GitHub Timeline API
 // Detects last human activity (ignoring bot events) and closes inactive PRs
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const STALE_DAYS = 30;
 const MAX_CLOSES = 50;
 const CLOSE_MESSAGE = "Closing due to inactivity. Feel free to reopen if still relevant.";
@@ -23,7 +24,7 @@ const QUERY = `
             totalCount
           }
           timelineItems(
-            last: 5
+            last: 10
             itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW, PULL_REQUEST_COMMIT]
           ) {
             nodes {
@@ -78,13 +79,11 @@ const getLastHumanActivity = (pr) => {
 };
 
 const isStale = (lastActivityDate) => {
-  const now = new Date();
-  const daysSinceActivity = (now - lastActivityDate) / (1000 * 60 * 60 * 24);
-  return daysSinceActivity > STALE_DAYS;
+  return (Date.now() - lastActivityDate) / MS_PER_DAY > STALE_DAYS;
 };
 
 const shouldProcessPR = (pr) => {
-  // Skip community PRs — only close internal (org member) PRs
+  // Skip community PRs
   const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
   if (!memberAssociations.includes(pr.authorAssociation)) {
     return false;
@@ -124,7 +123,7 @@ module.exports = async ({ context, github }) => {
           continue;
         }
 
-        const days = Math.floor((Date.now() - lastActivity) / 86400000);
+        const days = Math.floor((Date.now() - lastActivity) / MS_PER_DAY);
         console.log(`Closing PR #${pr.number} (inactive for ${days} days)`);
 
         // TODO: Uncomment once we've verified the workflow logs look correct
