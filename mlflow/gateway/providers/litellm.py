@@ -314,14 +314,14 @@ class LiteLLMProvider(BaseProvider):
         # OpenAI Chat: prompt_tokens_details.cached_tokens
         if details := usage_dict.get("prompt_tokens_details"):
             if (cached := details.get("cached_tokens")) and cached > 0:
-                token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+                token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
         # OpenAI Responses: input_tokens_details.cached_tokens
         if details := usage_dict.get("input_tokens_details"):
             if (cached := details.get("cached_tokens")) and cached > 0:
-                token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+                token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
         # Anthropic: cache_read_input_tokens, cache_creation_input_tokens
         if (cached := usage_dict.get("cache_read_input_tokens")) and cached > 0:
-            token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+            token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
         if (created := usage_dict.get("cache_creation_input_tokens")) and created > 0:
             token_usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
 

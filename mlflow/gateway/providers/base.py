@@ -253,7 +253,7 @@ class BaseProvider(ABC):
         # Extract cached token details if available (OpenAI format)
         if details := getattr(usage, "prompt_tokens_details", None):
             if (cached := getattr(details, "cached_tokens", None)) and cached > 0:
-                token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+                token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
 
         return token_usage or None
 

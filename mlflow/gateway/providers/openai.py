@@ -692,7 +692,7 @@ class OpenAIProvider(BaseProvider):
 
         if token_usage and (details := usage.get(details_key)):
             if (cached := details.get("cached_tokens")) and cached > 0:
-                token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+                token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
 
         return token_usage
 
@@ -731,7 +731,7 @@ class OpenAIProvider(BaseProvider):
             if token_usage:
                 if details := usage_dict.get(details_key):
                     if (cached := details.get("cached_tokens")) and cached > 0:
-                        token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+                        token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
                 return token_usage
         return {}
 
