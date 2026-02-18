@@ -27,6 +27,7 @@ from mlflow.tracing.utils import (
     get_mlflow_span_for_otel_span,
     set_span_cost_attribute,
     set_span_model_attribute,
+    should_compute_cost_client_side,
 )
 
 _logger = logging.getLogger(__name__)
@@ -151,9 +152,8 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
 
         if usage := _parse_token_usage(mlflow_span.outputs):
             mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
-
-        # set cost here explicitly because it doesn't go through mlflow_span.end method
-        set_span_cost_attribute(mlflow_span)
+            if should_compute_cost_client_side():
+                set_span_cost_attribute(mlflow_span)
 
         if parent_id := mlflow_span.parent_id:
             key = comp_alias or comp_type or mlflow_span.name

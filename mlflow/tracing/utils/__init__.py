@@ -28,7 +28,9 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.constant import (
     CostKey as CostKey,
 )
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
+from mlflow.utils.uri import is_databricks_uri
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
@@ -790,6 +792,16 @@ def set_span_model_attribute(span: LiveSpan, inputs: dict[str, Any]) -> None:
             span.set_attribute(SpanAttributeKey.MODEL, model)
     except Exception as e:
         _logger.debug(f"Failed to set model for {span}. Error: {e}")
+
+
+def should_compute_cost_client_side() -> bool:
+    """Whether LLM cost should be computed on the client side.
+
+    Returns True only for Databricks backends where server-side
+    translate_span_when_storing() does not run. For non-Databricks backends,
+    cost is computed server-side in sqlalchemy_store.log_spans().
+    """
+    return is_databricks_uri(get_tracking_uri())
 
 
 def set_span_cost_attribute(span: LiveSpan) -> None:
