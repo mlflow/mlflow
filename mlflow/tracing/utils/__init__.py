@@ -29,7 +29,6 @@ from mlflow.tracing.constant import (
     CostKey as CostKey,
 )
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
-from mlflow.utils.uri import is_databricks_uri
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
@@ -801,6 +800,7 @@ def should_compute_cost_client_side() -> bool:
     cost is computed server-side in sqlalchemy_store.log_spans().
     """
     from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.utils.uri import is_databricks_uri
 
     return is_databricks_uri(get_tracking_uri())
 
