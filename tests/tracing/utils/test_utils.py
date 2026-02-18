@@ -148,6 +148,74 @@ def test_aggregate_usage_from_spans_skips_descendant_usage():
     }
 
 
+def test_aggregate_usage_from_spans_with_cached_tokens():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"), trace_id="tr-123")
+        for i in range(3)
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 100,
+            TokenUsageKey.OUTPUT_TOKENS: 50,
+            TokenUsageKey.TOTAL_TOKENS: 150,
+            TokenUsageKey.CACHED_INPUT_TOKENS: 80,
+        },
+    )
+    spans[1].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 200,
+            TokenUsageKey.OUTPUT_TOKENS: 100,
+            TokenUsageKey.TOTAL_TOKENS: 300,
+            TokenUsageKey.CACHED_INPUT_TOKENS: 120,
+            TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
+        },
+    )
+    # span without cached tokens
+    spans[2].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 5,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 310,
+        TokenUsageKey.OUTPUT_TOKENS: 155,
+        TokenUsageKey.TOTAL_TOKENS: 465,
+        TokenUsageKey.CACHED_INPUT_TOKENS: 200,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
+    }
+
+
+def test_aggregate_usage_from_spans_without_cached_tokens_omits_keys():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=0, name="span_0"), trace_id="tr-123")
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 5,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 5,
+        TokenUsageKey.TOTAL_TOKENS: 15,
+    }
+    # Cached keys should not be present
+    assert TokenUsageKey.CACHED_INPUT_TOKENS not in usage
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
+
+
 def test_aggregate_cost_from_spans():
     spans = [
         LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"), trace_id="tr-123")

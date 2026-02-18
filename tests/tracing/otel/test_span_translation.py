@@ -11,6 +11,7 @@ from mlflow.tracing.otel.translation import (
     translate_loaded_span,
     translate_span_type_from_otel,
     translate_span_when_storing,
+    update_token_usage,
 )
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
@@ -590,3 +591,49 @@ def test_translate_cost_edge_cases(
         }
     else:
         assert SpanAttributeKey.LLM_COST not in result["attributes"]
+
+
+def test_update_token_usage_with_cached_tokens():
+    current = {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 150,
+        TokenUsageKey.CACHED_INPUT_TOKENS: 80,
+    }
+    new = {
+        TokenUsageKey.INPUT_TOKENS: 200,
+        TokenUsageKey.OUTPUT_TOKENS: 100,
+        TokenUsageKey.TOTAL_TOKENS: 300,
+        TokenUsageKey.CACHED_INPUT_TOKENS: 120,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
+    }
+    result = update_token_usage(current, new)
+    assert result == {
+        TokenUsageKey.INPUT_TOKENS: 300,
+        TokenUsageKey.OUTPUT_TOKENS: 150,
+        TokenUsageKey.TOTAL_TOKENS: 450,
+        TokenUsageKey.CACHED_INPUT_TOKENS: 200,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
+    }
+
+
+def test_update_token_usage_without_cached_tokens():
+    current = {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 150,
+    }
+    new = {
+        TokenUsageKey.INPUT_TOKENS: 200,
+        TokenUsageKey.OUTPUT_TOKENS: 100,
+        TokenUsageKey.TOTAL_TOKENS: 300,
+    }
+    result = update_token_usage(current, new)
+    assert result == {
+        TokenUsageKey.INPUT_TOKENS: 300,
+        TokenUsageKey.OUTPUT_TOKENS: 150,
+        TokenUsageKey.TOTAL_TOKENS: 450,
+    }
+    # Cached keys should not appear
+    assert TokenUsageKey.CACHED_INPUT_TOKENS not in result
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in result
