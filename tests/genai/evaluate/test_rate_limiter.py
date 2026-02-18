@@ -1,6 +1,10 @@
 import pytest
 
-from mlflow.genai.evaluation.harness import AUTO_INITIAL_RPS, _make_rate_limiter, _parse_rate_limit
+from mlflow.genai.evaluation.harness import (
+    AUTO_INITIAL_RPS,
+    _make_rate_limiter,
+    _parse_rate_limit,
+)
 from mlflow.genai.evaluation.rate_limiter import (
     NoOpRateLimiter,
     RPSRateLimiter,
