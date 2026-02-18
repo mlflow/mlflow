@@ -1,40 +1,51 @@
-import { describe, expect, it, jest } from '@jest/globals';
-import userEvent from '@testing-library/user-event';
+import { describe, expect, it } from '@jest/globals';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { FeatureCard } from './FeatureCard';
 import { featureDefinitions } from './feature-definitions';
-
-const mockOpenLogTracesDrawer = jest.fn();
-
-jest.mock('../../HomePageViewStateContext', () => ({
-  useHomePageViewState: () => ({
-    openLogTracesDrawer: mockOpenLogTracesDrawer,
-  }),
-}));
 
 describe('FeatureCard', () => {
   const tracingFeature = featureDefinitions.find((f) => f.id === 'tracing')!;
   const evaluationFeature = featureDefinitions.find((f) => f.id === 'evaluation')!;
 
   it('renders feature title and summary', () => {
-    renderWithDesignSystem(<FeatureCard feature={tracingFeature} />);
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <FeatureCard feature={tracingFeature} />
+      </MemoryRouter>,
+    );
 
-    expect(screen.getByRole('heading', { level: 2, name: 'Tracing' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Tracing' })).toBeInTheDocument();
   });
 
-  it('renders as a button and opens drawer for features with hasDrawer', async () => {
-    renderWithDesignSystem(<FeatureCard feature={tracingFeature} />);
+  it('renders explore demo button for features with demoFeatureId', () => {
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <FeatureCard feature={tracingFeature} />
+      </MemoryRouter>,
+    );
 
-    await userEvent.click(screen.getByRole('button'));
-
-    expect(mockOpenLogTracesDrawer).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /explore demo/i })).toBeInTheDocument();
   });
 
-  it('renders as a link for features without hasDrawer', () => {
-    renderWithDesignSystem(<FeatureCard feature={evaluationFeature} />);
+  it('renders go to button for features without demoFeatureId', () => {
+    const featureWithoutDemo = { ...evaluationFeature, demoFeatureId: undefined };
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <FeatureCard feature={featureWithoutDemo} />
+      </MemoryRouter>,
+    );
 
-    const link = screen.getByRole('link');
-    expect(link).toHaveAttribute('href', evaluationFeature.docsLink);
-    expect(link).toHaveAttribute('target', '_blank');
+    expect(screen.getByRole('button', { name: /go to/i })).toBeInTheDocument();
+  });
+
+  it('renders docs link', () => {
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <FeatureCard feature={tracingFeature} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: /read the docs/i })).toHaveAttribute('href', tracingFeature.docsLink);
   });
 });
