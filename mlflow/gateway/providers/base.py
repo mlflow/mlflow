@@ -250,6 +250,11 @@ class BaseProvider(ABC):
         if (total_tokens := getattr(usage, "total_tokens", None)) is not None:
             token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
 
+        # Extract cached token details if available (OpenAI format)
+        if details := getattr(usage, "prompt_tokens_details", None):
+            if (cached := getattr(details, "cached_tokens", None)) and cached > 0:
+                token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+
         return token_usage or None
 
     def _extract_passthrough_token_usage(

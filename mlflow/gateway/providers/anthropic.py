@@ -568,20 +568,28 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         {
             "usage": {
                 "input_tokens": int,
-                "output_tokens": int
+                "output_tokens": int,
+                "cache_read_input_tokens": int,
+                "cache_creation_input_tokens": int
             }
         }
         """
-        return self._extract_token_usage_from_dict(
+        base = self._extract_token_usage_from_dict(
             result.get("usage"), "input_tokens", "output_tokens"
         )
+        if base and (usage := result.get("usage")):
+            if (cached := usage.get("cache_read_input_tokens")) and cached > 0:
+                base[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+            if (created := usage.get("cache_creation_input_tokens")) and created > 0:
+                base[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+        return base
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         """
         Extract token usage from Anthropic streaming chunks.
 
         Anthropic streaming format:
-        - message_start event: {"message": {"usage": {"input_tokens": X}}}
+        - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
         - message_delta event: {"usage": {"output_tokens": Y}}
 
         Returns:
@@ -593,9 +601,14 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             match data:
                 case {
                     "type": "message_start",
-                    "message": {"usage": {"input_tokens": int(input_tokens)}},
+                    "message": {"usage": dict(msg_usage)},
                 }:
-                    usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                    if input_tokens := msg_usage.get("input_tokens"):
+                        usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                    if (cached := msg_usage.get("cache_read_input_tokens")) and cached > 0:
+                        usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+                    if (created := msg_usage.get("cache_creation_input_tokens")) and created > 0:
+                        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
                 case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
                     usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
         return usage

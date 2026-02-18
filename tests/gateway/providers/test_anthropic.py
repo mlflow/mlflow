@@ -1127,3 +1127,69 @@ def test_anthropic_extract_streaming_token_usage_done_chunk():
     chunk = b"data: [DONE]\n"
     result = provider._extract_streaming_token_usage(chunk)
     assert result == {}
+
+
+def test_anthropic_extract_passthrough_token_usage_with_cached_tokens():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "msg_123",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_input_tokens": 25,
+            "cache_creation_input_tokens": 15,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cached_input_tokens": 25,
+        "cache_creation_input_tokens": 15,
+    }
+
+
+def test_anthropic_extract_streaming_token_usage_message_start_with_cached_tokens():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":100,"cache_read_input_tokens":25,'
+        b'"cache_creation_input_tokens":15}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 100,
+        "cached_input_tokens": 25,
+        "cache_creation_input_tokens": 15,
+    }
+
+
+def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    accumulated_usage = {}
+
+    # message_start with input_tokens and cached tokens
+    chunk1 = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":100,"cache_read_input_tokens":25}}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
+    assert accumulated_usage == {"input_tokens": 100, "cached_input_tokens": 25}
+
+    # message_delta with output_tokens
+    chunk2 = (
+        b"event: message_delta\n"
+        b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
+        b'"usage":{"output_tokens":50}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
+    assert accumulated_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "cached_input_tokens": 25,
+    }

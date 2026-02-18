@@ -773,3 +773,91 @@ def test_litellm_extract_streaming_token_usage_responses_api():
         "output_tokens": 65,
         "total_tokens": 74,
     }
+
+
+def test_litellm_extract_passthrough_token_usage_openai_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "chatcmpl-123",
+        "usage": {
+            "prompt_tokens": 50,
+            "completion_tokens": 20,
+            "total_tokens": 70,
+            "prompt_tokens_details": {"cached_tokens": 30},
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage == {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "total_tokens": 70,
+        "cached_input_tokens": 30,
+    }
+
+
+def test_litellm_extract_passthrough_token_usage_anthropic_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "msg_123",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_input_tokens": 25,
+            "cache_creation_input_tokens": 15,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cached_input_tokens": 25,
+        "cache_creation_input_tokens": 15,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_openai_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"id":"chatcmpl-123","usage":'
+        b'{"prompt_tokens":50,"completion_tokens":20,"total_tokens":70,'
+        b'"prompt_tokens_details":{"cached_tokens":30}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "total_tokens": 70,
+        "cached_input_tokens": 30,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_anthropic_message_start_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"type":"message_start","message":{"usage":'
+        b'{"input_tokens":100,"cache_read_input_tokens":25}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 100,
+        "cached_input_tokens": 25,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_responses_api_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"type":"response.completed","response":{"id":"resp_123",'
+        b'"usage":{"input_tokens":100,"output_tokens":50,"total_tokens":150,'
+        b'"input_tokens_details":{"cached_tokens":40}}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cached_input_tokens": 40,
+    }

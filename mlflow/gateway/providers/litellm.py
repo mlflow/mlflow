@@ -246,16 +246,20 @@ class LiteLLMProvider(BaseProvider):
         - Gemini-style actions: usageMetadata.promptTokenCount, candidatesTokenCount,
           totalTokenCount
         """
+        usage = result.get("usage")
+
         # Try OpenAI format first (most common)
         if token_usage := self._extract_token_usage_from_dict(
-            result.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+            usage, "prompt_tokens", "completion_tokens", "total_tokens"
         ):
+            self._extract_cached_tokens_from_dict(token_usage, usage)
             return token_usage
 
         # Try Anthropic format
         if token_usage := self._extract_token_usage_from_dict(
-            result.get("usage"), "input_tokens", "output_tokens"
+            usage, "input_tokens", "output_tokens"
         ):
+            self._extract_cached_tokens_from_dict(token_usage, usage)
             return token_usage
 
         # Try Gemini format
@@ -300,34 +304,60 @@ class LiteLLMProvider(BaseProvider):
 
         return usage
 
+    @staticmethod
+    def _extract_cached_tokens_from_dict(
+        token_usage: dict[str, int], usage_dict: dict[str, Any] | None
+    ) -> None:
+        """Extract cached token counts from a usage dictionary (mutates token_usage in place)."""
+        if not usage_dict:
+            return
+        # OpenAI Chat: prompt_tokens_details.cached_tokens
+        if details := usage_dict.get("prompt_tokens_details"):
+            if (cached := details.get("cached_tokens")) and cached > 0:
+                token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+        # OpenAI Responses: input_tokens_details.cached_tokens
+        if details := usage_dict.get("input_tokens_details"):
+            if (cached := details.get("cached_tokens")) and cached > 0:
+                token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+        # Anthropic: cache_read_input_tokens, cache_creation_input_tokens
+        if (cached := usage_dict.get("cache_read_input_tokens")) and cached > 0:
+            token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+        if (created := usage_dict.get("cache_creation_input_tokens")) and created > 0:
+            token_usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+
     def _extract_usage_from_data(self, data: dict[str, Any]) -> dict[str, int]:
         """Extract token usage from a parsed data dictionary."""
+        usage = data.get("usage")
+
         # OpenAI format (in chunk.usage)
         if token_usage := self._extract_token_usage_from_dict(
-            data.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+            usage, "prompt_tokens", "completion_tokens", "total_tokens"
         ):
+            self._extract_cached_tokens_from_dict(token_usage, usage)
             return token_usage
 
         # OpenAI Responses API format (usage nested in response object)
+        resp_usage = data.get("response", {}).get("usage")
         if token_usage := self._extract_token_usage_from_dict(
-            data.get("response", {}).get("usage"),
-            "input_tokens",
-            "output_tokens",
-            "total_tokens",
+            resp_usage, "input_tokens", "output_tokens", "total_tokens"
         ):
+            self._extract_cached_tokens_from_dict(token_usage, resp_usage)
             return token_usage
 
         # Anthropic format (in chunk.usage)
         if token_usage := self._extract_token_usage_from_dict(
-            data.get("usage"), "input_tokens", "output_tokens"
+            usage, "input_tokens", "output_tokens"
         ):
+            self._extract_cached_tokens_from_dict(token_usage, usage)
             return token_usage
 
         # Anthropic message_start format (input_tokens in message.usage)
         if data.get("type") == "message_start":
+            msg_usage = data.get("message", {}).get("usage")
             if token_usage := self._extract_token_usage_from_dict(
-                data.get("message", {}).get("usage"), "input_tokens", "output_tokens"
+                msg_usage, "input_tokens", "output_tokens"
             ):
+                self._extract_cached_tokens_from_dict(token_usage, msg_usage)
                 return token_usage
 
         # Gemini format

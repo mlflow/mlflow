@@ -25,6 +25,7 @@ from mlflow.gateway.uc_function_utils import (
     prepend_uc_functions,
 )
 from mlflow.gateway.utils import parse_sse_lines, stream_sse_data
+from mlflow.tracing.constant import TokenUsageKey
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 if TYPE_CHECKING:
@@ -671,18 +672,29 @@ class OpenAIProvider(BaseProvider):
         """
         Extract token usage from OpenAI passthrough response.
 
-        OpenAI response format:
-        {
-            "usage": {
-                "prompt_tokens": int,
-                "completion_tokens": int,
-                "total_tokens": int
-            }
-        }
+        Chat Completions: usage.prompt_tokens/completion_tokens, prompt_tokens_details.cached_tokens
+        Responses API: usage.input_tokens/output_tokens, input_tokens_details.cached_tokens
         """
-        return self._extract_token_usage_from_dict(
-            result.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
-        )
+        usage = result.get("usage")
+        if not usage:
+            return None
+
+        if action == PassthroughAction.OPENAI_RESPONSES:
+            token_usage = self._extract_token_usage_from_dict(
+                usage, "input_tokens", "output_tokens", "total_tokens"
+            )
+            details_key = "input_tokens_details"
+        else:
+            token_usage = self._extract_token_usage_from_dict(
+                usage, "prompt_tokens", "completion_tokens", "total_tokens"
+            )
+            details_key = "prompt_tokens_details"
+
+        if token_usage and (details := usage.get(details_key)):
+            if (cached := details.get("cached_tokens")) and cached > 0:
+                token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+
+        return token_usage
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         """
@@ -696,19 +708,30 @@ class OpenAIProvider(BaseProvider):
             A dictionary with token usage found in this chunk.
         """
         for data in parse_sse_lines(chunk):
-            # Chat Completions API format: usage at top level
-            if (
-                token_usage := self._extract_token_usage_from_dict(
-                    data.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+            # Responses API: usage nested under data.response
+            resp_usage = data.get("response", {}).get("usage")
+            # Chat Completions API: usage at top level
+            chat_usage = data.get("usage")
+
+            if resp_usage:
+                token_usage = self._extract_token_usage_from_dict(
+                    resp_usage, "input_tokens", "output_tokens", "total_tokens"
                 )
-            ) or (
-                token_usage := self._extract_token_usage_from_dict(
-                    data.get("response", {}).get("usage"),
-                    "input_tokens",
-                    "output_tokens",
-                    "total_tokens",
+                details_key = "input_tokens_details"
+                usage_dict = resp_usage
+            elif chat_usage:
+                token_usage = self._extract_token_usage_from_dict(
+                    chat_usage, "prompt_tokens", "completion_tokens", "total_tokens"
                 )
-            ):
+                details_key = "prompt_tokens_details"
+                usage_dict = chat_usage
+            else:
+                continue
+
+            if token_usage:
+                if details := usage_dict.get(details_key):
+                    if (cached := details.get("cached_tokens")) and cached > 0:
+                        token_usage[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
                 return token_usage
         return {}
 
