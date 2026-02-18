@@ -63,24 +63,18 @@ const QUERY = `
 
 const isBot = (author) => !author || author.__typename === "Bot";
 
+const getEventDate = (item) => {
+  if (item.__typename === "PullRequestCommit") {
+    const user = item.commit?.author?.user;
+    return user && !isBot(user) ? item.commit.committedDate : null;
+  }
+  return !isBot(item.author) ? item.createdAt : null;
+};
+
 const getLastHumanActivity = (pr) => {
   const items = pr.timelineItems.nodes || [];
-
-  for (let i = items.length - 1; i >= 0; i--) {
-    const item = items[i];
-
-    if (item.__typename === "PullRequestCommit") {
-      const user = item.commit?.author?.user;
-      if (user && !isBot(user)) {
-        return new Date(item.commit.committedDate);
-      }
-    } else if (!isBot(item.author)) {
-      return new Date(item.createdAt);
-    }
-  }
-
-  // No human activity found, fall back to PR creation date
-  return new Date(pr.createdAt);
+  const item = items.findLast((i) => getEventDate(i));
+  return new Date(item ? getEventDate(item) : pr.createdAt);
 };
 
 const isStale = (lastActivityDate) => {
