@@ -1641,6 +1641,8 @@ def _is_proxy_artifact_path(path: str) -> bool:
     prefixes = [
         f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/",
     ]
     return any(path.startswith(prefix) for prefix in prefixes)
 
@@ -1655,6 +1657,7 @@ def _get_proxy_artifact_validator(
         "GET": validate_can_read_experiment_artifact_proxy,  # Download
         "PUT": validate_can_update_experiment_artifact_proxy,  # Upload
         "DELETE": validate_can_delete_experiment_artifact_proxy,  # Delete
+        "POST": validate_can_update_experiment_artifact_proxy,  # Multipart upload
     }.get(method)
 
 

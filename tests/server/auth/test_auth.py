@@ -114,6 +114,27 @@ def test_proxy_artifact_path_detection():
     assert auth_module._is_proxy_artifact_path("/ajax-api/2.0/mlflow-artifacts/artifacts/foo")
 
 
+def test_proxy_artifact_mpu_path_detection():
+    # MPU create/complete/abort paths should be recognized as proxy artifact paths
+    for action in ("create", "complete", "abort"):
+        assert auth_module._is_proxy_artifact_path(
+            f"/api/2.0/mlflow-artifacts/mpu/{action}/1/run-id/artifacts/model"
+        )
+        assert auth_module._is_proxy_artifact_path(
+            f"/ajax-api/2.0/mlflow-artifacts/mpu/{action}/1/run-id/artifacts/model"
+        )
+
+    # Non-artifact paths should not match
+    assert not auth_module._is_proxy_artifact_path("/api/2.0/mlflow/experiments/get")
+
+
+def test_proxy_artifact_mpu_validator_returns_update_for_post():
+    validator = auth_module._get_proxy_artifact_validator(
+        "POST", {"artifact_path": "1/run-id/artifacts/model"}
+    )
+    assert validator is auth_module.validate_can_update_experiment_artifact_proxy
+
+
 def test_proxy_artifact_authorization_required(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -127,6 +148,26 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
             + f"/ajax-api/2.0/mlflow-artifacts/artifacts/{experiment_id}/test.txt"
         ),
         data=b"forbidden",
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("mpu_action", ["create", "complete", "abort"])
+def test_mpu_authorization_required(client, monkeypatch, mpu_action):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment(f"mpu-authz-test-{mpu_action}")
+
+    # user2 has no permission on user1's experiment — expect 403
+    response = requests.post(
+        url=(
+            client.tracking_uri
+            + f"/api/2.0/mlflow-artifacts/mpu/{mpu_action}/{experiment_id}/artifacts/model"
+        ),
+        json={"path": "python_model.pkl", "num_parts": 1},
         auth=(username2, password2),
     )
     assert response.status_code == 403
