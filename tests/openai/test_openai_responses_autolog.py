@@ -1,3 +1,6 @@
+from unittest import mock
+
+import httpx
 import openai
 import pytest
 from packaging.version import Version
@@ -250,6 +253,87 @@ async def test_responses_function_calling_autolog(client):
         {"type": "function", "function": {k: v for k, v in tools[0].items() if k != "type"}}
     ]
     assert span.attributes[SpanAttributeKey.MESSAGE_FORMAT] == "openai"
+
+
+@pytest.mark.asyncio
+async def test_responses_autolog_with_cached_tokens(client):
+    mlflow.openai.autolog()
+
+    mock_response = {
+        "id": "responses-cached",
+        "object": "response",
+        "created": 1589478378,
+        "status": "completed",
+        "error": None,
+        "incomplete_details": None,
+        "max_output_tokens": None,
+        "model": "gpt-4o",
+        "output": [
+            {
+                "type": "message",
+                "id": "test",
+                "status": "completed",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Hello"}],
+            }
+        ],
+        "parallel_tool_calls": True,
+        "previous_response_id": None,
+        "reasoning": {"effort": None, "generate_summary": None},
+        "store": True,
+        "temperature": 1.0,
+        "text": {"format": {"type": "text"}},
+        "tool_choice": "auto",
+        "tools": [],
+        "top_p": 1.0,
+        "truncation": "disabled",
+        "usage": {
+            "input_tokens": 100,
+            "input_tokens_details": {"cached_tokens": 40},
+            "output_tokens": 50,
+            "output_tokens_details": {"reasoning_tokens": 0},
+            "total_tokens": 150,
+        },
+        "user": None,
+        "metadata": {},
+    }
+    if client._is_async:
+        patch_target = "httpx.AsyncClient.send"
+
+        async def send_patch(self, request, *args, **kwargs):
+            return httpx.Response(status_code=200, request=request, json=mock_response)
+    else:
+        patch_target = "httpx.Client.send"
+
+        def send_patch(self, request, *args, **kwargs):
+            return httpx.Response(status_code=200, request=request, json=mock_response)
+
+    with mock.patch(patch_target, send_patch):
+        response = client.responses.create(
+            input="Hello",
+            model="gpt-4o",
+            temperature=0,
+        )
+        if client._is_async:
+            response = await response
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 150,
+        TokenUsageKey.CACHED_INPUT_TOKENS: 40,
+    }
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 150,
+        TokenUsageKey.CACHED_INPUT_TOKENS: 40,
+    }
 
 
 @pytest.mark.asyncio

@@ -10,7 +10,7 @@ from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 
 import mlflow.anthropic
 from mlflow.entities.span import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 from tests.tracing.helper import get_traces
 
@@ -401,4 +401,50 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
         "input_tokens": 10,
         "output_tokens": 18,
         "total_tokens": 28,
+    }
+
+
+DUMMY_CREATE_MESSAGE_WITH_CACHE_RESPONSE = Message(
+    id="test_id",
+    content=[TextBlock(text="cached answer", type="text", citations=None)],
+    model="test_model",
+    role="assistant",
+    stop_reason="end_turn",
+    stop_sequence=None,
+    type="message",
+    usage=Usage(
+        input_tokens=50,
+        output_tokens=20,
+        cache_creation_input_tokens=15,
+        cache_read_input_tokens=25,
+    ),
+)
+
+
+def test_messages_autolog_with_cached_tokens(is_async, mock_litellm_cost):
+    mlflow.anthropic.autolog()
+
+    _call_anthropic(
+        DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_WITH_CACHE_RESPONSE, is_async
+    )
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHED_INPUT_TOKENS: 25,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
+    }
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHED_INPUT_TOKENS: 25,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
     }

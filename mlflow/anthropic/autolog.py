@@ -162,11 +162,16 @@ def _set_token_usage_attribute(span: LiveSpan, output: Any):
 def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         if usage := getattr(output, "usage", None):
-            return {
+            usage_dict = {
                 TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,
                 TokenUsageKey.TOTAL_TOKENS: usage.input_tokens + usage.output_tokens,
             }
+            if (cached := getattr(usage, "cache_read_input_tokens", None)) and cached > 0:
+                usage_dict[TokenUsageKey.CACHED_INPUT_TOKENS] = cached
+            if (created := getattr(usage, "cache_creation_input_tokens", None)) and created > 0:
+                usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+            return usage_dict
     except Exception as e:
         _logger.debug(f"Failed to parse token usage from output: {e}")
     return None
