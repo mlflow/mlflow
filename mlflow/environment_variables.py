@@ -1008,9 +1008,9 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
 #: set to true (default).
 #: Note: Currently only Unity Catalog table exporter supports batching. Other exporters will export
 #: spans immediately.
-#: (default: ``1`` = no batching)
+#: (default: ``5`` - based on internal benchmarking results)
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", int, 1
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", int, 5
 )
 
 #: Maximum interval in milliseconds between two batches. When the interval is reached,
