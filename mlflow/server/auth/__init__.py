@@ -541,6 +541,10 @@ def _has_registered_model_read_access(
 def _get_permission_from_experiment_id() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username)
+
+
+def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
     return _get_permission_from_store_or_default(
         lambda: store.get_experiment_permission(experiment_id, username).permission,
         workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
@@ -2802,7 +2806,7 @@ _ROUTES_NEEDING_BODY = frozenset(
 )
 
 
-def _authenticate_request(request: StarletteRequest) -> User | None:
+def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     """
     Authenticate request using Basic Auth and return user object.
 
@@ -2907,6 +2911,38 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
     return validator
 
 
+def _get_require_authentication_validator() -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    """
+    Get a validator that requires authentication but grants access to any authenticated user.
+
+    Returns:
+        An async validator function that always returns True.
+    """
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        return True
+
+    return validator
+
+
+def _get_otel_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    """
+    Get a validator for OpenTelemetry trace ingestion routes.
+    """
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        experiment_id = request.headers.get("x-mlflow-experiment-id")
+        if not experiment_id:
+            raise MlflowException(
+                "Missing required header: X-Mlflow-Experiment-Id", error_code=BAD_REQUEST
+            )
+        return _get_experiment_permission(experiment_id, username).can_update
+
+    return validator
+
+
 def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Find the validator for a FastAPI route that bypasses Flask.
@@ -2919,10 +2955,19 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awai
 
     Returns:
         An async validator function that takes (username, request) and returns
-        True if authorized, or None if the route is not handled by FastAPI.
+        True if authorized, or None if the route is handled by Flask (WSGI).
     """
     if path.startswith("/gateway/"):
         return _get_gateway_validator(path)
+
+    if path.startswith("/v1/traces"):
+        return _get_otel_validator(path)
+
+    if path.startswith("/ajax-api/3.0/jobs"):
+        return _get_require_authentication_validator()
+
+    if path.startswith("/ajax-api/3.0/mlflow/assistant"):
+        return _get_require_authentication_validator()
 
     return None
 
@@ -2970,7 +3015,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             )
 
         # Authenticate user
-        user = _authenticate_request(request)
+        user = _authenticate_fastapi_request(request)
         if user is None:
             return PlainTextResponse(
                 "You are not authenticated. Please see "
