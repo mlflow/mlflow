@@ -10,6 +10,8 @@ export interface TokenUsage {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
+  cached_input_tokens?: number;
+  cache_creation_input_tokens?: number;
 }
 
 export const isTokenUsageType = (value?: unknown): value is TokenUsage => {
@@ -104,6 +106,46 @@ export const ModelTraceExplorerTokenUsageHoverCard = ({ tokenUsage }: { tokenUsa
                 <span>{outputTokens}</span>
               </Tag>
             </div>
+            {tokenUsage.cached_input_tokens != null && tokenUsage.cached_input_tokens > 0 && (
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography.Text size="md">
+                  <FormattedMessage
+                    defaultMessage="Cached input tokens"
+                    description="Label for cached input token usage"
+                  />
+                </Typography.Text>
+                <Tag componentId="shared.model-trace-explorer.token-usage-hovercard.cached-input-tokens.tag">
+                  <span>{tokenUsage.cached_input_tokens.toString()}</span>
+                </Tag>
+              </div>
+            )}
+            {tokenUsage.cache_creation_input_tokens != null && tokenUsage.cache_creation_input_tokens > 0 && (
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography.Text size="md">
+                  <FormattedMessage
+                    defaultMessage="Cache creation tokens"
+                    description="Label for cache creation input token usage"
+                  />
+                </Typography.Text>
+                <Tag componentId="shared.model-trace-explorer.token-usage-hovercard.cache-creation-tokens.tag">
+                  <span>{tokenUsage.cache_creation_input_tokens.toString()}</span>
+                </Tag>
+              </div>
+            )}
             <div
               css={{
                 display: 'flex',

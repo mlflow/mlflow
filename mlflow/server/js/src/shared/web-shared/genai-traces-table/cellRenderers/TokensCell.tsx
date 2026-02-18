@@ -22,6 +22,8 @@ export const TokensCell = (props: {
           inputTokens={currentTokenUsage?.input_tokens}
           outputTokens={currentTokenUsage?.output_tokens}
           totalTokens={currentTokenUsage?.total_tokens}
+          cachedInputTokens={currentTokenUsage?.cached_input_tokens}
+          cacheCreationInputTokens={currentTokenUsage?.cache_creation_input_tokens}
           isComparing={isComparing}
         />
       }
@@ -31,6 +33,8 @@ export const TokensCell = (props: {
             inputTokens={otherTokenUsage?.input_tokens}
             outputTokens={otherTokenUsage?.output_tokens}
             totalTokens={otherTokenUsage?.total_tokens}
+            cachedInputTokens={otherTokenUsage?.cached_input_tokens}
+            cacheCreationInputTokens={otherTokenUsage?.cache_creation_input_tokens}
             isComparing={isComparing}
           />
         )
@@ -43,11 +47,15 @@ export const TokenComponent = ({
   inputTokens,
   outputTokens,
   totalTokens,
+  cachedInputTokens,
+  cacheCreationInputTokens,
   isComparing,
 }: {
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+  cachedInputTokens?: number;
+  cacheCreationInputTokens?: number;
   isComparing: boolean;
 }) => {
   const intl = useIntl();
@@ -148,6 +156,54 @@ export const TokenComponent = ({
               </div>
               <div>
                 <Typography.Text color="secondary">{outputTokens}</Typography.Text>
+              </div>
+            </div>
+          )}
+          {cachedInputTokens != null && cachedInputTokens > 0 && (
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'row',
+              }}
+            >
+              <div
+                css={{
+                  width: '35%',
+                }}
+              >
+                <Typography.Text>
+                  {intl.formatMessage({
+                    defaultMessage: 'Cached',
+                    description: 'Label for the cached input tokens in the tooltip for the tokens cell.',
+                  })}
+                </Typography.Text>
+              </div>
+              <div>
+                <Typography.Text color="secondary">{cachedInputTokens}</Typography.Text>
+              </div>
+            </div>
+          )}
+          {cacheCreationInputTokens != null && cacheCreationInputTokens > 0 && (
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'row',
+              }}
+            >
+              <div
+                css={{
+                  width: '35%',
+                }}
+              >
+                <Typography.Text>
+                  {intl.formatMessage({
+                    defaultMessage: 'Cache write',
+                    description: 'Label for the cache creation input tokens in the tooltip for the tokens cell.',
+                  })}
+                </Typography.Text>
+              </div>
+              <div>
+                <Typography.Text color="secondary">{cacheCreationInputTokens}</Typography.Text>
               </div>
             </div>
           )}
