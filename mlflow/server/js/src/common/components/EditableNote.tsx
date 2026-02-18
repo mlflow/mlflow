@@ -173,8 +173,8 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
         {showEditor ? (
           <React.Fragment>
             <div className="note-view-text-area">
-              <ReactMde
-                value={markdown}
+              <ThemeAwareReactMde
+                value={markdown || ''}
                 minEditorHeight={this.props.minEditorHeight}
                 maxEditorHeight={this.props.maxEditorHeight}
                 minPreviewHeight={50}
@@ -232,6 +232,32 @@ function TooltipIcon(props: TooltipIconProps) {
         <SvgIcon icon={name} />
       </span>
     </Tooltip>
+  );
+}
+
+type ThemeAwareReactMdeProps = React.ComponentProps<typeof ReactMde>;
+
+export function ThemeAwareReactMde(props: ThemeAwareReactMdeProps) {
+  const { theme } = useDesignSystemTheme();
+  
+  // Apply theme-aware CSS variables for ReactMde
+  const themeAwareStyle = React.useMemo(() => ({
+    '--mlflow-dark-bg-primary': theme.colors.backgroundPrimary,
+    '--mlflow-dark-bg-secondary': theme.colors.backgroundSecondary,
+    '--mlflow-dark-bg-hover': theme.colors.actionDefaultBackgroundHover,
+    '--mlflow-dark-text-primary': theme.colors.textPrimary,
+    '--mlflow-dark-border': theme.colors.border,
+  } as React.CSSProperties), [theme]);
+
+  const isDarkTheme = theme.isDarkMode;
+
+  return (
+    <div 
+      className={isDarkTheme ? 'mlflow-dark-theme' : ''}
+      style={themeAwareStyle}
+    >
+      <ReactMde {...props} />
+    </div>
   );
 }
 
