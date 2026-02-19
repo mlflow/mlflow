@@ -1,7 +1,5 @@
 name: UI Preview
 
-# NOTE: Do not add `paths` filter here. The `closed` event must always fire
-# for cleanup, and `paths` would prevent that.
 on:
   pull_request:
     types:
@@ -10,6 +8,10 @@ on:
       - reopened
       - labeled
       - closed
+    paths:
+      - mlflow/server/js/**
+      - .github/workflows/ui-preview.yml
+      - .github/ui-preview/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -20,36 +22,12 @@ defaults:
     shell: bash
 
 jobs:
-  should-run:
+  build:
     if: >-
       github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
       && github.event.pull_request.draft == false
       && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
-    runs-on: ubuntu-slim
-    permissions:
-      contents: read
-    timeout-minutes: 5
-    outputs:
-      has-ui-changes: ${{ steps.check.outputs.has-ui-changes }}
-    steps:
-      - name: Check for JS changes
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          FILES=$(gh pr view ${{ github.event.pull_request.number }} \
-            --repo ${{ github.repository }} \
-            --json files --jq '.files[].path')
-          if echo "$FILES" | grep -q '^mlflow/server/js/'; then
-            echo "has-ui-changes=true" >> $GITHUB_OUTPUT
-          else
-            echo "has-ui-changes=false" >> $GITHUB_OUTPUT
-          fi
-
-  build:
-    needs: should-run
-    if: needs.should-run.outputs.has-ui-changes == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
