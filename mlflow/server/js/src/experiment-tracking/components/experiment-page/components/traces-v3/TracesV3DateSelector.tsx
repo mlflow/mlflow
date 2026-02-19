@@ -98,11 +98,13 @@ export const TracesV3DateSelector = React.memo(function TracesV3DateSelector({
             data-testid="time-range-select-dropdown"
           >
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-              {namedDateFilters.find(
-                (namedDateFilter) =>
-                  namedDateFilter.key === monitoringFilters.startTimeLabel ||
-                  (namedDateFilter.key === DEFAULT_START_TIME_LABEL && isNil(monitoringFilters.startTimeLabel)),
-              )?.label}
+              {
+                namedDateFilters.find(
+                  (namedDateFilter) =>
+                    namedDateFilter.key === monitoringFilters.startTimeLabel ||
+                    (namedDateFilter.key === DEFAULT_START_TIME_LABEL && isNil(monitoringFilters.startTimeLabel)),
+                )?.label
+              }
               {!isNil(monitoringFilters.startTimeLabel) &&
                 monitoringFilters.startTimeLabel !== DEFAULT_START_TIME_LABEL && (
                   <XCircleFillIcon

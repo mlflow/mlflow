@@ -136,7 +136,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpanded] = useState(
     // Default to expanded (true) unless explicitly collapsed (true) or forced open ('force-open')
-    initialAssessmentsPaneCollapsed === true ? false : true,
+    initialAssessmentsPaneCollapsed !== true,
   );
 
   useEffect(() => {

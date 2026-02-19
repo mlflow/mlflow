@@ -1,6 +1,13 @@
 import type { Theme } from '@emotion/react';
 
-import { CheckCircleIcon, ClockIcon, useDesignSystemTheme, XCircleIcon, Tag, type TagColors } from '@databricks/design-system';
+import {
+  CheckCircleIcon,
+  ClockIcon,
+  useDesignSystemTheme,
+  XCircleIcon,
+  Tag,
+  type TagColors,
+} from '@databricks/design-system';
 import { useIntl, defineMessage } from '@databricks/i18n';
 
 import { NullCell } from './NullCell';
@@ -78,9 +85,7 @@ export const StatusCellRenderer = ({
       }}
     >
       {getIcon(state, theme)}
-      <span css={{ marginLeft: theme.spacing.xs }}>
-        {intl.formatMessage(labelDescriptor)}
-      </span>
+      <span css={{ marginLeft: theme.spacing.xs }}>{intl.formatMessage(labelDescriptor)}</span>
     </Tag>
   ) : (
     <NullCell isComparing={isComparing} />
