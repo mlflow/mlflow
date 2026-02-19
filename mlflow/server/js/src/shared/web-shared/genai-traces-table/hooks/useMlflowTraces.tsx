@@ -654,9 +654,14 @@ const buildTracesFromSearchAndArtifacts = (
  * and malformed filter strings.
  * - Single quotes are escaped as '' (SQL standard)
  * - Percent signs are escaped as %% (for LIKE/ILIKE patterns)
+ * - Non-string values are converted to strings
  */
-const escapeFilterValue = (value: string): string => {
-  return value.replace(/'/g, "''").replace(/%/g, '%%');
+const escapeFilterValue = (value: string | boolean | number | null | undefined): string => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  const stringValue = String(value);
+  return stringValue.replace(/'/g, "''").replace(/%/g, '%%');
 };
 
 export const createMlflowSearchFilter = (

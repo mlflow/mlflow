@@ -1857,4 +1857,30 @@ describe('createMlflowSearchFilter', () => {
     expect(filterString).toContain("span.type ILIKE '%100%%%'");
     expect(filterString).toContain(' AND ');
   });
+
+  test('handles numeric filter values', () => {
+    const networkFilters = [
+      {
+        column: STATE_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: 123,
+      },
+    ];
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe("attributes.status = '123'");
+  });
+
+  test('handles boolean filter values', () => {
+    const networkFilters = [
+      {
+        column: STATE_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: true,
+      },
+    ];
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe("attributes.status = 'true'");
+  });
 });
