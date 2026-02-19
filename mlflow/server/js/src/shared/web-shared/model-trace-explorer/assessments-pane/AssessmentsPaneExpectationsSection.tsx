@@ -1,5 +1,5 @@
 import { Button, PlusIcon, Spacer, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { ExpectationAssessment } from '../ModelTrace.types';
+import type { ExpectationAssessment } from '../ModelTrace.types';
 import { ExpectationItem } from './ExpectationItem';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
