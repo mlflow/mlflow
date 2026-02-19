@@ -386,6 +386,7 @@ class BaseRequestPayload(Truncation, ToolChoice):
     text: Any | None = None
     top_p: float | None = None
     user: str | None = None
+    background: bool | None = None
 
 
 #####################################
