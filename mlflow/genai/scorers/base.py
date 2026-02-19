@@ -343,26 +343,19 @@ class Scorer(BaseModel):
 
             data = serialized.instructions_judge_pydantic_data
 
-            field_specs = {
-                "instructions": str,
-                "model": str,
-            }
-
-            errors = []
-            for field, expected_type in field_specs.items():
-                if field not in data:
-                    errors.append(f"missing required field '{field}'")
-                elif not isinstance(data[field], expected_type):
-                    actual_type = type(data[field]).__name__
-                    errors.append(
-                        f"field '{field}' must be {expected_type.__name__}, got {actual_type}"
-                    )
-
-            if errors:
+            if "instructions" not in data:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to deserialize InstructionsJudge scorer '{serialized.name}': "
-                    f"{'; '.join(errors)}"
+                    f"missing required field 'instructions'"
                 )
+            if not isinstance(data["instructions"], str):
+                actual_type = type(data["instructions"]).__name__
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to deserialize InstructionsJudge scorer '{serialized.name}': "
+                    f"field 'instructions' must be str, got {actual_type}"
+                )
+
+            model = data.get("model")  # Optional — None uses the default model
 
             feedback_value_type = str  # default to str
             if "feedback_value_type" in data and data["feedback_value_type"] is not None:
@@ -375,7 +368,7 @@ class Scorer(BaseModel):
                     name=serialized.name,
                     description=serialized.description,
                     instructions=data["instructions"],
-                    model=data["model"],
+                    model=model,
                     feedback_value_type=feedback_value_type,
                     # TODO: add aggregations here once we support boolean/numeric judge outputs
                 )
