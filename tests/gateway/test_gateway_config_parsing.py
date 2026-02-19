@@ -88,6 +88,9 @@ def test_api_key_parsing_env(tmp_path, monkeypatch):
 
     assert _resolve_api_key_from_input(string_key) == string_key
 
+    # File-based resolution requires the flag to be enabled
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
+
     conf_path = tmp_path.joinpath("mykey.conf")
     file_key = "Here is my key that sits safely in a file"
 
@@ -100,7 +103,8 @@ def test_api_key_input_exceeding_maximum_filename_length():
     assert _resolve_api_key_from_input("a" * 256) == "a" * 256
 
 
-def test_api_key_parsing_file(tmp_path):
+def test_api_key_parsing_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
     key_path = tmp_path.joinpath("api.key")
     config = {
         "endpoints": [
