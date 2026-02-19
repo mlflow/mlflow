@@ -6347,6 +6347,10 @@
     "defaultMessage": "True",
     "description": "Label for an assessment with a 'true' boolean value"
   },
+  "hX4/P0": {
+    "defaultMessage": "User:",
+    "description": "User selector label"
+  },
   "hYrjzD": {
     "defaultMessage": "Create",
     "description": "Confirm button text for create workspace modal"
@@ -7870,6 +7874,10 @@
   "rzIPYc": {
     "defaultMessage": "You are exceeding a limit of {limit} aliases assigned to the single model version",
     "description": "Alias editor > Warning about exceeding aliases limit"
+  },
+  "s2G/vI": {
+    "defaultMessage": "All users",
+    "description": "All users option"
   },
   "s2L+xL": {
     "defaultMessage": "Error loading shared view state: share key \"{viewStateShareKey}\" does not exist",

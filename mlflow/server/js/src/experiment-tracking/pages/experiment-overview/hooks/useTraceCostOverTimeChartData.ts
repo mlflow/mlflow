@@ -38,7 +38,8 @@ export interface UseTraceCostOverTimeChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceCostOverTimeChartData(dimension: CostDimension = 'model'): UseTraceCostOverTimeChartDataResult {
-  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
+    useOverviewChartContext();
 
   const dimensionKey = dimension === 'model' ? SpanDimensionKey.MODEL_NAME : SpanDimensionKey.MODEL_PROVIDER;
 
@@ -52,6 +53,7 @@ export function useTraceCostOverTimeChartData(dimension: CostDimension = 'model'
     aggregations: [{ aggregation_type: AggregationType.SUM }],
     dimensions: [dimensionKey],
     timeIntervalSeconds,
+    filters,
   });
 
   const dataPoints = useMemo(() => data?.data_points || [], [data?.data_points]);
