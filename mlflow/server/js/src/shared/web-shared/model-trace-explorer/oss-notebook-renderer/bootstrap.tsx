@@ -4,10 +4,18 @@ import ReactDOM from 'react-dom';
 import { IntlProvider } from '@databricks/i18n';
 import { SupportsDuBoisThemes } from '../../design-system/SupportsDuBoisThemes';
 import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
+import { setActiveWorkspace } from '@mlflow/mlflow/src/workspaces/utils/WorkspaceUtils';
 import '@databricks/design-system/dist/index.css';
 import '@databricks/design-system/dist/index-dark.css';
 
 import './index.css';
+
+// Set workspace from URL query params before rendering so that all API calls
+// include the X-MLFLOW-WORKSPACE header.
+const workspaceParam = new URLSearchParams(window.location.search).get('workspace');
+if (workspaceParam) {
+  setActiveWorkspace(workspaceParam);
+}
 
 const LazyModelTraceExplorer = React.lazy(() =>
   import('../index').then((module) => ({
