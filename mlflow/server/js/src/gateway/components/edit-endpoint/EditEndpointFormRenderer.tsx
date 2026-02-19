@@ -1,4 +1,4 @@
-import { Link } from '../../../common/utils/RoutingUtils';
+import { Link, useSearchParams } from '../../../common/utils/RoutingUtils';
 import {
   Alert,
   Breadcrumb,
@@ -57,12 +57,18 @@ export const EditEndpointFormRenderer = ({
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab');
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('configuration');
+  const [activeTab, setActiveTab] = useState(initialTab || 'configuration');
 
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
   const experimentId = form.watch('experimentId');
+
+  // Don't disable tabs that were requested via URL query param
+  const isUsageTabDisabled = !experimentId && initialTab !== 'usage';
+  const isTracesTabDisabled = !experimentId && initialTab !== 'traces';
 
   const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
   const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
@@ -145,38 +151,42 @@ export const EditEndpointFormRenderer = ({
             <Tabs.Trigger value="configuration">
               <FormattedMessage defaultMessage="Configuration" description="Tab label for endpoint configuration" />
             </Tabs.Trigger>
-            <Tooltip
-              componentId="mlflow.gateway.endpoint.usage-tab-tooltip"
-              content={
-                !experimentId
-                  ? intl.formatMessage({
-                      defaultMessage: 'Enable Usage Tracking in the Configuration tab to view usage metrics',
-                      description:
-                        'Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first',
-                    })
-                  : undefined
-              }
-            >
-              <Tabs.Trigger value="usage" disabled={!experimentId}>
+            {isUsageTabDisabled ? (
+              <Tooltip
+                componentId="mlflow.gateway.endpoint.usage-tab-tooltip"
+                content={intl.formatMessage({
+                  defaultMessage: 'Enable Usage Tracking in the Configuration tab to view usage metrics',
+                  description:
+                    'Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first',
+                })}
+              >
+                <Tabs.Trigger value="usage" disabled>
+                  <FormattedMessage defaultMessage="Usage" description="Tab label for endpoint usage metrics" />
+                </Tabs.Trigger>
+              </Tooltip>
+            ) : (
+              <Tabs.Trigger value="usage">
                 <FormattedMessage defaultMessage="Usage" description="Tab label for endpoint usage metrics" />
               </Tabs.Trigger>
-            </Tooltip>
-            <Tooltip
-              componentId="mlflow.gateway.endpoint.traces-tab-tooltip"
-              content={
-                !experimentId
-                  ? intl.formatMessage({
-                      defaultMessage: 'Enable Usage Tracking in the Configuration tab to view logs',
-                      description:
-                        'Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first',
-                    })
-                  : undefined
-              }
-            >
-              <Tabs.Trigger value="traces" disabled={!experimentId}>
+            )}
+            {isTracesTabDisabled ? (
+              <Tooltip
+                componentId="mlflow.gateway.endpoint.traces-tab-tooltip"
+                content={intl.formatMessage({
+                  defaultMessage: 'Enable Usage Tracking in the Configuration tab to view logs',
+                  description:
+                    'Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first',
+                })}
+              >
+                <Tabs.Trigger value="traces" disabled>
+                  <FormattedMessage defaultMessage="Logs" description="Tab label for endpoint logs" />
+                </Tabs.Trigger>
+              </Tooltip>
+            ) : (
+              <Tabs.Trigger value="traces">
                 <FormattedMessage defaultMessage="Logs" description="Tab label for endpoint logs" />
               </Tabs.Trigger>
-            </Tooltip>
+            )}
           </Tabs.List>
         </div>
 

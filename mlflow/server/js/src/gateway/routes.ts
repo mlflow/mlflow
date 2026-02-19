@@ -47,8 +47,12 @@ class GatewayRoutes {
     return GatewayRoutePaths.createEndpointPage;
   }
 
-  static getEndpointDetailsRoute(endpointId: string) {
-    return generatePath(GatewayRoutePaths.endpointDetailsPage, { endpointId });
+  static getEndpointDetailsRoute(endpointId: string, tab?: string) {
+    const path = generatePath(GatewayRoutePaths.endpointDetailsPage, { endpointId });
+    if (tab) {
+      return `${path}?tab=${encodeURIComponent(tab)}`;
+    }
+    return path;
   }
 }
 

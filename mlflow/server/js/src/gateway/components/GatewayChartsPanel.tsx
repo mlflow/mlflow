@@ -26,6 +26,8 @@ interface GatewayChartsPanelProps {
   showTokenStats?: boolean;
   additionalControls?: React.ReactNode;
   hideTooltipLinks?: boolean;
+  tooltipLinkUrlBuilder?: (experimentId: string, timestampMs: number, timeIntervalSeconds: number) => string;
+  tooltipLinkText?: React.ReactNode;
 }
 
 const GatewayChartsPanelImpl = ({
@@ -33,6 +35,8 @@ const GatewayChartsPanelImpl = ({
   showTokenStats = false,
   additionalControls,
   hideTooltipLinks = false,
+  tooltipLinkUrlBuilder,
+  tooltipLinkText,
 }: GatewayChartsPanelProps) => {
   const { theme } = useDesignSystemTheme();
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
@@ -84,6 +88,8 @@ const GatewayChartsPanelImpl = ({
         timeIntervalSeconds={timeIntervalSeconds}
         timeBuckets={timeBuckets}
         hideTooltipLinks={hideTooltipLinks}
+        tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
+        tooltipLinkText={tooltipLinkText}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           {/* Requests chart - full width */}

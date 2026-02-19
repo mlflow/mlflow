@@ -40,6 +40,12 @@ export const GatewayUsagePage = () => {
     return selectedEndpoint?.experiment_id ? [selectedEndpoint.experiment_id] : [];
   }, [showAllEndpoints, endpointsWithExperiments, selectedEndpoint]);
 
+  const tooltipLinkUrlBuilder = useMemo(() => {
+    if (!selectedEndpoint) return undefined;
+    return (_experimentId: string, _timestampMs: number, _timeIntervalSeconds: number) =>
+      GatewayRoutes.getEndpointDetailsRoute(selectedEndpoint.endpoint_id, 'traces');
+  }, [selectedEndpoint]);
+
   if (!isLoadingEndpoints && endpointsWithExperiments.length === 0) {
     return (
       <div
@@ -142,7 +148,14 @@ export const GatewayUsagePage = () => {
           experimentIds={experimentIds}
           showTokenStats
           additionalControls={endpointSelector}
-          hideTooltipLinks
+          hideTooltipLinks={showAllEndpoints}
+          tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
+          tooltipLinkText={
+            <FormattedMessage
+              defaultMessage="View logs for this period"
+              description="Link text to navigate to gateway endpoint logs tab"
+            />
+          }
         />
       ) : (
         <div
