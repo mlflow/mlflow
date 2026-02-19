@@ -199,10 +199,13 @@ export const EditEndpointFormRenderer = ({
         value={activeTab}
         onValueChange={(value) => {
           setActiveTab(value);
-          setSearchParams((params) => {
-            params.set('tab', value);
-            return params;
-          }, { replace: true });
+          setSearchParams(
+            (params) => {
+              params.set('tab', value);
+              return params;
+            },
+            { replace: true },
+          );
         }}
         css={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
       >
