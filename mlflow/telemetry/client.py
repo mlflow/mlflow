@@ -8,6 +8,7 @@ import uuid
 import warnings
 from dataclasses import asdict
 from queue import Empty, Full, Queue
+from typing import Literal
 
 import requests
 
@@ -23,7 +24,38 @@ from mlflow.telemetry.constant import (
 from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, _log_error, is_telemetry_disabled
+from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
+from mlflow.utils.rest_utils import http_request
+
+_SERVER_STORE_TYPE_NOT_FETCHED = object()
+
+
+def _fetch_server_store_type(tracking_uri: str) -> str | None:
+    try:
+        host_creds = get_default_host_creds(tracking_uri)
+        response = http_request(
+            host_creds=host_creds,
+            endpoint="/api/3.0/mlflow/server-info",
+            method="GET",
+            timeout=3,
+            max_retries=0,
+            raise_on_status=False,
+        )
+        if response.status_code == 200:
+            return response.json().get("store_type")
+    except Exception:
+        pass
+    return None
+
+
+def _enrich_scheme_with_store_type(
+    scheme: Literal["http", "https"], store_type: Literal["FileStore", "SqlStore"] | None
+) -> str:
+    store_type_to_suffix = {"FileStore": "file", "SqlStore": "sql"}
+    if suffix := store_type_to_suffix.get(store_type):
+        return f"{scheme}-{suffix}"
+    return scheme
 
 
 def _is_localhost_uri(uri: str) -> bool | None:
@@ -99,6 +131,7 @@ class TelemetryClient:
         self._consumer_threads = []
         self._is_config_fetched = False
         self.config = None
+        self._server_store_type = _SERVER_STORE_TYPE_NOT_FETCHED
 
     def __enter__(self):
         return self
@@ -389,6 +422,16 @@ class TelemetryClient:
             except Exception as e:
                 _log_error(f"Failed to flush telemetry: {e}")
 
+    def _resolve_tracking_scheme(self, scheme: str) -> str:
+        if scheme not in ("http", "https"):
+            return scheme
+        if self._server_store_type is _SERVER_STORE_TYPE_NOT_FETCHED:
+            # import here to avoid circular import
+            from mlflow.tracking._tracking_service.utils import get_tracking_uri
+
+            self._server_store_type = _fetch_server_store_type(get_tracking_uri())
+        return _enrich_scheme_with_store_type(scheme, self._server_store_type)
+
     def _update_backend_store(self):
         """
         Backend store might be changed after mlflow is imported, we should use this
@@ -397,7 +440,7 @@ class TelemetryClient:
         try:
             scheme, is_localhost = _get_tracking_uri_info()
             if scheme is not None:
-                self.info["tracking_uri_scheme"] = scheme
+                self.info["tracking_uri_scheme"] = self._resolve_tracking_scheme(scheme)
             if is_localhost is not None:
                 self.info["is_localhost"] = is_localhost
             self.info["ws_enabled"] = bool(MLFLOW_WORKSPACE.get())

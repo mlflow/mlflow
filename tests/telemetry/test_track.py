@@ -6,6 +6,7 @@ import pytest
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
 from mlflow.telemetry.client import (
     TelemetryClient,
+    _fetch_server_store_type,
     get_telemetry_client,
     set_telemetry_client,
 )
@@ -83,6 +84,94 @@ def test_backend_store_info(tmp_path, mock_telemetry_client: TelemetryClient, mo
     monkeypatch.setenv("MLFLOW_WORKSPACE", "my-workspace")
     mock_telemetry_client._update_backend_store()
     assert mock_telemetry_client.info["ws_enabled"] is True
+
+
+@pytest.mark.parametrize(
+    ("scheme", "store_type", "expected_scheme"),
+    [
+        ("http", "FileStore", "http-file"),
+        ("http", "SqlStore", "http-sql"),
+        ("https", "FileStore", "https-file"),
+        ("https", "SqlStore", "https-sql"),
+        ("http", None, "http"),
+        ("https", None, "https"),
+    ],
+)
+def test_backend_store_info_http_scheme_enrichment(
+    mock_telemetry_client: TelemetryClient, scheme, store_type, expected_scheme
+):
+    with (
+        mock.patch(
+            "mlflow.telemetry.client._get_tracking_uri_info",
+            return_value=(scheme, True),
+        ),
+        mock.patch(
+            "mlflow.telemetry.client._fetch_server_store_type",
+            return_value=store_type,
+        ) as mock_fetch,
+    ):
+        mock_telemetry_client._update_backend_store()
+
+    assert mock_telemetry_client.info["tracking_uri_scheme"] == expected_scheme
+    mock_fetch.assert_called_once()
+
+
+def test_backend_store_info_http_scheme_enrichment_cached(
+    mock_telemetry_client: TelemetryClient,
+):
+    with (
+        mock.patch(
+            "mlflow.telemetry.client._get_tracking_uri_info",
+            return_value=("http", True),
+        ),
+        mock.patch(
+            "mlflow.telemetry.client._fetch_server_store_type",
+            return_value="SqlStore",
+        ) as mock_fetch,
+    ):
+        mock_telemetry_client._update_backend_store()
+        mock_telemetry_client._update_backend_store()
+
+    assert mock_telemetry_client.info["tracking_uri_scheme"] == "http-sql"
+    mock_fetch.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("status_code", "json_body", "expected"),
+    [
+        (200, {"store_type": "FileStore"}, "FileStore"),
+        (200, {"store_type": "SqlStore"}, "SqlStore"),
+        (200, {"store_type": None}, None),
+        (200, {}, None),
+        (404, None, None),
+    ],
+)
+def test_fetch_server_store_type(
+    status_code: int, json_body: dict[str, str | None] | None, expected: str | None
+):
+    mock_response = mock.Mock(status_code=status_code)
+    if json_body is not None:
+        mock_response.json.return_value = json_body
+
+    with mock.patch(
+        "mlflow.telemetry.client.http_request",
+        return_value=mock_response,
+    ) as mock_req:
+        result = _fetch_server_store_type("http://localhost:5000")
+
+    assert result == expected
+    mock_req.assert_called_once()
+
+
+def test_fetch_server_store_type_connection_error():
+    with mock.patch(
+        "mlflow.telemetry.client.http_request",
+        side_effect=ConnectionError,
+    ) as mock_req:
+        result = _fetch_server_store_type("http://localhost:5000")
+
+    assert result is None
+    mock_req.assert_called_once()
 
 
 @pytest.mark.parametrize(
