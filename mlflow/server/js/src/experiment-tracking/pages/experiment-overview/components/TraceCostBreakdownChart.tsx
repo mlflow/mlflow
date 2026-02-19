@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useDesignSystemTheme, PieChartIcon, type DesignSystemThemeInterface } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+// eslint-disable-next-line import/no-deprecated
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Sector } from 'recharts';
 import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceCostBreakdownChartData } from '../hooks/useTraceCostBreakdownChartData';
