@@ -634,7 +634,6 @@ export class CompareModelVersionsViewImpl extends Component<
             <CenteredText>
               <FormattedMessage
                 defaultMessage="{fieldName} are identical"
-                // eslint-disable-next-line max-len
                 description="Default text in data table where items are identical in the model comparison page"
                 values={{ fieldName: fieldName }}
               />

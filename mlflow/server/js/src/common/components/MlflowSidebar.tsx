@@ -397,7 +397,6 @@ export function MlflowSidebar({
             </span>
           </MlflowSidebarLink>
           <MlflowSidebarLink
-            disableWorkspacePrefix
             css={{ paddingBlock: theme.spacing.sm }}
             to={ExperimentTrackingRoutes.settingsPageRoute}
             componentId="mlflow.sidebar.settings_tab_link"

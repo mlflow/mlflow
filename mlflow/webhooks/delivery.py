@@ -32,6 +32,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.store.model_registry.file_store import FileStore
+from mlflow.utils.validation import _validate_webhook_url
 from mlflow.webhooks.constants import (
     WEBHOOK_DELIVERY_ID_HEADER,
     WEBHOOK_SIGNATURE_HEADER,
@@ -148,6 +149,8 @@ def _send_webhook_request(
     Returns:
         requests.Response object from the webhook request
     """
+    _validate_webhook_url(webhook.url)
+
     # Create webhook payload with metadata
     webhook_payload = {
         "entity": event.entity.value,

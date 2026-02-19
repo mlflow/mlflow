@@ -1,4 +1,5 @@
-import { createLazyRouteElement, RouteHandle, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
+import type { RouteHandle } from '../common/utils/RoutingUtils';
+import { createLazyRouteElement, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
 
 import { PageId, RoutePaths } from './routes';
 
@@ -229,7 +230,6 @@ export const getRouteDefs = () => [
     element: createLazyRouteElement(() => import('../settings/SettingsPage')),
     pageId: PageId.settingsPage,
     handle: { getPageTitle: () => 'Settings' } satisfies RouteHandle,
-    globalRoute: true, // Settings is a global route, not workspace-specific
   },
   ...getExperimentPageRouteDefs(),
   {

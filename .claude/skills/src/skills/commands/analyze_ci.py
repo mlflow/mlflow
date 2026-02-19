@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import re
 import sys
 from collections.abc import AsyncIterator
@@ -312,4 +313,7 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
 
 
 def run(args: argparse.Namespace) -> None:
+    # Unset CLAUDECODE so that claude_agent_sdk doesn't refuse to start
+    # when this skill is invoked from within a Claude Code session.
+    os.environ.pop("CLAUDECODE", None)
     asyncio.run(cmd_analyze_async(args.urls, args.debug))

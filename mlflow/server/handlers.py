@@ -7,6 +7,7 @@ import pathlib
 import posixpath
 import re
 import tempfile
+import threading
 import time
 import urllib
 from functools import partial, wraps
@@ -60,11 +61,13 @@ from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
 )
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
     MlflowTracingException,
+    _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
 )
 from mlflow.gateway.utils import is_valid_endpoint_name
@@ -85,6 +88,7 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
     CreateMultipartUpload,
     DeleteArtifact,
     DownloadArtifact,
+    GetPresignedDownloadUrl,
     MlflowArtifactsService,
     UploadArtifact,
 )
@@ -243,7 +247,7 @@ from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
 )
-from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
+from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
@@ -1098,24 +1102,6 @@ def _ensure_artifact_root_available(workspace_artifact_root: str | None) -> None
             "'default_artifact_root' for this workspace or start the server with "
             "'--default-artifact-root'."
         )
-
-
-@catch_mlflow_exception
-def _server_features_handler():
-    """
-    Returns a dictionary containing the server features state.
-
-    This helps clients determine if workspaces are enabled.
-    """
-    response = Response(mimetype="application/json")
-    response.set_data(
-        json.dumps(
-            {
-                "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
-            }
-        )
-    )
-    return response
 
 
 @catch_mlflow_exception
@@ -2644,9 +2630,24 @@ def _create_model_version():
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    # If the model version is a prompt, we don't validate the source
     is_prompt = _is_prompt_request(request_message)
-    if not is_prompt:
+    if is_prompt:
+        # Prompt sources must not point to local filesystem paths.
+        # Block file:// URIs and absolute paths (e.g. /etc/passwd) but allow
+        # the legitimate schemeless placeholder sources used internally
+        # (e.g. "prompt-template", "dummy-source").
+        source = request_message.source
+        parsed = urllib.parse.urlparse(source)
+        if parsed.scheme == "file" or (parsed.scheme == "" and source.startswith("/")):
+            raise MlflowException(
+                f"Invalid prompt source: '{source}'. "
+                "Local source paths are not allowed for prompts.",
+                INVALID_PARAMETER_VALUE,
+            )
+        # Only validate traversal for sources with a URL scheme (http, https, etc.)
+        if parsed.scheme:
+            _validate_non_local_source_contains_relative_paths(source)
+    else:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
         else:
@@ -3372,6 +3373,11 @@ def _validate_support_multipart_upload(artifact_repo):
         raise _UnsupportedMultipartUploadException()
 
 
+def _validate_support_multipart_download(artifact_repo):
+    if not isinstance(artifact_repo, MultipartDownloadMixin):
+        raise _UnsupportedMultipartDownloadException()
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _create_multipart_upload_artifact(artifact_path):
@@ -3469,6 +3475,27 @@ def _abort_multipart_upload_artifact(artifact_path):
         artifact_path,
     )
     return _wrap_response(AbortMultipartUpload.Response())
+
+
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _get_presigned_download_url(artifact_path):
+    """
+    A request handler for `GET /mlflow-artifacts/presigned/<artifact_path>` to get
+    a presigned URL for downloading an artifact directly from cloud storage.
+    """
+    artifact_path = validate_path_is_safe(artifact_path)
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    _validate_support_multipart_download(artifact_repo)
+
+    expiration = MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+    presigned_response = artifact_repo.get_download_presigned_url(
+        artifact_path, expiration=expiration
+    )
+    response = Response(mimetype="application/json")
+    response.set_data(json.dumps(presigned_response.to_dict()))
+    return response
 
 
 # MLflow Tracing APIs
@@ -5035,6 +5062,7 @@ def _delete_gateway_endpoint_tag():
     return response
 
 
+@catch_mlflow_exception
 def _get_server_info():
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -5047,7 +5075,12 @@ def _get_server_info():
         store_type = "SqlStore"
     else:
         store_type = None
-    return jsonify({"store_type": store_type})
+    return jsonify(
+        {
+            "store_type": store_type,
+            "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
+        }
+    )
 
 
 @catch_mlflow_exception
@@ -5224,19 +5257,20 @@ def get_endpoints(get_handler=get_handler):
     Returns:
         List of tuples (path, handler, methods)
     """
-    server_feature_paths = [
-        (_path, _server_features_handler, ["GET"])
-        for _path in _get_paths("/mlflow/server-features", version=3)
-    ]
     return (
         get_service_endpoints(MlflowService, get_handler)
         + get_internal_online_scoring_endpoints()
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
-        + server_feature_paths
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
-        + [(_add_static_prefix("/server-info"), _get_server_info, ["GET"])]
+        # NB: Use _get_paths() (not _add_static_prefix()) so that the endpoint is reachable
+        # both at /api/3.0/mlflow/server-info (for the Python client, unaffected by static prefix)
+        # and at <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
+        + [
+            (_path, _get_server_info, ["GET"])
+            for _path in _get_paths("/mlflow/server-info", version=3)
+        ]
         + get_gateway_endpoints()
         + get_demo_endpoints()
     )
@@ -5274,6 +5308,11 @@ def get_gateway_endpoints():
 
 
 # Demo APIs
+
+# Serialize demo generation so concurrent requests (e.g. FastAPI running Flask
+# handlers in a thread pool) cannot race on the process-wide MLFLOW_WORKSPACE
+# env var that WorkspaceContext temporarily sets during generate_all_demos.
+_demo_generate_lock = threading.Lock()
 
 
 def get_demo_endpoints():
@@ -5329,7 +5368,8 @@ def _generate_demo():
             }
         )
 
-    results = generate_all_demos(features=features)
+    with _demo_generate_lock:
+        results = generate_all_demos(features=features)
 
     experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     experiment_id = experiment.experiment_id if experiment else None
@@ -6135,6 +6175,7 @@ HANDLERS = {
     CreateMultipartUpload: _create_multipart_upload_artifact,
     CompleteMultipartUpload: _complete_multipart_upload_artifact,
     AbortMultipartUpload: _abort_multipart_upload_artifact,
+    GetPresignedDownloadUrl: _get_presigned_download_url,
     # MLflow Tracing APIs (V3)
     StartTraceV3: _start_trace_v3,
     GetTraceInfoV3: _get_trace_info_v3,

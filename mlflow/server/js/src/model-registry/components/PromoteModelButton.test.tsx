@@ -3,7 +3,8 @@ import { waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import type { DeepPartial } from 'redux';
-import { MemoryRouter, NavigateFunction, useNavigate } from '../../common/utils/RoutingUtils';
+import type { NavigateFunction } from '../../common/utils/RoutingUtils';
+import { MemoryRouter, useNavigate } from '../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
 import {
   findAntdOption,

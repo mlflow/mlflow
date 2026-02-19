@@ -92,9 +92,8 @@ For Databricks, use the following command:
   if (!(body || "").includes("How should the PR be classified in the release notes?")) {
     messages.push(
       "#### &#x26a0; Invalid PR template\n\n" +
-        "This PR does not appear to have been filed using the MLflow PR template. " +
-        "Please copy the PR template from [here](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md) " +
-        "and fill it out."
+        "The PR description is missing required sections. " +
+        "Please use the [PR template](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md)."
     );
   }
 

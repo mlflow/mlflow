@@ -30,7 +30,7 @@ export const GenAIChatSessionsEmptyState = () => {
 
   return (
     <div css={{ flex: 1, flexDirection: 'column', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Typography.Title level={3} color="secondary">
+      <Typography.Title level={3}>
         <FormattedMessage
           defaultMessage="Group traces from the same chat session together"
           description="Empty state title for the chat sessions table"
@@ -53,13 +53,13 @@ export const GenAIChatSessionsEmptyState = () => {
           />
         </Typography.Link>
       </Typography.Paragraph>
-      <div css={{ position: 'relative' }}>
+      <div css={{ position: 'relative', maxWidth: 600 }}>
         <SnippetCopyAction
           componentId="mlflow.chat_sessions.empty_state.example_code_copy"
           css={{ position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
           copyText={EXAMPLE_CODE}
         />
-        <CodeSnippet language="python" showLineNumbers>
+        <CodeSnippet language="python" showLineNumbers theme={theme.isDarkMode ? 'duotoneDark' : 'light'}>
           {EXAMPLE_CODE}
         </CodeSnippet>
       </div>

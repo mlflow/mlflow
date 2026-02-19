@@ -450,6 +450,10 @@ const sidebarsClassicML: SidebarsConfig = {
               type: 'doc',
               id: 'deployment/deploy-model-to-sagemaker/index',
             },
+            {
+              type: 'doc',
+              id: 'deployment/deploy-model-to-modal/index',
+            },
           ],
           link: {
             type: 'doc',

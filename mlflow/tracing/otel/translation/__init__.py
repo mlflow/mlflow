@@ -362,14 +362,11 @@ def update_token_usage(
         if isinstance(new_token_usage, str):
             new_token_usage = json.loads(new_token_usage) or {}
         if new_token_usage:
-            for key in [
-                TokenUsageKey.INPUT_TOKENS,
-                TokenUsageKey.OUTPUT_TOKENS,
-                TokenUsageKey.TOTAL_TOKENS,
-            ]:
-                current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage.get(
-                    key, 0
-                )
+            for key in TokenUsageKey.all_keys():
+                if key in new_token_usage or key in current_token_usage:
+                    current_token_usage[key] = current_token_usage.get(
+                        key, 0
+                    ) + new_token_usage.get(key, 0)
     except Exception:
         _logger.debug(
             f"Failed to update token usage with current_token_usage: {current_token_usage}, "

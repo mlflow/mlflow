@@ -11,6 +11,7 @@ import yaml
 from pydantic import ConfigDict, ValidationError, field_validator, model_validator
 from pydantic.json import pydantic_encoder
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel
 from mlflow.gateway.constants import (
@@ -72,6 +73,20 @@ class EndpointType(str, Enum):
     LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
+
+
+class GatewayRequestType(str, Enum):
+    """
+    Gateway request types for the Gateway endpoints.
+    """
+
+    UNIFIED_CHAT = "unified/chat"
+    UNIFIED_EMBEDDINGS = "unified/embeddings"
+    PASSTHROUGH_MODEL_OPENAI_CHAT = "passthrough/model/openai-chat"
+    PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS = "passthrough/model/openai-embeddings"
+    PASSTHROUGH_MODEL_OPENAI_RESPONSES = "passthrough/model/openai-responses"
+    PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES = "passthrough/model/anthropic-messages"
+    PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT = "passthrough/model/gemini-generateContent"
 
 
 class CohereConfig(ConfigModel):
@@ -285,11 +300,11 @@ def _resolve_api_key_from_input(api_key_input):
 
     Input formats accepted:
 
+    - environment variable name that stores the api key (prefixed with ``$``)
     - Path to a file as a string which will have the key loaded from it
-    - environment variable name that stores the api key
+      (only when ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE`` is ``true``)
     - the api key itself
     """
-
     if not isinstance(api_key_input, str):
         raise MlflowException.invalid_parameter_value(
             "The api key provided is not a string. Please provide either an environment "
@@ -306,15 +321,16 @@ def _resolve_api_key_from_input(api_key_input):
                 f"Environment variable {env_var_name!r} is not set"
             )
 
-    # try reading from a local path
-    file = pathlib.Path(api_key_input)
-    try:
-        if file.is_file():
-            return file.read_text()
-    except OSError:
-        # `is_file` throws an OSError if `api_key_input` exceeds the maximum filename length
-        # (e.g., 255 characters on Unix).
-        pass
+    # try reading from a local path (only for legacy YAML-config gateway)
+    if MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.get():
+        file = pathlib.Path(api_key_input)
+        try:
+            if file.is_file():
+                return file.read_text()
+        except OSError:
+            # `is_file` throws an OSError if `api_key_input` exceeds the maximum filename length
+            # (e.g., 255 characters on Unix).
+            pass
 
     # if the key itself is passed, return
     return api_key_input

@@ -4,6 +4,7 @@ from clint.rules.do_not_disable import DoNotDisable
 from clint.rules.docstring_param_order import DocstringParamOrder
 from clint.rules.empty_notebook_cell import EmptyNotebookCell
 from clint.rules.example_syntax_error import ExampleSyntaxError
+from clint.rules.except_bool_op import ExceptBoolOp
 from clint.rules.extraneous_docstring_param import ExtraneousDocstringParam
 from clint.rules.forbidden_deprecation_warning import ForbiddenDeprecationWarning
 from clint.rules.forbidden_make_judge_in_builtin_scorers import (
@@ -63,6 +64,7 @@ __all__ = [
     "DocstringParamOrder",
     "EmptyNotebookCell",
     "ExampleSyntaxError",
+    "ExceptBoolOp",
     "ExtraneousDocstringParam",
     "ForbiddenDeprecationWarning",
     "ForbiddenMakeJudgeInBuiltinScorers",
