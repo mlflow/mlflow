@@ -45,6 +45,7 @@ from mlflow.entities import (
     Trace,
     ViewType,
     Workspace,
+    WorkspaceDeletionMode,
 )
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -373,15 +374,13 @@ class MlflowClient:
             name, description, default_artifact_root=default_artifact_root
         )
 
-    def delete_workspace(self, name: str, mode: str = "RESTRICT") -> None:
+    def delete_workspace(self, name: str, mode: str = WorkspaceDeletionMode.RESTRICT) -> None:
         """Delete an existing workspace.
 
         Args:
             name: Name of the workspace to delete.
             mode: Deletion mode — ``"SET_DEFAULT"``, ``"CASCADE"``, or ``"RESTRICT"``.
         """
-        from mlflow.entities.workspace import WorkspaceDeletionMode
-
         try:
             deletion_mode = WorkspaceDeletionMode(mode)
         except ValueError:

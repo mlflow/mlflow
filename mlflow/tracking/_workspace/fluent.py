@@ -117,7 +117,7 @@ def update_workspace(
 
 
 @experimental(version="3.10.0")
-def delete_workspace(name: str, *, mode: str = "RESTRICT") -> None:
+def delete_workspace(name: str, *, mode: str = WorkspaceDeletionMode.RESTRICT) -> None:
     """Delete an existing workspace.
 
     Args:
