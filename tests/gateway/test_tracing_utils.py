@@ -4,7 +4,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.tracing_utils import (
-    _get_provider_span_info,
+    _get_model_span_info,
     aggregate_chat_stream_chunks,
     maybe_traced_gateway_call,
 )
@@ -333,7 +333,7 @@ async def test_maybe_traced_gateway_call_with_payload_kwarg(endpoint_config):
 
 
 @pytest.mark.asyncio
-async def test_get_provider_span_info_reads_child_span(endpoint_config):
+async def test_get_model_span_info_reads_child_span(endpoint_config):
     async def func_with_child_span(payload):
         with mlflow.start_span("provider/openai/gpt-4", span_type=SpanType.LLM) as child:
             child.set_attributes(
@@ -359,7 +359,7 @@ async def test_get_provider_span_info_reads_child_span(endpoint_config):
     # After the trace is exported, spans are removed from InMemoryTraceManager,
     # so we expect empty here. The actual reading happens inside the wrapper
     # while the trace is still in memory.
-    assert _get_provider_span_info(gateway_trace_id) == []
+    assert _get_model_span_info(gateway_trace_id) == []
 
 
 # ---------------------------------------------------------------------------

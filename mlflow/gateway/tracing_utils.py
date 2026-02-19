@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 import mlflow
-from mlflow.entities import SpanType
+from mlflow.entities import SpanStatus, SpanType
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
@@ -18,9 +18,10 @@ _logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
-class _ProviderSpanInfo:
+class _ModelSpanInfo:
     name: str
     attributes: dict[str, Any]
+    status: SpanStatus | None = None
     start_time_ns: int | None = None
     end_time_ns: int | None = None
 
@@ -52,24 +53,32 @@ def _gateway_span_name(endpoint_config: GatewayEndpointConfig) -> str:
     return f"gateway/{endpoint_config.endpoint_name}"
 
 
-def _gateway_span_attributes(endpoint_config: GatewayEndpointConfig) -> dict[str, str]:
-    return {
+def _gateway_span_attributes(
+    endpoint_config: GatewayEndpointConfig,
+    request_headers: dict[str, str] | None = None,
+) -> dict[str, str]:
+    attrs = {
         "endpoint_id": endpoint_config.endpoint_id,
         "endpoint_name": endpoint_config.endpoint_name,
     }
+    if request_headers:
+        host = request_headers.get("host") or request_headers.get("Host")
+        if host:
+            attrs["server_url"] = host
+    return attrs
 
 
-_PROVIDER_SPAN_ATTRIBUTE_KEYS = [
+_MODEL_SPAN_ATTRIBUTE_KEYS = [
     SpanAttributeKey.CHAT_USAGE,
     SpanAttributeKey.MODEL,
     SpanAttributeKey.MODEL_PROVIDER,
 ]
 
 
-def _get_provider_span_info(gateway_trace_id: str) -> list[_ProviderSpanInfo]:
-    """Read name and attributes from non-root provider spans within a gateway trace."""
+def _get_model_span_info(gateway_trace_id: str) -> list[_ModelSpanInfo]:
+    """Read name and attributes from non-root model spans within a gateway trace."""
     trace_manager = InMemoryTraceManager.get_instance()
-    results: list[_ProviderSpanInfo] = []
+    results: list[_ModelSpanInfo] = []
     with trace_manager.get_trace(gateway_trace_id) as trace:
         if trace is None:
             return results
@@ -77,14 +86,15 @@ def _get_provider_span_info(gateway_trace_id: str) -> list[_ProviderSpanInfo]:
             if span.parent_id is None:
                 continue
             attrs = {}
-            for key in _PROVIDER_SPAN_ATTRIBUTE_KEYS:
+            for key in _MODEL_SPAN_ATTRIBUTE_KEYS:
                 if value := span.get_attribute(key):
                     attrs[key] = value
             if attrs:
                 results.append(
-                    _ProviderSpanInfo(
+                    _ModelSpanInfo(
                         name=span.name,
                         attributes=attrs,
+                        status=span.status,
                         start_time_ns=span.start_time_ns,
                         end_time_ns=span.end_time_ns,
                     )
@@ -96,7 +106,20 @@ def _maybe_create_distributed_span(
     request_headers: dict[str, str] | None,
     endpoint_config: GatewayEndpointConfig,
 ) -> None:
-    """Create a distributed span if traceparent header is present."""
+    """Create lightweight mirror spans under the caller's distributed trace.
+
+    When a ``traceparent`` header is present the gateway already records a
+    full trace (with payloads) in its own experiment.  This helper attaches a
+    *summary* to the caller's trace so that the caller can see gateway
+    activity without duplicating large request/response bodies.
+
+    The resulting shape in the caller's trace looks like::
+
+        [caller span]
+          └── gateway/<endpoint>          # attributes: endpoint info + linked trace id
+                ├── model/<provider>/<m>   # attributes: usage, model, status
+                └── model/<provider>/<m>   # (one per non-root gateway span)
+    """
     if not request_headers or not _has_traceparent(request_headers):
         return
 
@@ -104,7 +127,7 @@ def _maybe_create_distributed_span(
     if span := mlflow.get_current_active_span():
         gateway_trace_id = span.trace_id
 
-    provider_infos = _get_provider_span_info(gateway_trace_id) if gateway_trace_id else []
+    model_infos = _get_model_span_info(gateway_trace_id) if gateway_trace_id else []
 
     try:
         with set_tracing_context_from_http_request_headers(request_headers):
@@ -112,20 +135,23 @@ def _maybe_create_distributed_span(
                 name=_gateway_span_name(endpoint_config),
                 span_type=SpanType.LLM,
             ) as gw_span:
-                attrs = _gateway_span_attributes(endpoint_config)
+                attrs = _gateway_span_attributes(endpoint_config, request_headers)
                 if gateway_trace_id:
                     attrs[SpanAttributeKey.LINKED_GATEWAY_TRACE_ID] = gateway_trace_id
                 gw_span.set_attributes(attrs)
 
-                for info in provider_infos:
-                    provider_span = mlflow.start_span_no_context(
+                for info in model_infos:
+                    model_span = mlflow.start_span_no_context(
                         name=info.name,
                         span_type=SpanType.LLM,
                         parent_span=gw_span,
                         attributes=info.attributes,
                         start_time_ns=info.start_time_ns,
                     )
-                    provider_span.end(end_time_ns=info.end_time_ns)
+                    model_span.end(
+                        status=info.status,
+                        end_time_ns=info.end_time_ns,
+                    )
     except Exception:
         _logger.debug("Failed to create distributed trace span for gateway call", exc_info=True)
 
@@ -159,7 +185,7 @@ def maybe_traced_gateway_call(
 
     trace_kwargs = {
         "name": _gateway_span_name(endpoint_config),
-        "attributes": _gateway_span_attributes(endpoint_config),
+        "attributes": _gateway_span_attributes(endpoint_config, request_headers),
         "output_reducer": output_reducer,
         "trace_destination": MlflowExperimentLocation(endpoint_config.experiment_id),
     }
