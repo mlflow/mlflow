@@ -196,13 +196,12 @@ def _aggregate_from_spans(
         keys: Keys to aggregate. Always included in the result.
         default: Default value (0 for int, 0.0 for float) that also determines return type.
         optional_keys: Additional keys to aggregate. Only included in the result
-            when their aggregated value is non-zero.
+            when the key is present in the span attribute.
 
     Returns:
         Aggregated dictionary with the keys, or None if no data found.
     """
-    all_keys = keys + (optional_keys or [])
-    totals: dict[str, int | float] = dict.fromkeys(all_keys, default)
+    totals: dict[str, int | float] = dict.fromkeys(keys, default)
     has_data = False
 
     span_id_to_spans = {span.span_id: span for span in spans}
@@ -223,8 +222,11 @@ def _aggregate_from_spans(
         span_has_data = data is not None
 
         if span_has_data and not ancestor_has_data:
-            for k in all_keys:
+            for k in keys:
                 totals[k] += data.get(k, default)
+            for k in optional_keys or []:
+                if k in data:
+                    totals[k] = totals.get(k, default) + data[k]
             has_data = True
 
         next_ancestor_has_data = ancestor_has_data or span_has_data
@@ -237,11 +239,7 @@ def _aggregate_from_spans(
     if not has_data:
         return None
 
-    result = {k: totals[k] for k in keys}
-    for k in optional_keys or []:
-        if totals[k]:
-            result[k] = totals[k]
-    return result
+    return totals
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
@@ -300,9 +298,9 @@ def calculate_cost_by_model_and_token_usage(
         return None
 
     cache_kwargs = {}
-    if cached := usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS):
+    if (cached := usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS)) is not None:
         cache_kwargs["cache_read_input_tokens"] = cached
-    if created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS):
+    if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
         cache_kwargs["cache_creation_input_tokens"] = created
 
     try:
