@@ -13,7 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.label_schemas.label_schemas import LabelSchema
 from mlflow.genai.labeling.databricks_utils import get_databricks_review_app
 from mlflow.genai.labeling.labeling import LabelingSession
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme
@@ -293,6 +293,168 @@ class LabelingStoreRegistry:
         return builder(tracking_uri=resolved_store_uri)
 
 
+class MlflowTrackingLabelingStore(AbstractLabelingStore):
+    """
+    MLflow tracking store that provides labeling functionality through the tracking store.
+    This store delegates all labeling operations to the underlying tracking store.
+    """
+
+    def __init__(self, tracking_uri=None):
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        self._tracking_store = _get_store(tracking_uri)
+
+    def get_labeling_session(self, run_id: str) -> LabelingSession:
+        """Get a labeling session by MLflow run ID."""
+        # OSS backend doesn't use run IDs for labeling sessions
+        # Instead, we need to use the labeling_session_id directly
+        raise MlflowException(
+            "get_labeling_session by run_id is not supported in OSS MLflow. "
+            "Use get_labeling_sessions() to list all sessions.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    def get_labeling_sessions(self, experiment_id: str | None = None) -> list[LabelingSession]:
+        """Get all labeling sessions for an experiment."""
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        experiment_id = experiment_id or _get_experiment_id()
+        session_entities = self._tracking_store.list_labeling_sessions(int(experiment_id))
+        return [
+            LabelingSession(
+                name=entity.name,
+                labeling_session_id=entity.labeling_session_id,
+                experiment_id=str(entity.experiment_id),
+                # OSS backend doesn't support these Databricks-specific fields
+                mlflow_run_id=None,
+                review_app_id=None,
+                assigned_users=[],
+                agent=None,
+                label_schemas=[],
+                url=None,
+                enable_multi_turn_chat=False,
+                custom_inputs=None,
+            )
+            for entity in session_entities
+        ]
+
+    def create_labeling_session(
+        self,
+        name: str,
+        *,
+        assigned_users: list[str] | None = None,
+        agent: str | None = None,
+        label_schemas: list[str] | None = None,
+        enable_multi_turn_chat: bool = False,
+        custom_inputs: dict[str, Any] | None = None,
+        experiment_id: str | None = None,
+    ) -> LabelingSession:
+        """Create a new labeling session."""
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        experiment_id = experiment_id or _get_experiment_id()
+
+        # OSS backend ignores Databricks-specific parameters
+        session_entity = self._tracking_store.create_labeling_session(
+            int(experiment_id), name
+        )
+
+        return LabelingSession(
+            name=session_entity.name,
+            labeling_session_id=session_entity.labeling_session_id,
+            experiment_id=str(session_entity.experiment_id),
+            # OSS backend doesn't support these Databricks-specific fields
+            mlflow_run_id=None,
+            review_app_id=None,
+            assigned_users=assigned_users or [],
+            agent=agent,
+            label_schemas=label_schemas or [],
+            url=None,
+            enable_multi_turn_chat=enable_multi_turn_chat,
+            custom_inputs=custom_inputs,
+        )
+
+    def delete_labeling_session(self, labeling_session: LabelingSession) -> None:
+        """Delete a labeling session."""
+        self._tracking_store.delete_labeling_session(labeling_session.labeling_session_id)
+
+    def get_label_schema(self, name: str) -> LabelSchema:
+        """Get a label schema by name."""
+        # For OSS, we need to know which session the schema belongs to
+        # This is a limitation of the OSS backend vs Databricks
+        raise MlflowException(
+            "get_label_schema by name alone is not supported in OSS MLflow. "
+            "Label schemas are scoped to labeling sessions in OSS.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    def create_label_schema(
+        self,
+        name: str,
+        *,
+        type: str,
+        title: str,
+        input: Any,
+        instruction: str | None = None,
+        enable_comment: bool = False,
+        overwrite: bool = False,
+    ) -> LabelSchema:
+        """Create a new label schema."""
+        # OSS backend requires schemas to be created within a session context
+        raise MlflowException(
+            "create_label_schema is not supported in OSS MLflow. "
+            "Use the tracking store API to create schemas within a session.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    def delete_label_schema(self, name: str) -> None:
+        """Delete a label schema."""
+        raise MlflowException(
+            "delete_label_schema is not supported in OSS MLflow. "
+            "Use the tracking store API to delete schemas within a session.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    def add_dataset_to_session(
+        self,
+        labeling_session: LabelingSession,
+        dataset_name: str,
+        record_ids: list[str] | None = None,
+    ) -> LabelingSession:
+        """Add a dataset to a labeling session."""
+        raise MlflowException(
+            "add_dataset_to_session is not yet supported in OSS MLflow.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    def add_traces_to_session(
+        self,
+        labeling_session: LabelingSession,
+        traces: list[Trace],
+    ) -> LabelingSession:
+        """Add traces to a labeling session."""
+        raise MlflowException(
+            "add_traces_to_session is not yet supported in OSS MLflow.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    def sync_session_expectations(self, labeling_session: LabelingSession, dataset: str) -> None:
+        """Sync traces and expectations from a labeling session to a dataset."""
+        raise MlflowException(
+            "sync_session_expectations is not yet supported in OSS MLflow.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    def set_session_assigned_users(
+        self, labeling_session: LabelingSession, assigned_users: list[str]
+    ) -> LabelingSession:
+        """Set the assigned users for a labeling session."""
+        raise MlflowException(
+            "set_session_assigned_users is not yet supported in OSS MLflow.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 class DatabricksLabelingStore(AbstractLabelingStore):
     """
     Databricks store that provides labeling functionality through the Databricks API.
@@ -473,6 +635,12 @@ _labeling_store_registry = LabelingStoreRegistry()
 
 def _register_labeling_stores() -> None:
     """Register the default labeling store implementations"""
+    from mlflow.store.db.db_types import DATABASE_ENGINES
+
+    # Register for database schemes (these will use MlflowTrackingLabelingStore)
+    for scheme in DATABASE_ENGINES + ["http", "https"]:
+        _labeling_store_registry.register(scheme, MlflowTrackingLabelingStore)
+
     # Register Databricks store
     _labeling_store_registry.register("databricks", DatabricksLabelingStore)
 
