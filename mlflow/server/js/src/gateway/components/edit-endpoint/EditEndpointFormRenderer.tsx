@@ -94,7 +94,7 @@ export const EditEndpointFormRenderer = ({
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(tabFromUrl || 'configuration');
@@ -197,7 +197,13 @@ export const EditEndpointFormRenderer = ({
       <Tabs.Root
         componentId="mlflow.gateway.endpoint.tabs"
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value)}
+        onValueChange={(value) => {
+          setActiveTab(value);
+          setSearchParams((params) => {
+            params.set('tab', value);
+            return params;
+          }, { replace: true });
+        }}
         css={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
       >
         <div css={{ paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }}>
