@@ -25,7 +25,6 @@ from mlflow.environment_variables import (
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import is_uc_table_tracing
 
 # ============================================================================
 # CONSTANTS
@@ -573,13 +572,6 @@ def _finalize_trace(
                 **in_memory_trace.info.trace_metadata,
                 **metadata,
             }
-            if is_uc_table_tracing():
-                for meta_key, attr_key in (
-                    (TraceMetadataKey.TRACE_USER, SpanAttributeKey.USER_ID),
-                    (TraceMetadataKey.TRACE_SESSION, SpanAttributeKey.SESSION_ID),
-                ):
-                    if value := in_memory_trace.info.trace_metadata.get(meta_key):
-                        parent_span.set_attribute(attr_key, value)
     except Exception as e:
         get_logger().warning("Failed to update trace metadata and previews: %s", e)
 
