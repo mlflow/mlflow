@@ -93,6 +93,7 @@ export const ExperimentsHomeView = ({
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: theme.spacing.md,
+          paddingRight: theme.spacing.sm,
         }}
       >
         <Typography.Title level={3} css={{ margin: 0 }}>

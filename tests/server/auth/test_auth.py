@@ -29,9 +29,11 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.routes import (
+    AJAX_LIST_USERS,
     CREATE_REGISTERED_MODEL_PERMISSION,
     GET_REGISTERED_MODEL_PERMISSION,
     GET_SCORER_PERMISSION,
+    LIST_USERS,
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -114,6 +116,27 @@ def test_proxy_artifact_path_detection():
     assert auth_module._is_proxy_artifact_path("/ajax-api/2.0/mlflow-artifacts/artifacts/foo")
 
 
+def test_proxy_artifact_mpu_path_detection():
+    # MPU create/complete/abort paths should be recognized as proxy artifact paths
+    for action in ("create", "complete", "abort"):
+        assert auth_module._is_proxy_artifact_path(
+            f"/api/2.0/mlflow-artifacts/mpu/{action}/1/run-id/artifacts/model"
+        )
+        assert auth_module._is_proxy_artifact_path(
+            f"/ajax-api/2.0/mlflow-artifacts/mpu/{action}/1/run-id/artifacts/model"
+        )
+
+    # Non-artifact paths should not match
+    assert not auth_module._is_proxy_artifact_path("/api/2.0/mlflow/experiments/get")
+
+
+def test_proxy_artifact_mpu_validator_returns_update_for_post():
+    validator = auth_module._get_proxy_artifact_validator(
+        "POST", {"artifact_path": "1/run-id/artifacts/model"}
+    )
+    assert validator is auth_module.validate_can_update_experiment_artifact_proxy
+
+
 def test_proxy_artifact_authorization_required(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -127,6 +150,26 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
             + f"/ajax-api/2.0/mlflow-artifacts/artifacts/{experiment_id}/test.txt"
         ),
         data=b"forbidden",
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("mpu_action", ["create", "complete", "abort"])
+def test_mpu_authorization_required(client, monkeypatch, mpu_action):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment(f"mpu-authz-test-{mpu_action}")
+
+    # user2 has no permission on user1's experiment — expect 403
+    response = requests.post(
+        url=(
+            client.tracking_uri
+            + f"/api/2.0/mlflow-artifacts/mpu/{mpu_action}/{experiment_id}/artifacts/model"
+        ),
+        json={"path": "python_model.pkl", "num_parts": 1},
         auth=(username2, password2),
     )
     assert response.status_code == 403
@@ -2426,6 +2469,97 @@ def test_gateway_endpoint_invocation_requires_use_permission(fastapi_client, mon
         ).raise_for_status()
 
 
+def test_otel_unauthenticated_access_denied(fastapi_client, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
+
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/v1/traces",
+        headers={"Content-Type": "application/x-protobuf", "X-Mlflow-Experiment-Id": "1"},
+        data=b"",
+    )
+    assert response.status_code == 401
+
+
+def test_otel_experiment_permission(fastapi_client, monkeypatch):
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
+
+    # user1 creates an experiment
+    with User(user1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment("otel_permission_test")
+
+    # Grant READ permission to user2 (not enough for writing traces)
+    _send_rest_tracking_post_request(
+        fastapi_client.tracking_uri,
+        "/api/2.0/mlflow/experiments/permissions/create",
+        json_payload={
+            "experiment_id": experiment_id,
+            "username": user2,
+            "permission": "READ",
+        },
+        auth=(user1, password1),
+    )
+
+    # user2 cannot write traces (READ doesn't grant can_update)
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/v1/traces",
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-Mlflow-Experiment-Id": experiment_id,
+        },
+        data=b"",
+        auth=(user2, password2),
+    )
+    assert response.status_code == 403
+
+    # Grant EDIT permission to user2
+    requests.patch(
+        url=fastapi_client.tracking_uri + "/api/2.0/mlflow/experiments/permissions/update",
+        json={
+            "experiment_id": experiment_id,
+            "username": user2,
+            "permission": "EDIT",
+        },
+        auth=(user1, password1),
+    )
+
+    # user2 can now write traces (EDIT grants can_update)
+    # The request may fail for other reasons (invalid protobuf) but should pass permission check
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/v1/traces",
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-Mlflow-Experiment-Id": experiment_id,
+        },
+        data=b"",
+        auth=(user2, password2),
+    )
+    assert response.status_code != 403
+
+
+def test_job_api_unauthenticated_access_denied(fastapi_client, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
+
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/ajax-api/3.0/jobs/search",
+        json={},
+    )
+    assert response.status_code == 401
+
+
+def test_assistant_unauthenticated_access_denied(fastapi_client, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
+
+    response = requests.post(
+        url=fastapi_client.tracking_uri + "/ajax-api/3.0/mlflow/assistant/chat",
+        json={"messages": []},
+    )
+    assert response.status_code == 401
+
+
 def test_get_online_scoring_configs_with_auth(client, monkeypatch):
     username, password = create_user(client.tracking_uri)
 
@@ -2460,3 +2594,47 @@ def test_get_online_scoring_configs_with_auth(client, monkeypatch):
         data = response.json()
         assert "configs" in data
         assert isinstance(data["configs"], list)
+
+
+def test_list_users(client):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, _password2 = create_user(client.tracking_uri)
+
+    # Admin can list all users
+    response = requests.get(
+        url=client.tracking_uri + LIST_USERS,
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "users" in data
+    usernames = [u["username"] for u in data["users"]]
+    assert ADMIN_USERNAME in usernames
+    assert username1 in usernames
+    assert username2 in usernames
+    for user in data["users"]:
+        assert "id" in user
+        assert "username" in user
+        assert "password" not in user
+        assert "password_hash" not in user
+
+    # Unauthenticated request should fail
+    response = requests.get(url=client.tracking_uri + LIST_USERS)
+    assert response.status_code == 401
+
+    # Non-admin user should not be able to list all users
+    response = requests.get(
+        url=client.tracking_uri + LIST_USERS,
+        auth=(username1, password1),
+    )
+    assert response.status_code == 403
+
+    # Ajax API path should also work for admin
+    response = requests.get(
+        url=client.tracking_uri + AJAX_LIST_USERS,
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "users" in data
+    assert len(data["users"]) >= 3

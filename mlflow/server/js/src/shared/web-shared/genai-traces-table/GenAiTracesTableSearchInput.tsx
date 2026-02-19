@@ -36,7 +36,8 @@ export function GenAiTracesTableSearchInput({
       placeholder={
         placeholder ??
         intl.formatMessage({
-          defaultMessage: 'Search traces by request',
+          // This behavior is specific to OSS. Databricks searches traces by request only.
+          defaultMessage: 'Search traces by id, request, or response',
           description: 'Placeholder text for the search input in the trace results table',
         })
       }

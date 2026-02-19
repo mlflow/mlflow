@@ -22,7 +22,7 @@ import {
 import 'react-virtualized/styles.css';
 import type { ExperimentEntity } from '../types';
 import type { ColumnDef, OnChangeFn, RowSelectionState, SortingState } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import { isEmpty } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../common/utils/Utils';
@@ -69,6 +69,7 @@ const useExperimentsTableColumns = () => {
         id: 'creation_time',
         accessorFn: ({ creationTime }) => Utils.formatTimestamp(creationTime, intl),
         enableSorting: true,
+        sortingFn: (rowA, rowB) => Number(rowA.original.creationTime ?? 0) - Number(rowB.original.creationTime ?? 0),
       },
       {
         header: intl.formatMessage({
@@ -78,6 +79,8 @@ const useExperimentsTableColumns = () => {
         id: 'last_update_time',
         accessorFn: ({ lastUpdateTime }) => Utils.formatTimestamp(lastUpdateTime, intl),
         enableSorting: true,
+        sortingFn: (rowA, rowB) =>
+          Number(rowA.original.lastUpdateTime ?? 0) - Number(rowB.original.lastUpdateTime ?? 0),
       },
       {
         header: intl.formatMessage({
@@ -132,6 +135,7 @@ export const ExperimentListTable = ({
     data: experiments ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getRowId: (row) => row.experimentId,
     enableRowSelection: true,
     enableMultiRowSelection: true,
