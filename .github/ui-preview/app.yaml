@@ -1,0 +1,8 @@
+command:
+  - "python"
+  - "app.py"
+env:
+  - name: MLFLOW_SERVER_CORS_ALLOWED_ORIGINS
+    value: "*"
+  - name: MLFLOW_SERVER_ALLOWED_HOSTS
+    value: "*"
