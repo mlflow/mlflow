@@ -270,3 +270,12 @@ export interface SecretsConfigResponse {
   secrets_available: boolean;
   using_default_passphrase: boolean;
 }
+
+export interface UserInfo {
+  id: number;
+  username: string;
+}
+
+export interface ListUsersResponse {
+  users: UserInfo[];
+}

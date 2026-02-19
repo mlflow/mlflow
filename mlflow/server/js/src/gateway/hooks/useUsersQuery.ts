@@ -1,25 +1,10 @@
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { fetchEndpoint } from '../../common/utils/FetchUtils';
-
-interface UserInfo {
-  id: number;
-  username: string;
-}
-
-interface ListUsersResponse {
-  users: UserInfo[];
-}
-
-const queryFn = () => {
-  return fetchEndpoint({
-    relativeUrl: 'ajax-api/2.0/mlflow/users/list',
-    error: () => {},
-  }) as Promise<ListUsersResponse>;
-};
+import { GatewayApi } from '../api';
+import type { ListUsersResponse } from '../types';
 
 export const useUsersQuery = () => {
   const queryResult = useQuery<ListUsersResponse, Error>(['auth_users'], {
-    queryFn,
+    queryFn: GatewayApi.listUsers,
     retry: false,
     refetchOnWindowFocus: false,
   });
