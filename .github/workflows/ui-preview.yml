@@ -47,13 +47,12 @@ jobs:
             echo "has-js-changes=false" >> $GITHUB_OUTPUT
           fi
 
-  deploy:
+  build:
     needs: should-run
     if: needs.should-run.outputs.has-js-changes == 'true'
-    runs-on: ubuntu-ui-preview
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -98,11 +97,6 @@ jobs:
             exit 1
           fi
 
-      - name: Install Databricks CLI
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
-          databricks --version
-
       - name: Prepare app files
         run: |
           mkdir -p /tmp/app-deploy
@@ -111,6 +105,31 @@ jobs:
           cp .github/ui-preview/app.py /tmp/app-deploy/
           cp .github/ui-preview/app.yaml /tmp/app-deploy/
           echo "$WHEEL_NAME" > /tmp/app-deploy/requirements.txt
+
+      - name: Upload app files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-deploy
+          path: /tmp/app-deploy/
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-ui-preview
+    permissions:
+      pull-requests: write
+    timeout-minutes: 30
+    steps:
+      - name: Download app files
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          name: app-deploy
+          path: /tmp/app-deploy
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks --version
 
       - name: Create or update app
         id: app
