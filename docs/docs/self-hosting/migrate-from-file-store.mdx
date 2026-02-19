@@ -8,7 +8,7 @@ If you have existing data in a file-based backend (`./mlruns`), you can migrate 
 
 ## Prerequisites
 
-MLflow 3.10 or later installed. Run the following command to upgrade if needed:
+You must have MLflow 3.10 or later installed. Run the following command to upgrade if needed:
 
 ```bash
 pip install 'mlflow>=3.10'
@@ -22,9 +22,9 @@ If you're running a tracking server, stop it before migrating. Then run:
 mlflow migrate-filestore --source /path/to/mlruns --target sqlite:///path/to/mlflow.db
 ```
 
-This reads all data from the specified directory and writes it to the specified SQLite database. The migration is atomic. If any error occurs, the entire migration is rolled back and the database remains empty, so you can safely re-run the command after fixing the issue.
+This reads all data from the specified directory and writes it to the specified SQLite database. The migration is atomic for the migrated data: if any error occurs, all inserted rows are rolled back and no migrated data is committed, so you can safely re-run the command after fixing the issue.
 
-Once complete, start the server with the new database. If you haven't explicitly set a `--backend-store-uri`, MLflow uses `./mlruns` in the current working directory by default, so make sure to point it to the new database:
+Once complete, start the server with the new database. If you haven't explicitly set a `--backend-store-uri`, the tracking server will use `./mlruns` if existing file-based experiment data is found there, and fall back to `sqlite:///mlflow.db` otherwise. To avoid relying on these defaults, explicitly point the server to the new database:
 
 ```bash
 mlflow server --backend-store-uri sqlite:///path/to/mlflow.db
