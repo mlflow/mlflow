@@ -15,7 +15,10 @@ def test_display_outputs_jupyter(monkeypatch):
     with (
         mock.patch("IPython.display.display") as mock_display,
         mock.patch.object(display_utils, "_get_store", return_value=mock_store),
-        mock.patch.object(display_utils, "_is_jupyter", return_value=True),
+        mock.patch(
+            "mlflow.tracking.context.jupyter_notebook_context._is_in_jupyter_notebook",
+            return_value=True,
+        ),
         mlflow.start_run() as run,
     ):
         display_utils.display_evaluation_output(run.info.run_id)
@@ -33,7 +36,10 @@ def test_display_outputs_non_ipython(capsys):
 
     with (
         mock.patch.object(display_utils, "_get_store", return_value=mock_store),
-        mock.patch.object(display_utils, "_is_jupyter", return_value=False),
+        mock.patch(
+            "mlflow.tracking.context.jupyter_notebook_context._is_in_jupyter_notebook",
+            return_value=False,
+        ),
         mlflow.start_run() as run,
     ):
         display_utils.display_evaluation_output(run.info.run_id)
@@ -58,7 +64,10 @@ def test_display_outputs_databricks(monkeypatch):
         with (
             mock.patch("IPython.display.display") as mock_display,
             mock.patch.object(display_utils, "_get_store", return_value=mock_store),
-            mock.patch.object(display_utils, "_is_jupyter", return_value=True),
+            mock.patch(
+                "mlflow.tracking.context.jupyter_notebook_context._is_in_jupyter_notebook",
+                return_value=True,
+            ),
             mock.patch.object(display_utils, "is_databricks_uri", return_value=True),
         ):
             display_utils.display_evaluation_output(run.info.run_id)
