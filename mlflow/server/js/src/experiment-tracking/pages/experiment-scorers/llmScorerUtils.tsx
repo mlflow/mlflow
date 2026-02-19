@@ -5,10 +5,10 @@ import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-expl
 import { getModelTraceId, isV3ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { SESSION_TEMPLATE_VARIABLES, TEMPLATE_VARIABLES } from '../../utils/evaluationUtils';
 import { ScorerEvaluationScope } from './constants';
+import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
 import {
   isFeedbackAssessmentInJudgeEvaluationResult,
   isSessionJudgeEvaluationResult,
-  JudgeEvaluationResult,
 } from './useEvaluateTraces.common';
 import { first } from 'lodash';
 

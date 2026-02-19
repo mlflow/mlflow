@@ -122,19 +122,18 @@ module.exports = async ({ context, github }) => {
         const days = Math.floor((Date.now() - lastActivity) / MS_PER_DAY);
         console.log(`Closing PR ${pr.url} (inactive for ${days} days)`);
 
-        // TODO: Uncomment once we've verified the workflow logs look correct
-        // await github.rest.issues.createComment({
-        //   owner,
-        //   repo,
-        //   issue_number: pr.number,
-        //   body: CLOSE_MESSAGE,
-        // });
-        // await github.rest.pulls.update({
-        //   owner,
-        //   repo,
-        //   pull_number: pr.number,
-        //   state: "closed",
-        // });
+        await github.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: pr.number,
+          body: CLOSE_MESSAGE,
+        });
+        await github.rest.pulls.update({
+          owner,
+          repo,
+          pull_number: pr.number,
+          state: "closed",
+        });
         closeCount++;
       }
     }
