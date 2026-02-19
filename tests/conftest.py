@@ -12,6 +12,7 @@ import sys
 import tempfile
 import threading
 import time
+from tkinter import Y
 import uuid
 from collections import defaultdict
 from contextlib import nullcontext
@@ -1231,7 +1232,8 @@ def mock_litellm_cost():
         import litellm  # noqa: F401
     except ImportError:
         # mock.patch will fail if litellm is not installed, e.g. tracing SDK test
-        return None
+        yield None
+        return
 
     def calculate_cost(model, prompt_tokens, completion_tokens):
         input_cost = prompt_tokens * 1.0
