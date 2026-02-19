@@ -12,7 +12,6 @@ import sys
 import tempfile
 import threading
 import time
-from tkinter import Y
 import uuid
 from collections import defaultdict
 from contextlib import nullcontext
