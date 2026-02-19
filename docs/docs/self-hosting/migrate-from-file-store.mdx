@@ -24,7 +24,7 @@ mlflow migrate-filestore --source /path/to/mlruns --target sqlite:///path/to/mlf
 
 This reads all data from the specified directory and writes it to the specified SQLite database. The migration is atomic. If any error occurs, the entire migration is rolled back and the database remains empty, so you can safely re-run the command after fixing the issue.
 
-Once complete, start the server with the new database:
+Once complete, start the server with the new database. If you haven't explicitly set a `--backend-store-uri`, MLflow uses `./mlruns` in the current working directory by default, so make sure to point it to the new database:
 
 ```bash
 mlflow server --backend-store-uri sqlite:///path/to/mlflow.db
