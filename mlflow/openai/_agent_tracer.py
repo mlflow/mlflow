@@ -6,7 +6,7 @@ from typing import Any
 
 import agents.tracing as oai
 from agents import add_trace_processor
-from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
+from agents.tracing import get_trace_provider
 
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_event import SpanEvent
@@ -56,7 +56,8 @@ _SPAN_TYPE_MAP = {
 
 
 def add_mlflow_trace_processor():
-    processors = GLOBAL_TRACE_PROVIDER._multi_processor._processors
+    provider = get_trace_provider()
+    processors = provider._multi_processor._processors
 
     if any(isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors):
         return
@@ -65,11 +66,12 @@ def add_mlflow_trace_processor():
 
 
 def remove_mlflow_trace_processor():
-    processors = GLOBAL_TRACE_PROVIDER._multi_processor._processors
+    provider = get_trace_provider()
+    processors = provider._multi_processor._processors
     non_mlflow_processors = [
         p for p in processors if not isinstance(p, MlflowOpenAgentTracingProcessor)
     ]
-    GLOBAL_TRACE_PROVIDER._multi_processor._processors = non_mlflow_processors
+    provider._multi_processor._processors = non_mlflow_processors
 
 
 class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):

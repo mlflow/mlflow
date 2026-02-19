@@ -10,6 +10,7 @@ try:
 except ImportError:
     pytest.skip("OpenAI SDK is not installed. Skipping tests.", allow_module_level=True)
 
+import agents.tracing.setup as _agents_tracing_setup
 from agents import Agent, Runner, function_tool, set_default_openai_client, trace
 from agents.tracing import set_trace_processors
 from openai.types.responses.function_tool import FunctionTool
@@ -22,6 +23,11 @@ from openai.types.responses.response_output_text import ResponseOutputText
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.openai._agent_tracer import (
+    MlflowOpenAgentTracingProcessor,
+    add_mlflow_trace_processor,
+    remove_mlflow_trace_processor,
+)
 from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces, purge_traces
@@ -389,3 +395,86 @@ async def test_disable_enable_autolog():
     await Runner.run(agent, messages)
 
     assert get_traces() == []
+
+
+@pytest.fixture
+def reset_global_trace_provider():
+    """Temporarily set GLOBAL_TRACE_PROVIDER to None to simulate openai-agents>=0.9.0
+    lazy-init behavior, then restore the original value after the test."""
+    original = _agents_tracing_setup.GLOBAL_TRACE_PROVIDER
+    _agents_tracing_setup.GLOBAL_TRACE_PROVIDER = None
+    yield
+    _agents_tracing_setup.GLOBAL_TRACE_PROVIDER = original
+
+
+def test_add_mlflow_trace_processor_with_lazy_init(reset_global_trace_provider):
+    """add_mlflow_trace_processor must not crash when GLOBAL_TRACE_PROVIDER is None
+    (openai-agents>=0.9.0 lazy-initializes it). It should call get_trace_provider()
+    which triggers initialization and then register the processor successfully."""
+    assert _agents_tracing_setup.GLOBAL_TRACE_PROVIDER is None
+
+    add_mlflow_trace_processor()
+
+    # get_trace_provider() should have lazily initialized it
+    assert _agents_tracing_setup.GLOBAL_TRACE_PROVIDER is not None
+    provider = _agents_tracing_setup.GLOBAL_TRACE_PROVIDER
+    processors = provider._multi_processor._processors
+    assert any(isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors)
+
+    # Cleanup
+    remove_mlflow_trace_processor()
+
+
+def test_remove_mlflow_trace_processor_with_lazy_init(reset_global_trace_provider):
+    """remove_mlflow_trace_processor must not crash when GLOBAL_TRACE_PROVIDER is None."""
+    assert _agents_tracing_setup.GLOBAL_TRACE_PROVIDER is None
+
+    # Should not raise even though GLOBAL_TRACE_PROVIDER starts as None
+    remove_mlflow_trace_processor()
+
+    assert _agents_tracing_setup.GLOBAL_TRACE_PROVIDER is not None
+
+
+def test_autolog_with_lazy_init(reset_global_trace_provider):
+    """mlflow.openai.autolog() must succeed when GLOBAL_TRACE_PROVIDER is None,
+    which reproduces the serving crash from openai-agents>=0.9.0."""
+    assert _agents_tracing_setup.GLOBAL_TRACE_PROVIDER is None
+
+    mlflow.openai.autolog()
+
+    assert _agents_tracing_setup.GLOBAL_TRACE_PROVIDER is not None
+    provider = _agents_tracing_setup.GLOBAL_TRACE_PROVIDER
+    processors = provider._multi_processor._processors
+    assert any(isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors)
+
+    # Cleanup
+    mlflow.openai.autolog(disable=True)
+
+
+def test_autolog_disable_with_lazy_init(reset_global_trace_provider):
+    """mlflow.openai.autolog(disable=True) must succeed when GLOBAL_TRACE_PROVIDER
+    is None — it should safely initialize and then remove any processors."""
+    assert _agents_tracing_setup.GLOBAL_TRACE_PROVIDER is None
+
+    mlflow.openai.autolog(disable=True)
+
+    assert _agents_tracing_setup.GLOBAL_TRACE_PROVIDER is not None
+    provider = _agents_tracing_setup.GLOBAL_TRACE_PROVIDER
+    processors = provider._multi_processor._processors
+    assert not any(isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors)
+
+
+def test_add_processor_idempotent_with_lazy_init(reset_global_trace_provider):
+    """Calling add_mlflow_trace_processor multiple times after lazy init should
+    not create duplicate processors."""
+    add_mlflow_trace_processor()
+    add_mlflow_trace_processor()
+    add_mlflow_trace_processor()
+
+    provider = _agents_tracing_setup.GLOBAL_TRACE_PROVIDER
+    processors = provider._multi_processor._processors
+    mlflow_processors = [p for p in processors if isinstance(p, MlflowOpenAgentTracingProcessor)]
+    assert len(mlflow_processors) == 1
+
+    # Cleanup
+    remove_mlflow_trace_processor()
