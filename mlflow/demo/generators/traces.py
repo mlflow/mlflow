@@ -607,6 +607,10 @@ class TracesDemoGenerator(BaseDemoGenerator):
                 DEMO_VERSION_TAG: version,
                 DEMO_TRACE_TYPE_TAG: "session",
             },
+            attributes={
+                SpanAttributeKey.USER_ID: trace_def.session_user or "user",
+                SpanAttributeKey.SESSION_ID: versioned_session_id,
+            },
             start_time_ns=start_ns,
         )
 
