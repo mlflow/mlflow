@@ -1790,4 +1790,71 @@ describe('createMlflowSearchFilter', () => {
     expect(filterString).toContain("attributes.status = 'OK'");
     expect(filterString).toContain(' AND ');
   });
+
+  test('escapes single quotes in search query', () => {
+    const searchQuery = "it's working";
+    const filterString = createMlflowSearchFilter(undefined, undefined, undefined, undefined, searchQuery);
+
+    expect(filterString).toBe("trace.text ILIKE '%it''s working%'");
+  });
+
+  test('escapes percent signs in search query', () => {
+    const searchQuery = '90%';
+    const filterString = createMlflowSearchFilter(undefined, undefined, undefined, undefined, searchQuery);
+
+    expect(filterString).toBe("trace.text ILIKE '%90%%%'");
+  });
+
+  test('escapes both single quotes and percent signs in search query', () => {
+    const searchQuery = "it's 90%";
+    const filterString = createMlflowSearchFilter(undefined, undefined, undefined, undefined, searchQuery);
+
+    expect(filterString).toBe("trace.text ILIKE '%it''s 90%%%'");
+  });
+
+  test('escapes single quotes in network filter value', () => {
+    const networkFilters = [
+      {
+        column: SPAN_NAME_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: "user's span",
+      },
+    ];
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe("span.name ILIKE 'user''s span'");
+  });
+
+  test('escapes percent signs in ILIKE pattern with CONTAINS operator', () => {
+    const networkFilters = [
+      {
+        column: SPAN_CONTENT_COLUMN_ID,
+        operator: FilterOperator.CONTAINS,
+        value: '90%',
+      },
+    ];
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe("span.content ILIKE '%90%%%'");
+  });
+
+  test('escapes special characters in multiple filter values', () => {
+    const networkFilters = [
+      {
+        column: SPAN_NAME_COLUMN_ID,
+        operator: FilterOperator.CONTAINS,
+        value: "it's",
+      },
+      {
+        column: SPAN_TYPE_COLUMN_ID,
+        operator: FilterOperator.CONTAINS,
+        value: '100%',
+      },
+    ];
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toContain("span.name ILIKE '%it''s%'");
+    expect(filterString).toContain("span.type ILIKE '%100%%%'");
+    expect(filterString).toContain(' AND ');
+  });
 });
