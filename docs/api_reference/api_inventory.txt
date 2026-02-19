@@ -578,6 +578,7 @@ mlflow.entities.Workspace.from_dict
 mlflow.entities.Workspace.from_proto
 mlflow.entities.Workspace.to_dict
 mlflow.entities.Workspace.to_proto
+mlflow.entities.WorkspaceDeletionMode
 mlflow.entities.assessment.Assessment
 mlflow.entities.assessment.Expectation
 mlflow.entities.assessment.Feedback
@@ -695,6 +696,7 @@ mlflow.entities.webhook.WebhookEvent
 mlflow.entities.webhook.WebhookStatus
 mlflow.entities.webhook.WebhookTestResult
 mlflow.entities.workspace.Workspace
+mlflow.entities.workspace.WorkspaceDeletionMode
 mlflow.evaluate
 mlflow.exceptions.get_error_code
 mlflow.finalize_logged_model
@@ -1444,12 +1446,6 @@ mlflow.pyfunc.save_model
 mlflow.pyfunc.spark_udf
 mlflow.pyfunc.update_signature_for_type_hint_from_example
 mlflow.pyspark.ml.autolog
-mlflow.pytorch.MlflowModelCheckpointCallback
-mlflow.pytorch.MlflowModelCheckpointCallback.on_fit_start
-mlflow.pytorch.MlflowModelCheckpointCallback.on_train_batch_end
-mlflow.pytorch.MlflowModelCheckpointCallback.on_train_epoch_end
-mlflow.pytorch.MlflowModelCheckpointCallback.save_checkpoint
-mlflow.pytorch._lightning_autolog.MlflowModelCheckpointCallback
 mlflow.pytorch.autolog
 mlflow.pytorch.get_default_conda_env
 mlflow.pytorch.get_default_pip_requirements

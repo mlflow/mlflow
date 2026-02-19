@@ -122,8 +122,7 @@ def delete_workspace(name: str, *, mode: str = WorkspaceDeletionMode.RESTRICT) -
 
     Args:
         name: Name of the workspace to delete.
-        mode: Deletion mode — ``"SET_DEFAULT"`` (reassign resources to the default workspace),
-            ``"CASCADE"`` (delete all resources), or ``"RESTRICT"`` (refuse if resources exist).
+        mode: Deletion mode. One of SET_DEFAULT, CASCADE, or RESTRICT.
     """
     try:
         deletion_mode = WorkspaceDeletionMode(mode)
