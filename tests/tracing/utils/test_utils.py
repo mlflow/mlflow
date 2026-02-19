@@ -514,7 +514,7 @@ def test_get_spans_table_name_for_trace_no_destination():
 @pytest.mark.parametrize("is_databricks", [True, False])
 def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
     with (
-        mock.patch("mlflow.tracing.utils.is_databricks_uri", return_value=is_databricks),
+        mock.patch("mlflow.utils.uri.is_databricks_uri", return_value=is_databricks),
         mock.patch(
             "mlflow.entities.span.set_span_cost_attribute", wraps=lambda span: None
         ) as mock_set_cost,

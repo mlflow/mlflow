@@ -91,12 +91,12 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
 
     # Extract and normalize model name from various sources
     if SpanAttributeKey.MODEL not in attributes and (model_name := _get_model_name(attributes)):
-        attributes[SpanAttributeKey.MODEL] = model_name
+        attributes[SpanAttributeKey.MODEL] = dump_span_attribute_value(model_name)
 
     if SpanAttributeKey.MODEL_PROVIDER not in attributes and (
         model_provider := _get_model_provider(attributes)
     ):
-        attributes[SpanAttributeKey.MODEL_PROVIDER] = model_provider
+        attributes[SpanAttributeKey.MODEL_PROVIDER] = dump_span_attribute_value(model_provider)
 
     # Calculate cost if both token usage and model are available
     if (

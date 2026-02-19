@@ -739,6 +739,8 @@ def remote_backend_for_tracing_sdk_test():
                 mlflow_root,
                 "--with",
                 "setuptools<82",  # setuptools 82+ removed pkg_resources
+                "--with",
+                "litellm",  # Required for computing cost of LLM calls
                 "mlflow",
                 "server",
                 "--port",
