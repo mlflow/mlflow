@@ -34,20 +34,19 @@ from mlflow.utils.rest_utils import http_request
 # distinct tracking URIs within a single process.
 @lru_cache(maxsize=16)
 def _fetch_server_store_type(tracking_uri: str) -> str | None:
-    host_creds = get_default_host_creds(tracking_uri)
     try:
         response = http_request(
-            host_creds=host_creds,
+            host_creds=get_default_host_creds(tracking_uri),
             endpoint="/api/3.0/mlflow/server-info",
             method="GET",
             timeout=3,
             max_retries=0,
             raise_on_status=False,
         )
+        if response.status_code == 200:
+            return response.json().get("store_type")
     except Exception:
-        return None
-    if response.status_code == 200:
-        return response.json().get("store_type")
+        pass
     return None
 
 
