@@ -14,8 +14,8 @@ import { LazyTraceCostOverTimeChart } from '../../experiment-tracking/pages/expe
 import { ChartGrid } from '../../experiment-tracking/pages/experiment-overview/components/OverviewLayoutComponents';
 import { OverviewChartProvider } from '../../experiment-tracking/pages/experiment-overview/OverviewChartContext';
 import { TimeUnitSelector } from '../../experiment-tracking/pages/experiment-overview/components/TimeUnitSelector';
+import type { TimeUnit } from '../../experiment-tracking/pages/experiment-overview/utils/timeUtils';
 import {
-  TimeUnit,
   TIME_UNIT_SECONDS,
   calculateDefaultTimeUnit,
 } from '../../experiment-tracking/pages/experiment-overview/utils/timeUtils';
