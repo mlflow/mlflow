@@ -28,12 +28,10 @@ from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.utils.rest_utils import http_request
 
-_SERVER_STORE_TYPE_NOT_FETCHED = object()
-
 
 def _fetch_server_store_type(tracking_uri: str) -> str | None:
+    host_creds = get_default_host_creds(tracking_uri)
     try:
-        host_creds = get_default_host_creds(tracking_uri)
         response = http_request(
             host_creds=host_creds,
             endpoint="/api/3.0/mlflow/server-info",
@@ -42,10 +40,10 @@ def _fetch_server_store_type(tracking_uri: str) -> str | None:
             max_retries=0,
             raise_on_status=False,
         )
-        if response.status_code == 200:
-            return response.json().get("store_type")
     except Exception:
-        pass
+        return None
+    if response.status_code == 200:
+        return response.json().get("store_type")
     return None
 
 
@@ -131,7 +129,8 @@ class TelemetryClient:
         self._consumer_threads = []
         self._is_config_fetched = False
         self.config = None
-        self._server_store_type = _SERVER_STORE_TYPE_NOT_FETCHED
+        self._server_store_type_cache: dict[str, str | None] = {}
+        self._server_store_type_lock = threading.Lock()
 
     def __enter__(self):
         return self
@@ -425,12 +424,14 @@ class TelemetryClient:
     def _resolve_tracking_scheme(self, scheme: str) -> str:
         if scheme not in ("http", "https"):
             return scheme
-        if self._server_store_type is _SERVER_STORE_TYPE_NOT_FETCHED:
-            # import here to avoid circular import
-            from mlflow.tracking._tracking_service.utils import get_tracking_uri
+        # import here to avoid circular import
+        from mlflow.tracking._tracking_service.utils import get_tracking_uri
 
-            self._server_store_type = _fetch_server_store_type(get_tracking_uri())
-        return _enrich_scheme_with_store_type(scheme, self._server_store_type)
+        tracking_uri = get_tracking_uri()
+        with self._server_store_type_lock:
+            if tracking_uri not in self._server_store_type_cache:
+                self._server_store_type_cache[tracking_uri] = _fetch_server_store_type(tracking_uri)
+        return _enrich_scheme_with_store_type(scheme, self._server_store_type_cache[tracking_uri])
 
     def _update_backend_store(self):
         """

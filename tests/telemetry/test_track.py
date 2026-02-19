@@ -136,6 +136,37 @@ def test_backend_store_info_http_scheme_enrichment_cached(
     mock_fetch.assert_called_once()
 
 
+def test_backend_store_info_http_scheme_enrichment_per_uri(
+    mock_telemetry_client: TelemetryClient,
+):
+    call_count = 0
+
+    def mock_fetch(uri):
+        nonlocal call_count
+        call_count += 1
+        return {"http://server-a:5000": "FileStore", "http://server-b:5000": "SqlStore"}[uri]
+
+    with (
+        mock.patch(
+            "mlflow.telemetry.client._get_tracking_uri_info",
+            return_value=("http", True),
+        ),
+        mock.patch(
+            "mlflow.telemetry.client._fetch_server_store_type",
+            side_effect=mock_fetch,
+        ),
+    ):
+        with _use_tracking_uri("http://server-a:5000"):
+            mock_telemetry_client._update_backend_store()
+        assert mock_telemetry_client.info["tracking_uri_scheme"] == "http-file"
+
+        with _use_tracking_uri("http://server-b:5000"):
+            mock_telemetry_client._update_backend_store()
+        assert mock_telemetry_client.info["tracking_uri_scheme"] == "http-sql"
+
+    assert call_count == 2
+
+
 @pytest.mark.parametrize(
     ("status_code", "json_body", "expected"),
     [
