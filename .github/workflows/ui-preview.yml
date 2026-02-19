@@ -151,13 +151,28 @@ jobs:
               echo "Compute state: $STATE"
               if [ "$STATE" = "ACTIVE" ]; then
                 break
+              elif [ "$STATE" = "ERROR" ] || [ "$STATE" = "STOPPED" ]; then
+                echo "::error::Compute entered $STATE state"
+                exit 1
               fi
               sleep 15
             done
+            if [ "$STATE" != "ACTIVE" ]; then
+              echo "::error::Timed out waiting for compute to become ACTIVE (last state: $STATE)"
+              exit 1
+            fi
           fi
 
           URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
           echo "url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Configure CORS
+        env:
+          APP_URL: ${{ steps.app.outputs.url }}
+        run: |
+          APP_HOST="${APP_URL#https://}"
+          sed -i "s|__APP_URL__|$APP_URL|" /tmp/app-deploy/app.yaml
+          sed -i "s|__APP_HOST__|$APP_HOST|" /tmp/app-deploy/app.yaml
 
       - name: Upload files and deploy
         env:

@@ -2,6 +2,7 @@ import logging
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import mlflow.server
 from mlflow.demo import generate_all_demos
@@ -12,10 +13,9 @@ _logger = logging.getLogger(__name__)
 
 def setup():
     # Extract UI build assets into the mlflow package's expected location
-    app_dir = os.path.dirname(os.path.abspath(__file__))
-    tar_path = os.path.join(app_dir, "build.tar.gz")
-    target_dir = os.path.join(os.path.dirname(mlflow.server.__file__), "js")
-    os.makedirs(target_dir, exist_ok=True)
+    tar_path = Path(__file__).parent.resolve() / "build.tar.gz"
+    target_dir = Path(mlflow.server.__file__).parent / "js"
+    target_dir.mkdir(parents=True, exist_ok=True)
 
     _logger.info("Extracting UI assets to %s", target_dir)
     subprocess.check_call(["tar", "xzf", tar_path, "-C", target_dir])
