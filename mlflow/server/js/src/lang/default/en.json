@@ -926,10 +926,6 @@
     "defaultMessage": "No endpoints created",
     "description": "Empty state title for endpoints list"
   },
-  "513m15": {
-    "defaultMessage": "Select your workflow type. This changes the tabs that are visible in the navigation sidebar.",
-    "description": "Tooltip for workflow switch"
-  },
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
@@ -1010,6 +1006,10 @@
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
   },
+  "5hpTyI": {
+    "defaultMessage": "Explore demo",
+    "description": "Feature card explore button"
+  },
   "5jXYY4": {
     "defaultMessage": "Detailed assessments",
     "description": "Evaluation review > assessments > detailed assessments > title"
@@ -1021,10 +1021,6 @@
   "5m2VPy": {
     "defaultMessage": "Image grid",
     "description": "Experiment tracking > runs charts > add chart menu > image grid"
-  },
-  "5pkRII": {
-    "defaultMessage": "View traces",
-    "description": "Link to view traces for endpoint"
   },
   "5qRFq/": {
     "defaultMessage": "Delete",
@@ -1578,10 +1574,6 @@
     "defaultMessage": "Toggle visibility of runs",
     "description": "Experiment page > runs table > toggle visibility of runs > accessible label"
   },
-  "9HzNUt": {
-    "defaultMessage": "Unified API for multiple LLM providers with rate limiting.",
-    "description": "Feature card summary for AI Gateway"
-  },
   "9I8EpX": {
     "defaultMessage": "Automatic evaluation",
     "description": "Accordion section header for automatic evaluation settings"
@@ -1950,6 +1942,10 @@
     "defaultMessage": "Original logged model: {originalModelLink}",
     "description": "Tooltip text with link to the original logged model"
   },
+  "BZAhcC": {
+    "defaultMessage": "Go to {feature}",
+    "description": "Feature card go button"
+  },
   "BZLX5c": {
     "defaultMessage": "Track experiments, parameters, and metrics throughout training.",
     "description": "Home page quick action description for training models"
@@ -2234,6 +2230,10 @@
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in scatter chart configurator in compare runs chart config modal"
   },
+  "DbyFAV": {
+    "defaultMessage": "Judges",
+    "description": "Feature card title for judges"
+  },
   "DcGPfO": {
     "defaultMessage": "Row height",
     "description": "Label for the row height radio group"
@@ -2361,10 +2361,6 @@
   "Epo8/i": {
     "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
     "description": "Experiments page list, delete bulk experiments modal title"
-  },
-  "Eu0gxa": {
-    "defaultMessage": "Capture and debug LLM interactions and agent workflows.",
-    "description": "Feature card summary for tracing"
   },
   "EwAZgg": {
     "defaultMessage": "Edit tags",
@@ -2494,6 +2490,10 @@
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
   },
+  "FxQYyX": {
+    "defaultMessage": "Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems.",
+    "description": "Tooltip for workflow switch"
+  },
   "G/zTTY": {
     "defaultMessage": "Error",
     "description": "A generic error message for error state in MLflow UI"
@@ -2553,6 +2553,10 @@
   "GOdou5": {
     "defaultMessage": "Default Artifact Root (optional)",
     "description": "Label for artifact root field"
+  },
+  "GOr/Bm": {
+    "defaultMessage": "Try it out",
+    "description": "Feature card try it out section header"
   },
   "GRaplV": {
     "defaultMessage": "Context sufficiency",
@@ -3274,6 +3278,10 @@
     "defaultMessage": "No metrics available",
     "description": "Text shown in a disabled multi-selector when there are no selectable metrics."
   },
+  "M65Hoy": {
+    "defaultMessage": "Search traces by id, request, or response",
+    "description": "Placeholder text for the search input in the trace results table"
+  },
   "M8cEQy": {
     "defaultMessage": "No",
     "description": "Label for an assessment with a 'no' value"
@@ -3861,10 +3869,6 @@
     "defaultMessage": "Hide assessments",
     "description": "Label for the button to hide the assessments pane"
   },
-  "QMCliz": {
-    "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
-    "description": "Feature card summary for evaluation"
-  },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
@@ -3912,6 +3916,10 @@
   "QnZkGt": {
     "defaultMessage": "Not configured",
     "description": "Summary not configured"
+  },
+  "QoehKn": {
+    "defaultMessage": "Measure and compare LLM quality using built-in and custom scorers. Run offline evaluations to iterate on prompts, models, and retrieval strategies.",
+    "description": "Feature card summary for evaluation"
   },
   "QqbUt/": {
     "defaultMessage": "Search API Keys",
@@ -3984,6 +3992,10 @@
   "RRvtnM": {
     "defaultMessage": "Did the conversation avoid causing user frustration?",
     "description": "Hint for UserFrustration template"
+  },
+  "RTL614": {
+    "defaultMessage": "Version control your prompts with full history tracking. Manage aliases, collaborate across teams, and deploy prompt updates without code changes.",
+    "description": "Feature card summary for prompts"
   },
   "RUju4k": {
     "defaultMessage": "Charts",
@@ -4100,6 +4112,10 @@
   "SDClGN": {
     "defaultMessage": "Resources using this endpoint ({count})",
     "description": "Gateway > Delete endpoint modal > Bindings list header"
+  },
+  "SHoy6d": {
+    "defaultMessage": "Open full trace viewer",
+    "description": "Link to open the full trace viewer for the endpoint's experiment"
   },
   "SI6n4L": {
     "defaultMessage": "Compare",
@@ -4583,10 +4599,6 @@
   "VZRc73": {
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
     "description": "Experiment page > artifact compare view > table select dropdown tooltip"
-  },
-  "VamxJ7": {
-    "defaultMessage": "Version control and manage prompts with aliases across teams.",
-    "description": "Feature card summary for prompts"
   },
   "VcNdOq": {
     "defaultMessage": "No description",
@@ -5347,10 +5359,6 @@
     "defaultMessage": "Outputs",
     "description": "Section title for the outputs of a single chat turn"
   },
-  "aecpPo": {
-    "defaultMessage": "Track experiments with parameters, metrics, and artifacts.",
-    "description": "Feature card summary for experiments"
-  },
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -5699,10 +5707,6 @@
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
   },
-  "d402vp": {
-    "defaultMessage": "Explore Features",
-    "description": "Feature cards section title"
-  },
   "d44IPd": {
     "defaultMessage": "Reopen review",
     "description": "Evaluation review > assessments > reopen review tooltip"
@@ -5742,10 +5746,6 @@
   "dNaKCA": {
     "defaultMessage": "Created",
     "description": "Created column header"
-  },
-  "dOhi2U": {
-    "defaultMessage": "Usage log",
-    "description": "Summary usage log label"
   },
   "dPn3az": {
     "defaultMessage": "Tool",
@@ -6351,6 +6351,10 @@
     "defaultMessage": "True",
     "description": "Label for an assessment with a 'true' boolean value"
   },
+  "hX4/P0": {
+    "defaultMessage": "User:",
+    "description": "User selector label"
+  },
   "hYrjzD": {
     "defaultMessage": "Create",
     "description": "Confirm button text for create workspace modal"
@@ -6550,6 +6554,10 @@
   "igK5Su": {
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > status label > error"
+  },
+  "ijIlZG": {
+    "defaultMessage": "Read the docs",
+    "description": "Feature card docs link"
   },
   "imKpxw": {
     "defaultMessage": "ID",
@@ -6947,6 +6955,10 @@
     "defaultMessage": "No matching data found for the available runs.",
     "description": "Experiment tracking > runs charts > parallel coordinates chart preview > no data found description"
   },
+  "lWs3qq": {
+    "defaultMessage": "Learn more",
+    "description": "Feature card learn more section header"
+  },
   "lZPbxb": {
     "defaultMessage": "Hide charts with no data",
     "description": "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
@@ -7022,6 +7034,10 @@
   "mBhoMH": {
     "defaultMessage": "Last modified",
     "description": "Last modified column header"
+  },
+  "mD9M6/": {
+    "defaultMessage": "Capture and analyze LLM interactions, from simple prompts to complex multi-step agents. Debug issues, monitor performance, and understand your AI application's behavior.",
+    "description": "Feature card summary for tracing"
   },
   "mIFcgu": {
     "defaultMessage": "Cancel",
@@ -7395,6 +7411,10 @@
     "defaultMessage": "Copied from",
     "description": "Label name for source model version metadata in model version page"
   },
+  "oZnd9l": {
+    "defaultMessage": "Unified API for multiple LLM providers with rate limiting, access control, and usage tracking. Simplify your AI infrastructure management.",
+    "description": "Feature card summary for AI Gateway"
+  },
   "obI80o": {
     "defaultMessage": "Data details for",
     "description": "Text for data details for the experiment run in the dataset drawer"
@@ -7643,6 +7663,10 @@
     "defaultMessage": "Track and compare versions of your GenAI app",
     "description": "Empty state title displayed when no models are logged in the genai logged models list page"
   },
+  "qPUSeb": {
+    "defaultMessage": "Track ML experiments with parameters, metrics, and artifacts. Compare runs, visualize results, and reproduce any model training.",
+    "description": "Feature card summary for experiments"
+  },
   "qR3llD": {
     "defaultMessage": "Max tokens",
     "description": "Experiment page > prompt lab > max tokens parameter label"
@@ -7875,6 +7899,10 @@
     "defaultMessage": "You are exceeding a limit of {limit} aliases assigned to the single model version",
     "description": "Alias editor > Warning about exceeding aliases limit"
   },
+  "s2G/vI": {
+    "defaultMessage": "All users",
+    "description": "All users option"
+  },
   "s2L+xL": {
     "defaultMessage": "Error loading shared view state: share key \"{viewStateShareKey}\" does not exist",
     "description": "Experiment page > share viewstate > error > share key does not exist"
@@ -8022,6 +8050,10 @@
   "t+aG6y": {
     "defaultMessage": "User",
     "description": "Display text for the 'user' role in a GenAI chat message."
+  },
+  "t/59XU": {
+    "defaultMessage": "Logs",
+    "description": "Tab label for endpoint logs"
   },
   "t0Qkuc": {
     "defaultMessage": "Value",
@@ -8234,6 +8266,10 @@
   "uoJWOm": {
     "defaultMessage": "Overall",
     "description": "Evaluation results > known type of evaluation result assessment > overall assessment."
+  },
+  "upTu57": {
+    "defaultMessage": "Create and register LLM judges to automatically evaluate your application's outputs. Use built-in judges or define custom ones with natural language instructions.",
+    "description": "Feature card summary for judges"
   },
   "uq6CTI": {
     "defaultMessage": "No profile available",
@@ -8627,6 +8663,10 @@
     "defaultMessage": "Search prompts",
     "description": "Placeholder text for the search input in the prompts table on the logged model details page"
   },
+  "xcmW/z": {
+    "defaultMessage": "Enable Usage Tracking in the Configuration tab to view logs",
+    "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
+  },
   "xdFMIN": {
     "defaultMessage": "Dataset name",
     "description": "Dataset name label"
@@ -8858,10 +8898,6 @@
   "zMv2ev": {
     "defaultMessage": "Learn more.",
     "description": "Link text for learning more about expectations"
-  },
-  "zNWzj6": {
-    "defaultMessage": "Search traces by request",
-    "description": "Placeholder text for the search input in the trace results table"
   },
   "zRKlAL": {
     "defaultMessage": "Metadata",

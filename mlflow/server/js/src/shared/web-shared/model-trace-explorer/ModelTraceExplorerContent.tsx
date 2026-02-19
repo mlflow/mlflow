@@ -1,6 +1,6 @@
 import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { ModelTrace } from './ModelTrace.types';
+import type { ModelTrace } from './ModelTrace.types';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { useCallback } from 'react';
 import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';

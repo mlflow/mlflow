@@ -7459,15 +7459,11 @@ def test_search_traces_with_span_attributute_backticks(store: SqlAlchemyStore):
     store.log_spans(exp_id, [span1])
     store.log_spans(exp_id, [span2])
 
-    traces, _ = store.search_traces(
-        [exp_id], filter_string='span.attributes.`mlflow.spanInputs` ILIKE "%test1%"'
-    )
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%test1%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace_info_1.trace_id
 
-    traces, _ = store.search_traces(
-        [exp_id], filter_string='span.attributes.`mlflow.spanInputs` ILIKE "%test2%"'
-    )
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%test2%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace_info_2.trace_id
 

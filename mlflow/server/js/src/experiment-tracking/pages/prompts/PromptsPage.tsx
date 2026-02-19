@@ -1,6 +1,6 @@
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { usePromptsListQuery } from './hooks/usePromptsListQuery';
-import { Alert, Button, Header, Spacer } from '@databricks/design-system';
+import { Alert, Button, Header, Spacer, TextBoxIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useState } from 'react';
 import { PromptsListFilters } from './components/PromptsListFilters';
@@ -53,6 +53,7 @@ const EXPERIMENT_COMPONENT_IDS: PromptsListComponentIds = {
 };
 
 const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
+  const { theme } = useDesignSystemTheme();
   const [searchParams] = useSearchParams();
   const workspacesEnabled = shouldEnableWorkspaces();
   const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
@@ -77,34 +78,59 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
   // Only show creation buttons when: workspaces are disabled OR a workspace is selected
   const showCreationButtons = !isEmptyState && (!workspacesEnabled || workspaceFromUrl !== null);
 
-  return (
-    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      <Spacer shrinks={false} />
-      <Header
-        title={<FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />}
-        buttons={
-          showCreationButtons && (
-            <Button
-              componentId={componentIds.create}
-              data-testid="create-prompt-button"
-              type="primary"
-              onClick={openCreateVersionModal}
-            >
-              <FormattedMessage
-                defaultMessage="Create prompt"
-                description="Label for the create prompt button on the registered prompts page"
-              />
-            </Button>
-          )
-        }
+  const createButton = showCreationButtons && (
+    <Button
+      componentId={componentIds.create}
+      data-testid="create-prompt-button"
+      type="primary"
+      onClick={openCreateVersionModal}
+    >
+      <FormattedMessage
+        defaultMessage="Create prompt"
+        description="Label for the create prompt button on the registered prompts page"
       />
-      <Spacer shrinks={false} />
+    </Button>
+  );
+
+  const Wrapper = experimentId ? 'div' : ScrollablePageWrapper;
+
+  return (
+    <Wrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1 }}>
+      {!experimentId && (
+        <>
+          <Spacer shrinks={false} />
+          <Header
+            title={
+              <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                <span
+                  css={{
+                    display: 'flex',
+                    borderRadius: theme.borders.borderRadiusSm,
+                    backgroundColor: theme.colors.backgroundSecondary,
+                    padding: theme.spacing.sm,
+                  }}
+                >
+                  <TextBoxIcon />
+                </span>
+                <FormattedMessage defaultMessage="Prompts" description="Header title for the registered prompts page" />
+              </span>
+            }
+            buttons={createButton}
+          />
+          <Spacer shrinks={false} />
+        </>
+      )}
       <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <PromptsListFilters
-          searchFilter={searchFilter}
-          onSearchFilterChange={setSearchFilter}
-          componentId={componentIds.search}
-        />
+        <div css={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+          <div css={{ flex: 1 }}>
+            <PromptsListFilters
+              searchFilter={searchFilter}
+              onSearchFilterChange={setSearchFilter}
+              componentId={componentIds.search}
+            />
+          </div>
+          {experimentId && createButton}
+        </div>
         {error?.message && (
           <>
             <Alert type="error" message={error.message} componentId={componentIds.error} closable={false} />
@@ -129,7 +155,7 @@ const PromptsPage = ({ experimentId }: { experimentId?: string } = {}) => {
       </div>
       {EditTagsModal}
       {CreatePromptModal}
-    </ScrollablePageWrapper>
+    </Wrapper>
   );
 };
 

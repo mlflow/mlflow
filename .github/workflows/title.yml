@@ -8,7 +8,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/title.yml"
-      - ".github/workflows/title.py"
+      - ".github/workflows/title.js"
 
 defaults:
   run:
@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          sparse-checkout: .github/workflows/title.py
+          sparse-checkout: .github/workflows/title.js
           sparse-checkout-cone-mode: false
 
       - name: Add reaction to comment
@@ -54,17 +54,14 @@ jobs:
 
       - name: Generate new title
         id: generate
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           IS_PR: ${{ github.event_name == 'pull_request' || github.event.issue.pull_request != null }}
-        run: |
-          if [ "$IS_PR" = "true" ]; then
-            type_flag="pr"
-          else
-            type_flag="issue"
-          fi
-          new_title=$(python .github/workflows/title.py --repo "$REPO" --number "$NUMBER" --type "$type_flag")
-          echo "new_title=$new_title" >> "$GITHUB_OUTPUT"
+        with:
+          script: |
+            const script = require('./.github/workflows/title.js');
+            await script({ github, context, core });
 
       - name: Update title
         if: github.event_name != 'pull_request'

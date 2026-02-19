@@ -615,7 +615,7 @@ Required Permissions for accessing registered models:
       </td>
       <td>`2.0/mlflow/model-versions/search`</td>
       <td>`GET`</td>
-      <td>None</td>
+      <td>None (results filtered by parent model permission)</td>
     </tr>
     <tr>
       <td>
@@ -1219,7 +1219,7 @@ on that experiment, so that the creator can grant or revoke other users' access 
       </td>
       <td>`2.0/mlflow/model-versions/search`</td>
       <td>`GET`</td>
-      <td>Only returns registered models which the user has `READ` permission on.</td>
+      <td>Only returns model versions whose parent registered model the user has `READ` permission on.</td>
     </tr>
   </tbody>
 </table>
