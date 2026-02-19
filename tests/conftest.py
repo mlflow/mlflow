@@ -1227,6 +1227,11 @@ def mock_litellm_cost():
     Uses cost of 1.0 per input token and 2.0 per output token.
     Returns (input_cost, output_cost) based on the token counts passed.
     """
+    try:
+        import litellm  # noqa: F401
+    except ImportError:
+        # mock.patch will fail if litellm is not installed, e.g. tracing SDK test
+        return None
 
     def calculate_cost(model, prompt_tokens, completion_tokens):
         input_cost = prompt_tokens * 1.0
