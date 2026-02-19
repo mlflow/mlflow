@@ -922,7 +922,7 @@ th {
   color: inherit;
 }
 
-/* Style admonition links to be visible with underline */
+/* Add underline to admonition links for better visibility */
 .theme-admonition a {
   text-decoration: underline;
 }
