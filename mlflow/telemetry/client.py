@@ -7,6 +7,7 @@ import urllib.parse
 import uuid
 import warnings
 from dataclasses import asdict
+from functools import lru_cache
 from queue import Empty, Full, Queue
 from typing import Literal
 
@@ -29,6 +30,7 @@ from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_
 from mlflow.utils.rest_utils import http_request
 
 
+@lru_cache(maxsize=16)
 def _fetch_server_store_type(tracking_uri: str) -> str | None:
     host_creds = get_default_host_creds(tracking_uri)
     try:
@@ -129,8 +131,6 @@ class TelemetryClient:
         self._consumer_threads = []
         self._is_config_fetched = False
         self.config = None
-        self._server_store_type_cache: dict[str, str | None] = {}
-        self._server_store_type_lock = threading.Lock()
 
     def __enter__(self):
         return self
@@ -427,11 +427,8 @@ class TelemetryClient:
         # import here to avoid circular import
         from mlflow.tracking._tracking_service.utils import get_tracking_uri
 
-        tracking_uri = get_tracking_uri()
-        with self._server_store_type_lock:
-            if tracking_uri not in self._server_store_type_cache:
-                self._server_store_type_cache[tracking_uri] = _fetch_server_store_type(tracking_uri)
-        return _enrich_scheme_with_store_type(scheme, self._server_store_type_cache[tracking_uri])
+        store_type = _fetch_server_store_type(get_tracking_uri())
+        return _enrich_scheme_with_store_type(scheme, store_type)
 
     def _update_backend_store(self):
         """

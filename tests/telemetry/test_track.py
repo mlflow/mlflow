@@ -98,13 +98,16 @@ def test_backend_store_info(tmp_path, mock_telemetry_client: TelemetryClient, mo
     ],
 )
 def test_backend_store_info_http_scheme_enrichment(
-    mock_telemetry_client: TelemetryClient, scheme, store_type, expected_scheme
+    mock_telemetry_client: TelemetryClient,
+    scheme: str,
+    store_type: str | None,
+    expected_scheme: str,
 ):
     with (
         mock.patch(
             "mlflow.telemetry.client._get_tracking_uri_info",
             return_value=(scheme, True),
-        ),
+        ) as mock_uri_info,
         mock.patch(
             "mlflow.telemetry.client._fetch_server_store_type",
             return_value=store_type,
@@ -113,48 +116,49 @@ def test_backend_store_info_http_scheme_enrichment(
         mock_telemetry_client._update_backend_store()
 
     assert mock_telemetry_client.info["tracking_uri_scheme"] == expected_scheme
+    mock_uri_info.assert_called_once()
     mock_fetch.assert_called_once()
 
 
 def test_backend_store_info_http_scheme_enrichment_cached(
     mock_telemetry_client: TelemetryClient,
 ):
+    mock_response = mock.Mock(
+        status_code=200, json=mock.Mock(return_value={"store_type": "SqlStore"})
+    )
     with (
         mock.patch(
             "mlflow.telemetry.client._get_tracking_uri_info",
             return_value=("http", True),
-        ),
+        ) as mock_uri_info,
         mock.patch(
-            "mlflow.telemetry.client._fetch_server_store_type",
-            return_value="SqlStore",
-        ) as mock_fetch,
+            "mlflow.telemetry.client.http_request",
+            return_value=mock_response,
+        ) as mock_req,
     ):
         mock_telemetry_client._update_backend_store()
         mock_telemetry_client._update_backend_store()
 
     assert mock_telemetry_client.info["tracking_uri_scheme"] == "http-sql"
-    mock_fetch.assert_called_once()
+    assert mock_uri_info.call_count == 2
+    # http_request is called only once due to lru_cache
+    mock_req.assert_called_once()
 
 
 def test_backend_store_info_http_scheme_enrichment_per_uri(
     mock_telemetry_client: TelemetryClient,
 ):
-    call_count = 0
-
-    def mock_fetch(uri):
-        nonlocal call_count
-        call_count += 1
-        return {"http://server-a:5000": "FileStore", "http://server-b:5000": "SqlStore"}[uri]
+    uri_to_store_type = {"http://server-a:5000": "FileStore", "http://server-b:5000": "SqlStore"}
 
     with (
         mock.patch(
             "mlflow.telemetry.client._get_tracking_uri_info",
             return_value=("http", True),
-        ),
+        ) as mock_uri_info,
         mock.patch(
             "mlflow.telemetry.client._fetch_server_store_type",
-            side_effect=mock_fetch,
-        ),
+            side_effect=uri_to_store_type.get,
+        ) as mock_fetch,
     ):
         with _use_tracking_uri("http://server-a:5000"):
             mock_telemetry_client._update_backend_store()
@@ -164,7 +168,8 @@ def test_backend_store_info_http_scheme_enrichment_per_uri(
             mock_telemetry_client._update_backend_store()
         assert mock_telemetry_client.info["tracking_uri_scheme"] == "http-sql"
 
-    assert call_count == 2
+    assert mock_uri_info.call_count == 2
+    assert mock_fetch.call_count == 2
 
 
 @pytest.mark.parametrize(
