@@ -30,6 +30,8 @@ from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_
 from mlflow.utils.rest_utils import http_request
 
 
+# Cache per tracking URI; 16 is more than enough for any realistic number of
+# distinct tracking URIs within a single process.
 @lru_cache(maxsize=16)
 def _fetch_server_store_type(tracking_uri: str) -> str | None:
     host_creds = get_default_host_creds(tracking_uri)
