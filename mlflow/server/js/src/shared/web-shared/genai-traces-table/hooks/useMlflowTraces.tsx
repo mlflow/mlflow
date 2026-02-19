@@ -650,18 +650,22 @@ const buildTracesFromSearchAndArtifacts = (
 };
 
 /**
- * Escapes special characters in filter string values to prevent SQL injection
- * and malformed filter strings.
- * - Single quotes are escaped as '' (SQL standard)
- * - Percent signs are escaped as %% (for LIKE/ILIKE patterns)
+ * Escapes special characters in filter string values to help avoid malformed filter
+ * expressions and quote-termination issues in string literals.
+ * - Single quotes are escaped as '' (SQL-standard string literal escaping)
  * - Non-string values are converted to strings
+ *
+ * Note: This utility only escapes literal values. It does not validate or sanitize
+ * operators, column names, or other parts of the filter expression and should not
+ * be relied upon as a complete SQL injection defense.
+ *
+ * LIKE/ILIKE wildcards (% and _) are NOT escaped because:
+ * 1. Escaping them would break non-LIKE operators (e.g., exact match with =)
+ * 2. MLflow's backend does not support escaping wildcards as literals in LIKE patterns
  */
 const escapeFilterValue = (value: string | boolean | number | null | undefined): string => {
-  if (value === null || value === undefined) {
-    return '';
-  }
   const stringValue = String(value);
-  return stringValue.replace(/'/g, "''").replace(/%/g, '%%');
+  return stringValue.replace(/'/g, "''");
 };
 
 export const createMlflowSearchFilter = (
@@ -741,7 +745,11 @@ export const createMlflowSearchFilter = (
             networkFilter.operator === FilterOperator.IS_NOT_NULL
           ) {
             filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator}`);
-          } else if (networkFilter.value !== 'undefined') {
+          } else if (
+            networkFilter.value !== 'undefined' &&
+            networkFilter.value !== undefined &&
+            networkFilter.value !== null
+          ) {
             // Skip 'undefined' values - these must be filtered client-side since they represent
             // absence of an assessment, which cannot be queried on the backend
             filter.push(

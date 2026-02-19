@@ -1798,18 +1798,18 @@ describe('createMlflowSearchFilter', () => {
     expect(filterString).toBe("trace.text ILIKE '%it''s working%'");
   });
 
-  test('escapes percent signs in search query', () => {
+  test('does not escape percent signs in search query (treated as wildcards)', () => {
     const searchQuery = '90%';
     const filterString = createMlflowSearchFilter(undefined, undefined, undefined, undefined, searchQuery);
 
-    expect(filterString).toBe("trace.text ILIKE '%90%%%'");
+    expect(filterString).toBe("trace.text ILIKE '%90%%'");
   });
 
-  test('escapes both single quotes and percent signs in search query', () => {
+  test('escapes single quotes but not percent signs in search query', () => {
     const searchQuery = "it's 90%";
     const filterString = createMlflowSearchFilter(undefined, undefined, undefined, undefined, searchQuery);
 
-    expect(filterString).toBe("trace.text ILIKE '%it''s 90%%%'");
+    expect(filterString).toBe("trace.text ILIKE '%it''s 90%%'");
   });
 
   test('escapes single quotes in network filter value', () => {
@@ -1825,7 +1825,7 @@ describe('createMlflowSearchFilter', () => {
     expect(filterString).toBe("span.name ILIKE 'user''s span'");
   });
 
-  test('escapes percent signs in ILIKE pattern with CONTAINS operator', () => {
+  test('does not escape percent signs in ILIKE pattern with CONTAINS operator', () => {
     const networkFilters = [
       {
         column: SPAN_CONTENT_COLUMN_ID,
@@ -1835,10 +1835,10 @@ describe('createMlflowSearchFilter', () => {
     ];
     const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
 
-    expect(filterString).toBe("span.content ILIKE '%90%%%'");
+    expect(filterString).toBe("span.content ILIKE '%90%%'");
   });
 
-  test('escapes special characters in multiple filter values', () => {
+  test('escapes single quotes but preserves percent signs in multiple filter values', () => {
     const networkFilters = [
       {
         column: SPAN_NAME_COLUMN_ID,
@@ -1854,7 +1854,7 @@ describe('createMlflowSearchFilter', () => {
     const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
 
     expect(filterString).toContain("span.name ILIKE '%it''s%'");
-    expect(filterString).toContain("span.type ILIKE '%100%%%'");
+    expect(filterString).toContain("span.type ILIKE '%100%%'");
     expect(filterString).toContain(' AND ');
   });
 
@@ -1882,5 +1882,47 @@ describe('createMlflowSearchFilter', () => {
     const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
 
     expect(filterString).toBe("attributes.status = 'true'");
+  });
+
+  test('preserves percent signs as wildcards in equality operators', () => {
+    const networkFilters = [
+      {
+        column: STATE_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: '90%',
+      },
+    ];
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    // Percent sign is NOT escaped for = operator to avoid changing the value
+    expect(filterString).toBe("attributes.status = '90%'");
+  });
+
+  test('converts null to string "null"', () => {
+    const networkFilters = [
+      {
+        column: STATE_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: null,
+      },
+    ];
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe("attributes.status = 'null'");
+  });
+
+  test('skips undefined assessment values', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.ASSESSMENT,
+        operator: FilterOperator.EQUALS,
+        key: 'score',
+        value: undefined,
+      },
+    ];
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    // undefined assessment values should be skipped entirely
+    expect(filterString).toBeUndefined();
   });
 });
