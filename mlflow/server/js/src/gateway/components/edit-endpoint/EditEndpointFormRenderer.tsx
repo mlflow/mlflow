@@ -11,7 +11,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, UseFormReturn } from 'react-hook-form';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import GatewayRoutes from '../../routes';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
@@ -23,6 +23,43 @@ import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint } from '../../types';
 import { TracesV3Logs } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
+import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
+import { useMonitoringFiltersTimeRange } from '../../../experiment-tracking/hooks/useMonitoringFilters';
+import { TracesV3DateSelector } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
+
+const LogsTabContent = ({ experimentId }: { experimentId: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const timeRange = useMonitoringFiltersTimeRange();
+
+  return (
+    <>
+      <div
+        css={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: theme.spacing.sm,
+        }}
+      >
+        <TracesV3DateSelector excludeOptions={['ALL']} />
+        <Link
+          to={`/experiments/${experimentId}/traces`}
+          css={{
+            color: theme.colors.actionPrimaryBackgroundDefault,
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
+          <FormattedMessage
+            defaultMessage="Open full trace viewer"
+            description="Link to open the full trace viewer for the endpoint's experiment"
+          />
+        </Link>
+      </div>
+      <TracesV3Logs experimentId={experimentId} disableActions timeRange={timeRange} />
+    </>
+  );
+};
 
 export interface EditEndpointFormRendererProps {
   form: UseFormReturn<EditEndpointFormData>;
@@ -58,17 +95,34 @@ export const EditEndpointFormRenderer = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab');
+  const tabFromUrl = searchParams.get('tab');
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(initialTab || 'configuration');
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'configuration');
+
+  // Sync tab state when URL search params change (e.g. navigating from usage charts)
+  useEffect(() => {
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
 
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
   const experimentId = form.watch('experimentId');
 
   // Don't disable tabs that were requested via URL query param
-  const isUsageTabDisabled = !experimentId && initialTab !== 'usage';
-  const isTracesTabDisabled = !experimentId && initialTab !== 'traces';
+  const isUsageTabDisabled = !experimentId && tabFromUrl !== 'usage';
+  const isTracesTabDisabled = !experimentId && tabFromUrl !== 'traces';
+
+  const tooltipLinkUrlBuilder = useMemo(() => {
+    if (!endpoint) return undefined;
+    return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) =>
+      GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id, {
+        tab: 'traces',
+        startTime: new Date(timestampMs).toISOString(),
+        endTime: new Date(timestampMs + timeIntervalSeconds * 1000).toISOString(),
+      });
+  }, [endpoint]);
 
   const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
   const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
@@ -327,29 +381,16 @@ export const EditEndpointFormRenderer = ({
             </Tabs.Content>
 
             <Tabs.Content value="usage">
-              {experimentId && <GatewayUsageSection experimentId={experimentId} />}
+              {experimentId && (
+                <GatewayUsageSection experimentId={experimentId} tooltipLinkUrlBuilder={tooltipLinkUrlBuilder} />
+              )}
             </Tabs.Content>
 
             <Tabs.Content value="traces" css={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               {experimentId && (
-                <>
-                  <div css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}>
-                    <Link
-                      to={`/experiments/${experimentId}/traces`}
-                      css={{
-                        color: theme.colors.actionPrimaryBackgroundDefault,
-                        textDecoration: 'none',
-                        '&:hover': { textDecoration: 'underline' },
-                      }}
-                    >
-                      <FormattedMessage
-                        defaultMessage="Open full trace viewer"
-                        description="Link to open the full trace viewer for the endpoint's experiment"
-                      />
-                    </Link>
-                  </div>
-                  <TracesV3Logs experimentId={experimentId} disableActions />
-                </>
+                <MonitoringConfigProvider>
+                  <LogsTabContent experimentId={experimentId} />
+                </MonitoringConfigProvider>
               )}
             </Tabs.Content>
           </div>

@@ -419,7 +419,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
           }}
         >
           <Typography.Link
-            componentId={linkConfig.componentId}
+            componentId={linkConfig?.componentId ?? 'mlflow.overview.usage.traces.view_traces_link'}
             onClick={handleLinkClick}
             css={{
               cursor: 'pointer',
@@ -428,7 +428,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
               gap: theme.spacing.xs,
             }}
           >
-            {linkConfig.linkText ?? tooltipLinkText ?? (
+            {linkConfig?.linkText ?? tooltipLinkText ?? (
               <FormattedMessage
                 defaultMessage="View traces for this period"
                 description="Link text to navigate to traces tab filtered by the selected time period"

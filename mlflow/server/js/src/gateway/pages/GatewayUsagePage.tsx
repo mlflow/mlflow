@@ -42,8 +42,12 @@ export const GatewayUsagePage = () => {
 
   const tooltipLinkUrlBuilder = useMemo(() => {
     if (!selectedEndpoint) return undefined;
-    return (_experimentId: string, _timestampMs: number, _timeIntervalSeconds: number) =>
-      GatewayRoutes.getEndpointDetailsRoute(selectedEndpoint.endpoint_id, 'traces');
+    return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) =>
+      GatewayRoutes.getEndpointDetailsRoute(selectedEndpoint.endpoint_id, {
+        tab: 'traces',
+        startTime: new Date(timestampMs).toISOString(),
+        endTime: new Date(timestampMs + timeIntervalSeconds * 1000).toISOString(),
+      });
   }, [selectedEndpoint]);
 
   if (!isLoadingEndpoints && endpointsWithExperiments.length === 0) {

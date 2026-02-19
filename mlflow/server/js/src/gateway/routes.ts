@@ -47,12 +47,18 @@ class GatewayRoutes {
     return GatewayRoutePaths.createEndpointPage;
   }
 
-  static getEndpointDetailsRoute(endpointId: string, tab?: string) {
+  static getEndpointDetailsRoute(endpointId: string, options?: { tab?: string; startTime?: string; endTime?: string }) {
     const path = generatePath(GatewayRoutePaths.endpointDetailsPage, { endpointId });
-    if (tab) {
-      return `${path}?tab=${encodeURIComponent(tab)}`;
+    if (!options) return path;
+    const params = new URLSearchParams();
+    if (options.tab) params.set('tab', options.tab);
+    if (options.startTime) {
+      params.set('startTimeLabel', 'CUSTOM');
+      params.set('startTime', options.startTime);
     }
-    return path;
+    if (options.endTime) params.set('endTime', options.endTime);
+    const query = params.toString();
+    return query ? `${path}?${query}` : path;
   }
 }
 
