@@ -4,6 +4,14 @@ import logging
 from pathlib import Path
 
 import pytest
+from claude_agent_sdk.types import (
+    AssistantMessage,
+    ResultMessage,
+    TextBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
+)
 
 import mlflow
 import mlflow.claude_code.tracing as tracing_module
@@ -11,6 +19,7 @@ from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
     get_hook_response,
     parse_timestamp_to_ns,
+    process_sdk_messages,
     process_transcript,
     setup_logging,
 )
@@ -122,6 +131,29 @@ def test_get_hook_response_with_error():
 def test_get_hook_response_with_additional_fields():
     response = get_hook_response(custom_field="value")
     assert response == {"continue": True, "custom_field": "value"}
+
+
+# ============================================================================
+# ASYNC TRACE LOGGING UTILITY TESTS
+# ============================================================================
+
+
+def test_flush_trace_async_logging_calls_flush(monkeypatch):
+    mock_exporter = type("MockExporter", (), {"_async_queue": True})()
+    monkeypatch.setattr(tracing_module, "_get_trace_exporter", lambda: mock_exporter)
+    flushed = []
+    monkeypatch.setattr(mlflow, "flush_trace_async_logging", lambda: flushed.append(True))
+    tracing_module._flush_trace_async_logging()
+    assert len(flushed) == 1
+
+
+def test_flush_trace_async_logging_skips_without_async_queue(monkeypatch):
+    mock_exporter = object()  # no _async_queue attribute
+    monkeypatch.setattr(tracing_module, "_get_trace_exporter", lambda: mock_exporter)
+    flushed = []
+    monkeypatch.setattr(mlflow, "flush_trace_async_logging", lambda: flushed.append(True))
+    tracing_module._flush_trace_async_logging()
+    assert len(flushed) == 0
 
 
 # ============================================================================
@@ -292,3 +324,166 @@ def test_process_transcript_tracks_token_usage(mock_transcript_file_with_usage):
     assert trace.info.token_usage["input_tokens"] == 150
     assert trace.info.token_usage["output_tokens"] == 25
     assert trace.info.token_usage["total_tokens"] == 175
+
+
+# ============================================================================
+# SDK MESSAGE PROCESSING TESTS
+# ============================================================================
+
+
+def test_process_sdk_messages_empty_list():
+    assert process_sdk_messages([]) is None
+
+
+def test_process_sdk_messages_no_user_prompt():
+    messages = [
+        AssistantMessage(
+            content=[TextBlock(text="Hello!")],
+            model="claude-sonnet-4-20250514",
+        ),
+    ]
+    assert process_sdk_messages(messages) is None
+
+
+def test_process_sdk_messages_simple_conversation():
+    messages = [
+        UserMessage(content="What is 2 + 2?"),
+        AssistantMessage(
+            content=[TextBlock(text="The answer is 4.")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=1000,
+            duration_api_ms=800,
+            is_error=False,
+            num_turns=1,
+            session_id="test-sdk-session",
+            usage={"input_tokens": 100, "output_tokens": 20},
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "test-sdk-session")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    root_span = trace.data.spans[0]
+    assert root_span.name == "claude_code_conversation"
+    assert root_span.span_type == SpanType.AGENT
+
+    # LLM span should have conversation context as input in Anthropic format
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    assert len(llm_spans) == 1
+    assert llm_spans[0].name == "llm"
+    assert llm_spans[0].inputs["model"] == "claude-sonnet-4-20250514"
+    assert llm_spans[0].inputs["messages"] == [{"role": "user", "content": "What is 2 + 2?"}]
+    assert llm_spans[0].get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    # Output should be in Anthropic response format
+    outputs = llm_spans[0].outputs
+    assert outputs["type"] == "message"
+    assert outputs["role"] == "assistant"
+    assert outputs["content"] == [{"type": "text", "text": "The answer is 4."}]
+
+    # Token usage from ResultMessage should be on the root span and trace level
+    token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage["input_tokens"] == 100
+    assert token_usage["output_tokens"] == 20
+    assert token_usage["total_tokens"] == 120
+
+    assert trace.info.token_usage is not None
+    assert trace.info.token_usage["input_tokens"] == 100
+    assert trace.info.token_usage["output_tokens"] == 20
+    assert trace.info.token_usage["total_tokens"] == 120
+
+    # Duration should reflect ResultMessage.duration_ms (1000ms = 1s)
+    duration_ns = root_span.end_time_ns - root_span.start_time_ns
+    assert abs(duration_ns - 1_000_000_000) < 1_000_000  # within 1ms tolerance
+
+    assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-sdk-session"
+    assert trace.info.request_preview == "What is 2 + 2?"
+    assert trace.info.response_preview == "The answer is 4."
+
+
+def test_process_sdk_messages_multiple_tools():
+    messages = [
+        UserMessage(content="Read two files"),
+        AssistantMessage(
+            content=[
+                ToolUseBlock(id="tool_1", name="Read", input={"path": "a.py"}),
+                ToolUseBlock(id="tool_2", name="Read", input={"path": "b.py"}),
+            ],
+            model="claude-sonnet-4-20250514",
+        ),
+        UserMessage(
+            content=[
+                ToolResultBlock(tool_use_id="tool_1", content="content of a"),
+                ToolResultBlock(tool_use_id="tool_2", content="content of b"),
+            ],
+            tool_use_result={"tool_use_id": "tool_1"},
+        ),
+        AssistantMessage(
+            content=[TextBlock(text="Here are the contents.")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=2000,
+            duration_api_ms=1500,
+            is_error=False,
+            num_turns=2,
+            session_id="multi-tool-session",
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "multi-tool-session")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
+    assert len(tool_spans) == 2
+    assert all(s.name == "tool_Read" for s in tool_spans)
+    tool_results = {s.outputs["result"] for s in tool_spans}
+    assert tool_results == {"content of a", "content of b"}
+
+
+def test_process_sdk_messages_cache_tokens():
+    messages = [
+        UserMessage(content="Hello"),
+        AssistantMessage(
+            content=[TextBlock(text="Hi!")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=5000,
+            duration_api_ms=4000,
+            is_error=False,
+            num_turns=1,
+            session_id="cache-session",
+            usage={
+                "input_tokens": 36,
+                "cache_creation_input_tokens": 23554,
+                "cache_read_input_tokens": 139035,
+                "output_tokens": 3344,
+            },
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "cache-session")
+
+    assert trace is not None
+    root_span = trace.data.spans[0]
+
+    # input_tokens should include cache_creation but not cache_read: 36 + 23554 = 23590
+    token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage["input_tokens"] == 23590
+    assert token_usage["output_tokens"] == 3344
+    assert token_usage["total_tokens"] == 23590 + 3344
+
+    # Trace-level aggregation should match
+    assert trace.info.token_usage["input_tokens"] == 23590
+    assert trace.info.token_usage["output_tokens"] == 3344

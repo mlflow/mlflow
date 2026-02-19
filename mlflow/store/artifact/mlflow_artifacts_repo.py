@@ -1,9 +1,19 @@
+import logging
 import re
+from http import HTTPStatus
 from urllib.parse import urlparse, urlunparse
 
+from requests import HTTPError
+
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD,
+    MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.tracking._tracking_service.utils import get_tracking_uri
+
+_logger = logging.getLogger(__name__)
 
 
 def _check_if_host_is_numeric(hostname):
@@ -52,7 +62,9 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
     ) -> None:
         effective_tracking_uri = tracking_uri or get_tracking_uri()
         super().__init__(
-            self.resolve_uri(artifact_uri, effective_tracking_uri), tracking_uri, registry_uri
+            self.resolve_uri(artifact_uri, effective_tracking_uri),
+            tracking_uri=effective_tracking_uri,
+            registry_uri=registry_uri,
         )
 
     @classmethod
@@ -95,3 +107,38 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
         )
 
         return resolved_artifacts_uri.replace("///", "/").rstrip("/")
+
+    def _download_file(self, remote_file_path, local_path):
+        # Try multipart download via presigned URL if enabled (mlflow-artifacts only)
+        if MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD.get():
+            try:
+                presigned_response = self._get_presigned_download_url(remote_file_path)
+                file_size = presigned_response.file_size
+                if file_size is not None:
+                    chunk_size = MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get()
+                    self._multipart_download(
+                        presigned_response=presigned_response,
+                        remote_file_path=remote_file_path,
+                        local_path=local_path,
+                        file_size=file_size,
+                        chunk_size=chunk_size,
+                    )
+                    return
+            except HTTPError as e:
+                # Fall back to proxied download when server doesn't support presigned (501)
+                # or endpoint is missing (404, e.g. old server with new SDK).
+                if e.response is not None and e.response.status_code in (
+                    HTTPStatus.NOT_IMPLEMENTED,
+                    HTTPStatus.NOT_FOUND,
+                ):
+                    _logger.warning(
+                        "Multipart download was requested but the server does not support "
+                        "presigned downloads (HTTP %s). Falling back to proxied download. "
+                        "Consider setting MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD=false to "
+                        "avoid this warning and the extra presigned request on each download.",
+                        e.response.status_code,
+                    )
+                else:
+                    raise
+
+        super()._download_file(remote_file_path, local_path)

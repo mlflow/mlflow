@@ -1,8 +1,10 @@
-import { useQuery, UseQueryOptions, type UseQueryResult } from '@databricks/web-shared/query-client';
+import type { UseQueryOptions } from '@databricks/web-shared/query-client';
+import { useQuery, type UseQueryResult } from '@databricks/web-shared/query-client';
 import { UnknownError, type PredefinedError } from '@databricks/web-shared/errors';
 import type { ScheduledScorer, ScorerConfig } from '../types';
 import { convertMLflowScorerToConfig, transformScorerConfig } from '../utils/scorerTransformUtils';
-import { listScheduledScorers, getOnlineScoringConfigs, ListScorersResponse } from '../api';
+import type { ListScorersResponse } from '../api';
+import { listScheduledScorers, getOnlineScoringConfigs } from '../api';
 
 // Define response types
 export type GetScheduledScorersResponse = {
