@@ -42,9 +42,21 @@ _TOKEN_USAGE_KEY_MAPPING = {
     # OpenAI Streaming, Anthropic, etc.
     "input_tokens": TokenUsageKey.INPUT_TOKENS,
     "output_tokens": TokenUsageKey.OUTPUT_TOKENS,
-    # Cache-related keys (Anthropic)
+    # Anthropic
     "cache_read_input_tokens": TokenUsageKey.CACHE_READ_INPUT_TOKENS,
     "cache_creation_input_tokens": TokenUsageKey.CACHE_CREATION_INPUT_TOKENS,
+    # Gemini
+    "cached_content_token_count": TokenUsageKey.CACHE_READ_INPUT_TOKENS,
+}
+
+# Mapping for nested token usage details: (parent_key, child_key) -> mlflow key.
+# These are checked after flat keys, using setdefault to avoid overwriting.
+_NESTED_TOKEN_USAGE_KEY_MAPPING = {
+    # LangChain standardized format (OpenAI via LangChain)
+    ("input_token_details", "cache_read"): TokenUsageKey.CACHE_READ_INPUT_TOKENS,
+    ("input_token_details", "cache_creation"): TokenUsageKey.CACHE_CREATION_INPUT_TOKENS,
+    # Raw OpenAI response format
+    ("prompt_tokens_details", "cached_tokens"): TokenUsageKey.CACHE_READ_INPUT_TOKENS,
 }
 
 
@@ -406,6 +418,13 @@ def _parse_token_counts(usage_metadata: dict[str, Any]) -> dict[str, int]:
     for key, value in usage_metadata.items():
         if usage_key := _TOKEN_USAGE_KEY_MAPPING.get(key):
             usage[usage_key] = value
+
+    # Extract from nested detail dicts (e.g. input_token_details.cache_read).
+    # Uses setdefault so flat keys above take priority.
+    for (parent_key, child_key), usage_key in _NESTED_TOKEN_USAGE_KEY_MAPPING.items():
+        if details := usage_metadata.get(parent_key):
+            if isinstance(details, dict) and (value := details.get(child_key)) and value > 0:
+                usage.setdefault(usage_key, value)
 
     # If the total tokens are not present, calculate it from the input and output tokens
     if usage and usage.get(TokenUsageKey.TOTAL_TOKENS) is None:
