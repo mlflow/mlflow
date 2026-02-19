@@ -22,6 +22,10 @@ If you're running a tracking server, stop it before migrating. Then run:
 mlflow migrate-filestore --source /path/to/mlruns --target sqlite:///path/to/mlflow.db
 ```
 
+:::note
+The migration tool only supports SQLite as the target database. See [Important Notes](#important-notes) for details.
+:::
+
 This reads all data from the specified directory and writes it to the specified SQLite database. The migration is atomic for the migrated data: if any error occurs, all inserted rows are rolled back and no migrated data is committed, so you can safely re-run the command after fixing the issue.
 
 Once complete, start the server with the new database. If you haven't explicitly set a `--backend-store-uri`, the tracking server will use `./mlruns` if existing file-based experiment data is found there, and fall back to `sqlite:///mlflow.db` otherwise. To avoid relying on these defaults, explicitly point the server to the new database:
