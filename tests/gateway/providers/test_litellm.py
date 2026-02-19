@@ -791,7 +791,7 @@ def test_litellm_extract_passthrough_token_usage_openai_with_cached_tokens():
         "input_tokens": 50,
         "output_tokens": 20,
         "total_tokens": 70,
-        "cached_input_tokens": 30,
+        "cache_read_input_tokens": 30,
     }
 
 
@@ -813,7 +813,7 @@ def test_litellm_extract_passthrough_token_usage_anthropic_with_cached_tokens():
         "input_tokens": 100,
         "output_tokens": 50,
         "total_tokens": 150,
-        "cached_input_tokens": 25,
+        "cache_read_input_tokens": 25,
         "cache_creation_input_tokens": 15,
     }
 
@@ -830,7 +830,7 @@ def test_litellm_extract_streaming_token_usage_openai_with_cached_tokens():
         "input_tokens": 50,
         "output_tokens": 20,
         "total_tokens": 70,
-        "cached_input_tokens": 30,
+        "cache_read_input_tokens": 30,
     }
 
 
@@ -843,7 +843,7 @@ def test_litellm_extract_streaming_token_usage_anthropic_message_start_with_cach
     result = provider._extract_streaming_token_usage(chunk)
     assert result == {
         "input_tokens": 100,
-        "cached_input_tokens": 25,
+        "cache_read_input_tokens": 25,
     }
 
 
@@ -859,5 +859,5 @@ def test_litellm_extract_streaming_token_usage_responses_api_with_cached_tokens(
         "input_tokens": 100,
         "output_tokens": 50,
         "total_tokens": 150,
-        "cached_input_tokens": 40,
+        "cache_read_input_tokens": 40,
     }

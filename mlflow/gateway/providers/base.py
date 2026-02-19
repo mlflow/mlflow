@@ -250,10 +250,15 @@ class BaseProvider(ABC):
         if (total_tokens := getattr(usage, "total_tokens", None)) is not None:
             token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
 
-        # Extract cached token details if available (OpenAI format)
-        if details := getattr(usage, "prompt_tokens_details", None):
-            if (cached := getattr(details, "cached_tokens", None)) and cached > 0:
+        # Extract cached token details if available
+        if (cached := getattr(usage, "cache_read_input_tokens", None)) is not None:
+            token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+        elif details := getattr(usage, "prompt_tokens_details", None):
+            if (cached := getattr(details, "cached_tokens", None)) is not None:
                 token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+
+        if (created := getattr(usage, "cache_creation_input_tokens", None)) is not None:
+            token_usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
 
         return token_usage or None
 

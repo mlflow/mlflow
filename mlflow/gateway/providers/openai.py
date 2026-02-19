@@ -114,11 +114,19 @@ class OpenAIAdapter(ProviderAdapter):
                 )
                 for idx, c in enumerate(resp["choices"])
             ],
-            usage=chat.ChatUsage(
-                prompt_tokens=resp["usage"]["prompt_tokens"],
-                completion_tokens=resp["usage"]["completion_tokens"],
-                total_tokens=resp["usage"]["total_tokens"],
-            ),
+            usage=cls._build_chat_usage(resp["usage"]),
+        )
+
+    @classmethod
+    def _build_chat_usage(cls, usage_data: dict[str, Any]) -> chat.ChatUsage:
+        prompt_tokens_details = None
+        if details := usage_data.get("prompt_tokens_details"):
+            prompt_tokens_details = chat.PromptTokensDetails(**details)
+        return chat.ChatUsage(
+            prompt_tokens=usage_data.get("prompt_tokens"),
+            completion_tokens=usage_data.get("completion_tokens"),
+            total_tokens=usage_data.get("total_tokens"),
+            prompt_tokens_details=prompt_tokens_details,
         )
 
     @classmethod
@@ -126,11 +134,7 @@ class OpenAIAdapter(ProviderAdapter):
         # Extract usage from the final chunk (when stream_options.include_usage=true)
         usage = None
         if usage_data := resp.get("usage"):
-            usage = chat.ChatUsage(
-                prompt_tokens=usage_data.get("prompt_tokens"),
-                completion_tokens=usage_data.get("completion_tokens"),
-                total_tokens=usage_data.get("total_tokens"),
-            )
+            usage = cls._build_chat_usage(usage_data)
 
         return chat.StreamResponsePayload(
             id=resp["id"],

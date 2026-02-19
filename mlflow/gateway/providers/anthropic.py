@@ -212,11 +212,30 @@ class AnthropicAdapter(ProviderAdapter):
                     finish_reason=stop_reason,
                 )
             ],
-            usage=chat.ChatUsage(
-                prompt_tokens=resp["usage"]["input_tokens"],
-                completion_tokens=resp["usage"]["output_tokens"],
-                total_tokens=resp["usage"]["input_tokens"] + resp["usage"]["output_tokens"],
-            ),
+            usage=cls._build_chat_usage(resp["usage"]),
+        )
+
+    @classmethod
+    def _build_chat_usage(cls, usage_data: dict[str, Any]) -> chat.ChatUsage:
+        input_tokens = usage_data.get("input_tokens")
+        output_tokens = usage_data.get("output_tokens")
+        total_tokens = None
+        if input_tokens is not None and output_tokens is not None:
+            total_tokens = input_tokens + output_tokens
+        prompt_tokens_details = None
+        if "cache_read_input_tokens" in usage_data:
+            prompt_tokens_details = chat.PromptTokensDetails(
+                cached_tokens=usage_data["cache_read_input_tokens"]
+            )
+        extra = {}
+        if "cache_creation_input_tokens" in usage_data:
+            extra["cache_creation_input_tokens"] = usage_data["cache_creation_input_tokens"]
+        return chat.ChatUsage(
+            prompt_tokens=input_tokens,
+            completion_tokens=output_tokens,
+            total_tokens=total_tokens,
+            prompt_tokens_details=prompt_tokens_details,
+            **extra,
         )
 
     @classmethod
@@ -257,16 +276,7 @@ class AnthropicAdapter(ProviderAdapter):
         # Extract usage from accumulated usage data (message_delta events)
         usage = None
         if usage_data := resp.get("_usage_data"):
-            input_tokens = usage_data.get("input_tokens")
-            output_tokens = usage_data.get("output_tokens")
-            total_tokens = None
-            if input_tokens is not None and output_tokens is not None:
-                total_tokens = input_tokens + output_tokens
-            usage = chat.ChatUsage(
-                prompt_tokens=input_tokens,
-                completion_tokens=output_tokens,
-                total_tokens=total_tokens,
-            )
+            usage = cls._build_chat_usage(usage_data)
 
         return chat.StreamResponsePayload(
             id=resp["id"],
