@@ -427,7 +427,8 @@ def test_create_provider_from_endpoint_name_databricks_normalizes_base_url(
     assert provider.get_provider_name() == "databricks"
 
 
-def test_api_key_not_read_from_file(store: SqlAlchemyStore, tmp_path: Path):
+def test_api_key_not_read_from_file(store: SqlAlchemyStore, tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", raising=False)
     # Create a file whose path will be used as the "api_key" value
     secret_file = tmp_path / "secret.txt"
     secret_file.write_text("file-content-should-not-appear")
