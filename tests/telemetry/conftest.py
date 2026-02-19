@@ -5,7 +5,7 @@ import pytest
 import mlflow.telemetry.utils
 from mlflow.telemetry.client import (
     TelemetryClient,
-    _fetch_server_store_type,
+    _fetch_server_info,
     _set_telemetry_client,
     get_telemetry_client,
 )
@@ -14,9 +14,9 @@ from mlflow.version import VERSION
 
 @pytest.fixture(autouse=True)
 def clear_server_store_type_cache():
-    _fetch_server_store_type.cache_clear()
+    _fetch_server_info.cache_clear()
     yield
-    _fetch_server_store_type.cache_clear()
+    _fetch_server_info.cache_clear()
 
 
 @pytest.fixture(autouse=True)

@@ -9,7 +9,7 @@ import warnings
 from dataclasses import asdict
 from functools import lru_cache
 from queue import Empty, Full, Queue
-from typing import Literal
+from typing import Any, Literal
 
 import requests
 
@@ -33,7 +33,7 @@ from mlflow.utils.rest_utils import http_request
 # Cache per tracking URI; 16 is more than enough for any realistic number of
 # distinct tracking URIs within a single process.
 @lru_cache(maxsize=16)
-def _fetch_server_store_type(tracking_uri: str) -> str | None:
+def _fetch_server_info(tracking_uri: str) -> dict[str, Any] | None:
     try:
         response = http_request(
             host_creds=get_default_host_creds(tracking_uri),
@@ -44,7 +44,7 @@ def _fetch_server_store_type(tracking_uri: str) -> str | None:
             raise_on_status=False,
         )
         if response.status_code == 200:
-            return response.json().get("store_type")
+            return response.json()
     except Exception:
         pass
     return None
@@ -426,7 +426,8 @@ class TelemetryClient:
         # import here to avoid circular import
         from mlflow.tracking._tracking_service.utils import get_tracking_uri
 
-        store_type = _fetch_server_store_type(get_tracking_uri())
+        server_info = _fetch_server_info(get_tracking_uri())
+        store_type = server_info.get("store_type") if server_info else None
         return _enrich_http_scheme(scheme, store_type)
 
     def _update_backend_store(self):
