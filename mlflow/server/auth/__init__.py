@@ -2754,11 +2754,7 @@ class GraphQLAuthorizationMiddleware:
             return None
 
         result = next(root, info, **args)
-
-        if field_name == "mlflowSearchModelVersions" and result is not None:
-            result = self._filter_model_versions_result(result, username)
-
-        return result
+        return self._post_resolve(field_name, result, username) if result is not None else None
 
     def _check_authorization(self, field_name: str, args: dict[str, Any], username: str) -> bool:
         """
@@ -2806,17 +2802,25 @@ class GraphQLAuthorizationMiddleware:
 
         return True
 
+    def _post_resolve(self, field_name: str, result, username: str):
+        """Apply post-resolution filtering on GraphQL results."""
+        if field_name == "mlflowSearchModelVersions":
+            return self._filter_model_versions_result(result, username)
+        return result
+
     def _filter_model_versions_result(self, result, username: str):
         """Filter model versions the user doesn't have read access to."""
         perms = store.list_registered_model_permissions(username)
         can_read = {p.name: get_permission(p.permission).can_read for p in perms}
         default_can_read = get_permission(auth_config.default_permission).can_read
         if hasattr(result, "model_versions") and result.model_versions is not None:
-            result.model_versions = [
+            filtered = [
                 mv
                 for mv in result.model_versions
                 if _has_registered_model_read_access(username, mv.name, can_read, default_can_read)
             ]
+            del result.model_versions[:]
+            result.model_versions.extend(filtered)
         return result
 
 

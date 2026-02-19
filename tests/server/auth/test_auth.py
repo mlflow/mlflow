@@ -439,6 +439,68 @@ def test_search_model_versions(client, monkeypatch):
         assert names == [f"mv_model{i}" for i in readable]
 
 
+def test_graphql_search_model_versions(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    readable = [0, 2, 4]
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("gql_mv_test_exp")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+        for i in range(5):
+            rm = client.create_registered_model(f"gql_mv_model{i}")
+            client.create_model_version(rm.name, f"runs:/{run_id}/model", run_id=run_id)
+            _send_rest_tracking_post_request(
+                client.tracking_uri,
+                "/api/2.0/mlflow/registered-models/permissions/create",
+                json_payload={
+                    "name": rm.name,
+                    "username": username2,
+                    "permission": "READ" if i in readable else "NO_PERMISSIONS",
+                },
+                auth=(username1, password1),
+            )
+
+    query = """
+    query SearchModelVersions($input: MlflowSearchModelVersionsInput){
+      mlflowSearchModelVersions(input: $input){
+        modelVersions { name version }
+      }
+    }
+    """
+    variables = {"input": {"filter": "name LIKE 'gql_mv_model%'"}}
+
+    # user1 (owner) sees all via GraphQL
+    resp = requests.post(
+        f"{client.tracking_uri}/graphql",
+        json={"query": query, "variables": variables},
+        auth=(username1, password1),
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    assert payload.get("errors") in (None, [])
+    names = sorted(
+        {mv["name"] for mv in payload["data"]["mlflowSearchModelVersions"]["modelVersions"]}
+    )
+    assert names == [f"gql_mv_model{i}" for i in range(5)]
+
+    # user2 only sees versions for readable models via GraphQL
+    resp = requests.post(
+        f"{client.tracking_uri}/graphql",
+        json={"query": query, "variables": variables},
+        auth=(username2, password2),
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    assert payload.get("errors") in (None, [])
+    names = sorted(
+        {mv["name"] for mv in payload["data"]["mlflowSearchModelVersions"]["modelVersions"]}
+    )
+    assert names == [f"gql_mv_model{i}" for i in readable]
+
+
 def test_create_and_delete_registered_model(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
 
