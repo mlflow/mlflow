@@ -922,12 +922,12 @@ th {
   color: inherit;
 }
 
-/* Style admonition links to match main content */
-.admonition a {
-  color: var(--ifm-border-color);
+/* Style admonition links to be visible with underline */
+.theme-admonition a {
+  text-decoration: underline;
 }
 
-.admonition a:hover {
+.theme-admonition a:hover {
   color: var(--ifm-color-emphasis-hover);
 }
 
