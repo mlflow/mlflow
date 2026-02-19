@@ -104,6 +104,9 @@ class SpanAttributeKey:
     # within an active span. Stored as a JSON list of {"name": "...", "version": "..."} objects,
     # same format as LINKED_PROMPTS_TAG_KEY in traces.
     LINKED_PROMPTS = "mlflow.linkedPrompts"
+    # This attribute stores the trace ID of the linked gateway trace, used when a gateway
+    # endpoint is called by a traced agent via distributed tracing (traceparent header).
+    LINKED_GATEWAY_TRACE_ID = "mlflow.gateway.linkedTraceId"
 
 
 class AssessmentMetadataKey:
