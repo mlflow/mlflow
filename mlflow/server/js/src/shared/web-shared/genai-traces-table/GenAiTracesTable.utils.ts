@@ -186,10 +186,6 @@ export const getTraceInfoValueWithColId = (traceInfo: ModelTraceInfoV3, colId: s
       return traceInfo.trace_metadata?.['mlflow.simulation.persona'];
     case LINKED_PROMPTS_COLUMN_ID:
       return traceInfo.tags?.['mlflow.linkedPrompts'];
-    case SIMULATION_GOAL_COLUMN_ID:
-      return traceInfo.trace_metadata?.['mlflow.simulation.goal'];
-    case SIMULATION_PERSONA_COLUMN_ID:
-      return traceInfo.trace_metadata?.['mlflow.simulation.persona'];
     default:
       // Return null for unknown column IDs to avoid breaking the UI
       return null;

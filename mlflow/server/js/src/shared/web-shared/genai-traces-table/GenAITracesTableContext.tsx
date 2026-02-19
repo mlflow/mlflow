@@ -71,7 +71,7 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
       isGroupedBySession,
       showAddToEvaluationDatasetModal,
     }),
-    [table, selectedRowIds, isGroupedBySession, showAddToEvaluationDatasetModal],
+    [table, getTrace, selectedRowIds, isGroupedBySession, showAddToEvaluationDatasetModal],
   );
 
   return (
