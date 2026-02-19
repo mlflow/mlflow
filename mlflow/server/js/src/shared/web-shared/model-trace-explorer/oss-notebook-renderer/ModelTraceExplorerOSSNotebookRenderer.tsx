@@ -11,14 +11,19 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import { ModelTraceExplorer, getTraceArtifact } from '@databricks/web-shared/model-trace-explorer';
+import { getActiveWorkspace } from '@mlflow/mlflow/src/workspaces/utils/WorkspaceUtils';
 
 const MLFLOW_DOCS_URI = 'https://mlflow.org/docs/latest/llms/tracing/index.html?ref=jupyter-notebook-widget';
 
 const getMlflowUILinkForTrace = (traceId: string, experimentId: string) => {
   const queryParams = new URLSearchParams();
-  queryParams.append('selectedTraceId', traceId);
+  queryParams.append('selectedEvaluationId', traceId);
   queryParams.append('compareRunsMode', 'TRACES');
-  return `/#/experiments/${experimentId}?${queryParams.toString()}`;
+  const workspace = getActiveWorkspace();
+  if (workspace) {
+    queryParams.append('workspace', workspace);
+  }
+  return `/#/experiments/${experimentId}/traces?${queryParams.toString()}`;
 };
 
 export const ModelTraceExplorerOSSNotebookRenderer = () => {
