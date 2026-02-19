@@ -1027,7 +1027,9 @@ def check_tarfile_security(archive_path: str) -> None:
     with tarfile.open(archive_path, "r") as tar:
         symlink_set = set()
         for m in tar.getmembers():
-            path = posixpath.normpath(m.name)
+            # Normalize backslashes to forward slashes before path validation to prevent
+            # bypass on Windows where backslashes are treated as directory separators.
+            path = posixpath.normpath(m.name.replace("\\", "/"))
             if m.issym():
                 symlink_set.add(path)
             else:
@@ -1044,6 +1046,8 @@ def check_tarfile_security(archive_path: str) -> None:
                     )
         for m in tar.getmembers():
             if not m.issym():
+                path = posixpath.normpath(m.name.replace("\\", "/"))
+                path_parts = path.split("/")
                 for prefix_len in range(1, len(path_parts) + 1):
                     prefix_path = "/".join(path_parts[:prefix_len])
                     if prefix_path in symlink_set:

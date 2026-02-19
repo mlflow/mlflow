@@ -1,6 +1,7 @@
 import { jest, describe, beforeEach, it, expect, test } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useSearchParams, useNavigate, NavigateFunction } from '../../../../common/utils/RoutingUtils';
+import type { NavigateFunction } from '../../../../common/utils/RoutingUtils';
+import { useSearchParams, useNavigate } from '../../../../common/utils/RoutingUtils';
 
 import { useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { useSharedExperimentViewState } from './useSharedExperimentViewState';

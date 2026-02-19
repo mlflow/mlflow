@@ -1,11 +1,11 @@
 import { useQuery } from '../../../../common/utils/reactQueryHooks';
 import { fetchOrFail, getAjaxUrl } from '../../../../common/utils/FetchUtils';
 import { catchNetworkErrorIfExists } from '../../../utils/NetworkUtils';
+import type { MetricViewType } from '@databricks/web-shared/model-trace-explorer';
 import {
   type QueryTraceMetricsRequest,
   type QueryTraceMetricsResponse,
   type MetricAggregation,
-  MetricViewType,
 } from '@databricks/web-shared/model-trace-explorer';
 
 export const TRACE_METRICS_QUERY_KEY = 'traceMetrics';
