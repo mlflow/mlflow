@@ -27,7 +27,6 @@ export const SampleScorerTracesToEvaluatePicker = ({
     <>
       <Button
         componentId="mlflow.experiment-scorers.form.traces-picker.trigger"
-        size="small"
         onClick={() => setDisplayPickCustomTracesModal(true)}
       >
         {hasSelectedItems ? (
