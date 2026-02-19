@@ -191,53 +191,6 @@ def export_uv_requirements(
         return None
 
 
-def get_python_version_from_uv_project(
-    directory: str | Path | None = None,
-) -> str | None:
-    """
-    Extract Python version from a uv project.
-
-    Checks for `.python-version` file first, then falls back to parsing
-    `requires-python` from `pyproject.toml`.
-
-    Args:
-        directory: The uv project directory. Defaults to the current working directory.
-
-    Returns:
-        Python version string (e.g., "3.11.5" or "3.11"), or None if not found.
-    """
-    directory = Path.cwd() if directory is None else Path(directory)
-    if not directory.exists():
-        return None
-
-    # Check .python-version file first
-    python_version_file = directory / ".python-version"
-    if python_version_file.exists():
-        if version := python_version_file.read_text().strip():
-            _logger.debug(f"Found Python version {version} from .python-version")
-            return version
-
-    # Fall back to pyproject.toml requires-python (simple regex parsing to avoid tomli dep)
-    pyproject_path = directory / _PYPROJECT_FILE
-    if pyproject_path.exists():
-        try:
-            content = pyproject_path.read_text()
-            # Match requires-python = ">=3.10" or requires-python = "3.11"
-            if match := re.search(r'requires-python\s*=\s*["\']([^"\']+)["\']', content):
-                requires_python = match.group(1)
-                # Extract version from specifier like ">=3.10" -> "3.10"
-                if version_match := re.search(r"(\d+\.\d+(?:\.\d+)?)", requires_python):
-                    version = version_match.group(1)
-                    _logger.debug(
-                        f"Found Python version {version} from pyproject.toml requires-python"
-                    )
-                    return version
-        except Exception as e:
-            _logger.debug(f"Failed to parse pyproject.toml for Python version: {e}")
-
-    return None
-
-
 # File names for uv artifacts
 _UV_LOCK_ARTIFACT_NAME = "uv.lock"
 _PYPROJECT_ARTIFACT_NAME = "pyproject.toml"
@@ -371,19 +324,14 @@ def create_uv_sync_pyproject(
     """
     dest_dir = Path(dest_dir)
 
-    # Normalize to major.minor so that "3.11.5" becomes "3.11".  PEP 440
-    # treats "==3.11" as "==3.11.0" exactly, which would force uv to download
-    # CPython 3.11.0 even when a newer patch is available.
-    version_parts = python_version.split(".")
-    requires_python = ".".join(version_parts[:2])
-
-    # ">=" lets uv sync use whatever compatible patch version is already
-    # installed; exact versions are still enforced by the uv.lock file.
-    # "dependencies" is left empty because all deps come from uv.lock.
+    # Pin the exact Python version including micro (e.g. "==3.11.5") so uv
+    # restores the environment with the same interpreter that was used at
+    # log time.  "dependencies" is left empty because all deps come from
+    # uv.lock.
     pyproject_content = f"""[project]
 name = "{project_name}"
 version = "0.0.0"
-requires-python = ">={requires_python}"
+requires-python = "=={python_version}"
 dependencies = []
 
 [build-system]

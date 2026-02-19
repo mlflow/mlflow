@@ -95,7 +95,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.uv_utils import copy_uv_project_files, get_python_version_from_uv_project
+from mlflow.utils.uv_utils import copy_uv_project_files
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -1252,16 +1252,7 @@ def _save_model_with_class_artifacts_params(
     uv_source_dir = uv_project_path or original_cwd
     copy_uv_project_files(dest_dir=path, source_dir=uv_source_dir)
 
-    # Use uv project's Python version if available, otherwise use current
-    if uv_python_version := get_python_version_from_uv_project(uv_source_dir):
-        python_env = _PythonEnv(
-            python=uv_python_version,
-            build_dependencies=_PythonEnv.get_current_build_dependencies(),
-            dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
-        )
-        python_env.to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
-    else:
-        _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 def _load_context_model_and_signature(model_path: str, model_config: dict[str, Any] | None = None):

@@ -15,7 +15,6 @@ from mlflow.utils.uv_utils import (
     detect_uv_project,
     export_uv_requirements,
     extract_index_urls_from_uv_lock,
-    get_python_version_from_uv_project,
     get_uv_version,
     has_uv_lock_artifact,
     is_uv_available,
@@ -198,46 +197,6 @@ def test_export_uv_requirements_returns_none_on_subprocess_error(tmp_path):
         assert export_uv_requirements(tmp_path) is None
 
 
-# --- get_python_version_from_uv_project tests ---
-
-
-def test_get_python_version_from_uv_project_returns_version_from_python_version_file(tmp_path):
-    (tmp_path / ".python-version").write_text("3.11.5")
-
-    result = get_python_version_from_uv_project(tmp_path)
-    assert result == "3.11.5"
-
-
-def test_get_python_version_from_uv_project_returns_version_from_pyproject(tmp_path):
-    pyproject_content = """
-[project]
-name = "test"
-requires-python = ">=3.10"
-"""
-    (tmp_path / _PYPROJECT_FILE).write_text(pyproject_content)
-
-    result = get_python_version_from_uv_project(tmp_path)
-    assert result == "3.10"
-
-
-def test_get_python_version_from_uv_project_python_version_file_takes_priority(tmp_path):
-    (tmp_path / ".python-version").write_text("3.12.0")
-    pyproject_content = """
-[project]
-name = "test"
-requires-python = ">=3.10"
-"""
-    (tmp_path / _PYPROJECT_FILE).write_text(pyproject_content)
-
-    result = get_python_version_from_uv_project(tmp_path)
-    assert result == "3.12.0"
-
-
-def test_get_python_version_from_uv_project_returns_none_when_no_version_info(tmp_path):
-    result = get_python_version_from_uv_project(tmp_path)
-    assert result is None
-
-
 # --- copy_uv_project_files tests ---
 
 
@@ -404,23 +363,6 @@ def test_export_uv_requirements_with_nonexistent_uv_project_path(tmp_path):
     with mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True):
         result = export_uv_requirements(directory=nonexistent_dir)
         assert result is None
-
-
-def test_get_python_version_from_uv_project_with_explicit_uv_project_path(tmp_path):
-    project_dir = tmp_path / "monorepo" / "subproject"
-    project_dir.mkdir(parents=True)
-    (project_dir / _UV_LOCK_FILE).touch()
-    (project_dir / ".python-version").write_text("3.12.0")
-
-    result = get_python_version_from_uv_project(directory=project_dir)
-    assert result == "3.12.0"
-
-
-def test_get_python_version_from_uv_project_with_nonexistent_uv_project_path(tmp_path):
-    nonexistent_dir = tmp_path / "nonexistent"
-
-    result = get_python_version_from_uv_project(directory=nonexistent_dir)
-    assert result is None
 
 
 def test_copy_uv_project_files_with_explicit_uv_project_path(tmp_path):
@@ -633,15 +575,15 @@ def test_create_uv_sync_pyproject(tmp_path):
     assert result_path.exists()
     content = result_path.read_text()
     assert 'name = "mlflow-model-env"' in content
-    assert 'requires-python = ">=3.11"' in content
+    assert 'requires-python = "==3.11.5"' in content
 
 
 def test_create_uv_sync_pyproject_custom_name(tmp_path):
-    result_path = create_uv_sync_pyproject(tmp_path, "3.10", project_name="my-custom-env")
+    result_path = create_uv_sync_pyproject(tmp_path, "3.10.14", project_name="my-custom-env")
 
     content = result_path.read_text()
     assert 'name = "my-custom-env"' in content
-    assert 'requires-python = ">=3.10"' in content
+    assert 'requires-python = "==3.10.14"' in content
 
 
 def test_setup_uv_sync_environment(tmp_path):
