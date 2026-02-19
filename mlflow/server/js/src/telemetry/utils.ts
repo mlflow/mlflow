@@ -1,5 +1,5 @@
 import { has, isObject } from 'lodash';
-import { DesignSystemObservabilityEvent } from './types';
+import type { DesignSystemObservabilityEvent } from './types';
 
 export const TELEMETRY_ENABLED_STORAGE_VERSION = 1;
 

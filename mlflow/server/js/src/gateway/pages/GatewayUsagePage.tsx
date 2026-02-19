@@ -9,16 +9,22 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { createTraceMetadataFilter, AUTH_USER_ID_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
 import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
+import { useUsersQuery } from '../hooks/useUsersQuery';
 import { GatewayChartsPanel } from '../components/GatewayChartsPanel';
 import GatewayRoutes from '../routes';
 
 export const GatewayUsagePage = () => {
   const { theme } = useDesignSystemTheme();
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   // Fetch all endpoints to get their experiment IDs
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
+
+  // Fetch all users for the user selector (may fail if user lacks admin permissions)
+  const { data: users, isLoading: isLoadingUsers, error: usersError } = useUsersQuery();
 
   const endpointsWithExperiments = useMemo(
     () => endpoints.filter((ep) => ep.usage_tracking && ep.experiment_id),
@@ -39,6 +45,12 @@ export const GatewayUsagePage = () => {
     }
     return selectedEndpoint?.experiment_id ? [selectedEndpoint.experiment_id] : [];
   }, [showAllEndpoints, endpointsWithExperiments, selectedEndpoint]);
+
+  // Build filters from selected user ID
+  const filters = useMemo(() => {
+    if (!selectedUserId) return undefined;
+    return [createTraceMetadataFilter(AUTH_USER_ID_METADATA_KEY, selectedUserId)];
+  }, [selectedUserId]);
 
   if (!isLoadingEndpoints && endpointsWithExperiments.length === 0) {
     return (
@@ -78,30 +90,57 @@ export const GatewayUsagePage = () => {
     );
   }
 
-  const endpointSelector = (
-    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-      <Typography.Text color="secondary">
-        <FormattedMessage defaultMessage="Endpoint:" description="Endpoint selector label" />
-      </Typography.Text>
-      <SimpleSelect
-        id="gateway-usage-endpoint-selector"
-        componentId="mlflow.gateway.usage.endpoint-selector"
-        value={selectedEndpointId ?? 'all'}
-        onChange={({ target }) => setSelectedEndpointId(target.value === 'all' ? null : target.value)}
-        css={{ minWidth: 200 }}
-        disabled={isLoadingEndpoints}
-      >
-        <SimpleSelectOption value="all">
-          <FormattedMessage defaultMessage="All endpoints" description="All endpoints option" />
-        </SimpleSelectOption>
-        {endpointsWithExperiments.map((endpoint) => (
-          <SimpleSelectOption key={endpoint.endpoint_id} value={endpoint.endpoint_id}>
-            {endpoint.name}
+  const additionalControls = (
+    <>
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+        <Typography.Text color="secondary">
+          <FormattedMessage defaultMessage="Endpoint:" description="Endpoint selector label" />
+        </Typography.Text>
+        <SimpleSelect
+          id="gateway-usage-endpoint-selector"
+          componentId="mlflow.gateway.usage.endpoint-selector"
+          value={selectedEndpointId ?? 'all'}
+          onChange={({ target }) => setSelectedEndpointId(target.value === 'all' ? null : target.value)}
+          css={{ minWidth: 200 }}
+          disabled={isLoadingEndpoints}
+        >
+          <SimpleSelectOption value="all">
+            <FormattedMessage defaultMessage="All endpoints" description="All endpoints option" />
           </SimpleSelectOption>
-        ))}
-      </SimpleSelect>
-      {isLoadingEndpoints && <Spinner size="small" />}
-    </div>
+          {endpointsWithExperiments.map((endpoint) => (
+            <SimpleSelectOption key={endpoint.endpoint_id} value={endpoint.endpoint_id}>
+              {endpoint.name}
+            </SimpleSelectOption>
+          ))}
+        </SimpleSelect>
+        {isLoadingEndpoints && <Spinner size="small" />}
+      </div>
+      {!usersError && (
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          <Typography.Text color="secondary">
+            <FormattedMessage defaultMessage="User:" description="User selector label" />
+          </Typography.Text>
+          <SimpleSelect
+            id="gateway-usage-user-selector"
+            componentId="mlflow.gateway.usage.user-selector"
+            value={selectedUserId ?? 'all'}
+            onChange={({ target }) => setSelectedUserId(target.value === 'all' ? null : target.value)}
+            css={{ minWidth: 180 }}
+            disabled={isLoadingUsers || users.length === 0}
+          >
+            <SimpleSelectOption value="all">
+              <FormattedMessage defaultMessage="All users" description="All users option" />
+            </SimpleSelectOption>
+            {users.map((user) => (
+              <SimpleSelectOption key={user.id} value={String(user.id)}>
+                {user.username}
+              </SimpleSelectOption>
+            ))}
+          </SimpleSelect>
+          {isLoadingUsers && <Spinner size="small" />}
+        </div>
+      )}
+    </>
   );
 
   return (
@@ -141,8 +180,9 @@ export const GatewayUsagePage = () => {
         <GatewayChartsPanel
           experimentIds={experimentIds}
           showTokenStats
-          additionalControls={endpointSelector}
+          additionalControls={additionalControls}
           hideTooltipLinks
+          filters={filters}
         />
       ) : (
         <div

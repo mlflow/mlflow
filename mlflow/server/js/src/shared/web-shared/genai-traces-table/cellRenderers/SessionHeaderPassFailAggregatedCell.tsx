@@ -1,6 +1,6 @@
 import { DangerIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { AssessmentInfo } from '../types';
-import { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { AssessmentInfo } from '../types';
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { aggregatePassFailAssessments } from '../utils/SessionAggregationUtils';
 import { FAIL_BARCHART_BAR_COLOR, PASS_BARCHART_BAR_COLOR } from '../utils/Colors';
