@@ -18,6 +18,7 @@ const QUERY = `
         }
         nodes {
           number
+          url
           createdAt
           authorAssociation
           closingIssuesReferences(first: 1) {
@@ -119,7 +120,7 @@ module.exports = async ({ context, github }) => {
         }
 
         const days = Math.floor((Date.now() - lastActivity) / MS_PER_DAY);
-        console.log(`Closing PR #${pr.number} (inactive for ${days} days)`);
+        console.log(`Closing PR ${pr.url} (inactive for ${days} days)`);
 
         // TODO: Uncomment once we've verified the workflow logs look correct
         // await github.rest.issues.createComment({
