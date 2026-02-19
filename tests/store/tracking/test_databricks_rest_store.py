@@ -1513,8 +1513,8 @@ def test_search_datasets_basic():
         endpoint = call_args[1]["endpoint"]
         assert call_args[1]["method"] == "GET"
         assert "/api/2.0/managed-evals/datasets" in endpoint
-        # URL encoding: = becomes %3D
-        assert "experiment_id%3Dexp_1" in endpoint or "experiment_id=exp_1" in endpoint
+        # URL encoding: = becomes %3D, ' becomes %27
+        assert "experiment_id%3D%27exp_1%27" in endpoint or "experiment_id='exp_1'" in endpoint
         # Verify max_results is passed as page_size
         assert "page_size=100" in endpoint
 
