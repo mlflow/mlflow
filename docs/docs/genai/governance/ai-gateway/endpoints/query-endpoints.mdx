@@ -396,6 +396,81 @@ print(result.final_output)
 </TabItem>
 </Tabs>
 
+## Using Gateway Endpoints with Workspaces
+
+When [workspaces](/self-hosting/workspaces/getting-started) are enabled on your MLflow server, you must specify the target workspace when querying gateway endpoints. This is done by including the `X-MLFLOW-WORKSPACE` header in your requests.
+
+:::note
+The workspace header is only required when the MLflow server is running with workspaces enabled (`--enable-workspaces` flag). If workspaces are not enabled, you can omit this header.
+:::
+
+<Tabs>
+<TabItem value="curl" label="cURL" default>
+
+```bash
+# Query endpoint in a specific workspace
+curl -X POST http://localhost:5000/gateway/my-endpoint/mlflow/invocations \
+  -H "Content-Type: application/json" \
+  -H "X-MLFLOW-WORKSPACE: team-a" \
+  -d '{
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "temperature": 0.7
+  }'
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+import mlflow
+import requests
+
+# Set the workspace for your session
+mlflow.set_workspace("team-a")
+
+# The workspace is automatically included in requests
+response = requests.post(
+    "http://localhost:5000/gateway/my-endpoint/mlflow/invocations",
+    json={"messages": [{"role": "user", "content": "Hello!"}], "temperature": 0.7},
+    headers={"X-MLFLOW-WORKSPACE": "team-a"},
+)
+print(response.json())
+```
+
+</TabItem>
+<TabItem value="openai" label="OpenAI SDK">
+
+```python
+import mlflow
+from openai import OpenAI
+
+# Set the workspace for your session
+mlflow.set_workspace("team-a")
+
+# Create OpenAI client
+client = OpenAI(
+    base_url="http://localhost:5000/gateway/mlflow/v1",
+    api_key="",
+    default_headers={"X-MLFLOW-WORKSPACE": "team-a"},
+)
+
+response = client.chat.completions.create(
+    model="my-endpoint",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(response.choices[0].message.content)
+```
+
+</TabItem>
+</Tabs>
+
+The workspace header applies to all gateway API endpoints, including:
+- MLflow Invocations API (`/gateway/{endpoint_name}/mlflow/invocations`)
+- OpenAI-compatible API (`/gateway/mlflow/v1/*`)
+- Passthrough APIs (`/gateway/openai/v1/*`, `/gateway/anthropic/*`, `/gateway/gemini/*`)
+
+For more details on workspace configuration and management, see the [Workspaces documentation](/self-hosting/workspaces/getting-started).
+
 ## Using Gateway Endpoints with MLflow Judges
 
 AI Gateway endpoints can be used as the backing LLM for MLflow's [LLM Judges](/genai/eval-monitor/scorers/#llms-as-judges). This allows you to run judge evaluations through the gateway, benefiting from centralized API key management and cost tracking.
