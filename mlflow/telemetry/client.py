@@ -51,9 +51,7 @@ def _fetch_server_store_type(tracking_uri: str) -> str | None:
     return None
 
 
-def _enrich_scheme_with_store_type(
-    scheme: Literal["http", "https"], store_type: Literal["FileStore", "SqlStore"] | None
-) -> str:
+def _enrich_http_scheme(scheme: Literal["http", "https"], store_type: str | None) -> str:
     store_type_to_suffix = {"FileStore": "file", "SqlStore": "sql"}
     if suffix := store_type_to_suffix.get(store_type):
         return f"{scheme}-{suffix}"
@@ -430,7 +428,7 @@ class TelemetryClient:
         from mlflow.tracking._tracking_service.utils import get_tracking_uri
 
         store_type = _fetch_server_store_type(get_tracking_uri())
-        return _enrich_scheme_with_store_type(scheme, store_type)
+        return _enrich_http_scheme(scheme, store_type)
 
     def _update_backend_store(self):
         """
