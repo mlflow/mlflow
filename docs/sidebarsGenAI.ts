@@ -418,6 +418,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/cursor',
+                  label: 'Cursor',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/instructor',
                   label: 'Instructor',
                 },
