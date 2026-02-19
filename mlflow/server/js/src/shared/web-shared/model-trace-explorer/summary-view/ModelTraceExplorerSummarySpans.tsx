@@ -9,6 +9,7 @@ import { ModelTraceExplorerSummaryViewExceptionsSection } from './ModelTraceExpl
 import type { ModelTraceExplorerRenderMode, ModelTraceSpanNode } from '../ModelTrace.types';
 import { createListFromObject, getSpanExceptionEvents } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { AddToDatasetButton } from '../assessments-pane/AddToDatasetButton';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
 
@@ -88,7 +89,12 @@ export const ModelTraceExplorerSummarySpans = ({
                 />
               </SegmentedControlButton>
             </SegmentedControlGroup>
-            {!readOnly && <AssessmentPaneToggle />}
+            {!readOnly && (
+              <>
+                <AddToDatasetButton />
+                <AssessmentPaneToggle />
+              </>
+            )}
           </div>
         </div>
       )}

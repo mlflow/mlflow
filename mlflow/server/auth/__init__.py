@@ -160,6 +160,7 @@ from mlflow.server.auth.permissions import (
     get_permission,
 )
 from mlflow.server.auth.routes import (
+    AJAX_LIST_USERS,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
     CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -196,6 +197,7 @@ from mlflow.server.auth.routes import (
     HOME,
     INVOKE_SCORER,
     LIST_USER_WORKSPACE_PERMISSIONS,
+    LIST_USERS,
     LIST_WORKSPACE_PERMISSIONS,
     SEARCH_DATASETS,
     SIGNUP,
@@ -541,6 +543,10 @@ def _has_registered_model_read_access(
 def _get_permission_from_experiment_id() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username)
+
+
+def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
     return _get_permission_from_store_or_default(
         lambda: store.get_experiment_permission(experiment_id, username).permission,
         workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
@@ -1047,6 +1053,11 @@ def validate_can_read_user():
     return username_is_sender()
 
 
+def validate_can_list_users():
+    # only admins can list all users, but admins won't reach this validator
+    return False
+
+
 def validate_can_create_user():
     # only admins can create user, but admins won't reach this validator
     return False
@@ -1533,6 +1544,8 @@ BEFORE_REQUEST_VALIDATORS.update(
     {
         (SIGNUP, "GET"): validate_can_create_user,
         (GET_USER, "GET"): validate_can_read_user,
+        (LIST_USERS, "GET"): validate_can_list_users,
+        (AJAX_LIST_USERS, "GET"): validate_can_list_users,
         (CREATE_USER, "POST"): validate_can_create_user,
         (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
         (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
@@ -1641,6 +1654,8 @@ def _is_proxy_artifact_path(path: str) -> bool:
     prefixes = [
         f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/",
     ]
     return any(path.startswith(prefix) for prefix in prefixes)
 
@@ -1655,6 +1670,7 @@ def _get_proxy_artifact_validator(
         "GET": validate_can_read_experiment_artifact_proxy,  # Download
         "PUT": validate_can_update_experiment_artifact_proxy,  # Upload
         "DELETE": validate_can_delete_experiment_artifact_proxy,  # Delete
+        "POST": validate_can_update_experiment_artifact_proxy,  # Multipart upload
     }.get(method)
 
 
@@ -2182,8 +2198,8 @@ AFTER_REQUEST_HANDLERS = {
     for method in methods
     if handler is not None
     and "/graphql" not in http_path
-    and "/server-features" not in http_path
     and "/scorers/online-config" not in http_path
+    and "/mlflow/server-info" not in http_path
     and http_path not in _AJAX_GATEWAY_PATHS
 }
 
@@ -2374,6 +2390,12 @@ def get_user():
     username = _get_request_param("username")
     user = store.get_user(username)
     return jsonify({"user": user.to_json()})
+
+
+@catch_mlflow_exception
+def list_users():
+    users = store.list_users()
+    return jsonify({"users": [{"id": u.id, "username": u.username} for u in users]})
 
 
 @catch_mlflow_exception
@@ -2799,7 +2821,7 @@ _ROUTES_NEEDING_BODY = frozenset(
 )
 
 
-def _authenticate_request(request: StarletteRequest) -> User | None:
+def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     """
     Authenticate request using Basic Auth and return user object.
 
@@ -2904,6 +2926,38 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
     return validator
 
 
+def _get_require_authentication_validator() -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    """
+    Get a validator that requires authentication but grants access to any authenticated user.
+
+    Returns:
+        An async validator function that always returns True.
+    """
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        return True
+
+    return validator
+
+
+def _get_otel_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    """
+    Get a validator for OpenTelemetry trace ingestion routes.
+    """
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        experiment_id = request.headers.get("x-mlflow-experiment-id")
+        if not experiment_id:
+            raise MlflowException(
+                "Missing required header: X-Mlflow-Experiment-Id", error_code=BAD_REQUEST
+            )
+        return _get_experiment_permission(experiment_id, username).can_update
+
+    return validator
+
+
 def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Find the validator for a FastAPI route that bypasses Flask.
@@ -2916,10 +2970,19 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awai
 
     Returns:
         An async validator function that takes (username, request) and returns
-        True if authorized, or None if the route is not handled by FastAPI.
+        True if authorized, or None if the route is handled by Flask (WSGI).
     """
     if path.startswith("/gateway/"):
         return _get_gateway_validator(path)
+
+    if path.startswith("/v1/traces"):
+        return _get_otel_validator(path)
+
+    if path.startswith("/ajax-api/3.0/jobs"):
+        return _get_require_authentication_validator()
+
+    if path.startswith("/ajax-api/3.0/mlflow/assistant"):
+        return _get_require_authentication_validator()
 
     return None
 
@@ -2967,7 +3030,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             )
 
         # Authenticate user
-        user = _authenticate_request(request)
+        user = _authenticate_fastapi_request(request)
         if user is None:
             return PlainTextResponse(
                 "You are not authenticated. Please see "
@@ -3064,6 +3127,12 @@ def create_app(app: Flask = app):
         view_func=get_user,
         methods=["GET"],
     )
+    for rule in [LIST_USERS, AJAX_LIST_USERS]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=list_users,
+            methods=["GET"],
+        )
     app.add_url_rule(
         rule=UPDATE_USER_PASSWORD,
         view_func=update_user_password,

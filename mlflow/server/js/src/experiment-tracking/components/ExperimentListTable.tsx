@@ -2,27 +2,34 @@ import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databrick
 import { useMemo } from 'react';
 import type { CursorPaginationProps } from '@databricks/design-system';
 import {
+  BeakerIcon,
+  Button,
   Checkbox,
   useDesignSystemTheme,
   Empty,
   NoIcon,
+  PlusIcon,
   Table,
   CursorPagination,
   TableRow,
   TableHeader,
   TableCell,
   TableSkeletonRows,
+  Tag,
+  Tooltip,
+  QuestionMarkIcon,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import type { ExperimentEntity } from '../types';
 import type { ColumnDef, OnChangeFn, RowSelectionState, SortingState } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import { isEmpty } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../common/utils/Utils';
 import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { ExperimentListTableTagsCell } from './ExperimentListTableTagsCell';
+import { isDemoExperiment } from '../utils/isDemoExperiment';
 
 export type ExperimentTableColumnDef = ColumnDef<ExperimentEntity>;
 
@@ -62,6 +69,7 @@ const useExperimentsTableColumns = () => {
         id: 'creation_time',
         accessorFn: ({ creationTime }) => Utils.formatTimestamp(creationTime, intl),
         enableSorting: true,
+        sortingFn: (rowA, rowB) => Number(rowA.original.creationTime ?? 0) - Number(rowB.original.creationTime ?? 0),
       },
       {
         header: intl.formatMessage({
@@ -71,6 +79,8 @@ const useExperimentsTableColumns = () => {
         id: 'last_update_time',
         accessorFn: ({ lastUpdateTime }) => Utils.formatTimestamp(lastUpdateTime, intl),
         enableSorting: true,
+        sortingFn: (rowA, rowB) =>
+          Number(rowA.original.lastUpdateTime ?? 0) - Number(rowB.original.lastUpdateTime ?? 0),
       },
       {
         header: intl.formatMessage({
@@ -106,6 +116,7 @@ export const ExperimentListTable = ({
   cursorPaginationProps,
   sortingProps: { sorting, setSorting },
   onEditTags,
+  onCreateExperiment,
 }: {
   experiments?: ExperimentEntity[];
   isFiltered?: boolean;
@@ -115,6 +126,7 @@ export const ExperimentListTable = ({
   cursorPaginationProps?: Omit<CursorPaginationProps, 'componentId'>;
   sortingProps: { sorting: SortingState; setSorting: OnChangeFn<SortingState> };
   onEditTags: (editedEntity: ExperimentEntity) => void;
+  onCreateExperiment?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = useExperimentsTableColumns();
@@ -123,6 +135,7 @@ export const ExperimentListTable = ({
     data: experiments ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getRowId: (row) => row.experimentId,
     enableRowSelection: true,
     enableMultiRowSelection: true,
@@ -136,34 +149,69 @@ export const ExperimentListTable = ({
     const isEmptyList = !isLoading && isEmpty(experiments);
     if (isEmptyList && isFiltered) {
       return (
-        <Empty
-          image={<NoIcon />}
-          title={
-            <FormattedMessage
-              defaultMessage="No experiments found"
-              description="Label for the empty state in the experiments table when no experiments are found"
-            />
-          }
-          description={null}
-        />
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 400,
+          }}
+        >
+          <Empty
+            image={<NoIcon />}
+            title={
+              <FormattedMessage
+                defaultMessage="No experiments found"
+                description="Label for the empty state in the experiments table when no experiments are found"
+              />
+            }
+            description={null}
+          />
+        </div>
       );
     }
     if (isEmptyList) {
       return (
-        <Empty
-          title={
-            <FormattedMessage
-              defaultMessage="No experiments created"
-              description="A header for the empty state in the experiments table"
-            />
-          }
-          description={
-            <FormattedMessage
-              defaultMessage='Use "Create experiment" button in order to create a new experiment'
-              description="Guidelines for the user on how to create a new experiment in the experiments list page"
-            />
-          }
-        />
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 400,
+          }}
+        >
+          <Empty
+            image={<BeakerIcon />}
+            title={
+              <FormattedMessage
+                defaultMessage="Create your first experiment"
+                description="Home page experiments empty state title"
+              />
+            }
+            description={
+              <FormattedMessage
+                defaultMessage="Create your first experiment to start tracking ML workflows."
+                description="Home page experiments empty state description"
+              />
+            }
+            button={
+              onCreateExperiment ? (
+                <Button
+                  componentId="mlflow.experiment_list_table.create_experiment"
+                  data-testid="create-experiment-table-empty-state-button"
+                  onClick={onCreateExperiment}
+                  type="primary"
+                  icon={<PlusIcon />}
+                >
+                  <FormattedMessage
+                    defaultMessage="Create experiment"
+                    description="Home page experiments empty state CTA"
+                  />
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
       );
     }
 
@@ -217,6 +265,39 @@ export const ExperimentListTable = ({
 };
 
 const ExperimentListTableCell: ExperimentTableColumnDef['cell'] = ({ row: { original } }) => {
+  const { theme } = useDesignSystemTheme();
+  if (isDemoExperiment(original)) {
+    return (
+      <div css={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Link
+          to={Routes.getExperimentPageRoute(original.experimentId)}
+          title={original.name}
+          data-testid="experiment-list-item-link"
+          css={{ textDecoration: 'none' }}
+        >
+          <Tag componentId="mlflow.experiment_list.demo_badge" color="turquoise">
+            <FormattedMessage
+              defaultMessage="MLflow Demo Experiment"
+              description="Badge label for the demo experiment in the experiments list"
+            />
+          </Tag>
+        </Link>
+        <Tooltip
+          componentId="mlflow.experiment_list.demo_tooltip"
+          content={
+            <FormattedMessage
+              defaultMessage="A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings."
+              description="Tooltip explaining the demo experiment in the experiments list"
+            />
+          }
+        >
+          <span css={{ display: 'inline-flex', color: theme.colors.textSecondary }}>
+            <QuestionMarkIcon css={{ fontSize: 13 }} />
+          </span>
+        </Tooltip>
+      </div>
+    );
+  }
   return (
     <Link
       className="experiment-link"

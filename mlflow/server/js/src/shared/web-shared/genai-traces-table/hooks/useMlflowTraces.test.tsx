@@ -1347,7 +1347,7 @@ describe('useSearchMlflowTraces', () => {
     const [url, { body }] = jest.mocked(fetchAPI).mock.lastCall as any;
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
 
-    const expectedFilter = "span.attributes.mlflow.spanInputs ILIKE '%test query%'";
+    const expectedFilter = "trace.text ILIKE '%test query%'";
     expect(body.filter).toBe(expectedFilter);
   });
 
@@ -1422,7 +1422,7 @@ describe('useSearchMlflowTraces', () => {
     );
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    const expectedFilter = "span.attributes.mlflow.spanInputs ILIKE '%test query%'";
+    const expectedFilter = "trace.text ILIKE '%test query%'";
     expect(apiCallSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         filter: expectedFilter,

@@ -370,7 +370,7 @@ class Message(Status):
 
 class FunctionCallOutput(Status):
     call_id: str
-    output: str
+    output: str | list[dict[str, Any]]
     type: str = "function_call_output"
 
 
@@ -386,6 +386,7 @@ class BaseRequestPayload(Truncation, ToolChoice):
     text: Any | None = None
     top_p: float | None = None
     user: str | None = None
+    background: bool | None = None
 
 
 #####################################

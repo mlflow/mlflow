@@ -6,6 +6,7 @@ import click
 import mlflow
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
+from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.protos import databricks_pb2
 from mlflow.tracking import _get_store, fluent
 from mlflow.utils.data_utils import is_uri
@@ -30,6 +31,7 @@ def commands():
 
 
 @commands.command()
+@mlflow_mcp(tool_name="create_experiment")
 @click.option("--experiment-name", "-n", type=click.STRING, required=True)
 @click.option(
     "--artifact-location",
@@ -57,6 +59,7 @@ def create(experiment_name, artifact_location):
 
 
 @commands.command("search")
+@mlflow_mcp(tool_name="search_experiments")
 @click.option(
     "--view",
     "-v",
@@ -91,6 +94,7 @@ def search_experiments(view, max_results):
 
 
 @commands.command("get")
+@mlflow_mcp(tool_name="get_experiment")
 @click.option(
     "--experiment-id",
     "-x",
@@ -178,6 +182,7 @@ def get_experiment(experiment_id, experiment_name, output):
 
 
 @commands.command("delete")
+@mlflow_mcp(tool_name="delete_experiment")
 @EXPERIMENT_ID
 def delete_experiment(experiment_id):
     """
@@ -201,6 +206,7 @@ def delete_experiment(experiment_id):
 
 
 @commands.command("restore")
+@mlflow_mcp(tool_name="restore_experiment")
 @EXPERIMENT_ID
 def restore_experiment(experiment_id):
     """
@@ -214,6 +220,7 @@ def restore_experiment(experiment_id):
 
 
 @commands.command("rename")
+@mlflow_mcp(tool_name="rename_experiment")
 @EXPERIMENT_ID
 @click.option("--new-name", type=click.STRING, required=True)
 def rename_experiment(experiment_id, new_name):

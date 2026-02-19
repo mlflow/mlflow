@@ -45,7 +45,7 @@ import {
   isGlobalRoute,
   WORKSPACE_QUERY_PARAM,
 } from '../../workspaces/utils/WorkspaceUtils';
-import { getWorkspacesEnabledSync } from './ServerFeaturesContext';
+import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
 
 const useLocation = useLocationDirect;
 

@@ -71,6 +71,7 @@ export const GenAiTracesTableBody = React.memo(
     allColumns,
     isTableLoading,
     isGroupedBySession,
+    searchQuery,
   }: {
     experimentId: string;
     selectedColumns: TracesTableColumn[];
@@ -106,6 +107,8 @@ export const GenAiTracesTableBody = React.memo(
     allColumns: TracesTableColumn[];
     isTableLoading?: boolean;
     isGroupedBySession?: boolean;
+    /** When set, matching text in the Request column is highlighted. */
+    searchQuery?: string;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -240,6 +243,7 @@ export const GenAiTracesTableBody = React.memo(
         meta: {
           getRunColor,
           traceIdToTurnMap,
+          searchQuery,
         },
         onRowSelectionChange: setRowSelection,
         getRowId: (row) => getRowIdFromEvaluation(row.currentRunValue),
@@ -512,6 +516,7 @@ export const GenAiTracesTableBody = React.memo(
                 runUuid={runUuid}
                 compareToRunUuid={compareToRunUuid}
                 rowSelectionChangeHandler={rowSelectionChangeHandler}
+                searchQuery={searchQuery}
               />
             ) : (
               <MemoizedGenAiTracesTableBodyRows

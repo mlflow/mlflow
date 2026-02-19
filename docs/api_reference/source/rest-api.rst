@@ -1289,7 +1289,7 @@ Register Scorer
 +---------------------------------+-------------+
 |            Endpoint             | HTTP Method |
 +=================================+=============+
-| ``2.0/mlflow/scorers/register`` | ``POST``    |
+| ``3.0/mlflow/scorers/register`` | ``POST``    |
 +---------------------------------+-------------+
 
 Register a scorer for an experiment.
@@ -1356,7 +1356,7 @@ List Scorers
 +-----------------------------+-------------+
 |          Endpoint           | HTTP Method |
 +=============================+=============+
-| ``2.0/mlflow/scorers/list`` | ``GET``     |
+| ``3.0/mlflow/scorers/list`` | ``GET``     |
 +-----------------------------+-------------+
 
 List all scorers for an experiment.
@@ -1409,7 +1409,7 @@ List Scorer Versions
 +---------------------------------+-------------+
 |            Endpoint             | HTTP Method |
 +=================================+=============+
-| ``2.0/mlflow/scorers/versions`` | ``GET``     |
+| ``3.0/mlflow/scorers/versions`` | ``GET``     |
 +---------------------------------+-------------+
 
 List all versions of a specific scorer for an experiment.
@@ -1464,7 +1464,7 @@ Get Scorer
 +----------------------------+-------------+
 |          Endpoint          | HTTP Method |
 +============================+=============+
-| ``2.0/mlflow/scorers/get`` | ``GET``     |
+| ``3.0/mlflow/scorers/get`` | ``GET``     |
 +----------------------------+-------------+
 
 Get a specific scorer for an experiment.
@@ -1521,7 +1521,7 @@ Delete Scorer
 +-------------------------------+-------------+
 |           Endpoint            | HTTP Method |
 +===============================+=============+
-| ``2.0/mlflow/scorers/delete`` | ``DELETE``  |
+| ``3.0/mlflow/scorers/delete`` | ``DELETE``  |
 +-------------------------------+-------------+
 
 Delete a scorer for an experiment.
@@ -1562,7 +1562,7 @@ Create Gateway Secret
 +---------------------------------------+-------------+
 |               Endpoint                | HTTP Method |
 +=======================================+=============+
-| ``2.0/mlflow/gateway/secrets/create`` | ``POST``    |
+| ``3.0/mlflow/gateway/secrets/create`` | ``POST``    |
 +---------------------------------------+-------------+
 
 Create a new encrypted secret for LLM provider authentication
@@ -1625,7 +1625,7 @@ Get Gateway Secret Info
 +------------------------------------+-------------+
 |              Endpoint              | HTTP Method |
 +====================================+=============+
-| ``2.0/mlflow/gateway/secrets/get`` | ``GET``     |
+| ``3.0/mlflow/gateway/secrets/get`` | ``GET``     |
 +------------------------------------+-------------+
 
 Get metadata about a secret (does not include the encrypted value)
@@ -1680,7 +1680,7 @@ Update Gateway Secret
 +---------------------------------------+-------------+
 |               Endpoint                | HTTP Method |
 +=======================================+=============+
-| ``2.0/mlflow/gateway/secrets/update`` | ``POST``    |
+| ``3.0/mlflow/gateway/secrets/update`` | ``POST``    |
 +---------------------------------------+-------------+
 
 Update an existing secret's value or auth configuration
@@ -1741,7 +1741,7 @@ Delete Gateway Secret
 +---------------------------------------+-------------+
 |               Endpoint                | HTTP Method |
 +=======================================+=============+
-| ``2.0/mlflow/gateway/secrets/delete`` | ``DELETE``  |
+| ``3.0/mlflow/gateway/secrets/delete`` | ``DELETE``  |
 +---------------------------------------+-------------+
 
 Delete a secret
@@ -1778,7 +1778,7 @@ List Gateway Secrets
 +-------------------------------------+-------------+
 |              Endpoint               | HTTP Method |
 +=====================================+=============+
-| ``2.0/mlflow/gateway/secrets/list`` | ``GET``     |
+| ``3.0/mlflow/gateway/secrets/list`` | ``GET``     |
 +-------------------------------------+-------------+
 
 List all secrets with optional filtering by provider
@@ -1831,7 +1831,7 @@ Create Gateway Model Definition
 +-------------------------------------------------+-------------+
 |                    Endpoint                     | HTTP Method |
 +=================================================+=============+
-| ``2.0/mlflow/gateway/model-definitions/create`` | ``POST``    |
+| ``3.0/mlflow/gateway/model-definitions/create`` | ``POST``    |
 +-------------------------------------------------+-------------+
 
 Create a reusable model definition
@@ -1892,7 +1892,7 @@ Get Gateway Model Definition
 +----------------------------------------------+-------------+
 |                   Endpoint                   | HTTP Method |
 +==============================================+=============+
-| ``2.0/mlflow/gateway/model-definitions/get`` | ``GET``     |
+| ``3.0/mlflow/gateway/model-definitions/get`` | ``GET``     |
 +----------------------------------------------+-------------+
 
 Get a model definition by ID
@@ -1945,7 +1945,7 @@ List Gateway Model Definitions
 +-----------------------------------------------+-------------+
 |                   Endpoint                    | HTTP Method |
 +===============================================+=============+
-| ``2.0/mlflow/gateway/model-definitions/list`` | ``GET``     |
+| ``3.0/mlflow/gateway/model-definitions/list`` | ``GET``     |
 +-----------------------------------------------+-------------+
 
 List all model definitions with optional filters
@@ -2000,7 +2000,7 @@ Update Gateway Model Definition
 +-------------------------------------------------+-------------+
 |                    Endpoint                     | HTTP Method |
 +=================================================+=============+
-| ``2.0/mlflow/gateway/model-definitions/update`` | ``POST``    |
+| ``3.0/mlflow/gateway/model-definitions/update`` | ``POST``    |
 +-------------------------------------------------+-------------+
 
 Update a model definition
@@ -2063,7 +2063,7 @@ Delete Gateway Model Definition
 +-------------------------------------------------+-------------+
 |                    Endpoint                     | HTTP Method |
 +=================================================+=============+
-| ``2.0/mlflow/gateway/model-definitions/delete`` | ``DELETE``  |
+| ``3.0/mlflow/gateway/model-definitions/delete`` | ``DELETE``  |
 +-------------------------------------------------+-------------+
 
 Delete a model definition (fails if in use by any endpoint)
@@ -2100,7 +2100,7 @@ Create Gateway Endpoint
 +-----------------------------------------+-------------+
 |                Endpoint                 | HTTP Method |
 +=========================================+=============+
-| ``2.0/mlflow/gateway/endpoints/create`` | ``POST``    |
+| ``3.0/mlflow/gateway/endpoints/create`` | ``POST``    |
 +-----------------------------------------+-------------+
 
 Create a new endpoint with model configurations
@@ -2167,7 +2167,7 @@ Get Gateway Endpoint
 +--------------------------------------+-------------+
 |               Endpoint               | HTTP Method |
 +======================================+=============+
-| ``2.0/mlflow/gateway/endpoints/get`` | ``GET``     |
+| ``3.0/mlflow/gateway/endpoints/get`` | ``GET``     |
 +--------------------------------------+-------------+
 
 Get endpoint details including all model configurations
@@ -2222,7 +2222,7 @@ Update Gateway Endpoint
 +-----------------------------------------+-------------+
 |                Endpoint                 | HTTP Method |
 +=========================================+=============+
-| ``2.0/mlflow/gateway/endpoints/update`` | ``POST``    |
+| ``3.0/mlflow/gateway/endpoints/update`` | ``POST``    |
 +-----------------------------------------+-------------+
 
 Update an endpoint's name
@@ -2290,7 +2290,7 @@ Delete Gateway Endpoint
 +-----------------------------------------+-------------+
 |                Endpoint                 | HTTP Method |
 +=========================================+=============+
-| ``2.0/mlflow/gateway/endpoints/delete`` | ``DELETE``  |
+| ``3.0/mlflow/gateway/endpoints/delete`` | ``DELETE``  |
 +-----------------------------------------+-------------+
 
 Delete an endpoint and all its model configurations
@@ -2327,7 +2327,7 @@ List Gateway Endpoints
 +---------------------------------------+-------------+
 |               Endpoint                | HTTP Method |
 +=======================================+=============+
-| ``2.0/mlflow/gateway/endpoints/list`` | ``GET``     |
+| ``3.0/mlflow/gateway/endpoints/list`` | ``GET``     |
 +---------------------------------------+-------------+
 
 List endpoints with optional filtering by provider or secret
@@ -2382,7 +2382,7 @@ Attach Model to Endpoint
 +------------------------------------------------+-------------+
 |                    Endpoint                    | HTTP Method |
 +================================================+=============+
-| ``2.0/mlflow/gateway/endpoints/models/attach`` | ``POST``    |
+| ``3.0/mlflow/gateway/endpoints/models/attach`` | ``POST``    |
 +------------------------------------------------+-------------+
 
 Attach an existing model definition to an endpoint
@@ -2439,7 +2439,7 @@ Detach Model from Endpoint
 +------------------------------------------------+-------------+
 |                    Endpoint                    | HTTP Method |
 +================================================+=============+
-| ``2.0/mlflow/gateway/endpoints/models/detach`` | ``POST``    |
+| ``3.0/mlflow/gateway/endpoints/models/detach`` | ``POST``    |
 +------------------------------------------------+-------------+
 
 Detach a model definition from an endpoint (does not delete the model definition)
@@ -2478,7 +2478,7 @@ Create Endpoint Binding
 +--------------------------------------------------+-------------+
 |                     Endpoint                     | HTTP Method |
 +==================================================+=============+
-| ``2.0/mlflow/gateway/endpoints/bindings/create`` | ``POST``    |
+| ``3.0/mlflow/gateway/endpoints/bindings/create`` | ``POST``    |
 +--------------------------------------------------+-------------+
 
 Create a binding between an endpoint and an MLflow resource
@@ -2537,7 +2537,7 @@ Delete Endpoint Binding
 +--------------------------------------------------+-------------+
 |                     Endpoint                     | HTTP Method |
 +==================================================+=============+
-| ``2.0/mlflow/gateway/endpoints/bindings/delete`` | ``DELETE``  |
+| ``3.0/mlflow/gateway/endpoints/bindings/delete`` | ``DELETE``  |
 +--------------------------------------------------+-------------+
 
 Delete a binding between an endpoint and a resource
@@ -2578,7 +2578,7 @@ List Endpoint Bindings
 +------------------------------------------------+-------------+
 |                    Endpoint                    | HTTP Method |
 +================================================+=============+
-| ``2.0/mlflow/gateway/endpoints/bindings/list`` | ``GET``     |
+| ``3.0/mlflow/gateway/endpoints/bindings/list`` | ``GET``     |
 +------------------------------------------------+-------------+
 
 List all bindings for an endpoint
@@ -2635,7 +2635,7 @@ Gateway Set Endpoint Tag
 +------------------------------------------+-------------+
 |                 Endpoint                 | HTTP Method |
 +==========================================+=============+
-| ``2.0/mlflow/gateway/endpoints/set-tag`` | ``POST``    |
+| ``3.0/mlflow/gateway/endpoints/set-tag`` | ``POST``    |
 +------------------------------------------+-------------+
 
 Set a tag on an endpoint
@@ -2676,7 +2676,7 @@ Gateway Delete Endpoint Tag
 +---------------------------------------------+-------------+
 |                  Endpoint                   | HTTP Method |
 +=============================================+=============+
-| ``2.0/mlflow/gateway/endpoints/delete-tag`` | ``DELETE``  |
+| ``3.0/mlflow/gateway/endpoints/delete-tag`` | ``DELETE``  |
 +---------------------------------------------+-------------+
 
 Delete a tag from an endpoint
@@ -2715,7 +2715,7 @@ Create Prompt Optimization Job
 +-----------------------------------------+-------------+
 |                Endpoint                 | HTTP Method |
 +=========================================+=============+
-| ``2.0/mlflow/prompt-optimization/jobs`` | ``POST``    |
+| ``3.0/mlflow/prompt-optimization/jobs`` | ``POST``    |
 +-----------------------------------------+-------------+
 
 Create a new prompt optimization job.
@@ -2776,7 +2776,7 @@ Get Prompt Optimization Job
 +--------------------------------------------------+-------------+
 |                     Endpoint                     | HTTP Method |
 +==================================================+=============+
-| ``2.0/mlflow/prompt-optimization/jobs/{job_id}`` | ``GET``     |
+| ``3.0/mlflow/prompt-optimization/jobs/{job_id}`` | ``GET``     |
 +--------------------------------------------------+-------------+
 
 Get the details and status of a prompt optimization job.
@@ -2831,7 +2831,7 @@ Search Prompt Optimization Jobs
 +------------------------------------------------+-------------+
 |                    Endpoint                    | HTTP Method |
 +================================================+=============+
-| ``2.0/mlflow/prompt-optimization/jobs/search`` | ``POST``    |
+| ``3.0/mlflow/prompt-optimization/jobs/search`` | ``POST``    |
 +------------------------------------------------+-------------+
 
 Search for prompt optimization jobs.
@@ -2885,7 +2885,7 @@ Cancel Prompt Optimization Job
 +---------------------------------------------------------+-------------+
 |                        Endpoint                         | HTTP Method |
 +=========================================================+=============+
-| ``2.0/mlflow/prompt-optimization/jobs/{job_id}/cancel`` | ``POST``    |
+| ``3.0/mlflow/prompt-optimization/jobs/{job_id}/cancel`` | ``POST``    |
 +---------------------------------------------------------+-------------+
 
 Cancel an in-progress prompt optimization job.
@@ -2939,7 +2939,7 @@ Delete Prompt Optimization Job
 +--------------------------------------------------+-------------+
 |                     Endpoint                     | HTTP Method |
 +==================================================+=============+
-| ``2.0/mlflow/prompt-optimization/jobs/{job_id}`` | ``DELETE``  |
+| ``3.0/mlflow/prompt-optimization/jobs/{job_id}`` | ``DELETE``  |
 +--------------------------------------------------+-------------+
 
 Delete a prompt optimization job and its associated data.
@@ -4623,6 +4623,47 @@ Request Structure
 | upload_id  | ``STRING`` |             |
 +------------+------------+-------------+
 
+===========================
+
+
+
+.. _mlflowartifactsMlflowArtifactsServicegetPresignedDownloadUrl:
+
+Get Presigned URL for Multipart Download
+========================================
+
+
++---------------------------------------------------------+-------------+
+|                        Endpoint                         | HTTP Method |
++=========================================================+=============+
+| ``2.0/mlflow-artifacts/presigned/<path:artifact_path>`` | ``GET``     |
++---------------------------------------------------------+-------------+
+
+
+
+
+
+
+.. _mlflowartifactsGetPresignedDownloadUrlResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+-------------------------------------------------------------------------------+-----------------------------------------------------------------------------+
+| Field Name |                                     Type                                      |                                 Description                                 |
++============+===============================================================================+=============================================================================+
+| url        | ``STRING``                                                                    | The presigned URL for downloading the artifact directly from cloud storage. |
++------------+-------------------------------------------------------------------------------+-----------------------------------------------------------------------------+
+| headers    | An array of :ref:`mlflowartifactsgetpresigneddownloadurlresponseheadersentry` | Optional headers that must be included in the download request.             |
++------------+-------------------------------------------------------------------------------+-----------------------------------------------------------------------------+
+| file_size  | ``INT64``                                                                     | Optional size of the file in bytes.                                         |
++------------+-------------------------------------------------------------------------------+-----------------------------------------------------------------------------+
+
 .. _RESTadd:
 
 Data Structures
@@ -5940,6 +5981,24 @@ Retrieve workspace metadata.
 +----------------+------------+---------------------------------------------------------+
 
 .. _mlflowartifactsMultipartUploadCredentialHeadersEntry:
+
+HeadersEntry
+------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
+.. _mlflowartifactsGetPresignedDownloadUrlResponseHeadersEntry:
 
 HeadersEntry
 ------------

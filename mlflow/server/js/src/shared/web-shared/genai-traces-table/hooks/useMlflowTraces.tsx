@@ -638,7 +638,7 @@ export const createMlflowSearchFilter = (
     filter.push(`attributes.run_id = '${runUuid}'`);
   }
   if (searchQuery) {
-    const searchQueryField = 'span.attributes.mlflow.spanInputs';
+    const searchQueryField = 'trace.text';
     filter.push(`${searchQueryField} ILIKE '%${searchQuery}%'`);
   }
   if (timeRange) {

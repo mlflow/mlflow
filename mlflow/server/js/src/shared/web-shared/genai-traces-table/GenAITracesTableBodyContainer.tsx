@@ -61,6 +61,11 @@ interface GenAITracesTableBodyContainerProps {
    * Whether to group traces by session
    */
   isGroupedBySession: boolean;
+
+  /**
+   * Current search query; when set, matching text in the Request column is highlighted.
+   */
+  searchQuery?: string;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -86,6 +91,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       enableRowSelection = true,
       isTableLoading = false,
       isGroupedBySession,
+      searchQuery,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -253,6 +259,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 enableGrouping={shouldEnableTagGrouping()}
                 isTableLoading={isTableLoading}
                 isGroupedBySession={isGroupedBySession}
+                searchQuery={searchQuery}
               />
             </AssessmentSchemaContextProvider>
           </div>

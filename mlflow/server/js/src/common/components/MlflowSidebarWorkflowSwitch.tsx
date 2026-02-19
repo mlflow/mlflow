@@ -83,7 +83,7 @@ export const MlflowSidebarWorkflowSwitch = ({
       componentId="mlflow.sidebar.workflow_switch.tooltip"
       content={
         <FormattedMessage
-          defaultMessage="Select your workflow type. This changes the tabs that are visible in the navigation sidebar."
+          defaultMessage="Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems."
           description="Tooltip for workflow switch"
         />
       }

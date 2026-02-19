@@ -7,7 +7,11 @@ import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { RunColorPill } from '../experiment-page/components/RunColorPill';
-import { getEvalTabTotalTracesLimit } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { EvaluationRunCompareSelector } from './EvaluationRunCompareSelector';
+import {
+  getEvalTabTotalTracesLimit,
+  shouldEnableImprovedEvalRunsComparison,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import {
@@ -315,6 +319,22 @@ const RunViewEvaluationsTabInner = ({
         overflowY: 'hidden',
       }}
     >
+      {!shouldEnableImprovedEvalRunsComparison() && !showCompareSelector && (
+        <div
+          css={{
+            width: '100%',
+            padding: `${theme.spacing.xs}px 0`,
+          }}
+        >
+          <EvaluationRunCompareSelector
+            experimentId={experimentId}
+            currentRunUuid={runUuid}
+            compareToRunUuid={compareToRunUuid}
+            setCompareToRunUuid={setCompareToRunUuid}
+            setCurrentRunUuid={setCurrentRunUuid}
+          />
+        </div>
+      )}
       {showCompareSelector && compareToRunUuid && (
         <div
           css={{
