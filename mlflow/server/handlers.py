@@ -23,7 +23,6 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     Expectation,
-    Experiment,
     ExperimentTag,
     FallbackConfig,
     FallbackStrategy,
@@ -1147,18 +1146,6 @@ def _create_workspace_handler():
         )
     except NotImplementedError:
         raise _workspace_not_supported("Workspace creation is not supported by this provider")
-
-    tracking_store = _get_tracking_store()
-    default_experiment_name = f"{Experiment.DEFAULT_EXPERIMENT_NAME} ({workspace.name})"
-    with workspace_context.WorkspaceContext(workspace.name):
-        if tracking_store.get_experiment_by_name(default_experiment_name) is None:
-            try:
-                tracking_store.create_experiment(default_experiment_name)
-            except MlflowException as exc:
-                if exc.error_code != databricks_pb2.ErrorCode.Name(
-                    databricks_pb2.RESOURCE_ALREADY_EXISTS
-                ):
-                    raise
 
     response_message = CreateWorkspace.Response()
     response_message.workspace.MergeFrom(workspace.to_proto())
