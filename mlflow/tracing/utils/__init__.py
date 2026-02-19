@@ -707,16 +707,24 @@ def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
     return _get_experiment_id()
 
 
-def get_active_spans_table_name() -> str | None:
-    """
-    Get active Unity Catalog spans table name that's set by `mlflow.tracing.set_destination`.
-    """
+def is_uc_table_tracing() -> bool:
+    """Returns True if the active trace destination is a Unity Catalog table (V4)."""
     from mlflow.entities.trace_location import UCSchemaLocation
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
     if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        if isinstance(destination, UCSchemaLocation):
-            return destination.full_otel_spans_table_name
+        return isinstance(destination, UCSchemaLocation)
+    return False
+
+
+def get_active_spans_table_name() -> str | None:
+    """
+    Get active Unity Catalog spans table name that's set by `mlflow.tracing.set_destination`.
+    """
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    if is_uc_table_tracing():
+        return _MLFLOW_TRACE_USER_DESTINATION.get().full_otel_spans_table_name
 
     return None
 

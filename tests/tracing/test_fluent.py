@@ -1610,6 +1610,39 @@ def test_update_current_trace_with_model_id():
 
 
 @skip_when_testing_trace_sdk
+def test_update_current_trace_sets_user_session_span_attributes_for_uc_table():
+    from mlflow.entities.trace_location import UCSchemaLocation
+
+    mock_destination = UCSchemaLocation(catalog_name="catalog", schema_name="schema")
+
+    with mock.patch.object(_MLFLOW_TRACE_USER_DESTINATION, "get", return_value=mock_destination):
+        with mlflow.start_span("root") as root_span:
+            mlflow.update_current_trace(
+                metadata={
+                    TraceMetadataKey.TRACE_USER: "test_user",
+                    TraceMetadataKey.TRACE_SESSION: "session_123",
+                }
+            )
+
+    assert root_span.attributes.get(SpanAttributeKey.USER_ID) == "test_user"
+    assert root_span.attributes.get(SpanAttributeKey.SESSION_ID) == "session_123"
+
+
+@skip_when_testing_trace_sdk
+def test_update_current_trace_does_not_set_user_session_span_attributes_for_v3():
+    with mlflow.start_span("root") as root_span:
+        mlflow.update_current_trace(
+            metadata={
+                TraceMetadataKey.TRACE_USER: "test_user",
+                TraceMetadataKey.TRACE_SESSION: "session_123",
+            }
+        )
+
+    assert SpanAttributeKey.USER_ID not in root_span.attributes
+    assert SpanAttributeKey.SESSION_ID not in root_span.attributes
+
+
+@skip_when_testing_trace_sdk
 def test_update_current_trace_should_not_raise_during_model_logging():
     """
     Tracing is disabled while model logging. When the model includes
