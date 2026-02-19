@@ -47,8 +47,6 @@ export async function listScheduledScorers(experimentId: string) {
     .catch(catchNetworkErrorIfExists) as Promise<ListScorersResponse>;
 }
 
-// END-EDGE
-
 /**
  * Update scheduled scorers for an experiment
  */
