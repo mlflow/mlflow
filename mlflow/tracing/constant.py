@@ -50,10 +50,22 @@ class TokenUsageKey:
     INPUT_TOKENS = "input_tokens"
     OUTPUT_TOKENS = "output_tokens"
     TOTAL_TOKENS = "total_tokens"
+    CACHE_READ_INPUT_TOKENS = "cache_read_input_tokens"
+    CACHE_CREATION_INPUT_TOKENS = "cache_creation_input_tokens"
 
     @classmethod
     def all_keys(cls):
-        return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
+        return [
+            cls.INPUT_TOKENS,
+            cls.OUTPUT_TOKENS,
+            cls.TOTAL_TOKENS,
+            cls.CACHE_READ_INPUT_TOKENS,
+            cls.CACHE_CREATION_INPUT_TOKENS,
+        ]
+
+    @classmethod
+    def cache_keys(cls):
+        return [cls.CACHE_READ_INPUT_TOKENS, cls.CACHE_CREATION_INPUT_TOKENS]
 
 
 class CostKey:
@@ -84,7 +96,8 @@ class SpanAttributeKey:
     START_TIME_NS = "mlflow.spanStartTimeNs"
     CHAT_TOOLS = "mlflow.chat.tools"
     # This attribute is used to store token usage information from LLM responses.
-    # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
+    # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int,
+    #   "cache_read_input_tokens"?: int, "cache_creation_input_tokens"?: int} format.
     CHAT_USAGE = "mlflow.chat.tokenUsage"
     # This attribute stores cost information calculated from token usage and model pricing.
     # Stored in {"input_cost": float, "output_cost": float, "total_cost": float} format (USD).
