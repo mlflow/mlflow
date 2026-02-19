@@ -9,12 +9,18 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.span import Span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
-from mlflow.genai.discovery import (
-    _DEFAULT_SCORER_NAME,
-    Issue,
+from mlflow.genai.discovery.constants import _DEFAULT_SCORER_NAME
+from mlflow.genai.discovery.entities import Issue
+from mlflow.genai.discovery.pipeline import discover_issues
+from mlflow.genai.discovery.schemas import (
     _BatchTraceAnalysisResult,
-    _ScorerInstructions,
+    _IdentifiedIssue,
+    _IssueClusteringResult,
+    _ScorerInstructionsResult,
+    _ScorerSpec,
     _TraceAnalysis,
+)
+from mlflow.genai.discovery.utils import (
     _build_default_satisfaction_scorer,
     _build_enriched_trace_summary,
     _build_span_tree,
@@ -22,14 +28,11 @@ from mlflow.genai.discovery import (
     _compute_frequencies,
     _extract_failing_traces,
     _format_analysis_for_clustering,
-    _generate_scorer_instructions,
+    _generate_scorer_specs,
     _get_existing_score,
     _has_session_ids,
-    _IdentifiedIssue,
-    _IssueClusteringResult,
     _partition_by_existing_scores,
     _run_deep_analysis,
-    discover_issues,
 )
 from mlflow.genai.evaluation.entities import EvaluationResult
 
@@ -79,6 +82,7 @@ def _make_trace(
     info.execution_duration = execution_duration
     info.assessments = assessments or []
     info.tags = tags or {}
+    info.trace_metadata = {}
 
     data = MagicMock(spec=TraceData)
     data.spans = spans or [_make_mock_span()]
@@ -95,6 +99,16 @@ def _make_assessment(name, value):
         value=value,
         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test"),
     )
+
+
+def _mock_start_run(**kwargs):
+    """Return a context manager mock that yields a mock run."""
+    mock_run = MagicMock()
+    mock_run.info.run_id = "run-id"
+    cm = MagicMock()
+    cm.__enter__ = MagicMock(return_value=mock_run)
+    cm.__exit__ = MagicMock(return_value=False)
+    return cm
 
 
 # ---- _build_span_tree ----
@@ -228,7 +242,7 @@ def test_run_deep_analysis():
         ]
     )
     with patch(
-        "mlflow.genai.discovery.get_chat_completions_with_structured_output",
+        "mlflow.genai.discovery.utils.get_chat_completions_with_structured_output",
         return_value=mock_result,
     ) as mock_llm:
         analyses = _run_deep_analysis(["[0] trace summary..."], "openai:/gpt-5")
@@ -265,7 +279,7 @@ def test_format_analysis_for_clustering():
 # ---- _generate_scorer_instructions ----
 
 
-def test_generate_scorer_instructions():
+def test_generate_scorer_specs():
     issue = _IdentifiedIssue(
         name="tool_error",
         description="Tool calls fail",
@@ -283,21 +297,58 @@ def test_generate_scorer_instructions():
             severity=4,
         )
     ]
-    mock_result = _ScorerInstructions(
-        detection_instructions="Analyze the {{ trace }} for tool failures"
+    mock_result = _ScorerInstructionsResult(
+        scorers=[
+            _ScorerSpec(
+                name="tool_error",
+                detection_instructions="Analyze the {{ trace }} for tool failures",
+            )
+        ]
     )
     with patch(
-        "mlflow.genai.discovery.get_chat_completions_with_structured_output",
+        "mlflow.genai.discovery.utils.get_chat_completions_with_structured_output",
         return_value=mock_result,
     ) as mock_llm:
-        instructions = _generate_scorer_instructions(issue, analyses, "openai:/gpt-5-mini")
+        specs = _generate_scorer_specs(issue, analyses, "openai:/gpt-5-mini")
 
-    assert "{{ trace }}" in instructions
+    assert len(specs) == 1
+    assert "{{ trace }}" in specs[0].detection_instructions
     mock_llm.assert_called_once()
     assert mock_llm.call_args[1]["model_uri"] == "openai:/gpt-5-mini"
 
 
-def test_generate_scorer_instructions_adds_template_var():
+def test_generate_scorer_specs_splits_compound_criteria():
+    issue = _IdentifiedIssue(
+        name="compound_issue",
+        description="Response is truncated and uses wrong API",
+        root_cause="Multiple failures",
+        example_indices=[0],
+        confidence=90,
+    )
+    mock_result = _ScorerInstructionsResult(
+        scorers=[
+            _ScorerSpec(
+                name="response_truncation",
+                detection_instructions="Analyze the {{ trace }} for truncated responses",
+            ),
+            _ScorerSpec(
+                name="wrong_api_usage",
+                detection_instructions="Analyze the {{ trace }} for wrong API calls",
+            ),
+        ]
+    )
+    with patch(
+        "mlflow.genai.discovery.utils.get_chat_completions_with_structured_output",
+        return_value=mock_result,
+    ):
+        specs = _generate_scorer_specs(issue, [], "openai:/gpt-5-mini")
+
+    assert len(specs) == 2
+    assert specs[0].name == "response_truncation"
+    assert specs[1].name == "wrong_api_usage"
+
+
+def test_generate_scorer_specs_adds_template_var():
     issue = _IdentifiedIssue(
         name="test",
         description="Test",
@@ -305,16 +356,16 @@ def test_generate_scorer_instructions_adds_template_var():
         example_indices=[0],
         confidence=90,
     )
-    mock_result = _ScorerInstructions(
-        detection_instructions="Check if the response is bad"
+    mock_result = _ScorerInstructionsResult(
+        scorers=[_ScorerSpec(name="test", detection_instructions="Check if the response is bad")]
     )
     with patch(
-        "mlflow.genai.discovery.get_chat_completions_with_structured_output",
+        "mlflow.genai.discovery.utils.get_chat_completions_with_structured_output",
         return_value=mock_result,
     ):
-        instructions = _generate_scorer_instructions(issue, [], "openai:/gpt-5-mini")
+        specs = _generate_scorer_specs(issue, [], "openai:/gpt-5-mini")
 
-    assert "{{ trace }}" in instructions
+    assert "{{ trace }}" in specs[0].detection_instructions
 
 
 # ---- _extract_failing_traces ----
@@ -482,23 +533,34 @@ def test_partition_by_existing_scores():
 # ---- _has_session_ids ----
 
 
-def test_has_session_ids_true():
+def test_has_session_ids_true_via_tag():
     trace = _make_trace()
     trace.info.tags = {"mlflow.trace.session_id": "session-1"}
+    trace.info.trace_metadata = {}
+    assert _has_session_ids([trace]) is True
+
+
+def test_has_session_ids_true_via_metadata():
+    trace = _make_trace()
+    trace.info.tags = {}
+    trace.info.trace_metadata = {"mlflow.trace.session": "session-1"}
     assert _has_session_ids([trace]) is True
 
 
 def test_has_session_ids_false():
     trace = _make_trace()
     trace.info.tags = {}
+    trace.info.trace_metadata = {}
     assert _has_session_ids([trace]) is False
 
 
 def test_has_session_ids_mixed():
     t1 = _make_trace(trace_id="t-1")
     t1.info.tags = {}
+    t1.info.trace_metadata = {}
     t2 = _make_trace(trace_id="t-2")
     t2.info.tags = {"mlflow.trace.session_id": "session-1"}
+    t2.info.trace_metadata = {}
     assert _has_session_ids([t1, t2]) is True
 
 
@@ -513,7 +575,9 @@ def test_has_session_ids_mixed():
     ],
 )
 def test_build_default_satisfaction_scorer(use_conversation, expected_var):
-    with patch("mlflow.genai.discovery.make_judge", return_value=MagicMock()) as mock_make_judge:
+    with patch(
+        "mlflow.genai.discovery.utils.make_judge", return_value=MagicMock()
+    ) as mock_make_judge:
         _build_default_satisfaction_scorer("openai:/gpt-4", use_conversation=use_conversation)
 
     mock_make_judge.assert_called_once()
@@ -529,7 +593,7 @@ def test_build_default_satisfaction_scorer(use_conversation, expected_var):
 
 def test_discover_issues_no_experiment():
     with (
-        patch("mlflow.genai.discovery._get_experiment_id", return_value=None),
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value=None),
         pytest.raises(Exception, match="No experiment specified"),
     ):
         discover_issues()
@@ -537,8 +601,8 @@ def test_discover_issues_no_experiment():
 
 def test_discover_issues_empty_experiment():
     with (
-        patch("mlflow.genai.discovery._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.mlflow.search_traces", return_value=[]),
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
+        patch("mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=[]),
     ):
         result = discover_issues()
 
@@ -566,13 +630,17 @@ def test_discover_issues_all_traces_pass():
     triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=result_df)
 
     with (
-        patch("mlflow.genai.discovery._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.mlflow.search_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
+        patch("mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=traces),
         patch(
-            "mlflow.genai.discovery.mlflow.genai.evaluate",
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             side_effect=[test_eval, triage_eval],
         ),
-        patch("mlflow.genai.discovery.mlflow.MlflowClient"),
+        patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.start_run",
+            side_effect=_mock_start_run,
+        ),
     ):
         result = discover_issues()
 
@@ -616,7 +684,7 @@ def test_discover_issues_full_pipeline():
         ]
     )
 
-    # Phase 3: Clustering result (no detection_instructions field)
+    # Phase 3: Clustering result
     clustering_result = _IssueClusteringResult(
         issues=[
             _IdentifiedIssue(
@@ -630,8 +698,13 @@ def test_discover_issues_full_pipeline():
     )
 
     # Phase 4: Scorer instructions result
-    scorer_instructions_result = _ScorerInstructions(
-        detection_instructions="Check the {{ trace }} execution duration"
+    scorer_instructions_result = _ScorerInstructionsResult(
+        scorers=[
+            _ScorerSpec(
+                name="slow_response",
+                detection_instructions="Check the {{ trace }} execution duration",
+            )
+        ]
     )
 
     # False = issue detected (fail), True = clean (pass)
@@ -643,18 +716,29 @@ def test_discover_issues_full_pipeline():
     )
     validation_eval = EvaluationResult(run_id="run-validate", metrics={}, result_df=validation_df)
 
+    mock_llm = MagicMock(
+        side_effect=[deep_analysis_result, clustering_result, scorer_instructions_result]
+    )
     with (
-        patch("mlflow.genai.discovery._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.mlflow.search_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
+        patch("mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=traces),
         patch(
-            "mlflow.genai.discovery.mlflow.genai.evaluate",
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             side_effect=[test_eval, triage_eval, validation_eval],
         ),
         patch(
-            "mlflow.genai.discovery.get_chat_completions_with_structured_output",
-            side_effect=[deep_analysis_result, clustering_result, scorer_instructions_result],
+            "mlflow.genai.discovery.utils.get_chat_completions_with_structured_output",
+            mock_llm,
         ),
-        patch("mlflow.genai.discovery.mlflow.MlflowClient"),
+        patch(
+            "mlflow.genai.discovery.pipeline.get_chat_completions_with_structured_output",
+            mock_llm,
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.start_run",
+            side_effect=_mock_start_run,
+        ),
     ):
         result = discover_issues(sample_size=10)
 
@@ -715,18 +799,27 @@ def test_discover_issues_low_frequency_issues_discarded():
         ]
     )
 
+    mock_llm = MagicMock(side_effect=[deep_analysis_result, clustering_result])
     with (
-        patch("mlflow.genai.discovery._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.mlflow.search_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
+        patch("mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=traces),
         patch(
-            "mlflow.genai.discovery.mlflow.genai.evaluate",
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             side_effect=[test_eval, triage_eval],
         ),
         patch(
-            "mlflow.genai.discovery.get_chat_completions_with_structured_output",
-            side_effect=[deep_analysis_result, clustering_result],
+            "mlflow.genai.discovery.utils.get_chat_completions_with_structured_output",
+            mock_llm,
         ),
-        patch("mlflow.genai.discovery.mlflow.MlflowClient"),
+        patch(
+            "mlflow.genai.discovery.pipeline.get_chat_completions_with_structured_output",
+            mock_llm,
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.start_run",
+            side_effect=_mock_start_run,
+        ),
     ):
         result = discover_issues(sample_size=5)
 
@@ -736,7 +829,7 @@ def test_discover_issues_low_frequency_issues_discarded():
 
 def test_discover_issues_explicit_experiment_id():
     with patch(
-        "mlflow.genai.discovery.mlflow.search_traces",
+        "mlflow.genai.discovery.pipeline.mlflow.search_traces",
         return_value=[],
     ) as mock_search:
         discover_issues(experiment_id="exp-42")
@@ -748,8 +841,10 @@ def test_discover_issues_explicit_experiment_id():
 
 def test_discover_issues_passes_filter_and_model_id():
     with (
-        patch("mlflow.genai.discovery._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.mlflow.search_traces", return_value=[]) as mock_search,
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=[]
+        ) as mock_search,
     ):
         discover_issues(filter_string="tag.env = 'prod'", model_id="m-abc")
 
@@ -778,13 +873,17 @@ def test_discover_issues_custom_satisfaction_scorer():
     triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=result_df)
 
     with (
-        patch("mlflow.genai.discovery._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.mlflow.search_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
+        patch("mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=traces),
         patch(
-            "mlflow.genai.discovery.mlflow.genai.evaluate",
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             side_effect=[test_eval, triage_eval],
         ) as mock_eval,
-        patch("mlflow.genai.discovery.mlflow.MlflowClient"),
+        patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.start_run",
+            side_effect=_mock_start_run,
+        ),
     ):
         discover_issues(satisfaction_scorer=custom_scorer)
 
