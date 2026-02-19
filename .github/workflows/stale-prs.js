@@ -91,13 +91,19 @@ module.exports = async ({ context, github }) => {
   let closeCount = 0;
 
   try {
-    const iterator = github.graphql.paginate.iterator(QUERY);
+    let cursor = null;
+    let hasNextPage = true;
 
-    for await (const response of iterator) {
+    while (hasNextPage) {
+      const response = await github.graphql(QUERY, { cursor });
       const { remaining, resetAt } = response.rateLimit;
       console.log(`Rate limit: ${remaining} remaining, resets at ${resetAt}`);
 
-      for (const pr of response.repository.pullRequests.nodes) {
+      const { nodes, pageInfo } = response.repository.pullRequests;
+      hasNextPage = pageInfo.hasNextPage;
+      cursor = pageInfo.endCursor;
+
+      for (const pr of nodes) {
         if (closeCount >= MAX_CLOSES) {
           console.log(`Reached close limit (${MAX_CLOSES}). Stopping.`);
           return;
