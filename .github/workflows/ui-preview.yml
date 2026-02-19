@@ -31,7 +31,7 @@ jobs:
       contents: read
     timeout-minutes: 5
     outputs:
-      has-js-changes: ${{ steps.check.outputs.has-js-changes }}
+      has-ui-changes: ${{ steps.check.outputs.has-ui-changes }}
     steps:
       - name: Check for JS changes
         id: check
@@ -42,14 +42,14 @@ jobs:
             --repo ${{ github.repository }} \
             --json files --jq '.files[].path')
           if echo "$FILES" | grep -q '^mlflow/server/js/'; then
-            echo "has-js-changes=true" >> $GITHUB_OUTPUT
+            echo "has-ui-changes=true" >> $GITHUB_OUTPUT
           else
-            echo "has-js-changes=false" >> $GITHUB_OUTPUT
+            echo "has-ui-changes=false" >> $GITHUB_OUTPUT
           fi
 
   build:
     needs: should-run
-    if: needs.should-run.outputs.has-js-changes == 'true'
+    if: needs.should-run.outputs.has-ui-changes == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -64,6 +64,10 @@ jobs:
         run: pip install build setuptools
 
       - name: Build wheel
+        # Build the wheel before `yarn build` so it excludes UI assets
+        # (mlflow/server/js/build/), keeping the wheel under the 10MB
+        # Databricks Apps file upload limit. UI assets are uploaded
+        # separately as build.tar.gz.
         run: |
           python dev/build.py --package-type dev
           WHEEL_PATH=$(find dist -name "*.whl" | head -1)
@@ -170,9 +174,7 @@ jobs:
         env:
           APP_URL: ${{ steps.app.outputs.url }}
         run: |
-          APP_HOST="${APP_URL#https://}"
           sed -i "s|__APP_URL__|$APP_URL|" /tmp/app-deploy/app.yaml
-          sed -i "s|__APP_HOST__|$APP_HOST|" /tmp/app-deploy/app.yaml
 
       - name: Upload files and deploy
         env:
