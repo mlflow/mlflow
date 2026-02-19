@@ -74,7 +74,7 @@ class Annotation(BaseModel):
 
 
 class ResponseOutputText(BaseModel):
-    annotations: list[Annotation] | None = None
+    annotations: list[Annotation] = []
     text: str
     type: str = "output_text"
 

@@ -1238,6 +1238,7 @@ def test_create_text_output_item():
             {
                 "text": "Hello world",
                 "type": "output_text",
+                "annotations": [],
             }
         ],
         "role": "assistant",
