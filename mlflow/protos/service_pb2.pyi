@@ -67,6 +67,13 @@ class LoggedModelStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     LOGGED_MODEL_READY: _ClassVar[LoggedModelStatus]
     LOGGED_MODEL_UPLOAD_FAILED: _ClassVar[LoggedModelStatus]
 
+class LabelingSessionItemStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LABELING_ITEM_PENDING: _ClassVar[LabelingSessionItemStatus]
+    LABELING_ITEM_IN_PROGRESS: _ClassVar[LabelingSessionItemStatus]
+    LABELING_ITEM_COMPLETED: _ClassVar[LabelingSessionItemStatus]
+    LABELING_ITEM_SKIPPED: _ClassVar[LabelingSessionItemStatus]
+
 class RoutingStrategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     ROUTING_STRATEGY_UNSPECIFIED: _ClassVar[RoutingStrategy]
@@ -112,6 +119,10 @@ LOGGED_MODEL_STATUS_UNSPECIFIED: LoggedModelStatus
 LOGGED_MODEL_PENDING: LoggedModelStatus
 LOGGED_MODEL_READY: LoggedModelStatus
 LOGGED_MODEL_UPLOAD_FAILED: LoggedModelStatus
+LABELING_ITEM_PENDING: LabelingSessionItemStatus
+LABELING_ITEM_IN_PROGRESS: LabelingSessionItemStatus
+LABELING_ITEM_COMPLETED: LabelingSessionItemStatus
+LABELING_ITEM_SKIPPED: LabelingSessionItemStatus
 ROUTING_STRATEGY_UNSPECIFIED: RoutingStrategy
 REQUEST_BASED_TRAFFIC_SPLIT: RoutingStrategy
 FALLBACK_STRATEGY_UNSPECIFIED: FallbackStrategy
@@ -1756,6 +1767,244 @@ class Scorer(_message.Message):
     creation_time: int
     scorer_id: str
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
+
+class LabelingSessionProto(_message.Message):
+    __slots__ = ("labeling_session_id", "experiment_id", "name", "creation_time", "last_update_time")
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    experiment_id: int
+    name: str
+    creation_time: int
+    last_update_time: int
+    def __init__(self, labeling_session_id: _Optional[str] = ..., experiment_id: _Optional[int] = ..., name: _Optional[str] = ..., creation_time: _Optional[int] = ..., last_update_time: _Optional[int] = ...) -> None: ...
+
+class LabelingSchemaProto(_message.Message):
+    __slots__ = ("labeling_schema_id", "labeling_session_id", "name", "assessment_type", "assessment_value_type", "title", "instructions", "creation_time", "last_update_time")
+    LABELING_SCHEMA_ID_FIELD_NUMBER: _ClassVar[int]
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_TYPE_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_VALUE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    INSTRUCTIONS_FIELD_NUMBER: _ClassVar[int]
+    CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
+    labeling_schema_id: str
+    labeling_session_id: str
+    name: str
+    assessment_type: str
+    assessment_value_type: str
+    title: str
+    instructions: str
+    creation_time: int
+    last_update_time: int
+    def __init__(self, labeling_schema_id: _Optional[str] = ..., labeling_session_id: _Optional[str] = ..., name: _Optional[str] = ..., assessment_type: _Optional[str] = ..., assessment_value_type: _Optional[str] = ..., title: _Optional[str] = ..., instructions: _Optional[str] = ..., creation_time: _Optional[int] = ..., last_update_time: _Optional[int] = ...) -> None: ...
+
+class LabelingSessionItemProto(_message.Message):
+    __slots__ = ("labeling_item_id", "labeling_session_id", "trace_id", "dataset_record_id", "dataset_id", "status", "creation_time", "last_update_time")
+    LABELING_ITEM_ID_FIELD_NUMBER: _ClassVar[int]
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    DATASET_RECORD_ID_FIELD_NUMBER: _ClassVar[int]
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
+    labeling_item_id: str
+    labeling_session_id: str
+    trace_id: str
+    dataset_record_id: str
+    dataset_id: str
+    status: LabelingSessionItemStatus
+    creation_time: int
+    last_update_time: int
+    def __init__(self, labeling_item_id: _Optional[str] = ..., labeling_session_id: _Optional[str] = ..., trace_id: _Optional[str] = ..., dataset_record_id: _Optional[str] = ..., dataset_id: _Optional[str] = ..., status: _Optional[_Union[LabelingSessionItemStatus, str]] = ..., creation_time: _Optional[int] = ..., last_update_time: _Optional[int] = ...) -> None: ...
+
+class CreateLabelingSession(_message.Message):
+    __slots__ = ("experiment_id", "name")
+    class Response(_message.Message):
+        __slots__ = ("labeling_session",)
+        LABELING_SESSION_FIELD_NUMBER: _ClassVar[int]
+        labeling_session: LabelingSessionProto
+        def __init__(self, labeling_session: _Optional[_Union[LabelingSessionProto, _Mapping]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: int
+    name: str
+    def __init__(self, experiment_id: _Optional[int] = ..., name: _Optional[str] = ...) -> None: ...
+
+class GetLabelingSession(_message.Message):
+    __slots__ = ("labeling_session_id",)
+    class Response(_message.Message):
+        __slots__ = ("labeling_session",)
+        LABELING_SESSION_FIELD_NUMBER: _ClassVar[int]
+        labeling_session: LabelingSessionProto
+        def __init__(self, labeling_session: _Optional[_Union[LabelingSessionProto, _Mapping]] = ...) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    def __init__(self, labeling_session_id: _Optional[str] = ...) -> None: ...
+
+class ListLabelingSessions(_message.Message):
+    __slots__ = ("experiment_id",)
+    class Response(_message.Message):
+        __slots__ = ("labeling_sessions",)
+        LABELING_SESSIONS_FIELD_NUMBER: _ClassVar[int]
+        labeling_sessions: _containers.RepeatedCompositeFieldContainer[LabelingSessionProto]
+        def __init__(self, labeling_sessions: _Optional[_Iterable[_Union[LabelingSessionProto, _Mapping]]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: int
+    def __init__(self, experiment_id: _Optional[int] = ...) -> None: ...
+
+class UpdateLabelingSession(_message.Message):
+    __slots__ = ("labeling_session_id", "name")
+    class Response(_message.Message):
+        __slots__ = ("labeling_session",)
+        LABELING_SESSION_FIELD_NUMBER: _ClassVar[int]
+        labeling_session: LabelingSessionProto
+        def __init__(self, labeling_session: _Optional[_Union[LabelingSessionProto, _Mapping]] = ...) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    name: str
+    def __init__(self, labeling_session_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class DeleteLabelingSession(_message.Message):
+    __slots__ = ("labeling_session_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    def __init__(self, labeling_session_id: _Optional[str] = ...) -> None: ...
+
+class CreateLabelingSchema(_message.Message):
+    __slots__ = ("labeling_session_id", "name", "assessment_type", "title", "assessment_value_type", "instructions")
+    class Response(_message.Message):
+        __slots__ = ("labeling_schema",)
+        LABELING_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+        labeling_schema: LabelingSchemaProto
+        def __init__(self, labeling_schema: _Optional[_Union[LabelingSchemaProto, _Mapping]] = ...) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_TYPE_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    ASSESSMENT_VALUE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    INSTRUCTIONS_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    name: str
+    assessment_type: str
+    title: str
+    assessment_value_type: str
+    instructions: str
+    def __init__(self, labeling_session_id: _Optional[str] = ..., name: _Optional[str] = ..., assessment_type: _Optional[str] = ..., title: _Optional[str] = ..., assessment_value_type: _Optional[str] = ..., instructions: _Optional[str] = ...) -> None: ...
+
+class GetLabelingSchema(_message.Message):
+    __slots__ = ("labeling_session_id", "name")
+    class Response(_message.Message):
+        __slots__ = ("labeling_schema",)
+        LABELING_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+        labeling_schema: LabelingSchemaProto
+        def __init__(self, labeling_schema: _Optional[_Union[LabelingSchemaProto, _Mapping]] = ...) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    name: str
+    def __init__(self, labeling_session_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class ListLabelingSchemas(_message.Message):
+    __slots__ = ("labeling_session_id",)
+    class Response(_message.Message):
+        __slots__ = ("labeling_schemas",)
+        LABELING_SCHEMAS_FIELD_NUMBER: _ClassVar[int]
+        labeling_schemas: _containers.RepeatedCompositeFieldContainer[LabelingSchemaProto]
+        def __init__(self, labeling_schemas: _Optional[_Iterable[_Union[LabelingSchemaProto, _Mapping]]] = ...) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    def __init__(self, labeling_session_id: _Optional[str] = ...) -> None: ...
+
+class DeleteLabelingSchema(_message.Message):
+    __slots__ = ("labeling_session_id", "name")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    name: str
+    def __init__(self, labeling_session_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class CreateLabelingSessionItems(_message.Message):
+    __slots__ = ("labeling_session_id", "items")
+    class Response(_message.Message):
+        __slots__ = ("labeling_items",)
+        LABELING_ITEMS_FIELD_NUMBER: _ClassVar[int]
+        labeling_items: _containers.RepeatedCompositeFieldContainer[LabelingSessionItemProto]
+        def __init__(self, labeling_items: _Optional[_Iterable[_Union[LabelingSessionItemProto, _Mapping]]] = ...) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    ITEMS_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    items: _containers.RepeatedCompositeFieldContainer[LabelingSessionItemProto]
+    def __init__(self, labeling_session_id: _Optional[str] = ..., items: _Optional[_Iterable[_Union[LabelingSessionItemProto, _Mapping]]] = ...) -> None: ...
+
+class GetLabelingSessionItem(_message.Message):
+    __slots__ = ("labeling_session_id", "labeling_item_id")
+    class Response(_message.Message):
+        __slots__ = ("labeling_item",)
+        LABELING_ITEM_FIELD_NUMBER: _ClassVar[int]
+        labeling_item: LabelingSessionItemProto
+        def __init__(self, labeling_item: _Optional[_Union[LabelingSessionItemProto, _Mapping]] = ...) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    LABELING_ITEM_ID_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    labeling_item_id: str
+    def __init__(self, labeling_session_id: _Optional[str] = ..., labeling_item_id: _Optional[str] = ...) -> None: ...
+
+class ListLabelingSessionItems(_message.Message):
+    __slots__ = ("labeling_session_id", "page_token", "max_results")
+    class Response(_message.Message):
+        __slots__ = ("labeling_items", "next_page_token")
+        LABELING_ITEMS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        labeling_items: _containers.RepeatedCompositeFieldContainer[LabelingSessionItemProto]
+        next_page_token: str
+        def __init__(self, labeling_items: _Optional[_Iterable[_Union[LabelingSessionItemProto, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    page_token: str
+    max_results: int
+    def __init__(self, labeling_session_id: _Optional[str] = ..., page_token: _Optional[str] = ..., max_results: _Optional[int] = ...) -> None: ...
+
+class UpdateLabelingSessionItem(_message.Message):
+    __slots__ = ("labeling_session_id", "labeling_item_id", "status")
+    class Response(_message.Message):
+        __slots__ = ("labeling_item",)
+        LABELING_ITEM_FIELD_NUMBER: _ClassVar[int]
+        labeling_item: LabelingSessionItemProto
+        def __init__(self, labeling_item: _Optional[_Union[LabelingSessionItemProto, _Mapping]] = ...) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    LABELING_ITEM_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    labeling_item_id: str
+    status: LabelingSessionItemStatus
+    def __init__(self, labeling_session_id: _Optional[str] = ..., labeling_item_id: _Optional[str] = ..., status: _Optional[_Union[LabelingSessionItemStatus, str]] = ...) -> None: ...
+
+class DeleteLabelingSessionItems(_message.Message):
+    __slots__ = ("labeling_session_id", "labeling_item_ids")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    LABELING_SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    LABELING_ITEM_IDS_FIELD_NUMBER: _ClassVar[int]
+    labeling_session_id: str
+    labeling_item_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, labeling_session_id: _Optional[str] = ..., labeling_item_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class GatewaySecretInfo(_message.Message):
     __slots__ = ("secret_id", "secret_name", "masked_values", "created_at", "last_updated_at", "provider", "created_by", "last_updated_by", "auth_config")
