@@ -29,6 +29,7 @@ import type {
   CreateEndpointBindingResponse,
   ListEndpointBindingsResponse,
   SecretsConfigResponse,
+  ListUsersResponse,
 } from './types';
 
 const defaultErrorHandler = async ({
@@ -287,6 +288,14 @@ export const GatewayApi = {
       relativeUrl,
       error: defaultErrorHandler,
     }) as Promise<ListEndpointBindingsResponse>;
+  },
+
+  // Auth Users
+  listUsers: () => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/2.0/mlflow/users/list',
+      error: defaultErrorHandler,
+    }) as Promise<ListUsersResponse>;
   },
 
   // Configuration
