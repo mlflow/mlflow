@@ -279,6 +279,7 @@ latex_documents = [
 # https://github.com/sphinx-doc/sphinx/issues/6521#issuecomment-505765893
 autodoc_mock_imports = [
     "torch",
+    "pytorch_lightning",
     "langchain_core",
     "langgraph",
     "langchain_community",
