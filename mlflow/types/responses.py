@@ -200,9 +200,8 @@ def create_text_output_item(
     content_item = {
         "text": text,
         "type": "output_text",
+        "annotations": annotations or [],
     }
-    if annotations is not None:
-        content_item["annotations"] = annotations
     return {
         "id": id,
         "content": [content_item],
