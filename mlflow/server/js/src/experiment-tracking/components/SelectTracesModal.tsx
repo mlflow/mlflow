@@ -5,10 +5,10 @@ import { useParams } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { TracesV3Logs } from './experiment-page/components/traces-v3/TracesV3Logs';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+import type { TracesTableColumn } from '@databricks/web-shared/genai-traces-table';
 import {
   ActiveEvaluationContext,
   TRACE_ID_COLUMN_ID,
-  TracesTableColumn,
   TracesTableColumnType,
 } from '@databricks/web-shared/genai-traces-table';
 import { INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID } from '@databricks/web-shared/genai-traces-table/hooks/useTableColumns';

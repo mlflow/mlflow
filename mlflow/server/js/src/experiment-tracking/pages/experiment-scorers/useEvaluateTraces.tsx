@@ -25,7 +25,8 @@ import {
 import type { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
 import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
-import { ScorerEvaluation, ScorerFinishedEvent, useEvaluateTracesAsync } from './useEvaluateTracesAsync';
+import type { ScorerEvaluation, ScorerFinishedEvent } from './useEvaluateTracesAsync';
+import { useEvaluateTracesAsync } from './useEvaluateTracesAsync';
 import { TrackingJobStatus } from '../../../common/hooks/useGetTrackingServerJobStatus';
 
 /**

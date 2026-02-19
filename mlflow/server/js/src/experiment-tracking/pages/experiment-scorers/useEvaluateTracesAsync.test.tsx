@@ -6,7 +6,8 @@ import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-
 import { setupServer } from '../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { ScorerEvaluationScope } from './constants';
-import { isSessionJudgeEvaluationResult, JudgeEvaluationResult } from './useEvaluateTraces.common';
+import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { isSessionJudgeEvaluationResult } from './useEvaluateTraces.common';
 
 jest.useFakeTimers();
 

@@ -4,7 +4,8 @@ import { FormattedMessage } from '@databricks/i18n';
 import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import ScorerFormCreateContainer from './ScorerFormCreateContainer';
 import ScorerFormEditContainer from './ScorerFormEditContainer';
-import { SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
+import type { ScorerEvaluationScope } from './constants';
+import { SCORER_FORM_MODE, type ScorerFormMode } from './constants';
 import type { ScheduledScorer } from './types';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 

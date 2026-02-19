@@ -1,12 +1,8 @@
 import { useMemo, useCallback } from 'react';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import {
-  formatTimestampForTraceMetrics,
-  useTimestampValueMap,
-  useChartZoom,
-  ChartZoomState,
-} from '../utils/chartUtils';
+import type { ChartZoomState } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, useTimestampValueMap, useChartZoom } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface RequestsChartDataPoint {

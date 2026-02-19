@@ -5,7 +5,7 @@ import React, { createContext, useCallback, useMemo, useState } from 'react';
 import type { EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { ModelTraceExplorerPreferencesProvider } from '../model-trace-explorer/ModelTraceExplorerPreferencesContext';
 import { useModelTraceExplorerContext } from '../model-trace-explorer/ModelTraceExplorerContext';
-import { GetTraceFunction } from './hooks/useGetTrace';
+import type { GetTraceFunction } from './hooks/useGetTrace';
 
 type TraceRow = EvalTraceComparisonEntry & { multiline?: boolean };
 

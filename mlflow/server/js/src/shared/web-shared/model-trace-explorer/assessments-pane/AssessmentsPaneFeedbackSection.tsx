@@ -10,7 +10,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FeedbackAssessment } from '../ModelTrace.types';
+import type { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
