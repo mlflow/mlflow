@@ -1,0 +1,23 @@
+# History files
+.Rhistory
+.Rapp.history
+# Session Data files
+.RData
+# User Data files
+.Ruserdata
+# Example code in package build process
+*-Ex.R
+# RStudio files
+.Rproj.user
+mlruns/
+.DS_Store
+model/
+internal
+packrat.lock
+r-dependencies.txt
+Reference_Manual_mlflow.md
+*.Rcheck/
+depends.Rds
+R-version
+*.tar.gz
+crate.bin

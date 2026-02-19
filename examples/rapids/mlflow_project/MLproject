@@ -1,0 +1,17 @@
+name: cuML RF test
+
+conda_env: envs/conda.yaml
+
+entry_points:
+    hyperopt:
+        parameters:
+            fpath: {type: str}
+            algo: {type: str, default: 'tpe'}
+        command: "python src/rf_test/train.py --fpath={fpath} --algo={algo}"
+    simple:
+        parameters:
+            fpath: {type: str}
+            n_estimators: {type: int}
+            max_features: {type: float}
+            max_depth: {type: int}
+        command: "python src/rf_test/train_simple.py --fpath={fpath} --n_estimators={n_estimators} --max_features={max_features} --max_depth={max_depth}"

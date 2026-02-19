@@ -1,0 +1,11 @@
+endpoints:
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: amazon-bedrock
+      name: amazon.titan-tg1-large
+      config:
+        aws_config:
+          aws_region: us-east-1
+          aws_access_key_id: $AWS_ACCESS_KEY_ID
+          aws_secret_access_key: $AWS_SECRET_ACCESS_KEY

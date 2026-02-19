@@ -1,0 +1,16 @@
+endpoints:
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: cohere
+      name: command
+      config:
+        cohere_api_key: $COHERE_API_KEY
+
+  - name: embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: cohere
+      name: embed-english-light-v2.0
+      config:
+        cohere_api_key: $COHERE_API_KEY

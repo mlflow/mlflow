@@ -1,0 +1,69 @@
+.mlflow-sticky-header {
+  position: sticky;
+  position: -webkit-sticky;
+  left: 0;
+}
+
+.mlflow-compare-run-table {
+  display: block;
+  overflow: auto;
+  width: 100%;
+}
+
+.mlflow-compare-table th.inter-title {
+  padding: 20px 0 0;
+  background: transparent;
+}
+
+.mlflow-compare-table .head-value {
+  overflow: hidden;
+  overflow-wrap: break-word;
+}
+
+.mlflow-compare-table td.data-value,
+.mlflow-compare-table th.data-value {
+  overflow: hidden;
+  max-width: 120px;
+  text-overflow: ellipsis;
+}
+
+.mlflow-responsive-table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.mlflow-compare-table .diff-row .data-value {
+  background-color: rgba(249, 237, 190, 0.5);
+  color: #555;
+}
+
+.mlflow-compare-table .diff-row .head-value {
+  background-color: rgba(249, 237, 190, 1);
+  color: #555;
+}
+
+.mlflow-compare-table .diff-row:hover {
+  background-color: rgba(249, 237, 190, 1);
+  color: #555;
+}
+
+/* Overrides to make it look more like antd */
+.mlflow-compare-table {
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 20px;
+}
+.mlflow-compare-table th,
+.mlflow-compare-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #e8e8e8;
+}
+.mlflow-compare-table th {
+  color: rgba(0, 0, 0, 0.85);
+  font-weight: 500;
+  background-color: rgb(250, 250, 250);
+  text-align: left;
+}
+.mlflow-compare-table > tbody > tr:hover:not(.diff-row) > td:not(.highlight-data) {
+  background-color: rgb(250, 250, 250);
+}

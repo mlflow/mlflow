@@ -1,0 +1,46 @@
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from "@site/src/components/ImageBox";
+
+# Delete Traces
+
+You can delete traces based on specific criteria using the <APILink fn="mlflow.client.MlflowClient.delete_traces" /> method. This method allows you to delete traces by **timestamp** or **trace IDs**.
+
+:::warning Deletion is irreversible
+Deleting a trace cannot be undone. Ensure that the parameters provided to the `delete_traces` API meet the intended range for deletion.
+:::
+
+## Deleting traces from MLflow UI
+
+<ImageBox src="/images/llms/tracing/delete-traces.png" alt="Delete Traces from MLflow UI" />
+
+## Delete traces older than a specific timestamp:
+
+```python
+from datetime import datetime, timedelta
+
+# Calculate timestamp for 7 days ago
+seven_days_ago = datetime.now() - timedelta(days=7)
+timestamp_ms = int(seven_days_ago.timestamp() * 1000)
+
+deleted_count = client.delete_traces(
+    experiment_id="1",
+    max_timestamp_millis=timestamp_ms,
+)
+
+print(f"Deleted {deleted_count} traces")
+```
+
+Delete specific traces by their trace IDs:
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Delete specific traces
+trace_ids = ["trace_id_1", "trace_id_2", "trace_id_3"]
+
+deleted_count = client.delete_traces(experiment_id="1", trace_ids=trace_ids)
+
+print(f"Deleted {deleted_count} traces")
+```

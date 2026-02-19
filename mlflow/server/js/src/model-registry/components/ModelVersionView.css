@@ -1,0 +1,26 @@
+/* >>> Extract to our own Alert wrapper component */
+.mlflow-status-alert {
+  margin-bottom: 16px;
+  border-radius: 2px;
+}
+
+.mlflow-status-alert .model-version-status-icon {
+  margin-left: -3px;
+}
+
+.mlflow-status-alert.mlflow-status-alert-info {
+  border-left: 2px solid #3895d3;
+}
+
+.mlflow-status-alert.mlflow-status-alert-error {
+  border-left: 2px solid red;
+}
+
+.mlflow-version-follow-icon {
+  margin-left: auto;
+}
+
+.ant-popover-content {
+  max-width: 500px;
+}
+/* <<< Extract to our own Alert wrapper component */

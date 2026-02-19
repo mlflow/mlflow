@@ -1,0 +1,8 @@
+**/*_pb2.py
+**/*.pyc
+**/__pycache__/
+*.class
+*.jar
+**/build
+**/dist
+**/*.egg-info

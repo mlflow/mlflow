@@ -1,0 +1,9 @@
+python: "3.10"
+build_dependencies:
+  - pip
+dependencies:
+  - langchain>=0.0.244
+  - openai>=0.27.2
+  - evaluate>=0.4.0
+  - mlflow>=2.4.0
+  - tiktoken>=0.4.0

@@ -1,0 +1,5 @@
+build_dependencies:
+  - pip
+dependencies:
+  - pmdarima
+  - mlflow>=1.23.1

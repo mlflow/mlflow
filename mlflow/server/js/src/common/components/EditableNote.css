@@ -1,0 +1,11 @@
+.mlflow-editable-note-actions {
+  margin-top: 16px;
+}
+
+.mlflow-editable-note-actions button + button {
+  margin-left: 16px;
+}
+
+.mde-header {
+  background: none;
+}

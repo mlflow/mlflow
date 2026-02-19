@@ -1,0 +1,25 @@
+name: "setup-java"
+description: "Set up Java"
+inputs:
+  java-version:
+    description: "java-version"
+    default: 17
+    required: false
+
+  distribution:
+    description: "distribution"
+    default: temurin
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: ${{ inputs.distribution }}
+
+    - name: Set MLFLOW_DOCKER_OPENJDK_VERSION
+      shell: bash
+      run: |
+        echo "MLFLOW_DOCKER_OPENJDK_VERSION=${{ inputs.java-version }}" >> $GITHUB_ENV

@@ -1,0 +1,4 @@
+build_dependencies:
+  - pip
+dependencies:
+  - prophet>=1.0.1

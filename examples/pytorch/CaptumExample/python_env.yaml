@@ -1,0 +1,12 @@
+build_dependencies:
+  - pip
+dependencies:
+  - mlflow
+  - pandas
+  - scipy
+  - captum
+  - boto3
+  - scikit-learn
+  - prettytable
+  - ipython
+  - torch

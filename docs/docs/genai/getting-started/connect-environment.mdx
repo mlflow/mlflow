@@ -1,0 +1,38 @@
+---
+description: "Learn how to setup the MLflow server for GenAI application development."
+last_update:
+  date: 2025-11-27
+---
+
+import ImageBox from '@site/src/components/ImageBox';
+import ServerSetup from "@site/src/content/setup_server.mdx";
+
+# Set Up MLflow Server
+
+:::tip MLflow Assistant
+Need help with this setup? Try <ins>[MLflow Assistant](/genai/getting-started/try-assistant)</ins> - a powerful AI assistant that understands your codebase and can set up MLflow for you.
+:::
+
+MLflow is open source, and you can set up the MLflow server using either `pip` or `docker`.
+
+Before you can leverage MLflow for your GenAI application development, you must first start the MLflow server.
+
+<ServerSetup />
+
+This will start the server at port 5000 on your local machine and you can access the MLflow web UI at http://localhost:5000.
+
+<ImageBox src="/images/quickstart/quickstart_ui_home.png" alt="MLflow UI Home" />
+
+If you are looking for more guidance about self-hosting the MLflow server, please see the [Self-Hosting Guide](/self-hosting) for more details.
+
+:::info
+
+If you are using MLflow on Databricks, please visit <ins>[this](https://docs.databricks.com/aws/en/mlflow3/genai/getting-started/)</ins> for environment setup instructions specific to Databricks.
+
+:::
+
+## Next Step
+
+Now that you have started the MLflow server, let's start tracing your GenAI application.
+
+Follow [this quickstart](/genai/tracing/quickstart) to send your GenAI application traces to the MLflow server.

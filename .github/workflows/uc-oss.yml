@@ -1,0 +1,66 @@
+name: uc-oss
+
+on:
+  pull_request: # for testing
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - .github/workflows/uc-oss.yml
+      - mlflow/protos/**
+      - mlflow/store/**
+  schedule:
+    # Run this workflow daily at 13:00 UTC
+    - cron: "0 13 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MLFLOW_HOME: ${{ github.workspace }}
+  MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
+
+jobs:
+  uc-oss-integration-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+
+      - name: Set up Java 17
+        uses: actions/setup-java@0ab4596768b603586c0de567f2430c30f5b0d2b0 # v3.13.0
+        with:
+          java-version: "17"
+          distribution: "temurin" # Use Temurin distribution of OpenJDK
+
+      - name: Clone UnityCatalog at tag v0.2.1
+        run: |
+          git clone --branch v0.2.1 --depth 1 https://github.com/unitycatalog/unitycatalog.git
+
+      - name: Build uc-oss server
+        working-directory: unitycatalog
+        run: |
+          build/sbt package
+
+      - name: Run tests for UnityCatalog
+        run: |
+          export UC_OSS_INTEGRATION=true
+          pytest tests/uc_oss/test_uc_oss_integration.py

@@ -1,0 +1,36 @@
+endpoints:
+  - name: chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-4o-mini
+      config:
+        openai_api_type: "azure"
+        openai_api_key: $OPENAI_API_KEY
+        openai_deployment_name: "{your_deployment_name}"
+        openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
+        openai_api_version: "2023-05-15"
+
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: openai
+      name: gpt-4o-mini
+      config:
+        openai_api_type: "azuread"
+        openai_api_key: $AZURE_AAD_TOKEN
+        openai_deployment_name: "{your_deployment_name}"
+        openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
+        openai_api_version: "2023-05-15"
+
+  - name: embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: openai
+      name: text-embedding-ada-002
+      config:
+        openai_api_type: "azure"
+        openai_api_key: $OPENAI_API_KEY
+        openai_deployment_name: "{your_deployment_name}"
+        openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
+        openai_api_version: "2023-05-15"

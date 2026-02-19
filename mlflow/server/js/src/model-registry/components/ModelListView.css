@@ -1,0 +1,17 @@
+.mlflow-pagination-section {
+  padding-bottom: 30px;
+}
+
+.mlflow-ui-container .ant-alert-info .ant-alert-icon {
+  color: #00b379;
+}
+
+.mlflow-search-input-tooltip .du-bois-light-popover-inner .du-bois-light-popover-inner-content {
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  border-radius: 4px;
+}
+
+.mlflow-search-input-tooltip .du-bois-light-popover-arrow-content {
+  background-color: rgba(0, 0, 0, 0.75);
+}

@@ -1,0 +1,15 @@
+name: "cache-venv"
+description: "Cache .venv directory for faster dependency installation"
+runs:
+  using: "composite"
+  steps:
+    - uses: ./.github/actions/py-cache-key
+      id: py-cache-key
+    - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      continue-on-error: true
+      # https://github.com/actions/cache/issues/810
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+      with:
+        path: .venv
+        key: ${{ steps.py-cache-key.outputs.key }}

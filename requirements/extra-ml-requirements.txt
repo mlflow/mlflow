@@ -1,0 +1,94 @@
+## This file describes extra ML library dependencies that you, as an end user,
+## must install in order to use various MLflow Python modules.
+# Required by mlflow.spacy
+spacy>=3.3.0
+# Required by mlflow.tensorflow
+tensorflow>=2.10.0; platform_system!="Darwin" or platform_machine!="arm64"
+tensorflow-macos>=2.10.0; platform_system=="Darwin" and platform_machine=="arm64"
+# Required by mlflow.pytorch
+torch>=1.11.0
+torchvision>=0.12.0
+lightning>=1.8.1
+# Required by mlflow.xgboost
+xgboost>=0.82
+# Required by mlflow.lightgbm
+lightgbm
+# Required by mlflow.catboost
+catboost
+# Required by mlflow.statsmodels
+statsmodels
+# Required by mlflow.h2o
+h2o
+# Required by mlflow.onnx
+onnx>=1.17.0
+onnxruntime
+onnxscript
+tf2onnx
+# Required by mlflow.spark and using Delta with MLflow Tracking datasets
+pyspark<4.1.0
+# Required by mlflow.paddle
+paddlepaddle
+# Required by mlflow.prophet
+# NOTE: Prophet's whl build process will fail with dependencies not being present.
+#   Installation will default to setup.py in order to install correctly.
+#   To install in dev environment, ensure that gcc>=8 is installed to allow pystan
+#   to compile the model binaries. See: https://gcc.gnu.org/install/
+# Avoid 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+holidays!=0.25
+prophet
+# Required by mlflow.shap
+# and shap evaluation functionality
+shap>=0.42.1
+# Required by mlflow.pmdarima
+pmdarima
+# Required for using Hugging Face datasets with MLflow Tracking
+# Avoid datasets < 2.19.1 due to an incompatibility issue https://github.com/huggingface/datasets/issues/6737
+datasets>=2.19.1
+# Required by mlflow.transformers
+transformers
+# transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround
+tf-keras
+sentencepiece
+setfit
+librosa
+ffmpeg
+accelerate
+# Required by mlflow.openai
+openai
+tiktoken
+tenacity
+# Required by mlflow.llama_index
+llama_index
+# Required for an agent example of mlflow.llama_index
+llama-index-agent-openai
+# Required by mlflow.langchain
+langchain
+langchain-openai
+# Required by mlflow.sentence_transformers
+sentence-transformers
+# Required by mlflow.anthropic
+anthropic
+# Required by mlflow.ag2
+ag2
+# Required by mlflow.dspy
+# In dspy 2.6.9, `dspy.__name__` is not 'dspy', but 'dspy.__metadata__',
+# which causes auto-logging tests to fail.
+dspy!=2.6.9
+# Required by mlflow.litellm
+litellm
+# Required by mlflow.gemini
+google-genai
+# Required by mlflow.groq
+groq
+# Required by mlflow.mistral
+mistralai
+# Required by mlflow.autogen
+autogen-agentchat
+# Required by mlflow.semantic_kernel
+semantic-kernel
+# Required by mlflow.agno
+agno
+# Required by mlflow.strands
+strands-agents
+# Required by mlflow.haystack
+haystack-ai

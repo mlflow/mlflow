@@ -1,0 +1,205 @@
+name: Cross version tests
+run-name: ${{ inputs.uuid }}
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
+      flavors:
+        description: "[Optional] Comma-separated string specifying which flavors to test (e.g. 'sklearn, xgboost'). If unspecified, all flavors are tested."
+        required: false
+        default: ""
+      versions:
+        description: "[Optional] Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6'). If unspecified, all versions are tested."
+        required: false
+        default: ""
+      uuid:
+        description: "[Optional] A unique identifier for this run."
+        required: false
+        default: ""
+  schedule:
+    # Run this workflow daily at 13:00 UTC
+    - cron: "0 13 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MLFLOW_HOME: ${{ github.workspace }}
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+
+jobs:
+  set-matrix:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    permissions:
+      contents: read
+    outputs:
+      matrix1: ${{ steps.set-matrix.outputs.matrix1 }}
+      matrix2: ${{ steps.set-matrix.outputs.matrix2 }}
+      is_matrix1_empty: ${{ steps.set-matrix.outputs.is_matrix1_empty }}
+      is_matrix2_empty: ${{ steps.set-matrix.outputs.is_matrix2_empty }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        run: |
+          pip install -r dev/requirements.txt
+          pip install pytest pytest-cov
+      - name: Check labels
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        id: check-labels
+        with:
+          script: |
+            if (context.eventName !== "pull_request") {
+              return {
+                enable_dev_tests: true,
+                only_latest: false,
+              };
+            }
+            const labelNames = context.payload.pull_request.labels.map(l => l.name);
+            return {
+              enable_dev_tests: labelNames.includes("enable-dev-tests"),
+              only_latest: labelNames.includes("only-latest"),
+            };
+      - name: Test set_matrix.py
+        run: |
+          python -m pytest --noconftest dev/tests
+      - id: set-matrix
+        name: Set matrix
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EVENT_NAME="${{ github.event_name }}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            REPO="${{ github.repository }}"
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            BASE_REF="${{ github.base_ref }}"
+            REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/$BASE_REF/mlflow/ml-package-versions.yml"
+            CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -v '^mlflow/server/js' || true)
+            ENABLE_DEV_TESTS="${{ fromJson(steps.check-labels.outputs.result).enable_dev_tests }}"
+            NO_DEV_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--no-dev")
+            ONLY_LATEST="${{ fromJson(steps.check-labels.outputs.result).only_latest }}"
+            ONLY_LATEST_FLAG=$([ "$ONLY_LATEST" == "true" ] && echo "--only-latest" || echo "")
+            python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files "$CHANGED_FILES" $NO_DEV_FLAG $ONLY_LATEST_FLAG
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            python dev/set_matrix.py --flavors "${{ github.event.inputs.flavors }}" --versions "${{ github.event.inputs.versions }}"
+          else
+            python dev/set_matrix.py
+          fi
+
+  test1:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.is_matrix1_empty == 'false' }}
+    runs-on: ${{ matrix.runs_on }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix1) }}
+    steps: &test-steps
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/free-disk-space
+        if: matrix.free_disk_space
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: ${{ matrix.java }}
+      - name: Remove constraints
+        run: |
+          # Remove any constraints for the current package to prevent installation conflicts
+          sed -i '/^${{ matrix.package }}/d' requirements/constraints.txt
+
+          if ! git diff --exit-code requirements/constraints.txt; then
+            git diff
+            git config user.name 'mlflow-app[bot]'
+            git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+            git add requirements/constraints.txt
+            git commit -m "Remove constraints for testing"
+          fi
+      - name: Install mlflow & test dependencies
+        run: |
+          # setuptools 82.0.0 removed pkg_resources, this breaking change breaks some packages like transformers
+          pip install -U pip wheel "setuptools<82"
+          # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
+          if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
+            pip install libs/tracing
+            # litellm is required for cost tracking tests
+            pip install pytest pytest-asyncio pytest-cov litellm
+          # Other two categories of tests (model/autologging)
+          else
+            pip install .[extras]
+            pip install -r requirements/test-requirements.txt
+          fi
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        run: |
+          ${{ matrix.install }}
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
+      - name: Pre-test
+        if: matrix.pre_test
+        run: |
+          ${{ matrix.pre_test }}
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          SPARK_LOCAL_IP: localhost
+          JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
+        run: |
+          ${{ matrix.run }}
+
+  test2:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.is_matrix2_empty == 'false' }}
+    runs-on: ${{ matrix.runs_on }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix2) }}
+    steps: *test-steps

@@ -1,0 +1,95 @@
+name: Feature Request
+description: Use this template for feature and enhancement proposals.
+labels: "enhancement"
+title: "[FR]"
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for submitting a feature request. **Before proceeding, please review MLflow's [Issue Policy for feature requests](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md#feature-requests) and the [MLflow Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md)**.
+        **Please fill in this feature request template to ensure a timely and thorough response.**
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Willingness to contribute
+      description: The MLflow Community encourages new feature contributions. Would you or another member of your organization be willing to contribute an implementation of this feature (either as an MLflow Plugin or an enhancement to the MLflow code base)?
+      options:
+        - Yes. I can contribute this feature independently.
+        - Yes. I would be willing to contribute this feature with guidance from the MLflow community.
+        - No. I cannot contribute this feature at this time.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Proposal Summary
+      description: |
+        In a few sentences, provide a clear, high-level description of the feature request
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Motivation
+      description: |
+        - What is the use case for this feature?
+        - Why is this use case valuable to support for MLflow users in general?
+        - Why is this use case valuable to support for your project(s) or organization?
+        - Why is it currently difficult to achieve this use case? (please be as specific as possible about why related MLflow features and components are insufficient)
+      value: |
+        > #### What is the use case for this feature?
+
+        > #### Why is this use case valuable to support for MLflow users in general?
+
+        > #### Why is this use case valuable to support for your project(s) or organization?
+
+        > #### Why is it currently difficult to achieve this use case?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Details
+      description: |
+        Use this section to include any additional information about the feature. If you have a proposal for how to implement this feature, please include it here. For implementation guidelines, please refer to the [Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#contribution-guidelines).
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: domain
+    attributes:
+      label: What machine learning domain(s) is this feature request about?
+      description: Please choose one or more domains below.
+      options:
+        - label: "`domain/genai`: LLMs, Agents, and other GenAI-related use cases"
+          required: false
+        - label: "`domain/classical-ml`: Traditional machine learning, such as linear regression."
+          required: false
+        - label: "`domain/deep-learning`: Deep learning and neural networks."
+          required: false
+        - label: "`domain/platform`: MLflow platform foundation, not specific to a particular machine learning domain."
+
+  - type: checkboxes
+    id: component
+    attributes:
+      label: What area(s) of MLflow is this feature request about?
+      description: Please choose one or more components below.
+      options:
+        - label: "`area/tracking`: Tracking Service, tracking client APIs, autologging"
+          required: false
+        - label: "`area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry"
+          required: false
+        - label: "`area/scoring`: MLflow model serving, deployment tools, Spark UDFs"
+          required: false
+        - label: "`area/evaluation`: MLflow model evaluation features, evaluation metrics, and evaluation workflows"
+          required: false
+        - label: "`area/prompt`: MLflow prompt engineering features, prompt templates, and prompt management"
+          required: false
+        - label: "`area/tracing`: MLflow Tracing features, tracing APIs, and LLM tracing functionality"
+          required: false
+        - label: "`area/gateway`: MLflow AI Gateway client APIs, server, and third-party integrations"
+          required: false
+        - label: "`area/projects`: MLproject format, project running backends"
+          required: false
+        - label: "`area/uiux`: Front-end, user experience, plotting"
+          required: false
+        - label: "`area/docs`: MLflow documentation pages"
+          required: false

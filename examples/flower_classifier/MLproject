@@ -1,0 +1,22 @@
+name: FlowerClassifier
+
+python_env: python_env.yaml
+
+entry_points:
+  # train Keras DL model
+  main:
+    parameters:
+      training_data: {type: string, default: "./flower_photos"}
+      epochs: {type: int, default: 1}
+      image_width: {type: int, default: 224}
+      image_height: {type: int, default: 224}
+      batch_size: {type: int, default: 16}
+      test_ratio: {type: float, default: 0.2}
+      seed: {type: int, default: 97531}
+    command: "python train.py --training-data {training_data}
+                              --batch-size {batch_size}
+                              --epochs {epochs}
+                              --image-width {image_width}
+                              --image-height {image_height}
+                              --test-ratio {test_ratio}"
+

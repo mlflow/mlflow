@@ -1,0 +1,16 @@
+endpoints:
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: mistral
+      name: mistral-tiny
+      config:
+        mistral_api_key: $MISTRAL_API_KEY
+
+  - name: embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: mistral
+      name: mistral-embed
+      config:
+        mistral_api_key: $MISTRAL_API_KEY

@@ -1,0 +1,52 @@
+.mlflow-metrics-plot-container {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+}
+
+.mlflow-metrics-plot-container .plot-controls {
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+}
+
+.mlflow-metrics-plot-container .plot-controls .inline-control {
+  margin-top: 25px;
+  display: flex;
+  align-items: center;
+}
+
+.mlflow-metrics-plot-container .plot-controls .inline-control .control-label {
+  margin-right: 10px;
+}
+
+.mlflow-metrics-plot-container .plot-controls .block-control {
+  margin-top: 25px;
+}
+
+.mlflow-metrics-plot-container .metrics-plot-data {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.mlflow-metrics-plot-container .metrics-plot-view-container {
+  min-height: 500px;
+  flex: 1;
+}
+
+.mlflow-metrics-plot-container .metrics-summary {
+  margin: 20px 20px 20px 60px;
+}
+
+.mlflow-metrics-plot-container .metrics-summary .mlflow-html-table-view {
+  margin-bottom: 25px;
+  /* Shrink to fit, so that scroll bars are aligned with the edge of the table */
+  display: inline-block;
+}
+
+/* Reset min-width which is overridden in HtmlTableView as this breaks the
+   table layout when scrolling is enabled and widths are specified */
+.mlflow-metrics-plot-container .metrics-summary .mlflow-html-table-view th {
+  min-width: auto;
+}

@@ -1,0 +1,144 @@
+# MLflow
+mlruns/
+mlartifacts/
+outputs/
+mlruns*.db
+mlflow.db
+# SQLite WAL mode temporary files
+*-shm
+*-wal
+**/basic_auth.db
+mlflow/protos/protos.json
+
+# Mac
+.DS_Store
+
+# Byte-compiled / optimized / DLL files
+__pycache__
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+node_modules
+yarn-error.log
+.docusaurus
+*-ipynb.mdx
+docs/src/api_modules.json
+docs/static/api_reference
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+.deepeval/
+
+# Sphinx documentation
+docs/_build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+env
+env3
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+dev-env-setup-progress
+
+# Editor files
+.*project
+*.swp
+*.swo
+*.idea
+*.iml
+*~
+
+# vscode
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+
+# java targets
+target/
+
+# R notebooks
+.Rproj.user
+example/tutorial/R/*.nb.html
+
+# travis_wait command logs
+travis_wait*.log
+
+# Pytorch logs
+lightning_logs
+
+# Downloaded datasets
+examples/pytorch/*/data/
+
+a.py
+a.ipynb
+a.md
+
+# Log file created by pre-commit hook for black
+.black.log
+
+# Pytest-monitor load testing DB file
+*.pymon
+
+# Ignore a gunicorn config file
+gunicorn.conf.py
+
+# ignore everything in .claude
+.claude/*
+!.claude/commands/
+!.claude/skills/
+!.claude/hooks/
+!.claude/rules/
+!.claude/settings.json
+!.claude/statusline.sh

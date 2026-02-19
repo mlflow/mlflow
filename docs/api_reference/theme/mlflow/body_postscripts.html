@@ -1,0 +1,36 @@
+{% if not embedded %}
+  <script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+      URL_ROOT:'{{ url_root }}',
+      VERSION:'{{ release|e }}',
+      COLLAPSE_INDEX:false,
+      FILE_SUFFIX:'{{ '' if no_search_suffix else file_suffix }}',
+      HAS_SOURCE:  {{ has_source|lower }}
+    };
+  </script>
+
+  {%- for scriptfile in script_files %}
+    <script type="text/javascript" src="/{{ pathto(scriptfile, 1) }}"></script>
+  {%- endfor %}
+{% endif %}
+
+<script type="text/javascript" src="{{ pathto('_static/js/clipboard.min.js', 1) }}"></script>
+<script type="text/javascript" src="{{ pathto('_static/js/jquery.waypoints.min.js', 1) }}"></script>
+
+{# RTD hosts this file, so just load on non RTD builds #}
+{% if not READTHEDOCS %}
+  {# I'm sorry, I don't know how to use sphinx to inject this into the static JS. #}
+  <script type="text/javascript">var CLIPPY_SVG_PATH = "{{ pathto('_static/clippy.svg', 1) }}";</script>
+  <script type="text/javascript" src="{{ pathto('_static/js/custom.js', 1) }}"></script>
+{% endif %}
+
+{# STICKY NAVIGATION #}
+{% if theme_sticky_navigation %}
+  <script type="text/javascript">
+    jQuery(function () {
+      SphinxRtdTheme.StickyNav.enable();
+    });
+
+  </script>
+{% endif %}
+

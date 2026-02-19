@@ -1,0 +1,72 @@
+/*
+ * Custom CSSs for optimizing mobile view
+ *
+ * *** PLEASE DO NOT OVERUSE *** as having two different styles reduces maintainability.
+ */
+
+
+/* Mobile styling */
+@media only screen and (max-width: 768px) {
+    /*
+    * Fix table overflow issue on mobile. Sphinx apply no word wrapping by default,
+    * resulted in showing very wide 1-line cells on mobile.
+    * To apply those CSSs to your table, add `:class wrap-table` to your table
+    */
+    .wy-table-responsive .wrap-table td {
+        max-width: 300px;
+        white-space: normal;
+    }
+
+    /*
+    * Handle layout for the tab contents in the tracking page
+    */
+    .tracking-responsive-tab-panel {
+        flex-direction: column;
+     }
+
+    .tracking-responsive-tab-panel img {
+        width: 100%;
+        margin: 10px auto;
+    }
+
+    .tracking-responsive-tab-panel div {
+        width: 100%;
+        padding: 0 10px;
+    }
+
+    .tracking-responsive-tab-panel video {
+        max-width: 100%;
+        padding: 0 10px;
+        height: auto;
+    }
+
+    /*
+    * Make the tab headers stand in one horizontal row (and reduce padding)
+    */
+    .tracking-responsive-tabs .sphinx-tabs > div[aria-label="Tabbed content"][role="tablist"] {
+        display: flex;
+    }
+
+    .tracking-responsive-tabs .sphinx-tabs-tab {
+        padding: 0.75rem 0;
+    }
+}
+
+/* Desktop styling corresponding to above styles*/
+@media only screen and (min-width: 768px) {
+    .tracking-responsive-tab-panel img {
+        width: 30%;
+        margin: auto 20px;
+    }
+
+    .tracking-responsive-tab-panel div {
+        width: 70%;
+        padding: 0 20px;
+    }
+
+    .tracking-responsive-tab-panel video {
+        max-width: 90%;
+        padding: 0 10px;
+        height: auto;
+    }
+}

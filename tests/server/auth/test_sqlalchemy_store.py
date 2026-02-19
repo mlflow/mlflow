@@ -1,0 +1,1035 @@
+import pytest
+
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
+from mlflow.server.auth.entities import (
+    ExperimentPermission,
+    GatewayEndpointPermission,
+    GatewayModelDefinitionPermission,
+    GatewaySecretPermission,
+    RegisteredModelPermission,
+    ScorerPermission,
+    User,
+)
+from mlflow.server.auth.permissions import ALL_PERMISSIONS, EDIT, MANAGE, READ
+from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+from tests.helper_functions import random_str
+
+pytestmark = pytest.mark.notrackingurimock
+
+
+@pytest.fixture
+def store(tmp_sqlite_uri):
+    store = SqlAlchemyStore()
+    store.init_db(tmp_sqlite_uri)
+    return store
+
+
+def _user_maker(store, username, password, is_admin=False):
+    return store.create_user(username, password, is_admin)
+
+
+def _ep_maker(store, experiment_id, username, permission):
+    return store.create_experiment_permission(experiment_id, username, permission)
+
+
+def _rmp_maker(store, name, username, permission):
+    return store.create_registered_model_permission(name, username, permission)
+
+
+def _sp_maker(store, experiment_id, scorer_name, username, permission):
+    return store.create_scorer_permission(experiment_id, scorer_name, username, permission)
+
+
+def _gsp_maker(store, secret_id, username, permission):
+    return store.create_gateway_secret_permission(secret_id, username, permission)
+
+
+def _gep_maker(store, endpoint_id, username, permission):
+    return store.create_gateway_endpoint_permission(endpoint_id, username, permission)
+
+
+def _gmdp_maker(store, model_definition_id, username, permission):
+    return store.create_gateway_model_definition_permission(
+        model_definition_id, username, permission
+    )
+
+
+def test_create_user(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+    assert user1.username == username1
+    assert user1.password_hash != password1
+    assert user1.is_admin is False
+
+    # error on duplicate
+    with pytest.raises(
+        MlflowException, match=rf"User \(username={username1}\) already exists"
+    ) as exception_context:
+        _user_maker(store, username1, password1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+    # slightly different name is ok
+    username2 = username1 + "_2"
+    password2 = password1 + "_2"
+    user2 = _user_maker(store, username2, password2, is_admin=True)
+    assert user2.username == username2
+    assert user2.password_hash != password2
+    assert user2.is_admin is True
+
+    # invalid username will fail
+    with pytest.raises(MlflowException, match=r"Username cannot be empty") as exception_context:
+        _user_maker(store, None, None)
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    with pytest.raises(MlflowException, match=r"Username cannot be empty") as exception_context:
+        _user_maker(store, "", "")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_has_user(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+    assert store.has_user(username=username1) is True
+
+    # error on non-existent user
+    username2 = random_str()
+    assert store.has_user(username=username2) is False
+
+
+def test_get_user(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+    user1 = store.get_user(username=username1)
+    assert isinstance(user1, User)
+    assert user1.username == username1
+
+    # error on non-existent user
+    username2 = random_str()
+    with pytest.raises(
+        MlflowException, match=rf"User with username={username2} not found"
+    ) as exception_context:
+        store.get_user(username=username2)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_list_user(store):
+    username1 = "1" + random_str()
+    password1 = "1" + random_str()
+    _user_maker(store, username1, password1)
+
+    username2 = "2" + random_str()
+    password2 = "2" + random_str()
+    _user_maker(store, username2, password2)
+
+    username3 = "3" + random_str()
+    password3 = "3" + random_str()
+    _user_maker(store, username3, password3)
+
+    users = store.list_users()
+    users.sort(key=lambda u: u.username)
+
+    assert len(users) == 3
+    assert isinstance(users[0], User)
+    assert users[0].username == username1
+    assert users[1].username == username2
+    assert users[2].username == username3
+
+
+def test_authenticate_user(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+    assert store.authenticate_user(username1, password1)
+    assert not store.authenticate_user(username1, random_str())
+    # non existent user
+    assert not store.authenticate_user(random_str(), random_str())
+
+
+def test_update_user(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+    password2 = random_str()
+    store.update_user(username1, password=password2)
+    assert not store.authenticate_user(username1, password1)
+    assert store.authenticate_user(username1, password2)
+
+    store.update_user(username1, is_admin=True)
+    assert store.get_user(username1).is_admin
+    store.update_user(username1, is_admin=False)
+    assert not store.get_user(username1).is_admin
+
+
+def test_delete_user(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+    store.delete_user(username1)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"User with username={username1} not found",
+    ) as exception_context:
+        store.get_user(username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_create_experiment_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    ep1 = _ep_maker(store, experiment_id1, username1, permission1)
+    assert ep1.experiment_id == experiment_id1
+    assert ep1.user_id == user_id1
+    assert ep1.permission == permission1
+
+    # error on duplicate
+    with pytest.raises(
+        MlflowException,
+        match=rf"Experiment permission \(experiment_id={experiment_id1}, "
+        rf"username={username1}\) already exists",
+    ) as exception_context:
+        _ep_maker(store, experiment_id1, username1, permission1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+    # slightly different name is ok
+    experiment_id2 = random_str()
+    ep2 = _ep_maker(store, experiment_id2, username1, permission1)
+    assert ep2.experiment_id == experiment_id2
+    assert ep2.user_id == user_id1
+    assert ep2.permission == permission1
+
+    # all permissions are ok
+    for perm in ALL_PERMISSIONS:
+        experiment_id3 = random_str()
+        ep3 = _ep_maker(store, experiment_id3, username1, perm)
+        assert ep3.experiment_id == experiment_id3
+        assert ep3.user_id == user_id1
+        assert ep3.permission == perm
+
+    # invalid permission will fail
+    experiment_id4 = random_str()
+    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
+        _ep_maker(store, experiment_id4, username1, "some_invalid_permission_string")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_get_experiment_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    _ep_maker(store, experiment_id1, username1, permission1)
+    ep1 = store.get_experiment_permission(experiment_id1, username1)
+    assert isinstance(ep1, ExperimentPermission)
+    assert ep1.experiment_id == experiment_id1
+    assert ep1.user_id == user_id1
+    assert ep1.permission == permission1
+
+    # error on non-existent row
+    experiment_id2 = random_str()
+    with pytest.raises(
+        MlflowException,
+        match=rf"Experiment permission with experiment_id={experiment_id2} "
+        rf"and username={username1} not found",
+    ) as exception_context:
+        store.get_experiment_permission(experiment_id2, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_list_experiment_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    experiment_id1 = "1" + random_str()
+    _ep_maker(store, experiment_id1, username1, READ.name)
+
+    experiment_id2 = "2" + random_str()
+    _ep_maker(store, experiment_id2, username1, READ.name)
+
+    experiment_id3 = "3" + random_str()
+    _ep_maker(store, experiment_id3, username1, READ.name)
+
+    eps = store.list_experiment_permissions(username1)
+    eps.sort(key=lambda ep: ep.experiment_id)
+
+    assert len(eps) == 3
+    assert isinstance(eps[0], ExperimentPermission)
+    assert eps[0].experiment_id == experiment_id1
+    assert eps[1].experiment_id == experiment_id2
+    assert eps[2].experiment_id == experiment_id3
+
+
+def test_update_experiment_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    permission1 = READ.name
+    _ep_maker(store, experiment_id1, username1, permission1)
+
+    permission2 = EDIT.name
+    store.update_experiment_permission(experiment_id1, username1, permission2)
+    ep1 = store.get_experiment_permission(experiment_id1, username1)
+    assert ep1.permission == permission2
+
+    # invalid permission will fail
+    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
+        store.update_experiment_permission(
+            experiment_id1, username1, "some_invalid_permission_string"
+        )
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_delete_experiment_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    permission1 = READ.name
+    _ep_maker(store, experiment_id1, username1, permission1)
+
+    store.delete_experiment_permission(experiment_id1, username1)
+    with pytest.raises(
+        MlflowException,
+        match=rf"Experiment permission with experiment_id={experiment_id1} "
+        rf"and username={username1} not found",
+    ) as exception_context:
+        store.get_experiment_permission(experiment_id1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_create_registered_model_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    rmp1 = _rmp_maker(store, name1, username1, permission1)
+    assert rmp1.name == name1
+    assert rmp1.user_id == user_id1
+    assert rmp1.permission == permission1
+    assert rmp1.workspace == DEFAULT_WORKSPACE_NAME
+
+    # error on duplicate
+    duplicate_permission_pattern = (
+        rf"(?s)Registered model permission "
+        rf"with workspace={DEFAULT_WORKSPACE_NAME}, name={name1} "
+        rf"and username={username1} already exists"
+    )
+    with pytest.raises(
+        MlflowException,
+        match=duplicate_permission_pattern,
+    ) as exception_context:
+        _rmp_maker(store, name1, username1, permission1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+    # slightly different name is ok
+    name2 = random_str()
+    rmp2 = _rmp_maker(store, name2, username1, permission1)
+    assert rmp2.name == name2
+    assert rmp2.user_id == user_id1
+    assert rmp2.permission == permission1
+    assert rmp2.workspace == DEFAULT_WORKSPACE_NAME
+
+    # all permissions are ok
+    for perm in ALL_PERMISSIONS:
+        name3 = random_str()
+        rmp3 = _rmp_maker(store, name3, username1, perm)
+        assert rmp3.name == name3
+        assert rmp3.user_id == user_id1
+        assert rmp3.permission == perm
+        assert rmp3.workspace == DEFAULT_WORKSPACE_NAME
+
+    # invalid permission will fail
+    name4 = random_str()
+    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
+        _rmp_maker(store, name4, username1, "some_invalid_permission_string")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_get_registered_model_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    _rmp_maker(store, name1, username1, permission1)
+    rmp1 = store.get_registered_model_permission(name1, username1)
+    assert isinstance(rmp1, RegisteredModelPermission)
+    assert rmp1.name == name1
+    assert rmp1.user_id == user_id1
+    assert rmp1.permission == permission1
+    assert rmp1.workspace == DEFAULT_WORKSPACE_NAME
+
+    # error on non-existent row
+    name2 = random_str()
+    missing_permission_message = (
+        "Registered model permission with "
+        f"workspace={DEFAULT_WORKSPACE_NAME}, name={name2} "
+        f"and username={username1} not found"
+    )
+    with pytest.raises(
+        MlflowException,
+        match=missing_permission_message,
+    ) as exception_context:
+        store.get_registered_model_permission(name2, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_list_registered_model_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    name1 = "1" + random_str()
+    _rmp_maker(store, name1, username1, READ.name)
+
+    name2 = "2" + random_str()
+    _rmp_maker(store, name2, username1, READ.name)
+
+    name3 = "3" + random_str()
+    _rmp_maker(store, name3, username1, READ.name)
+
+    rmps = store.list_registered_model_permissions(username1)
+    rmps.sort(key=lambda rmp: rmp.name)
+
+    assert len(rmps) == 3
+    assert isinstance(rmps[0], RegisteredModelPermission)
+    assert rmps[0].name == name1
+    assert rmps[0].workspace == DEFAULT_WORKSPACE_NAME
+    assert rmps[1].name == name2
+    assert rmps[1].workspace == DEFAULT_WORKSPACE_NAME
+    assert rmps[2].name == name3
+    assert rmps[2].workspace == DEFAULT_WORKSPACE_NAME
+
+
+def test_update_registered_model_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    name1 = random_str()
+    permission1 = READ.name
+    _rmp_maker(store, name1, username1, permission1)
+
+    permission2 = EDIT.name
+    store.update_registered_model_permission(name1, username1, permission2)
+    rmp1 = store.get_registered_model_permission(name1, username1)
+    assert rmp1.permission == permission2
+    assert rmp1.workspace == DEFAULT_WORKSPACE_NAME
+
+    # invalid permission will fail
+    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
+        store.update_registered_model_permission(name1, username1, "some_invalid_permission_string")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_delete_registered_model_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    name1 = random_str()
+    permission1 = READ.name
+    _rmp_maker(store, name1, username1, permission1)
+
+    store.delete_registered_model_permission(name1, username1)
+    missing_permission_message = (
+        "Registered model permission with "
+        f"workspace={DEFAULT_WORKSPACE_NAME}, name={name1} "
+        f"and username={username1} not found"
+    )
+    with pytest.raises(
+        MlflowException,
+        match=missing_permission_message,
+    ) as exception_context:
+        store.get_registered_model_permission(name1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_rename_registered_model_permission(store):
+    # create 2 users and create 2 permission for the model registry with the same name
+    model_name = random_str()
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+    _rmp_maker(store, model_name, username1, MANAGE.name)
+
+    username2 = random_str()
+    password2 = random_str()
+    _user_maker(store, username2, password2)
+    _rmp_maker(store, model_name, username2, READ.name)
+
+    new_name = random_str()
+
+    store.rename_registered_model_permissions(model_name, new_name)
+
+    # get permission by model registry new name and all user must have the same new name
+    perm_user_1 = store.get_registered_model_permission(new_name, username1)
+    perm_user_2 = store.get_registered_model_permission(new_name, username2)
+    assert isinstance(perm_user_1, RegisteredModelPermission)
+    assert isinstance(perm_user_2, RegisteredModelPermission)
+    assert perm_user_1.name == new_name
+    assert perm_user_2.name == new_name
+
+    assert perm_user_1.permission == MANAGE.name
+    assert perm_user_1.workspace == DEFAULT_WORKSPACE_NAME
+    assert perm_user_2.permission == READ.name
+    assert perm_user_2.workspace == DEFAULT_WORKSPACE_NAME
+
+
+def test_create_scorer_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    sp1 = _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+    assert sp1.experiment_id == experiment_id1
+    assert sp1.scorer_name == scorer_name1
+    assert sp1.user_id == user_id1
+    assert sp1.permission == permission1
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Scorer permission \(experiment_id={experiment_id1}, scorer_name={scorer_name1}, "
+        rf"username={username1}\) already exists",
+    ) as exception_context:
+        _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+    experiment_id2 = random_str()
+    sp2 = _sp_maker(store, experiment_id2, scorer_name1, username1, permission1)
+    assert sp2.experiment_id == experiment_id2
+    assert sp2.scorer_name == scorer_name1
+    assert sp2.user_id == user_id1
+    assert sp2.permission == permission1
+
+    for perm in ALL_PERMISSIONS:
+        experiment_id3 = random_str()
+        scorer_name3 = random_str()
+        sp3 = _sp_maker(store, experiment_id3, scorer_name3, username1, perm)
+        assert sp3.experiment_id == experiment_id3
+        assert sp3.scorer_name == scorer_name3
+        assert sp3.user_id == user_id1
+        assert sp3.permission == perm
+
+    experiment_id4 = random_str()
+    scorer_name4 = random_str()
+    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
+        _sp_maker(store, experiment_id4, scorer_name4, username1, "some_invalid_permission_string")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_get_scorer_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+    sp1 = store.get_scorer_permission(experiment_id1, scorer_name1, username1)
+    assert sp1.experiment_id == experiment_id1
+    assert sp1.scorer_name == scorer_name1
+    assert sp1.user_id == user_id1
+    assert sp1.permission == permission1
+
+    experiment_id2 = random_str()
+    with pytest.raises(
+        MlflowException,
+        match=rf"Scorer permission with experiment_id={experiment_id2}, "
+        rf"scorer_name={scorer_name1}, and username={username1} not found",
+    ) as exception_context:
+        store.get_scorer_permission(experiment_id2, scorer_name1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_list_scorer_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    permission1 = READ.name
+    _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+
+    experiment_id2 = random_str()
+    scorer_name2 = random_str()
+    permission2 = EDIT.name
+    _sp_maker(store, experiment_id2, scorer_name2, username1, permission2)
+
+    sps = store.list_scorer_permissions(username1)
+    assert len(sps) == 2
+    assert isinstance(sps[0], ScorerPermission)
+    assert isinstance(sps[1], ScorerPermission)
+
+
+def test_update_scorer_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+
+    permission2 = MANAGE.name
+    sp2 = store.update_scorer_permission(experiment_id1, scorer_name1, username1, permission2)
+    assert sp2.experiment_id == experiment_id1
+    assert sp2.scorer_name == scorer_name1
+    assert sp2.user_id == user_id1
+    assert sp2.permission == permission2
+
+
+def test_delete_scorer_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    permission1 = READ.name
+    _sp_maker(store, experiment_id1, scorer_name1, username1, permission1)
+
+    store.delete_scorer_permission(experiment_id1, scorer_name1, username1)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Scorer permission with experiment_id={experiment_id1}, "
+        rf"scorer_name={scorer_name1}, and username={username1} not found",
+    ) as exception_context:
+        store.get_scorer_permission(experiment_id1, scorer_name1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_scorer_permissions_for_scorer(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    username2 = random_str()
+    password2 = random_str()
+    _user_maker(store, username2, password2)
+
+    experiment_id1 = random_str()
+    scorer_name1 = random_str()
+    _sp_maker(store, experiment_id1, scorer_name1, username1, MANAGE.name)
+    _sp_maker(store, experiment_id1, scorer_name1, username2, READ.name)
+
+    store.delete_scorer_permissions_for_scorer(experiment_id1, scorer_name1)
+
+    with pytest.raises(MlflowException, match=r"not found") as exception_context:
+        store.get_scorer_permission(experiment_id1, scorer_name1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    with pytest.raises(MlflowException, match=r"not found") as exception_context:
+        store.get_scorer_permission(experiment_id1, scorer_name1, username2)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+# Gateway Secret Permission Tests
+
+
+def test_create_gateway_secret_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    secret_id1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    gsp1 = _gsp_maker(store, secret_id1, username1, permission1)
+    assert gsp1.secret_id == secret_id1
+    assert gsp1.user_id == user_id1
+    assert gsp1.permission == permission1
+
+    # error on duplicate
+    with pytest.raises(
+        MlflowException,
+        match=rf"\(secret_id={secret_id1}, username={username1}\) already exists",
+    ) as exception_context:
+        _gsp_maker(store, secret_id1, username1, permission1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+    # slightly different secret_id is ok
+    secret_id2 = random_str()
+    gsp2 = _gsp_maker(store, secret_id2, username1, permission1)
+    assert gsp2.secret_id == secret_id2
+    assert gsp2.user_id == user_id1
+    assert gsp2.permission == permission1
+
+    # all permissions are ok
+    for perm in ALL_PERMISSIONS:
+        secret_id = random_str()
+        gsp = _gsp_maker(store, secret_id, username1, perm)
+        assert gsp.permission == perm
+
+
+def test_get_gateway_secret_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    secret_id1 = random_str()
+    permission1 = READ.name
+    gsp1 = _gsp_maker(store, secret_id1, username1, permission1)
+    gsp2 = store.get_gateway_secret_permission(secret_id1, username1)
+    assert isinstance(gsp2, GatewaySecretPermission)
+    assert gsp2.secret_id == gsp1.secret_id
+    assert gsp2.user_id == gsp1.user_id
+    assert gsp2.permission == gsp1.permission
+
+    # error on non-existent permission
+    with pytest.raises(MlflowException, match=r"not found") as exception_context:
+        store.get_gateway_secret_permission(secret_id1, "random")
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_update_gateway_secret_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    secret_id1 = random_str()
+    permission1 = READ.name
+    _gsp_maker(store, secret_id1, username1, permission1)
+    store.update_gateway_secret_permission(secret_id1, username1, MANAGE.name)
+    gsp = store.get_gateway_secret_permission(secret_id1, username1)
+    assert gsp.permission == MANAGE.name
+
+    # error on non-existent permission
+    with pytest.raises(
+        MlflowException,
+        match=r"not found",
+    ) as exception_context:
+        store.update_gateway_secret_permission(secret_id1, "random", MANAGE.name)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_gateway_secret_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    secret_id1 = random_str()
+    permission1 = READ.name
+    _gsp_maker(store, secret_id1, username1, permission1)
+    store.delete_gateway_secret_permission(secret_id1, username1)
+
+    # error on non-existent permission
+    with pytest.raises(
+        MlflowException,
+        match=f"secret_id={secret_id1} and username={username1} not found",
+    ) as exception_context:
+        store.get_gateway_secret_permission(secret_id1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_gateway_secret_permissions_for_secret(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    username2 = random_str()
+    password2 = random_str()
+    _user_maker(store, username2, password2)
+
+    secret_id1 = random_str()
+    _gsp_maker(store, secret_id1, username1, MANAGE.name)
+    _gsp_maker(store, secret_id1, username2, READ.name)
+
+    store.delete_gateway_secret_permissions_for_secret(secret_id1)
+
+    with pytest.raises(MlflowException, match=r"not found") as exception_context:
+        store.get_gateway_secret_permission(secret_id1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    with pytest.raises(MlflowException, match=r"not found") as exception_context:
+        store.get_gateway_secret_permission(secret_id1, username2)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+# Gateway Endpoint Permission Tests
+
+
+def test_create_gateway_endpoint_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    endpoint_id1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    gep1 = _gep_maker(store, endpoint_id1, username1, permission1)
+    assert gep1.endpoint_id == endpoint_id1
+    assert gep1.user_id == user_id1
+    assert gep1.permission == permission1
+
+    # error on duplicate
+    with pytest.raises(
+        MlflowException,
+        match=rf"\(endpoint_id={endpoint_id1}, username={username1}\) already exists",
+    ) as exception_context:
+        _gep_maker(store, endpoint_id1, username1, permission1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+    # slightly different endpoint_id is ok
+    endpoint_id2 = random_str()
+    gep2 = _gep_maker(store, endpoint_id2, username1, permission1)
+    assert gep2.endpoint_id == endpoint_id2
+    assert gep2.user_id == user_id1
+    assert gep2.permission == permission1
+
+    # all permissions are ok
+    for perm in ALL_PERMISSIONS:
+        endpoint_id = random_str()
+        gep = _gep_maker(store, endpoint_id, username1, perm)
+        assert gep.permission == perm
+
+
+def test_get_gateway_endpoint_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    endpoint_id1 = random_str()
+    permission1 = READ.name
+    gep1 = _gep_maker(store, endpoint_id1, username1, permission1)
+    gep2 = store.get_gateway_endpoint_permission(endpoint_id1, username1)
+    assert isinstance(gep2, GatewayEndpointPermission)
+    assert gep2.endpoint_id == gep1.endpoint_id
+    assert gep2.user_id == gep1.user_id
+    assert gep2.permission == gep1.permission
+
+    # error on non-existent permission
+    with pytest.raises(
+        MlflowException,
+        match=r"not found",
+    ) as exception_context:
+        store.get_gateway_endpoint_permission(endpoint_id1, "random")
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_update_gateway_endpoint_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    endpoint_id1 = random_str()
+    permission1 = READ.name
+    _gep_maker(store, endpoint_id1, username1, permission1)
+    store.update_gateway_endpoint_permission(endpoint_id1, username1, MANAGE.name)
+    gep = store.get_gateway_endpoint_permission(endpoint_id1, username1)
+    assert gep.permission == MANAGE.name
+
+    # error on non-existent permission
+    with pytest.raises(
+        MlflowException,
+        match=r"not found",
+    ) as exception_context:
+        store.update_gateway_endpoint_permission(endpoint_id1, "random", MANAGE.name)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_gateway_endpoint_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    endpoint_id1 = random_str()
+    permission1 = READ.name
+    _gep_maker(store, endpoint_id1, username1, permission1)
+    store.delete_gateway_endpoint_permission(endpoint_id1, username1)
+
+    # error on non-existent permission
+    with pytest.raises(
+        MlflowException,
+        match=f"endpoint_id={endpoint_id1} and username={username1} not found",
+    ) as exception_context:
+        store.get_gateway_endpoint_permission(endpoint_id1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_gateway_endpoint_permissions_for_endpoint(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    username2 = random_str()
+    password2 = random_str()
+    _user_maker(store, username2, password2)
+
+    endpoint_id1 = random_str()
+    _gep_maker(store, endpoint_id1, username1, MANAGE.name)
+    _gep_maker(store, endpoint_id1, username2, READ.name)
+
+    store.delete_gateway_endpoint_permissions_for_endpoint(endpoint_id1)
+
+    with pytest.raises(MlflowException, match=r"not found") as exception_context:
+        store.get_gateway_endpoint_permission(endpoint_id1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    with pytest.raises(MlflowException, match=r"not found") as exception_context:
+        store.get_gateway_endpoint_permission(endpoint_id1, username2)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+# Gateway Model Definition Permission Tests
+
+
+def test_create_gateway_model_definition_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    model_definition_id1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    gmdp1 = _gmdp_maker(store, model_definition_id1, username1, permission1)
+    assert gmdp1.model_definition_id == model_definition_id1
+    assert gmdp1.user_id == user_id1
+    assert gmdp1.permission == permission1
+
+    # error on duplicate
+    with pytest.raises(
+        MlflowException,
+        match="already exists",
+    ) as exception_context:
+        _gmdp_maker(store, model_definition_id1, username1, permission1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+    # slightly different model_definition_id is ok
+    model_definition_id2 = random_str()
+    gmdp2 = _gmdp_maker(store, model_definition_id2, username1, permission1)
+    assert gmdp2.model_definition_id == model_definition_id2
+    assert gmdp2.user_id == user_id1
+    assert gmdp2.permission == permission1
+
+    # all permissions are ok
+    for perm in ALL_PERMISSIONS:
+        model_definition_id = random_str()
+        gmdp = _gmdp_maker(store, model_definition_id, username1, perm)
+        assert gmdp.permission == perm
+
+
+def test_get_gateway_model_definition_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    model_definition_id1 = random_str()
+    permission1 = READ.name
+    gmdp1 = _gmdp_maker(store, model_definition_id1, username1, permission1)
+    gmdp2 = store.get_gateway_model_definition_permission(model_definition_id1, username1)
+    assert isinstance(gmdp2, GatewayModelDefinitionPermission)
+    assert gmdp2.model_definition_id == gmdp1.model_definition_id
+    assert gmdp2.user_id == gmdp1.user_id
+    assert gmdp2.permission == gmdp1.permission
+
+    # error on non-existent permission
+    with pytest.raises(
+        MlflowException,
+        match=r"not found",
+    ) as exception_context:
+        store.get_gateway_model_definition_permission(model_definition_id1, "random")
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_update_gateway_model_definition_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    model_definition_id1 = random_str()
+    permission1 = READ.name
+    _gmdp_maker(store, model_definition_id1, username1, permission1)
+    store.update_gateway_model_definition_permission(model_definition_id1, username1, MANAGE.name)
+    gmdp = store.get_gateway_model_definition_permission(model_definition_id1, username1)
+    assert gmdp.permission == MANAGE.name
+
+    # error on non-existent permission
+    with pytest.raises(
+        MlflowException,
+        match=r"not found",
+    ) as exception_context:
+        store.update_gateway_model_definition_permission(
+            model_definition_id1, "random", MANAGE.name
+        )
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_gateway_model_definition_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    model_definition_id1 = random_str()
+    permission1 = READ.name
+    _gmdp_maker(store, model_definition_id1, username1, permission1)
+    store.delete_gateway_model_definition_permission(model_definition_id1, username1)
+
+    # error on non-existent permission
+    with pytest.raises(
+        MlflowException,
+        match=f"model_definition_id={model_definition_id1} and username={username1} not found",
+    ) as exception_context:
+        store.get_gateway_model_definition_permission(model_definition_id1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_delete_gateway_model_definition_permissions_for_model_definition(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+
+    username2 = random_str()
+    password2 = random_str()
+    _user_maker(store, username2, password2)
+
+    model_definition_id1 = random_str()
+    _gmdp_maker(store, model_definition_id1, username1, MANAGE.name)
+    _gmdp_maker(store, model_definition_id1, username2, READ.name)
+
+    store.delete_gateway_model_definition_permissions_for_model_definition(model_definition_id1)
+
+    with pytest.raises(MlflowException, match=r"not found") as exception_context:
+        store.get_gateway_model_definition_permission(model_definition_id1, username1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    with pytest.raises(MlflowException, match=r"not found") as exception_context:
+        store.get_gateway_model_definition_permission(model_definition_id1, username2)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)

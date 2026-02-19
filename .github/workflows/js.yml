@@ -1,0 +1,74 @@
+name: JS
+
+on:
+  push:
+    paths:
+      - mlflow/server/js/**
+      - .github/workflows/js.yml
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - mlflow/server/js/**
+      - .github/workflows/js.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  js:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        option: [--testPathPattern, --testPathIgnorePatterns]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mlflow/server/js
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup-node
+      - name: Install dependencies
+        run: |
+          yarn install --immutable
+      - name: Run lint
+        run: |
+          yarn lint
+      - name: Run prettier
+        run: |
+          yarn prettier:check
+      # TODO: Disabled for now. Revisit after DAIS.
+      # - name: Run knip
+      #   run: |
+      #     yarn knip
+      - name: Run extract-i18n lint
+        run: |
+          yarn i18n:check
+      - name: Run type-check
+        run: |
+          yarn type-check
+      - name: Run tests
+        run: |
+          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
+      - name: Run build
+        env:
+          # Prevent warnings (emitted from react-pdf) from being treated as errors
+          # https://github.com/wojtekmaj/react-pdf/issues/280
+          CI: false
+        run: |
+          yarn build

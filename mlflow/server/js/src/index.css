@@ -1,0 +1,20 @@
+@import 'reset.css';
+@import 'common/components/EditableNote.css';
+@import 'model-registry/index.css';
+
+a {
+  color: #2374bb;
+}
+a:hover,
+a:focus {
+  color: #005580;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  height: 100%;
+}

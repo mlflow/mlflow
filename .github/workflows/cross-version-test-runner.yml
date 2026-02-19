@@ -1,0 +1,30 @@
+name: Cross version test runner
+on:
+  issue_comment:
+    types: [created]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  run:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/cvt') }}
+    permissions:
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: |
+            .github
+      - uses: ./.github/actions/validate-author
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        id: get-ref
+        with:
+          result-encoding: string
+          script: |
+            const runner = require('./.github/workflows/cross-version-test-runner.js');
+            await runner.main({ context, github });

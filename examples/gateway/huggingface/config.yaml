@@ -1,0 +1,8 @@
+endpoints:
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: "huggingface-text-generation-inference"
+      name: falcon-7b-instruct
+      config:
+        hf_server_url: http://127.0.0.1:8080

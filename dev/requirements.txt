@@ -1,0 +1,7 @@
+# Dev script dependencies
+click
+requests
+packaging
+pydantic
+pyyaml
+toml

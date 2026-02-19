@@ -1,0 +1,37 @@
+name: multistep_example
+
+python_env: python_env.yaml
+
+entry_points:
+  load_raw_data:
+    command: "python load_raw_data.py"
+
+  etl_data:
+    parameters:
+      ratings_csv: path
+      max_row_limit: {type: int, default: 100000}
+    command: "python etl_data.py --ratings-csv {ratings_csv} --max-row-limit {max_row_limit}"
+
+  als:
+    parameters:
+      ratings_data: path
+      max_iter: {type: int, default: 10}
+      reg_param: {type: float, default: 0.1}
+      rank: {type: int, default: 12}
+    command: "python als.py --ratings-data {ratings_data} --max-iter {max_iter} --reg-param {reg_param} --rank {rank}"
+
+  train_keras:
+    parameters:
+      ratings_data: path
+      als_model_uri: string
+      hidden_units: {type: int, default: 20}
+    command: "python train_keras.py --ratings-data {ratings_data} --als-model-uri {als_model_uri} --hidden-units {hidden_units}"
+
+  main:
+    parameters:
+      als_max_iter: {type: int, default: 10}
+      keras_hidden_units: {type: int, default: 20}
+      max_row_limit: {type: int, default: 100000}
+    command: "python main.py --als-max-iter {als_max_iter} --keras-hidden-units {keras_hidden_units}
+                             --max-row-limit {max_row_limit}"
+

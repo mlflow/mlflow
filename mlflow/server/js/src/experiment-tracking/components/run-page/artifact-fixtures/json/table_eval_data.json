@@ -1,0 +1,31 @@
+{
+  "columns": [
+    "company_name",
+    "company_goal",
+    "prompt",
+    "output",
+    "MLFLOW_model",
+    "MLFLOW_route_type",
+    "MLFLOW_latency"
+  ],
+  "data": [
+    [
+      "Abc",
+      "bottom line revenue",
+      "You are a marketing consultant for a technology company. Develop a marketing strategy report for Abc aiming to bottom line revenue",
+      " Here is an outline for a marketing strategy report aimed at increasing bottom line revenue for the technology company Abc:\n\nIntroduction \n- Brief background on Abc - products/services, target markets, competitive landscape\n- Objective of report: Provide recommendations to increase bottom line revenue through marketing strategies\n\nMarket Analysis\n- Trends in Abc's industry and target markets\n- Customer analysis - demographics, psychographics, buying behavior \n- Competitor analysis - positioning, pricing,",
+      "",
+      "",
+      "7788.29999999702"
+    ],
+    [
+      "XYZ Company",
+      "Increase top-line revenue",
+      "You are a marketing consultant for a technology company. Develop a marketing strategy report for XYZ Company aiming to Increase top-line revenue",
+      " Here is an outline for a marketing strategy report aimed at increasing top-line revenue for XYZ Company:\n\nXYZ Company \nMarketing Strategy Report\n\nExecutive Summary\n- Brief overview of key recommendations to increase revenue \n\nCurrent Situation Analysis\n- Background on XYZ Company's products/services, target customers, competitive landscape\n- Analysis of current marketing efforts and sales performance \n\nOpportunities for Growth \n- New customer segments to target\n- Additional products/services to meet customer needs",
+      "claude-2",
+      "llm/v1/completions",
+      "11563.60000000149"
+    ]
+  ]
+}

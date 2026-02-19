@@ -1,0 +1,59 @@
+name: HyperparameterSearch
+
+python_env: python_env.yaml
+
+entry_points:
+  # train Keras DL model
+  train:
+    parameters:
+      training_data: {type: string, default: "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"}
+      epochs: {type: int, default: 32}
+      batch_size: {type: int, default: 16}
+      learning_rate: {type: float, default: 1e-1}
+      momentum: {type: float, default: .0}
+      seed: {type: int, default: 97531}
+    command: "python train.py {training_data}
+                                    --batch-size {batch_size}
+                                    --epochs {epochs}
+                                    --learning-rate {learning_rate}
+                                    --momentum {momentum}"
+
+  # Use random search to optimize hyperparams of the train entry_point.
+  random:
+    parameters:
+      training_data: {type: string, default: "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"}
+      max_runs: {type: int, default: 8}
+      max_p: {type: int, default: 2}
+      epochs: {type: int, default: 32}
+      metric: {type: string, default: "rmse"}
+      seed: {type: int, default: 97531}
+    command: "python search_random.py  {training_data}
+                                             --max-runs {max_runs}
+                                             --max-p {max_p}
+                                             --epochs {epochs}
+                                             --metric {metric}
+                                             --seed {seed}"
+
+  # Use Hyperopt to optimize hyperparams of the train entry_point.
+  hyperopt:
+    parameters:
+      training_data: {type: string, default: "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"}
+      max_runs: {type: int, default: 12}
+      epochs: {type: int, default: 32}
+      metric: {type: string, default: "rmse"}
+      algo: {type: string, default: "tpe.suggest"}
+      seed: {type: int, default: 97531}
+    command: "python -O search_hyperopt.py {training_data}
+                                                 --max-runs {max_runs}
+                                                 --epochs {epochs}
+                                                 --metric {metric}
+                                                 --algo {algo}
+                                                 --seed {seed}"
+
+  main:
+    parameters:
+      training_data: {type: string, default: "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"}
+    command: "python search_random.py {training_data}"
+
+
+

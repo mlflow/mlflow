@@ -1,0 +1,243 @@
+/* Main layout container */
+.homeContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 8rem 1rem 4rem;
+}
+
+/* --------------------------------
+ * 1. Two Column Layout
+ * -------------------------------- */
+.contentGrid {
+  display: flex;
+  flex-direction: row;
+  gap: 8rem;
+  width: 100%;
+  margin-top: 2rem;
+  align-items: flex-start;
+  min-height: calc(100vh - 300px);
+  padding-inline: 2rem;
+}
+
+.textColumn {
+  flex: 1;
+  max-width: 650px;
+}
+
+.cardsColumn {
+  flex: 1;
+  max-width: 650px;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* --------------------------------
+ * 2. Typography
+ * -------------------------------- */
+.megaHeading {
+  font-size: 4rem;
+  line-height: 1.1;
+  font-weight: 200;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.02em;
+  color: var(--ifm-heading-color);
+}
+
+.introText {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--ifm-color-emphasis-800);
+  margin-bottom: 2rem;
+}
+
+/* --------------------------------
+ * 3. Glossy Card Component
+ * -------------------------------- */
+.glossyCard {
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ifm-card-background-color);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  border: 1px solid var(--ifm-color-emphasis-600);
+  margin-bottom: 2rem;
+}
+
+[data-theme='dark'] .glossyCard {
+  border: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.glossyCardblue:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(1, 148, 226, 0.2);
+  border-color: rgba(1, 148, 226, 0.3);
+  background-color: rgba(1, 148, 226, 0.03);
+}
+
+.glossyCardred:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(235, 23, 0, 0.2);
+  border-color: rgba(235, 23, 0, 0.3);
+  background-color: rgba(235, 23, 0, 0.03);
+}
+
+.cardContent {
+  padding: 1.5rem;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.colorBlock {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.colorBlockblue {
+  background-color: var(--ifm-color-primary);
+}
+
+.colorBlockred {
+  background-color: var(--genai-color-primary);
+}
+
+.cardTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+[data-theme='light'] .cardTitle {
+  color: var(--ifm-color-emphasis-900);
+}
+
+[data-theme='dark'] .cardTitle {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.cardDescription {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--ifm-color-emphasis-700);
+  margin: 0.75rem 0 1.5rem;
+}
+
+/* --------------------------------
+ * 4. Card Actions & Buttons
+ * -------------------------------- */
+.cardActions {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: row;
+  gap: 3rem;
+}
+
+.cardButton {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  background-color: #ffffff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Light mode border color */
+[data-theme='light'] .cardButton {
+  border: 1px solid var(--ifm-border-color);
+  color: var(--ifm-color-emphasis-900);
+}
+
+/* Dark mode styling */
+[data-theme='dark'] .cardButton {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  background-color: var(--ifm-color-emphasis-100);
+  color: var(--ifm-color-emphasis-800);
+}
+
+.arrowIcon {
+  margin-left: 0.5rem;
+  transition: transform 0.2s ease;
+}
+
+/* Arrow hover styling */
+.cardButton:hover .arrowIcon {
+  transform: translateX(3px);
+}
+
+/* Button hover styling */
+.cardButton:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme='dark'] .cardButton:hover {
+  background-color: var(--ifm-color-emphasis-200);
+  color: rgba(0, 0, 0, 0.9);
+  border-color: var(--ifm-color-emphasis-400);
+}
+
+/* --------------------------------
+ * 5. Dark Mode Adjustments
+ * -------------------------------- */
+[data-theme='dark'] .glossyCardblue:hover {
+  background-color: rgba(1, 148, 226, 0.1);
+}
+
+[data-theme='dark'] .glossyCardred:hover {
+  background-color: rgba(235, 23, 0, 0.1);
+}
+
+/* --------------------------------
+ * 6. Responsive Adjustments
+ * -------------------------------- */
+@media (max-width: 1600px) {
+  .contentGrid {
+    gap: 4rem;
+  }
+}
+
+@media (max-width: 996px) {
+  .contentGrid {
+    flex-direction: column;
+  }
+
+  .textColumn,
+  .cardsColumn {
+    max-width: 100%;
+  }
+
+  .homeContainer {
+    padding: 2rem 0 4rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .megaHeading {
+    font-size: 2.5rem;
+  }
+
+  .introText {
+    font-size: 1rem;
+  }
+
+  .cardActions {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .homeContainer {
+    padding: 0 0 2rem;
+  }
+}

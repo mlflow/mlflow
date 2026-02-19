@@ -1,0 +1,4 @@
+* text=auto eol=lf
+
+# Collapse auto-generated Python stub files in pull request diffs on GitHub
+mlflow/protos/**/*.pyi linguist-generated=true

@@ -1,0 +1,129 @@
+name: Examples
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
+  schedule:
+    # Run this action daily at 13:00 UTC
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MLFLOW_HOME: ${{ github.workspace }}
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+  PYTHONFAULTHANDLER: "1"
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/free-disk-space
+      - name: Check diff
+        id: check-diff
+        if: github.event_name == 'pull_request'
+        env:
+          FORCE_RUN_EXAMPLES: ${{ contains(github.event.pull_request.labels.*.name, 'examples.yml') }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep "tests/examples\|examples" || true);
+          if [ "$FORCE_RUN_EXAMPLES" = "true" ]; then
+            EXAMPLES_CHANGED="true"
+          else
+            EXAMPLES_CHANGED=$([ ! -z "$CHANGED_FILES" ] && echo "true" || echo "false")
+          fi
+
+          echo -e "CHANGED_FILES:\n$CHANGED_FILES"
+          echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
+          echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
+
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+
+      - name: Install dependencies
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
+        run: |
+          source ./dev/install-common-deps.sh --ml
+          pip install fastapi uvicorn tf-keras
+          sudo apt-get update -y
+          # Required for the transformers example that uses the Whisper model
+          sudo apt-get install -y ffmpeg
+
+      - name: Run example tests
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
+        env:
+          SPARK_LOCAL_IP: localhost
+        run: |
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --serve-wheel tests/examples --durations=30
+
+      - name: Remove conda environments
+        run: |
+          ./dev/remove-conda-envs.sh
+
+      - name: Show disk usage
+        run: |
+          df -h
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Show disk usage
+        run: |
+          df -h

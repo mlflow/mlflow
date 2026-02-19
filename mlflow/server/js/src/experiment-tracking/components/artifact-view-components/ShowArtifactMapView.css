@@ -1,0 +1,9 @@
+.mlflow-ui-container .map-container {
+  height: 100%;
+  width: 100%;
+}
+
+.mlflow-ui-container .leaflet-container {
+  height: 100%;
+  width: 100%;
+}

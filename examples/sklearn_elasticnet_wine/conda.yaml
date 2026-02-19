@@ -1,0 +1,10 @@
+name: tutorial
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+      - scikit-learn==1.4.2
+      - mlflow>=1.0
+      - pandas

@@ -1,0 +1,59 @@
+name: "setup-python"
+description: "Ensures to install a python version that's available on Anaconda"
+inputs:
+  python-version:
+    description: "The python version to install. If unspecified, install the minimum python version mlflow supports."
+    required: false
+outputs:
+  python-version:
+    description: "The installed python version"
+    value: ${{ steps.get-python-version.outputs.version }}
+runs:
+  using: "composite"
+  steps:
+    - name: get-python-version
+      id: get-python-version
+      shell: bash
+      # We used to use `conda search python=3.x` to dynamically fetch the latest available version
+      # in 3.x on Anaconda, but it turned out `conda search` is very slow (takes 40 ~ 50 seconds).
+      # This overhead sums up to a significant amount of delay in the cross version tests
+      # where we trigger more than 100 GitHub Actions runs.
+      run: |
+        python_version="${{ inputs.python-version }}"
+        if [ -z "$python_version" ]; then
+          python_version=$(cat .python-version)
+        fi
+        if [[ "$python_version" == "3.10" ]]; then
+          if [ ${{ runner.os }} == "Linux" ]; then
+            python_version="3.10.19"
+          else
+            python_version="3.10.11"
+          fi
+        elif [[ "$python_version" == "3.11" ]]; then
+          if [ ${{ runner.os }} == "Windows" ]; then
+            python_version="3.11.9"
+          else
+            python_version="3.11.14"
+          fi
+        else
+          echo "Invalid python version: '$python_version'. Must be '3.10', or '3.11'."
+          exit 1
+        fi
+        echo "version=$python_version" >> $GITHUB_OUTPUT
+    - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+      with:
+        python-version: ${{ steps.get-python-version.outputs.version }}
+    - uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
+      with:
+        resolution-strategy: "lowest"
+    - run: |
+        # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
+        # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy
+        echo "UV_INDEX_STRATEGY=unsafe-first-match" >> $GITHUB_ENV
+        # Disable progress bars and spinners to reduce CI log clutter
+        # https://docs.astral.sh/uv/reference/environment/#uv_no_progress
+        echo "UV_NO_PROGRESS=1" >> $GITHUB_ENV
+        # Disable Hugging Face download progress bars to reduce CI log clutter
+        # https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisableprogressbars
+        echo "HF_HUB_DISABLE_PROGRESS_BARS=1" >> $GITHUB_ENV
+      shell: bash

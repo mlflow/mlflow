@@ -1,0 +1,19 @@
+FROM rocker/r-ver:devel
+
+# Daily News about R-devel:
+# https://developer.r-project.org/blosxom.cgi/R-devel
+
+WORKDIR /mlflow/mlflow/R/mlflow
+RUN apt-get update -y
+RUN apt-get install lsb-release git wget libxml2-dev libgit2-dev libfontconfig1-dev \
+    libssl-dev libharfbuzz-dev libfribidi-dev libcurl4-openssl-dev \
+    libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev -y
+# pandoc installed by `apt-get` is too old and contains a bug.
+RUN TEMP_DEB=$(mktemp) && \
+    wget --directory-prefix $TEMP_DEB https://github.com/jgm/pandoc/releases/download/2.16.2/pandoc-2.16.2-1-amd64.deb && \
+    dpkg --install $(find $TEMP_DEB -name '*.deb') && \
+    rm -rf $TEMP_DEB
+COPY DESCRIPTION .
+COPY .install-deps.R .
+COPY .Rprofile .
+RUN Rscript -e 'source(".install-deps.R", echo = TRUE)'

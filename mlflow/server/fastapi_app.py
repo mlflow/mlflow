@@ -1,0 +1,108 @@
+"""
+FastAPI application wrapper for MLflow server.
+
+This module provides a FastAPI application that wraps the existing Flask application
+using WSGIMiddleware to maintain 100% API compatibility while enabling future migration
+to FastAPI endpoints.
+"""
+
+import json
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.wsgi import WSGIMiddleware
+from fastapi.responses import JSONResponse
+from flask import Flask
+
+from mlflow.exceptions import MlflowException
+from mlflow.server import app as flask_app
+from mlflow.server.assistant.api import assistant_router
+from mlflow.server.fastapi_security import init_fastapi_security
+from mlflow.server.gateway_api import gateway_router
+from mlflow.server.job_api import job_api_router
+from mlflow.server.otel_api import otel_router
+from mlflow.server.workspace_helpers import (
+    WORKSPACE_HEADER_NAME,
+    resolve_workspace_for_request_if_enabled,
+)
+from mlflow.utils.workspace_context import (
+    clear_server_request_workspace,
+    set_server_request_workspace,
+)
+from mlflow.version import VERSION
+
+
+def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
+    if getattr(fastapi_app.state, "workspace_middleware_added", False):
+        return
+
+    @fastapi_app.middleware("http")
+    async def workspace_context_middleware(request: Request, call_next):
+        try:
+            workspace = resolve_workspace_for_request_if_enabled(
+                request.url.path,
+                request.headers.get(WORKSPACE_HEADER_NAME),
+            )
+        except MlflowException as e:
+            return JSONResponse(
+                status_code=e.get_http_status_code(),
+                content=json.loads(e.serialize_as_json()),
+            )
+
+        set_server_request_workspace(workspace.name if workspace else None)
+        try:
+            response = await call_next(request)
+        finally:
+            clear_server_request_workspace()
+        return response
+
+    fastapi_app.state.workspace_middleware_added = True
+
+
+def create_fastapi_app(flask_app: Flask = flask_app):
+    """
+    Create a FastAPI application that wraps the existing Flask app.
+
+    Returns:
+        FastAPI application instance with the Flask app mounted via WSGIMiddleware.
+    """
+    # Create FastAPI app with metadata
+    fastapi_app = FastAPI(
+        title="MLflow Tracking Server",
+        description="MLflow Tracking Server API",
+        version=VERSION,
+        # TODO: Enable API documentation when we have native FastAPI endpoints
+        # For now, disable docs since we only have Flask routes via WSGI
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
+
+    # Initialize security middleware BEFORE adding routes
+    init_fastapi_security(fastapi_app)
+
+    add_fastapi_workspace_middleware(fastapi_app)
+
+    # Include OpenTelemetry API router BEFORE mounting Flask app
+    # This ensures FastAPI routes take precedence over the catch-all Flask mount
+    fastapi_app.include_router(otel_router)
+
+    fastapi_app.include_router(job_api_router)
+
+    # Include Gateway API router for database-backed endpoints
+    # This provides /gateway/{endpoint_name}/mlflow/invocations routes
+    fastapi_app.include_router(gateway_router)
+
+    # Include Assistant API router for AI-powered trace analysis
+    # This provides /ajax-api/3.0/mlflow/assistant/* endpoints (localhost only)
+    fastapi_app.include_router(assistant_router)
+
+    # Mount the entire Flask application at the root path
+    # This ensures compatibility with existing APIs
+    # NOTE: This must come AFTER include_router to avoid Flask catching all requests
+    fastapi_app.mount("/", WSGIMiddleware(flask_app))
+
+    return fastapi_app
+
+
+# Create the app instance that can be used by ASGI servers
+app = create_fastapi_app()

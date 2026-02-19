@@ -1,0 +1,6 @@
+build_dependencies:
+  - pip
+dependencies:
+  - mlflow
+  - statsmodels
+  - scikit-learn

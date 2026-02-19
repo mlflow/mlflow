@@ -1,0 +1,346 @@
+# GENERATED FILE. PLEASE DON'T MODIFY.
+# Run uv run ./dev/proto_to_graphql/code_generator.py to regenerate.
+
+directive @component(name: String!) on QUERY | MUTATION
+
+type Query {
+  mlflowGetExperiment(input: MlflowGetExperimentInput): MlflowGetExperimentResponse
+  mlflowGetMetricHistoryBulkInterval(input: MlflowGetMetricHistoryBulkIntervalInput): MlflowGetMetricHistoryBulkIntervalResponse
+  mlflowGetRun(input: MlflowGetRunInput): MlflowGetRunResponse
+  mlflowListArtifacts(input: MlflowListArtifactsInput): MlflowListArtifactsResponse
+  mlflowSearchModelVersions(input: MlflowSearchModelVersionsInput): MlflowSearchModelVersionsResponse
+
+  """Simple echoing field"""
+  test(inputString: String): Test
+  mlflowSearchRuns(input: MlflowSearchRunsInput): MlflowSearchRunsResponse
+}
+
+type MlflowGetExperimentResponse {
+  experiment: MlflowExperiment
+  apiError: ApiError
+}
+
+type MlflowExperiment {
+  experimentId: String
+  name: String
+  artifactLocation: String
+  lifecycleStage: String
+  lastUpdateTime: LongString
+  creationTime: LongString
+  tags: [MlflowExperimentTag!]
+}
+
+"""
+LongString Scalar type to prevent truncation to max integer in JavaScript.
+"""
+scalar LongString
+
+type MlflowExperimentTag {
+  key: String
+  value: String
+}
+
+type ApiError {
+  code: String
+  message: String
+  helpUrl: String
+  traceId: String
+  errorDetails: [ErrorDetail]
+}
+
+type ErrorDetail {
+  field: String
+  message: String
+}
+
+input MlflowGetExperimentInput {
+  experimentId: String
+}
+
+type MlflowGetMetricHistoryBulkIntervalResponse {
+  metrics: [MlflowMetricWithRunId!]
+  apiError: ApiError
+}
+
+type MlflowMetricWithRunId {
+  key: String
+  value: Float
+  timestamp: LongString
+  step: LongString
+  runId: String
+}
+
+input MlflowGetMetricHistoryBulkIntervalInput {
+  runIds: [String]
+  metricKey: String
+  startStep: Int
+  endStep: Int
+  maxResults: Int
+}
+
+type MlflowGetRunResponse {
+  run: MlflowRunExtension
+  apiError: ApiError
+}
+
+type MlflowRunExtension {
+  info: MlflowRunInfo
+  data: MlflowRunData
+  inputs: MlflowRunInputs
+  outputs: MlflowRunOutputs
+  experiment: MlflowExperiment
+  modelVersions: [MlflowModelVersion!]
+}
+
+type MlflowRunInfo {
+  runId: String
+  runUuid: String
+  runName: String
+  experimentId: String
+  userId: String
+  status: MlflowRunStatus
+  startTime: LongString
+  endTime: LongString
+  artifactUri: String
+  lifecycleStage: String
+}
+
+enum MlflowRunStatus {
+  RUNNING
+  SCHEDULED
+  FINISHED
+  FAILED
+  KILLED
+}
+
+type MlflowRunData {
+  metrics: [MlflowMetricExtension!]
+  params: [MlflowParam!]
+  tags: [MlflowRunTag!]
+}
+
+type MlflowMetricExtension {
+  key: String
+  value: Float
+  timestamp: LongString
+  step: LongString
+  datasetName: String
+  datasetDigest: String
+  modelId: String
+  runId: String
+}
+
+type MlflowParam {
+  key: String
+  value: String
+}
+
+type MlflowRunTag {
+  key: String
+  value: String
+}
+
+type MlflowRunInputs {
+  datasetInputs: [MlflowDatasetInput!]
+  modelInputs: [MlflowModelInput!]
+}
+
+type MlflowDatasetInput {
+  tags: [MlflowInputTag!]
+  dataset: MlflowDataset
+}
+
+type MlflowInputTag {
+  key: String
+  value: String
+}
+
+type MlflowDataset {
+  name: String
+  digest: String
+  sourceType: String
+  source: String
+  schema: String
+  profile: String
+}
+
+type MlflowModelInput {
+  modelId: String
+}
+
+type MlflowRunOutputs {
+  modelOutputs: [MlflowModelOutput!]
+}
+
+type MlflowModelOutput {
+  modelId: String
+  step: LongString
+}
+
+type MlflowModelVersion {
+  name: String
+  version: String
+  creationTimestamp: LongString
+  lastUpdatedTimestamp: LongString
+  userId: String
+  currentStage: String
+  description: String
+  source: String
+  runId: String
+  status: MlflowModelVersionStatus
+  statusMessage: String
+  tags: [MlflowModelVersionTag!]
+  runLink: String
+  aliases: [String]
+  modelId: String
+  modelParams: [MlflowModelParam!]
+  modelMetrics: [MlflowModelMetric!]
+  deploymentJobState: MlflowModelVersionDeploymentJobState
+}
+
+enum MlflowModelVersionStatus {
+  PENDING_REGISTRATION
+  FAILED_REGISTRATION
+  READY
+}
+
+type MlflowModelVersionTag {
+  key: String
+  value: String
+}
+
+type MlflowModelParam {
+  name: String
+  value: String
+}
+
+type MlflowModelMetric {
+  key: String
+  value: Float
+  timestamp: LongString
+  step: LongString
+  datasetName: String
+  datasetDigest: String
+  modelId: String
+  runId: String
+}
+
+type MlflowModelVersionDeploymentJobState {
+  jobId: String
+  runId: String
+  jobState: MlflowDeploymentJobConnectionState
+  runState: MlflowModelVersionDeploymentJobStateDeploymentJobRunState
+  currentTaskName: String
+}
+
+enum MlflowDeploymentJobConnectionState {
+  DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED
+  NOT_SET_UP
+  CONNECTED
+  NOT_FOUND
+  REQUIRED_PARAMETERS_CHANGED
+}
+
+enum MlflowModelVersionDeploymentJobStateDeploymentJobRunState {
+  DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED
+  NO_VALID_DEPLOYMENT_JOB_FOUND
+  RUNNING
+  SUCCEEDED
+  FAILED
+  PENDING
+  APPROVAL
+}
+
+input MlflowGetRunInput {
+  runId: String
+  runUuid: String
+}
+
+type MlflowListArtifactsResponse {
+  rootUri: String
+  files: [MlflowFileInfo!]
+  nextPageToken: String
+  apiError: ApiError
+}
+
+type MlflowFileInfo {
+  path: String
+  isDir: Boolean
+  fileSize: LongString
+}
+
+input MlflowListArtifactsInput {
+  runId: String
+  runUuid: String
+  path: String
+  pageToken: String
+}
+
+type MlflowSearchModelVersionsResponse {
+  modelVersions: [MlflowModelVersion!]
+  nextPageToken: String
+  apiError: ApiError
+}
+
+input MlflowSearchModelVersionsInput {
+  filter: String
+  maxResults: LongString
+  orderBy: [String]
+  pageToken: String
+}
+
+type Test {
+  """Echoes the input string"""
+  output: String
+}
+
+type MlflowSearchRunsResponse {
+  runs: [MlflowRunExtension!]
+  nextPageToken: String
+  apiError: ApiError
+}
+
+input MlflowSearchRunsInput {
+  experimentIds: [String]
+  filter: String
+  runViewType: MlflowViewType = null
+  maxResults: Int
+  orderBy: [String]
+  pageToken: String
+}
+
+enum MlflowViewType {
+  ACTIVE_ONLY
+  DELETED_ONLY
+  ALL
+}
+
+type Mutation {
+  mlflowSearchDatasets(input: MlflowSearchDatasetsInput): MlflowSearchDatasetsResponse
+  mlflowSearchRuns(input: MlflowSearchRunsInput): MlflowSearchRunsResponse
+
+  """Simple echoing field"""
+  testMutation(inputString: String): TestMutation
+}
+
+type MlflowSearchDatasetsResponse {
+  datasetSummaries: [MlflowDatasetSummary!]
+  apiError: ApiError
+}
+
+type MlflowDatasetSummary {
+  experimentId: String
+  name: String
+  digest: String
+  context: String
+}
+
+input MlflowSearchDatasetsInput {
+  experimentIds: [String]
+}
+
+type TestMutation {
+  """Echoes the input string"""
+  output: String
+}
+

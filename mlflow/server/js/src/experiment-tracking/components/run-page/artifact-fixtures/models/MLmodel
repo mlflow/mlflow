@@ -1,0 +1,18 @@
+artifact_path: MLmodel
+flavors:
+  python_function:
+    cloudpickle_version: 2.2.1
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pyfunc.model
+    python_model: python_model.pkl
+    python_version: 3.10.12
+mlflow_version: 2.7.1
+model_uuid: test-model-uuid
+run_id: test-run-uuid
+signature:
+  inputs: '[{"type": "double", "name": "test_model_input"}]'
+  outputs: '[{"type": "tensor", "name": "test_model_output", "tensor-spec": {"dtype": "float64", "shape": [-1]}}]'
+  params: null
+utc_time_created: '2023-01-01 10:57:16.077123'

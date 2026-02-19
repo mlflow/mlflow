@@ -1,0 +1,30 @@
+# Cancel workflow runs associated with a pull request when it is closed or merged.
+name: Cancel
+
+on:
+  pull_request_target:
+    types:
+      - closed
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  cancel:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      actions: write # to cancel workflow runs
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh run list --repo "$REPO" --commit "$HEAD_SHA" --event pull_request \
+            --json databaseId,status,name \
+            --jq '.[] | select(.status != "completed" and .name != "release-note") | .databaseId' |
+          while read -r run_id; do
+            gh run cancel "$run_id" --repo "$REPO" || true
+          done

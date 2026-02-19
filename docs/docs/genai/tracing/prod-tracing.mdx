@@ -1,0 +1,350 @@
+import { Card } from "@site/src/components/Card";
+import useBaseUrl from '@docusaurus/useBaseUrl';
+import TilesGrid from '@site/src/components/TilesGrid';
+import TileCard from '@site/src/components/TileCard';
+import { Zap, Search, Users } from 'lucide-react';
+
+# Production Tracing and Monitoring
+
+When you deploy an agent or LLM application to production, real users behave differently than test data—they find edge cases, ask unexpected questions, and expose issues you didn't anticipate. This guide covers how to configure MLflow Tracing for production environments—including automatic (online) quality evaluation—to catch these issues early and continuously improve your application.
+
+<video src={useBaseUrl("/images/llms/tracing/overview_demo.mp4")} controls loop autoPlay muted aria-label="Production Monitoring Overview" />
+
+## Production Checklist
+
+We recommend the following steps before deploying to production. Each topic is covered in more detail below.
+
+- [ ] **[Use a production-grade SQL database](/self-hosting/architecture/backend-store#relational-database-default)** — Use PostgreSQL, MySQL, or similar for reliability at scale
+- [ ] **[Enable async trace logging](#asynchronous-trace-logging)** — Upload traces in the background to avoid adding latency to your app
+- [ ] [Optional] **[Use the production tracing SDK](#using-the-production-tracing-sdk)** — Faster startup and smaller footprint than the full `mlflow` package
+- [ ] [Optional] **[Configure trace sampling](#sampling-traces)** — Control costs by logging a percentage of traces for high-volume applications
+- [ ] [Optional] **[Enable automatic quality evaluation](#automatic-online-quality-evaluation)** — Use LLM judges to monitor quality on production traffic
+- [ ] [Optional] **[Collect end-user feedback](#feedback-collection)** — Capture ratings and comments to identify issues and improve quality
+- [ ] [Optional] **[Add application context to traces](#adding-context-to-production-traces)** — Track user IDs, sessions, and metadata to debug and analyze behavior
+
+## Setting Up Tracing for Production Endpoints
+
+For production deployments, we recommend the [Production Tracing SDK](#using-the-production-tracing-sdk) to minimize library dependencies and reduce startup time, and [async logging with sampling](#production-tracing-configurations) for better performance and cost control at scale.
+
+<Card>
+  <div className="flex-column">
+    <div className="flex-row">
+      <div className="flex-item">
+        #### Using the Production Tracing SDK
+
+        The [Production Tracing SDK (`mlflow-tracing`)](/genai/tracing/lightweight-sdk) is a smaller package that only includes the minimum set of dependencies to instrument your code/models/agents with MLflow Tracing.
+
+
+        **⚡️ Faster Deployment**: Significantly smaller package size and fewer dependencies enable quicker deployments in containers and serverless environments
+
+        **📦 Enhanced Portability**: Easily deploy across different platforms with minimal compatibility concerns
+
+        **🚀 Performance Optimizations**: Optimized for high-volume tracing in production environments
+      </div>
+    </div>
+
+  </div>
+</Card>
+
+<br/>
+
+:::warning Compatibility Warning
+When installing the MLflow Tracing SDK, make sure the environment **does not have** the full MLflow package installed. Having both packages in the same environment might cause conflicts and unexpected behaviors.
+:::
+
+## Automatic (Online) Quality Evaluation
+
+MLflow's [automatic evaluation](/genai/eval-monitor/automatic-evaluations/) enables continuous quality monitoring of production traffic using LLM judges. Judges run asynchronously on incoming traces without blocking your application, evaluating for issues like:
+
+- **Hallucinations and factual accuracy**
+- **PII leakage and safety violations**
+- **User frustration in multi-turn conversations**
+- **Response relevance and completeness**
+
+### Setting Up Production Judges
+
+You can configure LLM judges to automatically evaluate a sample of your production traces using the UI or SDK. Judges can be set up with sampling rates to control costs and filter strings to target specific traces. For detailed setup instructions and configuration options, see [Automatic Evaluation](/genai/eval-monitor/automatic-evaluations/).
+
+<video src={useBaseUrl("/images/llms/tracing/automatic-evaluation-ui-setup.mp4")} controls loop autoPlay muted aria-label="Automatic Evaluation Setup" />
+
+<br/>
+
+```python
+import mlflow
+from mlflow.genai.scorers import Guidelines, ScorerSamplingConfig
+
+mlflow.set_experiment("production-genai-app")
+
+# Create a judge for detecting potential issues
+safety_judge = Guidelines(
+    name="safety_check",
+    guidelines="The response must not contain PII, harmful content, or hallucinated information.",
+    model="gateway:/my-llm-endpoint",
+)
+
+# Register and start automatic evaluation
+registered_judge = safety_judge.register(name="production_safety_check")
+registered_judge.start(
+    sampling_config=ScorerSamplingConfig(
+        sample_rate=0.1,  # Evaluate 10% of traces
+        filter_string="metadata.environment = 'production'",  # Only production traces
+    ),
+)
+```
+
+## Production Tracing Configurations
+
+For production deployments, we recommend enabling [asynchronous trace logging](#asynchronous-trace-logging) to avoid blocking your application, and configuring [trace sampling](#sampling-traces) to control costs for high-volume traffic.
+
+Example configuration:
+
+```bash
+# Required: Set MLflow Tracking URI
+export MLFLOW_TRACKING_URI="http://your-mlflow-server:5000"
+
+# Optional: Configure the experiment name for organizing traces
+export MLFLOW_EXPERIMENT_NAME="production-genai-app"
+
+# Optional: Configure async logging (recommended for production)
+export MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true
+export MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS=10
+export MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE=1000
+
+# Optional: Configure trace sampling ratio (default is 1.0)
+export MLFLOW_TRACE_SAMPLING_RATIO=0.1
+```
+
+### Asynchronous Trace Logging
+
+For production applications, MLflow logs traces asynchronously by default to prevent blocking your application:
+
+| Environment Variable                        | Description                                                                                                                                                                                                                                                   | Default Value |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`         | Whether to log traces asynchronously. When set to `False`, traces will be logged in a blocking manner.                                                                                                                                                        | `True`        |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`    | The maximum number of worker threads to use for async trace logging per process. Increasing this allows higher throughput of trace logging, but also increases CPU usage and memory consumption.                                                              | `10`          |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | The maximum number of traces that can be queued before being logged to backend by the worker threads. When the queue is full, new traces will be discarded. Increasing this allows higher durability of trace logging, but also increases memory consumption. | `1000`        |
+| `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`  | The timeout in seconds for retrying failed trace logging. When a trace logging fails, it will be retried up to this timeout with backoff, after which it will be discarded.                                                                                   | `500`         |
+
+### Sampling Traces
+
+For high-volume applications, you may want to reduce the number of traces exported to the backend. You can configure the sampling ratio to control the number of traces exported.
+
+#### Global Sampling Configuration
+
+| Environment Variable          | Description                                                                                                                   | Default Value |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `MLFLOW_TRACE_SAMPLING_RATIO` | The sampling ratio for traces. When set to `0.0`, no traces will be exported. When set to `1.0`, all traces will be exported. | `1.0`         |
+
+The default value is `1.0`, which means all traces will be exported. When set to less than `1.0`, say `0.1`, only 10% of the traces will be exported. The sampling is done at the trace level, meaning that all spans in some traces will be exported or discarded together.
+
+#### Per-Endpoint Sampling
+
+You can also configure sampling on a per-endpoint basis using the `sampling_ratio_override` parameter on the `@mlflow.trace` decorator. This allows different endpoints to have different sampling rates, which is useful when you want to:
+
+- Sample high-volume, low-value endpoints at a lower rate (e.g., 10%)
+- Always trace critical transactions (100% sampling)
+- Disable tracing for specific functions (0% sampling)
+
+```python
+import mlflow
+
+
+# High-volume endpoint: sample only 10% of traces
+@mlflow.trace(sampling_ratio_override=0.1)
+def high_volume_endpoint(request):
+    return process_request(request)
+
+
+# Critical transaction: always trace
+@mlflow.trace(sampling_ratio_override=1.0)
+def payment_processing(transaction):
+    return process_payment(transaction)
+
+
+# Use global sampling ratio (default behavior)
+@mlflow.trace
+def normal_endpoint(request):
+    return handle_request(request)
+```
+
+**Key behaviors:**
+
+- When `sampling_ratio_override` is specified on the decorator, it **overrides** the global `MLFLOW_TRACE_SAMPLING_RATIO` setting for that function
+- When `sampling_ratio_override` is not specified (or set to `None`), the global sampling ratio is used
+- `sampling_ratio_override` only applies at the trace level (root spans). Nested calls within an existing trace are always included, and their `sampling_ratio_override` settings are ignored.
+- The `sampling_ratio_override` must be a float between `0.0` and `1.0`
+
+## Adding Context to Production Traces
+
+Adding user IDs, session IDs, and environment metadata to your traces makes it easier to debug issues for specific users and analyze behavior across different segments.
+
+### Tracking Request, Session, and User Context
+
+Production applications need to track multiple pieces of context simultaneously. For detailed guidance, see [Track Users & Sessions](/genai/tracing/track-users-sessions). The following example demonstrates how to track all of these in a FastAPI application.
+
+```python
+import mlflow
+import os
+from fastapi import FastAPI, Request
+from pydantic import BaseModel
+
+# Initialize FastAPI app
+app = FastAPI()
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+@app.post("/chat")  # FastAPI decorator should be outermost
+@mlflow.trace  # Ensure @mlflow.trace is the inner decorator
+def handle_chat(request: Request, chat_request: ChatRequest):
+    # Retrieve all context from request headers
+    client_request_id = request.headers.get("X-Request-ID")
+    session_id = request.headers.get("X-Session-ID")
+    user_id = request.headers.get("X-User-ID")
+
+    # Update the current trace with all context and environment metadata
+    mlflow.update_current_trace(
+        client_request_id=client_request_id,
+        tags={
+            # Session context - groups traces from multi-turn conversations
+            "mlflow.trace.session": session_id,
+            # User context - associates traces with specific users
+            "mlflow.trace.user": user_id,
+            # Environment metadata - tracks deployment context
+            "environment": "production",
+            "app_version": os.getenv("APP_VERSION", "1.0.0"),
+            "deployment_id": os.getenv("DEPLOYMENT_ID", "unknown"),
+            "region": os.getenv("REGION", "us-east-1"),
+        },
+    )
+
+    # Your application logic for processing the chat message
+    response_text = f"Processed message: '{chat_request.message}'"
+
+    return {"response": response_text}
+```
+
+### Feedback Collection
+
+Capturing user feedback on specific interactions is essential for understanding quality and improving your GenAI application. For detailed guidance, see [Collect User Feedback](/genai/tracing/collect-user-feedback). The following example demonstrates how to collect feedback in a FastAPI application.
+
+```python
+import mlflow
+from mlflow.client import MlflowClient
+from fastapi import FastAPI, Query, Request
+from pydantic import BaseModel
+from typing import Optional
+from mlflow.entities import AssessmentSource
+
+app = FastAPI()
+
+
+class FeedbackRequest(BaseModel):
+    is_correct: bool  # True for correct, False for incorrect
+    comment: Optional[str] = None
+
+
+@app.post("/chat_feedback")
+def handle_chat_feedback(
+    request: Request,
+    client_request_id: str = Query(
+        ..., description="The client request ID from the original chat request"
+    ),
+    feedback: FeedbackRequest = ...,
+):
+    """
+    Collect user feedback for a specific chat interaction identified by client_request_id.
+    """
+    # Search for the trace with the matching client_request_id
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name("production-genai-app")
+    traces = client.search_traces(locations=[experiment.experiment_id])
+    traces = [
+        trace for trace in traces if trace.info.client_request_id == client_request_id
+    ][:1]
+
+    if not traces:
+        return {
+            "status": "error",
+            "message": f"Unable to find data for client request ID: {client_request_id}",
+        }, 500
+
+    # Log feedback using MLflow's log_feedback API
+    mlflow.log_feedback(
+        trace_id=traces[0].info.trace_id,
+        name="response_is_correct",
+        value=feedback.is_correct,
+        source=AssessmentSource(
+            source_type="HUMAN", source_id=request.headers.get("X-User-ID")
+        ),
+        rationale=feedback.comment,
+    )
+
+    return {
+        "status": "success",
+        "message": "Feedback recorded successfully",
+        "trace_id": traces[0].info.trace_id,
+    }
+```
+
+### Querying Traces with Context
+
+Once you've enriched traces with user, session, and environment context, you can query them to debug issues for specific users, analyze conversation flows within sessions, or compare behavior across deployments. For detailed guidance, see [Search Traces](/genai/tracing/search-traces). The following example demonstrates how to query traces by user, session, and environment.
+
+```python
+import mlflow
+
+mlflow.set_experiment("production-genai-app")
+
+# Query traces by user
+user_traces = mlflow.search_traces(
+    filter_string="tags.`mlflow.trace.user` = 'user-jane-doe-12345'",
+    max_results=100,
+)
+
+# Query traces by session
+session_traces = mlflow.search_traces(
+    filter_string="tags.`mlflow.trace.session` = 'session-def-456'",
+    max_results=100,
+)
+
+# Query traces by environment
+production_traces = mlflow.search_traces(
+    filter_string="tags.environment = 'production'",
+    max_results=100,
+)
+```
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Zap}
+    iconSize={48}
+    title="Automatic Evaluation"
+    description="Set up LLM judges to automatically monitor quality on production traffic."
+    href="/genai/eval-monitor/automatic-evaluations"
+    linkText="Set up automatic evaluation →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Search}
+    iconSize={48}
+    title="Searching for Traces"
+    description="Understand how to access trace data for analysis with UI or API."
+    href="/genai/tracing/search-traces"
+    linkText="Learn to search traces →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Track Users & Sessions"
+    description="Implement user and session context tracking for better monitoring insights."
+    href="/genai/tracing/track-users-sessions"
+    linkText="Track users & sessions →"
+    containerHeight={64}
+  />
+</TilesGrid>

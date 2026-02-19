@@ -1,0 +1,8 @@
+build_dependencies:
+  - pip==22.2.2
+dependencies:
+  - mlflow>=1.6
+  - pandas==1.5.0
+  - scikit-learn==1.1.3
+  - tensorflow==2.10.0
+  - pillow==9.2.0
