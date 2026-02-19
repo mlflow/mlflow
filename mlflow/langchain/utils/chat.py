@@ -2,6 +2,7 @@ import json
 import logging
 import time
 from collections import defaultdict
+from collections.abc import Iterator
 from typing import Any
 
 import pydantic
@@ -49,15 +50,18 @@ _TOKEN_USAGE_KEY_MAPPING = {
     "cached_content_token_count": TokenUsageKey.CACHE_READ_INPUT_TOKENS,
 }
 
-# Mapping for nested token usage details: (parent_key, child_key) -> mlflow key.
-# These are checked after flat keys, using setdefault to avoid overwriting.
-_NESTED_TOKEN_USAGE_KEY_MAPPING = {
-    # LangChain standardized format (OpenAI via LangChain)
-    ("input_token_details", "cache_read"): TokenUsageKey.CACHE_READ_INPUT_TOKENS,
-    ("input_token_details", "cache_creation"): TokenUsageKey.CACHE_CREATION_INPUT_TOKENS,
-    # Raw OpenAI response format
-    ("prompt_tokens_details", "cached_tokens"): TokenUsageKey.CACHE_READ_INPUT_TOKENS,
-}
+
+def _extract_nested_token_details(d: dict[str, Any]) -> Iterator[tuple[str, int]]:
+    """Extract cached token counts from nested detail dicts."""
+    match d:
+        case {"input_token_details": {"cache_read": int(tokens)}}:
+            yield (TokenUsageKey.CACHE_READ_INPUT_TOKENS, tokens)
+    match d:
+        case {"input_token_details": {"cache_creation": int(tokens)}}:
+            yield (TokenUsageKey.CACHE_CREATION_INPUT_TOKENS, tokens)
+    match d:
+        case {"prompt_tokens_details": {"cached_tokens": int(tokens)}}:
+            yield (TokenUsageKey.CACHE_READ_INPUT_TOKENS, tokens)
 
 
 def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
@@ -421,10 +425,8 @@ def _parse_token_counts(usage_metadata: dict[str, Any]) -> dict[str, int]:
 
     # Extract from nested detail dicts (e.g. input_token_details.cache_read).
     # Uses setdefault so flat keys above take priority.
-    for (parent_key, child_key), usage_key in _NESTED_TOKEN_USAGE_KEY_MAPPING.items():
-        if details := usage_metadata.get(parent_key):
-            if isinstance(details, dict) and (value := details.get(child_key)) is not None:
-                usage.setdefault(usage_key, value)
+    for usage_key, value in _extract_nested_token_details(usage_metadata):
+        usage.setdefault(usage_key, value)
 
     # If the total tokens are not present, calculate it from the input and output tokens
     if usage and usage.get(TokenUsageKey.TOTAL_TOKENS) is None:

@@ -252,6 +252,7 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
                 "output_tokens": 20,
                 "total_tokens": 70,
                 "cache_read_input_tokens": 30,
+                "cache_creation_input_tokens": 0,
             },
         ),
         # OpenAI usage_metadata with both cache_read and cache_creation
