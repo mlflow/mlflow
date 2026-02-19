@@ -68,6 +68,7 @@ async def test_responses_autolog(client, _input):
         TokenUsageKey.INPUT_TOKENS: 36,
         TokenUsageKey.OUTPUT_TOKENS: 87,
         TokenUsageKey.TOTAL_TOKENS: 123,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
 
 
@@ -377,4 +378,5 @@ async def test_responses_stream_autolog(client):
         TokenUsageKey.INPUT_TOKENS: 36,
         TokenUsageKey.OUTPUT_TOKENS: 87,
         TokenUsageKey.TOTAL_TOKENS: 123,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
