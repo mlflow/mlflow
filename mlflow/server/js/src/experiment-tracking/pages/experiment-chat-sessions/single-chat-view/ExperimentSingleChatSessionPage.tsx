@@ -61,14 +61,16 @@ const ContextProviders = ({
   const DrawerComponent = AssistantAwareDrawer;
 
   return (
-    <ModelTraceExplorerContextProvider
-      renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-      DrawerComponent={DrawerComponent}
-    >
-      <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
-        {children}
-      </ModelTraceExplorerUpdateTraceContextProvider>
-    </ModelTraceExplorerContextProvider>
+    <ModelTraceExplorerPreferencesProvider>
+      <ModelTraceExplorerContextProvider
+        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        DrawerComponent={DrawerComponent}
+      >
+        <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
+          {children}
+        </ModelTraceExplorerUpdateTraceContextProvider>
+      </ModelTraceExplorerContextProvider>
+    </ModelTraceExplorerPreferencesProvider>
   );
 };
 

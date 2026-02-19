@@ -141,7 +141,7 @@ const TracesV3LogsImpl = React.memo(
     );
 
     const isQueryDisabled = false;
-    const usesV4APIs = shouldUseTracesV4API();
+    const usesV4APIs = true;
 
     const getTrace = getTraceV3;
 
