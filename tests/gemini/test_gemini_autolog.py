@@ -188,6 +188,7 @@ def test_generate_content_enable_disable_autolog(is_async, mock_litellm_cost):
             TokenUsageKey.INPUT_TOKENS: 6,
             TokenUsageKey.OUTPUT_TOKENS: 6,
             TokenUsageKey.TOTAL_TOKENS: 12,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
         }
 
         # Verify cost is calculated (6 input tokens * 1.0 + 6 output tokens * 2.0)
@@ -201,6 +202,7 @@ def test_generate_content_enable_disable_autolog(is_async, mock_litellm_cost):
             "input_tokens": 6,
             "output_tokens": 6,
             "total_tokens": 12,
+            "cache_read_input_tokens": 0,
         }
 
         mlflow.gemini.autolog(disable=True)
@@ -288,6 +290,7 @@ def test_generate_content_image_autolog(mock_litellm_cost):
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
     assert span.llm_cost == {
         "input_cost": 6.0,
@@ -299,6 +302,7 @@ def test_generate_content_image_autolog(mock_litellm_cost):
         "input_tokens": 6,
         "output_tokens": 6,
         "total_tokens": 12,
+        "cache_read_input_tokens": 0,
     }
 
 
@@ -373,6 +377,7 @@ def test_generate_content_tool_calling_autolog(is_async, mock_litellm_cost):
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
     assert span.llm_cost == {
         "input_cost": 6.0,
@@ -384,6 +389,7 @@ def test_generate_content_tool_calling_autolog(is_async, mock_litellm_cost):
         "input_tokens": 6,
         "output_tokens": 6,
         "total_tokens": 12,
+        "cache_read_input_tokens": 0,
     }
 
 
@@ -494,6 +500,7 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async, mock_litel
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
     assert span.llm_cost == {
         "input_cost": 6.0,
@@ -505,6 +512,7 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async, mock_litel
         "input_tokens": 6,
         "output_tokens": 6,
         "total_tokens": 12,
+        "cache_read_input_tokens": 0,
     }
 
 

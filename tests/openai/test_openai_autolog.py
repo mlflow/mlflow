@@ -772,6 +772,7 @@ async def test_response_format(client):
             TokenUsageKey.INPUT_TOKENS: 68,
             TokenUsageKey.OUTPUT_TOKENS: 11,
             TokenUsageKey.TOTAL_TOKENS: 79,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
         }
     )
 

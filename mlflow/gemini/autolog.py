@@ -271,7 +271,7 @@ def _parse_usage(output):
         usage_dict[TokenUsageKey.OUTPUT_TOKENS] = candidate_tokens
     if (total_tokens := usage.total_token_count) is not None:
         usage_dict[TokenUsageKey.TOTAL_TOKENS] = total_tokens
-    if (cached_tokens := getattr(usage, "cached_content_token_count", None)) and cached_tokens > 0:
+    if (cached_tokens := getattr(usage, "cached_content_token_count", None)) is not None:
         usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached_tokens
 
     return usage_dict or None

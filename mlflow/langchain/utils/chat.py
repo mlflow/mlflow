@@ -423,7 +423,7 @@ def _parse_token_counts(usage_metadata: dict[str, Any]) -> dict[str, int]:
     # Uses setdefault so flat keys above take priority.
     for (parent_key, child_key), usage_key in _NESTED_TOKEN_USAGE_KEY_MAPPING.items():
         if details := usage_metadata.get(parent_key):
-            if isinstance(details, dict) and (value := details.get(child_key)) and value > 0:
+            if isinstance(details, dict) and (value := details.get(child_key)) is not None:
                 usage.setdefault(usage_key, value)
 
     # If the total tokens are not present, calculate it from the input and output tokens
