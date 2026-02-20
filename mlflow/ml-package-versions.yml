@@ -494,7 +494,7 @@ transformers:
   autologging:
     minimum: "4.38.2"
     # transformers 5.x is not supported yet
-    maximum: "5.2.0"
+    maximum: "4.57.6"
     test_every_n_versions: 4
     unsupported: [
         # https://github.com/huggingface/transformers/issues/38269
