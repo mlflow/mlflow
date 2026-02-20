@@ -37,7 +37,8 @@ jobs:
             # Derive PR number from the workflow run's head branch via API
             # instead of trusting the artifact (which fork PRs can manipulate)
             PR_NUMBER=$(gh api "repos/$REPO/pulls?head=$HEAD_OWNER:$HEAD_BRANCH&state=open" \
-              --jq '.[0].number')
+            PR_NUMBER=$(gh api "repos/$REPO/pulls?head=$HEAD_OWNER:$HEAD_BRANCH&state=open" \
+              --jq '.[0].number // empty')
             if [ -z "$PR_NUMBER" ]; then
               echo "::error::Could not find PR for $HEAD_OWNER:$HEAD_BRANCH"
               exit 1
