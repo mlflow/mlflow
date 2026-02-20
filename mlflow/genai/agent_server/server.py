@@ -80,25 +80,26 @@ class AgentServer:
 
     Args:
         agent_type: An optional parameter to specify the type of agent to serve. If provided,
-        input/output validation and streaming tracing aggregation will be done automatically.
+            input/output validation and streaming tracing aggregation will be done automatically.
 
-        Currently only "ResponsesAgent" is supported.
+            Currently only "ResponsesAgent" is supported.
 
-        If ``None``, no input/output validation and streaming tracing aggregation will be done.
-        Default to ``None``.
+            If ``None``, no input/output validation and streaming tracing aggregation will be done.
+            Default to ``None``.
 
         enable_chat_proxy: If ``True``, enables a proxy middleware that forwards unmatched requests
-        to a chat app running on the port specified by the CHAT_APP_PORT environment variable
-        (defaults to 3000) with a timeout specified by the CHAT_PROXY_TIMEOUT_SECONDS environment
-        variable, (defaults to 300 seconds). ``enable_chat_proxy`` defaults to ``False``.
+            to a chat app running on the port specified by the CHAT_APP_PORT environment variable
+            (defaults to 3000) with a timeout specified by the
+            CHAT_PROXY_TIMEOUT_SECONDS environment variable, (defaults to 300 seconds).
+            ``enable_chat_proxy`` defaults to ``False``.
 
-        The proxy allows requests to ``/``, ``/favicon.ico``, ``/assets/*``, and ``/api/*`` by
-        default. Additional paths can be configured via environment variables:
+            The proxy allows requests to ``/``, ``/favicon.ico``, ``/assets/*``, and ``/api/*`` by
+            default. Additional paths can be configured via environment variables:
 
-        - ``CHAT_PROXY_ALLOWED_EXACT_PATHS``: Comma-separated list of additional exact paths
-          to allow (e.g., ``/custom,/another``).
-        - ``CHAT_PROXY_ALLOWED_PATH_PREFIXES``: Comma-separated list of additional path prefixes
-          to allow (e.g., ``/custom/,/another/``).
+            - ``CHAT_PROXY_ALLOWED_EXACT_PATHS``: Comma-separated list of additional exact paths
+              to allow (e.g., ``/custom,/another``).
+            - ``CHAT_PROXY_ALLOWED_PATH_PREFIXES``: Comma-separated list of additional path prefixes
+              to allow (e.g., ``/custom/,/another/``).
 
     See https://mlflow.org/docs/latest/genai/serving/agent-server for more information.
     """
