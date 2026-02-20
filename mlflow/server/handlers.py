@@ -23,7 +23,6 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     Expectation,
-    Experiment,
     ExperimentTag,
     FallbackConfig,
     FallbackStrategy,
@@ -39,6 +38,7 @@ from mlflow.entities import (
     RunTag,
     ViewType,
     Workspace,
+    WorkspaceDeletionMode,
 )
 from mlflow.entities import (
     RoutingStrategy as RoutingStrategyEntity,
@@ -1151,17 +1151,6 @@ def _create_workspace_handler():
     except NotImplementedError:
         raise _workspace_not_supported("Workspace creation is not supported by this provider")
 
-    tracking_store = _get_tracking_store()
-    with workspace_context.WorkspaceContext(workspace.name):
-        if tracking_store.get_experiment_by_name(Experiment.DEFAULT_EXPERIMENT_NAME) is None:
-            try:
-                tracking_store.create_experiment(Experiment.DEFAULT_EXPERIMENT_NAME)
-            except MlflowException as exc:
-                if exc.error_code != databricks_pb2.ErrorCode.Name(
-                    databricks_pb2.RESOURCE_ALREADY_EXISTS
-                ):
-                    raise
-
     response_message = CreateWorkspace.Response()
     response_message.workspace.MergeFrom(workspace.to_proto())
     response = _wrap_response(response_message)
@@ -1233,9 +1222,17 @@ def _delete_workspace_handler(workspace_name: str):
             f"The '{DEFAULT_WORKSPACE_NAME}' workspace is reserved and cannot be deleted"
         )
     WorkspaceNameValidator.validate(workspace_name)
+    mode_str = request.args.get("mode", WorkspaceDeletionMode.RESTRICT.value)
+    try:
+        mode = WorkspaceDeletionMode(mode_str)
+    except ValueError:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid deletion mode '{mode_str}'. "
+            f"Must be one of: {', '.join(m.value for m in WorkspaceDeletionMode)}"
+        )
     store = _get_workspace_store()
     try:
-        store.delete_workspace(workspace_name)
+        store.delete_workspace(workspace_name, mode=mode)
     except NotImplementedError:
         raise _workspace_not_supported("Workspace deletion is not supported by this provider")
     return Response(status=204)

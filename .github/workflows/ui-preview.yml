@@ -1,0 +1,257 @@
+name: UI Preview
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - closed
+    paths:
+      - mlflow/server/js/**
+      - .github/workflows/ui-preview.yml
+      - .github/ui-preview/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    if: >-
+      github.event.action != 'closed'
+      && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+      && github.event.pull_request.draft == false
+      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Check out the PR head, not the base branch.
+          # Safe because the build job only runs for maintainers/collaborators (author_association check).
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
+
+      - name: Install build tools
+        run: pip install build setuptools
+
+      - name: Build wheel
+        # Build the wheel before `yarn build` so it excludes UI assets
+        # (mlflow/server/js/build/), keeping the wheel under the 10MB
+        # Databricks Apps file upload limit. UI assets are uploaded
+        # separately as build.tar.gz.
+        run: |
+          python dev/build.py --package-type dev
+          WHEEL_PATH=$(find dist -name "*.whl" | head -1)
+          WHEEL_NAME=$(basename "$WHEEL_PATH")
+          WHEEL_SIZE=$(stat -c %s "$WHEEL_PATH")
+          echo "WHEEL_PATH=$WHEEL_PATH" >> $GITHUB_ENV
+          echo "WHEEL_NAME=$WHEEL_NAME" >> $GITHUB_ENV
+          echo "Wheel size: $(numfmt --to=iec $WHEEL_SIZE)"
+
+          if [ "$WHEEL_SIZE" -gt 10485760 ]; then
+            echo "::error::Wheel size exceeds 10MB Databricks Apps limit"
+            exit 1
+          fi
+
+      - name: Build UI
+        working-directory: mlflow/server/js
+        env:
+          CI: false
+        run: |
+          yarn install --immutable
+          yarn build
+
+      - name: Package UI assets
+        run: |
+          tar czf /tmp/build.tar.gz -C mlflow/server/js build
+          UI_SIZE=$(stat -c %s /tmp/build.tar.gz)
+          echo "UI assets size: $(numfmt --to=iec $UI_SIZE)"
+
+          if [ "$UI_SIZE" -gt 10485760 ]; then
+            echo "::error::UI assets size exceeds 10MB Databricks Apps limit"
+            exit 1
+          fi
+
+      - name: Prepare app files
+        run: |
+          mkdir -p /tmp/app-deploy
+          cp "$WHEEL_PATH" /tmp/app-deploy/
+          cp /tmp/build.tar.gz /tmp/app-deploy/
+          cp .github/ui-preview/app.py /tmp/app-deploy/
+          cp .github/ui-preview/app.yaml /tmp/app-deploy/
+          echo "$WHEEL_NAME" > /tmp/app-deploy/requirements.txt
+
+      - name: Upload app files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-deploy
+          path: /tmp/app-deploy/
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-ui-preview
+    permissions:
+      pull-requests: write
+    timeout-minutes: 30
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+    steps:
+      - name: Download app files
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          name: app-deploy
+          path: /tmp/app-deploy
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks --version
+
+      - name: Create or update app
+        id: app
+        env:
+          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
+        run: |
+          if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
+            echo "App already exists"
+          else
+            echo "Creating app..."
+            databricks apps create \
+              --json "{\"name\": \"$APP_NAME\", \"description\": \"${{ github.event.pull_request.html_url }}\"}" \
+              --no-wait
+            for i in $(seq 1 40); do
+              STATE=$(databricks apps get "$APP_NAME" -o json | jq -r '.compute_status.state')
+              echo "Compute state: $STATE"
+              if [ "$STATE" = "ACTIVE" ]; then
+                break
+              elif [ "$STATE" = "ERROR" ] || [ "$STATE" = "STOPPED" ]; then
+                echo "::error::Compute entered $STATE state"
+                exit 1
+              fi
+              sleep 15
+            done
+            if [ "$STATE" != "ACTIVE" ]; then
+              echo "::error::Timed out waiting for compute to become ACTIVE (last state: $STATE)"
+              exit 1
+            fi
+          fi
+
+          URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Configure CORS
+        env:
+          APP_URL: ${{ steps.app.outputs.url }}
+        run: |
+          sed -i "s|__APP_URL__|$APP_URL|" /tmp/app-deploy/app.yaml
+
+      - name: Upload files and deploy
+        env:
+          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
+          WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
+        run: |
+          databricks workspace mkdirs "/Workspace$WORKSPACE_PATH" 2>/dev/null || true
+          databricks workspace import-dir /tmp/app-deploy "$WORKSPACE_PATH" --overwrite
+          databricks apps deploy "$APP_NAME" --source-code-path "/Workspace$WORKSPACE_PATH"
+
+      - name: Comment on PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_URL: ${{ steps.app.outputs.url }}
+        run: |
+          MARKER="<!-- ui-preview -->"
+          BODY="${MARKER}
+
+          **UI Preview** is ready for this PR :rocket:
+
+          | | |
+          |---|---|
+          | **URL** | ${APP_URL} |
+          | **Commit** | ${{ github.event.pull_request.head.sha }} |
+
+          > [!NOTE]
+          > This preview is only accessible to core maintainers with workspace access.
+          > The preview updates automatically when new commits are pushed."
+
+          # Find existing comment
+          COMMENT_ID=$(gh api \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" \
+            | head -1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            gh api \
+              "repos/${{ github.repository }}/issues/comments/$COMMENT_ID" \
+              -X PATCH -f body="$BODY"
+          else
+            gh pr comment ${{ github.event.pull_request.number }} \
+              --repo ${{ github.repository }} \
+              --body "$BODY"
+          fi
+
+  cleanup:
+    if: >-
+      github.event.action == 'closed'
+      && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+    runs-on: ubuntu-ui-preview
+    permissions:
+      pull-requests: write
+    timeout-minutes: 10
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+    steps:
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks --version
+
+      - name: Delete app
+        env:
+          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
+        run: |
+          if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
+            SOURCE_PATH=$(databricks apps get "$APP_NAME" -o json \
+              | jq -r '.default_source_code_path // empty')
+            databricks apps delete "$APP_NAME" --auto-approve
+            if [ -n "$SOURCE_PATH" ]; then
+              # Strip /Workspace prefix for workspace CLI
+              WS_PATH="${SOURCE_PATH#/Workspace}"
+              databricks workspace delete "$WS_PATH" --recursive 2>/dev/null || true
+            fi
+          fi
+
+      - name: Update PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MARKER="<!-- ui-preview -->"
+          BODY="${MARKER}
+
+          **UI Preview** for this PR has been removed."
+
+          COMMENT_ID=$(gh api \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" \
+            | head -1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            gh api \
+              "repos/${{ github.repository }}/issues/comments/$COMMENT_ID" \
+              -X PATCH -f body="$BODY"
+          fi

@@ -167,10 +167,6 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
           <FormattedMessage defaultMessage="Sample judge output" description="Title for sample judge output panel" />
         </Typography.Text>
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-          <SampleScorerTracesToEvaluatePicker
-            selectedItemIds={selectedItemIds}
-            onSelectedItemIdsChange={onSelectedItemIdsChange}
-          />
           {!isInitialScreen && (
             <Tooltip
               componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_178"
@@ -330,19 +326,25 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
                     values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
                   />
                 </Typography.Text>
-                <Tooltip
-                  componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_316"
-                  content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
-                >
-                  <span>
-                    <RunScorerButton
-                      variant={BUTTON_VARIANT.RUN}
-                      onClick={handleRunScorer}
-                      loading={false}
-                      disabled={isRunScorerDisabled}
-                    />
-                  </span>
-                </Tooltip>
+                <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+                  <SampleScorerTracesToEvaluatePicker
+                    selectedItemIds={selectedItemIds}
+                    onSelectedItemIdsChange={onSelectedItemIdsChange}
+                  />
+                  <Tooltip
+                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_316"
+                    content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
+                  >
+                    <span>
+                      <RunScorerButton
+                        variant={BUTTON_VARIANT.RUN}
+                        onClick={handleRunScorer}
+                        loading={false}
+                        disabled={isRunScorerDisabled}
+                      />
+                    </span>
+                  </Tooltip>
+                </div>
               </>
             )}
           </div>

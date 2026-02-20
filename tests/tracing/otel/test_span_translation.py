@@ -380,7 +380,7 @@ def test_translate_model_name_from_otel(translator: OtelSchemaTranslator, model_
     span.parent_id = "parent_123"
     # Test with the first MODEL_NAME_KEY from the translator
     model_attr_key = translator.MODEL_NAME_KEYS[0]
-    span_dict = {"attributes": {model_attr_key: json.dumps(model_value)}}
+    span_dict = {"attributes": {model_attr_key: model_value}}
     span.to_dict.return_value = span_dict
 
     result = translate_span_when_storing(span)
