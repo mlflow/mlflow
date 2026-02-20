@@ -15,12 +15,12 @@ from tests.tracing.helper import get_traces
 
 
 @pytest.fixture(autouse=True)
-def langfuse_otel_env(monkeypatch):
-    """Set dummy Langfuse credentials and reset OTEL / Langfuse state between tests.
+def otel_env(monkeypatch):
+    """Reset OTEL state between tests and configure the Langfuse test driver.
 
-    Langfuse needs valid credentials to create real OTEL spans; without them the
-    client falls back to a ``NoOpTracer``.  A dummy host is fine — the Langfuse
-    ``BatchSpanProcessor`` silently drops spans it cannot export.
+    We use Langfuse's ``@observe()`` as the OTEL span source. It requires
+    credentials to produce real spans (falls back to ``NoOpTracer`` otherwise).
+    A dummy host is fine — spans that can't be exported are silently dropped.
     """
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test-dummy")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test-dummy")
@@ -33,8 +33,6 @@ def langfuse_otel_env(monkeypatch):
 
     yield
 
-    # Teardown: disable MLflow processor, then reset Langfuse singleton so it
-    # re-initialises on the next test's fresh TracerProvider.
     mlflow.otel.autolog(disable=True)
     mlflow.otel._active_processor = None
     LangfuseResourceManager.reset()
@@ -204,12 +202,12 @@ def test_autolog_is_additive():
     assert len(traces) == 1
 
     # The recording exporter also received the span, proving dispatch to
-    # all processors (including Langfuse's).
+    # all processors on the shared TracerProvider.
     assert any(s.name == "add" for s in exported_spans)
 
 
 @pytest.mark.parametrize(
-    ("langfuse_type", "expected_mlflow_type"),
+    ("source_type", "expected_mlflow_type"),
     [
         ("generation", SpanType.LLM),
         ("tool", SpanType.TOOL),
@@ -222,10 +220,10 @@ def test_autolog_is_additive():
         ("span", SpanType.UNKNOWN),
     ],
 )
-def test_span_type_mapping(langfuse_type, expected_mlflow_type):
+def test_span_type_mapping(source_type, expected_mlflow_type):
     mlflow.otel.autolog()
 
-    @observe(as_type=langfuse_type)
+    @observe(as_type=source_type)
     def func(x):
         return x
 
