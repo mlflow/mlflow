@@ -20,6 +20,7 @@ from semantic_kernel.utils.telemetry.model_diagnostics import (
 import mlflow.semantic_kernel
 from mlflow.entities import SpanType
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
 from mlflow.semantic_kernel.autolog import SemanticKernelSpanProcessor
 from mlflow.tracing.constant import (
     SpanAttributeKey,
@@ -498,3 +499,20 @@ async def test_kernel_invoke_function_object(mock_openai):
     assert chat_span.name in ("chat.completions gpt-4o-mini", "chat gpt-4o-mini")
     assert chat_span.span_type == SpanType.CHAT_MODEL
     assert chat_span.model_name == "gpt-4o-mini"
+
+
+@pytest.mark.asyncio
+async def test_sk_shared_provider_no_recursion(monkeypatch, mock_openai):
+    # Verify semantic_kernel.autolog() works with shared tracer provider (no RecursionError)
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+
+    mlflow.semantic_kernel.autolog()
+    result = await _create_and_invoke_kernel_simple(mock_openai)
+
+    assert isinstance(result, FunctionResult)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    assert len(spans) >= 3
+    assert spans[0].name == "Kernel.invoke_prompt"
