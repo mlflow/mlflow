@@ -1446,6 +1446,12 @@ mlflow.pyfunc.save_model
 mlflow.pyfunc.spark_udf
 mlflow.pyfunc.update_signature_for_type_hint_from_example
 mlflow.pyspark.ml.autolog
+mlflow.pytorch.MlflowModelCheckpointCallback
+mlflow.pytorch.MlflowModelCheckpointCallback.on_fit_start
+mlflow.pytorch.MlflowModelCheckpointCallback.on_train_batch_end
+mlflow.pytorch.MlflowModelCheckpointCallback.on_train_epoch_end
+mlflow.pytorch.MlflowModelCheckpointCallback.save_checkpoint
+mlflow.pytorch._lightning_autolog.MlflowModelCheckpointCallback
 mlflow.pytorch.autolog
 mlflow.pytorch.get_default_conda_env
 mlflow.pytorch.get_default_pip_requirements
