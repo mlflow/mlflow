@@ -406,11 +406,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.38.2",
-            "maximum": "5.2.0"
+            "maximum": "4.57.6"
         },
         "autologging": {
             "minimum": "4.38.2",
-            "maximum": "5.2.0"
+            "maximum": "4.57.6"
         }
     },
     "haystack": {
