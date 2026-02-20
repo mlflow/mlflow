@@ -3,6 +3,10 @@ from unittest.mock import patch
 
 import pytest
 
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.tracing.utils.truncation import _get_truncated_preview, set_request_response_preview
 
 
@@ -225,11 +229,6 @@ def test_truncate_invalid_content_falls_back_to_json(content_value, expected_in_
 
 
 def test_set_request_response_preview_skips_none_data():
-    from mlflow.entities.trace_data import TraceData
-    from mlflow.entities.trace_info import TraceInfo
-    from mlflow.entities.trace_location import TraceLocation
-    from mlflow.entities.trace_state import TraceState
-
     trace_info = TraceInfo(
         trace_id="tr-test",
         trace_location=TraceLocation.from_experiment_id("0"),

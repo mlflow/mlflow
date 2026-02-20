@@ -7,6 +7,7 @@ from langfuse import observe
 from langfuse._client.resource_manager import LangfuseResourceManager
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace import TracerProvider as SdkTracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
 
 import mlflow.otel
 from mlflow.entities.span import SpanType
@@ -174,8 +175,6 @@ def test_observe_without_parentheses():
 
 
 def test_autolog_is_additive():
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
-
     exported_spans: list[object] = []
 
     class RecordingExporter(SpanExporter):
