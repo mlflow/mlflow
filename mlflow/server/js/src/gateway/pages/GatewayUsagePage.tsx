@@ -46,6 +46,16 @@ export const GatewayUsagePage = () => {
     return selectedEndpoint?.experiment_id ? [selectedEndpoint.experiment_id] : [];
   }, [showAllEndpoints, endpointsWithExperiments, selectedEndpoint]);
 
+  const tooltipLinkUrlBuilder = useMemo(() => {
+    if (!selectedEndpoint) return undefined;
+    return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) =>
+      GatewayRoutes.getEndpointDetailsRoute(selectedEndpoint.endpoint_id, {
+        tab: 'traces',
+        startTime: new Date(timestampMs).toISOString(),
+        endTime: new Date(timestampMs + timeIntervalSeconds * 1000).toISOString(),
+      });
+  }, [selectedEndpoint]);
+
   // Build filters from selected user ID
   const filters = useMemo(() => {
     if (!selectedUserId) return undefined;
@@ -181,7 +191,14 @@ export const GatewayUsagePage = () => {
           experimentIds={experimentIds}
           showTokenStats
           additionalControls={additionalControls}
-          hideTooltipLinks
+          hideTooltipLinks={showAllEndpoints}
+          tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
+          tooltipLinkText={
+            <FormattedMessage
+              defaultMessage="View logs for this period"
+              description="Link text to navigate to gateway endpoint logs tab"
+            />
+          }
           filters={filters}
         />
       ) : (
