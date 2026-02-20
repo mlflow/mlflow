@@ -695,7 +695,7 @@ class OpenAIProvider(BaseProvider):
             details_key = "prompt_tokens_details"
 
         if token_usage and (details := usage.get(details_key)):
-            if (cached := details.get("cached_tokens")) and cached > 0:
+            if (cached := details.get("cached_tokens")) is not None:
                 token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
 
         return token_usage
@@ -734,7 +734,7 @@ class OpenAIProvider(BaseProvider):
 
             if token_usage:
                 if details := usage_dict.get(details_key):
-                    if (cached := details.get("cached_tokens")) and cached > 0:
+                    if (cached := details.get("cached_tokens")) is not None:
                         token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
                 return token_usage
         return {}

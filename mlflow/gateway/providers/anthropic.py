@@ -588,9 +588,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             result.get("usage"), "input_tokens", "output_tokens"
         )
         if base and (usage := result.get("usage")):
-            if (cached := usage.get("cache_read_input_tokens")) and cached > 0:
+            if (cached := usage.get("cache_read_input_tokens")) is not None:
                 base[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-            if (created := usage.get("cache_creation_input_tokens")) and created > 0:
+            if (created := usage.get("cache_creation_input_tokens")) is not None:
                 base[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
         return base
 
@@ -613,11 +613,11 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                     "type": "message_start",
                     "message": {"usage": dict(msg_usage)},
                 }:
-                    if input_tokens := msg_usage.get("input_tokens"):
+                    if (input_tokens := msg_usage.get("input_tokens")) is not None:
                         usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-                    if (cached := msg_usage.get("cache_read_input_tokens")) and cached > 0:
+                    if (cached := msg_usage.get("cache_read_input_tokens")) is not None:
                         usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-                    if (created := msg_usage.get("cache_creation_input_tokens")) and created > 0:
+                    if (created := msg_usage.get("cache_creation_input_tokens")) is not None:
                         usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
                 case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
                     usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
