@@ -1226,7 +1226,7 @@ def mock_litellm_cost():
     Returns (input_cost, output_cost) based on the token counts passed.
     """
 
-    def calculate_cost(model, prompt_tokens, completion_tokens):
+    def calculate_cost(model, prompt_tokens, completion_tokens, **kwargs):
         input_cost = prompt_tokens * 1.0
         output_cost = completion_tokens * 2.0
         return (input_cost, output_cost)

@@ -16,6 +16,7 @@ from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvaluationResult
+from mlflow.genai.evaluation.harness import _log_assessments
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.genai.simulators import ConversationSimulator
@@ -1465,3 +1466,25 @@ def test_evaluate_with_simulator_within_parent_run(tmp_path):
     runs = mlflow.search_runs()
     assert len(runs) == 1
     assert runs.iloc[0]["tags.mlflow.runName"] == "parent-run"
+
+
+def test_log_assessments_preserves_existing_span_id(server_config):
+    with mlflow.start_span(name="root") as root:
+        with mlflow.start_span(name="retriever", span_type=SpanType.RETRIEVER) as retriever:
+            pass
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    _log_assessments(
+        run_id=None,
+        trace=trace,
+        assessments=[
+            Feedback(name="with_span_id", value="yes", span_id=retriever.span_id),
+            Feedback(name="without_span_id", value="yes"),
+        ],
+    )
+
+    trace = mlflow.get_trace(trace.info.trace_id)
+    logged = {a.name: a.span_id for a in trace.info.assessments}
+    assert logged["with_span_id"] == retriever.span_id
+    assert logged["without_span_id"] == root.span_id
