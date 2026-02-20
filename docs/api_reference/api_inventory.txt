@@ -578,6 +578,7 @@ mlflow.entities.Workspace.from_dict
 mlflow.entities.Workspace.from_proto
 mlflow.entities.Workspace.to_dict
 mlflow.entities.Workspace.to_proto
+mlflow.entities.WorkspaceDeletionMode
 mlflow.entities.assessment.Assessment
 mlflow.entities.assessment.Expectation
 mlflow.entities.assessment.Feedback
@@ -695,6 +696,7 @@ mlflow.entities.webhook.WebhookEvent
 mlflow.entities.webhook.WebhookStatus
 mlflow.entities.webhook.WebhookTestResult
 mlflow.entities.workspace.Workspace
+mlflow.entities.workspace.WorkspaceDeletionMode
 mlflow.evaluate
 mlflow.exceptions.get_error_code
 mlflow.finalize_logged_model
@@ -723,6 +725,7 @@ mlflow.gateway.config.EndpointConfig.validate_route_type_and_model_name
 mlflow.gateway.config.EndpointModelInfo
 mlflow.gateway.config.EndpointType
 mlflow.gateway.config.GatewayConfig
+mlflow.gateway.config.GatewayRequestType
 mlflow.gateway.config.GeminiConfig
 mlflow.gateway.config.GeminiConfig.validate_gemini_api_key
 mlflow.gateway.config.HuggingFaceTextGenerationInferenceConfig

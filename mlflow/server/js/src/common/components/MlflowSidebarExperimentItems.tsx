@@ -4,8 +4,8 @@ import { useLocation } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
+import type { ExperimentPageSideNavSectionKey } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/constants';
 import {
-  ExperimentPageSideNavSectionKey,
   getExperimentPageSideNavSectionLabel,
   useExperimentPageSideNavConfig,
 } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/constants';

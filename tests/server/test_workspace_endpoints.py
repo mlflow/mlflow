@@ -6,7 +6,8 @@ from unittest import mock
 import pytest
 from flask import Flask
 
-from mlflow.entities.workspace import Workspace
+from mlflow.entities import Experiment
+from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.server.handlers import get_endpoints
 
 
@@ -152,7 +153,9 @@ def test_delete_workspace_endpoint(app, mock_workspace_store):
         response = client.delete("/api/3.0/mlflow/workspaces/team-e")
 
     assert response.status_code == 204
-    mock_workspace_store.delete_workspace.assert_called_once_with("team-e")
+    mock_workspace_store.delete_workspace.assert_called_once_with(
+        "team-e", mode=WorkspaceDeletionMode.RESTRICT
+    )
 
 
 def test_delete_default_workspace_rejected_by_validation(app, mock_workspace_store):

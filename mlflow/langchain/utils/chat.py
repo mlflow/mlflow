@@ -2,6 +2,7 @@ import json
 import logging
 import time
 from collections import defaultdict
+from collections.abc import Iterator
 from typing import Any
 
 import pydantic
@@ -42,7 +43,25 @@ _TOKEN_USAGE_KEY_MAPPING = {
     # OpenAI Streaming, Anthropic, etc.
     "input_tokens": TokenUsageKey.INPUT_TOKENS,
     "output_tokens": TokenUsageKey.OUTPUT_TOKENS,
+    # Anthropic
+    "cache_read_input_tokens": TokenUsageKey.CACHE_READ_INPUT_TOKENS,
+    "cache_creation_input_tokens": TokenUsageKey.CACHE_CREATION_INPUT_TOKENS,
+    # Gemini
+    "cached_content_token_count": TokenUsageKey.CACHE_READ_INPUT_TOKENS,
 }
+
+
+def _extract_nested_token_details(d: dict[str, Any]) -> Iterator[tuple[str, int]]:
+    """Extract cached token counts from nested detail dicts."""
+    match d:
+        case {"input_token_details": {"cache_read": int(tokens)}}:
+            yield (TokenUsageKey.CACHE_READ_INPUT_TOKENS, tokens)
+    match d:
+        case {"input_token_details": {"cache_creation": int(tokens)}}:
+            yield (TokenUsageKey.CACHE_CREATION_INPUT_TOKENS, tokens)
+    match d:
+        case {"prompt_tokens_details": {"cached_tokens": int(tokens)}}:
+            yield (TokenUsageKey.CACHE_READ_INPUT_TOKENS, tokens)
 
 
 def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
@@ -403,6 +422,11 @@ def _parse_token_counts(usage_metadata: dict[str, Any]) -> dict[str, int]:
     for key, value in usage_metadata.items():
         if usage_key := _TOKEN_USAGE_KEY_MAPPING.get(key):
             usage[usage_key] = value
+
+    # Extract from nested detail dicts (e.g. input_token_details.cache_read).
+    # Uses setdefault so flat keys above take priority.
+    for usage_key, value in _extract_nested_token_details(usage_metadata):
+        usage.setdefault(usage_key, value)
 
     # If the total tokens are not present, calculate it from the input and output tokens
     if usage and usage.get(TokenUsageKey.TOTAL_TOKENS) is None:

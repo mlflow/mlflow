@@ -38,6 +38,7 @@ from mlflow.entities import (
     RunTag,
     ViewType,
     Workspace,
+    WorkspaceDeletionMode,
 )
 from mlflow.entities import (
     RoutingStrategy as RoutingStrategyEntity,
@@ -60,11 +61,13 @@ from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
 )
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
     MlflowTracingException,
+    _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
 )
 from mlflow.gateway.utils import is_valid_endpoint_name
@@ -85,6 +88,7 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
     CreateMultipartUpload,
     DeleteArtifact,
     DownloadArtifact,
+    GetPresignedDownloadUrl,
     MlflowArtifactsService,
     UploadArtifact,
 )
@@ -243,7 +247,7 @@ from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
 )
-from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
+from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
@@ -1218,9 +1222,17 @@ def _delete_workspace_handler(workspace_name: str):
             f"The '{DEFAULT_WORKSPACE_NAME}' workspace is reserved and cannot be deleted"
         )
     WorkspaceNameValidator.validate(workspace_name)
+    mode_str = request.args.get("mode", WorkspaceDeletionMode.RESTRICT.value)
+    try:
+        mode = WorkspaceDeletionMode(mode_str)
+    except ValueError:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid deletion mode '{mode_str}'. "
+            f"Must be one of: {', '.join(m.value for m in WorkspaceDeletionMode)}"
+        )
     store = _get_workspace_store()
     try:
-        store.delete_workspace(workspace_name)
+        store.delete_workspace(workspace_name, mode=mode)
     except NotImplementedError:
         raise _workspace_not_supported("Workspace deletion is not supported by this provider")
     return Response(status=204)
@@ -2615,9 +2627,24 @@ def _create_model_version():
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    # If the model version is a prompt, we don't validate the source
     is_prompt = _is_prompt_request(request_message)
-    if not is_prompt:
+    if is_prompt:
+        # Prompt sources must not point to local filesystem paths.
+        # Block file:// URIs and absolute paths (e.g. /etc/passwd) but allow
+        # the legitimate schemeless placeholder sources used internally
+        # (e.g. "prompt-template", "dummy-source").
+        source = request_message.source
+        parsed = urllib.parse.urlparse(source)
+        if parsed.scheme == "file" or (parsed.scheme == "" and source.startswith("/")):
+            raise MlflowException(
+                f"Invalid prompt source: '{source}'. "
+                "Local source paths are not allowed for prompts.",
+                INVALID_PARAMETER_VALUE,
+            )
+        # Only validate traversal for sources with a URL scheme (http, https, etc.)
+        if parsed.scheme:
+            _validate_non_local_source_contains_relative_paths(source)
+    else:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
         else:
@@ -3343,6 +3370,11 @@ def _validate_support_multipart_upload(artifact_repo):
         raise _UnsupportedMultipartUploadException()
 
 
+def _validate_support_multipart_download(artifact_repo):
+    if not isinstance(artifact_repo, MultipartDownloadMixin):
+        raise _UnsupportedMultipartDownloadException()
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _create_multipart_upload_artifact(artifact_path):
@@ -3440,6 +3472,27 @@ def _abort_multipart_upload_artifact(artifact_path):
         artifact_path,
     )
     return _wrap_response(AbortMultipartUpload.Response())
+
+
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _get_presigned_download_url(artifact_path):
+    """
+    A request handler for `GET /mlflow-artifacts/presigned/<artifact_path>` to get
+    a presigned URL for downloading an artifact directly from cloud storage.
+    """
+    artifact_path = validate_path_is_safe(artifact_path)
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    _validate_support_multipart_download(artifact_repo)
+
+    expiration = MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+    presigned_response = artifact_repo.get_download_presigned_url(
+        artifact_path, expiration=expiration
+    )
+    response = Response(mimetype="application/json")
+    response.set_data(json.dumps(presigned_response.to_dict()))
+    return response
 
 
 # MLflow Tracing APIs
@@ -6119,6 +6172,7 @@ HANDLERS = {
     CreateMultipartUpload: _create_multipart_upload_artifact,
     CompleteMultipartUpload: _complete_multipart_upload_artifact,
     AbortMultipartUpload: _abort_multipart_upload_artifact,
+    GetPresignedDownloadUrl: _get_presigned_download_url,
     # MLflow Tracing APIs (V3)
     StartTraceV3: _start_trace_v3,
     GetTraceInfoV3: _get_trace_info_v3,

@@ -5,6 +5,7 @@ import { useNavigate } from '../../../common/utils/RoutingUtils';
 import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { WorkflowType, useWorkflowType } from '../../../common/contexts/WorkflowTypeContext';
 import demoScreenshot from '../../../common/static/demo-tracing-screenshot.png';
+import demoScreenshotDark from '../../../common/static/demo-tracing-screenshot-dark.png';
 
 export const DEMO_BANNER_DISMISSED_KEY = 'mlflow.demo.banner.dismissed';
 
@@ -45,7 +46,7 @@ export const LaunchDemoCard = () => {
       }}
     >
       <img
-        src={demoScreenshot}
+        src={theme.isDarkMode ? demoScreenshotDark : demoScreenshot}
         alt="MLflow Tracing UI"
         css={{
           width: 200,

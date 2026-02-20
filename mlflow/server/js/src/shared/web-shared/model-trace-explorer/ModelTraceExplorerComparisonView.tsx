@@ -3,7 +3,7 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { AssessmentsPane } from './assessments-pane/AssessmentsPane';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
-import { ModelTrace } from './ModelTrace.types';
+import type { ModelTrace } from './ModelTrace.types';
 import { ModelTraceExplorerContent } from './ModelTraceExplorerContent';
 
 export const ModelTraceExplorerComparisonView = ({

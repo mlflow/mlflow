@@ -392,6 +392,7 @@ const TracesV3LogsImpl = React.memo(
                   onTraceTagsEdit={showEditTagsModalForTrace}
                   displayLoadingOverlay={displayLoadingOverlay}
                   isGroupedBySession={forceGroupBySession || isGroupedBySession}
+                  searchQuery={searchQuery}
                 />
               </ContextProviders>
             )}
