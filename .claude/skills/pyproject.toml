@@ -4,7 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
   "aiohttp",
-  "claude-agent-sdk<=0.1.37", # Pin until anthropics/claude-agent-sdk-python#583 is fixed
+  "claude-agent-sdk<=0.1.37", # Pin until https://github.com/anthropics/claude-agent-sdk-python/issues/583 is fixed
   "pydantic",
   "tiktoken",
   "typing_extensions",
