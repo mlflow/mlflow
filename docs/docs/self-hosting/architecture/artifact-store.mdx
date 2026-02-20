@@ -9,7 +9,7 @@ Note that metadata like parameters, metrics, and tags are stored in a [backend s
 ## Configuring an Artifact Store
 
 MLflow by default stores artifacts in a local (file system) `./mlruns` directory, but also supports various locations suitable for large data:
-Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS. You can connect those remote storages via the MLflow Tracking server.
+Amazon S3, Azure Blob Storage, Google Cloud Storage, Backblaze B2, SFTP server, and NFS. You can connect those remote storages via the MLflow Tracking server.
 See [tracking server setup](/self-hosting/architecture/tracking-server#tracking-server-artifact-store) and the specific section for your storage in [supported storages](/self-hosting/architecture/artifact-store#artifacts-store-supported-storages) for guidance on
 how to connect to the remote storage of your choice.
 
@@ -164,6 +164,22 @@ You may set some MLflow environment variables to troubleshoot GCS read-timeouts 
 - `MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT` - (Experimental, may be changed or removed) Sets the standard timeout for transfer operations in seconds (Default: 60 for GCS). Use -1 for indefinite timeout.
 - `MLFLOW_GCS_UPLOAD_CHUNK_SIZE` - Sets the standard upload chunk size for bigger files in bytes (Default: 104857600 ≙ 100MiB), must be multiple of 256 KB.
 - `MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE` - Sets the standard download chunk size for bigger files in bytes (Default: 104857600 ≙ 100MiB), must be multiple of 256 KB
+
+### Backblaze B2
+
+To store artifacts in [Backblaze B2 Cloud Storage](https://www.backblaze.com/cloud-storage?utm_source=mlflow&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=mlflow), specify a URI of the form
+`b2://<bucket>@<endpoint-host>/<path>`. The endpoint host is typically `s3.<region>.backblazeb2.com`.
+You can find your bucket's endpoint on the **Buckets** page of your [Backblaze dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=mlflow&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=mlflow).
+
+MLflow uses the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables for authentication.
+Generate a new application key from the [**App Keys**](https://secure.backblaze.com/app_keys.htm?utm_source=mlflow&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=mlflow) page
+in your Backblaze dashboard (the master application key is not compatible with the S3-Compatible API).
+
+```bash
+export AWS_ACCESS_KEY_ID="your_b2_application_key_id"
+export AWS_SECRET_ACCESS_KEY="your_b2_application_key"
+export AWS_DEFAULT_REGION="us-east-005"
+```
 
 ### FTP server
 

@@ -39,6 +39,8 @@ import {
   RESPONSE_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   SESSION_COLUMN_ID,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
   SOURCE_COLUMN_ID,
   STATE_COLUMN_ID,
   TAGS_COLUMN_ID,
@@ -962,6 +964,9 @@ export const traceInfoCellRenderer = (
         }
       />
     );
+  } else if (colId === SIMULATION_GOAL_COLUMN_ID || colId === SIMULATION_PERSONA_COLUMN_ID) {
+    // Goal/Persona are session-level columns, only rendered in session header rows
+    return <NullCell isComparing={isComparing} />;
   }
 
   const value = currentTraceInfo ? stringifyValue(getTraceInfoValueWithColId(currentTraceInfo, colId)) : '';

@@ -6,11 +6,8 @@ import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/gena
 import { GenAIChatSessionsTable, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
 import { getChatSessionsFilter } from '../pages/experiment-chat-sessions/utils';
 import { TracesV3DateSelector } from './experiment-page/components/traces-v3/TracesV3DateSelector';
-import {
-  MonitoringFilters,
-  MonitoringFiltersUpdateContext,
-  useMonitoringFiltersTimeRange,
-} from '../hooks/useMonitoringFilters';
+import type { MonitoringFilters } from '../hooks/useMonitoringFilters';
+import { MonitoringFiltersUpdateContext, useMonitoringFiltersTimeRange } from '../hooks/useMonitoringFilters';
 
 interface SelectSessionsModalProps {
   onClose?: () => void;

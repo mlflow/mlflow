@@ -481,6 +481,27 @@ class MultipartUploadMixin(ABC):
         """
 
 
+class MultipartDownloadMixin(ABC):
+    """
+    Mixin that defines the API for artifact repositories that support multipart
+    download (MPD), i.e. generating presigned URLs for direct download from
+    cloud storage via the MPD flow.
+    """
+
+    @abstractmethod
+    def get_download_presigned_url(self, artifact_path, expiration=300):
+        """
+        Generate a presigned URL for downloading an artifact directly from cloud storage.
+
+        Args:
+            artifact_path: Relative path to the artifact within the artifact URI.
+            expiration: Time in seconds for the presigned URL to remain valid (default: 300).
+
+        Returns:
+            PresignedDownloadUrlResponse containing the presigned URL, headers, and file size.
+        """
+
+
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
         raise MlflowException(

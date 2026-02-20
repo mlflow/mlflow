@@ -926,10 +926,6 @@
     "defaultMessage": "No endpoints created",
     "description": "Empty state title for endpoints list"
   },
-  "513m15": {
-    "defaultMessage": "Select your workflow type. This changes the tabs that are visible in the navigation sidebar.",
-    "description": "Tooltip for workflow switch"
-  },
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
@@ -1946,6 +1942,10 @@
     "defaultMessage": "Original logged model: {originalModelLink}",
     "description": "Tooltip text with link to the original logged model"
   },
+  "BZ5364": {
+    "defaultMessage": "(cache read)",
+    "description": "Label for cache read input token usage"
+  },
   "BZLX5c": {
     "defaultMessage": "Track experiments, parameters, and metrics throughout training.",
     "description": "Home page quick action description for training models"
@@ -2489,6 +2489,10 @@
   "FpjDSq": {
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
+  },
+  "FxQYyX": {
+    "defaultMessage": "Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems.",
+    "description": "Tooltip for workflow switch"
   },
   "G/zTTY": {
     "defaultMessage": "Error",
@@ -3258,6 +3262,10 @@
     "defaultMessage": "Metric",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option makes the X-axis a custom metric that the user selects."
   },
+  "M0O/hf": {
+    "defaultMessage": "(cache write)",
+    "description": "Label for cache creation input token usage"
+  },
   "M1dwxx": {
     "defaultMessage": "Version {version}",
     "description": "Model registry > models table > aliases column > version indicator"
@@ -3461,6 +3469,10 @@
   "NPlcrl": {
     "defaultMessage": "Clear filters",
     "description": "Button to clear filters in the tags filter popover for experiments page search by tags"
+  },
+  "NQYTBb": {
+    "defaultMessage": "Cached",
+    "description": "Label for the cached input tokens in the tooltip for the tokens cell."
   },
   "NRNNnk": {
     "defaultMessage": "Click to expand",
@@ -4444,6 +4456,10 @@
     "defaultMessage": "Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows.",
     "description": "Text for model inputs/outputs schema table when schema is too large to display all rows"
   },
+  "UawNBQ": {
+    "defaultMessage": "Cache write",
+    "description": "Label for the cache creation input tokens in the tooltip for the tokens cell."
+  },
   "Ub+VQh": {
     "defaultMessage": "Please select 2 runs to compare",
     "description": "Tooltip for disabled compare action in evaluation runs table actions"
@@ -4503,6 +4519,10 @@
   "Uzii0L": {
     "defaultMessage": "AI Gateway",
     "description": "Sidebar link for gateway"
+  },
+  "V+4GZQ": {
+    "defaultMessage": "View logs for this period",
+    "description": "Link text to navigate to gateway endpoint logs tab"
   },
   "V0/LoE": {
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
@@ -6347,6 +6367,10 @@
     "defaultMessage": "True",
     "description": "Label for an assessment with a 'true' boolean value"
   },
+  "hX4/P0": {
+    "defaultMessage": "User:",
+    "description": "User selector label"
+  },
   "hYrjzD": {
     "defaultMessage": "Create",
     "description": "Confirm button text for create workspace modal"
@@ -7870,6 +7894,10 @@
   "rzIPYc": {
     "defaultMessage": "You are exceeding a limit of {limit} aliases assigned to the single model version",
     "description": "Alias editor > Warning about exceeding aliases limit"
+  },
+  "s2G/vI": {
+    "defaultMessage": "All users",
+    "description": "All users option"
   },
   "s2L+xL": {
     "defaultMessage": "Error loading shared view state: share key \"{viewStateShareKey}\" does not exist",

@@ -71,8 +71,8 @@ export function sortGroupedColumns(
       if (colB.id === SESSION_COLUMN_ID) return 1;
     }
 
-    // If grouped by session AND comparing, put goal and persona columns near the front (after session)
-    if (isGroupedBySession && isComparing) {
+    // If grouped by session, put goal and persona columns near the front (after session)
+    if (isGroupedBySession) {
       const isGoalOrPersonaA = colA.id === SIMULATION_GOAL_COLUMN_ID || colA.id === SIMULATION_PERSONA_COLUMN_ID;
       const isGoalOrPersonaB = colB.id === SIMULATION_GOAL_COLUMN_ID || colB.id === SIMULATION_PERSONA_COLUMN_ID;
       if (isGoalOrPersonaA && !isGoalOrPersonaB) return -1;

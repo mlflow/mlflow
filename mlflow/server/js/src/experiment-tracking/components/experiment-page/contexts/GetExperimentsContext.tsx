@@ -2,7 +2,7 @@ import { isEqual } from 'lodash';
 import React, { createContext, useCallback, useMemo, useState } from 'react';
 import { mapErrorWrapperToPredefinedError } from '../../../../common/utils/ErrorUtils';
 import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../../common/utils/FeatureUtils';
-import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
+import type { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import RequestStateWrapper from '../../../../common/components/RequestStateWrapper';
 import Utils from '../../../../common/utils/Utils';
 import type { getExperimentApi, setCompareExperiments, setExperimentTagApi } from '../../../actions';

@@ -1059,10 +1059,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session.rollback()
                 # Divide metric keys into batches of 100 to avoid loading too much metric
                 # history data into memory at once
-                metric_keys = [m.key for m in metric_instances]
+                metric_keys = list({m.key for m in metric_instances})
                 metric_key_batches = [
                     metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
                 ]
+                # Iteratively filter out metric_instances per batch to avoid
+                # loading all metric history into memory at once
+                # (see https://github.com/mlflow/mlflow/issues/19144)
                 for metric_key_batch in metric_key_batches:
                     # obtain the metric history corresponding to the given metrics
                     metric_history = (
@@ -1073,15 +1076,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         )
                         .all()
                     )
-                    # convert to a set of Metric instance to take advantage of its hashable
-                    # and then obtain the metrics that were not logged earlier within this
-                    # run_id
                     metric_history = {m.to_mlflow_entity() for m in metric_history}
-                    non_existing_metrics = [
+                    metric_instances = [
                         m for m in metric_instances if m.to_mlflow_entity() not in metric_history
                     ]
-                    # if there exist metrics that were tried to be logged & rolled back even
-                    # though they were not violating the PK, log them
+                # if there exist metrics that were tried to be logged & rolled back even
+                # though they were not violating the PK, log them
+                if non_existing_metrics := metric_instances:
                     _insert_metrics(non_existing_metrics)
 
     def _log_model_metrics(
