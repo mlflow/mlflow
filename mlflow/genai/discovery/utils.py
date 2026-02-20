@@ -256,19 +256,37 @@ def _get_root_span_io(trace: Trace) -> tuple[str, str]:
     return request, response
 
 
+def _build_assessments_section(trace: Trace) -> str:
+    lines: list[str] = []
+    for assessment in trace.info.assessments:
+        if not isinstance(assessment, Feedback):
+            continue
+        entry = f"    {assessment.name}: {assessment.value}"
+        if assessment.rationale:
+            entry += f" — {assessment.rationale}"
+        lines.append(entry)
+    if not lines:
+        return ""
+    return "  Assessments:\n" + "\n".join(lines)
+
+
 def _build_enriched_trace_summary(index: int, trace: Trace, rationale: str) -> str:
     request, response = _get_root_span_io(trace)
     request = _trim(request, _TRACE_IO_CHAR_LIMIT)
     response = _trim(response, _TRACE_IO_CHAR_LIMIT)
     duration = trace.info.execution_duration or 0
     span_tree = _build_span_tree(trace.data.spans)
-    return (
-        f"[{index}] trace_id={trace.info.trace_id}\n"
-        f"  Input: {request}\n"
-        f"  Output: {response}\n"
-        f"  Duration: {duration}ms | Failure rationale: {rationale}\n"
-        f"  Span tree:\n{span_tree}"
-    )
+    assessments = _build_assessments_section(trace)
+    parts = [
+        f"[{index}] trace_id={trace.info.trace_id}",
+        f"  Input: {request}",
+        f"  Output: {response}",
+        f"  Duration: {duration}ms | Failure rationale: {rationale}",
+    ]
+    if assessments:
+        parts.append(assessments)
+    parts.append(f"  Span tree:\n{span_tree}")
+    return "\n".join(parts)
 
 
 def _run_deep_analysis(

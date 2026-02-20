@@ -1,10 +1,9 @@
 """
-Run discover_issues() locally against a Databricks experiment with a local model.
+Run discover_issues() locally against a Databricks experiment with Databricks model serving.
 
 Requires environment variables:
     DATABRICKS_HOST  — workspace URL (e.g. https://my-workspace.databricks.com)
     DATABRICKS_TOKEN — personal access token
-    OPENAI_API_KEY   — for the local OpenAI-compatible model
 
 Usage:
     uv run python scripts/discover_issues_local_on_databricks.py
@@ -19,8 +18,8 @@ os.environ.setdefault("DATABRICKS_TOKEN", os.environ.get("E2_TOKEN", ""))
 import mlflow
 
 EXPERIMENT_ID = "1116807276482355"
-JUDGE_MODEL = "openai:/gpt-5-mini"
-ANALYSIS_MODEL = "openai:/gpt-5"
+JUDGE_MODEL = "databricks:/databricks-gpt-5-nano"
+ANALYSIS_MODEL = "databricks:/databricks-claude-sonnet-4-5"
 
 mlflow.set_tracking_uri("databricks")
 mlflow.set_experiment(experiment_id=EXPERIMENT_ID)
