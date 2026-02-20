@@ -94,9 +94,7 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
         ):
             # Fill in defaults for missing optional arguments
             for param in command.params:
-                if param.name not in kwargs:
-                    if param.default is click_unset:
-                        continue
+                if param.name not in kwargs and param.default is not click_unset:
                     kwargs[param.name] = param.default
             command.callback(**kwargs)  # type: ignore[misc]
         return string_io.getvalue().strip()
