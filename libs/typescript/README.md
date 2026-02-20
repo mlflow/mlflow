@@ -13,7 +13,7 @@
   <a href="https://github.com/mlflow/mlflow"><img src="https://img.shields.io/github/stars/mlflow/mlflow?style=social" alt="stars"></a>
   <a href="https://www.npmjs.com/package/mlflow-tracing"><img src="https://img.shields.io/npm/v/mlflow-tracing.svg" alt="version"></a>
   <a href="https://www.npmjs.com/package/mlflow-tracing"><img src="https://img.shields.io/npm/dt/mlflow-tracing.svg" alt="downloads"></a>
-  <a href="https://github.com/mlflow/mlflow/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mlflow/mlflow" alt="license"></a>
+  <a href="https://github.com/mlflow/mlflow/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/mlflow/mlflow" alt="license"></a>
 </p>
 
 MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com/mlflow/mlflow) that provides a TypeScript API for MLflow.
