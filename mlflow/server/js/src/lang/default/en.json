@@ -1942,6 +1942,10 @@
     "defaultMessage": "Original logged model: {originalModelLink}",
     "description": "Tooltip text with link to the original logged model"
   },
+  "BZ5364": {
+    "defaultMessage": "(cache read)",
+    "description": "Label for cache read input token usage"
+  },
   "BZLX5c": {
     "defaultMessage": "Track experiments, parameters, and metrics throughout training.",
     "description": "Home page quick action description for training models"
@@ -3258,6 +3262,10 @@
     "defaultMessage": "Metric",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option makes the X-axis a custom metric that the user selects."
   },
+  "M0O/hf": {
+    "defaultMessage": "(cache write)",
+    "description": "Label for cache creation input token usage"
+  },
   "M1dwxx": {
     "defaultMessage": "Version {version}",
     "description": "Model registry > models table > aliases column > version indicator"
@@ -3461,6 +3469,10 @@
   "NPlcrl": {
     "defaultMessage": "Clear filters",
     "description": "Button to clear filters in the tags filter popover for experiments page search by tags"
+  },
+  "NQYTBb": {
+    "defaultMessage": "Cached",
+    "description": "Label for the cached input tokens in the tooltip for the tokens cell."
   },
   "NRNNnk": {
     "defaultMessage": "Click to expand",
@@ -4443,6 +4455,10 @@
   "UYSMKb": {
     "defaultMessage": "Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows.",
     "description": "Text for model inputs/outputs schema table when schema is too large to display all rows"
+  },
+  "UawNBQ": {
+    "defaultMessage": "Cache write",
+    "description": "Label for the cache creation input tokens in the tooltip for the tokens cell."
   },
   "Ub+VQh": {
     "defaultMessage": "Please select 2 runs to compare",
