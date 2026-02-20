@@ -10,7 +10,8 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Controller, UseFormReturn } from 'react-hook-form';
+import type { UseFormReturn } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
 import { useEffect, useMemo, useState } from 'react';
 import GatewayRoutes from '../../routes';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';

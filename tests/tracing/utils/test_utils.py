@@ -33,6 +33,7 @@ from mlflow.tracing.utils import (
     generate_trace_id_v4_from_otel_trace_id,
     get_active_spans_table_name,
     get_otel_attribute,
+    is_uc_table_tracing,
     maybe_get_request_id,
     parse_trace_id_v4,
 )
@@ -146,6 +147,74 @@ def test_aggregate_usage_from_spans_skips_descendant_usage():
         TokenUsageKey.OUTPUT_TOKENS: 26,
         TokenUsageKey.TOTAL_TOKENS: 39,
     }
+
+
+def test_aggregate_usage_from_spans_with_cached_tokens():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"), trace_id="tr-123")
+        for i in range(3)
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 100,
+            TokenUsageKey.OUTPUT_TOKENS: 50,
+            TokenUsageKey.TOTAL_TOKENS: 150,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 80,
+        },
+    )
+    spans[1].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 200,
+            TokenUsageKey.OUTPUT_TOKENS: 100,
+            TokenUsageKey.TOTAL_TOKENS: 300,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 120,
+            TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
+        },
+    )
+    # span without cached tokens
+    spans[2].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 5,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 310,
+        TokenUsageKey.OUTPUT_TOKENS: 155,
+        TokenUsageKey.TOTAL_TOKENS: 465,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 200,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
+    }
+
+
+def test_aggregate_usage_from_spans_without_cached_tokens_omits_keys():
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=0, name="span_0"), trace_id="tr-123")
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 5,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 5,
+        TokenUsageKey.TOTAL_TOKENS: 15,
+    }
+    # Cached keys should not be present
+    assert TokenUsageKey.CACHE_READ_INPUT_TOKENS not in usage
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
 
 
 def test_aggregate_cost_from_spans():
@@ -509,6 +578,22 @@ def test_get_spans_table_name_for_trace_no_destination():
 
         result = get_active_spans_table_name()
         assert result is None
+
+
+def test_is_uc_table_tracing_with_uc_destination():
+    mock_destination = UCSchemaLocation(catalog_name="catalog", schema_name="schema")
+
+    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
+        mock_ctx.get.return_value = mock_destination
+
+        assert is_uc_table_tracing() is True
+
+
+def test_is_uc_table_tracing_with_no_destination():
+    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
+        mock_ctx.get.return_value = None
+
+        assert is_uc_table_tracing() is False
 
 
 def test_generate_trace_id_v4_from_otel_trace_id():

@@ -14,8 +14,8 @@ import { LazyTraceCostOverTimeChart } from '../../experiment-tracking/pages/expe
 import { ChartGrid } from '../../experiment-tracking/pages/experiment-overview/components/OverviewLayoutComponents';
 import { OverviewChartProvider } from '../../experiment-tracking/pages/experiment-overview/OverviewChartContext';
 import { TimeUnitSelector } from '../../experiment-tracking/pages/experiment-overview/components/TimeUnitSelector';
+import type { TimeUnit } from '../../experiment-tracking/pages/experiment-overview/utils/timeUtils';
 import {
-  TimeUnit,
   TIME_UNIT_SECONDS,
   calculateDefaultTimeUnit,
 } from '../../experiment-tracking/pages/experiment-overview/utils/timeUtils';
@@ -28,6 +28,7 @@ interface GatewayChartsPanelProps {
   hideTooltipLinks?: boolean;
   tooltipLinkUrlBuilder?: (experimentId: string, timestampMs: number, timeIntervalSeconds: number) => string;
   tooltipLinkText?: React.ReactNode;
+  filters?: string[];
 }
 
 const GatewayChartsPanelImpl = ({
@@ -37,6 +38,7 @@ const GatewayChartsPanelImpl = ({
   hideTooltipLinks = false,
   tooltipLinkUrlBuilder,
   tooltipLinkText,
+  filters,
 }: GatewayChartsPanelProps) => {
   const { theme } = useDesignSystemTheme();
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
@@ -90,6 +92,7 @@ const GatewayChartsPanelImpl = ({
         hideTooltipLinks={hideTooltipLinks}
         tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
         tooltipLinkText={tooltipLinkText}
+        filters={filters}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
           {/* Requests chart - full width */}

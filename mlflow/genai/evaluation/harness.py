@@ -418,11 +418,11 @@ def _log_assessments(
                 AssessmentMetadataKey.SOURCE_RUN_ID: run_id,
             }
 
-        # NB: Root span ID is necessarily to show assessment results in DBX eval UI.
-        if root_span := trace.data._get_root_span():
-            assessment.span_id = root_span.span_id
-        else:
-            _logger.debug(f"No root span found for trace {trace.info.trace_id}")
+        if not assessment.span_id:
+            if root_span := trace.data._get_root_span():
+                assessment.span_id = root_span.span_id
+            else:
+                _logger.debug(f"No root span found for trace {trace.info.trace_id}")
 
         mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
 

@@ -11,9 +11,9 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
+import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-explorer';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
-  FeedbackAssessment,
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   SESSION_ID_METADATA_KEY,

@@ -19,6 +19,8 @@ export interface OverviewChartContextValue {
   tooltipLinkUrlBuilder?: (experimentId: string, timestampMs: number, timeIntervalSeconds: number) => string;
   /** Custom link text for tooltip links. Overrides default "View traces for this period" text. */
   tooltipLinkText?: React.ReactNode;
+  /** Optional filter expressions applied to all chart queries */
+  filters?: string[];
 }
 
 export const OverviewChartContext = createContext<OverviewChartContextValue | null>(null);
@@ -41,6 +43,7 @@ export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
   hideTooltipLinks,
   tooltipLinkUrlBuilder,
   tooltipLinkText,
+  filters,
 }) => {
   const value = useMemo(
     () => ({
@@ -52,6 +55,7 @@ export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
       hideTooltipLinks,
       tooltipLinkUrlBuilder,
       tooltipLinkText,
+      filters,
     }),
     [
       experimentIds,
@@ -62,6 +66,7 @@ export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
       hideTooltipLinks,
       tooltipLinkUrlBuilder,
       tooltipLinkText,
+      filters,
     ],
   );
 

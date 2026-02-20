@@ -182,10 +182,9 @@ def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
 def _aggregate_from_spans(
     spans: list[LiveSpan],
     attribute_key: str,
-    input_key: str,
-    output_key: str,
-    total_key: str,
+    keys: list[str],
     default: int | float,
+    optional_keys: list[str] | None = None,
 ) -> dict[str, int | float] | None:
     """Generic aggregation of data from spans using DFS traversal.
 
@@ -194,17 +193,15 @@ def _aggregate_from_spans(
     Args:
         spans: List of spans to aggregate from.
         attribute_key: The span attribute key to look up.
-        input_key: Key for extracting input value from span data.
-        output_key: Key for extracting output value from span data.
-        total_key: Key for extracting total value from span data.
+        keys: Keys to aggregate. Always included in the result.
         default: Default value (0 for int, 0.0 for float) that also determines return type.
+        optional_keys: Additional keys to aggregate. Only included in the result
+            when the key is present in the span attribute.
 
     Returns:
         Aggregated dictionary with the keys, or None if no data found.
     """
-    input_val = default
-    output_val = default
-    total_val = default
+    totals: dict[str, int | float] = dict.fromkeys(keys, default)
     has_data = False
 
     span_id_to_spans = {span.span_id: span for span in spans}
@@ -219,15 +216,17 @@ def _aggregate_from_spans(
             roots.append(span)
 
     def dfs(span: LiveSpan, ancestor_has_data: bool) -> None:
-        nonlocal input_val, output_val, total_val, has_data
+        nonlocal has_data
 
         data = span.get_attribute(attribute_key)
         span_has_data = data is not None
 
         if span_has_data and not ancestor_has_data:
-            input_val += data.get(input_key, default)
-            output_val += data.get(output_key, default)
-            total_val += data.get(total_key, default)
+            for k in keys:
+                totals[k] += data.get(k, default)
+            for k in optional_keys or []:
+                if k in data:
+                    totals[k] = totals.get(k, default) + data[k]
             has_data = True
 
         next_ancestor_has_data = ancestor_has_data or span_has_data
@@ -240,11 +239,7 @@ def _aggregate_from_spans(
     if not has_data:
         return None
 
-    return {
-        input_key: input_val,
-        output_key: output_val,
-        total_key: total_val,
-    }
+    return totals
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
@@ -252,10 +247,9 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     return _aggregate_from_spans(
         spans,
         SpanAttributeKey.CHAT_USAGE,
-        TokenUsageKey.INPUT_TOKENS,
-        TokenUsageKey.OUTPUT_TOKENS,
-        TokenUsageKey.TOTAL_TOKENS,
-        0,
+        keys=[TokenUsageKey.INPUT_TOKENS, TokenUsageKey.OUTPUT_TOKENS, TokenUsageKey.TOTAL_TOKENS],
+        default=0,
+        optional_keys=TokenUsageKey.cache_keys(),
     )
 
 
@@ -264,10 +258,8 @@ def aggregate_cost_from_spans(spans: list[LiveSpan]) -> dict[str, float] | None:
     return _aggregate_from_spans(
         spans,
         SpanAttributeKey.LLM_COST,
-        CostKey.INPUT_COST,
-        CostKey.OUTPUT_COST,
-        CostKey.TOTAL_COST,
-        0.0,
+        keys=[CostKey.INPUT_COST, CostKey.OUTPUT_COST, CostKey.TOTAL_COST],
+        default=0.0,
     )
 
 
@@ -305,9 +297,18 @@ def calculate_cost_by_model_and_token_usage(
     if prompt_tokens == 0 and completion_tokens == 0:
         return None
 
+    cache_kwargs = {}
+    if (cached := usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS)) is not None:
+        cache_kwargs["cache_read_input_tokens"] = cached
+    if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
+        cache_kwargs["cache_creation_input_tokens"] = created
+
     try:
         input_cost_usd, output_cost_usd = cost_per_token(
-            model=model_name, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
+            model=model_name,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            **cache_kwargs,
         )
     except Exception as e:
         if model_provider:
@@ -320,6 +321,7 @@ def calculate_cost_by_model_and_token_usage(
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     custom_llm_provider=model_provider,
+                    **cache_kwargs,
                 )
             except Exception as e:
                 _logger.debug(
@@ -705,16 +707,24 @@ def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
     return _get_experiment_id()
 
 
-def get_active_spans_table_name() -> str | None:
-    """
-    Get active Unity Catalog spans table name that's set by `mlflow.tracing.set_destination`.
-    """
+def is_uc_table_tracing() -> bool:
+    """Returns True if the active trace destination is a Unity Catalog table (V4)."""
     from mlflow.entities.trace_location import UCSchemaLocation
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
     if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        if isinstance(destination, UCSchemaLocation):
-            return destination.full_otel_spans_table_name
+        return isinstance(destination, UCSchemaLocation)
+    return False
+
+
+def get_active_spans_table_name() -> str | None:
+    """
+    Get active Unity Catalog spans table name that's set by `mlflow.tracing.set_destination`.
+    """
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    if is_uc_table_tracing():
+        return _MLFLOW_TRACE_USER_DESTINATION.get().full_otel_spans_table_name
 
     return None
 
