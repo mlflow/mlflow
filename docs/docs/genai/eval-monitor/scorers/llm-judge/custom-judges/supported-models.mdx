@@ -23,7 +23,7 @@ MLflow also supports calling model providers directly:
 
 - OpenAI / Azure OpenAI
 - Anthropic
-- Amazon Bedrock
+- Amazon Bedrock (including Anthropic Claude and Amazon Nova models)
 - Cohere
 - Together AI
 - Any other providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers), such as Google Gemini, xAI, Mistral, and more.
@@ -33,6 +33,28 @@ Judges configured with direct model providers require API keys to be set locally
 :::
 
 To use LiteLLM integrated models, install LiteLLM by running `pip install litellm` and specify the provider and model name in the same format as natively supported providers, e.g., `gemini:/gemini-2.0-flash`.
+
+### Amazon Bedrock Examples
+
+Amazon Bedrock supports multiple model families. Use the `bedrock:/` prefix with the Bedrock model ID:
+
+```python
+# Anthropic Claude on Bedrock
+Correctness(model="bedrock:/anthropic.claude-sonnet-4-20250514")
+
+# Amazon Nova Pro
+Correctness(model="bedrock:/amazon.nova-pro-v1:0")
+
+# Amazon Nova Lite
+Correctness(model="bedrock:/amazon.nova-lite-v1:0")
+
+# Amazon Nova Micro
+Correctness(model="bedrock:/amazon.nova-micro-v1:0")
+```
+
+:::note
+Amazon Bedrock requires AWS credentials to be configured in your environment (e.g., `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_DEFAULT_REGION`). For more details, see the [Amazon Nova documentation](https://docs.aws.amazon.com/nova/latest/userguide/what-is-nova.html).
+:::
 
 ## Databricks-Hosted Models
 
