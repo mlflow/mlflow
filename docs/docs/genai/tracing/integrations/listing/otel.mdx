@@ -62,9 +62,13 @@ with tracer.start_as_current_span("agent") as parent:
 
     with tracer.start_as_current_span("llm_call") as child:
         child.set_attribute("input.value", '{"prompt": "What is MLflow?"}')
-        child.set_attribute("output.value", '{"response": "MLflow is an open-source platform."}')
+        child.set_attribute(
+            "output.value", '{"response": "MLflow is an open-source platform."}'
+        )
 
-    parent.set_attribute("output.value", '{"answer": "MLflow is an open-source platform."}')
+    parent.set_attribute(
+        "output.value", '{"answer": "MLflow is an open-source platform."}'
+    )
 ```
 
 :::note
