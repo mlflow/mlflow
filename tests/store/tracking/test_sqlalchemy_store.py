@@ -3730,7 +3730,6 @@ def test_get_metric_history_bulk_interval_multiple_runs(store: SqlAlchemyStore):
 
 
 def test_get_metric_history_bulk_interval_with_step_range(store: SqlAlchemyStore):
-    """Test bulk interval respects start_step and end_step."""
     run = _run_factory(store)
     run_id = run.info.run_id
 
