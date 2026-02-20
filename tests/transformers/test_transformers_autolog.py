@@ -1,3 +1,4 @@
+import os
 import random
 
 import numpy as np
@@ -548,6 +549,29 @@ def test_trainer_hyperparameter_tuning_does_not_log_sklearn_model(
     runs = client.search_runs([exp.experiment_id])
 
     assert len(runs) == 1
+
+
+def test_trainer_clears_pyspark_gateway_env_vars_for_torch_distributor(monkeypatch, tmp_path):
+    monkeypatch.setenv("PYSPARK_GATEWAY_PORT", "12345")
+    monkeypatch.setenv("PYSPARK_GATEWAY_SECRET", "secret123")
+
+    env_inside_train = {}
+
+    def mock_train(self, *args, **kwargs):
+        env_inside_train["port"] = os.environ.get("PYSPARK_GATEWAY_PORT")
+        env_inside_train["secret"] = os.environ.get("PYSPARK_GATEWAY_SECRET")
+
+    # Replace Trainer.train before calling autolog so that autolog wraps mock_train
+    # as the "original". When trainer.train() is called, the autolog wrapper runs
+    # (clearing the env vars) and then calls mock_train, where we capture the env state.
+    monkeypatch.setattr(Trainer, "train", mock_train)
+    mlflow.transformers.autolog()
+
+    trainer = Trainer(args=TrainingArguments(output_dir=str(tmp_path)))
+    trainer.train()
+
+    assert env_inside_train.get("port") is None
+    assert env_inside_train.get("secret") is None
 
 
 def test_trainer_hyperparameter_tuning_functional_does_not_log_sklearn_model(
