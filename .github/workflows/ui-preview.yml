@@ -184,7 +184,7 @@ jobs:
           | **Commit** | ${{ github.event.pull_request.head.sha }} |
 
           > [!NOTE]
-          > This preview is only accessible to core maintainers with workspace SSO access.
+          > This preview is only accessible to core maintainers with workspace access.
           > The preview updates automatically when new commits are pushed."
 
           # Find existing comment
