@@ -4520,6 +4520,10 @@
     "defaultMessage": "AI Gateway",
     "description": "Sidebar link for gateway"
   },
+  "V+4GZQ": {
+    "defaultMessage": "View logs for this period",
+    "description": "Link text to navigate to gateway endpoint logs tab"
+  },
   "V0/LoE": {
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
     "description": "Tooltip message for the export button when the trace is not exportable"
