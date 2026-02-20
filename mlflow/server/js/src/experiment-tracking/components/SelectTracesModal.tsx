@@ -185,13 +185,8 @@ export const SelectTracesModal = (props: SelectTracesModalProps) => {
     () => ({ params: monitoringFilters, setParams: setMonitoringFilters, disableAutomaticInitialization: true }),
     [monitoringFilters, setMonitoringFilters],
   );
-  // Use current time for the modal's range so "Last 7 days" etc. end at "now", not at page load time.
-  const monitoringConfig = useMemo(
-    () => ({ lastRefreshTime: Date.now() }),
-    [], // Fresh time when modal mounts; modal unmounts on close so next open gets a new mount and new time
-  );
   return (
-    <MonitoringConfigProvider config={monitoringConfig}>
+    <MonitoringConfigProvider>
       <MonitoringFiltersUpdateContext.Provider value={contextValue}>
         <SelectTracesModalImpl {...props} />
       </MonitoringFiltersUpdateContext.Provider>
