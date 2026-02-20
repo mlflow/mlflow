@@ -671,6 +671,11 @@ def test_mlflow_gc_experiment_with_logged_model_params_and_tags(sqlite_store):
     with a foreign key constraint error when deleting experiments that had logged_model_params
     or logged_model_tags records referencing the experiment.
     """
+    from mlflow.store.tracking.dbmodels.models import (
+        SqlLoggedModelParam,
+        SqlLoggedModelTag,
+    )
+
     store, uri = sqlite_store
     exp_id = store.create_experiment("exp_with_logged_model")
     model = store.create_logged_model(experiment_id=exp_id)
@@ -692,13 +697,18 @@ def test_mlflow_gc_experiment_with_logged_model_params_and_tags(sqlite_store):
 
     store.delete_experiment(exp_id)
 
-    subprocess.check_call([sys.executable, "-m", "mlflow", "gc", "--backend-store-uri", uri])
+    result = CliRunner().invoke(gc, ["--backend-store-uri", uri], catch_exceptions=False)
+    assert result.exit_code == 0
 
     experiments = store.search_experiments(view_type=ViewType.ALL)
     assert [e.experiment_id for e in experiments] == [store.DEFAULT_EXPERIMENT_ID]
 
     with pytest.raises(MlflowException, match=r".+ not found"):
         store.get_logged_model(model.model_id)
+
+    with store.ManagedSessionMaker() as session:
+        assert session.query(SqlLoggedModelParam).count() == 0
+        assert session.query(SqlLoggedModelTag).count() == 0
 
 
 @pytest.fixture

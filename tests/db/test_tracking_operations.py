@@ -166,6 +166,13 @@ def test_gc_experiment_with_logged_model_params_and_tags():
     This test runs against real databases (MySQL, PostgreSQL) via Docker to ensure FK
     constraints are properly enforced.
     """
+    import sqlalchemy
+
+    from mlflow.store.tracking.dbmodels.models import (
+        SqlLoggedModelParam,
+        SqlLoggedModelTag,
+    )
+
     client = MlflowClient()
     exp_id = client.create_experiment("exp_with_logged_model_for_gc")
     model = client.create_logged_model(experiment_id=exp_id)
@@ -181,10 +188,36 @@ def test_gc_experiment_with_logged_model_params_and_tags():
 
     client.delete_experiment(exp_id)
 
-    subprocess.check_call([sys.executable, "-m", "mlflow", "gc"])
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            MLFLOW_TRACKING_URI.get(),
+        ]
+    )
 
     experiments = client.search_experiments()
     assert exp_id not in [e.experiment_id for e in experiments]
 
     with pytest.raises(mlflow.MlflowException, match=r".+ not found"):
         client.get_logged_model(model.model_id)
+
+    engine = sqlalchemy.create_engine(MLFLOW_TRACKING_URI.get())
+    with engine.connect() as conn:
+        params = conn.execute(
+            sqlalchemy.text(
+                f"SELECT * FROM {SqlLoggedModelParam.__tablename__} WHERE model_id = :model_id"
+            ),
+            {"model_id": model.model_id},
+        ).fetchall()
+        tags = conn.execute(
+            sqlalchemy.text(
+                f"SELECT * FROM {SqlLoggedModelTag.__tablename__} WHERE model_id = :model_id"
+            ),
+            {"model_id": model.model_id},
+        ).fetchall()
+    assert params == []
+    assert tags == []
