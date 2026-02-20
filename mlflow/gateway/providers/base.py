@@ -42,14 +42,16 @@ PASSTHROUGH_ROUTES = {
 
 
 def _get_nested(d: dict[str, Any], key: str) -> Any:
-    """Look up a value by key, supporting 'key1.key2' notation for one level of nesting."""
-    parent, _, child = key.partition(".")
-    if not child:
-        return d.get(parent)
-    nested = d.get(parent)
-    if not isinstance(nested, dict):
-        return None
-    return nested.get(child)
+    """Look up a value by key, supporting one level of nesting."""
+    match key.split("."):
+        case [parent, child]:
+            match d.get(parent):
+                case dict(nested) if child in nested:
+                    return nested[child]
+                case _:
+                    return None
+        case _:
+            return d.get(key)
 
 
 @developer_stable
