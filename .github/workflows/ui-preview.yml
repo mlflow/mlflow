@@ -105,6 +105,10 @@ jobs:
     permissions:
       pull-requests: write
     timeout-minutes: 30
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
     steps:
       - name: Download app files
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
@@ -120,9 +124,6 @@ jobs:
       - name: Create or update app
         id: app
         env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
         run: |
           if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
@@ -160,9 +161,6 @@ jobs:
 
       - name: Upload files and deploy
         env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
           WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
         run: |
@@ -213,6 +211,10 @@ jobs:
     permissions:
       pull-requests: write
     timeout-minutes: 10
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
     steps:
       - name: Install Databricks CLI
         run: |
@@ -221,9 +223,6 @@ jobs:
 
       - name: Delete app
         env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
-          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
           APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
         run: |
           if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
