@@ -345,6 +345,7 @@ def build(package_type: PackageType) -> None:
                     # Required to use MySQL, PostgreSQL, or SQL Server as the backend store
                     "PyMySQL",
                     "psycopg2-binary",
+                    "psycopg",  # psycopg3 - default PostgreSQL driver for SQLAlchemy 2.0+
                     "pymssql",
                 ],
                 "databricks": [

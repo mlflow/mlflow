@@ -48,11 +48,23 @@ docker run -p 5000:5000 \
 
 ### With PostgreSQL Backend
 
+The `-full` image includes both PostgreSQL drivers (`psycopg2` and `psycopg3`). When using `postgresql://` URIs without specifying a driver, SQLAlchemy defaults to `psycopg` (version 3).
+
 ```bash
 docker run -p 5000:5000 \
   -e MLFLOW_BACKEND_STORE_URI=postgresql://user:password@postgres-host:5432/mlflow \
   mlflow:latest-full \
   mlflow server --backend-store-uri $MLFLOW_BACKEND_STORE_URI --host 0.0.0.0
+```
+
+To explicitly use a specific PostgreSQL driver, include it in the URI:
+
+```bash
+# Use psycopg2
+MLFLOW_BACKEND_STORE_URI=postgresql+psycopg2://user:password@postgres-host:5432/mlflow
+
+# Use psycopg3
+MLFLOW_BACKEND_STORE_URI=postgresql+psycopg://user:password@postgres-host:5432/mlflow
 ```
 
 ### With S3 Artifact Storage
@@ -145,7 +157,7 @@ If you need to customize the image, you can use the base image and add your own 
 ```dockerfile
 FROM mlflow:latest
 
-# Install additional dependencies
+# Install database drivers and other dependencies
 RUN pip install mlflow[extras,db] your-custom-package
 
 # Add custom configurations
@@ -159,4 +171,18 @@ FROM mlflow:latest-full
 
 # Install additional custom packages
 RUN pip install your-custom-package
+```
+
+### Adding Custom Database Drivers
+
+The base `mlflow:VERSION` image includes only core MLflow. To add database support:
+
+```dockerfile
+FROM mlflow:latest
+
+# Install PostgreSQL drivers (both psycopg2 and psycopg3)
+RUN pip install psycopg2-binary psycopg
+
+# Or install all database drivers at once
+RUN pip install mlflow[db]
 ```
