@@ -246,15 +246,25 @@ class LiteLLMProvider(BaseProvider):
         - Gemini-style actions: usageMetadata.promptTokenCount, candidatesTokenCount,
           totalTokenCount
         """
+        usage = result.get("usage")
+
         # Try OpenAI format first (most common)
         if token_usage := self._extract_token_usage_from_dict(
-            result.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+            usage,
+            "prompt_tokens",
+            "completion_tokens",
+            "total_tokens",
+            cache_read_key="prompt_tokens_details.cached_tokens",
         ):
             return token_usage
 
         # Try Anthropic format
         if token_usage := self._extract_token_usage_from_dict(
-            result.get("usage"), "input_tokens", "output_tokens"
+            usage,
+            "input_tokens",
+            "output_tokens",
+            cache_read_key="cache_read_input_tokens",
+            cache_creation_key="cache_creation_input_tokens",
         ):
             return token_usage
 
@@ -264,6 +274,7 @@ class LiteLLMProvider(BaseProvider):
             "promptTokenCount",
             "candidatesTokenCount",
             "totalTokenCount",
+            cache_read_key="cachedContentTokenCount",
         )
 
     def _extract_streaming_token_usage(self, chunk: Any) -> dict[str, int]:
@@ -302,31 +313,48 @@ class LiteLLMProvider(BaseProvider):
 
     def _extract_usage_from_data(self, data: dict[str, Any]) -> dict[str, int]:
         """Extract token usage from a parsed data dictionary."""
+        usage = data.get("usage")
+
         # OpenAI format (in chunk.usage)
         if token_usage := self._extract_token_usage_from_dict(
-            data.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
+            usage,
+            "prompt_tokens",
+            "completion_tokens",
+            "total_tokens",
+            cache_read_key="prompt_tokens_details.cached_tokens",
         ):
             return token_usage
 
         # OpenAI Responses API format (usage nested in response object)
+        resp_usage = data.get("response", {}).get("usage")
         if token_usage := self._extract_token_usage_from_dict(
-            data.get("response", {}).get("usage"),
+            resp_usage,
             "input_tokens",
             "output_tokens",
             "total_tokens",
+            cache_read_key="input_tokens_details.cached_tokens",
         ):
             return token_usage
 
         # Anthropic format (in chunk.usage)
         if token_usage := self._extract_token_usage_from_dict(
-            data.get("usage"), "input_tokens", "output_tokens"
+            usage,
+            "input_tokens",
+            "output_tokens",
+            cache_read_key="cache_read_input_tokens",
+            cache_creation_key="cache_creation_input_tokens",
         ):
             return token_usage
 
         # Anthropic message_start format (input_tokens in message.usage)
         if data.get("type") == "message_start":
+            msg_usage = data.get("message", {}).get("usage")
             if token_usage := self._extract_token_usage_from_dict(
-                data.get("message", {}).get("usage"), "input_tokens", "output_tokens"
+                msg_usage,
+                "input_tokens",
+                "output_tokens",
+                cache_read_key="cache_read_input_tokens",
+                cache_creation_key="cache_creation_input_tokens",
             ):
                 return token_usage
 
@@ -336,6 +364,7 @@ class LiteLLMProvider(BaseProvider):
             "promptTokenCount",
             "candidatesTokenCount",
             "totalTokenCount",
+            cache_read_key="cachedContentTokenCount",
         ):
             return token_usage
 
