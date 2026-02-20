@@ -3780,6 +3780,8 @@ def _save_model_with_loader_module_and_data_path(
     # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
+    uv_source_dir = uv_project_path or original_cwd
+
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
@@ -3790,7 +3792,6 @@ def _save_model_with_loader_module_and_data_path(
             )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
-            uv_source_dir = uv_project_path or original_cwd
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 path,
                 FLAVOR_NAME,
@@ -3820,7 +3821,6 @@ def _save_model_with_loader_module_and_data_path(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     # Copy uv project files (uv.lock and pyproject.toml) if detected
-    uv_source_dir = uv_project_path or original_cwd
     copy_uv_project_files(dest_dir=path, source_dir=uv_source_dir)
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
