@@ -5,7 +5,8 @@ Requires:
     pip install guardrails-ai
 
 Run:
-    MLFLOW_TRACKING_URI=http://localhost:5000 python -m pytest tests/genai/scorers/guardrails/test_guardrails_docs.py -v
+    MLFLOW_TRACKING_URI=http://localhost:5000 \
+        python -m pytest tests/genai/scorers/guardrails/test_guardrails_docs.py -v
 """
 
 import pytest

@@ -62,14 +62,14 @@ results = mlflow.genai.evaluate(
 
 Detect harmful content, PII, and other safety issues in LLM outputs:
 
-| Scorer | What does it evaluate? | Guardrails Hub |
-| --- | --- | --- |
-| <APILink fn="mlflow.genai.scorers.guardrails.ToxicLanguage">ToxicLanguage</APILink> | Does the output contain toxic or offensive language? | [Link](https://guardrailsai.com/hub/validator/guardrails/toxic_language) |
-| <APILink fn="mlflow.genai.scorers.guardrails.NSFWText">NSFWText</APILink> | Does the output contain NSFW or explicit content? | [Link](https://guardrailsai.com/hub/validator/guardrails/nsfw_text) |
+| Scorer                                                                                  | What does it evaluate?                                          | Guardrails Hub                                                             |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| <APILink fn="mlflow.genai.scorers.guardrails.ToxicLanguage">ToxicLanguage</APILink>     | Does the output contain toxic or offensive language?            | [Link](https://guardrailsai.com/hub/validator/guardrails/toxic_language)   |
+| <APILink fn="mlflow.genai.scorers.guardrails.NSFWText">NSFWText</APILink>               | Does the output contain NSFW or explicit content?               | [Link](https://guardrailsai.com/hub/validator/guardrails/nsfw_text)        |
 | <APILink fn="mlflow.genai.scorers.guardrails.DetectJailbreak">DetectJailbreak</APILink> | Does the input contain a jailbreak or prompt injection attempt? | [Link](https://guardrailsai.com/hub/validator/guardrails/detect_jailbreak) |
-| <APILink fn="mlflow.genai.scorers.guardrails.DetectPII">DetectPII</APILink> | Does the output contain personally identifiable information? | [Link](https://guardrailsai.com/hub/validator/guardrails/detect_pii) |
-| <APILink fn="mlflow.genai.scorers.guardrails.SecretsPresent">SecretsPresent</APILink> | Does the output contain API keys, tokens, or other secrets? | [Link](https://guardrailsai.com/hub/validator/guardrails/secrets_present) |
-| <APILink fn="mlflow.genai.scorers.guardrails.GibberishText">GibberishText</APILink> | Does the output contain nonsensical or incoherent text? | [Link](https://guardrailsai.com/hub/validator/guardrails/gibberish_text) |
+| <APILink fn="mlflow.genai.scorers.guardrails.DetectPII">DetectPII</APILink>             | Does the output contain personally identifiable information?    | [Link](https://guardrailsai.com/hub/validator/guardrails/detect_pii)       |
+| <APILink fn="mlflow.genai.scorers.guardrails.SecretsPresent">SecretsPresent</APILink>   | Does the output contain API keys, tokens, or other secrets?     | [Link](https://guardrailsai.com/hub/validator/guardrails/secrets_present)  |
+| <APILink fn="mlflow.genai.scorers.guardrails.GibberishText">GibberishText</APILink>     | Does the output contain nonsensical or incoherent text?         | [Link](https://guardrailsai.com/hub/validator/guardrails/gibberish_text)   |
 
 ## Creating Scorers by Name
 

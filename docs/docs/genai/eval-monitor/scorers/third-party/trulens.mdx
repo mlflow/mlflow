@@ -26,7 +26,9 @@ scorer = Groundedness(model="openai:/gpt-5-mini")
 feedback = scorer(
     inputs="What is MLflow?",
     outputs="MLflow is an open-source platform for managing machine learning workflows.",
-    expectations={"context": "MLflow is an ML platform for experiment tracking and model deployment."},
+    expectations={
+        "context": "MLflow is an ML platform for experiment tracking and model deployment."
+    },
 )
 
 print(feedback.value)  # "yes" or "no"
@@ -73,25 +75,25 @@ TruLens scorers are organized into categories based on their evaluation focus:
 
 Evaluate retrieval quality and answer generation in RAG systems:
 
-| Scorer | What does it evaluate? | TruLens Docs |
-| --- | --- | --- |
-| <APILink fn="mlflow.genai.scorers.trulens.Groundedness">Groundedness</APILink> | Is the response grounded in the provided context? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.groundedness_measure_with_cot_reasons) |
-| <APILink fn="mlflow.genai.scorers.trulens.ContextRelevance">ContextRelevance</APILink> | Is the retrieved context relevant to the input query? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.context_relevance_with_cot_reasons) |
-| <APILink fn="mlflow.genai.scorers.trulens.AnswerRelevance">AnswerRelevance</APILink> | Is the output relevant to the input query? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.relevance_with_cot_reasons) |
-| <APILink fn="mlflow.genai.scorers.trulens.Coherence">Coherence</APILink> | Is the output coherent and logically consistent? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.coherence_with_cot_reasons) |
+| Scorer                                                                                 | What does it evaluate?                                | TruLens Docs                                                                                                                   |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| <APILink fn="mlflow.genai.scorers.trulens.Groundedness">Groundedness</APILink>         | Is the response grounded in the provided context?     | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.groundedness_measure_with_cot_reasons) |
+| <APILink fn="mlflow.genai.scorers.trulens.ContextRelevance">ContextRelevance</APILink> | Is the retrieved context relevant to the input query? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.context_relevance_with_cot_reasons)    |
+| <APILink fn="mlflow.genai.scorers.trulens.AnswerRelevance">AnswerRelevance</APILink>   | Is the output relevant to the input query?            | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.relevance_with_cot_reasons)            |
+| <APILink fn="mlflow.genai.scorers.trulens.Coherence">Coherence</APILink>               | Is the output coherent and logically consistent?      | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.coherence_with_cot_reasons)            |
 
 ### Agent Trace Metrics
 
 Evaluate AI agent execution traces using [goal-plan-action alignment](https://arxiv.org/abs/2510.08847):
 
-| Scorer | What does it evaluate? | TruLens Docs |
-| --- | --- | --- |
-| <APILink fn="mlflow.genai.scorers.trulens.LogicalConsistency">LogicalConsistency</APILink> | Is the agent's reasoning logically consistent throughout execution? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.logical_consistency_with_cot_reasons) |
-| <APILink fn="mlflow.genai.scorers.trulens.ExecutionEfficiency">ExecutionEfficiency</APILink> | Does the agent take an optimal path without unnecessary steps? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.execution_efficiency_with_cot_reasons) |
-| <APILink fn="mlflow.genai.scorers.trulens.PlanAdherence">PlanAdherence</APILink> | Does the agent follow its stated plan during execution? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.plan_adherence_with_cot_reasons) |
-| <APILink fn="mlflow.genai.scorers.trulens.PlanQuality">PlanQuality</APILink> | Is the agent's plan well-structured and appropriate for the goal? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.plan_quality_with_cot_reasons) |
-| <APILink fn="mlflow.genai.scorers.trulens.ToolSelection">ToolSelection</APILink> | Does the agent choose the appropriate tools for each step? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.tool_selection_with_cot_reasons) |
-| <APILink fn="mlflow.genai.scorers.trulens.ToolCalling">ToolCalling</APILink> | Does the agent invoke tools with correct parameters? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.tool_calling_with_cot_reasons) |
+| Scorer                                                                                       | What does it evaluate?                                              | TruLens Docs                                                                                                                   |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| <APILink fn="mlflow.genai.scorers.trulens.LogicalConsistency">LogicalConsistency</APILink>   | Is the agent's reasoning logically consistent throughout execution? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.logical_consistency_with_cot_reasons)  |
+| <APILink fn="mlflow.genai.scorers.trulens.ExecutionEfficiency">ExecutionEfficiency</APILink> | Does the agent take an optimal path without unnecessary steps?      | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.execution_efficiency_with_cot_reasons) |
+| <APILink fn="mlflow.genai.scorers.trulens.PlanAdherence">PlanAdherence</APILink>             | Does the agent follow its stated plan during execution?             | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.plan_adherence_with_cot_reasons)       |
+| <APILink fn="mlflow.genai.scorers.trulens.PlanQuality">PlanQuality</APILink>                 | Is the agent's plan well-structured and appropriate for the goal?   | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.plan_quality_with_cot_reasons)         |
+| <APILink fn="mlflow.genai.scorers.trulens.ToolSelection">ToolSelection</APILink>             | Does the agent choose the appropriate tools for each step?          | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.tool_selection_with_cot_reasons)       |
+| <APILink fn="mlflow.genai.scorers.trulens.ToolCalling">ToolCalling</APILink>                 | Does the agent invoke tools with correct parameters?                | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.tool_calling_with_cot_reasons)         |
 
 Agent trace scorers require a `trace` argument and evaluate the full execution trace:
 

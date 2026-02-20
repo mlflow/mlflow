@@ -6,7 +6,8 @@ Requires:
     export OPENAI_API_KEY=...
 
 Run:
-    MLFLOW_TRACKING_URI=http://localhost:5000 python -m pytest tests/genai/scorers/trulens/test_trulens_docs.py -v
+    MLFLOW_TRACKING_URI=http://localhost:5000 \
+        python -m pytest tests/genai/scorers/trulens/test_trulens_docs.py -v
 """
 
 import pytest
