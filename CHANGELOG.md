@@ -2,15 +2,31 @@
 
 ## 3.10.0 (2026-02-20)
 
-MLflow 3.10.0 includes several major features and improvements
+We're excited to announce MLflow 3.10.0, which includes several notable updates:
+
+**Major New Features**:
+
+🏢 **Organization Support in MLflow Tracking Server**: MLflow now supports multi-workspace environments. Users can organize experiments, models, prompts, with a coarser level of unit and logically isolate them in a single tracking server. (#20702, #20657, @mprahl, @Gkrumbach07, @B-Step62)
+
+💬 **Multi-turn Evaluation & Conversation Simulation**: MLflow now supports multi-turn evaluation, including evaluating existing conversations with session-level scorers and simulating conversations to test new versions of your agent, without the toil of regenerating conversations. Use the session-level scorers introduced in MLflow 3.8.0 and the brand new session UIs to evaluate the quality of your conversational agents and enable automatic scoring to monitor quality as traces are ingested. (#20243, #20377, #20289, @smoorjani)
+
+💰 **Trace Cost Tracking**: Gain visibility into your LLM spending! MLflow now automatically extracts model information from LLM spans and calculates costs, with a new UI that renders model and cost data directly in your trace views. (#20327, #20330, @serena-ruan)
+
+🎯 **Navigation bar redesign**: We've redesigned the navigation to provide a frictionless experience. A new workflow type selector in the top-level navbar lets you quickly switch between GenAI and Classical ML contexts, with streamlined sidebars that reduce visual clutter. (#20158, #20160, #20161, #20699, @ispoljari, @daniellok-db)
+
+🎮 **MLflow Demo Experiment**: New to MLflow GenAI? With one click, launch a pre-populated demo and explore tracing, evaluation, and prompt management in action. No configuration, no code required. (#19994, #19995, #20046, #20047, #20048, #20162, @BenWilson2)
+
+📊 **Gateway Usage Tracking**: Monitor your AI Gateway endpoints with detailed usage analytics. A new usage page shows request patterns and metrics, with trace ingestion that links gateway calls back to your experiments for end-to-end observability. (#20357, #20358, #20642, @TomeHirata)
+
+⚡ **In-UI Trace Evaluation**: Users can now run custom or pre-built LLM judges directly from the traces and sessions UI. This enables quick evaluation of individual traces and individual without context switching to the python SDK. (#20360, @hubertzub-db, @danielseong1)
 
 Features:
 
 - [UI] Add sliding animation to workflow switch component (#20831, @daniellok-db)
 - [Tracing] Display cached tokens in trace UI (#20957, @TomeHirata)
 - [Evaluation] Move select traces button to be next to Run judge (#20992, @PattaraS)
-- [] Distributed tracing for gateway endpoints (#20864, @TomeHirata)
-- [] Add user selector in the gateway usage page (#20944, @TomeHirata)
+- [Gateway] Distributed tracing for gateway endpoints (#20864, @TomeHirata)
+- [Gateway] Add user selector in the gateway usage page (#20944, @TomeHirata)
 - [Docs] [MLflow Demo] Docs for GenAI Demo (#20240, @BenWilson2)
 - [UI] Move Getting Started above experiments list and make collapsible (#20691, @B-Step62)
 - [Model Registry / Tracking] Add mlflow `migrate-filestore` command (#20615, @harupy)
@@ -18,22 +34,22 @@ Features:
 - [Scoring] Enable parquet content_type in the scoring server input for pyfunc (#20630, @TFK1410)
 - [UI] feat(ui): Add workspace landing page, multi-workspace support, and qu… (#20702, @Gkrumbach07)
 - [Tracking] Merge workspace feature branch into master (#20657, @B-Step62)
-- [] Add Gateway Usage Page  (#20642, @TomeHirata)
-- [] Add usage section in endpoint page (#20357, @TomeHirata)
+- [Gateway] Add Gateway Usage Page  (#20642, @TomeHirata)
+- [Gateway] Add usage section in endpoint page (#20357, @TomeHirata)
 - [UI] [ MLflow Demo ] UI updates for MLflow Demo interfaces (#20162, @BenWilson2)
 - [Build] Support comma-separated rules in `# clint: disable=` comments (#20651, @copilot-swe-agent)
 - [Build / Docs / Models / Projects / Scoring] Replace `virtualenv` with `python -m venv` in virtualenv env_manager path (#20640, @copilot-swe-agent)
 - [Tracing] Add per-decorator `sampling_ratio_override` parameter to `@mlflow.trace` (#19784, @harupy)
 - [Evaluation / Tracking] Add `mlflow datasets list` CLI command (#20167, @alkispoly-db)
-- [] Add trace ingestion for Gateway endpoints (#20358, @TomeHirata)
+- [Gateway] Add trace ingestion for Gateway endpoints (#20358, @TomeHirata)
 - [Tracing] feat(typescript-anthropic): add streaming support (#20384, @rollyjoel)
 - [Evaluation] Add delete dataset records API (#19690, @joelrobin18)
-- [] Add tooltip link to navigate to traces tab with time range filter (#20466, @serena-ruan)
+- [UI] Add tooltip link to navigate to traces tab with time range filter (#20466, @serena-ruan)
 - [Tracking] [MLflow Demo] Add mlflow demo cli command (#20048, @BenWilson2)
 - [Evaluation] Add an SDK for distillation from conversation to goal/persona (#20289, @smoorjani)
 - [Tracing] Livekit Agents Integration in Mlflow (#20439, @joelrobin18)
 - [Tracing / UI] Enable running scorers/judges from trace details drawer in UI (#20518, @danielseong1)
-- [] link gateway and experiment (#20356, @TomeHirata)
+- [Gateway] link gateway and experiment (#20356, @TomeHirata)
 - [Prompts] Add optimization backend APIs to auth control (#20392, @chenmoneygithub)
 - [Tracing] Add an SDK for search sessions to get complete sessions (#20288, @smoorjani)
 - [Tracing] Reasoning in Chat UI Mistral + Chat UI  (#19636, @joelrobin18)
@@ -44,8 +60,8 @@ Features:
 - [Tracking] [MLflow Demo] Add trace data for demo (#19995, @BenWilson2)
 - [Tracking] Support get_dataset(name=...) in OSS environments (#20423, @alkispoly-db)
 - [UI] Add session comparison UI with goal/persona matching (#20377, @smoorjani)
-- [] [UI] Model and cost rendering for spans (#20330, @serena-ruan)
-- [] [1/x] Support span model extraction and cost calculation (#20327, @serena-ruan)
+- [UI] Model and cost rendering for spans (#20330, @serena-ruan)
+- [UI] [1/x] Support span model extraction and cost calculation (#20327, @serena-ruan)
 - [Evaluation] Make conversation simulator public and easily subclassable (#20243, @smoorjani)
 - [Prompts] Add progress tracking for prompt optimization job (#20374, @chenmoneygithub)
 - [Prompts] Prompt Optimization backend PR 3: Add Get, Search, and Delete prompt optimization job APIs (#20197, @chenmoneygithub)
@@ -75,7 +91,7 @@ Bug fixes:
 - [Tracking] Rebuild `SearchTraces` V2 request body on `ENDPOINT_NOT_FOUND` fallback (#20963, @brendanmaguire)
 - [Build] Add model version search filtering based on user permissions (#20964, @TomeHirata)
 - [Tracing] Display notebook trace viewer when workspace is on (#20947, @TomeHirata)
-- [] Add `MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE` flag to prevent local file inclusion in API gateway (#20965, @TomeHirata)
+- [Tracing] Add `MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE` flag to prevent local file inclusion in API gateway (#20965, @TomeHirata)
 - [Tracking] Fix Claude Agent SDK tracing by capturing messages from receive_messages (#20778, @smoorjani)
 - [Build / Tracking] Add missing authentication for fastapi routes (#20920, @TomeHirata)
 - [Evaluation] Fix guardrails scorer compatibility with guardrails-ai 0.9.0 (#20934, @smoorjani)
@@ -86,7 +102,7 @@ Bug fixes:
 - [UI] Fix Disable action button in Traces Tab (#20883, @joelrobin18)
 - [UI] Fix experiment rename modal not refreshing experiment details (#20882, @joelrobin18)
 - [Build] Skip workspace header when workspace is disabled (#20904, @TomeHirata)
-- [] Block CORS for ajax paths (#20832, @TomeHirata)
+- [UI] Block CORS for ajax paths (#20832, @TomeHirata)
 - [UI] [UI] Improve empty states across Experiments, Models, Prompts, and Gateway pages (#20044, @ridgupta26)
 - [UI] UI: Improve empty states for Traces and Sessions tabs (#20034, @ridgupta26)
 - [Build] Validate webhook url to fix SSRF vulnerability (#20747, @TomeHirata)
@@ -102,7 +118,7 @@ Bug fixes:
 - [Evaluation] Use JSONAdapter for best-effort structured outputs in MemAlign predictions (#20679, @smoorjani)
 - [Tracking] Fix `mlflow demo` URL to use experiment ID instead of name (#20678, @copilot-swe-agent)
 - [Tracking] Fix circular import in FileStore caused by PromptVersion import (#20677, @copilot-swe-agent)
-- [] Fix error handling for streaming request (#20610, @TomeHirata)
+- [Scoring / Tracing] Fix error handling for streaming request (#20610, @TomeHirata)
 - [Models] Fix warning message: add space and documentation link for pickle security (#20656, @copilot-swe-agent)
 - [Evaluation] Fix SHAP compatibility for shap >= 0.47 (#20623, @copilot-swe-agent)
 - [Prompts] Fix the deadlock between run linking and trace linking (#20620, @TomeHirata)
@@ -134,7 +150,7 @@ Documentation updates:
 - [Docs] Add Modal as a supported deployment target with full documentation (#20032, @debu-sinha)
 - [Docs] Add gateway usage tracking doc page (#20748, @TomeHirata)
 - [Docs / Evaluation] Fix MemAlign bug bash issues (#20712, @veronicalyu320)
-- [] Fix docs: trace spans are stored in database, not artifact storage (#20668, @B-Step62)
+- [Docs] Fix docs: trace spans are stored in database, not artifact storage (#20668, @B-Step62)
 - [Prompts] Change header level for "Automatic Prompt Linking" section in `use-prompts-in-apps.mdx`  (#20661, @PattaraS)
 - [Docs] Multi-turn evaluation launch documentation (#20443, @smoorjani)
 - [Prompts] Update `use-prompts-in-apps.mdx` with a section for prompt linking under traced method (#20593, @PattaraS)
