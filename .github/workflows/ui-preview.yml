@@ -228,7 +228,7 @@ jobs:
           if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
             SOURCE_PATH=$(databricks apps get "$APP_NAME" -o json \
               | jq -r '.default_source_code_path // empty')
-            databricks apps delete "$APP_NAME" --no-wait
+            databricks apps delete "$APP_NAME" --auto-approve
             if [ -n "$SOURCE_PATH" ]; then
               # Strip /Workspace prefix for workspace CLI
               WS_PATH="${SOURCE_PATH#/Workspace}"
