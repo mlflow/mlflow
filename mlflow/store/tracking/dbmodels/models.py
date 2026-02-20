@@ -1148,6 +1148,7 @@ class SqlLoggedModel(Base):
     Status message: `String` (limit 1000 characters).
     """
 
+    experiment = relationship("SqlExperiment", backref=backref("logged_models", cascade="all"))
     tags = relationship("SqlLoggedModelTag", backref="logged_model", cascade="all")
     params = relationship("SqlLoggedModelParam", backref="logged_model", cascade="all")
     metrics = relationship("SqlLoggedModelMetric", backref="logged_model", cascade="all")
@@ -1269,7 +1270,6 @@ class SqlLoggedModelMetric(Base):
             ["experiment_id"],
             ["experiments.experiment_id"],
             name="fk_logged_model_metrics_experiment_id",
-            ondelete="CASCADE",
         ),
         ForeignKeyConstraint(
             ["run_id"],
@@ -1332,7 +1332,6 @@ class SqlLoggedModelParam(Base):
             ["experiment_id"],
             ["experiments.experiment_id"],
             name="fk_logged_model_params_experiment_id",
-            ondelete="CASCADE",
         ),
     )
 
@@ -1379,7 +1378,6 @@ class SqlLoggedModelTag(Base):
             ["experiment_id"],
             ["experiments.experiment_id"],
             name="fk_logged_model_tags_experiment_id",
-            ondelete="CASCADE",
         ),
     )
 
