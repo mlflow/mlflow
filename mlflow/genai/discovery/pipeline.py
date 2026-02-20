@@ -5,18 +5,16 @@ import logging
 
 import mlflow
 from mlflow.genai.discovery.constants import (
+    _CLUSTERING_SYSTEM_PROMPT,
     _DEFAULT_ANALYSIS_MODEL,
     _DEFAULT_JUDGE_MODEL,
-    _DEFAULT_SAMPLE_SIZE,
+    _DEFAULT_TRIAGE_SAMPLE_SIZE,
     _MAX_SUMMARIES_FOR_CLUSTERING,
     _MIN_CONFIDENCE,
     _MIN_EXAMPLES,
     _MIN_FREQUENCY_THRESHOLD,
 )
-from mlflow.genai.discovery.entities import DiscoverIssuesResult, Issue
-from mlflow.genai.discovery.schemas import (
-    _IssueClusteringResult,
-)
+from mlflow.genai.discovery.entities import DiscoverIssuesResult, Issue, _IssueClusteringResult
 from mlflow.genai.discovery.utils import (
     _build_default_satisfaction_scorer,
     _build_enriched_trace_summary,
@@ -44,14 +42,13 @@ from mlflow.utils.annotations import experimental
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.1.0")
+@experimental(version="3.11.0")
 def discover_issues(
     experiment_id: str | None = None,
-    model_id: str | None = None,
     satisfaction_scorer: Scorer | None = None,
     judge_model: str | None = None,
     analysis_model: str | None = None,
-    sample_size: int = _DEFAULT_SAMPLE_SIZE,
+    triage_sample_size: int = _DEFAULT_TRIAGE_SAMPLE_SIZE,
     validation_sample_size: int | None = None,
     max_issues: int = 10,
     filter_string: str | None = None,
@@ -67,22 +64,21 @@ def discover_issues(
 
     Args:
         experiment_id: Experiment to analyze. Defaults to the active experiment.
-        model_id: Scope traces to a specific model.
         satisfaction_scorer: Custom scorer for triage. Defaults to a built-in
             conversation-level satisfaction judge.
         judge_model: LLM used for scoring traces (satisfaction + issue detection).
             Defaults to ``"openai:/gpt-5-mini"``.
         analysis_model: LLM used for clustering failures into issues.
             Defaults to ``"openai:/gpt-5"``.
-        sample_size: Number of traces for the triage phase.
+        triage_sample_size: Number of traces for the triage phase.
         validation_sample_size: Number of traces for validation.
-            Defaults to ``5 * sample_size``.
+            Defaults to ``5 * triage_sample_size``.
         max_issues: Maximum distinct issues to identify.
         filter_string: Filter string passed to ``search_traces``.
 
     Returns:
-        A :class:`DiscoverIssuesResult` with discovered issues, evaluation
-        results, and a summary report.
+        A :class:`DiscoverIssuesResult` with discovered issues, run IDs,
+        and a summary report.
 
     Example:
 
@@ -91,7 +87,7 @@ def discover_issues(
             import mlflow
 
             mlflow.set_experiment("my-genai-app")
-            result = mlflow.genai.discover_issues()  # clint: disable=unknown-mlflow-function
+            result = mlflow.genai.discover_issues()
 
             for issue in result.issues:
                 print(f"{issue.name}: {issue.frequency:.1%} of traces affected")
@@ -109,20 +105,18 @@ def discover_issues(
     locations = [exp_id]
     search_kwargs = {
         "filter_string": filter_string,
-        "model_id": model_id,
         "return_type": "list",
         "locations": locations,
     }
 
     # Phase 1: Triage — score a sample for user satisfaction
-    _logger.info("Phase 1: Fetching %d traces...", sample_size)
-    triage_traces = mlflow.search_traces(max_results=sample_size, **search_kwargs)
+    _logger.info("Phase 1: Fetching %d traces...", triage_sample_size)
+    triage_traces = mlflow.search_traces(max_results=triage_sample_size, **search_kwargs)
     if not triage_traces:
-        empty_eval = EvaluationResult(run_id="", metrics={}, result_df=None)
         return DiscoverIssuesResult(
             issues=[],
-            triage_evaluation=empty_eval,
-            validation_evaluation=None,
+            triage_run_id="",
+            validation_run_id=None,
             summary=f"No traces found in experiment {exp_id}.",
             total_traces_analyzed=0,
         )
@@ -160,7 +154,6 @@ def discover_issues(
             triage_eval = mlflow.genai.evaluate(
                 data=needs_scoring,
                 scorers=[satisfaction_scorer],
-                model_id=model_id,
             )
         scored_failing, rationale_map = _extract_failing_traces(
             triage_eval, satisfaction_scorer.name
@@ -185,8 +178,8 @@ def discover_issues(
     if not failing_traces:
         return DiscoverIssuesResult(
             issues=[],
-            triage_evaluation=triage_eval,
-            validation_evaluation=None,
+            triage_run_id=triage_eval.run_id,
+            validation_run_id=None,
             summary=_build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
         )
@@ -226,20 +219,7 @@ def discover_issues(
         messages=[
             ChatMessage(
                 role="system",
-                content=(
-                    "You are an expert at analyzing AI application failures. "
-                    "Given per-trace analyses with failure categories and root causes, "
-                    f"group them into at most {max_issues} distinct issue categories.\n\n"
-                    "For each issue provide:\n"
-                    "- A snake_case name\n"
-                    "- A clear description\n"
-                    "- The root cause\n"
-                    "- Indices of example traces from the input\n"
-                    "- A confidence score 0-100 indicating how confident you are this "
-                    "is a real, distinct issue (0=not confident, 50=moderate, "
-                    "75=highly confident, 100=certain). Be rigorous — only score "
-                    "75+ if multiple traces clearly demonstrate the same pattern."
-                ),
+                content=_CLUSTERING_SYSTEM_PROMPT.format(max_issues=max_issues),
             ),
             ChatMessage(
                 role="user",
@@ -277,8 +257,8 @@ def discover_issues(
     if not identified:
         return DiscoverIssuesResult(
             issues=[],
-            triage_evaluation=triage_eval,
-            validation_evaluation=None,
+            triage_run_id=triage_eval.run_id,
+            validation_run_id=None,
             summary=_build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
         )
@@ -327,7 +307,7 @@ def discover_issues(
 
     # Phase 5: Validate — run issue scorers on a broader sample
     if validation_sample_size is None:
-        validation_sample_size = 5 * sample_size
+        validation_sample_size = 5 * triage_sample_size
 
     _logger.info(
         "Phase 5: Validating %d scorers on %d traces...",
@@ -342,7 +322,6 @@ def discover_issues(
             validation_eval = mlflow.genai.evaluate(
                 data=validation_traces,
                 scorers=issue_scorers,
-                model_id=model_id,
             )
     except Exception:
         _logger.warning(
@@ -395,14 +374,16 @@ def discover_issues(
     summary = _build_summary(issues, total_analyzed)
     _logger.info("Done. Found %d issues across %d traces.", len(issues), total_analyzed)
 
+    validation_run_id = validation_eval.run_id if validation_eval is not None else None
     result = DiscoverIssuesResult(
         issues=issues,
-        triage_evaluation=triage_eval,
-        validation_evaluation=validation_eval,
+        triage_run_id=triage_eval.run_id,
+        validation_run_id=validation_run_id,
         summary=summary,
         total_traces_analyzed=total_analyzed,
     )
 
+    # Log artifacts to validation run
     if validation_eval is not None:
         validation_issues_data = [
             {
@@ -416,25 +397,21 @@ def discover_issues(
             }
             for issue in issues
         ]
-        validation_artifacts = {
-            "summary.md": summary,
-            "issues.json": json.dumps(validation_issues_data, indent=2),
-            "metadata.json": json.dumps(
-                {
-                    "total_traces_analyzed": total_analyzed,
-                    "num_issues": len(issues),
-                    "triage_run_id": triage_eval.run_id,
-                    "validation_run_id": validation_eval.run_id,
-                },
-                indent=2,
-            ),
-        }
-        if triage_eval.result_df is not None:
-            validation_artifacts["triage_results.csv"] = triage_eval.result_df.to_csv(index=False)
-        if validation_eval.result_df is not None:
-            validation_artifacts["validation_results.csv"] = validation_eval.result_df.to_csv(
-                index=False
-            )
-        _log_discovery_artifacts(validation_eval.run_id, validation_artifacts)
+        _log_discovery_artifacts(
+            validation_eval.run_id,
+            {
+                "summary.md": summary,
+                "issues.json": json.dumps(validation_issues_data, indent=2),
+                "metadata.json": json.dumps(
+                    {
+                        "total_traces_analyzed": total_analyzed,
+                        "num_issues": len(issues),
+                        "triage_run_id": triage_eval.run_id,
+                        "validation_run_id": validation_eval.run_id,
+                    },
+                    indent=2,
+                ),
+            },
+        )
 
     return result

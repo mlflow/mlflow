@@ -3,8 +3,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from mlflow.genai.discovery.pipeline import discover_issues
-from mlflow.genai.discovery.schemas import (
+from mlflow.genai.discovery.entities import (
     _BatchTraceAnalysisResult,
     _IdentifiedIssue,
     _IssueClusteringResult,
@@ -12,6 +11,7 @@ from mlflow.genai.discovery.schemas import (
     _ScorerSpec,
     _TraceAnalysis,
 )
+from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.genai.evaluation.entities import EvaluationResult
 
 
@@ -44,7 +44,7 @@ def test_discover_issues_empty_experiment():
 
 
 def test_discover_issues_all_traces_pass(make_trace):
-    traces = [make_trace(trace_id=f"t-{i}") for i in range(5)]
+    traces = [make_trace() for _ in range(5)]
     test_df = pd.DataFrame(
         {
             "_issue_discovery_judge/value": [True],
@@ -82,7 +82,7 @@ def test_discover_issues_all_traces_pass(make_trace):
 
 
 def test_discover_issues_full_pipeline(make_trace):
-    traces = [make_trace(trace_id=f"t-{i}") for i in range(10)]
+    traces = [make_trace() for _ in range(10)]
 
     test_df = pd.DataFrame(
         {
@@ -169,18 +169,21 @@ def test_discover_issues_full_pipeline(make_trace):
             side_effect=_mock_start_run,
         ),
     ):
-        result = discover_issues(sample_size=10)
+        result = discover_issues(triage_sample_size=10)
 
     assert len(result.issues) == 1
     assert result.issues[0].name == "slow_response"
     assert result.issues[0].frequency == pytest.approx(0.3)
-    assert result.issues[0].example_trace_ids == ["t-0", "t-1"]
-    assert result.triage_evaluation is triage_eval
-    assert result.validation_evaluation is validation_eval
+    assert result.issues[0].example_trace_ids == [
+        traces[0].info.trace_id,
+        traces[1].info.trace_id,
+    ]
+    assert result.triage_run_id == "run-triage"
+    assert result.validation_run_id == "run-validate"
 
 
-def test_discover_issues_low_frequency_issues_discarded(make_trace):
-    traces = [make_trace(trace_id=f"t-{i}") for i in range(5)]
+def test_discover_issues_low_confidence_issues_filtered(make_trace):
+    traces = [make_trace() for _ in range(5)]
 
     test_df = pd.DataFrame(
         {
@@ -248,7 +251,7 @@ def test_discover_issues_low_frequency_issues_discarded(make_trace):
             side_effect=_mock_start_run,
         ),
     ):
-        result = discover_issues(sample_size=5)
+        result = discover_issues(triage_sample_size=5)
 
     assert len(result.issues) == 0
 
@@ -265,18 +268,17 @@ def test_discover_issues_explicit_experiment_id():
     assert call_kwargs["locations"] == ["exp-42"]
 
 
-def test_discover_issues_passes_filter_and_model_id():
+def test_discover_issues_passes_filter_string():
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=[]
         ) as mock_search,
     ):
-        discover_issues(filter_string="tag.env = 'prod'", model_id="m-abc")
+        discover_issues(filter_string="tag.env = 'prod'")
 
     call_kwargs = mock_search.call_args[1]
     assert call_kwargs["filter_string"] == "tag.env = 'prod'"
-    assert call_kwargs["model_id"] == "m-abc"
 
 
 def test_discover_issues_custom_satisfaction_scorer(make_trace):

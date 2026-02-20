@@ -7,12 +7,13 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
+    _DEEP_ANALYSIS_SYSTEM_PROMPT,
     _DEFAULT_SCORER_NAME,
-    _SESSION_SATISFACTION_INSTRUCTIONS,
+    _SCORER_GENERATION_SYSTEM_PROMPT,
     _TEMPLATE_VARS,
-    _TRACE_SATISFACTION_INSTRUCTIONS,
+    _build_satisfaction_instructions,
 )
-from mlflow.genai.discovery.schemas import (
+from mlflow.genai.discovery.entities import (
     _BatchTraceAnalysisResult,
     _IdentifiedIssue,
     _ScorerInstructionsResult,
@@ -40,9 +41,7 @@ def _has_session_ids(traces: list[Trace]) -> bool:
 
 
 def _build_default_satisfaction_scorer(model: str | None, use_conversation: bool) -> Scorer:
-    instructions = (
-        _SESSION_SATISFACTION_INSTRUCTIONS if use_conversation else _TRACE_SATISFACTION_INSTRUCTIONS
-    )
+    instructions = _build_satisfaction_instructions(use_conversation=use_conversation)
     return make_judge(
         name=_DEFAULT_SCORER_NAME,
         instructions=instructions,
@@ -195,22 +194,7 @@ def _run_deep_analysis(
     result = get_chat_completions_with_structured_output(
         model_uri=analysis_model,
         messages=[
-            ChatMessage(
-                role="system",
-                content=(
-                    "You are an expert at diagnosing AI application failures. "
-                    "Given enriched trace summaries with span-level detail, analyze each "
-                    "failing trace individually.\n\n"
-                    "For each trace, identify:\n"
-                    "- The failure category (tool_error, hallucination, latency, "
-                    "incomplete_response, error_propagation, wrong_tool_use, "
-                    "context_loss, or other)\n"
-                    "- A brief failure summary\n"
-                    "- A root cause hypothesis based on the span evidence\n"
-                    "- Which spans are most relevant to the failure\n"
-                    "- Severity (1=minor, 3=moderate, 5=critical)"
-                ),
-            ),
+            ChatMessage(role="system", content=_DEEP_ANALYSIS_SYSTEM_PROMPT),
             ChatMessage(
                 role="user",
                 content=(
@@ -252,33 +236,7 @@ def _generate_scorer_specs(
     result = get_chat_completions_with_structured_output(
         model_uri=judge_model,
         messages=[
-            ChatMessage(
-                role="system",
-                content=(
-                    "You are an expert at writing detection instructions for AI quality judges. "
-                    "Given an issue description and example failures, write concise instructions "
-                    "that a judge can use to detect this issue in a trace.\n\n"
-                    "IMPORTANT: The judge returns yes/no (pass/fail). A passing trace (yes) "
-                    "means the trace is FREE of this issue. A failing trace (no) means "
-                    "the issue WAS detected. Write instructions so that 'yes' = clean/good "
-                    "and 'no' = issue found.\n\n"
-                    "CRITICAL RULE ON SPLITTING SCORERS:\n"
-                    "Each scorer MUST test exactly ONE criterion. If the issue involves "
-                    "multiple independent criteria, you MUST split them into separate scorers. "
-                    "Indicators that you need to split:\n"
-                    "- The word 'and' joining two distinct checks "
-                    "(e.g. 'is slow AND hallucinates')\n"
-                    "- The word 'or' joining two distinct checks "
-                    "(e.g. 'truncates OR omits data')\n"
-                    "- Multiple failure modes that could occur independently\n"
-                    "For example, 'response is truncated and uses wrong API' should become TWO "
-                    "scorers: one for truncation and one for wrong API usage.\n\n"
-                    "CRITICAL: Each scorer's detection_instructions MUST contain the literal text "
-                    "'{{ trace }}' (with double curly braces) as a template variable — "
-                    "this is how the judge receives the trace data.\n"
-                    "Example: 'Analyze the {{ trace }} to determine if...'"
-                ),
-            ),
+            ChatMessage(role="system", content=_SCORER_GENERATION_SYSTEM_PROMPT),
             ChatMessage(
                 role="user",
                 content=(
