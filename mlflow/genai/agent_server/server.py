@@ -197,7 +197,7 @@ class AgentServer:
                             async for chunk in proxy_response.aiter_bytes():
                                 yield chunk
                         except Exception:
-                            logger.exception("Streaming error")
+                            logger.exception("Error during streaming response from chat app proxy")
                             raise
                         finally:
                             await proxy_response.aclose()
@@ -337,15 +337,7 @@ class AgentServer:
             return result
 
         except Exception as e:
-            logger.exception(
-                "Error in invoke function: %s",
-                e,
-                extra={
-                    "endpoint": "invoke",
-                    "function_name": func_name,
-                },
-                exc_info=True,
-            )
+            logger.exception("Error in invoke function")
 
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -393,11 +385,7 @@ class AgentServer:
         except Exception as e:
             logger.exception(
                 "Streaming response error",
-                extra={
-                    "endpoint": "stream",
-                    "function_name": func_name,
-                    "chunks_sent": len(all_chunks),
-                },
+                extra={"chunks_sent": len(all_chunks)},
             )
 
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
