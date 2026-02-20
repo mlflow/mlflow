@@ -6,7 +6,6 @@ from unittest import mock
 import pytest
 from flask import Flask
 
-from mlflow.entities import Experiment
 from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.server.handlers import get_endpoints
 
@@ -67,7 +66,6 @@ def test_list_workspaces_endpoint(app, mock_workspace_store):
 def test_create_workspace_endpoint(app, mock_workspace_store, mock_tracking_store):
     created = Workspace(name="team-b", description="Team B")
     mock_workspace_store.create_workspace.return_value = created
-    mock_tracking_store.get_experiment_by_name.return_value = None
     with app.test_client() as client:
         response = client.post(
             "/api/3.0/mlflow/workspaces",
@@ -78,12 +76,8 @@ def test_create_workspace_endpoint(app, mock_workspace_store, mock_tracking_stor
     payload = _workspace_to_json(response.get_data(True))
     assert payload == {"workspace": {"name": "team-b", "description": "Team B"}}
     mock_workspace_store.create_workspace.assert_called_once()
-    mock_tracking_store.get_experiment_by_name.assert_called_once_with(
-        Experiment.DEFAULT_EXPERIMENT_NAME
-    )
-    mock_tracking_store.create_experiment.assert_called_once_with(
-        Experiment.DEFAULT_EXPERIMENT_NAME
-    )
+    mock_tracking_store.get_experiment_by_name.assert_not_called()
+    mock_tracking_store.create_experiment.assert_not_called()
 
 
 def test_get_workspace_endpoint(app, mock_workspace_store):
