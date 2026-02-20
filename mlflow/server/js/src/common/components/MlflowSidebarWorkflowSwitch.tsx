@@ -1,6 +1,15 @@
-import { Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { WorkflowType } from '../contexts/WorkflowTypeContext';
 import { FormattedMessage } from '@databricks/i18n';
+import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
+import { useCallback, useMemo } from 'react';
 
 export const MlflowSidebarWorkflowSwitch = ({
   workflowType,
@@ -10,9 +19,26 @@ export const MlflowSidebarWorkflowSwitch = ({
   setWorkflowType: (workflowType: WorkflowType) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const viewId = useMemo(() => uuidv4(), []);
 
   const isGenAi = workflowType === WorkflowType.GENAI;
   const borderColor = isGenAi ? theme.gradients.aiBorderGradient : theme.colors.actionDefaultBorderDefault;
+
+  const logTelemetryEvent = useLogTelemetryEvent();
+  const handleChangeWorkflowType = useCallback(
+    (workflowType: WorkflowType) => {
+      setWorkflowType(workflowType);
+      logTelemetryEvent({
+        componentId: 'mlflow.sidebar.workflow_switch',
+        componentViewId: viewId,
+        componentType: DesignSystemEventProviderComponentTypes.ToggleButton,
+        componentSubType: null,
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+        value: workflowType,
+      });
+    },
+    [setWorkflowType, logTelemetryEvent, viewId],
+  );
 
   return (
     <Tooltip
@@ -77,10 +103,10 @@ export const MlflowSidebarWorkflowSwitch = ({
           }}
           role="button"
           tabIndex={0}
-          onClick={() => setWorkflowType(WorkflowType.GENAI)}
+          onClick={() => handleChangeWorkflowType(WorkflowType.GENAI)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
-              setWorkflowType(WorkflowType.GENAI);
+              handleChangeWorkflowType(WorkflowType.GENAI);
             }
           }}
         >
@@ -104,10 +130,10 @@ export const MlflowSidebarWorkflowSwitch = ({
           }}
           role="button"
           tabIndex={0}
-          onClick={() => setWorkflowType(WorkflowType.MACHINE_LEARNING)}
+          onClick={() => handleChangeWorkflowType(WorkflowType.MACHINE_LEARNING)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
-              setWorkflowType(WorkflowType.MACHINE_LEARNING);
+              handleChangeWorkflowType(WorkflowType.MACHINE_LEARNING);
             }
           }}
         >
