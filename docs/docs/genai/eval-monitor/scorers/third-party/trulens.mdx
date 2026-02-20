@@ -1,0 +1,172 @@
+import { APILink } from "@site/src/components/APILink";
+import TileCard from '@site/src/components/TileCard';
+import TilesGrid from '@site/src/components/TilesGrid';
+import { Bot, GitBranch, Shield } from "lucide-react";
+
+# TruLens
+
+[TruLens](https://www.trulens.org/) is an evaluation and observability framework for LLM applications that provides feedback functions for RAG systems and agent trace analysis. MLflow's TruLens integration allows you to use TruLens feedback functions as MLflow scorers, including benchmarked [goal-plan-action alignment evaluations](https://arxiv.org/abs/2510.08847) for agent traces.
+
+## Prerequisites
+
+TruLens scorers require the `trulens` and `trulens-providers-litellm` packages:
+
+```bash
+pip install trulens trulens-providers-litellm
+```
+
+## Quick Start
+
+You can call TruLens scorers directly:
+
+```python
+from mlflow.genai.scorers.trulens import Groundedness
+
+scorer = Groundedness(model="openai:/gpt-4")
+feedback = scorer(
+    inputs="What is MLflow?",
+    outputs="MLflow is an open-source platform for managing machine learning workflows.",
+    expectations={"context": "MLflow is an ML platform for experiment tracking and model deployment."},
+)
+
+print(feedback.value)  # "yes" or "no"
+print(feedback.metadata["score"])  # 0.85
+```
+
+Or use them in <APILink fn="mlflow.genai.evaluate">mlflow.genai.evaluate</APILink>:
+
+```python
+import mlflow
+from mlflow.genai.scorers.trulens import Groundedness, AnswerRelevance
+
+eval_dataset = [
+    {
+        "inputs": {"query": "What is MLflow?"},
+        "outputs": "MLflow is an open-source platform for managing machine learning workflows.",
+        "expectations": {
+            "context": "MLflow is an ML platform for experiment tracking and model deployment."
+        },
+    },
+    {
+        "inputs": {"query": "How do I track experiments?"},
+        "outputs": "You can use mlflow.start_run() to begin tracking experiments.",
+        "expectations": {
+            "context": "MLflow provides APIs like mlflow.start_run() for experiment tracking."
+        },
+    },
+]
+
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    scorers=[
+        Groundedness(model="openai:/gpt-4"),
+        AnswerRelevance(model="openai:/gpt-4"),
+    ],
+)
+```
+
+## Available TruLens Scorers
+
+TruLens scorers are organized into categories based on their evaluation focus:
+
+### RAG (Retrieval-Augmented Generation) Metrics
+
+Evaluate retrieval quality and answer generation in RAG systems:
+
+| Scorer | What does it evaluate? | TruLens Docs |
+| --- | --- | --- |
+| <APILink fn="mlflow.genai.scorers.trulens.Groundedness">Groundedness</APILink> | Is the response grounded in the provided context? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.groundedness_measure_with_cot_reasons) |
+| <APILink fn="mlflow.genai.scorers.trulens.ContextRelevance">ContextRelevance</APILink> | Is the retrieved context relevant to the input query? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.context_relevance_with_cot_reasons) |
+| <APILink fn="mlflow.genai.scorers.trulens.AnswerRelevance">AnswerRelevance</APILink> | Is the output relevant to the input query? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.relevance_with_cot_reasons) |
+| <APILink fn="mlflow.genai.scorers.trulens.Coherence">Coherence</APILink> | Is the output coherent and logically consistent? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.coherence_with_cot_reasons) |
+
+### Agent Trace Metrics
+
+Evaluate AI agent execution traces using [goal-plan-action alignment](https://arxiv.org/abs/2510.08847):
+
+| Scorer | What does it evaluate? | TruLens Docs |
+| --- | --- | --- |
+| <APILink fn="mlflow.genai.scorers.trulens.LogicalConsistency">LogicalConsistency</APILink> | Is the agent's reasoning logically consistent throughout execution? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.logical_consistency_with_cot_reasons) |
+| <APILink fn="mlflow.genai.scorers.trulens.ExecutionEfficiency">ExecutionEfficiency</APILink> | Does the agent take an optimal path without unnecessary steps? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.execution_efficiency_with_cot_reasons) |
+| <APILink fn="mlflow.genai.scorers.trulens.PlanAdherence">PlanAdherence</APILink> | Does the agent follow its stated plan during execution? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.plan_adherence_with_cot_reasons) |
+| <APILink fn="mlflow.genai.scorers.trulens.PlanQuality">PlanQuality</APILink> | Is the agent's plan well-structured and appropriate for the goal? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.plan_quality_with_cot_reasons) |
+| <APILink fn="mlflow.genai.scorers.trulens.ToolSelection">ToolSelection</APILink> | Does the agent choose the appropriate tools for each step? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.tool_selection_with_cot_reasons) |
+| <APILink fn="mlflow.genai.scorers.trulens.ToolCalling">ToolCalling</APILink> | Does the agent invoke tools with correct parameters? | [Link](https://www.trulens.org/reference/trulens/feedback/#trulens.feedback.LLMProvider.tool_calling_with_cot_reasons) |
+
+Agent trace scorers require a `trace` argument and evaluate the full execution trace:
+
+```python
+import mlflow
+from mlflow.genai.scorers.trulens import LogicalConsistency, ToolSelection
+
+traces = mlflow.search_traces(experiment_ids=["1"])
+results = mlflow.genai.evaluate(
+    data=traces,
+    scorers=[
+        LogicalConsistency(model="openai:/gpt-4"),
+        ToolSelection(model="openai:/gpt-4"),
+    ],
+)
+```
+
+## Creating Scorers by Name
+
+You can also create TruLens scorers dynamically using <APILink fn="mlflow.genai.scorers.trulens.get_scorer">get_scorer</APILink>:
+
+```python
+from mlflow.genai.scorers.trulens import get_scorer
+
+# Create scorer by name
+scorer = get_scorer(
+    metric_name="Groundedness",
+    model="openai:/gpt-4",
+)
+
+feedback = scorer(
+    inputs="What is MLflow?",
+    outputs="MLflow is a platform for ML workflows.",
+    expectations={"context": "MLflow is an ML platform."},
+)
+```
+
+## Configuration
+
+TruLens scorers accept common parameters for controlling evaluation behavior:
+
+```python
+from mlflow.genai.scorers.trulens import Groundedness, ContextRelevance
+
+# Common parameters
+scorer = Groundedness(
+    model="openai:/gpt-4",  # Model URI (also supports "databricks", "databricks:/endpoint", etc.)
+    threshold=0.7,  # Pass/fail threshold (0.0-1.0, scorer passes if score >= threshold)
+)
+
+# Default threshold is 0.5
+scorer = ContextRelevance(model="openai:/gpt-4")
+```
+
+Refer to the [TruLens documentation](https://www.trulens.org/) for additional details on feedback functions and advanced usage.
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Bot}
+    title="Evaluate Agents"
+    description="Learn specialized techniques for evaluating AI agents with tool usage"
+    href="/genai/eval-monitor/running-evaluation/agents"
+  />
+  <TileCard
+    icon={GitBranch}
+    title="Evaluate Traces"
+    description="Evaluate production traces to understand application behavior"
+    href="/genai/eval-monitor/running-evaluation/traces"
+  />
+  <TileCard
+    icon={Shield}
+    title="Built-in Judges"
+    description="Explore MLflow's built-in evaluation judges"
+    href="/genai/eval-monitor/scorers/llm-judge/predefined"
+  />
+</TilesGrid>
