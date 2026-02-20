@@ -256,6 +256,23 @@ def test_process_transcript_creates_spans(mock_transcript_file):
     tool_span = tool_spans[0]
     assert tool_span.name == "tool_Bash"
 
+    # Verify LLM spans have MESSAGE_FORMAT set to "anthropic" for Chat UI rendering
+    for llm_span in llm_spans:
+        assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    # Verify LLM span outputs are in Anthropic response format
+    first_llm = llm_spans[0]
+    outputs = first_llm.outputs
+    assert outputs["type"] == "message"
+    assert outputs["role"] == "assistant"
+    assert isinstance(outputs["content"], list)
+
+    # Verify LLM span inputs contain messages in Anthropic format
+    inputs = first_llm.inputs
+    assert "messages" in inputs
+    messages = inputs["messages"]
+    assert any(m["role"] == "user" for m in messages)
+
 
 def test_process_transcript_returns_none_for_nonexistent_file():
     result = process_transcript("/nonexistent/path/transcript.jsonl", "test-session-123")
