@@ -18,6 +18,7 @@ from mlflow.tracing.constant import (
     TokenUsageKey,
     TraceMetadataKey,
 )
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.openai.mock_openai import EMPTY_CHOICES, LIST_CONTENT
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
@@ -127,12 +128,13 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
     assert span.model_name == "gpt-4o-mini"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
 
-    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 9.0,
-        "output_cost": 24.0,
-        "total_cost": 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
 
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
     assert trace.info.token_usage == {
@@ -140,11 +142,12 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
         TokenUsageKey.OUTPUT_TOKENS: 12,
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
-    assert trace.info.cost == {
-        CostKey.INPUT_COST: 9.0,
-        CostKey.OUTPUT_COST: 24.0,
-        CostKey.TOTAL_COST: 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert trace.info.cost == {
+            CostKey.INPUT_COST: 9.0,
+            CostKey.OUTPUT_COST: 24.0,
+            CostKey.TOTAL_COST: 33.0,
+        }
 
 
 @pytest.mark.asyncio
