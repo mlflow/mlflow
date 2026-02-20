@@ -556,29 +556,33 @@ def test_trainer_clears_pyspark_gateway_env_vars_for_torch_distributor(monkeypat
     monkeypatch.setenv("PYSPARK_GATEWAY_PORT", "12345")
     monkeypatch.setenv("PYSPARK_GATEWAY_SECRET", "secret123")
 
-    env_inside_train = {}
-
-    def mock_train(self, *args, **kwargs):
-        env_inside_train["port"] = os.environ.get("PYSPARK_GATEWAY_PORT")
-        env_inside_train["secret"] = os.environ.get("PYSPARK_GATEWAY_SECRET")
-
-    # Replace Trainer.train before calling autolog so that autolog wraps mock_train
-    # as the "original". When trainer.train() is called, the autolog wrapper runs
-    # (clearing the env vars) and then calls mock_train, where we capture the env state.
-    monkeypatch.setattr(Trainer, "train", mock_train)
     mlflow.transformers.autolog()
 
     tiny_config = DistilBertConfig(
         vocab_size=100, dim=32, n_heads=2, hidden_dim=64, n_layers=1, num_labels=2
     )
     model = DistilBertForSequenceClassification(tiny_config)
+
+    class TinyDataset(torch.utils.data.Dataset):
+        def __len__(self):
+            return 2
+
+        def __getitem__(self, idx):
+            return {
+                "input_ids": torch.tensor([0, 1]),
+                "attention_mask": torch.tensor([1, 1]),
+                "labels": torch.tensor(0),
+            }
+
     trainer = Trainer(
-        model=model, args=TrainingArguments(output_dir=str(tmp_path), report_to="none")
+        model=model,
+        args=TrainingArguments(output_dir=str(tmp_path), max_steps=1, report_to="none"),
+        train_dataset=TinyDataset(),
     )
     trainer.train()
 
-    assert env_inside_train.get("port") is None
-    assert env_inside_train.get("secret") is None
+    assert "PYSPARK_GATEWAY_PORT" not in os.environ
+    assert "PYSPARK_GATEWAY_SECRET" not in os.environ
 
 
 def test_trainer_hyperparameter_tuning_functional_does_not_log_sklearn_model(
