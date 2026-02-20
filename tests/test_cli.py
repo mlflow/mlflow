@@ -23,6 +23,7 @@ from mlflow import pyfunc
 from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
 from mlflow.entities import ViewType
+from mlflow.entities.logged_model import LoggedModelParameter, LoggedModelTag
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE_STORE_URI
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -661,6 +662,56 @@ def test_mlflow_gc_experiments(get_store_details, request):
     assert sorted([e.experiment_id for e in experiments]) == sorted(
         [exp_id_5, store.DEFAULT_EXPERIMENT_ID]
     )
+
+
+def test_mlflow_gc_experiment_with_logged_model_params_tags_and_metrics(sqlite_store):
+    from mlflow.entities import Metric
+    from mlflow.store.tracking.dbmodels.models import (
+        SqlLoggedModelMetric,
+        SqlLoggedModelParam,
+        SqlLoggedModelTag,
+    )
+
+    store, uri = sqlite_store
+    exp_id = store.create_experiment("exp_with_logged_model")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="run")
+    run_id = run.info.run_id
+    model = store.create_logged_model(experiment_id=exp_id)
+
+    store.log_logged_model_params(
+        model_id=model.model_id,
+        params=[
+            LoggedModelParameter(key="param1", value="value1"),
+            LoggedModelParameter(key="param2", value="value2"),
+        ],
+    )
+    store.set_logged_model_tags(
+        model_id=model.model_id,
+        tags=[
+            LoggedModelTag(key="tag1", value="value1"),
+            LoggedModelTag(key="tag2", value="value2"),
+        ],
+    )
+    store._log_model_metrics(
+        run_id=run_id,
+        metrics=[Metric(key="m1", value=1.0, timestamp=0, step=0, model_id=model.model_id)],
+        experiment_id=exp_id,
+    )
+
+    store.delete_experiment(exp_id)
+
+    result = CliRunner().invoke(gc, ["--backend-store-uri", uri], catch_exceptions=False)
+    assert result.exit_code == 0
+
+    experiments = store.search_experiments(view_type=ViewType.ALL)
+    assert [e.experiment_id for e in experiments] == [store.DEFAULT_EXPERIMENT_ID]
+
+    with pytest.raises(MlflowException, match=r".+ not found"):
+        store.get_logged_model(model.model_id)
+
+    with store.ManagedSessionMaker() as session:
+        for table in [SqlLoggedModelParam, SqlLoggedModelTag, SqlLoggedModelMetric]:
+            assert session.query(table).count() == 0
 
 
 @pytest.fixture

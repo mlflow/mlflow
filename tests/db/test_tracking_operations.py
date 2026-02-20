@@ -1,21 +1,13 @@
 import sqlite3
-import subprocess
-import sys
 import uuid
 from unittest import mock
 
 import pytest
-import sqlalchemy
 import sqlalchemy.dialects.sqlite.pysqlite
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
-from mlflow.store.tracking.dbmodels.models import (
-    SqlLoggedModelMetric,
-    SqlLoggedModelParam,
-    SqlLoggedModelTag,
-)
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -160,51 +152,3 @@ def test_database_operational_error(monkeypatch):
             "SQLAlchemy database error" in str(call) and "sqlite3.OperationalError" in str(call)
             for call in exception.mock_calls
         )
-
-
-def test_gc_experiment_with_logged_model_params_tags_and_metrics():
-    client = MlflowClient()
-    exp_id = client.create_experiment("exp_with_logged_model_for_gc")
-    model = client.create_logged_model(experiment_id=exp_id)
-
-    client.log_model_params(
-        model_id=model.model_id,
-        params={"param1": "value1", "param2": "value2"},
-    )
-    client.set_logged_model_tags(
-        model_id=model.model_id,
-        tags={"tag1": "value1", "tag2": "value2"},
-    )
-
-    mlflow.set_experiment(experiment_id=exp_id)
-    with mlflow.start_run() as run:
-        client.log_metric(
-            run_id=run.info.run_id,
-            key="m1",
-            value=1.0,
-            model_id=model.model_id,
-        )
-
-    client.delete_experiment(exp_id)
-
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "mlflow",
-            "gc",
-            "--backend-store-uri",
-            client.tracking_uri,
-        ]
-    )
-
-    experiments = client.search_experiments()
-    assert exp_id not in [e.experiment_id for e in experiments]
-
-    with pytest.raises(mlflow.MlflowException, match=r".+ not found"):
-        client.get_logged_model(model.model_id)
-
-    engine = sqlalchemy.create_engine(client.tracking_uri)
-    with sqlalchemy.orm.Session(engine) as session:
-        for table in [SqlLoggedModelParam, SqlLoggedModelTag, SqlLoggedModelMetric]:
-            assert session.query(table).filter(table.model_id == model.model_id).count() == 0
