@@ -489,9 +489,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             if resp["type"] == "message_start":
                 metadata["id"] = resp["message"]["id"]
                 metadata["model"] = resp["message"]["model"]
-                # Capture input_tokens from message_start
+                # Capture input_tokens and cache tokens from message_start
                 if message_usage := resp["message"].get("usage"):
                     usage_data["input_tokens"] = message_usage.get("input_tokens")
+                    if (cached := message_usage.get("cache_read_input_tokens")) is not None:
+                        usage_data["cache_read_input_tokens"] = cached
+                    if (created := message_usage.get("cache_creation_input_tokens")) is not None:
+                        usage_data["cache_creation_input_tokens"] = created
                 continue
 
             if resp["type"] not in (
