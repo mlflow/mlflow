@@ -962,10 +962,6 @@
     "defaultMessage": "This request exceeds the maximum queries per second limit. Please wait and try again.",
     "description": "Too many requests (HTTP STATUS 429) generic error message"
   },
-  "5QUJoX": {
-    "defaultMessage": "Cache creation tokens",
-    "description": "Label for cache creation input token usage"
-  },
   "5RWIet": {
     "defaultMessage": "Schema {sectionName}",
     "description": "Field name text for schema table in the model comparison page"
@@ -1945,6 +1941,10 @@
   "BY1k4W": {
     "defaultMessage": "Original logged model: {originalModelLink}",
     "description": "Tooltip text with link to the original logged model"
+  },
+  "BZ5364": {
+    "defaultMessage": "(cache read)",
+    "description": "Label for cache read input token usage"
   },
   "BZLX5c": {
     "defaultMessage": "Track experiments, parameters, and metrics throughout training.",
@@ -3042,10 +3042,6 @@
     "defaultMessage": "Section title loading",
     "description": "Loading skeleton label for overview page section title in Catalog Explorer"
   },
-  "KKTpw7": {
-    "defaultMessage": "Cached input tokens",
-    "description": "Label for cached input token usage"
-  },
   "KLTGMn": {
     "defaultMessage": "Full conversation between a user and an assistant",
     "description": "Description for conversation variable"
@@ -3265,6 +3261,10 @@
   "M/c4l0": {
     "defaultMessage": "Metric",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option makes the X-axis a custom metric that the user selects."
+  },
+  "M0O/hf": {
+    "defaultMessage": "(cache write)",
+    "description": "Label for cache creation input token usage"
   },
   "M1dwxx": {
     "defaultMessage": "Version {version}",
