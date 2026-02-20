@@ -194,7 +194,7 @@ def test_gc_experiment_with_logged_model_params_tags_and_metrics():
             "mlflow",
             "gc",
             "--backend-store-uri",
-            MLFLOW_TRACKING_URI.get(),
+            client.tracking_uri,
         ]
     )
 
@@ -204,27 +204,7 @@ def test_gc_experiment_with_logged_model_params_tags_and_metrics():
     with pytest.raises(mlflow.MlflowException, match=r".+ not found"):
         client.get_logged_model(model.model_id)
 
-    engine = sqlalchemy.create_engine(MLFLOW_TRACKING_URI.get())
-    with engine.connect() as conn:
-        model_id = model.model_id
-        params = conn.execute(
-            sqlalchemy.text(
-                f"SELECT * FROM {SqlLoggedModelParam.__tablename__} WHERE model_id = :model_id"
-            ),
-            {"model_id": model_id},
-        ).fetchall()
-        tags = conn.execute(
-            sqlalchemy.text(
-                f"SELECT * FROM {SqlLoggedModelTag.__tablename__} WHERE model_id = :model_id"
-            ),
-            {"model_id": model_id},
-        ).fetchall()
-        metrics = conn.execute(
-            sqlalchemy.text(
-                f"SELECT * FROM {SqlLoggedModelMetric.__tablename__} WHERE model_id = :model_id"
-            ),
-            {"model_id": model_id},
-        ).fetchall()
-    assert params == []
-    assert tags == []
-    assert metrics == []
+    engine = sqlalchemy.create_engine(client.tracking_uri)
+    with sqlalchemy.orm.Session(engine) as session:
+        for table in [SqlLoggedModelParam, SqlLoggedModelTag, SqlLoggedModelMetric]:
+            assert session.query(table).filter(table.model_id == model.model_id).count() == 0
