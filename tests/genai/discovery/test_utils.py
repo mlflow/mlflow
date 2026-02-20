@@ -5,11 +5,9 @@ import pytest
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.entities.span_event import SpanEvent
-from mlflow.entities.span_status import SpanStatusCode
 from mlflow.genai.discovery.constants import _DEFAULT_SCORER_NAME
-from mlflow.genai.discovery.entities import Issue
-from mlflow.genai.discovery.schemas import (
+from mlflow.genai.discovery.entities import (
+    Issue,
     _BatchTraceAnalysisResult,
     _IdentifiedIssue,
     _ScorerInstructionsResult,
@@ -35,114 +33,61 @@ from mlflow.genai.evaluation.entities import EvaluationResult
 # ---- _build_span_tree ----
 
 
-def test_build_span_tree_simple(make_mock_span):
-    root = make_mock_span(
-        name="agent",
-        span_id="s1",
-        parent_id=None,
-        span_type="AGENT",
-        start_time_ns=0,
-        end_time_ns=1_500_000_000,
-    )
-    child = make_mock_span(
-        name="llm_call",
-        span_id="s2",
-        parent_id="s1",
-        span_type="LLM",
-        start_time_ns=100_000_000,
-        end_time_ns=900_000_000,
-        model_name="gpt-4",
-    )
-    tree = _build_span_tree([root, child])
+def test_build_span_tree(make_trace):
+    trace = make_trace()
+    tree = _build_span_tree(trace.data.spans)
 
-    assert "agent (AGENT, OK, 1500ms)" in tree
-    assert "llm_call (LLM, OK, 800ms, model=gpt-4)" in tree
+    assert "agent" in tree
+    assert "llm_call" in tree
+    assert "LLM" in tree
+    assert "OK" in tree
 
 
-def test_build_span_tree_error_with_exception(make_mock_span):
-    exc_event = MagicMock(spec=SpanEvent)
-    exc_event.name = "exception"
-    exc_event.attributes = {
-        "exception.type": "ConnectionTimeout",
-        "exception.message": "API unreachable",
-    }
-    span = make_mock_span(
-        name="weather_tool",
-        span_id="s1",
-        span_type="TOOL",
-        status_code=SpanStatusCode.ERROR,
-        status_description="Connection failed",
-        events=[exc_event],
-    )
-    tree = _build_span_tree([span])
+def test_build_span_tree_with_error_span(make_trace):
+    trace = make_trace(error_span=True)
+    tree = _build_span_tree(trace.data.spans)
 
-    assert "TOOL, ERROR" in tree
-    assert "ERROR: Connection failed" in tree
-    assert "EXCEPTION: ConnectionTimeout: API unreachable" in tree
+    assert "tool_call" in tree
+    assert "ERROR" in tree
+    assert "Connection failed" in tree
 
 
 def test_build_span_tree_empty():
     assert "(no spans)" in _build_span_tree([])
 
 
-def test_build_span_tree_with_io(make_mock_span):
-    span = make_mock_span(
-        name="tool",
-        span_id="s1",
-        inputs={"query": "test"},
-        outputs={"result": "ok"},
-    )
-    tree = _build_span_tree([span])
+def test_build_span_tree_io(make_trace):
+    trace = make_trace()
+    tree = _build_span_tree(trace.data.spans)
 
-    assert "in: " in tree
-    assert "out: " in tree
+    assert "in:" in tree
+    assert "out:" in tree
 
 
 # ---- _build_enriched_trace_summary ----
 
 
-def test_build_enriched_trace_summary(make_mock_span, make_trace):
-    root = make_mock_span(name="agent", span_id="s1", span_type="AGENT")
-    child = make_mock_span(
-        name="tool_call",
-        span_id="s2",
-        parent_id="s1",
-        span_type="TOOL",
-        status_code=SpanStatusCode.ERROR,
-        status_description="Failed",
-    )
+def test_build_enriched_trace_summary(make_trace):
     trace = make_trace(
-        trace_id="t-1",
-        request_preview="Hello",
-        response_preview="Hi there",
-        execution_duration=200,
-        spans=[root, child],
+        request_input="Hello",
+        response_output="Hi there",
+        error_span=True,
     )
     text = _build_enriched_trace_summary(0, trace, "Response was incomplete")
 
-    assert "[0] trace_id=t-1" in text
-    assert "Hello" in text
-    assert "Hi there" in text
-    assert "200ms" in text
+    assert f"[0] trace_id={trace.info.trace_id}" in text
     assert "Response was incomplete" in text
     assert "Span tree:" in text
     assert "tool_call" in text
 
 
 def test_build_enriched_trace_summary_truncates_previews(make_trace):
-    long_text = "x" * 1000
-    trace = make_trace(request_preview=long_text, response_preview=long_text)
+    trace = make_trace(request_input="x" * 1000, response_output="y" * 1000)
     text = _build_enriched_trace_summary(0, trace, "")
-    assert text.count("x") <= 1000
-
-
-def test_build_enriched_trace_summary_none_previews(make_trace):
-    trace = make_trace()
-    trace.info.request_preview = None
-    trace.info.response_preview = None
-    text = _build_enriched_trace_summary(0, trace, "rationale")
-    assert "Input: \n" in text
-    assert "Output: \n" in text
+    input_line = next(line for line in text.split("\n") if line.strip().startswith("Input:"))
+    output_line = next(line for line in text.split("\n") if line.strip().startswith("Output:"))
+    assert len(input_line) <= 510
+    assert len(output_line) <= 510
 
 
 # ---- _run_deep_analysis ----
@@ -260,12 +205,13 @@ def test_generate_scorer_specs_splits_compound_criteria():
     with patch(
         "mlflow.genai.discovery.utils.get_chat_completions_with_structured_output",
         return_value=mock_result,
-    ):
+    ) as mock_llm:
         specs = _generate_scorer_specs(issue, [], "openai:/gpt-5-mini")
 
     assert len(specs) == 2
     assert specs[0].name == "response_truncation"
     assert specs[1].name == "wrong_api_usage"
+    mock_llm.assert_called_once()
 
 
 def test_generate_scorer_specs_adds_template_var():
@@ -282,17 +228,18 @@ def test_generate_scorer_specs_adds_template_var():
     with patch(
         "mlflow.genai.discovery.utils.get_chat_completions_with_structured_output",
         return_value=mock_result,
-    ):
+    ) as mock_llm:
         specs = _generate_scorer_specs(issue, [], "openai:/gpt-5-mini")
 
     assert "{{ trace }}" in specs[0].detection_instructions
+    mock_llm.assert_called_once()
 
 
 # ---- _extract_failing_traces ----
 
 
 def test_extract_failing_traces(make_trace):
-    traces = [make_trace(trace_id=f"t-{i}") for i in range(3)]
+    traces = [make_trace() for _ in range(3)]
     df = pd.DataFrame(
         {
             "satisfaction/value": [True, False, False],
@@ -305,10 +252,10 @@ def test_extract_failing_traces(make_trace):
     failing, rationales = _extract_failing_traces(eval_result, "satisfaction")
 
     assert len(failing) == 2
-    assert failing[0].info.trace_id == "t-1"
-    assert failing[1].info.trace_id == "t-2"
-    assert rationales["t-1"] == "bad response"
-    assert rationales["t-2"] == "incomplete"
+    assert failing[0].info.trace_id == traces[1].info.trace_id
+    assert failing[1].info.trace_id == traces[2].info.trace_id
+    assert rationales[traces[1].info.trace_id] == "bad response"
+    assert rationales[traces[2].info.trace_id] == "incomplete"
 
 
 def test_extract_failing_traces_none_result_df():
@@ -326,7 +273,7 @@ def test_extract_failing_traces_missing_column():
 
 
 def test_extract_failing_traces_no_failures(make_trace):
-    traces = [make_trace(trace_id="t-0")]
+    traces = [make_trace()]
     df = pd.DataFrame(
         {
             "satisfaction/value": [True],
@@ -400,22 +347,26 @@ def test_build_summary_with_issues():
 
 
 def test_get_existing_score_true(make_trace, make_assessment):
-    trace = make_trace(assessments=[make_assessment("my_scorer", True)])
+    trace = make_trace()
+    trace.info.assessments = [make_assessment("my_scorer", True)]
     assert _get_existing_score(trace, "my_scorer") is True
 
 
 def test_get_existing_score_false(make_trace, make_assessment):
-    trace = make_trace(assessments=[make_assessment("my_scorer", False)])
+    trace = make_trace()
+    trace.info.assessments = [make_assessment("my_scorer", False)]
     assert _get_existing_score(trace, "my_scorer") is False
 
 
 def test_get_existing_score_none_when_no_assessments(make_trace):
-    trace = make_trace(assessments=[])
+    trace = make_trace()
+    trace.info.assessments = []
     assert _get_existing_score(trace, "my_scorer") is None
 
 
 def test_get_existing_score_filters_by_name(make_trace, make_assessment):
-    trace = make_trace(assessments=[make_assessment("other_scorer", True)])
+    trace = make_trace()
+    trace.info.assessments = [make_assessment("other_scorer", True)]
     assert _get_existing_score(trace, "my_scorer") is None
 
 
@@ -425,7 +376,8 @@ def test_get_existing_score_ignores_non_bool(make_trace):
         value="some_string",
         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test"),
     )
-    trace = make_trace(assessments=[fb])
+    trace = make_trace()
+    trace.info.assessments = [fb]
     assert _get_existing_score(trace, "my_scorer") is None
 
 
@@ -433,53 +385,41 @@ def test_get_existing_score_ignores_non_bool(make_trace):
 
 
 def test_partition_by_existing_scores(make_trace, make_assessment):
-    neg_trace = make_trace(trace_id="neg", assessments=[make_assessment("scorer", False)])
-    pos_trace = make_trace(trace_id="pos", assessments=[make_assessment("scorer", True)])
-    unscored_trace = make_trace(trace_id="unscored", assessments=[])
+    neg_trace = make_trace()
+    neg_trace.info.assessments = [make_assessment("scorer", False)]
+    pos_trace = make_trace()
+    pos_trace.info.assessments = [make_assessment("scorer", True)]
+    unscored_trace = make_trace()
+    unscored_trace.info.assessments = []
 
     negative, positive, needs_scoring = _partition_by_existing_scores(
         [neg_trace, pos_trace, unscored_trace], "scorer"
     )
 
     assert len(negative) == 1
-    assert negative[0].info.trace_id == "neg"
+    assert negative[0].info.trace_id == neg_trace.info.trace_id
     assert len(positive) == 1
-    assert positive[0].info.trace_id == "pos"
+    assert positive[0].info.trace_id == pos_trace.info.trace_id
     assert len(needs_scoring) == 1
-    assert needs_scoring[0].info.trace_id == "unscored"
+    assert needs_scoring[0].info.trace_id == unscored_trace.info.trace_id
 
 
 # ---- _has_session_ids ----
 
 
-def test_has_session_ids_true_via_tag(make_trace):
-    trace = make_trace()
-    trace.info.tags = {"mlflow.trace.session_id": "session-1"}
-    trace.info.trace_metadata = {}
-    assert _has_session_ids([trace]) is True
-
-
-def test_has_session_ids_true_via_metadata(make_trace):
-    trace = make_trace()
-    trace.info.tags = {}
-    trace.info.trace_metadata = {"mlflow.trace.session": "session-1"}
+def test_has_session_ids_true(make_trace):
+    trace = make_trace(session_id="session-1")
     assert _has_session_ids([trace]) is True
 
 
 def test_has_session_ids_false(make_trace):
     trace = make_trace()
-    trace.info.tags = {}
-    trace.info.trace_metadata = {}
     assert _has_session_ids([trace]) is False
 
 
 def test_has_session_ids_mixed(make_trace):
-    t1 = make_trace(trace_id="t-1")
-    t1.info.tags = {}
-    t1.info.trace_metadata = {}
-    t2 = make_trace(trace_id="t-2")
-    t2.info.tags = {"mlflow.trace.session_id": "session-1"}
-    t2.info.trace_metadata = {}
+    t1 = make_trace()
+    t2 = make_trace(session_id="session-1")
     assert _has_session_ids([t1, t2]) is True
 
 

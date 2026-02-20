@@ -1,74 +1,51 @@
-from unittest.mock import MagicMock
-
 import pytest
 
-from mlflow.entities import Trace, TraceData, TraceInfo
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.entities.span import Span
-from mlflow.entities.span_status import SpanStatus, SpanStatusCode
+from mlflow.entities.span import SpanType
+
+
+def _create_trace(
+    request_input="What is MLflow?",
+    response_output="MLflow is an ML platform.",
+    session_id=None,
+    span_type=SpanType.CHAIN,
+    error_span=False,
+):
+    @mlflow.trace(name="agent", span_type=span_type)
+    def _run(question):
+        if session_id:
+            mlflow.update_current_trace(
+                metadata={"mlflow.trace.session": session_id},
+            )
+        with mlflow.start_span(name="llm_call", span_type=SpanType.LLM) as child:
+            child.set_inputs({"prompt": question})
+            child.set_outputs({"response": response_output})
+        if error_span:
+            with mlflow.start_span(name="tool_call", span_type=SpanType.TOOL) as tool:
+                tool.set_inputs({"action": "fetch"})
+                tool.record_exception("Connection failed")
+        return response_output
+
+    _run(request_input)
+    return mlflow.get_trace(mlflow.get_last_active_trace_id())
 
 
 @pytest.fixture
-def make_mock_span():
+def make_trace():
     def _make(
-        name="test_span",
-        status_code=SpanStatusCode.OK,
-        span_id="span-1",
-        parent_id=None,
-        span_type="UNKNOWN",
-        start_time_ns=0,
-        end_time_ns=100_000_000,
-        model_name=None,
-        events=None,
-        inputs=None,
-        outputs=None,
-        status_description="",
+        request_input="What is MLflow?",
+        response_output="MLflow is an ML platform.",
+        session_id=None,
+        error_span=False,
     ):
-        span = MagicMock(spec=Span)
-        span.name = name
-        span.span_id = span_id
-        span.parent_id = parent_id
-        span.span_type = span_type
-        span.start_time_ns = start_time_ns
-        span.end_time_ns = end_time_ns
-        span.model_name = model_name
-        span.status = SpanStatus(status_code=status_code, description=status_description)
-        span.events = events or []
-        span.inputs = inputs
-        span.outputs = outputs
-        return span
-
-    return _make
-
-
-@pytest.fixture
-def make_trace(make_mock_span):
-    def _make(
-        trace_id="trace-1",
-        request_preview="What is MLflow?",
-        response_preview="MLflow is an ML platform.",
-        execution_duration=500,
-        spans=None,
-        assessments=None,
-        tags=None,
-    ):
-        info = MagicMock(spec=TraceInfo)
-        info.trace_id = trace_id
-        info.request_preview = request_preview
-        info.response_preview = response_preview
-        info.execution_duration = execution_duration
-        info.assessments = assessments or []
-        info.tags = tags or {}
-        info.trace_metadata = {}
-
-        data = MagicMock(spec=TraceData)
-        data.spans = spans or [make_mock_span()]
-
-        trace = MagicMock(spec=Trace)
-        trace.info = info
-        trace.data = data
-        return trace
+        return _create_trace(
+            request_input=request_input,
+            response_output=response_output,
+            session_id=session_id,
+            error_span=error_span,
+        )
 
     return _make
 
