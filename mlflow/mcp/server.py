@@ -65,13 +65,19 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
 
 def fn_wrapper(command: click.Command) -> Callable[..., str]:
     def wrapper(**kwargs: Any) -> str:
+        click_unset = getattr(click.core, "UNSET", object())
+
         # Capture stdout and stderr
         string_io = io.StringIO()
         with (
             contextlib.redirect_stdout(string_io),
             contextlib.redirect_stderr(string_io),
         ):
-            command.callback(**kwargs)
+            # Fill in defaults for missing optional arguments
+            for param in command.params:
+                if param.name not in kwargs and param.default is not click_unset:
+                    kwargs[param.name] = param.default
+            command.callback(**kwargs)  # type: ignore[misc]
         return string_io.getvalue().strip()
 
     return wrapper
