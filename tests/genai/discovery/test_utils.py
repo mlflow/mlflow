@@ -27,6 +27,7 @@ from mlflow.genai.discovery.utils import (
     _has_session_ids,
     _partition_by_existing_scores,
     _run_deep_analysis,
+    _sample_traces,
 )
 from mlflow.genai.evaluation.entities import EvaluationResult
 
@@ -82,12 +83,13 @@ def test_build_enriched_trace_summary(make_trace):
 
 
 def test_build_enriched_trace_summary_truncates_previews(make_trace):
-    trace = make_trace(request_input="x" * 1000, response_output="y" * 1000)
+    trace = make_trace(request_input="x" * 10000, response_output="y" * 10000)
     text = _build_enriched_trace_summary(0, trace, "")
+    assert "[..TRIMMED BY ANALYSIS TOOL]" in text
     input_line = next(line for line in text.split("\n") if line.strip().startswith("Input:"))
     output_line = next(line for line in text.split("\n") if line.strip().startswith("Output:"))
-    assert len(input_line) <= 510
-    assert len(output_line) <= 510
+    assert len(input_line) < 10000
+    assert len(output_line) < 10000
 
 
 # ---- _run_deep_analysis ----
@@ -445,3 +447,65 @@ def test_build_default_satisfaction_scorer(use_conversation, expected_var):
     assert call_kwargs["feedback_value_type"] is bool
     assert call_kwargs["model"] == "openai:/gpt-4"
     assert expected_var in call_kwargs["instructions"]
+
+
+# ---- _sample_traces ----
+
+
+def test_sample_traces_no_sessions(make_trace):
+    traces = [make_trace() for _ in range(20)]
+    search_kwargs = {"filter_string": None, "return_type": "list", "locations": ["exp-1"]}
+
+    with patch(
+        "mlflow.genai.discovery.utils.mlflow.search_traces", return_value=traces
+    ) as mock_search:
+        result = _sample_traces(5, search_kwargs)
+
+    mock_search.assert_called_once()
+    assert mock_search.call_args[1]["max_results"] == 25
+    assert len(result) == 5
+    assert all(t in traces for t in result)
+
+
+def test_sample_traces_with_sessions(make_trace):
+    s1_traces = [make_trace(session_id="s1") for _ in range(3)]
+    s2_traces = [make_trace(session_id="s2") for _ in range(2)]
+    s3_traces = [make_trace(session_id="s3") for _ in range(4)]
+    all_traces = s1_traces + s2_traces + s3_traces
+    search_kwargs = {"filter_string": None, "return_type": "list", "locations": ["exp-1"]}
+
+    with patch(
+        "mlflow.genai.discovery.utils.mlflow.search_traces", return_value=all_traces
+    ) as mock_search:
+        result = _sample_traces(2, search_kwargs)
+
+    mock_search.assert_called_once()
+    session_ids = {
+        (t.info.tags or {}).get("mlflow.trace.session_id")
+        or (t.info.trace_metadata or {}).get("mlflow.trace.session")
+        for t in result
+    }
+    assert len(session_ids) == 2
+
+
+def test_sample_traces_empty_pool():
+    search_kwargs = {"filter_string": None, "return_type": "list", "locations": ["exp-1"]}
+
+    with patch("mlflow.genai.discovery.utils.mlflow.search_traces", return_value=[]) as mock_search:
+        result = _sample_traces(10, search_kwargs)
+
+    mock_search.assert_called_once()
+    assert result == []
+
+
+def test_sample_traces_fewer_than_requested(make_trace):
+    traces = [make_trace() for _ in range(3)]
+    search_kwargs = {"filter_string": None, "return_type": "list", "locations": ["exp-1"]}
+
+    with patch(
+        "mlflow.genai.discovery.utils.mlflow.search_traces", return_value=traces
+    ) as mock_search:
+        result = _sample_traces(10, search_kwargs)
+
+    mock_search.assert_called_once()
+    assert len(result) == 3

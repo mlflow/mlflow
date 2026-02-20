@@ -35,7 +35,7 @@ def test_discover_issues_no_experiment():
 def test_discover_issues_empty_experiment():
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=[]),
+        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=[]),
     ):
         result = discover_issues()
 
@@ -64,7 +64,7 @@ def test_discover_issues_all_traces_pass(make_trace):
 
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             side_effect=[test_eval, triage_eval],
@@ -150,7 +150,7 @@ def test_discover_issues_full_pipeline(make_trace):
     )
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             side_effect=[test_eval, triage_eval, validation_eval],
@@ -232,7 +232,7 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
     mock_llm = MagicMock(side_effect=[deep_analysis_result, clustering_result])
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             side_effect=[test_eval, triage_eval],
@@ -258,27 +258,25 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
 
 def test_discover_issues_explicit_experiment_id():
     with patch(
-        "mlflow.genai.discovery.pipeline.mlflow.search_traces",
+        "mlflow.genai.discovery.pipeline._sample_traces",
         return_value=[],
-    ) as mock_search:
+    ) as mock_sample:
         discover_issues(experiment_id="exp-42")
 
-    mock_search.assert_called_once()
-    call_kwargs = mock_search.call_args[1]
-    assert call_kwargs["locations"] == ["exp-42"]
+    mock_sample.assert_called_once()
+    search_kwargs = mock_sample.call_args[0][1]
+    assert search_kwargs["locations"] == ["exp-42"]
 
 
 def test_discover_issues_passes_filter_string():
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch(
-            "mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=[]
-        ) as mock_search,
+        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=[]) as mock_sample,
     ):
         discover_issues(filter_string="tag.env = 'prod'")
 
-    call_kwargs = mock_search.call_args[1]
-    assert call_kwargs["filter_string"] == "tag.env = 'prod'"
+    search_kwargs = mock_sample.call_args[0][1]
+    assert search_kwargs["filter_string"] == "tag.env = 'prod'"
 
 
 def test_discover_issues_custom_satisfaction_scorer(make_trace):
@@ -302,7 +300,7 @@ def test_discover_issues_custom_satisfaction_scorer(make_trace):
 
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline.mlflow.search_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             side_effect=[test_eval, triage_eval],

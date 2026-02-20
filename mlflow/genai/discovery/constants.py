@@ -4,6 +4,14 @@ _MIN_FREQUENCY_THRESHOLD = 0.01
 _MIN_CONFIDENCE = 75
 _MIN_EXAMPLES = 2
 
+# Truncation limits for trace summaries shown to the analysis LLM.
+# These are generous — modern LLMs have large context windows, and
+# aggressive truncation causes false-positive "truncation" issues.
+_TRACE_IO_CHAR_LIMIT = 5000
+_SPAN_IO_CHAR_LIMIT = 2000
+_ERROR_CHAR_LIMIT = 1000
+_TRIM_MARKER = " [..TRIMMED BY ANALYSIS TOOL]"
+
 _DEFAULT_JUDGE_MODEL = "openai:/gpt-5-mini"
 _DEFAULT_ANALYSIS_MODEL = "openai:/gpt-5"
 _DEFAULT_SCORER_NAME = "_issue_discovery_judge"
@@ -99,6 +107,9 @@ _DEEP_ANALYSIS_SYSTEM_PROMPT = (
     "You are an expert at diagnosing AI application failures. "
     "Given enriched trace summaries with span-level detail, analyze each "
     "failing trace individually.\n\n"
+    "IMPORTANT: Fields ending with '[..TRIMMED BY ANALYSIS TOOL]' were "
+    "shortened for this analysis — do NOT treat this as evidence of "
+    "truncation in the original application response.\n\n"
     "For each trace, identify:\n"
     "- The failure category (tool_error, hallucination, latency, "
     "incomplete_response, error_propagation, wrong_tool_use, "

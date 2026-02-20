@@ -27,6 +27,7 @@ from mlflow.genai.discovery.utils import (
     _log_discovery_artifacts,
     _partition_by_existing_scores,
     _run_deep_analysis,
+    _sample_traces,
     _test_scorer,
 )
 from mlflow.genai.evaluation.entities import EvaluationResult
@@ -70,9 +71,10 @@ def discover_issues(
             Defaults to ``"openai:/gpt-5-mini"``.
         analysis_model: LLM used for clustering failures into issues.
             Defaults to ``"openai:/gpt-5"``.
-        triage_sample_size: Number of traces for the triage phase.
-        validation_sample_size: Number of traces for validation.
-            Defaults to ``5 * triage_sample_size``.
+        triage_sample_size: Number of sessions (or traces, if no session metadata
+            exists) to randomly sample for the triage phase.
+        validation_sample_size: Number of sessions (or traces) to randomly sample
+            for validation. Defaults to ``5 * triage_sample_size``.
         max_issues: Maximum distinct issues to identify.
         filter_string: Filter string passed to ``search_traces``.
 
@@ -110,8 +112,8 @@ def discover_issues(
     }
 
     # Phase 1: Triage — score a sample for user satisfaction
-    _logger.info("Phase 1: Fetching %d traces...", triage_sample_size)
-    triage_traces = mlflow.search_traces(max_results=triage_sample_size, **search_kwargs)
+    _logger.info("Phase 1: Sampling %d traces...", triage_sample_size)
+    triage_traces = _sample_traces(triage_sample_size, search_kwargs)
     if not triage_traces:
         return DiscoverIssuesResult(
             issues=[],
@@ -314,7 +316,7 @@ def discover_issues(
         len(issue_scorers),
         validation_sample_size,
     )
-    validation_traces = mlflow.search_traces(max_results=validation_sample_size, **search_kwargs)
+    validation_traces = _sample_traces(validation_sample_size, search_kwargs)
 
     validation_eval = None
     try:
