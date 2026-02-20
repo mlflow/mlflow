@@ -21,9 +21,10 @@ _logger = logging.getLogger(__name__)
 # Minimum uv version required for ``uv export`` functionality
 _MIN_UV_VERSION = Version("0.5.0")
 
-# File names used for uv project detection
+# File names used for uv project detection and artifacts
 _UV_LOCK_FILE = "uv.lock"
 _PYPROJECT_FILE = "pyproject.toml"
+_PYTHON_VERSION_FILE = ".python-version"
 
 
 def get_uv_version() -> Version | None:
@@ -59,17 +60,8 @@ def _get_uv_binary() -> str | None:
     if uv_bin is None:
         return None
 
-    try:
-        result = subprocess.run(
-            [uv_bin, "--version"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        version_str = result.stdout.strip().split()[1]
-        version = Version(version_str)
-    except (subprocess.CalledProcessError, IndexError, ValueError) as e:
-        _logger.debug(f"Failed to determine uv version: {e}")
+    version = get_uv_version()
+    if version is None:
         return None
 
     if version < _MIN_UV_VERSION:
@@ -190,7 +182,7 @@ def export_uv_requirements(
         requirements = []
         for line in result.stdout.strip().splitlines():
             line = line.strip()
-            if not line or line.startswith("#") or line.startswith(" "):
+            if not line or line.startswith("#"):
                 continue
             requirements.append(line)
 
@@ -206,9 +198,6 @@ def export_uv_requirements(
     except Exception as e:
         _logger.warning(f"uv export failed: {e}. Falling back to pip-based inference.")
         return None
-
-
-_PYTHON_VERSION_FILE = ".python-version"
 
 
 def copy_uv_project_files(

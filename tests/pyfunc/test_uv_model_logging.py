@@ -86,35 +86,6 @@ build-backend = "hatchling.build"
     return tmp_path
 
 
-@pytest.fixture
-def tmp_uv_project_no_python_version(tmp_path):
-    """Create a real uv project without .python-version file."""
-    pyproject_content = """[project]
-name = "test-project"
-version = "0.1.0"
-requires-python = ">=3.11"
-dependencies = [
-    "numpy>=1.24.0",
-]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-"""
-    (tmp_path / _PYPROJECT_FILE).write_text(pyproject_content)
-
-    result = subprocess.run(
-        ["uv", "lock"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        pytest.skip(f"uv lock failed: {result.stderr}")
-
-    return tmp_path
-
-
 # --- Model Logging Tests with Real uv ---
 
 
@@ -241,48 +212,44 @@ def test_pyfunc_log_model_generates_requirements_from_uv_export(
 # --- Fallback Tests (mocking required to simulate uv unavailable) ---
 
 
-@pytest.mark.parametrize(
-    "mock_setup",
-    [
-        pytest.param(
-            {"target": "mlflow.utils.uv_utils._get_uv_binary", "return_value": None},
-            id="uv_not_available",
-        ),
-        pytest.param(
-            {
-                "target": "subprocess.run",
-                "side_effect": subprocess.CalledProcessError(1, "uv"),
-            },
-            id="uv_export_fails",
-        ),
-    ],
-)
-def test_pyfunc_log_model_falls_back_gracefully(tmp_path, python_model, monkeypatch, mock_setup):
+def test_pyfunc_log_model_falls_back_when_uv_not_available(tmp_path, python_model, monkeypatch):
     (tmp_path / _UV_LOCK_FILE).write_text('version = 1\nrequires-python = ">=3.10"\n')
     (tmp_path / _PYPROJECT_FILE).write_text('[project]\nname = "test"\nversion = "0.1.0"\n')
     monkeypatch.chdir(tmp_path)
 
-    extra_patches = {}
-    if mock_setup.get("side_effect"):
-        extra_patches = {
-            "mlflow.utils.uv_utils._get_uv_binary": "/usr/bin/uv",
-        }
+    with mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value=None):
+        with mlflow.start_run() as run:
+            mlflow.pyfunc.log_model(name="model", python_model=python_model)
 
-    with mock.patch(mock_setup["target"], **{k: v for k, v in mock_setup.items() if k != "target"}):
-        for target, value in extra_patches.items():
-            mock.patch(target, return_value=value).start()
-        try:
-            with mlflow.start_run() as run:
-                mlflow.pyfunc.log_model(name="model", python_model=python_model)
+            artifact_path = mlflow.artifacts.download_artifacts(
+                run_id=run.info.run_id, artifact_path="model"
+            )
+            artifact_dir = Path(artifact_path)
 
-                artifact_path = mlflow.artifacts.download_artifacts(
-                    run_id=run.info.run_id, artifact_path="model"
-                )
-                artifact_dir = Path(artifact_path)
+            assert (artifact_dir / _REQUIREMENTS_FILE_NAME).exists()
 
-                assert (artifact_dir / _REQUIREMENTS_FILE_NAME).exists()
-        finally:
-            mock.patch.stopall()
+
+def test_pyfunc_log_model_falls_back_when_uv_export_fails(tmp_path, python_model, monkeypatch):
+    (tmp_path / _UV_LOCK_FILE).write_text('version = 1\nrequires-python = ">=3.10"\n')
+    (tmp_path / _PYPROJECT_FILE).write_text('[project]\nname = "test"\nversion = "0.1.0"\n')
+    monkeypatch.chdir(tmp_path)
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch(
+            "mlflow.utils.uv_utils.subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "uv"),
+        ),
+    ):
+        with mlflow.start_run() as run:
+            mlflow.pyfunc.log_model(name="model", python_model=python_model)
+
+            artifact_path = mlflow.artifacts.download_artifacts(
+                run_id=run.info.run_id, artifact_path="model"
+            )
+            artifact_dir = Path(artifact_path)
+
+            assert (artifact_dir / _REQUIREMENTS_FILE_NAME).exists()
 
 
 def test_pyfunc_log_model_non_uv_project_uses_standard_inference(

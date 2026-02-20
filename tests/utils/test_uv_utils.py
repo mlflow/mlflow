@@ -25,7 +25,7 @@ from mlflow.utils.uv_utils import (
 
 
 def test_get_uv_version_returns_none_when_uv_not_installed():
-    with mock.patch("shutil.which", return_value=None):
+    with mock.patch("mlflow.utils.uv_utils.shutil.which", return_value=None):
         assert get_uv_version() is None
 
 
@@ -33,7 +33,7 @@ def test_get_uv_version_returns_version_when_uv_installed():
     mock_result = mock.Mock()
     mock_result.stdout = "uv 0.5.0 (abc123 2024-01-01)"
     with (
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils.shutil.which", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", return_value=mock_result) as mock_run,
     ):
         version = get_uv_version()
@@ -43,7 +43,7 @@ def test_get_uv_version_returns_version_when_uv_installed():
 
 def test_get_uv_version_returns_none_on_subprocess_error():
     with (
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils.shutil.which", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "uv")),
     ):
         assert get_uv_version() is None
@@ -53,7 +53,7 @@ def test_get_uv_version_returns_none_on_parse_error():
     mock_result = mock.Mock()
     mock_result.stdout = "invalid output"
     with (
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils.shutil.which", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", return_value=mock_result),
     ):
         assert get_uv_version() is None
@@ -386,11 +386,7 @@ def test_infer_pip_requirements_uses_uv_when_project_detected(tmp_path, monkeypa
         assert "numpy==1.24.0" in result
 
 
-def test_infer_pip_requirements_falls_back_when_uv_not_available(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / _UV_LOCK_FILE).touch()
-    (tmp_path / _PYPROJECT_FILE).touch()
-
+def test_export_uv_requirements_returns_none_when_uv_binary_missing(tmp_path):
     with mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value=None):
         result = export_uv_requirements(tmp_path)
         assert result is None
@@ -429,6 +425,20 @@ def test_infer_pip_requirements_skips_uv_when_auto_detect_disabled(tmp_path, mon
     assert detect_uv_project() is not None
 
     monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    with (
+        mock.patch("mlflow.utils.environment.detect_uv_project") as mock_detect,
+        mock.patch("mlflow.utils.environment.export_uv_requirements") as mock_export,
+        mock.patch(
+            "mlflow.utils.environment._infer_requirements",
+            return_value=["scikit-learn==1.0"],
+        ),
+    ):
+        result = infer_pip_requirements(str(tmp_path), "sklearn")
+
+        mock_detect.assert_not_called()
+        mock_export.assert_not_called()
+        assert "scikit-learn==1.0" in result
 
 
 # --- Private Index URL Extraction Tests ---

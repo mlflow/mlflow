@@ -408,14 +408,15 @@ def infer_pip_requirements(
     fallback=None,
     timeout=None,
     extra_env_vars=None,
+    uv_project_dir=None,
 ):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
 
-    If the current working directory is a uv project (contains both uv.lock and pyproject.toml),
-    this function will first attempt to export dependencies via ``uv export``. If that
-    succeeds, those requirements are returned. Otherwise, falls back to inferring
-    dependencies by capturing imported packages during model inference.
+    If a uv project is detected (contains both uv.lock and pyproject.toml), this function
+    will first attempt to export dependencies via ``uv export``. If that succeeds, those
+    requirements are returned. Otherwise, falls back to inferring dependencies by capturing
+    imported packages during model inference.
 
     Args:
         model_uri: The URI of the model.
@@ -425,6 +426,9 @@ def infer_pip_requirements(
         timeout: If specified, the inference operation is bound by the timeout (in seconds).
         extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
             Default to None.
+        uv_project_dir: Explicit path to a uv project directory. When provided, overrides
+            the ``MLFLOW_UV_AUTO_DETECT`` environment variable and searches the specified
+            directory instead of cwd. Default to None (auto-detect from cwd).
 
     Returns:
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
@@ -432,9 +436,9 @@ def infer_pip_requirements(
     """
     # Check for uv project first - if detected, use uv export instead of
     # inferring model dependencies by capturing imported packages during model inference.
-    # Can be disabled via MLFLOW_UV_AUTO_DETECT=false
-    if MLFLOW_UV_AUTO_DETECT.get():
-        if uv_project := detect_uv_project():
+    # An explicit uv_project_dir overrides the MLFLOW_UV_AUTO_DETECT env var.
+    if uv_project_dir is not None or MLFLOW_UV_AUTO_DETECT.get():
+        if uv_project := detect_uv_project(uv_project_dir):
             _logger.info(
                 f"Detected uv project at {uv_project.uv_lock.parent}. "
                 "Attempting to export requirements via 'uv export'."

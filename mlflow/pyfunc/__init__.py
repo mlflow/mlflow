@@ -3790,11 +3790,13 @@ def _save_model_with_loader_module_and_data_path(
             )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            uv_source_dir = uv_project_path or original_cwd
             inferred_reqs = mlflow.models.infer_pip_requirements(
                 path,
                 FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
+                uv_project_dir=uv_source_dir,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
