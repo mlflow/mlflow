@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import random
+from collections import defaultdict
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -9,8 +11,12 @@ from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
     _DEEP_ANALYSIS_SYSTEM_PROMPT,
     _DEFAULT_SCORER_NAME,
+    _ERROR_CHAR_LIMIT,
     _SCORER_GENERATION_SYSTEM_PROMPT,
+    _SPAN_IO_CHAR_LIMIT,
     _TEMPLATE_VARS,
+    _TRACE_IO_CHAR_LIMIT,
+    _TRIM_MARKER,
     _build_satisfaction_instructions,
 )
 from mlflow.genai.discovery.entities import (
@@ -29,6 +35,62 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
+
+
+def _trim(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit] + _TRIM_MARKER
+
+
+def _get_session_id(trace: Trace) -> str | None:
+    return (trace.info.tags or {}).get("mlflow.trace.session_id") or (
+        trace.info.trace_metadata or {}
+    ).get("mlflow.trace.session")
+
+
+def _sample_traces(
+    sample_size: int,
+    search_kwargs: dict[str, object],
+    pool_multiplier: int = 5,
+) -> list[Trace]:
+    """Randomly sample traces, grouping by session when session IDs exist.
+
+    Fetches a pool of traces larger than `sample_size`, then:
+    - If sessions exist: randomly selects `sample_size` sessions and returns
+      all traces from those sessions.
+    - If no sessions: randomly selects `sample_size` individual traces.
+    """
+    pool_size = sample_size * pool_multiplier
+    pool = mlflow.search_traces(max_results=pool_size, **search_kwargs)
+    if not pool:
+        return []
+
+    sessions: dict[str, list[Trace]] = defaultdict(list)
+    no_session: list[Trace] = []
+    for trace in pool:
+        if sid := _get_session_id(trace):
+            sessions[sid].append(trace)
+        else:
+            no_session.append(trace)
+
+    if sessions:
+        session_ids = list(sessions.keys())
+        k = min(sample_size, len(session_ids))
+        selected = random.sample(session_ids, k)
+        result = [t for sid in selected for t in sessions[sid]]
+        _logger.info(
+            "Sampled %d sessions (%d traces) from pool of %d sessions",
+            k,
+            len(result),
+            len(session_ids),
+        )
+        return result
+
+    k = min(sample_size, len(no_session))
+    result = random.sample(no_session, k)
+    _logger.info("Sampled %d traces from pool of %d", k, len(no_session))
+    return result
 
 
 def _has_session_ids(traces: list[Trace]) -> bool:
@@ -144,20 +206,23 @@ def _build_span_tree(spans: list[object]) -> str:
 
         if span.status and span.status.status_code == SpanStatusCode.ERROR:
             if span.status.description:
-                lines.append(f"{indent}  ERROR: {span.status.description[:200]}")
+                lines.append(
+                    f"{indent}  ERROR: {_trim(span.status.description, _ERROR_CHAR_LIMIT)}"
+                )
             for event in getattr(span, "events", []):
                 if event.name == "exception":
                     exc_type = event.attributes.get("exception.type", "")
                     exc_msg = event.attributes.get("exception.message", "")
                     if exc_type or exc_msg:
-                        lines.append(f"{indent}  EXCEPTION: {exc_type}: {exc_msg}"[:250])
+                        exc_text = _trim(f"{exc_type}: {exc_msg}", _ERROR_CHAR_LIMIT)
+                        lines.append(f"{indent}  EXCEPTION: {exc_text}")
 
         inputs = getattr(span, "inputs", None)
         outputs = getattr(span, "outputs", None)
         if inputs:
-            lines.append(f"{indent}  in: {str(inputs)[:200]}")
+            lines.append(f"{indent}  in: {_trim(str(inputs), _SPAN_IO_CHAR_LIMIT)}")
         if outputs:
-            lines.append(f"{indent}  out: {str(outputs)[:200]}")
+            lines.append(f"{indent}  out: {_trim(str(outputs), _SPAN_IO_CHAR_LIMIT)}")
 
         for child in children.get(span.span_id, []):
             lines.extend(_format_span(child, depth + 1))
@@ -173,9 +238,28 @@ def _build_span_tree(spans: list[object]) -> str:
     return "\n".join(result_lines)
 
 
+def _get_root_span_io(trace: Trace) -> tuple[str, str]:
+    if trace.data.spans:
+        root = next(
+            (s for s in trace.data.spans if s.parent_id is None),
+            trace.data.spans[0],
+        )
+        request = str(root.inputs) if root.inputs else ""
+        response = str(root.outputs) if root.outputs else ""
+    else:
+        request = ""
+        response = ""
+    if not request:
+        request = trace.info.request_preview or ""
+    if not response:
+        response = trace.info.response_preview or ""
+    return request, response
+
+
 def _build_enriched_trace_summary(index: int, trace: Trace, rationale: str) -> str:
-    request = (trace.info.request_preview or "")[:500]
-    response = (trace.info.response_preview or "")[:500]
+    request, response = _get_root_span_io(trace)
+    request = _trim(request, _TRACE_IO_CHAR_LIMIT)
+    response = _trim(response, _TRACE_IO_CHAR_LIMIT)
     duration = trace.info.execution_duration or 0
     span_tree = _build_span_tree(trace.data.spans)
     return (
