@@ -13063,8 +13063,6 @@ def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_preview_preserved")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
-    # Create a root span with OpenInference attributes that the translator will
-    # convert to mlflow.spanInputs / mlflow.spanOutputs.
     span = create_test_span(
         trace_id=trace_id,
         name="llm_call",
@@ -13081,8 +13079,6 @@ def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
     )
     store.log_spans(experiment_id, [span])
 
-    # Simulate the client-side start_trace call that follows log_spans in the
-    # MlflowV3SpanExporter.  The client-side TraceInfo does NOT carry previews.
     trace_info_for_start = TraceInfo(
         trace_id=trace_id,
         trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),

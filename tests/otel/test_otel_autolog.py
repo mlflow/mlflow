@@ -184,8 +184,6 @@ def test_autolog_is_additive():
 
     mlflow.otel.autolog()
 
-    # Register a recording exporter on the same provider to prove that
-    # the TracerProvider dispatches spans to every processor, not just MLflow's.
     provider = otel_trace_api.get_tracer_provider()
     provider.add_span_processor(SimpleSpanProcessor(RecordingExporter()))
 

@@ -68,9 +68,7 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     attributes = sanitize_attributes(span_dict.get("attributes", {}))
     events = span_dict.get("events", [])
 
-    # Translate span type from OTEL schema attributes.  When spans arrive via
-    # MlflowV3SpanProcessor the default type is UNKNOWN; override it when a
-    # translator can determine a more specific type.
+    # Override UNKNOWN (the LiveSpan default) with the translator-determined type.
     if mlflow_type := translate_span_type_from_otel(attributes):
         current_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
         try:

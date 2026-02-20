@@ -235,8 +235,6 @@ def test_set_request_response_preview_skips_none_data():
         request_time=1000,
         state=TraceState.OK,
     )
-    # Simulate the case where trace_data has no request/response (OTEL-forwarded traces
-    # before backend translation)
     trace_data = TraceData(spans=[], request=None, response=None)
     set_request_response_preview(trace_info, trace_data)
 
