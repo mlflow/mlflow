@@ -163,15 +163,6 @@ def test_database_operational_error(monkeypatch):
 
 
 def test_gc_experiment_with_logged_model_params_tags_and_metrics():
-    """Test that GC can delete experiments with logged models that have params, tags, and metrics.
-
-    This tests the fix for https://github.com/mlflow/mlflow/issues/20184 where GC failed
-    with a foreign key constraint error when deleting experiments that had logged_model_params,
-    logged_model_tags, or logged_model_metrics records referencing the experiment.
-
-    This test runs against real databases (MySQL, PostgreSQL) via Docker to ensure FK
-    constraints are properly enforced.
-    """
     client = MlflowClient()
     exp_id = client.create_experiment("exp_with_logged_model_for_gc")
     model = client.create_logged_model(experiment_id=exp_id)
