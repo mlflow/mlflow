@@ -139,3 +139,15 @@ async def test_get_prompt(client: Client):
     assert "Analyze Experiment" in content
     assert "Step 1: Setup and Configuration" in content
     assert "MLflow" in content
+
+
+@pytest.mark.asyncio
+async def test_call_tool_with_optional_params_omitted(client: Client):
+    """Regression test for click >= 8.3.0 Sentinel.UNSET handling (#20953)."""
+    experiment = mlflow.search_experiments(max_results=1)[0]
+    result = await client.call_tool(
+        "search_traces",
+        {"experiment_id": experiment.experiment_id},
+        timeout=5,
+    )
+    assert result.is_error is not True
