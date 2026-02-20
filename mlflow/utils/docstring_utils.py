@@ -452,6 +452,16 @@ navigate to the model as well.
     # Load the prompt
     prompt = mlflow.genai.load_prompt(model_info.prompts[0])
 """,
+        "env_pack": """\
+Either a string or an EnvPackConfig. If specified and ``registered_model_name`` is also provided,
+the model dependencies are optionally first installed into the current Python environment, and
+then the complete environment will be packaged and included in the registered model artifacts.
+If the string shortcut "databricks_model_serving" is used, then model dependencies will be
+installed in the current environment. This is useful when deploying the model to a serving
+environment like Databricks Model Serving.
+
+.. Note:: Experimental: This parameter may change or be removed in a future release without warning.
+""",
     }
 )
 

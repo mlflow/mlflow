@@ -92,9 +92,16 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
+from mlflow.utils.file_utils import (
+    TempDir,
+    _copy_file_or_tree,
+    get_total_file_size,
+    local_file_uri_to_path,
+    write_to,
+)
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import is_local_uri
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -1139,6 +1146,14 @@ def _save_model_with_class_artifacts_params(
                     saved_artifact_subpath = (
                         Path(snapshot_location).relative_to(Path(os.path.realpath(path))).as_posix()
                     )
+                elif is_local_uri(artifact_uri, is_tracking_or_registry_uri=False):
+                    # Local artifact - copy directly to destination (skip temp dir)
+                    local_path = local_file_uri_to_path(artifact_uri)
+                    saved_artifact_subpath = _copy_file_or_tree(
+                        src=local_path,
+                        dst=path,
+                        dst_dir=saved_artifacts_dir_subpath,
+                    )
                 else:
                     tmp_artifact_path = _download_artifact_from_uri(
                         artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
@@ -1159,7 +1174,14 @@ def _save_model_with_class_artifacts_params(
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,
                 }
 
-            shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
+            # Move remote artifacts from temp dir to destination
+            dest_artifacts_path = os.path.join(path, saved_artifacts_dir_subpath)
+            os.makedirs(dest_artifacts_path, exist_ok=True)
+            for item in os.listdir(tmp_artifacts_dir.path()):
+                shutil.move(
+                    os.path.join(tmp_artifacts_dir.path(), item),
+                    os.path.join(dest_artifacts_path, item),
+                )
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
     if streamable is None:
