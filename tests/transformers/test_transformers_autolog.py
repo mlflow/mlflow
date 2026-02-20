@@ -16,6 +16,7 @@ from setfit import SetFitModel, sample_dataset
 from setfit import Trainer as SetFitTrainer
 from setfit import TrainingArguments as SetFitTrainingArguments
 from transformers import (
+    DistilBertConfig,
     DistilBertForSequenceClassification,
     DistilBertTokenizerFast,
     Trainer,
@@ -567,7 +568,13 @@ def test_trainer_clears_pyspark_gateway_env_vars_for_torch_distributor(monkeypat
     monkeypatch.setattr(Trainer, "train", mock_train)
     mlflow.transformers.autolog()
 
-    trainer = Trainer(args=TrainingArguments(output_dir=str(tmp_path)))
+    tiny_config = DistilBertConfig(
+        vocab_size=100, dim=32, n_heads=2, hidden_dim=64, n_layers=1, num_labels=2
+    )
+    model = DistilBertForSequenceClassification(tiny_config)
+    trainer = Trainer(
+        model=model, args=TrainingArguments(output_dir=str(tmp_path), report_to="none")
+    )
     trainer.train()
 
     assert env_inside_train.get("port") is None
