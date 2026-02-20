@@ -239,23 +239,24 @@ type ThemeAwareReactMdeProps = React.ComponentProps<typeof ReactMde>;
 
 export function ThemeAwareReactMde(props: ThemeAwareReactMdeProps) {
   const { theme } = useDesignSystemTheme();
-  
+
   // Apply theme-aware CSS variables for ReactMde
-  const themeAwareStyle = React.useMemo(() => ({
-    '--mlflow-dark-bg-primary': theme.colors.backgroundPrimary,
-    '--mlflow-dark-bg-secondary': theme.colors.backgroundSecondary,
-    '--mlflow-dark-bg-hover': theme.colors.actionDefaultBackgroundHover,
-    '--mlflow-dark-text-primary': theme.colors.textPrimary,
-    '--mlflow-dark-border': theme.colors.border,
-  } as React.CSSProperties), [theme]);
+  const themeAwareStyle = React.useMemo(
+    () =>
+      ({
+        '--mlflow-dark-bg-primary': theme.colors.backgroundPrimary,
+        '--mlflow-dark-bg-secondary': theme.colors.backgroundSecondary,
+        '--mlflow-dark-bg-hover': theme.colors.actionDefaultBackgroundHover,
+        '--mlflow-dark-text-primary': theme.colors.textPrimary,
+        '--mlflow-dark-border': theme.colors.border,
+      }) as React.CSSProperties,
+    [theme],
+  );
 
   const isDarkTheme = theme.isDarkMode;
 
   return (
-    <div 
-      className={isDarkTheme ? 'mlflow-dark-theme' : ''}
-      style={themeAwareStyle}
-    >
+    <div className={isDarkTheme ? 'mlflow-dark-theme' : ''} style={themeAwareStyle}>
       <ReactMde {...props} />
     </div>
   );
