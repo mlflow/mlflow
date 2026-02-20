@@ -26,19 +26,20 @@ jobs:
         id: alias
         env:
           EVENT: ${{ github.event.workflow_run.event }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
           if [ "$EVENT" = "push" ]; then
             ALIAS="dev"
           else
-            # Derive PR number from the workflow run's head SHA via API
+            # Derive PR number from the workflow run's head branch via API
             # instead of trusting the artifact (which fork PRs can manipulate)
-            PR_NUMBER=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" \
+            PR_NUMBER=$(gh api "repos/$REPO/pulls?head=$HEAD_OWNER:$HEAD_BRANCH&state=open" \
               --jq '.[0].number')
             if [ -z "$PR_NUMBER" ]; then
-              echo "::error::Could not find PR for SHA $HEAD_SHA"
+              echo "::error::Could not find PR for $HEAD_OWNER:$HEAD_BRANCH"
               exit 1
             fi
             ALIAS="pr-$PR_NUMBER"
