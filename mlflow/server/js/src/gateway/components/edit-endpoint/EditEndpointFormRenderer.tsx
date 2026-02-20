@@ -12,7 +12,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import GatewayRoutes from '../../routes';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
@@ -96,24 +96,16 @@ export const EditEndpointFormRenderer = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabFromUrl = searchParams.get('tab');
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(tabFromUrl || 'configuration');
-
-  // Sync tab state when URL search params change (e.g. navigating from usage charts)
-  useEffect(() => {
-    if (tabFromUrl) {
-      setActiveTab(tabFromUrl);
-    }
-  }, [tabFromUrl]);
+  const activeTab = searchParams.get('tab') || 'configuration';
 
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
   const experimentId = form.watch('experimentId');
 
   // Don't disable tabs that were requested via URL query param
-  const isUsageTabDisabled = !experimentId && tabFromUrl !== 'usage';
-  const isTracesTabDisabled = !experimentId && tabFromUrl !== 'traces';
+  const isUsageTabDisabled = !experimentId && activeTab !== 'usage';
+  const isTracesTabDisabled = !experimentId && activeTab !== 'traces';
 
   const tooltipLinkUrlBuilder = useMemo(() => {
     if (!endpoint) return undefined;
@@ -199,7 +191,6 @@ export const EditEndpointFormRenderer = ({
         componentId="mlflow.gateway.endpoint.tabs"
         value={activeTab}
         onValueChange={(value) => {
-          setActiveTab(value);
           setSearchParams(
             (params) => {
               params.set('tab', value);

@@ -52,11 +52,11 @@ class GatewayRoutes {
     if (!options) return path;
     const params = new URLSearchParams();
     if (options.tab) params.set('tab', options.tab);
-    if (options.startTime) {
+    if (options.startTime && options.endTime) {
       params.set('startTimeLabel', 'CUSTOM');
       params.set('startTime', options.startTime);
+      params.set('endTime', options.endTime);
     }
-    if (options.endTime) params.set('endTime', options.endTime);
     const query = params.toString();
     return query ? `${path}?${query}` : path;
   }

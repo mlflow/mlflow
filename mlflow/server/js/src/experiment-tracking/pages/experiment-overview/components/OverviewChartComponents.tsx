@@ -324,10 +324,7 @@ interface ScrollableTooltipProps {
 export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
-  const chartContext = useContext(OverviewChartContext);
-  const hideTooltipLinks = chartContext?.hideTooltipLinks;
-  const tooltipLinkUrlBuilder = chartContext?.tooltipLinkUrlBuilder;
-  const tooltipLinkText = chartContext?.tooltipLinkText;
+  const { hideTooltipLinks, tooltipLinkUrlBuilder, tooltipLinkText } = useContext(OverviewChartContext) ?? {};
 
   if (!active || !payload?.length) {
     return null;
