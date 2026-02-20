@@ -1,21 +1,21 @@
 import sqlalchemy as sa
 
+from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-_WORKSPACE_TABLES = [
-    "experiments",
-    "registered_models",
+# Derive table names from the shared ORM model list and add child/tags tables that also carry
+# a workspace column but are not "root" tables (they are updated via FK cascades during
+# delete_workspace, but the migration script must handle them explicitly).
+_WORKSPACE_CHILD_TABLES = [
     "model_versions",
     "registered_model_tags",
     "model_version_tags",
     "registered_model_aliases",
-    "evaluation_datasets",
-    "webhooks",
-    "secrets",
-    "endpoints",
-    "model_definitions",
-    "jobs",
 ]
+
+_WORKSPACE_TABLES = [
+    model.__tablename__ for model in _WORKSPACE_ROOT_MODELS
+] + _WORKSPACE_CHILD_TABLES
 
 _CONFLICT_SPECS = [
     ("experiments", ("name",), "experiments with the same name"),
