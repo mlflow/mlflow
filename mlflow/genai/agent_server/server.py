@@ -17,7 +17,6 @@ from mlflow.genai.agent_server.utils import get_request_headers, set_request_hea
 from mlflow.genai.agent_server.validator import BaseAgentValidator, ResponsesAgentValidator
 from mlflow.pyfunc import ResponsesAgent
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.utils.annotations import experimental
 
 logger = logging.getLogger(__name__)
 STREAM_KEY = "stream"
@@ -32,17 +31,14 @@ _invoke_function: Callable[..., Any] | None = None
 _stream_function: Callable[..., Any] | None = None
 
 
-@experimental(version="3.6.0")
 def get_invoke_function():
     return _invoke_function
 
 
-@experimental(version="3.6.0")
 def get_stream_function():
     return _stream_function
 
 
-@experimental(version="3.6.0")
 def invoke() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
     """Decorator to register a function as an invoke endpoint. Can only be used once."""
 
@@ -61,7 +57,6 @@ def invoke() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
     return decorator
 
 
-@experimental(version="3.6.0")
 def stream() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
     """Decorator to register a function as a stream endpoint. Can only be used once."""
 
@@ -80,7 +75,6 @@ def stream() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
     return decorator
 
 
-@experimental(version="3.6.0")
 class AgentServer:
     """FastAPI-based server for hosting agents.
 
@@ -202,8 +196,8 @@ class AgentServer:
                         try:
                             async for chunk in proxy_response.aiter_bytes():
                                 yield chunk
-                        except Exception as e:
-                            logger.error(f"Streaming error: {e}")
+                        except Exception:
+                            logger.exception("Streaming error")
                             raise
                         finally:
                             await proxy_response.aclose()
@@ -343,13 +337,14 @@ class AgentServer:
             return result
 
         except Exception as e:
-            logger.debug(
-                "Error response sent",
+            logger.exception(
+                "Error in invoke function: %s",
+                e,
                 extra={
                     "endpoint": "invoke",
-                    "error": str(e),
                     "function_name": func_name,
                 },
+                exc_info=True,
             )
 
             raise HTTPException(status_code=500, detail=str(e))
@@ -396,11 +391,10 @@ class AgentServer:
             )
 
         except Exception as e:
-            logger.debug(
+            logger.exception(
                 "Streaming response error",
                 extra={
                     "endpoint": "stream",
-                    "error": str(e),
                     "function_name": func_name,
                     "chunks_sent": len(all_chunks),
                 },
