@@ -11,4 +11,4 @@ Deploy a live preview of the MLflow UI as a [Databricks App](https://docs.databr
 
 ## Access
 
-Preview apps are only accessible to Databricks employees with workspace SSO access.
+Preview apps are only accessible to Databricks employees with workspace access.
