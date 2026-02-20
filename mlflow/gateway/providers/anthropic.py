@@ -584,15 +584,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             }
         }
         """
-        base = self._extract_token_usage_from_dict(
-            result.get("usage"), "input_tokens", "output_tokens"
+        return self._extract_token_usage_from_dict(
+            result.get("usage"),
+            "input_tokens",
+            "output_tokens",
+            cache_read_key="cache_read_input_tokens",
+            cache_creation_key="cache_creation_input_tokens",
         )
-        if base and (usage := result.get("usage")):
-            if (cached := usage.get("cache_read_input_tokens")) is not None:
-                base[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-            if (created := usage.get("cache_creation_input_tokens")) is not None:
-                base[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
-        return base
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         """

@@ -689,6 +689,28 @@ def test_litellm_extract_passthrough_token_usage_gemini_format():
     }
 
 
+def test_litellm_extract_passthrough_token_usage_gemini_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "candidates": [{"content": {"parts": [{"text": "Hello"}]}}],
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 20,
+            "totalTokenCount": 30,
+            "cachedContentTokenCount": 5,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.GEMINI_GENERATE_CONTENT, result
+    )
+    assert token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+        "cache_read_input_tokens": 5,
+    }
+
+
 def test_litellm_extract_passthrough_token_usage_no_usage():
     provider = LiteLLMProvider(EndpointConfig(**chat_config()))
     result = {"id": "chatcmpl-123", "choices": []}
@@ -736,6 +758,21 @@ def test_litellm_extract_streaming_token_usage_gemini_format():
         "input_tokens": 10,
         "output_tokens": 20,
         "total_tokens": 30,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_gemini_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"candidates":[{"content":{}}],"usageMetadata":'
+        b'{"promptTokenCount":10,"candidatesTokenCount":20,"totalTokenCount":30,"cachedContentTokenCount":5}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+        "cache_read_input_tokens": 5,
     }
 
 

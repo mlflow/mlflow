@@ -21,7 +21,6 @@ from mlflow.gateway.schemas import (
     embeddings as embeddings_schema,
 )
 from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
-from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCall
 
 GENERATION_CONFIG_KEY_MAPPING = {
@@ -812,16 +811,13 @@ class GeminiProvider(BaseProvider):
         }
         """
         usage_metadata = result.get("usageMetadata")
-        token_usage = self._extract_token_usage_from_dict(
+        return self._extract_token_usage_from_dict(
             usage_metadata,
             "promptTokenCount",
             "candidatesTokenCount",
             "totalTokenCount",
+            cache_read_key="cachedContentTokenCount",
         )
-        if token_usage and usage_metadata:
-            if (cached := usage_metadata.get("cachedContentTokenCount")) and cached > 0:
-                token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-        return token_usage
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         """
@@ -857,9 +853,8 @@ class GeminiProvider(BaseProvider):
                     "promptTokenCount",
                     "candidatesTokenCount",
                     "totalTokenCount",
+                    cache_read_key="cachedContentTokenCount",
                 ):
-                    if (cached := usage_metadata.get("cachedContentTokenCount")) and cached > 0:
-                        token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
                     return token_usage
 
         except (json.JSONDecodeError, UnicodeDecodeError):

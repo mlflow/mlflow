@@ -41,6 +41,17 @@ PASSTHROUGH_ROUTES = {
 }
 
 
+def _get_nested(d: dict[str, Any], key: str) -> Any:
+    """Look up a value by key, supporting 'key1.key2' notation for one level of nesting."""
+    parent, _, child = key.partition(".")
+    if not child:
+        return d.get(parent)
+    nested = d.get(parent)
+    if not isinstance(nested, dict):
+        return None
+    return nested.get(child)
+
+
 @developer_stable
 class BaseProvider(ABC):
     """
@@ -287,6 +298,8 @@ class BaseProvider(ABC):
         input_tokens_key: str,
         output_tokens_key: str,
         total_tokens_key: str | None = None,
+        cache_read_key: str | None = None,
+        cache_creation_key: str | None = None,
     ) -> dict[str, int] | None:
         """
         Extract token usage from a dictionary with configurable key names.
@@ -303,6 +316,10 @@ class BaseProvider(ABC):
                 "completion_tokens", "candidatesTokenCount").
             total_tokens_key: Optional key name for total tokens. If None or not present
                 in usage_dict, total will be calculated from input + output.
+            cache_read_key: Optional key for cache read tokens. Supports "key1.key2"
+                notation for nested dicts (e.g., "prompt_tokens_details.cached_tokens").
+            cache_creation_key: Optional key for cache creation tokens. Supports
+                "key1.key2" notation for nested dicts.
 
         Returns:
             A dictionary with normalized token usage keys (input_tokens, output_tokens,
@@ -326,6 +343,14 @@ class BaseProvider(ABC):
             token_usage[TokenUsageKey.TOTAL_TOKENS] = (
                 token_usage[TokenUsageKey.INPUT_TOKENS] + token_usage[TokenUsageKey.OUTPUT_TOKENS]
             )
+
+        if token_usage:
+            if cache_read_key is not None:
+                if (cached := _get_nested(usage_dict, cache_read_key)) is not None:
+                    token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+            if cache_creation_key is not None:
+                if (created := _get_nested(usage_dict, cache_creation_key)) is not None:
+                    token_usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
 
         return token_usage or None
 

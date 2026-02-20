@@ -25,7 +25,6 @@ from mlflow.gateway.uc_function_utils import (
     prepend_uc_functions,
 )
 from mlflow.gateway.utils import parse_sse_lines, stream_sse_data
-from mlflow.tracing.constant import TokenUsageKey
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 if TYPE_CHECKING:
@@ -684,21 +683,21 @@ class OpenAIProvider(BaseProvider):
             return None
 
         if action == PassthroughAction.OPENAI_RESPONSES:
-            token_usage = self._extract_token_usage_from_dict(
-                usage, "input_tokens", "output_tokens", "total_tokens"
+            return self._extract_token_usage_from_dict(
+                usage,
+                "input_tokens",
+                "output_tokens",
+                "total_tokens",
+                cache_read_key="input_tokens_details.cached_tokens",
             )
-            details_key = "input_tokens_details"
         else:
-            token_usage = self._extract_token_usage_from_dict(
-                usage, "prompt_tokens", "completion_tokens", "total_tokens"
+            return self._extract_token_usage_from_dict(
+                usage,
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+                cache_read_key="prompt_tokens_details.cached_tokens",
             )
-            details_key = "prompt_tokens_details"
-
-        if token_usage and (details := usage.get(details_key)):
-            if (cached := details.get("cached_tokens")) is not None:
-                token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-
-        return token_usage
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         """
@@ -719,23 +718,24 @@ class OpenAIProvider(BaseProvider):
 
             if resp_usage:
                 token_usage = self._extract_token_usage_from_dict(
-                    resp_usage, "input_tokens", "output_tokens", "total_tokens"
+                    resp_usage,
+                    "input_tokens",
+                    "output_tokens",
+                    "total_tokens",
+                    cache_read_key="input_tokens_details.cached_tokens",
                 )
-                details_key = "input_tokens_details"
-                usage_dict = resp_usage
             elif chat_usage:
                 token_usage = self._extract_token_usage_from_dict(
-                    chat_usage, "prompt_tokens", "completion_tokens", "total_tokens"
+                    chat_usage,
+                    "prompt_tokens",
+                    "completion_tokens",
+                    "total_tokens",
+                    cache_read_key="prompt_tokens_details.cached_tokens",
                 )
-                details_key = "prompt_tokens_details"
-                usage_dict = chat_usage
             else:
                 continue
 
             if token_usage:
-                if details := usage_dict.get(details_key):
-                    if (cached := details.get("cached_tokens")) is not None:
-                        token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
                 return token_usage
         return {}
 
