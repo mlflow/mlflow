@@ -19,6 +19,7 @@ import {
   useMonitoringFilters,
   useMonitoringFiltersTimeRange,
 } from '../hooks/useMonitoringFilters';
+import { MonitoringConfigProvider } from '../hooks/useMonitoringConfig';
 
 /**
  * Default columns to be visible when selecting traces.
@@ -185,8 +186,10 @@ export const SelectTracesModal = (props: SelectTracesModalProps) => {
     [monitoringFilters, setMonitoringFilters],
   );
   return (
-    <MonitoringFiltersUpdateContext.Provider value={contextValue}>
-      <SelectTracesModalImpl {...props} />
-    </MonitoringFiltersUpdateContext.Provider>
+    <MonitoringConfigProvider>
+      <MonitoringFiltersUpdateContext.Provider value={contextValue}>
+        <SelectTracesModalImpl {...props} />
+      </MonitoringFiltersUpdateContext.Provider>
+    </MonitoringConfigProvider>
   );
 };
