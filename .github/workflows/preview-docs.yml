@@ -35,9 +35,8 @@ jobs:
           else
             # Derive PR number from the workflow run's head SHA via API
             # instead of trusting the artifact (which fork PRs can manipulate)
-            PR_NUMBER=$(gh api repos/$REPO/pulls \
-              --jq ".[] | select(.head.sha == \"$HEAD_SHA\") | .number" \
-              | head -n 1)
+            PR_NUMBER=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" \
+              --jq '.[0].number')
             if [ -z "$PR_NUMBER" ]; then
               echo "::error::Could not find PR for SHA $HEAD_SHA"
               exit 1
