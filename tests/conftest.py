@@ -552,6 +552,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/mistral",
             "tests/models",
             "tests/onnx",
+            "tests/otel",
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",

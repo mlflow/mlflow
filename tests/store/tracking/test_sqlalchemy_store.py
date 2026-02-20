@@ -13059,6 +13059,48 @@ def test_log_spans_then_start_trace_preserves_tag(store: SqlAlchemyStore):
     assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
 
 
+def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_preview_preserved")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Create a root span with OpenInference attributes that the translator will
+    # convert to mlflow.spanInputs / mlflow.spanOutputs.
+    span = create_test_span(
+        trace_id=trace_id,
+        name="llm_call",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+        attributes={
+            "input.value": '{"messages": [{"role": "user", "content": "Hello"}]}',
+            "output.value": '{"choices": [{"message": {"role": "assistant", "content": "Hi"}}]}',
+            "openinference.span.kind": "LLM",
+        },
+    )
+    store.log_spans(experiment_id, [span])
+
+    # Simulate the client-side start_trace call that follows log_spans in the
+    # MlflowV3SpanExporter.  The client-side TraceInfo does NOT carry previews.
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    store.start_trace(trace_info_for_start)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview is not None
+    assert trace_info.response_preview is not None
+    assert "Hello" in trace_info.request_preview
+    assert "Hi" in trace_info.response_preview
+
+
 @pytest.mark.skipif(
     mlflow.get_tracking_uri().startswith("mysql"),
     reason="MySQL does not support concurrent log_spans calls for now",

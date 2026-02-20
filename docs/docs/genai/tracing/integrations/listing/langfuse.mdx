@@ -1,0 +1,113 @@
+---
+sidebar_position: 13
+sidebar_label: Langfuse
+---
+
+import { APILink } from "@site/src/components/APILink";
+import StepHeader from "@site/src/components/StepHeader";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+
+# Tracing Langfuse
+
+[Langfuse](https://langfuse.com) is an open-source LLM engineering platform for tracing, evaluating, and monitoring AI applications.
+
+The MLflow Langfuse integration lets you add MLflow tracing to your existing Langfuse-instrumented code **with a single line**. When enabled, every trace that Langfuse generates is automatically _mirrored_ to the MLflow backend as a fully populated MLflow trace. This includes traces from the `@observe()` decorator, the low-level `langfuse.trace()` / `langfuse.span()` APIs, and any Langfuse SDK integration. Langfuse tracing is completely unaffected; this is purely additive.
+
+```python
+import mlflow
+
+mlflow.otel.autolog()
+```
+
+Because Langfuse is built on OpenTelemetry, `mlflow.otel.autolog()` registers an MLflow span processor on the global `TracerProvider` that Langfuse uses. Langfuse attribute translation (span types, inputs, outputs) is handled automatically by the MLflow backend.
+
+MLflow automatically captures the following information from every Langfuse trace:
+
+- Span inputs and outputs
+- Latencies
+- Span name
+- Span type mapped from Langfuse's observation type (e.g. `generation` becomes `LLM`, `tool` becomes `TOOL`)
+- Parent-child span nesting
+- Any exception if raised
+
+## Getting Started
+
+<StepHeader number={1} title="Install Dependencies" />
+
+```bash
+pip install mlflow langfuse
+```
+
+<StepHeader number={2} title="Start MLflow Server" />
+
+<ServerSetup />
+
+<StepHeader number={3} title="Enable Tracing and Run Your Application" />
+
+```python
+import mlflow
+from langfuse import Langfuse, observe
+
+# Enable MLflow tracing for all Langfuse traces
+mlflow.otel.autolog()
+
+# Set a tracking URI and an experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("Langfuse")
+
+langfuse = Langfuse()
+
+
+@observe(name="chat_completion", as_type="generation")
+def chat_completion(messages):
+    # Your LLM call here
+    return "Hello! How can I help you?"
+
+
+# Use the low-level Langfuse client API to create a trace
+trace = langfuse.trace(name="agent_turn")
+messages = [{"role": "user", "content": "What is MLflow?"}]
+result = chat_completion(messages)
+trace.update(output=result)
+print(result)
+```
+
+:::note
+`mlflow.otel.autolog()` can be called before or after Langfuse is imported or initialized. Both Langfuse and MLflow perform the same `ProxyTracerProvider` to `SdkTracerProvider` replacement and reuse an existing provider if one is already set, so initialization order does not matter.
+:::
+
+<StepHeader number={4} title="View Traces in MLflow UI" />
+
+Browse to the MLflow UI at http://localhost:5000 (or your MLflow server URL) and you should see the traces for your Langfuse-instrumented application. Nested calls will appear as parent-child spans in the trace view, with proper inputs, outputs, and span types.
+
+## Supported Features
+
+| Sync | Async | Generators | Nested Spans |
+| :--: | :---: | :--------: | :----------: |
+|  ✅  |  ✅   |     ✅     |      ✅      |
+
+## Span Type Mapping
+
+MLflow maps Langfuse's `as_type` parameter to MLflow span types:
+
+| Langfuse `as_type` | MLflow Span Type |
+| :----------------: | :--------------: |
+|    `generation`    |      `LLM`       |
+|    `embedding`     |   `EMBEDDING`    |
+|       `tool`       |      `TOOL`      |
+|    `retriever`     |   `RETRIEVER`    |
+|      `agent`       |     `AGENT`      |
+|      `chain`       |     `CHAIN`      |
+|    `evaluator`     |   `EVALUATOR`    |
+|    `guardrail`     |   `GUARDRAIL`    |
+|       `span`       |    `UNKNOWN`     |
+
+## Disable auto-tracing
+
+Auto tracing can be disabled globally by calling `mlflow.otel.autolog(disable=True)`.
+
+```python
+mlflow.otel.autolog(disable=True)
+```
+
+After disabling, new Langfuse traces will no longer be mirrored to MLflow.

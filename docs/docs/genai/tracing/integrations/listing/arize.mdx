@@ -1,0 +1,138 @@
+---
+sidebar_position: 14
+sidebar_label: Arize / Phoenix
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+import ServerSetup from "@site/src/content/setup_server_slim.mdx";
+
+# Tracing Arize / Phoenix
+
+[Arize Phoenix](https://github.com/Arize-ai/phoenix) is an open-source AI observability platform. Its [OpenInference](https://github.com/Arize-ai/openinference) instrumentation libraries produce OpenTelemetry spans with rich AI-specific attributes for model providers like OpenAI, Anthropic, and others.
+
+Because OpenInference is built on OpenTelemetry, you can use `mlflow.otel.autolog()` to mirror every instrumented call to the MLflow backend. The MLflow server automatically translates OpenInference attributes to MLflow span types, inputs, outputs, token usage, and model name. Phoenix tracing is completely unaffected; this is purely additive.
+
+```python
+import mlflow
+
+mlflow.otel.autolog()
+```
+
+MLflow automatically captures the following information from OpenInference spans:
+
+- Span inputs and outputs
+- Latencies
+- Span name
+- Span type mapped from OpenInference span kind (e.g. `LLM`, `RETRIEVER`, `TOOL`)
+- Token usage (prompt, completion, total)
+- Model name
+- Parent-child span nesting
+- Any exception if raised
+
+## Getting Started
+
+<StepHeader number={1} title="Install Dependencies" />
+
+Install MLflow and the OpenInference instrumentor for your model provider. This example uses OpenAI:
+
+```bash
+pip install mlflow openai openinference-instrumentation-openai opentelemetry-sdk
+```
+
+Other instrumentors are available for [LangChain](https://pypi.org/project/openinference-instrumentation-langchain/), [LlamaIndex](https://pypi.org/project/openinference-instrumentation-llama-index/), [Anthropic](https://pypi.org/project/openinference-instrumentation-anthropic/), and more. See the [OpenInference repository](https://github.com/Arize-ai/openinference) for the full list.
+
+<StepHeader number={2} title="Start MLflow Server" />
+
+<ServerSetup />
+
+<StepHeader number={3} title="Enable Tracing and Run Your Application" />
+
+```python
+import mlflow
+from openai import OpenAI
+from openinference.instrumentation.openai import OpenAIInstrumentor
+
+# Register the MLflow span processor on the global OTEL TracerProvider
+mlflow.otel.autolog()
+
+# Auto-instrument all OpenAI SDK calls
+OpenAIInstrumentor().instrument()
+
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("Phoenix")
+
+client = OpenAI()
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "What is MLflow?"}],
+    max_tokens=256,
+)
+print(response.choices[0].message.content)
+```
+
+:::note
+`mlflow.otel.autolog()` can be called before or after the OpenInference instrumentor. Both perform the same `ProxyTracerProvider` to `SdkTracerProvider` replacement and reuse an existing provider if one is already set, so initialization order does not matter.
+:::
+
+<StepHeader number={4} title="View Traces in MLflow UI" />
+
+Browse to the MLflow UI at http://localhost:5000 (or your MLflow server URL) and you should see the traces for your OpenInference-instrumented application. Each LLM call will appear with proper inputs, outputs, span types, token usage, and model name.
+
+## Dual Tracing with Phoenix
+
+You can send spans to both MLflow and Phoenix simultaneously by adding an OTLP exporter to the shared `TracerProvider`:
+
+```python
+import mlflow
+from openai import OpenAI
+from openinference.instrumentation.openai import OpenAIInstrumentor
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+# Register MLflow span processor
+mlflow.otel.autolog()
+
+# Also send spans to Phoenix (running on port 6006)
+provider = trace.get_tracer_provider()
+provider.add_span_processor(
+    SimpleSpanProcessor(OTLPSpanExporter("http://localhost:6006/v1/traces"))
+)
+
+# Auto-instrument OpenAI
+OpenAIInstrumentor().instrument()
+
+client = OpenAI()
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+```
+
+This works because both MLflow and Phoenix register as span processors on the same OpenTelemetry `TracerProvider`. Every span is dispatched to all registered processors.
+
+## Span Type Mapping
+
+MLflow maps OpenInference span kinds to MLflow span types:
+
+| OpenInference Span Kind | MLflow Span Type |
+| :----------------------: | :--------------: |
+|          `LLM`           |      `LLM`       |
+|        `EMBEDDING`       |   `EMBEDDING`    |
+|          `TOOL`          |      `TOOL`      |
+|       `RETRIEVER`        |   `RETRIEVER`    |
+|         `AGENT`          |     `AGENT`      |
+|         `CHAIN`          |     `CHAIN`      |
+|        `RERANKER`        |   `RERANKER`     |
+|       `GUARDRAIL`        |   `GUARDRAIL`    |
+|       `EVALUATOR`        |   `EVALUATOR`    |
+
+## Disable auto-tracing
+
+Auto tracing can be disabled globally by calling `mlflow.otel.autolog(disable=True)`.
+
+```python
+mlflow.otel.autolog(disable=True)
+```
+
+After disabling, new OpenInference spans will no longer be forwarded to MLflow.
