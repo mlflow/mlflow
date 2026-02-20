@@ -1036,6 +1036,8 @@ def _save_model_with_class_artifacts_params(
     model_code_path=None,
     infer_code_paths=False,
     uv_project_path=None,
+    uv_groups=None,
+    uv_extras=None,
 ):
     """
     Args:
@@ -1233,6 +1235,8 @@ def _save_model_with_class_artifacts_params(
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
                 uv_project_dir=uv_source_dir,
+                uv_groups=uv_groups,
+                uv_extras=uv_extras,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:

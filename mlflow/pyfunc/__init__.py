@@ -2861,6 +2861,8 @@ def save_model(
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
     uv_project_path: str | Path | None = None,
+    uv_groups: list[str] | None = None,
+    uv_extras: list[str] | None = None,
     **kwargs,
 ):
     """
@@ -3055,6 +3057,18 @@ def save_model(
 
             Auto-detection can be disabled by setting the environment variable
             ``MLFLOW_UV_AUTO_DETECT=false``.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        uv_groups: Optional list of uv dependency groups to include when exporting
+            requirements from the uv lockfile. Maps to ``uv export --group <name>``.
+            These are additive with the project's default dependencies.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        uv_extras: Optional list of uv extras (optional dependency sets) to include
+            when exporting requirements from the uv lockfile. Maps to
+            ``uv export --extra <name>``.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -3376,6 +3390,8 @@ def save_model(
             streamable=streamable,
             infer_code_paths=infer_code_paths,
             uv_project_path=uv_project_path,
+            uv_groups=uv_groups,
+            uv_extras=uv_extras,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -3393,6 +3409,8 @@ def save_model(
             model_code_path=model_code_path,
             infer_code_paths=infer_code_paths,
             uv_project_path=uv_project_path,
+            uv_groups=uv_groups,
+            uv_extras=uv_extras,
         )
 
 
@@ -3431,6 +3449,8 @@ def log_model(
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
     uv_project_path: str | Path | None = None,
+    uv_groups: list[str] | None = None,
+    uv_extras: list[str] | None = None,
     prompts: list[str | Prompt] | None = None,
     name=None,
     params: dict[str, Any] | None = None,
@@ -3647,6 +3667,18 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        uv_groups: Optional list of uv dependency groups to include when exporting
+            requirements from the uv lockfile. Maps to ``uv export --group <name>``.
+            These are additive with the project's default dependencies.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        uv_extras: Optional list of uv extras (optional dependency sets) to include
+            when exporting requirements from the uv lockfile. Maps to
+            ``uv export --extra <name>``.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -3684,6 +3716,8 @@ def log_model(
         infer_code_paths=infer_code_paths,
         auth_policy=auth_policy,
         uv_project_path=uv_project_path,
+        uv_groups=uv_groups,
+        uv_extras=uv_extras,
         params=params,
         tags=tags,
         model_type=model_type,
@@ -3723,6 +3757,8 @@ def _save_model_with_loader_module_and_data_path(
     streamable=None,
     infer_code_paths=False,
     uv_project_path=None,
+    uv_groups=None,
+    uv_extras=None,
 ):
     """
     Export model as a generic Python function model.
@@ -3804,6 +3840,8 @@ def _save_model_with_loader_module_and_data_path(
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
                 uv_project_dir=uv_source_dir,
+                uv_groups=uv_groups,
+                uv_extras=uv_extras,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:

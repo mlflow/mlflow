@@ -409,6 +409,8 @@ def infer_pip_requirements(
     timeout=None,
     extra_env_vars=None,
     uv_project_dir=None,
+    uv_groups=None,
+    uv_extras=None,
 ):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
@@ -429,6 +431,10 @@ def infer_pip_requirements(
         uv_project_dir: Explicit path to a uv project directory. When provided, overrides
             the ``MLFLOW_UV_AUTO_DETECT`` environment variable and searches the specified
             directory instead of cwd. Default to None (auto-detect from cwd).
+        uv_groups: Optional list of uv dependency groups to include when exporting
+            requirements. Maps to ``uv export --group <name>``.
+        uv_extras: Optional list of uv extras (optional dependency sets) to include
+            when exporting requirements. Maps to ``uv export --extra <name>``.
 
     Returns:
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
@@ -443,7 +449,11 @@ def infer_pip_requirements(
                 f"Detected uv project at {uv_project.uv_lock.parent}. "
                 "Attempting to export requirements via 'uv export'."
             )
-            if uv_requirements := export_uv_requirements(uv_project.uv_lock.parent):
+            if uv_requirements := export_uv_requirements(
+                uv_project.uv_lock.parent,
+                groups=uv_groups,
+                extras=uv_extras,
+            ):
                 _logger.info(
                     f"Successfully exported {len(uv_requirements)} requirements from uv project. "
                     "Skipping package capture based inference."

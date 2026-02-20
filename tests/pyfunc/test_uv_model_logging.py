@@ -378,6 +378,86 @@ def test_mlflow_log_uv_files_env_var_true_variants(
         assert (artifact_dir / _PYPROJECT_FILE).exists()
 
 
+# --- Dependency Groups Integration Tests ---
+
+
+@pytest.fixture
+def uv_project_with_groups(tmp_path):
+    """Create a uv project with dependency groups."""
+    pyproject_content = """[project]
+name = "test_uv_groups"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+gpu = ["scipy>=1.10.0"]
+
+[dependency-groups]
+serving = ["gunicorn>=21.0.0"]
+dev = ["pytest>=7.0.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+"""
+    (tmp_path / _PYPROJECT_FILE).write_text(pyproject_content)
+    (tmp_path / _PYTHON_VERSION_FILE).write_text("3.11.5\n")
+
+    pkg_dir = tmp_path / "test_uv_groups"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text('"""Test uv groups project."""\n__version__ = "0.1.0"\n')
+
+    result = subprocess.run(
+        ["uv", "lock"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        pytest.skip(f"uv lock failed: {result.stderr}")
+
+    return tmp_path
+
+
+@requires_uv
+def test_export_uv_requirements_with_groups_real(uv_project_with_groups):
+    from mlflow.utils.uv_utils import export_uv_requirements
+
+    result = export_uv_requirements(uv_project_with_groups, groups=["serving"])
+
+    assert result is not None
+    pkg_names = [r.split("==")[0].lower() for r in result]
+    assert "numpy" in pkg_names
+    assert "gunicorn" in pkg_names
+    assert "pytest" not in pkg_names
+
+
+@requires_uv
+def test_export_uv_requirements_with_only_groups_real(uv_project_with_groups):
+    from mlflow.utils.uv_utils import export_uv_requirements
+
+    result = export_uv_requirements(uv_project_with_groups, only_groups=["serving"])
+
+    assert result is not None
+    pkg_names = [r.split("==")[0].lower() for r in result]
+    assert "gunicorn" in pkg_names
+
+
+@requires_uv
+def test_export_uv_requirements_with_extras_real(uv_project_with_groups):
+    from mlflow.utils.uv_utils import export_uv_requirements
+
+    result = export_uv_requirements(uv_project_with_groups, extras=["gpu"])
+
+    assert result is not None
+    pkg_names = [r.split("==")[0].lower() for r in result]
+    assert "numpy" in pkg_names
+    assert "scipy" in pkg_names
+
+
 # --- uv Sync Environment Setup Integration Tests ---
 
 
