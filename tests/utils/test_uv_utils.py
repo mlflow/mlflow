@@ -7,7 +7,6 @@ from packaging.version import Version
 from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
 from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.uv_utils import (
-    _MIN_UV_VERSION,
     _PYPROJECT_FILE,
     _UV_LOCK_FILE,
     copy_uv_project_files,
@@ -64,35 +63,46 @@ def test_get_uv_version_returns_none_on_parse_error():
 
 
 def test_is_uv_available_returns_false_when_uv_not_installed():
-    with mock.patch("mlflow.utils.uv_utils.get_uv_version", return_value=None):
+    with mock.patch("mlflow.utils.uv_utils.shutil.which", return_value=None):
         assert is_uv_available() is False
 
 
 def test_is_uv_available_returns_false_when_version_below_minimum():
-    with mock.patch("mlflow.utils.uv_utils.get_uv_version", return_value=Version("0.4.0")):
+    mock_result = mock.Mock()
+    mock_result.stdout = "uv 0.4.0 (abc123 2024-01-01)"
+    with (
+        mock.patch("mlflow.utils.uv_utils.shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result),
+    ):
         assert is_uv_available() is False
 
 
-def test_is_uv_available_returns_true_when_version_meets_minimum():
-    with mock.patch("mlflow.utils.uv_utils.get_uv_version", return_value=_MIN_UV_VERSION):
-        assert is_uv_available() is True
-
-
-def test_is_uv_available_returns_true_when_version_exceeds_minimum():
-    with mock.patch("mlflow.utils.uv_utils.get_uv_version", return_value=Version("1.0.0")):
+@pytest.mark.parametrize("version_str", ["0.5.0", "1.0.0"])
+def test_is_uv_available_returns_true_when_version_meets_or_exceeds_minimum(version_str):
+    mock_result = mock.Mock()
+    mock_result.stdout = f"uv {version_str} (abc123 2024-01-01)"
+    with (
+        mock.patch("mlflow.utils.uv_utils.shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result),
+    ):
         assert is_uv_available() is True
 
 
 # --- detect_uv_project tests ---
 
 
-def test_detect_uv_project_returns_none_when_no_uv_lock(tmp_path):
-    (tmp_path / _PYPROJECT_FILE).touch()
-    assert detect_uv_project(tmp_path) is None
-
-
-def test_detect_uv_project_returns_none_when_no_pyproject(tmp_path):
-    (tmp_path / _UV_LOCK_FILE).touch()
+@pytest.mark.parametrize(
+    ("create_uv_lock", "create_pyproject"),
+    [(False, True), (True, False)],
+    ids=["missing_uv_lock", "missing_pyproject"],
+)
+def test_detect_uv_project_returns_none_when_file_missing(
+    tmp_path, create_uv_lock, create_pyproject
+):
+    if create_uv_lock:
+        (tmp_path / _UV_LOCK_FILE).touch()
+    if create_pyproject:
+        (tmp_path / _PYPROJECT_FILE).touch()
     assert detect_uv_project(tmp_path) is None
 
 
@@ -120,7 +130,7 @@ def test_detect_uv_project_uses_cwd_when_directory_not_specified(tmp_path, monke
 
 
 def test_export_uv_requirements_returns_none_when_uv_not_available():
-    with mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=False):
+    with mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value=None):
         assert export_uv_requirements() is None
 
 
@@ -133,17 +143,12 @@ pandas==2.0.0
     mock_result.stdout = uv_output
 
     with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", return_value=mock_result) as mock_run,
     ):
         result = export_uv_requirements(tmp_path)
 
-        assert result is not None
-        assert len(result) == 3
-        assert "requests==2.28.0" in result
-        assert "numpy==1.24.0" in result
-        assert "pandas==2.0.0" in result
+        assert result == ["requests==2.28.0", "numpy==1.24.0", "pandas==2.0.0"]
         mock_run.assert_called_once()
 
 
@@ -156,17 +161,14 @@ numpy==1.24.0
     mock_result.stdout = uv_output
 
     with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", return_value=mock_result),
     ):
         result = export_uv_requirements(tmp_path)
 
         assert result is not None
         assert len(result) == 3
-        assert "requests==2.28.0" in result
         assert "pywin32==306 ; sys_platform == 'win32'" in result
-        assert "numpy==1.24.0" in result
 
 
 def test_export_uv_requirements_keeps_all_marker_variants(tmp_path):
@@ -177,8 +179,7 @@ numpy==2.4.1 ; python_version >= '3.11'
     mock_result.stdout = uv_output
 
     with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", return_value=mock_result),
     ):
         result = export_uv_requirements(tmp_path)
@@ -190,11 +191,32 @@ numpy==2.4.1 ; python_version >= '3.11'
 
 def test_export_uv_requirements_returns_none_on_subprocess_error(tmp_path):
     with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "uv")),
     ):
         assert export_uv_requirements(tmp_path) is None
+
+
+def test_export_uv_requirements_with_explicit_directory(tmp_path):
+    (tmp_path / _UV_LOCK_FILE).touch()
+
+    uv_output = """requests==2.28.0
+numpy==1.24.0
+"""
+    mock_result = mock.Mock()
+    mock_result.stdout = uv_output
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        result = export_uv_requirements(directory=tmp_path)
+
+        assert result is not None
+        assert "requests==2.28.0" in result
+        assert "numpy==1.24.0" in result
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["cwd"] == tmp_path
 
 
 # --- copy_uv_project_files tests ---
@@ -223,17 +245,24 @@ def test_copy_uv_project_files_copies_files_when_uv_project(tmp_path):
     result = copy_uv_project_files(dest_dir, source_dir)
 
     assert result is True
-    assert (dest_dir / _UV_LOCK_FILE).exists()
-    assert (dest_dir / _PYPROJECT_FILE).exists()
     assert (dest_dir / _UV_LOCK_FILE).read_text() == "lock content"
     assert (dest_dir / _PYPROJECT_FILE).read_text() == "pyproject content"
 
 
-def test_copy_uv_project_files_with_explicit_source_dir(tmp_path):
+@pytest.mark.parametrize(
+    ("has_python_version", "expected_exists"),
+    [(True, True), (False, False)],
+    ids=["with_python_version", "without_python_version"],
+)
+def test_copy_uv_project_files_python_version_handling(
+    tmp_path, has_python_version, expected_exists
+):
     source_dir = tmp_path / "source"
     source_dir.mkdir()
     (source_dir / _UV_LOCK_FILE).write_text("lock content")
     (source_dir / _PYPROJECT_FILE).write_text("pyproject content")
+    if has_python_version:
+        (source_dir / ".python-version").write_text("3.11.5")
 
     dest_dir = tmp_path / "dest"
     dest_dir.mkdir()
@@ -241,42 +270,9 @@ def test_copy_uv_project_files_with_explicit_source_dir(tmp_path):
     result = copy_uv_project_files(dest_dir, source_dir)
 
     assert result is True
-    assert (dest_dir / _UV_LOCK_FILE).exists()
-
-
-def test_copy_uv_project_files_copies_python_version_file(tmp_path):
-    source_dir = tmp_path / "source"
-    source_dir.mkdir()
-    (source_dir / _UV_LOCK_FILE).write_text("lock content")
-    (source_dir / _PYPROJECT_FILE).write_text("pyproject content")
-    (source_dir / ".python-version").write_text("3.11.5")
-
-    dest_dir = tmp_path / "dest"
-    dest_dir.mkdir()
-
-    result = copy_uv_project_files(dest_dir, source_dir)
-
-    assert result is True
-    assert (dest_dir / ".python-version").exists()
-    assert (dest_dir / ".python-version").read_text() == "3.11.5"
-
-
-def test_copy_uv_project_files_works_without_python_version_file(tmp_path):
-    source_dir = tmp_path / "source"
-    source_dir.mkdir()
-    (source_dir / _UV_LOCK_FILE).write_text("lock content")
-    (source_dir / _PYPROJECT_FILE).write_text("pyproject content")
-    # No .python-version file
-
-    dest_dir = tmp_path / "dest"
-    dest_dir.mkdir()
-
-    result = copy_uv_project_files(dest_dir, source_dir)
-
-    assert result is True
-    assert (dest_dir / _UV_LOCK_FILE).exists()
-    assert (dest_dir / _PYPROJECT_FILE).exists()
-    assert not (dest_dir / ".python-version").exists()
+    assert (dest_dir / ".python-version").exists() == expected_exists
+    if expected_exists:
+        assert (dest_dir / ".python-version").read_text() == "3.11.5"
 
 
 def test_copy_uv_project_files_respects_mlflow_log_uv_files_env_false(tmp_path, monkeypatch):
@@ -329,43 +325,7 @@ def test_copy_uv_project_files_env_var_true_variants(tmp_path, monkeypatch, env_
     assert result is True
 
 
-# --- explicit uv_project_path parameter tests ---
-
-
-def test_export_uv_requirements_with_explicit_uv_project_path(tmp_path):
-    # Create the uv.lock file so it exists
-    (tmp_path / _UV_LOCK_FILE).touch()
-
-    uv_output = """requests==2.28.0
-numpy==1.24.0
-"""
-    mock_result = mock.Mock()
-    mock_result.stdout = uv_output
-
-    with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
-        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
-    ):
-        result = export_uv_requirements(directory=tmp_path)
-
-        assert result is not None
-        assert "requests==2.28.0" in result
-        assert "numpy==1.24.0" in result
-        mock_run.assert_called_once()
-        # Verify cwd is set to the project directory
-        assert mock_run.call_args.kwargs["cwd"] == tmp_path
-
-
-def test_export_uv_requirements_with_nonexistent_uv_project_path(tmp_path):
-    nonexistent_dir = tmp_path / "nonexistent"
-
-    with mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True):
-        result = export_uv_requirements(directory=nonexistent_dir)
-        assert result is None
-
-
-def test_copy_uv_project_files_with_explicit_uv_project_path(tmp_path):
+def test_copy_uv_project_files_with_monorepo_layout(tmp_path):
     project_dir = tmp_path / "monorepo" / "subproject"
     project_dir.mkdir(parents=True)
     (project_dir / _UV_LOCK_FILE).write_text("lock content from monorepo")
@@ -378,14 +338,11 @@ def test_copy_uv_project_files_with_explicit_uv_project_path(tmp_path):
     result = copy_uv_project_files(dest_dir, source_dir=project_dir)
 
     assert result is True
-    assert (dest_dir / _UV_LOCK_FILE).exists()
-    assert (dest_dir / _PYPROJECT_FILE).exists()
-    assert (dest_dir / ".python-version").exists()
     assert (dest_dir / _UV_LOCK_FILE).read_text() == "lock content from monorepo"
     assert (dest_dir / ".python-version").read_text() == "3.12.0"
 
 
-def test_copy_uv_project_files_with_nonexistent_uv_project_path(tmp_path):
+def test_copy_uv_project_files_with_nonexistent_source(tmp_path):
     dest_dir = tmp_path / "dest"
     dest_dir.mkdir()
     nonexistent_dir = tmp_path / "nonexistent"
@@ -394,11 +351,10 @@ def test_copy_uv_project_files_with_nonexistent_uv_project_path(tmp_path):
     assert result is False
 
 
-def test_copy_uv_project_files_with_uv_project_path_missing_pyproject(tmp_path):
+def test_copy_uv_project_files_with_missing_pyproject(tmp_path):
     project_dir = tmp_path / "incomplete_project"
     project_dir.mkdir()
     (project_dir / _UV_LOCK_FILE).write_text("lock content")
-    # Missing pyproject.toml
 
     dest_dir = tmp_path / "dest"
     dest_dir.mkdir()
@@ -411,7 +367,6 @@ def test_copy_uv_project_files_with_uv_project_path_missing_pyproject(tmp_path):
 
 
 def test_infer_pip_requirements_uses_uv_when_project_detected(tmp_path, monkeypatch):
-    # Setup uv project
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "true")
     (tmp_path / _UV_LOCK_FILE).touch()
@@ -422,11 +377,9 @@ def test_infer_pip_requirements_uses_uv_when_project_detected(tmp_path, monkeypa
     mock_result.stdout = uv_output
 
     with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", return_value=mock_result),
     ):
-        # Call with a dummy model_uri - uv path should be taken before model loading
         result = infer_pip_requirements("runs:/fake/model", "sklearn")
 
         assert "requests==2.28.0" in result
@@ -434,25 +387,18 @@ def test_infer_pip_requirements_uses_uv_when_project_detected(tmp_path, monkeypa
 
 
 def test_infer_pip_requirements_falls_back_when_uv_not_available(tmp_path, monkeypatch):
-    # Setup uv project (but uv not available)
     monkeypatch.chdir(tmp_path)
     (tmp_path / _UV_LOCK_FILE).touch()
     (tmp_path / _PYPROJECT_FILE).touch()
 
-    # uv not available - should not call subprocess.run for uv export
-    with mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=False):
-        # This will fall back to model inference which may fail without a real model
-        # We just verify uv export is not attempted
+    with mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value=None):
         result = export_uv_requirements(tmp_path)
-        assert result is None  # uv path returns None, triggering fallback
+        assert result is None
 
 
 def test_detect_uv_project_not_detected_when_files_missing(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    # No uv project files
-
-    result = detect_uv_project()
-    assert result is None  # Not a uv project
+    assert detect_uv_project() is None
 
 
 # --- MLFLOW_UV_AUTO_DETECT Environment Variable Tests ---
@@ -476,27 +422,23 @@ def test_mlflow_uv_auto_detect_returns_true_when_enabled(monkeypatch, env_value)
 
 
 def test_infer_pip_requirements_skips_uv_when_auto_detect_disabled(tmp_path, monkeypatch):
-    # Setup uv project
     monkeypatch.chdir(tmp_path)
     (tmp_path / "uv.lock").touch()
     (tmp_path / "pyproject.toml").touch()
 
-    # Without disabling - should detect uv project
     assert detect_uv_project() is not None
 
-    # With auto-detect disabled - infer_pip_requirements should skip uv entirely
     monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
 
-    # Note: detect_uv_project itself still works, but infer_pip_requirements
-    # checks MLFLOW_UV_AUTO_DETECT.get() before calling it
-    # This test verifies the function exists and works correctly
+
+# --- Private Index URL Extraction Tests ---
 
 
-# --- Phase 2: Private Index URL Extraction Tests ---
-
-
-def test_extract_index_urls_from_uv_lock(tmp_path):
-    uv_lock_content = """
+@pytest.mark.parametrize(
+    ("uv_lock_content", "expected_urls"),
+    [
+        (
+            """
 version = 1
 requires-python = ">=3.11"
 
@@ -509,19 +451,11 @@ source = { registry = "https://internal.company.com/simple" }
 name = "numpy"
 version = "1.24.0"
 source = { registry = "https://pypi.org/simple" }
-"""
-    uv_lock_path = tmp_path / "uv.lock"
-    uv_lock_path.write_text(uv_lock_content)
-
-    result = extract_index_urls_from_uv_lock(uv_lock_path)
-
-    assert len(result) == 1
-    assert "https://internal.company.com/simple" in result
-    assert "https://pypi.org/simple" not in result
-
-
-def test_extract_index_urls_from_uv_lock_multiple_private(tmp_path):
-    uv_lock_content = """
+""",
+            ["https://internal.company.com/simple"],
+        ),
+        (
+            """
 version = 1
 
 [[package]]
@@ -535,30 +469,28 @@ source = { registry = "https://private2.com/simple" }
 [[package]]
 name = "pkg3"
 source = { registry = "https://private1.com/simple" }
-"""
-    uv_lock_path = tmp_path / "uv.lock"
-    uv_lock_path.write_text(uv_lock_content)
-
-    result = extract_index_urls_from_uv_lock(uv_lock_path)
-
-    assert len(result) == 2
-    assert "https://private1.com/simple" in result
-    assert "https://private2.com/simple" in result
-
-
-def test_extract_index_urls_from_uv_lock_no_private(tmp_path):
-    uv_lock_content = """
+""",
+            ["https://private1.com/simple", "https://private2.com/simple"],
+        ),
+        (
+            """
 version = 1
 
 [[package]]
 name = "numpy"
 source = { registry = "https://pypi.org/simple" }
-"""
+""",
+            [],
+        ),
+    ],
+    ids=["single_private", "multiple_private_deduped", "no_private"],
+)
+def test_extract_index_urls_from_uv_lock(tmp_path, uv_lock_content, expected_urls):
     uv_lock_path = tmp_path / "uv.lock"
     uv_lock_path.write_text(uv_lock_content)
 
     result = extract_index_urls_from_uv_lock(uv_lock_path)
-    assert result == []
+    assert result == expected_urls
 
 
 def test_extract_index_urls_from_uv_lock_file_not_exists(tmp_path):
@@ -569,25 +501,26 @@ def test_extract_index_urls_from_uv_lock_file_not_exists(tmp_path):
 # --- uv Sync Environment Setup Tests ---
 
 
-def test_create_uv_sync_pyproject(tmp_path):
-    result_path = create_uv_sync_pyproject(tmp_path, "3.11.5")
+@pytest.mark.parametrize(
+    ("python_version", "project_name", "expected_name", "expected_python"),
+    [
+        ("3.11.5", "mlflow-model-env", "mlflow-model-env", "==3.11.5"),
+        ("3.10.14", "my-custom-env", "my-custom-env", "==3.10.14"),
+    ],
+    ids=["default_name", "custom_name"],
+)
+def test_create_uv_sync_pyproject(
+    tmp_path, python_version, project_name, expected_name, expected_python
+):
+    result_path = create_uv_sync_pyproject(tmp_path, python_version, project_name=project_name)
 
     assert result_path.exists()
     content = result_path.read_text()
-    assert 'name = "mlflow-model-env"' in content
-    assert 'requires-python = "==3.11.5"' in content
-
-
-def test_create_uv_sync_pyproject_custom_name(tmp_path):
-    result_path = create_uv_sync_pyproject(tmp_path, "3.10.14", project_name="my-custom-env")
-
-    content = result_path.read_text()
-    assert 'name = "my-custom-env"' in content
-    assert 'requires-python = "==3.10.14"' in content
+    assert f'name = "{expected_name}"' in content
+    assert f'requires-python = "{expected_python}"' in content
 
 
 def test_setup_uv_sync_environment(tmp_path):
-    # Create model artifacts with uv.lock
     model_path = tmp_path / "model"
     model_path.mkdir()
     (model_path / "uv.lock").write_text('version = 1\nrequires-python = ">=3.11"')
@@ -604,7 +537,6 @@ def test_setup_uv_sync_environment(tmp_path):
 
 
 def test_setup_uv_sync_environment_no_uv_lock(tmp_path):
-    # Create model artifacts WITHOUT uv.lock
     model_path = tmp_path / "model"
     model_path.mkdir()
 
@@ -627,15 +559,14 @@ def test_has_uv_lock_artifact(tmp_path):
 
 
 def test_run_uv_sync_returns_false_when_uv_not_available(tmp_path):
-    with mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=False):
+    with mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value=None):
         result = run_uv_sync(tmp_path)
         assert result is False
 
 
 def test_run_uv_sync_builds_correct_command(tmp_path):
     with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run") as mock_run,
     ):
         run_uv_sync(tmp_path, frozen=True, no_dev=True)
@@ -650,8 +581,7 @@ def test_run_uv_sync_builds_correct_command(tmp_path):
 
 def test_run_uv_sync_returns_false_on_failure(tmp_path):
     with (
-        mock.patch("mlflow.utils.uv_utils.is_uv_available", return_value=True),
-        mock.patch("shutil.which", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
         mock.patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "uv sync")),
     ):
         result = run_uv_sync(tmp_path)

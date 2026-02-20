@@ -3790,15 +3790,13 @@ def _save_model_with_loader_module_and_data_path(
             )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
-            # Infer requirements from model or uv project (either/or, not merged)
-            # - If uv project detected: uses uv export (complete lockfile)
-            # - Otherwise: infers dependencies by capturing imported packages
-            default_reqs = mlflow.models.infer_pip_requirements(
+            inferred_reqs = mlflow.models.infer_pip_requirements(
                 path,
                 FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
             )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(

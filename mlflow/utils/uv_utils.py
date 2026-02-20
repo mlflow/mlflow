@@ -53,6 +53,32 @@ def get_uv_version() -> Version | None:
         return None
 
 
+def _get_uv_binary() -> str | None:
+    """Return the uv binary path if installed and meeting version requirements, else None."""
+    uv_bin = shutil.which("uv")
+    if uv_bin is None:
+        return None
+
+    try:
+        result = subprocess.run(
+            [uv_bin, "--version"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        version_str = result.stdout.strip().split()[1]
+        version = Version(version_str)
+    except (subprocess.CalledProcessError, IndexError, ValueError) as e:
+        _logger.debug(f"Failed to determine uv version: {e}")
+        return None
+
+    if version < _MIN_UV_VERSION:
+        _logger.debug(f"uv version {version} is below minimum required version {_MIN_UV_VERSION}")
+        return None
+
+    return uv_bin
+
+
 def is_uv_available() -> bool:
     """
     Check if uv is installed and meets the minimum version requirement.
@@ -60,15 +86,7 @@ def is_uv_available() -> bool:
     Returns:
         True if uv is installed and version >= 0.5.0, False otherwise.
     """
-    version = get_uv_version()
-    if version is None:
-        return False
-
-    if version < _MIN_UV_VERSION:
-        _logger.debug(f"uv version {version} is below minimum required version {_MIN_UV_VERSION}")
-        return False
-
-    return True
+    return _get_uv_binary() is not None
 
 
 class UVProjectInfo(NamedTuple):
@@ -129,14 +147,13 @@ def export_uv_requirements(
         A list of requirement strings (e.g., ``["requests==2.28.0", "numpy==1.24.0"]``),
         or None if export fails.
     """
-    if not is_uv_available():
+    uv_bin = _get_uv_binary()
+    if uv_bin is None:
         _logger.warning(
             "uv is not available or version is below minimum required. "
             "Falling back to pip-based inference."
         )
         return None
-
-    uv_bin = shutil.which("uv")
     directory = Path.cwd() if directory is None else Path(directory)
 
     cmd = [uv_bin, "export"]
@@ -191,14 +208,7 @@ def export_uv_requirements(
         return None
 
 
-# File names for uv artifacts
-_UV_LOCK_ARTIFACT_NAME = "uv.lock"
-_PYPROJECT_ARTIFACT_NAME = "pyproject.toml"
 _PYTHON_VERSION_FILE = ".python-version"
-
-
-def _should_log_uv_files() -> bool:
-    return MLFLOW_LOG_UV_FILES.get()
 
 
 def copy_uv_project_files(
@@ -221,7 +231,7 @@ def copy_uv_project_files(
     Returns:
         True if uv files were copied, False otherwise.
     """
-    if not _should_log_uv_files():
+    if not MLFLOW_LOG_UV_FILES.get():
         _logger.info("uv file logging disabled via MLFLOW_LOG_UV_FILES environment variable")
         return False
 
@@ -233,11 +243,11 @@ def copy_uv_project_files(
         return False
 
     try:
-        shutil.copy2(uv_project.uv_lock, dest_dir / _UV_LOCK_ARTIFACT_NAME)
-        _logger.info(f"Copied {_UV_LOCK_ARTIFACT_NAME} to model artifacts")
+        shutil.copy2(uv_project.uv_lock, dest_dir / _UV_LOCK_FILE)
+        _logger.info(f"Copied {_UV_LOCK_FILE} to model artifacts")
 
-        shutil.copy2(uv_project.pyproject, dest_dir / _PYPROJECT_ARTIFACT_NAME)
-        _logger.info(f"Copied {_PYPROJECT_ARTIFACT_NAME} to model artifacts")
+        shutil.copy2(uv_project.pyproject, dest_dir / _PYPROJECT_FILE)
+        _logger.info(f"Copied {_PYPROJECT_FILE} to model artifacts")
 
         python_version_src = source_dir / _PYTHON_VERSION_FILE
         if python_version_src.exists():
@@ -339,7 +349,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 """
 
-    pyproject_path = dest_dir / _PYPROJECT_ARTIFACT_NAME
+    pyproject_path = dest_dir / _PYPROJECT_FILE
     pyproject_path.write_text(pyproject_content)
     _logger.debug(f"Created minimal pyproject.toml for uv sync at {pyproject_path}")
 
@@ -368,7 +378,7 @@ def setup_uv_sync_environment(
     env_dir = Path(env_dir)
     model_path = Path(model_path)
 
-    uv_lock_artifact = model_path / _UV_LOCK_ARTIFACT_NAME
+    uv_lock_artifact = model_path / _UV_LOCK_FILE
     if not uv_lock_artifact.exists():
         _logger.debug(f"No uv.lock found in model artifacts at {model_path}")
         return False
@@ -376,13 +386,13 @@ def setup_uv_sync_environment(
     env_dir.mkdir(parents=True, exist_ok=True)
 
     # Copy uv.lock to environment directory
-    shutil.copy2(uv_lock_artifact, env_dir / _UV_LOCK_ARTIFACT_NAME)
+    shutil.copy2(uv_lock_artifact, env_dir / _UV_LOCK_FILE)
     _logger.debug(f"Copied uv.lock to {env_dir}")
 
     # Copy pyproject.toml from model if available, otherwise create minimal one
-    pyproject_artifact = model_path / _PYPROJECT_ARTIFACT_NAME
+    pyproject_artifact = model_path / _PYPROJECT_FILE
     if pyproject_artifact.exists():
-        shutil.copy2(pyproject_artifact, env_dir / _PYPROJECT_ARTIFACT_NAME)
+        shutil.copy2(pyproject_artifact, env_dir / _PYPROJECT_FILE)
         _logger.debug(f"Copied pyproject.toml from model artifacts to {env_dir}")
     else:
         create_uv_sync_pyproject(env_dir, python_version)
@@ -418,11 +428,10 @@ def run_uv_sync(
     Returns:
         True if sync succeeded, False otherwise.
     """
-    if not is_uv_available():
+    uv_bin = _get_uv_binary()
+    if uv_bin is None:
         _logger.warning("uv is not available for environment sync")
         return False
-
-    uv_bin = shutil.which("uv")
     project_dir = Path(project_dir)
 
     cmd = [uv_bin, "sync"]
@@ -456,4 +465,4 @@ def run_uv_sync(
 
 def has_uv_lock_artifact(model_path: str | Path) -> bool:
     """Check if a model has a uv.lock artifact."""
-    return (Path(model_path) / _UV_LOCK_ARTIFACT_NAME).exists()
+    return (Path(model_path) / _UV_LOCK_FILE).exists()
