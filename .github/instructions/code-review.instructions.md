@@ -5,6 +5,13 @@ excludeAgent: ["coding-agent"]
 
 # Code Review Instructions
 
+## Knowledge Cutoff
+
+Your training data has a cutoff. Treat anything you don't recognize as **new, not wrong**. Here are things you might flag as incorrect but are actually valid:
+
+- Model names (e.g., `gpt-5`)
+- GitHub runner types (e.g., `ubuntu-slim`)
+
 ## Comment Format (MANDATORY)
 
 Every comment MUST use this exact format: `<emoji> **<LABEL>:** <description>`

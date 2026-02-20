@@ -4,9 +4,10 @@ import { GatewayChartsPanel } from '../GatewayChartsPanel';
 
 interface GatewayUsageSectionProps {
   experimentId: string;
+  tooltipLinkUrlBuilder?: (experimentId: string, timestampMs: number, timeIntervalSeconds: number) => string;
 }
 
-export const GatewayUsageSection = ({ experimentId }: GatewayUsageSectionProps) => {
+export const GatewayUsageSection = ({ experimentId, tooltipLinkUrlBuilder }: GatewayUsageSectionProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -30,7 +31,19 @@ export const GatewayUsageSection = ({ experimentId }: GatewayUsageSectionProps) 
         </Typography.Link>
       </div>
 
-      <GatewayChartsPanel experimentIds={[experimentId]} showTokenStats />
+      <GatewayChartsPanel
+        experimentIds={[experimentId]}
+        showTokenStats
+        tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
+        tooltipLinkText={
+          tooltipLinkUrlBuilder ? (
+            <FormattedMessage
+              defaultMessage="View logs for this period"
+              description="Link text to navigate to gateway endpoint logs tab"
+            />
+          ) : undefined
+        }
+      />
     </div>
   );
 };

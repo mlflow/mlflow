@@ -324,7 +324,7 @@ interface ScrollableTooltipProps {
 export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
-  const hideTooltipLinks = useContext(OverviewChartContext)?.hideTooltipLinks;
+  const { hideTooltipLinks, tooltipLinkUrlBuilder, tooltipLinkText } = useContext(OverviewChartContext) ?? {};
 
   if (!active || !payload?.length) {
     return null;
@@ -341,11 +341,13 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
     if (hasCustomLinkClick) {
       linkConfig.onLinkClick!(label, dataPoint);
     } else if (hasTimeBasedNavigation) {
-      const url = getTracesFilteredByTimeRangeUrl(
-        linkConfig.experimentId!,
-        dataPoint.timestampMs!,
-        linkConfig.timeIntervalSeconds!,
-      );
+      const url = tooltipLinkUrlBuilder
+        ? tooltipLinkUrlBuilder(linkConfig.experimentId!, dataPoint.timestampMs!, linkConfig.timeIntervalSeconds!)
+        : getTracesFilteredByTimeRangeUrl(
+            linkConfig.experimentId!,
+            dataPoint.timestampMs!,
+            linkConfig.timeIntervalSeconds!,
+          );
       navigate(url);
     }
   };
@@ -414,7 +416,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
           }}
         >
           <Typography.Link
-            componentId={linkConfig.componentId}
+            componentId={linkConfig?.componentId ?? 'mlflow.overview.usage.traces.view_traces_link'}
             onClick={handleLinkClick}
             css={{
               cursor: 'pointer',
@@ -423,7 +425,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
               gap: theme.spacing.xs,
             }}
           >
-            {linkConfig.linkText ?? (
+            {linkConfig?.linkText ?? tooltipLinkText ?? (
               <FormattedMessage
                 defaultMessage="View traces for this period"
                 description="Link text to navigate to traces tab filtered by the selected time period"

@@ -25,7 +25,6 @@ from mlflow.environment_variables import (
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import is_uc_table_tracing
 
 # ============================================================================
 # CONSTANTS
@@ -306,128 +305,51 @@ def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict
     return tool_results
 
 
-def _reconstruct_conversation_messages(
-    transcript: list[dict[str, Any]], end_idx: int
-) -> list[dict[str, Any]]:
-    """Reconstruct conversation messages in OpenAI format for LLM span inputs.
+def _get_input_messages(transcript: list[dict[str, Any]], current_idx: int) -> list[dict[str, Any]]:
+    """Get all messages between the previous text-bearing assistant response and the current one.
 
-    This function builds the message array that represents what was sent to the LLM.
-    It processes the transcript up to (but not including) end_idx to build the context.
+    Claude Code emits separate transcript entries for text and tool_use content.
+    A typical sequence looks like:
+        assistant [text]        ← previous LLM boundary (stop here)
+        assistant [tool_use]    ← include
+        user [tool_result]      ← include
+        assistant [tool_use]    ← include
+        user [tool_result]      ← include
+        assistant [text]        ← current (the span we're building inputs for)
+
+    We walk backward and collect everything, only stopping when we hit an
+    assistant entry that contains text content (which marks the previous LLM span).
 
     Args:
         transcript: List of conversation entries from Claude Code transcript
-        end_idx: Index to stop at (exclusive) - typically the current assistant response
+        current_idx: Index of the current assistant response
 
     Returns:
-        List of messages in format [{"role": "system"|"user"|"assistant"|"tool", "content": "..."}]
+        List of messages in Anthropic format
     """
     messages = []
-
-    for i in range(end_idx):
+    for i in range(current_idx - 1, -1, -1):
         entry = transcript[i]
-        entry_type = entry.get(MESSAGE_FIELD_TYPE)
         msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
 
-        # Check for system role explicitly
-        if msg.get("role") == "system":
-            _process_system_entry(msg, messages)
-        elif entry_type == MESSAGE_TYPE_USER:
-            _process_user_entry(msg, messages)
-        elif entry_type == MESSAGE_TYPE_ASSISTANT:
-            _process_assistant_entry(msg, messages)
+        # Stop at a previous assistant entry that has text content (previous LLM span)
+        if entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_ASSISTANT:
+            content = msg.get(MESSAGE_FIELD_CONTENT, [])
+            has_text = False
+            if isinstance(content, str):
+                has_text = bool(content.strip())
+            elif isinstance(content, list):
+                has_text = any(
+                    isinstance(p, dict) and p.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TEXT
+                    for p in content
+                )
+            if has_text:
+                break
 
+        if msg.get("role") and msg.get(MESSAGE_FIELD_CONTENT):
+            messages.append(msg)
+    messages.reverse()
     return messages
-
-
-def _process_system_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> None:
-    """Process a system entry from the transcript.
-
-    Args:
-        msg: The message object from the entry
-        messages: The messages list to append to
-    """
-    if content := msg.get(MESSAGE_FIELD_CONTENT):
-        text_content = extract_text_content(content)
-        if text_content.strip():
-            messages.append({"role": "system", "content": text_content})
-
-
-def _process_user_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> None:
-    """Process a user entry from the transcript and add appropriate messages.
-
-    User entries can contain:
-    - Regular user messages (text)
-    - Tool results from previous tool calls
-
-    Args:
-        msg: The message object from the entry
-        messages: The messages list to append to
-    """
-    content = msg.get(MESSAGE_FIELD_CONTENT, [])
-
-    # Handle list content (typical structure)
-    if isinstance(content, list):
-        # Use a buffer to preserve original message ordering
-        message_buffer = []
-        current_text_parts = []
-
-        for part in content:
-            if not isinstance(part, dict):
-                continue
-
-            part_type = part.get(MESSAGE_FIELD_TYPE)
-
-            if part_type == CONTENT_TYPE_TOOL_RESULT:
-                # If we have accumulated text, add it as a user message first
-                if current_text_parts:
-                    if combined_text := "\n".join(current_text_parts).strip():
-                        message_buffer.append({"role": "user", "content": combined_text})
-                    current_text_parts = []
-
-                # Extract tool result information
-                tool_id = part.get("tool_use_id")
-
-                # Add tool results with proper "tool" role
-                if result_content := part.get("content"):
-                    tool_msg = {
-                        "role": "tool",
-                        "content": result_content,
-                    }
-                    if tool_id:
-                        tool_msg["tool_use_id"] = tool_id
-                    message_buffer.append(tool_msg)
-
-            elif part_type == CONTENT_TYPE_TEXT:
-                # Accumulate text content
-                if text := part.get(CONTENT_TYPE_TEXT):
-                    current_text_parts.append(text)
-
-        # Add any remaining text content as user message
-        if current_text_parts:
-            if combined_text := "\n".join(current_text_parts).strip():
-                message_buffer.append({"role": "user", "content": combined_text})
-
-        # Add all messages in order to preserve sequence
-        messages.extend(message_buffer)
-
-    # Handle string content (simpler format)
-    elif isinstance(content, str) and content.strip():
-        messages.append({"role": "user", "content": content})
-
-
-def _process_assistant_entry(msg: dict[str, Any], messages: list[dict[str, Any]]) -> None:
-    """Process an assistant entry from the transcript and add to messages.
-
-    Assistant entries represent previous LLM responses that are part of the conversation context.
-
-    Args:
-        msg: The message object from the entry
-        messages: The messages list to append to
-    """
-    if content := msg.get(MESSAGE_FIELD_CONTENT):
-        text_content = extract_text_content(content)
-        if text_content.strip():
-            messages.append({"role": "assistant", "content": text_content})
 
 
 def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
@@ -458,7 +380,6 @@ def _create_llm_and_tool_spans(
     parent_span, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
     """Create LLM and tool spans for assistant responses with proper timing."""
-    llm_call_num = 0
     for i in range(start_idx, len(transcript)):
         entry = transcript[i]
         if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_ASSISTANT:
@@ -482,27 +403,34 @@ def _create_llm_and_tool_spans(
         # Only create LLM span if there's text content (no tools)
         llm_span = None
         if text_content and text_content.strip() and not tool_uses:
-            llm_call_num += 1
-            conversation_messages = _reconstruct_conversation_messages(transcript, i)
+            messages = _get_input_messages(transcript, i)
 
             llm_span = mlflow.start_span_no_context(
-                name=f"llm_call_{llm_call_num}",
+                name="llm",
                 parent_span=parent_span,
                 span_type=SpanType.LLM,
                 start_time_ns=timestamp_ns,
                 inputs={
                     "model": msg.get("model", "unknown"),
-                    "messages": conversation_messages,
+                    "messages": messages,
                 },
                 attributes={
                     "model": msg.get("model", "unknown"),
+                    SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
                 },
             )
 
             # Set token usage using the standardized CHAT_USAGE attribute
             _set_token_usage_attribute(llm_span, usage)
 
-            llm_span.set_outputs({"response": text_content})
+            # Output in Anthropic response format for Chat UI rendering
+            llm_span.set_outputs(
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": content,
+                }
+            )
             llm_span.end(end_time_ns=timestamp_ns + duration_ns)
 
         # Create tool spans with proportional timing and actual results
@@ -573,13 +501,6 @@ def _finalize_trace(
                 **in_memory_trace.info.trace_metadata,
                 **metadata,
             }
-            if is_uc_table_tracing():
-                for meta_key, attr_key in (
-                    (TraceMetadataKey.TRACE_USER, SpanAttributeKey.USER_ID),
-                    (TraceMetadataKey.TRACE_SESSION, SpanAttributeKey.SESSION_ID),
-                ):
-                    if value := in_memory_trace.info.trace_metadata.get(meta_key):
-                        parent_span.set_attribute(attr_key, value)
     except Exception as e:
         get_logger().warning("Failed to update trace metadata and previews: %s", e)
 

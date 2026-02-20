@@ -33,10 +33,10 @@ from mlflow.tracing.utils import (
     generate_trace_id_v4_from_otel_trace_id,
     get_active_spans_table_name,
     get_otel_attribute,
-    is_uc_table_tracing,
     maybe_get_request_id,
     parse_trace_id_v4,
 )
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import create_mock_otel_span
 
@@ -580,20 +580,37 @@ def test_get_spans_table_name_for_trace_no_destination():
         assert result is None
 
 
-def test_is_uc_table_tracing_with_uc_destination():
-    mock_destination = UCSchemaLocation(catalog_name="catalog", schema_name="schema")
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost cannot affect server-side cost")
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
+    with (
+        mock.patch("mlflow.utils.uri.is_databricks_uri", return_value=is_databricks),
+        mock.patch(
+            "mlflow.entities.span.set_span_cost_attribute", wraps=lambda span: None
+        ) as mock_set_cost,
+    ):
+        with mlflow.start_span(name="llm_span") as span:
+            span.set_attribute(SpanAttributeKey.MODEL, "gpt-5")
+            span.set_attribute(
+                SpanAttributeKey.CHAT_USAGE,
+                {
+                    TokenUsageKey.INPUT_TOKENS: 100,
+                    TokenUsageKey.OUTPUT_TOKENS: 50,
+                    TokenUsageKey.TOTAL_TOKENS: 150,
+                },
+            )
+        # Cost should be computed at server side if not in Databricks
+        if is_databricks:
+            mock_set_cost.assert_called_once()
+        else:
+            mock_set_cost.assert_not_called()
 
-    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
-        mock_ctx.get.return_value = mock_destination
-
-        assert is_uc_table_tracing() is True
-
-
-def test_is_uc_table_tracing_with_no_destination():
-    with mock.patch("mlflow.tracing.provider._MLFLOW_TRACE_USER_DESTINATION") as mock_ctx:
-        mock_ctx.get.return_value = None
-
-        assert is_uc_table_tracing() is False
+    trace = mlflow.get_trace(trace_id=span.trace_id)
+    # cost should be set
+    assert trace.info.cost is not None
+    assert CostKey.INPUT_COST in trace.info.cost
+    assert CostKey.OUTPUT_COST in trace.info.cost
+    assert CostKey.TOTAL_COST in trace.info.cost
 
 
 def test_generate_trace_id_v4_from_otel_trace_id():
