@@ -156,12 +156,12 @@ def test_database_operational_error(monkeypatch):
         )
 
 
-def test_gc_experiment_with_logged_model_params_and_tags():
-    """Test that GC can delete experiments with logged models that have params and tags.
+def test_gc_experiment_with_logged_model_params_tags_and_metrics():
+    """Test that GC can delete experiments with logged models that have params, tags, and metrics.
 
     This tests the fix for https://github.com/mlflow/mlflow/issues/20184 where GC failed
-    with a foreign key constraint error when deleting experiments that had logged_model_params
-    or logged_model_tags records referencing the experiment.
+    with a foreign key constraint error when deleting experiments that had logged_model_params,
+    logged_model_tags, or logged_model_metrics records referencing the experiment.
 
     This test runs against real databases (MySQL, PostgreSQL) via Docker to ensure FK
     constraints are properly enforced.
@@ -169,6 +169,7 @@ def test_gc_experiment_with_logged_model_params_and_tags():
     import sqlalchemy
 
     from mlflow.store.tracking.dbmodels.models import (
+        SqlLoggedModelMetric,
         SqlLoggedModelParam,
         SqlLoggedModelTag,
     )
@@ -185,6 +186,15 @@ def test_gc_experiment_with_logged_model_params_and_tags():
         model_id=model.model_id,
         tags={"tag1": "value1", "tag2": "value2"},
     )
+
+    mlflow.set_experiment(experiment_id=exp_id)
+    with mlflow.start_run() as run:
+        client.log_metric(
+            run_id=run.info.run_id,
+            key="m1",
+            value=1.0,
+            model_id=model.model_id,
+        )
 
     client.delete_experiment(exp_id)
 
@@ -207,17 +217,25 @@ def test_gc_experiment_with_logged_model_params_and_tags():
 
     engine = sqlalchemy.create_engine(MLFLOW_TRACKING_URI.get())
     with engine.connect() as conn:
+        model_id = model.model_id
         params = conn.execute(
             sqlalchemy.text(
                 f"SELECT * FROM {SqlLoggedModelParam.__tablename__} WHERE model_id = :model_id"
             ),
-            {"model_id": model.model_id},
+            {"model_id": model_id},
         ).fetchall()
         tags = conn.execute(
             sqlalchemy.text(
                 f"SELECT * FROM {SqlLoggedModelTag.__tablename__} WHERE model_id = :model_id"
             ),
-            {"model_id": model.model_id},
+            {"model_id": model_id},
+        ).fetchall()
+        metrics = conn.execute(
+            sqlalchemy.text(
+                f"SELECT * FROM {SqlLoggedModelMetric.__tablename__} WHERE model_id = :model_id"
+            ),
+            {"model_id": model_id},
         ).fetchall()
     assert params == []
     assert tags == []
+    assert metrics == []
