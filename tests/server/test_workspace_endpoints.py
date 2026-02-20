@@ -6,7 +6,6 @@ from unittest import mock
 import pytest
 from flask import Flask
 
-from mlflow.entities import Experiment
 from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.server.handlers import get_endpoints
 
