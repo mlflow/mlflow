@@ -30,6 +30,13 @@ _USER_METADATA = {
     "cached_content_token_count": 0,
 }
 
+_USER_METADATA_WITH_CACHE = {
+    "prompt_token_count": 50,
+    "candidates_token_count": 20,
+    "total_token_count": 70,
+    "cached_content_token_count": 30,
+}
+
 
 def _get_candidate(content):
     candidate = {
@@ -43,10 +50,10 @@ def _get_candidate(content):
     return genai.types.Candidate(**candidate)
 
 
-def _generate_content_response(content):
+def _generate_content_response(content, usage_metadata=None):
     res = {
         "candidates": [_get_candidate(content)],
-        "usage_metadata": _USER_METADATA,
+        "usage_metadata": usage_metadata or _USER_METADATA,
         "automatic_function_calling_history": [],
     }
 
@@ -181,6 +188,7 @@ def test_generate_content_enable_disable_autolog(is_async, mock_litellm_cost):
             TokenUsageKey.INPUT_TOKENS: 6,
             TokenUsageKey.OUTPUT_TOKENS: 6,
             TokenUsageKey.TOTAL_TOKENS: 12,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
         }
 
         # Verify cost is calculated (6 input tokens * 1.0 + 6 output tokens * 2.0)
@@ -194,6 +202,7 @@ def test_generate_content_enable_disable_autolog(is_async, mock_litellm_cost):
             "input_tokens": 6,
             "output_tokens": 6,
             "total_tokens": 12,
+            "cache_read_input_tokens": 0,
         }
 
         mlflow.gemini.autolog(disable=True)
@@ -281,6 +290,7 @@ def test_generate_content_image_autolog(mock_litellm_cost):
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
     assert span.llm_cost == {
         "input_cost": 6.0,
@@ -292,6 +302,7 @@ def test_generate_content_image_autolog(mock_litellm_cost):
         "input_tokens": 6,
         "output_tokens": 6,
         "total_tokens": 12,
+        "cache_read_input_tokens": 0,
     }
 
 
@@ -366,6 +377,7 @@ def test_generate_content_tool_calling_autolog(is_async, mock_litellm_cost):
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
     assert span.llm_cost == {
         "input_cost": 6.0,
@@ -377,6 +389,7 @@ def test_generate_content_tool_calling_autolog(is_async, mock_litellm_cost):
         "input_tokens": 6,
         "output_tokens": 6,
         "total_tokens": 12,
+        "cache_read_input_tokens": 0,
     }
 
 
@@ -487,6 +500,7 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async, mock_litel
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
     assert span.llm_cost == {
         "input_cost": 6.0,
@@ -498,6 +512,7 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async, mock_litel
         "input_tokens": 6,
         "output_tokens": 6,
         "total_tokens": 12,
+        "cache_read_input_tokens": 0,
     }
 
 
@@ -577,3 +592,31 @@ def test_embed_content_autolog():
         # No new trace should be created
         traces = get_traces()
         assert len(traces) == 1
+
+
+def test_generate_content_cached_tokens(is_async, mock_litellm_cost):
+    cached_response = _generate_content_response(_CONTENT, _USER_METADATA_WITH_CACHE)
+
+    if is_async:
+
+        async def _generate_content(self, model, contents, config):
+            return cached_response
+    else:
+
+        def _generate_content(self, model, contents, config):
+            return cached_response
+
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(f"google.genai.models.{cls}._generate_content", new=_generate_content):
+        mlflow.gemini.autolog()
+        _call_generate_content(is_async, "test content")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
+    }

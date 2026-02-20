@@ -233,6 +233,94 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
             ),
             {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
         ),
+        # OpenAI usage_metadata with input_token_details (LangChain standardized format)
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={
+                        "input_tokens": 50,
+                        "output_tokens": 20,
+                        "total_tokens": 70,
+                        "input_token_details": {"cache_read": 30, "cache_creation": 0},
+                    },
+                )
+            ),
+            {
+                "input_tokens": 50,
+                "output_tokens": 20,
+                "total_tokens": 70,
+                "cache_read_input_tokens": 30,
+                "cache_creation_input_tokens": 0,
+            },
+        ),
+        # OpenAI usage_metadata with both cache_read and cache_creation
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={
+                        "input_tokens": 100,
+                        "output_tokens": 50,
+                        "total_tokens": 150,
+                        "input_token_details": {"cache_read": 25, "cache_creation": 15},
+                    },
+                )
+            ),
+            {
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+                "cache_read_input_tokens": 25,
+                "cache_creation_input_tokens": 15,
+            },
+        ),
+        # Raw OpenAI response_metadata with prompt_tokens_details
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    response_metadata={
+                        "token_usage": {
+                            "prompt_tokens": 50,
+                            "completion_tokens": 20,
+                            "total_tokens": 70,
+                            "prompt_tokens_details": {"cached_tokens": 30},
+                        }
+                    },
+                )
+            ),
+            {
+                "input_tokens": 50,
+                "output_tokens": 20,
+                "total_tokens": 70,
+                "cache_read_input_tokens": 30,
+            },
+        ),
+        # Gemini usage_metadata with cached_content_token_count
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={
+                        "input_tokens": 50,
+                        "output_tokens": 20,
+                        "total_tokens": 70,
+                        "cached_content_token_count": 30,
+                    },
+                )
+            ),
+            {
+                "input_tokens": 50,
+                "output_tokens": 20,
+                "total_tokens": 70,
+                "cache_read_input_tokens": 30,
+            },
+        ),
         # Legacy completion generation object
         (Generation(text="foo"), None),
     ],
