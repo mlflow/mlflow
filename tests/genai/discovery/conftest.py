@@ -52,10 +52,11 @@ def make_trace():
 
 @pytest.fixture
 def make_assessment():
-    def _make(name, value):
+    def _make(name, value, rationale=None):
         return Feedback(
             name=name,
             value=value,
+            rationale=rationale,
             source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test"),
         )
 

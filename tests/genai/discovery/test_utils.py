@@ -92,6 +92,29 @@ def test_build_enriched_trace_summary_truncates_previews(make_trace):
     assert len(output_line) < 10000
 
 
+def test_build_enriched_trace_summary_includes_assessments(make_trace, make_assessment):
+    trace = make_trace()
+    trace.info.assessments = [
+        make_assessment("correctness", False, rationale="Answer was wrong"),
+        make_assessment("relevance", True, rationale="On topic"),
+    ]
+    text = _build_enriched_trace_summary(0, trace, "bad")
+
+    assert "Assessments:" in text
+    assert "correctness: False" in text
+    assert "Answer was wrong" in text
+    assert "relevance: True" in text
+    assert "On topic" in text
+
+
+def test_build_enriched_trace_summary_no_assessments(make_trace):
+    trace = make_trace()
+    trace.info.assessments = []
+    text = _build_enriched_trace_summary(0, trace, "bad")
+
+    assert "Assessments:" not in text
+
+
 # ---- _run_deep_analysis ----
 
 
