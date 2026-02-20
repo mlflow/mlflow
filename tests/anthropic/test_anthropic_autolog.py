@@ -190,6 +190,8 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     span.outputs["usage"] = {
         key: span.outputs["usage"][key] for key in ["input_tokens", "output_tokens"]
     }
+    # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
+    span.outputs.pop("container", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -380,6 +382,8 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     span.outputs["usage"] = {
         key: span.outputs["usage"][key] for key in ["input_tokens", "output_tokens"]
     }
+    # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
+    span.outputs.pop("container", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
