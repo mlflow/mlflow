@@ -38,6 +38,7 @@ from mlflow.entities import (
     RunTag,
     ViewType,
     Workspace,
+    WorkspaceDeletionMode,
 )
 from mlflow.entities import (
     RoutingStrategy as RoutingStrategyEntity,
@@ -1229,9 +1230,17 @@ def _delete_workspace_handler(workspace_name: str):
             f"The '{DEFAULT_WORKSPACE_NAME}' workspace is reserved and cannot be deleted"
         )
     WorkspaceNameValidator.validate(workspace_name)
+    mode_str = request.args.get("mode", WorkspaceDeletionMode.RESTRICT.value)
+    try:
+        mode = WorkspaceDeletionMode(mode_str)
+    except ValueError:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid deletion mode '{mode_str}'. "
+            f"Must be one of: {', '.join(m.value for m in WorkspaceDeletionMode)}"
+        )
     store = _get_workspace_store()
     try:
-        store.delete_workspace(workspace_name)
+        store.delete_workspace(workspace_name, mode=mode)
     except NotImplementedError:
         raise _workspace_not_supported("Workspace deletion is not supported by this provider")
     return Response(status=204)
