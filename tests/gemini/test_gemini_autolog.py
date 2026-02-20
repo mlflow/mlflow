@@ -15,6 +15,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -191,12 +192,13 @@ def test_generate_content_enable_disable_autolog(is_async, mock_litellm_cost):
             TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
         }
 
-        # Verify cost is calculated (6 input tokens * 1.0 + 6 output tokens * 2.0)
-        assert span.llm_cost == {
-            "input_cost": 6.0,
-            "output_cost": 12.0,
-            "total_cost": 18.0,
-        }
+        if not IS_TRACING_SDK_ONLY:
+            # Verify cost is calculated (6 input tokens * 1.0 + 6 output tokens * 2.0)
+            assert span.llm_cost == {
+                "input_cost": 6.0,
+                "output_cost": 12.0,
+                "total_cost": 18.0,
+            }
 
         assert traces[0].info.token_usage == {
             "input_tokens": 6,
@@ -292,11 +294,12 @@ def test_generate_content_image_autolog(mock_litellm_cost):
         TokenUsageKey.TOTAL_TOKENS: 12,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
-    assert span.llm_cost == {
-        "input_cost": 6.0,
-        "output_cost": 12.0,
-        "total_cost": 18.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert span.llm_cost == {
+            "input_cost": 6.0,
+            "output_cost": 12.0,
+            "total_cost": 18.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 6,
@@ -379,11 +382,12 @@ def test_generate_content_tool_calling_autolog(is_async, mock_litellm_cost):
         TokenUsageKey.TOTAL_TOKENS: 12,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
-    assert span.llm_cost == {
-        "input_cost": 6.0,
-        "output_cost": 12.0,
-        "total_cost": 18.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert span.llm_cost == {
+            "input_cost": 6.0,
+            "output_cost": 12.0,
+            "total_cost": 18.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 6,
@@ -502,11 +506,12 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async, mock_litel
         TokenUsageKey.TOTAL_TOKENS: 12,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
-    assert span.llm_cost == {
-        "input_cost": 6.0,
-        "output_cost": 12.0,
-        "total_cost": 18.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert span.llm_cost == {
+            "input_cost": 6.0,
+            "output_cost": 12.0,
+            "total_cost": 18.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 6,

@@ -144,9 +144,8 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
             if usage := aggregate_usage_from_spans(spans):
                 trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
-            if should_compute_cost_client_side():
-                if cost := aggregate_cost_from_spans(spans):
-                    trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
+            if should_compute_cost_client_side() and (cost := aggregate_cost_from_spans(spans)):
+                trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
 
         super().on_end(span)
 

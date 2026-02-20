@@ -179,13 +179,13 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
             }
         )
 
+        spans = trace.span_dict.values()
         # Aggregate token usage information from all spans
-        if usage := aggregate_usage_from_spans(trace.span_dict.values()):
+        if usage := aggregate_usage_from_spans(spans):
             trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
-        if should_compute_cost_client_side():
-            if cost := aggregate_cost_from_spans(trace.span_dict.values()):
-                trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
+        if should_compute_cost_client_side() and (cost := aggregate_cost_from_spans(spans)):
+            trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
 
     def _truncate_metadata(self, value: str | None) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""

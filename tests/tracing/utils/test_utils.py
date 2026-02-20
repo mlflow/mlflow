@@ -36,6 +36,7 @@ from mlflow.tracing.utils import (
     maybe_get_request_id,
     parse_trace_id_v4,
 )
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import create_mock_otel_span
 
@@ -579,6 +580,7 @@ def test_get_spans_table_name_for_trace_no_destination():
         assert result is None
 
 
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost cannot affect server-side cost")
 @pytest.mark.parametrize("is_databricks", [True, False])
 def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
     with (
