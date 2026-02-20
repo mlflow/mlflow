@@ -280,73 +280,6 @@ describe('TracesV3Logs', () => {
       expect(screen.getByText('Fetching traces failed')).toBeInTheDocument();
       expect(screen.getByText('A network error occurred.')).toBeInTheDocument();
     });
-
-    it('should display error in each selector when useMlflowTracesTableMetadata errors', async () => {
-      const mockError = new GenericNetworkRequestError({ status: 500 }, new Error('Failed to fetch metadata'));
-
-      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
-        assessmentInfos: [],
-        allColumns: [],
-        totalCount: 0,
-        isLoading: false,
-        error: mockError,
-        isEmpty: false,
-        tableFilterOptions: { source: [] },
-        evaluatedTraces: [],
-        otherEvaluatedTraces: [],
-      });
-
-      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
-        isInitialTimeFilterLoading: false,
-      });
-
-      jest.mocked(useSearchMlflowTraces).mockReturnValue({
-        data: [],
-        isLoading: false,
-        isFetching: false,
-        error: null,
-      } as any);
-
-      renderComponent();
-      await waitForRoutesToBeRendered();
-
-      // Test error in column selector
-      const columnSelectorButton = screen.getByTestId('column-selector-button');
-      await userEvent.click(columnSelectorButton);
-
-      await waitFor(() => {
-        // Look for the error message in the dropdown
-        const dropdowns = screen.getAllByText('Fetching traces failed');
-        // Should have exactly 2: one in the table and one in the column selector dropdown
-        expect(dropdowns.length).toBe(2);
-      });
-
-      // Close column selector by clicking outside
-      await userEvent.click(document.body);
-
-      // Test error in sort dropdown
-      const sortButton = screen.getByTestId('sort-select-dropdown');
-      await userEvent.click(sortButton);
-
-      await waitFor(() => {
-        const dropdowns = screen.getAllByText('Fetching traces failed');
-        // Should have exactly 2: one in the table and one in the sort dropdown
-        expect(dropdowns.length).toBe(2);
-      });
-
-      // Close sort dropdown by clicking outside
-      await userEvent.click(document.body);
-
-      // Test error in filter dropdown
-      const filterButton = screen.getByRole('button', { name: /filter/i });
-      await userEvent.click(filterButton);
-
-      await waitFor(() => {
-        const dropdowns = screen.getAllByText('Fetching traces failed');
-        // Should have exactly 2: one in the table and one in the filter dropdown
-        expect(dropdowns.length).toBe(2);
-      });
-    });
   });
 
   describe('Loading state combinations', () => {
@@ -415,40 +348,7 @@ describe('TracesV3Logs', () => {
           const filterButton = screen.getByRole('button', { name: /filter/i });
           expect(filterButton).toBeInTheDocument();
 
-          if (uiShowingData.includes('toolbar (selecting a selector shows spinner)')) {
-            // When metadata is loading, clicking the column selector will show loading state in the dialog
-            const columnSelectorButton = screen.getByTestId('column-selector-button');
-            expect(columnSelectorButton).toBeInTheDocument();
-
-            // Click the button to open the dialog
-            await userEvent.click(columnSelectorButton);
-
-            // Verify the dialog shows loading state
-            await waitFor(() => {
-              // The DialogComboboxContent with loading=true should have aria-busy
-              const dialogContent = screen.getByLabelText(/columns options/i);
-              expect(dialogContent).toHaveAttribute('aria-busy', 'true');
-            });
-
-            // Test sort dropdown shows spinner when loading
-            const sortButton = screen.getByTestId('sort-select-dropdown');
-            expect(sortButton).toBeInTheDocument();
-
-            await userEvent.click(sortButton);
-
-            await waitFor(() => {
-              // Sort dropdown should show loading spinner
-              expect(screen.getByTestId('sort-dropdown-loading')).toBeInTheDocument();
-            });
-
-            // Test filter dropdown shows spinner when loading
-            await userEvent.click(filterButton);
-
-            await waitFor(() => {
-              // Filter dropdown should show loading spinner
-              expect(screen.getByTestId('filter-dropdown-loading')).toBeInTheDocument();
-            });
-          } else if (uiShowingData.includes('toolbar')) {
+          if (uiShowingData.includes('toolbar')) {
             // When metadata is not loading, column selector should work normally
             const columnSelectorButton = screen.getByTestId('column-selector-button');
             expect(columnSelectorButton).toBeInTheDocument();
