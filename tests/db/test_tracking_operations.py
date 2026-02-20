@@ -5,11 +5,17 @@ import uuid
 from unittest import mock
 
 import pytest
+import sqlalchemy
 import sqlalchemy.dialects.sqlite.pysqlite
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.store.tracking.dbmodels.models import (
+    SqlLoggedModelMetric,
+    SqlLoggedModelParam,
+    SqlLoggedModelTag,
+)
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -166,14 +172,6 @@ def test_gc_experiment_with_logged_model_params_tags_and_metrics():
     This test runs against real databases (MySQL, PostgreSQL) via Docker to ensure FK
     constraints are properly enforced.
     """
-    import sqlalchemy
-
-    from mlflow.store.tracking.dbmodels.models import (
-        SqlLoggedModelMetric,
-        SqlLoggedModelParam,
-        SqlLoggedModelTag,
-    )
-
     client = MlflowClient()
     exp_id = client.create_experiment("exp_with_logged_model_for_gc")
     model = client.create_logged_model(experiment_id=exp_id)
