@@ -125,10 +125,9 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
 
             inputs, _, attributes = _parse_span_data(span.span_data)
             span_type = _SPAN_TYPE_MAP.get(span.span_data.type, SpanType.CHAIN)
-            span_name = _get_span_name(span.span_data)
 
             mlflow_span = start_span_no_context(
-                name=span_name,
+                name=_get_span_name(span.span_data),
                 span_type=span_type,
                 parent_span=parent_st.span if parent_st else None,
                 inputs=inputs,
@@ -145,9 +144,8 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
 
     def on_span_end(self, span: oai.Span[Any]) -> None:
         try:
+            # parsed_span_data = parse_spandata(span.span_data)
             st: SpanWithToken | None = self._span_id_to_mlflow_span.pop(span.span_id, None)
-            if not st:
-                return
             detach_span_from_context(st.token)
             mlflow_span = st.span
 
@@ -245,9 +243,7 @@ def _parse_span_data(span_data: oai.SpanData) -> tuple[Any, Any, dict[str, Any]]
     return inputs, outputs, attributes
 
 
-def _parse_response_span_data(
-    span_data: oai.ResponseSpanData,
-) -> tuple[Any, Any, dict[str, Any]]:
+def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any, dict[str, Any]]:
     inputs = span_data.input
     response = span_data.response
     response_dict = response.model_dump() if response else {}
