@@ -401,6 +401,12 @@ async def test_autolog_disable_openai_agent_tracer():
 
     # When disable_openai_agent_tracer=False, the default OpenAI tracer should be preserved
     mlflow.openai.autolog(disable=True)
+
+    # Re-add the default processor to simulate a fresh state
+    from agents.tracing.processors import default_processor
+
+    get_trace_provider().register_processor(default_processor())
+
     mlflow.openai.autolog(disable_openai_agent_tracer=False)
     processors = _get_processors()
     assert len(processors) >= 2
