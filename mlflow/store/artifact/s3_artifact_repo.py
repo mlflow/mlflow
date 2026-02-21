@@ -30,6 +30,7 @@ from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartDownloadMixin,
     MultipartUploadMixin,
+    PresignedUploadMixin,
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
@@ -137,7 +138,9 @@ def _get_s3_client(
     )
 
 
-class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartDownloadMixin):
+class S3ArtifactRepository(
+    ArtifactRepository, MultipartUploadMixin, MultipartDownloadMixin, PresignedUploadMixin
+):
     """
     Stores artifacts on Amazon S3.
 
@@ -568,6 +571,79 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartDo
             Key=dest_path,
             UploadId=upload_id,
             **self._bucket_owner_params,
+        )
+
+    def create_presigned_upload_url(self, artifact_path, expiration=900):
+        """
+        Generate a presigned URL for uploading an artifact directly to S3.
+
+        Args:
+            artifact_path: Relative path within the run's artifact directory
+                          (e.g. "models/model.pkl").
+            expiration: URL expiration time in seconds (default: 900).
+
+        Returns:
+            CreatePresignedUploadResponse with presigned_url and headers.
+        """
+        from mlflow.entities.presigned_upload import CreatePresignedUploadResponse
+
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        dest_path = posixpath.join(dest_path, artifact_path)
+
+        s3_client = self._get_s3_client()
+
+        content_type, _ = guess_type(artifact_path)
+        if not content_type:
+            content_type = "application/octet-stream"
+
+        params = {
+            "Bucket": bucket,
+            "Key": dest_path,
+            "ContentType": content_type,
+            **self._bucket_owner_params,
+        }
+
+        # Honor MLFLOW_S3_UPLOAD_EXTRA_ARGS (e.g., ServerSideEncryption, ACL).
+        # Without this, buckets with policies requiring specific headers (like
+        # x-amz-server-side-encryption) would reject the presigned PUT with 403.
+        # This matches the behavior of _upload_file() for direct S3 uploads.
+        environ_extra_args = self.get_s3_file_upload_extra_args()
+        if environ_extra_args:
+            params.update(environ_extra_args)
+
+        presigned_url = s3_client.generate_presigned_url(
+            "put_object",
+            Params=params,
+            ExpiresIn=expiration,
+        )
+
+        # Build the headers dict that the client MUST send with the PUT request.
+        # Any param that S3 treats as a "presigned condition" (ContentType, plus
+        # any extra args like ServerSideEncryption) must be echoed as headers,
+        # otherwise S3 rejects the request with SignatureDoesNotMatch.
+        headers = {"Content-Type": content_type}
+        if environ_extra_args:
+            # Map known S3 params to their HTTP header equivalents.
+            _s3_param_to_header = {
+                "ServerSideEncryption": "x-amz-server-side-encryption",
+                "SSEKMSKeyId": "x-amz-server-side-encryption-aws-kms-key-id",
+                "ACL": "x-amz-acl",
+                "ContentEncoding": "Content-Encoding",
+                "ContentDisposition": "Content-Disposition",
+                "CacheControl": "Cache-Control",
+                "ContentLanguage": "Content-Language",
+                "Expires": "Expires",
+                "WebsiteRedirectLocation": "x-amz-website-redirect-location",
+                "StorageClass": "x-amz-storage-class",
+                "Tagging": "x-amz-tagging",
+            }
+            for param_key, param_value in environ_extra_args.items():
+                header_name = _s3_param_to_header.get(param_key, param_key)
+                headers[header_name] = str(param_value)
+
+        return CreatePresignedUploadResponse(
+            presigned_url=presigned_url,
+            headers=headers,
         )
 
     def get_download_presigned_url(self, artifact_path, expiration=300):
