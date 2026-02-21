@@ -1,5 +1,4 @@
 name: Cross version tests
-run-name: ${{ inputs.uuid }}
 
 on:
   pull_request:
@@ -36,10 +35,6 @@ on:
         default: ""
       versions:
         description: "[Optional] Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6'). If unspecified, all versions are tested."
-        required: false
-        default: ""
-      uuid:
-        description: "[Optional] A unique identifier for this run."
         required: false
         default: ""
   schedule:
