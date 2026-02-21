@@ -119,8 +119,6 @@ async def test_autolog_agent():
 
     assert response.final_output == "¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?"
     traces = get_traces()
-    print([t.to_dict() for t in traces])
-    assert False
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.status == "OK"
@@ -387,178 +385,24 @@ async def test_disable_enable_autolog():
 
 
 @pytest.mark.asyncio
-async def test_autolog_agent_with_enabled_openai_agent_tracer():
-    import logging
+async def test_autolog_disable_openai_agent_tracer():
+    from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
 
-    # Set up logging capture for the openai.agents logger
-    class LogCapture(logging.Handler):
-        def __init__(self):
-            super().__init__()
-            self.records = []
+    from mlflow.openai._agent_tracer import MlflowOpenAgentTracingProcessor
 
-        def emit(self, record):
-            self.records.append(record)
+    def _get_processors():
+        return GLOBAL_TRACE_PROVIDER._multi_processor._processors
 
-    log_capture = LogCapture()
-    openai_agents_logger = logging.getLogger("openai.agents")
-    openai_agents_logger.addHandler(log_capture)
-    openai_agents_logger.setLevel(logging.DEBUG)
+    # By default, autolog should clear the OpenAI agents tracer
+    mlflow.openai.autolog()
+    processors = _get_processors()
+    assert len(processors) == 1
+    assert isinstance(processors[0], MlflowOpenAgentTracingProcessor)
 
+    # When disable_openai_agent_tracer=False, the default OpenAI tracer should be preserved
+    mlflow.openai.autolog(disable=True)
     mlflow.openai.autolog(disable_openai_agent_tracer=False)
-
-    # NB: We have to mock the OpenAI SDK responses to make agent works
-    DUMMY_RESPONSES = [
-        Response(
-            id="123",
-            created_at=12345678.0,
-            error=None,
-            model="gpt-4o-mini",
-            object="response",
-            instructions="Handoff to the appropriate agent based on the language of the request.",
-            output=[
-                ResponseFunctionToolCall(
-                    id="123",
-                    arguments="{}",
-                    call_id="123",
-                    name="transfer_to_spanish_agent",
-                    type="function_call",
-                    status="completed",
-                )
-            ],
-            tools=[
-                FunctionTool(
-                    name="transfer_to_spanish_agent",
-                    parameters={"type": "object", "properties": {}, "required": []},
-                    type="function",
-                    description="Handoff to the Spanish_Agent agent to handle the request.",
-                    strict=False,
-                ),
-            ],
-            tool_choice="auto",
-            temperature=1,
-            parallel_tool_calls=True,
-        ),
-        Response(
-            id="123",
-            created_at=12345678.0,
-            error=None,
-            model="gpt-4o-mini",
-            object="response",
-            instructions="You only speak Spanish",
-            output=[
-                ResponseOutputMessage(
-                    id="123",
-                    content=[
-                        ResponseOutputText(
-                            annotations=[],
-                            text="¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?",
-                            type="output_text",
-                        )
-                    ],
-                    role="assistant",
-                    status="completed",
-                    type="message",
-                )
-            ],
-            tools=[],
-            tool_choice="auto",
-            temperature=1,
-            parallel_tool_calls=True,
-        ),
-    ]
-
-    set_dummy_client(DUMMY_RESPONSES)
-
-    english_agent = Agent(name="English Agent", instructions="You only speak English")
-    spanish_agent = Agent(name="Spanish Agent", instructions="You only speak Spanish")
-    triage_agent = Agent(
-        name="Triage Agent",
-        instructions="Handoff to the appropriate agent based on the language of the request.",
-        handoffs=[spanish_agent, english_agent],
-    )
-
-    messages = [{"role": "user", "content": "Hola.  ¿Como estás?"}]
-    response = await Runner.run(starting_agent=triage_agent, input=messages)
-
-    assert response.final_output == "¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?"
-    traces = get_traces()
-    print([t.to_dict() for t in traces])
-    # assert False
-    assert len(traces) == 1
-    trace = traces[0]
-    assert trace.info.status == "OK"
-    assert json.loads(trace.info.request_preview) == messages
-    assert json.loads(trace.info.response_preview) == response.final_output
-    spans = trace.data.spans
-    assert len(spans) == 6  # 1 root + 2 agent + 1 handoff + 2 response
-    assert spans[0].name == "AgentRunner.run"
-    assert spans[0].span_type == SpanType.AGENT
-    assert spans[0].inputs == messages
-    assert spans[0].outputs == response.final_output
-    assert spans[1].name == "Triage Agent"
-    assert spans[1].parent_id == spans[0].span_id
-    assert spans[2].name == "Response"
-    assert spans[2].parent_id == spans[1].span_id
-    assert spans[2].inputs == [{"role": "user", "content": "Hola.  ¿Como estás?"}]
-    assert spans[2].outputs == [
-        {
-            "id": "123",
-            "arguments": "{}",
-            "call_id": "123",
-            "name": "transfer_to_spanish_agent",
-            "type": "function_call",
-            "status": "completed",
-        }
-    ]
-    assert spans[2].attributes["temperature"] == 1
-    assert spans[3].name == "Handoff"
-    assert spans[3].span_type == SpanType.CHAIN
-    assert spans[3].parent_id == spans[1].span_id
-    assert spans[4].name == "Spanish Agent"
-    assert spans[4].parent_id == spans[0].span_id
-    assert spans[5].name == "Response"
-    assert spans[5].parent_id == spans[4].span_id
-
-    # Validate chat attributes
-    assert spans[2].attributes[SpanAttributeKey.CHAT_TOOLS] == [
-        {
-            "function": {
-                "description": "Handoff to the Spanish_Agent agent to handle the request.",
-                "name": "transfer_to_spanish_agent",
-                "parameters": {
-                    "additionalProperties": None,
-                    "properties": {},
-                    "required": [],
-                    "type": "object",
-                },
-                "strict": False,
-            },
-            "type": "function",
-        },
-    ]
-    assert SpanAttributeKey.CHAT_TOOLS not in spans[5].attributes
-
-    # Validate that the non-fatal API key error was logged
-    import time
-
-    time.sleep(5.0)  # Give background thread time to log the error
-
-    # Check captured logs from openai.agents logger
-    captured_messages = [record.getMessage() for record in log_capture.records]
-    api_key_errors = [msg for msg in captured_messages if "Incorrect API key provided" in msg]
-
-    # Print debug information
-    print(f"DEBUG: Captured {len(captured_messages)} log messages")
-    print(f"DEBUG: API key errors found: {len(api_key_errors)}")
-    if captured_messages:
-        print(f"DEBUG: Sample captured messages: {captured_messages[:5]}")
-
-    # Clean up first before assertions to avoid interference
-    openai_agents_logger.removeHandler(log_capture)
-
-    error_msg = api_key_errors[0]
-    print(f"SUCCESS: Captured expected API key error: {error_msg}")
-    assert "401" in error_msg
-    assert "Incorrect API key provided: test" in error_msg
-    assert "invalid_api_key" in error_msg
-    assert "[non-fatal]" in error_msg
+    processors = _get_processors()
+    assert len(processors) >= 2
+    assert any(isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors)
+    assert any(not isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors)

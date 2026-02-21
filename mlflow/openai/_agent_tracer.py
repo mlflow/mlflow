@@ -6,7 +6,7 @@ from typing import Any
 
 import agents.tracing as oai
 from agents import add_trace_processor, set_trace_processors
-from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
+from agents.tracing.setup import get_trace_provider
 
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_event import SpanEvent
