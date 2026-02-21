@@ -6,16 +6,31 @@ import type { ExperimentEntity } from '../../experiment-tracking/types';
 import { ExperimentsHomeView } from './ExperimentsHomeView';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 
+const mockShowEditExperimentTagsModal = jest.fn();
+
 jest.mock('../../experiment-tracking/components/ExperimentListTable', () => ({
-  ExperimentListTable: ({ experiments }: { experiments: ExperimentEntity[] }) => (
-    <div data-testid="experiment-list-table">{`rows:${experiments.length}`}</div>
+  ExperimentListTable: ({
+    experiments,
+    onEditTags,
+  }: {
+    experiments: ExperimentEntity[];
+    onEditTags: (experiment: ExperimentEntity) => void;
+  }) => (
+    <div data-testid="experiment-list-table">
+      {`rows:${experiments.length}`}
+      {experiments.length > 0 && (
+        <button data-testid="edit-tags-button" onClick={() => onEditTags(experiments[0])}>
+          Edit tags
+        </button>
+      )}
+    </div>
   ),
 }));
 
 jest.mock('../../experiment-tracking/components/experiment-page/hooks/useUpdateExperimentTags', () => ({
   useUpdateExperimentTags: () => ({
     EditTagsModal: null,
-    showEditExperimentTagsModal: jest.fn(),
+    showEditExperimentTagsModal: mockShowEditExperimentTagsModal,
     isLoading: false,
   }),
 }));
@@ -23,6 +38,10 @@ jest.mock('../../experiment-tracking/components/experiment-page/hooks/useUpdateE
 const renderWithRouter = (ui: React.ReactElement) => renderWithDesignSystem(<MemoryRouter>{ui}</MemoryRouter>);
 
 describe('ExperimentsHomeView', () => {
+  beforeEach(() => {
+    mockShowEditExperimentTagsModal.mockClear();
+  });
+
   const sampleExperiment: ExperimentEntity = {
     allowedActions: [],
     artifactLocation: 'dbfs:/experiment',
@@ -74,6 +93,21 @@ describe('ExperimentsHomeView', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRetry).toHaveBeenCalled();
+  });
+
+  it('calls showEditExperimentTagsModal when editing tags', async () => {
+    renderWithRouter(
+      <ExperimentsHomeView
+        experiments={[sampleExperiment]}
+        isLoading={false}
+        error={null}
+        onCreateExperiment={jest.fn()}
+        onRetry={jest.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByTestId('edit-tags-button'));
+    expect(mockShowEditExperimentTagsModal).toHaveBeenCalledWith(sampleExperiment);
   });
 
   it('renders experiment preview when data is available', () => {
