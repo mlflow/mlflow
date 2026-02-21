@@ -82,6 +82,7 @@ const HomePage = () => {
           error={error}
           onCreateExperiment={handleOpenCreateModal}
           onRetry={refetch}
+          onTagsUpdated={refetch}
         />
       </React.Suspense>
 
