@@ -63,8 +63,19 @@ def clear_trace_processors():
     set_trace_processors([])
 
 
+def restore_default_trace_processor():
+    from agents.tracing.processors import default_processor
+
+    provider = get_trace_provider()
+    processors = provider._multi_processor._processors
+    default = default_processor()
+
+    if default not in processors:
+        add_trace_processor(default)
+
+
 def add_mlflow_trace_processor():
-    processors = GLOBAL_TRACE_PROVIDER._multi_processor._processors
+    processors = get_trace_provider()._multi_processor._processors
 
     if any(isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors):
         return
@@ -73,11 +84,11 @@ def add_mlflow_trace_processor():
 
 
 def remove_mlflow_trace_processor():
-    processors = GLOBAL_TRACE_PROVIDER._multi_processor._processors
+    processors = get_trace_provider()._multi_processor._processors
     non_mlflow_processors = [
         p for p in processors if not isinstance(p, MlflowOpenAgentTracingProcessor)
     ]
-    GLOBAL_TRACE_PROVIDER._multi_processor._processors = non_mlflow_processors
+    get_trace_provider()._multi_processor._processors = non_mlflow_processors
 
 
 class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):

@@ -91,10 +91,13 @@ def autolog(
             add_mlflow_trace_processor,
             clear_trace_processors,
             remove_mlflow_trace_processor,
+            restore_default_trace_processor,
         )
 
         if disable_openai_agent_tracer:
             clear_trace_processors()
+        else:
+            restore_default_trace_processor()
 
         if log_traces and not disable:
             add_mlflow_trace_processor()

@@ -386,12 +386,12 @@ async def test_disable_enable_autolog():
 
 @pytest.mark.asyncio
 async def test_autolog_disable_openai_agent_tracer():
-    from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
+    from agents.tracing.setup import get_trace_provider
 
     from mlflow.openai._agent_tracer import MlflowOpenAgentTracingProcessor
 
     def _get_processors():
-        return GLOBAL_TRACE_PROVIDER._multi_processor._processors
+        return get_trace_provider()._multi_processor._processors
 
     # By default, autolog should clear the OpenAI agents tracer
     mlflow.openai.autolog()
