@@ -53,7 +53,9 @@ question("MLflow")`;
 const PromptNameCellRenderer: ColumnDef<LinkedPromptsRow>['cell'] = ({ row }) => {
   const { experimentId, name, version } = row.original ?? {};
 
-  const baseRoute = generatePath('/ml/experiments/:experimentId/prompts/:promptName', {
+  // no /ml/ prefix for OSS
+  const path = '/experiments/:experimentId/prompts/:promptName';
+  const baseRoute = generatePath(path, {
     experimentId,
     promptName: name,
   });
