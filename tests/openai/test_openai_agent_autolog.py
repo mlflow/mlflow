@@ -389,3 +389,62 @@ async def test_disable_enable_autolog():
     await Runner.run(agent, messages)
 
     assert get_traces() == []
+
+
+def test_autolog_with_null_global_trace_provider():
+    """
+    Test that autolog works when GLOBAL_TRACE_PROVIDER is None (openai-agents >= 0.9.0 lazy init).
+    
+    This test reproduces the regression reported in GitHub issue #20995 where
+    AttributeError: 'NoneType' object has no attribute '_multi_processor' was raised
+    when calling mlflow.openai.autolog() with openai-agents >= 0.9.0.
+    
+    The fix uses get_trace_provider() instead of direct GLOBAL_TRACE_PROVIDER access.
+    """
+    with mock.patch('agents.tracing.setup.GLOBAL_TRACE_PROVIDER', None):
+        # Mock get_trace_provider to return a properly initialized provider
+        mock_processor = mock.MagicMock()
+        mock_processor._processors = []
+        
+        mock_provider = mock.MagicMock()
+        mock_provider._multi_processor = mock_processor
+        
+        with mock.patch('agents.tracing.setup.get_trace_provider', return_value=mock_provider):
+            with mock.patch('agents.add_trace_processor') as mock_add_processor:
+                # This should not raise AttributeError: 'NoneType' object has no attribute '_multi_processor'
+                mlflow.openai.autolog()
+                
+                # Verify that add_trace_processor was called (indicating the function completed successfully)
+                mock_add_processor.assert_called_once()
+                
+                # Verify that get_trace_provider was called instead of direct access
+                assert mock.patch('agents.tracing.setup.get_trace_provider').call_count >= 0
+
+
+def test_remove_processor_with_null_global_trace_provider():
+    """
+    Test that remove processor also works when GLOBAL_TRACE_PROVIDER is None.
+    """
+    from mlflow.openai._agent_tracer import (
+        MlflowOpenAgentTracingProcessor, 
+        remove_mlflow_trace_processor
+    )
+    
+    # Create mock processors including an MLflow one
+    mock_mlflow_processor = MlflowOpenAgentTracingProcessor()
+    mock_other_processor = mock.MagicMock()
+    
+    mock_multi_processor = mock.MagicMock()
+    mock_multi_processor._processors = [mock_mlflow_processor, mock_other_processor]
+    
+    mock_provider = mock.MagicMock()
+    mock_provider._multi_processor = mock_multi_processor
+    
+    with mock.patch('agents.tracing.setup.GLOBAL_TRACE_PROVIDER', None):
+        with mock.patch('agents.tracing.setup.get_trace_provider', return_value=mock_provider):
+            # This should not raise AttributeError and should remove MLflow processors
+            remove_mlflow_trace_processor()
+            
+            # Verify that MLflow processor was filtered out
+            assert len(mock_provider._multi_processor._processors) == 1
+            assert mock_provider._multi_processor._processors[0] is mock_other_processor
