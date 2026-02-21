@@ -31,12 +31,14 @@ const getDefaultPaneSizeRatios = (): PaneSizeRatios => ({
 export type ModelTraceExplorerViewState = {
   rootNode: ModelTraceSpanNode | null;
   nodeMap: Record<string, ModelTraceSpanNode>;
-  activeView: 'summary' | 'detail' | 'graph';
-  setActiveView: (view: 'summary' | 'detail' | 'graph') => void;
+  activeView: 'summary' | 'detail';
+  setActiveView: (view: 'summary' | 'detail') => void;
   selectedNode: ModelTraceSpanNode | undefined;
   setSelectedNode: (node: ModelTraceSpanNode | undefined) => void;
   activeTab: ModelTraceExplorerTab;
   setActiveTab: (tab: ModelTraceExplorerTab) => void;
+  showGraph: boolean;
+  setShowGraph: (show: boolean) => void;
   showTimelineTreeGantt: boolean;
   setShowTimelineTreeGantt: (show: boolean) => void;
   assessmentsPaneExpanded: boolean;
@@ -61,6 +63,8 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   setSelectedNode: () => {},
   activeTab: 'content',
   setActiveTab: () => {},
+  showGraph: true,
+  setShowGraph: () => {},
   showTimelineTreeGantt: false,
   setShowTimelineTreeGantt: () => {},
   assessmentsPaneExpanded: false,
@@ -93,7 +97,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   readOnly = false,
 }: {
   modelTrace: ModelTrace;
-  initialActiveView?: 'summary' | 'detail' | 'graph';
+  initialActiveView?: 'summary' | 'detail';
   selectedSpanIdOnRender?: string;
   children: React.ReactNode;
   assessmentsPaneEnabled: boolean;
@@ -125,7 +129,7 @@ export const ModelTraceExplorerViewStateProvider = ({
     };
   }, []);
 
-  const [activeView, setActiveView] = useState<'summary' | 'detail' | 'graph'>(() => {
+  const [activeView, setActiveView] = useState<'summary' | 'detail'>(() => {
     // Default to detail view when rootNode is null
     if (!rootNode) {
       return 'detail';
@@ -136,6 +140,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [selectedNode, setSelectedNode] = useState<ModelTraceSpanNode | undefined>(defaultSelectedNode);
   const defaultActiveTab = getDefaultActiveTab(selectedNode);
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
+  const [showGraph, setShowGraph] = useState(!!rootNode);
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpanded] = useState(
     (!initialAssessmentsPaneCollapsed && hasAssessments) || initialAssessmentsPaneCollapsed === 'force-open',
@@ -163,6 +168,8 @@ export const ModelTraceExplorerViewStateProvider = ({
       setActiveTab,
       selectedNode,
       setSelectedNode,
+      showGraph,
+      setShowGraph,
       showTimelineTreeGantt,
       setShowTimelineTreeGantt,
       assessmentsPaneExpanded: !readOnly && assessmentsPaneExpanded,
@@ -181,6 +188,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       activeTab,
       rootNode,
       selectedNode,
+      showGraph,
       showTimelineTreeGantt,
       setShowTimelineTreeGantt,
       assessmentsPaneExpanded,

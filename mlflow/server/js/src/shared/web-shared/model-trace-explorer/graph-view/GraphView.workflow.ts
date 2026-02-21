@@ -90,10 +90,11 @@ function detectAndMarkBackEdges(nodes: WorkflowNode[], edges: WorkflowEdge[]): v
 function applyLayeredLayout(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
+  rootNodeId: string | null,
   config: GraphLayoutConfig,
-): { width: number; height: number } {
+): { width: number; height: number } | null {
   if (nodes.length === 0) {
-    return { width: 0, height: 0 };
+    return null;
   }
 
   // Break cycles first — marks cycle-causing edges as back-edges
@@ -121,21 +122,25 @@ function applyLayeredLayout(
   const inQueue = new Set<string>();
   let head = 0;
 
-  // Seed with root nodes (no incoming forward edges)
+  // Always seed the root span node at layer 0
+  if (rootNodeId && incoming.has(rootNodeId)) {
+    layers.set(rootNodeId, 0);
+    queue.push(rootNodeId);
+    inQueue.add(rootNodeId);
+  }
+
+  // Seed remaining root nodes (no incoming forward edges)
   for (const node of nodes) {
-    if ((incoming.get(node.id) ?? []).length === 0) {
+    if (!layers.has(node.id) && (incoming.get(node.id) ?? []).length === 0) {
       layers.set(node.id, 0);
       queue.push(node.id);
       inQueue.add(node.id);
     }
   }
 
-  // Fallback: if every node had incoming edges (shouldn't happen after
-  // cycle-breaking, but guard for disconnected components)
-  if (queue.length === 0 && nodes.length > 0) {
-    layers.set(nodes[0].id, 0);
-    queue.push(nodes[0].id);
-    inQueue.add(nodes[0].id);
+  // If no root nodes were found, the graph is likely broken
+  if (queue.length === 0) {
+    return null;
   }
 
   while (head < queue.length) {
@@ -157,15 +162,10 @@ function applyLayeredLayout(
     }
   }
 
-  // Handle any remaining unassigned nodes (disconnected components)
-  let maxLayer = 0;
-  for (const layer of layers.values()) {
-    maxLayer = Math.max(maxLayer, layer);
-  }
+  // Place any remaining unassigned nodes (disconnected components) at the top layer
   for (const node of nodes) {
     if (!layers.has(node.id)) {
-      maxLayer++;
-      layers.set(node.id, maxLayer);
+      layers.set(node.id, 0);
     }
   }
 
@@ -231,7 +231,7 @@ function applyLayeredLayout(
 function buildWorkflowGraph(
   rootNode: ModelTraceSpanNode,
   config: GraphLayoutConfig,
-): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } | null {
+): { nodes: WorkflowNode[]; edges: WorkflowEdge[]; rootNodeId: string } | null {
   // Flatten all spans
   const spans = flattenSpans(rootNode);
 
@@ -301,30 +301,27 @@ function buildWorkflowGraph(
 
   buildEdgesFromHierarchy(rootNode, null);
 
-  // Detect nested call edges (bidirectional relationships)
-  const toolLikeTypes = new Set(['TOOL', 'GUARDRAIL', 'FUNCTION', 'RETRIEVER']);
-  const nodeById = new Map<string, WorkflowNode>();
-  for (const node of workflowNodes) {
-    nodeById.set(node.id, node);
-  }
+  // Detect nested call edges (bidirectional relationships).
+  // When both A->B and B->A edges exist, mark the second one as a nested call.
+  const processedPairs = new Set<string>();
   for (const edge of edgeMap.values()) {
+    const pairKey = [edge.sourceId, edge.targetId].sort().join('<->');
+    if (processedPairs.has(pairKey)) {
+      continue;
+    }
     const reverseEdgeId = `${edge.targetId}->${edge.sourceId}`;
     if (edgeMap.has(reverseEdgeId)) {
       const reverseEdge = edgeMap.get(reverseEdgeId)!;
-      // Check if source node is a tool-like type
-      const sourceNode = nodeById.get(edge.sourceId);
-      const reverseSourceNode = nodeById.get(reverseEdge.sourceId);
-      if (sourceNode && toolLikeTypes.has(sourceNode.nodeType.toUpperCase())) {
-        edge.isNestedCall = true;
-      } else if (reverseSourceNode && toolLikeTypes.has(reverseSourceNode.nodeType.toUpperCase())) {
-        reverseEdge.isNestedCall = true;
-      }
+      // Keep the first edge as the primary direction, mark the reverse as nested
+      reverseEdge.isNestedCall = true;
+      processedPairs.add(pairKey);
     }
   }
 
   return {
     nodes: workflowNodes,
     edges: Array.from(edgeMap.values()),
+    rootNodeId: getAggregationKey(rootNode),
   };
 }
 
@@ -357,7 +354,10 @@ export function computeWorkflowLayout(
   }
 
   // Apply custom layered layout
-  const dimensions = applyLayeredLayout(graph.nodes, graph.edges, config);
+  const dimensions = applyLayeredLayout(graph.nodes, graph.edges, graph.rootNodeId, config);
+  if (!dimensions) {
+    return { nodes: [], edges: [], width: 0, height: 0 };
+  }
 
   return {
     nodes: graph.nodes,

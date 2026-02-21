@@ -2802,10 +2802,6 @@
     "defaultMessage": "Experiments",
     "description": "Link label for the experiments page"
   },
-  "ITTdzC": {
-    "defaultMessage": "Graph",
-    "description": "Label for the graph view tab in the model trace explorer"
-  },
   "IUAmWX": {
     "defaultMessage": "No common artifacts to display.",
     "description": "Text shown when there are no common artifacts between the runs"
@@ -3788,6 +3784,10 @@
   "PpP8du": {
     "defaultMessage": "Model configuration",
     "description": "Label for model configuration section"
+  },
+  "PtjdJS": {
+    "defaultMessage": "Graph",
+    "description": "Label for the graph toggle button in the trace explorer."
   },
   "PuXTcZ": {
     "defaultMessage": "Welcome to MLflow",
