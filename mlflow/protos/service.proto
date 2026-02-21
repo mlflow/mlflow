@@ -1614,6 +1614,262 @@ service MlflowService {
     };
   }
 
+  // =============================================================================
+  // Labeling Management RPCs
+  // =============================================================================
+
+  // Create a labeling session for an experiment.
+  rpc createLabelingSession(CreateLabelingSession) returns (CreateLabelingSession.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/labeling/sessions"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Labeling Session"
+    };
+  }
+
+  // Get a labeling session by ID.
+  rpc getLabelingSession(GetLabelingSession) returns (GetLabelingSession.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Labeling Session"
+    };
+  }
+
+  // List labeling sessions for an experiment.
+  rpc listLabelingSessions(ListLabelingSessions) returns (ListLabelingSessions.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/labeling/sessions"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Labeling Sessions"
+    };
+  }
+
+  // Update a labeling session.
+  rpc updateLabelingSession(UpdateLabelingSession) returns (UpdateLabelingSession.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Labeling Session"
+    };
+  }
+
+  // Delete a labeling session.
+  rpc deleteLabelingSession(DeleteLabelingSession) returns (DeleteLabelingSession.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Labeling Session"
+    };
+  }
+
+  // Create a labeling schema for a session.
+  rpc createLabelingSchema(CreateLabelingSchema) returns (CreateLabelingSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}/schemas"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Labeling Schema"
+    };
+  }
+
+  // Get a labeling schema by name.
+  rpc getLabelingSchema(GetLabelingSchema) returns (GetLabelingSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}/schemas/{name}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Labeling Schema"
+    };
+  }
+
+  // List labeling schemas for a session.
+  rpc listLabelingSchemas(ListLabelingSchemas) returns (ListLabelingSchemas.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}/schemas"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Labeling Schemas"
+    };
+  }
+
+  // Delete a labeling schema.
+  rpc deleteLabelingSchema(DeleteLabelingSchema) returns (DeleteLabelingSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}/schemas/{name}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Labeling Schema"
+    };
+  }
+
+  // Create labeling session items (batch).
+  rpc createLabelingSessionItems(CreateLabelingSessionItems) returns (CreateLabelingSessionItems.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}/items"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Labeling Session Items"
+    };
+  }
+
+  // Get a labeling session item by ID.
+  rpc getLabelingSessionItem(GetLabelingSessionItem) returns (GetLabelingSessionItem.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}/items/{labeling_item_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Labeling Session Item"
+    };
+  }
+
+  // List labeling session items (paginated).
+  rpc listLabelingSessionItems(ListLabelingSessionItems) returns (ListLabelingSessionItems.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}/items"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Labeling Session Items"
+    };
+  }
+
+  // Update a labeling session item.
+  rpc updateLabelingSessionItem(UpdateLabelingSessionItem) returns (UpdateLabelingSessionItem.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}/items/{labeling_item_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Labeling Session Item"
+    };
+  }
+
+  // Delete labeling session items (batch).
+  rpc deleteLabelingSessionItems(DeleteLabelingSessionItems) returns (DeleteLabelingSessionItems.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/labeling/sessions/{labeling_session_id}/items"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Labeling Session Items"
+    };
+  }
+
   // Get records for an evaluation dataset
   rpc getDatasetRecords(GetDatasetRecords) returns (GetDatasetRecords.Response) {
     option (rpc) = {
@@ -4389,6 +4645,291 @@ message Scorer {
   optional int64 creation_time = 5;
   // The unique identifier for the scorer.
   optional string scorer_id = 6;
+}
+
+// =============================================================================
+// Labeling Management Messages
+// =============================================================================
+
+// Status enum for labeling session items.
+enum LabelingSessionItemStatus {
+  // Item is pending labeling.
+  LABELING_ITEM_PENDING = 1;
+  // Item labeling is in progress.
+  LABELING_ITEM_IN_PROGRESS = 2;
+  // Item labeling is completed.
+  LABELING_ITEM_COMPLETED = 3;
+  // Item was skipped.
+  LABELING_ITEM_SKIPPED = 4;
+}
+
+// Labeling session entity.
+message LabelingSessionProto {
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+  // The experiment ID.
+  optional int32 experiment_id = 2;
+  // The session name.
+  optional string name = 3;
+  // The creation time (in milliseconds since epoch).
+  optional int64 creation_time = 4;
+  // The last update time (in milliseconds since epoch).
+  optional int64 last_update_time = 5;
+}
+
+// Labeling schema entity.
+message LabelingSchemaProto {
+  // The labeling schema ID.
+  optional string labeling_schema_id = 1;
+  // The labeling session ID.
+  optional string labeling_session_id = 2;
+  // The schema name.
+  optional string name = 3;
+  // The assessment type (feedback/expectation).
+  optional string assessment_type = 4;
+  // The assessment value type (JSON string with value type + config).
+  optional string assessment_value_type = 5;
+  // The schema title.
+  optional string title = 6;
+  // The schema instructions.
+  optional string instructions = 7;
+  // The creation time (in milliseconds since epoch).
+  optional int64 creation_time = 8;
+  // The last update time (in milliseconds since epoch).
+  optional int64 last_update_time = 9;
+}
+
+// Labeling session item entity.
+message LabelingSessionItemProto {
+  // The labeling item ID.
+  optional string labeling_item_id = 1;
+  // The labeling session ID.
+  optional string labeling_session_id = 2;
+  // The trace ID (optional).
+  optional string trace_id = 3;
+  // The dataset record ID (optional).
+  optional string dataset_record_id = 4;
+  // The dataset ID (optional).
+  optional string dataset_id = 5;
+  // The item status.
+  optional LabelingSessionItemStatus status = 6;
+  // The creation time (in milliseconds since epoch).
+  optional int64 creation_time = 7;
+  // The last update time (in milliseconds since epoch).
+  optional int64 last_update_time = 8;
+}
+
+// Create a labeling session.
+message CreateLabelingSession {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional int32 experiment_id = 1;
+  // The session name.
+  optional string name = 2;
+
+  message Response {
+    // The created labeling session.
+    optional LabelingSessionProto labeling_session = 1;
+  }
+}
+
+// Get a labeling session by ID.
+message GetLabelingSession {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+
+  message Response {
+    // The labeling session.
+    optional LabelingSessionProto labeling_session = 1;
+  }
+}
+
+// List labeling sessions for an experiment.
+message ListLabelingSessions {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional int32 experiment_id = 1;
+
+  message Response {
+    // List of labeling sessions.
+    repeated LabelingSessionProto labeling_sessions = 1;
+  }
+}
+
+// Update a labeling session.
+message UpdateLabelingSession {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+  // The new session name.
+  optional string name = 2;
+
+  message Response {
+    // The updated labeling session.
+    optional LabelingSessionProto labeling_session = 1;
+  }
+}
+
+// Delete a labeling session.
+message DeleteLabelingSession {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+
+  message Response {
+    // Empty response.
+  }
+}
+
+// Create a labeling schema.
+message CreateLabelingSchema {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+  // The schema name.
+  optional string name = 2;
+  // The assessment type (feedback/expectation).
+  optional string assessment_type = 3;
+  // The schema title.
+  optional string title = 4;
+  // The assessment value type (JSON string with value type + config).
+  optional string assessment_value_type = 5;
+  // The schema instructions (optional).
+  optional string instructions = 6;
+
+  message Response {
+    // The created labeling schema.
+    optional LabelingSchemaProto labeling_schema = 1;
+  }
+}
+
+// Get a labeling schema by name.
+message GetLabelingSchema {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+  // The schema name.
+  optional string name = 2;
+
+  message Response {
+    // The labeling schema.
+    optional LabelingSchemaProto labeling_schema = 1;
+  }
+}
+
+// List labeling schemas for a session.
+message ListLabelingSchemas {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+
+  message Response {
+    // List of labeling schemas.
+    repeated LabelingSchemaProto labeling_schemas = 1;
+  }
+}
+
+// Delete a labeling schema.
+message DeleteLabelingSchema {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+  // The schema name.
+  optional string name = 2;
+
+  message Response {
+    // Empty response.
+  }
+}
+
+// Create labeling session items (batch).
+message CreateLabelingSessionItems {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+  // The items to create.
+  repeated LabelingSessionItemProto items = 2;
+
+  message Response {
+    // The created labeling items.
+    repeated LabelingSessionItemProto labeling_items = 1;
+  }
+}
+
+// Get a labeling session item by ID.
+message GetLabelingSessionItem {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+  // The labeling item ID.
+  optional string labeling_item_id = 2;
+
+  message Response {
+    // The labeling item.
+    optional LabelingSessionItemProto labeling_item = 1;
+  }
+}
+
+// List labeling session items (paginated).
+message ListLabelingSessionItems {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+  // The page token for pagination (optional).
+  optional string page_token = 2;
+  // The maximum number of results per page (optional).
+  optional int32 max_results = 3;
+
+  message Response {
+    // List of labeling items.
+    repeated LabelingSessionItemProto labeling_items = 1;
+    // The next page token (if there are more results).
+    optional string next_page_token = 2;
+  }
+}
+
+// Update a labeling session item.
+message UpdateLabelingSessionItem {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+  // The labeling item ID.
+  optional string labeling_item_id = 2;
+  // The new status.
+  optional LabelingSessionItemStatus status = 3;
+
+  message Response {
+    // The updated labeling item.
+    optional LabelingSessionItemProto labeling_item = 1;
+  }
+}
+
+// Delete labeling session items (batch).
+message DeleteLabelingSessionItems {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The labeling session ID.
+  optional string labeling_session_id = 1;
+  // The labeling item IDs to delete.
+  repeated string labeling_item_ids = 2;
+
+  message Response {
+    // Empty response.
+  }
 }
 
 // ========== Gateway Secrets and Endpoints Entities ==========
