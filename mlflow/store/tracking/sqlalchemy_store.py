@@ -2848,6 +2848,333 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 for config, scorer, version in gateway_results
             ]
 
+    #######################################################################################
+    # Labeling Session Methods
+    #######################################################################################
+
+    def create_labeling_session(self, experiment_id: int, name: str):
+        """Create a labeling session for an experiment."""
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSession
+
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists and is active
+            experiment = self.get_experiment(str(experiment_id))
+            self._check_experiment_is_active(experiment)
+
+            labeling_session_id = uuid.uuid4().hex
+            current_time = get_current_time_millis()
+
+            sql_session = SqlLabelingSession(
+                labeling_session_id=labeling_session_id,
+                experiment_id=experiment_id,
+                name=name,
+                creation_time=current_time,
+                last_update_time=current_time,
+            )
+            session.add(sql_session)
+            session.flush()
+
+            return sql_session.to_mlflow_entity()
+
+    def get_labeling_session(self, labeling_session_id: str):
+        """Get a labeling session by ID."""
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSession
+
+        with self.ManagedSessionMaker() as session:
+            sql_session = session.get(SqlLabelingSession, labeling_session_id)
+            if not sql_session:
+                raise MlflowException(
+                    f"Labeling session with ID {labeling_session_id!r} not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            return sql_session.to_mlflow_entity()
+
+    def list_labeling_sessions(self, experiment_id: int):
+        """List all labeling sessions for an experiment."""
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSession
+
+        with self.ManagedSessionMaker() as session:
+            # Validate experiment exists
+            self.get_experiment(str(experiment_id))
+
+            sessions = (
+                session.query(SqlLabelingSession)
+                .filter(SqlLabelingSession.experiment_id == experiment_id)
+                .order_by(SqlLabelingSession.creation_time.desc())
+                .all()
+            )
+            return [s.to_mlflow_entity() for s in sessions]
+
+    def update_labeling_session(self, labeling_session_id: str, name: str):
+        """Update a labeling session."""
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSession
+
+        with self.ManagedSessionMaker() as session:
+            sql_session = session.get(SqlLabelingSession, labeling_session_id)
+            if not sql_session:
+                raise MlflowException(
+                    f"Labeling session with ID {labeling_session_id!r} not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            sql_session.name = name
+            sql_session.last_update_time = get_current_time_millis()
+            session.flush()
+
+            return sql_session.to_mlflow_entity()
+
+    def delete_labeling_session(self, labeling_session_id: str):
+        """Delete a labeling session."""
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSession
+
+        with self.ManagedSessionMaker() as session:
+            sql_session = session.get(SqlLabelingSession, labeling_session_id)
+            if not sql_session:
+                raise MlflowException(
+                    f"Labeling session with ID {labeling_session_id!r} not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            session.delete(sql_session)
+
+    def create_labeling_schema(
+        self,
+        labeling_session_id: str,
+        name: str,
+        assessment_type: str,
+        title: str,
+        assessment_value_type: str,
+        instructions: str | None = None,
+    ):
+        """Create a labeling schema for a session."""
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSchema
+
+        with self.ManagedSessionMaker() as session:
+            # Validate session exists
+            self.get_labeling_session(labeling_session_id)
+
+            labeling_schema_id = uuid.uuid4().hex
+            current_time = get_current_time_millis()
+
+            sql_schema = SqlLabelingSchema(
+                labeling_schema_id=labeling_schema_id,
+                labeling_session_id=labeling_session_id,
+                name=name,
+                assessment_type=assessment_type,
+                assessment_value_type=assessment_value_type,
+                title=title,
+                instructions=instructions,
+                creation_time=current_time,
+                last_update_time=current_time,
+            )
+
+            try:
+                session.add(sql_schema)
+                session.flush()
+            except IntegrityError:
+                raise MlflowException(
+                    f"Labeling schema with name {name!r} already exists in "
+                    f"session {labeling_session_id!r}.",
+                    RESOURCE_ALREADY_EXISTS,
+                )
+
+            return sql_schema.to_mlflow_entity()
+
+    def get_labeling_schema(self, labeling_session_id: str, name: str):
+        """Get a labeling schema by name."""
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSchema
+
+        with self.ManagedSessionMaker() as session:
+            sql_schema = (
+                session.query(SqlLabelingSchema)
+                .filter(
+                    SqlLabelingSchema.labeling_session_id == labeling_session_id,
+                    SqlLabelingSchema.name == name,
+                )
+                .first()
+            )
+            if not sql_schema:
+                raise MlflowException(
+                    f"Labeling schema with name {name!r} not found in "
+                    f"session {labeling_session_id!r}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            return sql_schema.to_mlflow_entity()
+
+    def list_labeling_schemas(self, labeling_session_id: str):
+        """List all labeling schemas for a session."""
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSchema
+
+        with self.ManagedSessionMaker() as session:
+            # Validate session exists
+            self.get_labeling_session(labeling_session_id)
+
+            schemas = (
+                session.query(SqlLabelingSchema)
+                .filter(SqlLabelingSchema.labeling_session_id == labeling_session_id)
+                .order_by(SqlLabelingSchema.creation_time)
+                .all()
+            )
+            return [s.to_mlflow_entity() for s in schemas]
+
+    def delete_labeling_schema(self, labeling_session_id: str, name: str):
+        """Delete a labeling schema."""
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSchema
+
+        with self.ManagedSessionMaker() as session:
+            deleted = (
+                session.query(SqlLabelingSchema)
+                .filter(
+                    SqlLabelingSchema.labeling_session_id == labeling_session_id,
+                    SqlLabelingSchema.name == name,
+                )
+                .delete()
+            )
+            if deleted == 0:
+                raise MlflowException(
+                    f"Labeling schema with name {name!r} not found in "
+                    f"session {labeling_session_id!r}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+    def create_labeling_session_items(self, labeling_session_id: str, items):
+        """Create labeling session items (batch)."""
+        from mlflow.entities.labeling_item_status import LabelingSessionItemStatus
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSessionItem
+
+        with self.ManagedSessionMaker() as session:
+            # Validate session exists
+            self.get_labeling_session(labeling_session_id)
+
+            current_time = get_current_time_millis()
+            sql_items = []
+
+            for item_proto in items:
+                labeling_item_id = uuid.uuid4().hex
+                sql_item = SqlLabelingSessionItem(
+                    labeling_item_id=labeling_item_id,
+                    labeling_session_id=labeling_session_id,
+                    trace_id=item_proto.trace_id if item_proto.HasField("trace_id") else None,
+                    dataset_record_id=(
+                        item_proto.dataset_record_id
+                        if item_proto.HasField("dataset_record_id")
+                        else None
+                    ),
+                    dataset_id=item_proto.dataset_id if item_proto.HasField("dataset_id") else None,
+                    status=(
+                        LabelingSessionItemStatus.to_string(item_proto.status)
+                        if item_proto.HasField("status")
+                        else LabelingSessionItemStatus.to_string(LabelingSessionItemStatus.PENDING)
+                    ),
+                    creation_time=current_time,
+                    last_update_time=current_time,
+                )
+                session.add(sql_item)
+                sql_items.append(sql_item)
+
+            session.flush()
+            return [item.to_mlflow_entity() for item in sql_items]
+
+    def get_labeling_session_item(self, labeling_item_id: str):
+        """Get a labeling session item by ID."""
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSessionItem
+
+        with self.ManagedSessionMaker() as session:
+            sql_item = session.get(SqlLabelingSessionItem, labeling_item_id)
+            if not sql_item:
+                raise MlflowException(
+                    f"Labeling session item with ID {labeling_item_id!r} not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            return sql_item.to_mlflow_entity()
+
+    def list_labeling_session_items(
+        self,
+        labeling_session_id: str,
+        page_token: str | None = None,
+        max_results: int | None = None,
+    ):
+        """List labeling session items (paginated)."""
+        from mlflow.store.entities.paged_list import PagedList
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSessionItem
+
+        with self.ManagedSessionMaker() as session:
+            # Validate session exists
+            self.get_labeling_session(labeling_session_id)
+
+            query = session.query(SqlLabelingSessionItem).filter(
+                SqlLabelingSessionItem.labeling_session_id == labeling_session_id
+            )
+
+            # Apply pagination
+            offset = 0
+            if page_token:
+                try:
+                    offset = int(page_token)
+                except ValueError:
+                    raise MlflowException(
+                        f"Invalid page_token: {page_token!r}",
+                        INVALID_PARAMETER_VALUE,
+                    )
+
+            query = query.order_by(SqlLabelingSessionItem.creation_time).offset(offset)
+
+            # Apply limit
+            limit = max_results if max_results else 1000  # Default to 1000
+            items = query.limit(limit + 1).all()
+
+            # Check if there are more results
+            next_page_token = None
+            if len(items) > limit:
+                items = items[:limit]
+                next_page_token = str(offset + limit)
+
+            return PagedList([item.to_mlflow_entity() for item in items], next_page_token)
+
+    def update_labeling_session_item(self, labeling_item_id: str, status: int):
+        """Update a labeling session item status."""
+        from mlflow.entities.labeling_item_status import LabelingSessionItemStatus
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSessionItem
+
+        with self.ManagedSessionMaker() as session:
+            sql_item = session.get(SqlLabelingSessionItem, labeling_item_id)
+            if not sql_item:
+                raise MlflowException(
+                    f"Labeling session item with ID {labeling_item_id!r} not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            sql_item.status = LabelingSessionItemStatus.to_string(status)
+            sql_item.last_update_time = get_current_time_millis()
+            session.flush()
+
+            return sql_item.to_mlflow_entity()
+
+    def delete_labeling_session_items(
+        self, labeling_session_id: str, labeling_item_ids: list[str]
+    ):
+        """Delete labeling session items (batch)."""
+        from mlflow.store.tracking.dbmodels.models import SqlLabelingSessionItem
+
+        with self.ManagedSessionMaker() as session:
+            # Validate session exists
+            self.get_labeling_session(labeling_session_id)
+
+            deleted = (
+                session.query(SqlLabelingSessionItem)
+                .filter(
+                    SqlLabelingSessionItem.labeling_session_id == labeling_session_id,
+                    SqlLabelingSessionItem.labeling_item_id.in_(labeling_item_ids),
+                )
+                .delete(synchronize_session=False)
+            )
+
+            if deleted == 0:
+                raise MlflowException(
+                    f"No labeling items found in session {labeling_session_id!r} "
+                    f"with the provided IDs.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
     def _resolve_endpoint_in_serialized_scorer(self, serialized_scorer: str) -> str:
         """
         Resolve gateway endpoint ID to name in a serialized scorer string.
