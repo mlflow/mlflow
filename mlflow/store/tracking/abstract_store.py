@@ -1569,3 +1569,232 @@ class AbstractStore(GatewayStoreMixin):
             and filter_string fields populated.
         """
         raise NotImplementedError(self.__class__.__name__)
+
+    def create_labeling_session(self, experiment_id: int, name: str) -> "LabelingSessionEntity":
+        """
+        Create a labeling session for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The session name.
+
+        Returns:
+            mlflow.entities.labeling.LabelingSessionEntity: The created labeling session.
+
+        Raises:
+            MlflowException: If experiment does not exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_labeling_session(self, labeling_session_id: str) -> "LabelingSessionEntity":
+        """
+        Get a labeling session by ID.
+
+        Args:
+            labeling_session_id: The labeling session ID.
+
+        Returns:
+            mlflow.entities.labeling.LabelingSessionEntity: The labeling session.
+
+        Raises:
+            MlflowException: If session is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_labeling_sessions(self, experiment_id: int) -> list["LabelingSessionEntity"]:
+        """
+        List all labeling sessions for an experiment.
+
+        Args:
+            experiment_id: The experiment ID.
+
+        Returns:
+            List of mlflow.entities.labeling.LabelingSessionEntity objects.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def update_labeling_session(
+        self, labeling_session_id: str, name: str
+    ) -> "LabelingSessionEntity":
+        """
+        Update a labeling session.
+
+        Args:
+            labeling_session_id: The labeling session ID.
+            name: The new session name.
+
+        Returns:
+            mlflow.entities.labeling.LabelingSessionEntity: The updated labeling session.
+
+        Raises:
+            MlflowException: If session is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_labeling_session(self, labeling_session_id: str) -> None:
+        """
+        Delete a labeling session.
+
+        Args:
+            labeling_session_id: The labeling session ID.
+
+        Raises:
+            MlflowException: If session is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def create_labeling_schema(
+        self,
+        labeling_session_id: str,
+        name: str,
+        assessment_type: str,
+        title: str,
+        assessment_value_type: str,
+        instructions: str | None = None,
+    ) -> "LabelingSchema":
+        """
+        Create a labeling schema for a session.
+
+        Args:
+            labeling_session_id: The labeling session ID.
+            name: The schema name.
+            assessment_type: The assessment type (feedback/expectation).
+            title: The schema title.
+            assessment_value_type: JSON string containing value type and configuration.
+            instructions: Optional schema instructions.
+
+        Returns:
+            mlflow.entities.labeling.LabelingSchema: The created labeling schema.
+
+        Raises:
+            MlflowException: If session is not found or schema with this name already exists.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_labeling_schema(
+        self, labeling_session_id: str, name: str
+    ) -> "LabelingSchema":
+        """
+        Get a labeling schema by name.
+
+        Args:
+            labeling_session_id: The labeling session ID.
+            name: The schema name.
+
+        Returns:
+            mlflow.entities.labeling.LabelingSchema: The labeling schema.
+
+        Raises:
+            MlflowException: If schema is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_labeling_schemas(self, labeling_session_id: str) -> list["LabelingSchema"]:
+        """
+        List all labeling schemas for a session.
+
+        Args:
+            labeling_session_id: The labeling session ID.
+
+        Returns:
+            List of mlflow.entities.labeling.LabelingSchema objects.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_labeling_schema(self, labeling_session_id: str, name: str) -> None:
+        """
+        Delete a labeling schema.
+
+        Args:
+            labeling_session_id: The labeling session ID.
+            name: The schema name.
+
+        Raises:
+            MlflowException: If schema is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def create_labeling_session_items(
+        self, labeling_session_id: str, items: list["LabelingSessionItemProto"]
+    ) -> list["LabelingSessionItem"]:
+        """
+        Create labeling session items (batch).
+
+        Args:
+            labeling_session_id: The labeling session ID.
+            items: List of item proto messages to create.
+
+        Returns:
+            List of mlflow.entities.labeling.LabelingSessionItem objects.
+
+        Raises:
+            MlflowException: If session is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_labeling_session_item(self, labeling_item_id: str) -> "LabelingSessionItem":
+        """
+        Get a labeling session item by ID.
+
+        Args:
+            labeling_item_id: The labeling item ID.
+
+        Returns:
+            mlflow.entities.labeling.LabelingSessionItem: The labeling item.
+
+        Raises:
+            MlflowException: If item is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_labeling_session_items(
+        self,
+        labeling_session_id: str,
+        page_token: str | None = None,
+        max_results: int | None = None,
+    ) -> "PagedList[LabelingSessionItem]":
+        """
+        List labeling session items (paginated).
+
+        Args:
+            labeling_session_id: The labeling session ID.
+            page_token: Optional page token for pagination.
+            max_results: Optional maximum number of results per page.
+
+        Returns:
+            PagedList of mlflow.entities.labeling.LabelingSessionItem objects.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def update_labeling_session_item(
+        self, labeling_item_id: str, status: int
+    ) -> "LabelingSessionItem":
+        """
+        Update a labeling session item status.
+
+        Args:
+            labeling_item_id: The labeling item ID.
+            status: The new status (from LabelingSessionItemStatus enum).
+
+        Returns:
+            mlflow.entities.labeling.LabelingSessionItem: The updated labeling item.
+
+        Raises:
+            MlflowException: If item is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_labeling_session_items(
+        self, labeling_session_id: str, labeling_item_ids: list[str]
+    ) -> None:
+        """
+        Delete labeling session items (batch).
+
+        Args:
+            labeling_session_id: The labeling session ID.
+            labeling_item_ids: List of labeling item IDs to delete.
+
+        Raises:
+            MlflowException: If session is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)

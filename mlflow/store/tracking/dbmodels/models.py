@@ -92,6 +92,16 @@ RunStatusTypes = [
     RunStatus.to_string(RunStatus.KILLED),
 ]
 
+# Import LabelingSessionItemStatus for status types
+from mlflow.entities.labeling_item_status import LabelingSessionItemStatus
+
+LabelingSessionItemStatusTypes = [
+    LabelingSessionItemStatus.to_string(LabelingSessionItemStatus.PENDING),
+    LabelingSessionItemStatus.to_string(LabelingSessionItemStatus.IN_PROGRESS),
+    LabelingSessionItemStatus.to_string(LabelingSessionItemStatus.COMPLETED),
+    LabelingSessionItemStatus.to_string(LabelingSessionItemStatus.SKIPPED),
+]
+
 
 # Create MutableJSON type for tracking mutations in JSON columns
 MutableJSON = MutableDict.as_mutable(JSON)
@@ -2765,3 +2775,254 @@ class SqlGatewayEndpointTag(Base):
 
     def to_mlflow_entity(self):
         return GatewayEndpointTag(key=self.key, value=self.value)
+
+
+class SqlLabelingSession(Base):
+    """
+    DB model for labeling sessions. These are recorded in ``labeling_sessions`` table.
+    """
+
+    __tablename__ = "labeling_sessions"
+
+    labeling_session_id = Column(String(36), nullable=False)
+    """
+    Labeling session ID: `String` (limit 36 characters). *Primary Key*.
+    """
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Experiment ID to which this session belongs: *Foreign Key* into ``experiments`` table.
+    """
+    name = Column(String(256), nullable=False)
+    """
+    Session name: `String` (limit 256 characters).
+    """
+    creation_time = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Creation time: `BigInteger`.
+    """
+    last_update_time = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Last update time: `BigInteger`.
+    """
+
+    experiment = relationship("SqlExperiment", backref=backref("labeling_sessions", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlExperiment`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("labeling_session_id", name="labeling_session_pk"),
+        Index("index_labeling_sessions_experiment_id", "experiment_id"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlLabelingSession({self.labeling_session_id}, "
+            f"{self.experiment_id}, {self.name})>"
+        )
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.labeling.LabelingSessionEntity.
+        """
+        from mlflow.entities.labeling import LabelingSessionEntity
+
+        return LabelingSessionEntity(
+            labeling_session_id=self.labeling_session_id,
+            experiment_id=self.experiment_id,
+            name=self.name,
+            creation_time=self.creation_time,
+            last_update_time=self.last_update_time,
+        )
+
+
+class SqlLabelingSchema(Base):
+    """
+    DB model for labeling schemas. These are recorded in ``labeling_schemas`` table.
+    """
+
+    __tablename__ = "labeling_schemas"
+
+    labeling_schema_id = Column(String(36), nullable=False)
+    """
+    Labeling schema ID: `String` (limit 36 characters). *Primary Key*.
+    """
+    labeling_session_id = Column(
+        String(36),
+        ForeignKey("labeling_sessions.labeling_session_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Labeling session ID to which this schema belongs: *Foreign Key* into
+    ``labeling_sessions`` table.
+    """
+    name = Column(String(256), nullable=False)
+    """
+    Schema name: `String` (limit 256 characters).
+    """
+    assessment_type = Column(String(32), nullable=False)
+    """
+    Assessment type: `String` (limit 32 characters). Either 'feedback' or 'expectation'.
+    """
+    assessment_value_type = Column(Text, nullable=False)
+    """
+    Assessment value type: `Text`. JSON string containing value type and configuration.
+    """
+    title = Column(String(256), nullable=False)
+    """
+    Schema title: `String` (limit 256 characters).
+    """
+    instructions = Column(Text, nullable=True)
+    """
+    Schema instructions: `Text`. Optional.
+    """
+    creation_time = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Creation time: `BigInteger`.
+    """
+    last_update_time = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Last update time: `BigInteger`.
+    """
+
+    labeling_session = relationship(
+        "SqlLabelingSession", backref=backref("labeling_schemas", cascade="all")
+    )
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlLabelingSession`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("labeling_schema_id", name="labeling_schema_pk"),
+        UniqueConstraint(
+            "labeling_session_id",
+            "name",
+            name="unique_labeling_schema_session_name",
+        ),
+        Index("index_labeling_schemas_session_id", "labeling_session_id"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlLabelingSchema({self.labeling_schema_id}, "
+            f"{self.labeling_session_id}, {self.name})>"
+        )
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.labeling.LabelingSchema.
+        """
+        from mlflow.entities.labeling import LabelingSchema
+
+        return LabelingSchema(
+            labeling_schema_id=self.labeling_schema_id,
+            labeling_session_id=self.labeling_session_id,
+            name=self.name,
+            assessment_type=self.assessment_type,
+            assessment_value_type=self.assessment_value_type,
+            title=self.title,
+            instructions=self.instructions,
+            creation_time=self.creation_time,
+            last_update_time=self.last_update_time,
+        )
+
+
+class SqlLabelingSessionItem(Base):
+    """
+    DB model for labeling session items. These are recorded in ``labeling_session_items`` table.
+    """
+
+    __tablename__ = "labeling_session_items"
+
+    labeling_item_id = Column(String(36), nullable=False)
+    """
+    Labeling item ID: `String` (limit 36 characters). *Primary Key*.
+    """
+    labeling_session_id = Column(
+        String(36),
+        ForeignKey("labeling_sessions.labeling_session_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Labeling session ID to which this item belongs: *Foreign Key* into
+    ``labeling_sessions`` table.
+    """
+    trace_id = Column(String(50), nullable=True)
+    """
+    Trace ID: `String` (limit 50 characters). Optional.
+    """
+    dataset_record_id = Column(String(36), nullable=True)
+    """
+    Dataset record ID: `String` (limit 36 characters). Optional.
+    """
+    dataset_id = Column(String(36), nullable=True)
+    """
+    Dataset ID: `String` (limit 36 characters). Optional.
+    """
+    status = Column(
+        String(20),
+        default=LabelingSessionItemStatus.to_string(LabelingSessionItemStatus.PENDING),
+        nullable=False,
+    )
+    """
+    Item status: `String` (limit 20 characters). One of PENDING, IN_PROGRESS, COMPLETED, SKIPPED.
+    """
+    creation_time = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Creation time: `BigInteger`.
+    """
+    last_update_time = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Last update time: `BigInteger`.
+    """
+
+    labeling_session = relationship(
+        "SqlLabelingSession", backref=backref("labeling_items", cascade="all")
+    )
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlLabelingSession`.
+    """
+
+    __table_args__ = (
+        CheckConstraint(status.in_(LabelingSessionItemStatusTypes), name="labeling_item_status"),
+        PrimaryKeyConstraint("labeling_item_id", name="labeling_item_pk"),
+        Index("index_labeling_items_session_id", "labeling_session_id"),
+        Index("index_labeling_items_trace_id", "trace_id"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlLabelingSessionItem({self.labeling_item_id}, "
+            f"{self.labeling_session_id}, {self.status})>"
+        )
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.labeling.LabelingSessionItem.
+        """
+        from mlflow.entities.labeling import LabelingSessionItem
+
+        return LabelingSessionItem(
+            labeling_item_id=self.labeling_item_id,
+            labeling_session_id=self.labeling_session_id,
+            trace_id=self.trace_id,
+            dataset_record_id=self.dataset_record_id,
+            dataset_id=self.dataset_id,
+            status=LabelingSessionItemStatus.from_string(self.status),
+            creation_time=self.creation_time,
+            last_update_time=self.last_update_time,
+        )
