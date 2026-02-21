@@ -511,6 +511,27 @@ service MlflowService {
     option (graphql) = {};
   }
 
+  // Generate a presigned URL for uploading an artifact directly to cloud storage.
+  // The server uses its own credentials to sign the URL, enabling clients to upload
+  // artifacts without needing direct cloud storage write permissions.
+  rpc createPresignedUploadUrl(CreatePresignedUploadUrl)
+      returns (CreatePresignedUploadUrl.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/artifacts/presigned-upload-url"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Presigned Upload URL"
+    };
+  }
+
   // Get a list of all values for the specified metric for a given run.
   //
   rpc getMetricHistory(GetMetricHistory) returns (GetMetricHistory.Response) {
@@ -2897,6 +2918,28 @@ message ListArtifacts {
 
     // Token that can be used to retrieve the next page of artifact results
     optional string next_page_token = 3;
+  }
+}
+
+message CreatePresignedUploadUrl {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Run ID that owns the artifact. Must be provided.
+  optional string run_id = 1;
+
+  // Relative path within the run's artifact directory (e.g. "models/model.pkl").
+  // Must be provided.
+  optional string path = 2;
+
+  // URL expiration time in seconds (default: 900).
+  optional int64 expiration = 3;
+
+  message Response {
+    // Presigned URL for direct S3 PUT upload.
+    optional string presigned_url = 1;
+
+    // Required headers for the upload request (e.g. Content-Type).
+    map<string, string> headers = 2;
   }
 }
 
