@@ -1,4 +1,4 @@
-import { Button, DropdownMenu, PlusIcon } from '@databricks/design-system';
+import { BarStackedIcon, Button, DropdownMenu, PlusIcon } from '@databricks/design-system';
 import type { Theme } from '@emotion/react';
 
 import { ReactComponent as ChartBarIcon } from '../../../../common/static/chart-bar.svg';
@@ -8,7 +8,6 @@ import { ReactComponent as ChartParallelIcon } from '../../../../common/static/c
 import { ReactComponent as ChartScatterIcon } from '../../../../common/static/chart-scatter.svg';
 import { ReactComponent as ChartDifferenceIcon } from '../../../../common/static/chart-difference.svg';
 import { ReactComponent as ChartImageIcon } from '../../../../common/static/chart-image.svg';
-import { ReactComponent as ChartHistogramIcon } from '../../../../common/static/chart-histogram.svg';
 import { RunsChartType } from '../runs-charts.types';
 import { FormattedMessage } from 'react-intl';
 
@@ -147,7 +146,7 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
             data-testid="experiment-view-compare-runs-chart-type-histogram"
           >
             <DropdownMenu.IconWrapper css={styles.iconWrapper}>
-              <ChartHistogramIcon />
+              <BarStackedIcon />
             </DropdownMenu.IconWrapper>
             <FormattedMessage
               defaultMessage="3D Histogram"

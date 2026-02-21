@@ -36,7 +36,12 @@ const convertHistogramsTo3DSurface = (histograms: HistogramData[], logScale: boo
     return { x: [], y: [], z: [] };
   }
 
-  const sortedHistograms = [...histograms].sort((a, b) => a.step - b.step);
+  // Deduplicate by step, keeping the last entry for each step
+  const dedupMap = new Map<number, HistogramData>();
+  for (const h of histograms) {
+    dedupMap.set(h.step, h);
+  }
+  const sortedHistograms = [...dedupMap.values()].sort((a, b) => a.step - b.step);
 
   const steps = sortedHistograms.map((h) => h.step);
 

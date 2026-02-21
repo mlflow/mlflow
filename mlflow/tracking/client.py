@@ -3262,8 +3262,10 @@ class MlflowClient:
         """
         Logs a histogram to artifact storage for the specified run.
 
-        Histograms are stored as JSON files in the artifacts/histograms directory,
-        with one file per histogram name containing data from all steps.
+        Each histogram step is stored as a separate JSON file under
+        ``histograms/{name}/step_{step}.json``. This avoids the need to
+        download and re-upload existing data on each call, following the
+        same per-file pattern used by :meth:`log_image`.
 
         Args:
             run_id: String ID of the run.
@@ -3290,30 +3292,14 @@ class MlflowClient:
                 client = mlflow.MlflowClient()
                 client.log_histogram(run.info.run_id, histogram)
         """
-        import shutil
-        import tempfile
-
-        from mlflow.utils.histogram_utils import append_histogram_to_json
+        from mlflow.utils.histogram_utils import save_histogram_to_json
 
         # Sanitize histogram name for filename (replace / with _ to avoid path issues)
         sanitized_name = re.sub(r"/", "_", histogram.name)
-        artifact_file = f"histograms/{sanitized_name}.json"
+        artifact_file = f"histograms/{sanitized_name}/step_{histogram.step}.json"
 
-        # Append histogram to JSON file using temporary file
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            # Check if file already exists and download it to append
-            artifact_dir = posixpath.dirname(artifact_file)
-            artifact_dir = None if artifact_dir == "" else artifact_dir
-            artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
-
-            if artifact_file in artifacts:
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    downloaded_path = self.download_artifacts(
-                        run_id=run_id, path=artifact_file, dst_path=tmpdir
-                    )
-                    shutil.copy2(downloaded_path, tmp_path)
-
-            append_histogram_to_json(histogram, tmp_path)
+            save_histogram_to_json(histogram, tmp_path)
 
     def get_histogram(
         self, run_id: str, key: str
@@ -3326,7 +3312,8 @@ class MlflowClient:
             key: Histogram name/key.
 
         Returns:
-            List of HistogramData instances containing histogram data for all steps.
+            List of HistogramData instances containing histogram data for all steps,
+            sorted by step number.
 
         .. code-block:: python
             :caption: Example
@@ -3342,18 +3329,27 @@ class MlflowClient:
         """
         import tempfile
 
-        from mlflow.utils.histogram_utils import load_histograms_from_json
+        from mlflow.utils.histogram_utils import load_histogram_from_json
 
         # Sanitize histogram name for filename (replace / with _ to match log_histogram)
         sanitized_name = re.sub(r"/", "_", key)
-        artifact_file = f"histograms/{sanitized_name}.json"
+        artifact_dir = f"histograms/{sanitized_name}"
 
         try:
+            step_files = self.list_artifacts(run_id, path=artifact_dir)
+            if not step_files:
+                return []
+
+            histograms = []
             with tempfile.TemporaryDirectory() as tmpdir:
-                downloaded_path = self.download_artifacts(
-                    run_id=run_id, path=artifact_file, dst_path=tmpdir
-                )
-                return load_histograms_from_json(downloaded_path)
+                for artifact in step_files:
+                    if artifact.path.endswith(".json"):
+                        downloaded_path = self.download_artifacts(
+                            run_id=run_id, path=artifact.path, dst_path=tmpdir
+                        )
+                        histograms.append(load_histogram_from_json(downloaded_path))
+
+            return sorted(histograms, key=lambda h: h.step)
         except Exception as e:
             _logger.warning(f"Failed to load histogram '{key}' for run {run_id}: {e}")
             return []

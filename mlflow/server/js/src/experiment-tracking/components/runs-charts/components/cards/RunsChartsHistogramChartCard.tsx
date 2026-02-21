@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { getAjaxUrl } from '../../../../../common/utils/FetchUtils';
 import type { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartsHistogramCardConfig } from '../../runs-charts.types';
 import { RunsHistogram3DPlot, type HistogramData } from '../RunsHistogram3DPlot';
@@ -23,21 +24,37 @@ export interface RunsChartsHistogramChartCardProps
 }
 
 /**
- * Fetches histogram data from artifacts for a given run and histogram key
+ * Fetches histogram data from artifacts for a given run and histogram key.
+ * Each step is stored as a separate JSON file under histograms/{key}/step_{n}.json.
  */
 const fetchHistogramData = async (runId: string, histogramKey: string): Promise<HistogramData[]> => {
   const sanitizedKey = histogramKey.replace(/\//g, '_');
-  const artifactPath = `histograms/${sanitizedKey}.json`;
+  const artifactDir = `histograms/${sanitizedKey}`;
 
-  const response = await fetch(`/get-artifact?path=${encodeURIComponent(artifactPath)}&run_uuid=${runId}`);
+  // List all step files in the histogram directory
+  const listResponse = await fetch(
+    getAjaxUrl(`ajax-api/2.0/mlflow/artifacts/list?run_id=${runId}&path=${encodeURIComponent(artifactDir)}`),
+  );
 
-  if (!response.ok) {
+  if (!listResponse.ok) {
     return [];
   }
 
-  const histogramData = await response.json();
+  const listData = await listResponse.json();
+  const files = (listData.files || []).filter((f: any) => f.path?.endsWith('.json') && !f.is_dir);
 
-  return Array.isArray(histogramData) ? histogramData : [histogramData];
+  // Fetch each step file in parallel
+  const histograms = await Promise.all(
+    files.map(async (f: any) => {
+      const response = await fetch(getAjaxUrl(`get-artifact?path=${encodeURIComponent(f.path)}&run_uuid=${runId}`));
+      if (!response.ok) {
+        return null;
+      }
+      return response.json();
+    }),
+  );
+
+  return histograms.filter((h): h is HistogramData => h !== null);
 };
 
 export const RunsChartsHistogramChartCard = ({

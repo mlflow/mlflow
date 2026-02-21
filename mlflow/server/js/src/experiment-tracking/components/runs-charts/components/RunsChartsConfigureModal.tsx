@@ -1,9 +1,10 @@
 /**
  * TODO: implement actual UI for this modal, it's a crude placeholder with minimal logic for now
  */
-import { Modal, useDesignSystemTheme, SimpleSelect, SimpleSelectOption } from '@databricks/design-system';
+import { BarStackedIcon, Modal, useDesignSystemTheme, SimpleSelect, SimpleSelectOption } from '@databricks/design-system';
 import type { Interpolation, Theme } from '@emotion/react';
 import React, { useCallback, useMemo, useState } from 'react';
+import { getAjaxUrl } from '../../../../common/utils/FetchUtils';
 import { useIntl, FormattedMessage } from 'react-intl';
 import type {
   RunsChartsBarCardConfig,
@@ -24,7 +25,6 @@ import { ReactComponent as ChartParallelIcon } from '../../../../common/static/c
 import { ReactComponent as ChartScatterIcon } from '../../../../common/static/chart-scatter.svg';
 import { ReactComponent as ChartDifferenceIcon } from '../../../../common/static/chart-difference.svg';
 import { ReactComponent as ChartImageIcon } from '../../../../common/static/chart-image.svg';
-import { ReactComponent as ChartHistogramIcon } from '../../../../common/static/chart-histogram.svg';
 import { RunsChartsConfigureBarChart } from './config/RunsChartsConfigureBarChart';
 import { RunsChartsConfigureParallelChart } from './config/RunsChartsConfigureParallelChart';
 import type { RunsChartsRunData } from './RunsCharts.common';
@@ -117,7 +117,7 @@ export const RunsChartsConfigureModal = ({
 
       try {
         const response = await fetch(
-          `/ajax-api/2.0/mlflow/artifacts/list?run_id=${firstRun.runInfo.runUuid}&path=histograms`,
+          getAjaxUrl(`ajax-api/2.0/mlflow/artifacts/list?run_id=${firstRun.runInfo.runUuid}&path=histograms`),
         );
 
         if (!response.ok) {
@@ -128,14 +128,14 @@ export const RunsChartsConfigureModal = ({
         const data = await response.json();
         const files = data.files || [];
 
-        // Extract histogram keys from filenames
-        // Convert: weights_fc1.weight.json → weights/fc1.weight
+        // Extract histogram keys from directory names
+        // Each histogram key is stored as a subdirectory under histograms/
         const keys = files
-          .filter((f: any) => f.path && f.path.endsWith('.json'))
+          .filter((f: any) => f.path && f.is_dir)
           .map((f: any) => {
-            const filename = f.path.split('/').pop()?.replace('.json', '') || '';
+            const dirName = f.path.split('/').pop() || '';
             // Convert underscore back to slash
-            return filename.replace(/_/g, '/');
+            return dirName.replace(/_/g, '/');
           })
           .filter((key: string) => key.length > 0);
 
@@ -449,7 +449,7 @@ export const RunsChartsConfigureModal = ({
                 {isChartTypeSupported(RunsChartType.HISTOGRAM) && (
                   <SimpleSelectOption value={RunsChartType.HISTOGRAM}>
                     <div css={styles.chartTypeOption(theme)}>
-                      <ChartHistogramIcon />
+                      <BarStackedIcon />
                       <FormattedMessage
                         defaultMessage="3D Histogram"
                         description="Experiment tracking > runs charts > add chart menu > 3D histogram"

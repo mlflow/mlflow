@@ -1864,10 +1864,8 @@ def log_image(
 
 
 def log_histogram(
-    values: Union["numpy.ndarray", list] | None = None,
+    values: Union["numpy.ndarray", list],
     *,
-    bins: list[float] | None = None,
-    counts: list[float] | None = None,
     key: str,
     step: int | None = None,
     timestamp: int | None = None,
@@ -1877,22 +1875,18 @@ def log_histogram(
     Logs a histogram in MLflow for tracking distributions over time (e.g., weights,
     gradients, activations during model training).
 
-    You can either:
-    1. Pass raw values and let MLflow compute the histogram
-    2. Pass pre-computed bins and counts (e.g., from TensorBoard)
+    Pass raw values and MLflow will compute the histogram automatically.
 
     Args:
-        values: Raw data values to compute histogram from. Either `values` OR
-            (`bins` AND `counts`) must be provided, but not both.
-        bins: Pre-computed bin edges (length n+1 for n bins). Must be provided with `counts`.
-        counts: Pre-computed counts per bin (length n). Must be provided with `bins`.
+        values: Raw data values to compute histogram from. Can be a numpy array or list
+            of numbers.
         key: Histogram name. This string may only contain alphanumerics, underscores (_),
             dashes (-), periods (.), spaces ( ), and slashes (/).
         step: Integer training step (iteration) at which the histogram was recorded.
             Defaults to 0.
         timestamp: Time when this histogram was recorded. Defaults to the current system time.
         num_bins: Number of bins to use when computing histogram from raw values.
-            Defaults to 30. Ignored if bins and counts are provided.
+            Defaults to 30.
 
     .. code-block:: python
         :caption: Log histogram from raw values (e.g., model weights)
@@ -1910,58 +1904,19 @@ def log_histogram(
                 # Log weight distributions
                 weights = model.weight.detach().cpu().numpy().flatten()
                 mlflow.log_histogram(weights, key="weights/layer1", step=epoch)
-
-    .. code-block:: python
-        :caption: Log pre-computed histogram (e.g., from TensorBoard)
-
-        import mlflow
-        import numpy as np
-
-        # Pre-computed histogram data
-        bin_edges = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
-        counts = [10, 25, 30, 20, 15]
-
-        with mlflow.start_run():
-            mlflow.log_histogram(
-                bins=bin_edges, counts=counts, key="activations/relu1", step=100
-            )
     """
+    import numpy as np
+
     run_id = _get_or_start_run().info.run_id
     step = step if step is not None else 0
     timestamp = timestamp if timestamp is not None else get_current_time_millis()
 
-    # Validate inputs
-    if values is not None and (bins is not None or counts is not None):
-        raise ValueError(
-            "Cannot provide both 'values' and 'bins'/'counts'. "
-            "Either pass raw 'values' to compute histogram, or pass pre-computed 'bins' and"
-            "'counts'."
-        )
+    # Validate and convert values to numpy array
+    if not isinstance(values, (np.ndarray, list)):
+        raise TypeError(f"'values' must be a numpy array or list, got {type(values).__name__}")
+    values_array = np.asarray(values, dtype=np.float64)
 
-    if values is None and (bins is None or counts is None):
-        raise ValueError(
-            "Must provide either 'values' to compute histogram, "
-            "or both 'bins' and 'counts' for pre-computed histogram."
-        )
-
-    # Compute or use provided histogram
-    if values is not None:
-        bin_edges, hist_counts, min_val, max_val = compute_histogram_from_values(values, num_bins)
-    else:
-        import numpy as np
-
-        bin_edges = np.asarray(bins, dtype=np.float64)
-        hist_counts = np.asarray(counts, dtype=np.float64)
-
-        if len(bin_edges) != len(hist_counts) + 1:
-            raise ValueError(
-                f"bins must have length n+1 where n is the number of counts. "
-                f"Got bins length {len(bin_edges)} and counts length {len(hist_counts)}"
-            )
-
-        # Compute min/max from bin edges
-        min_val = float(bin_edges[0])
-        max_val = float(bin_edges[-1])
+    bin_edges, hist_counts, min_val, max_val = compute_histogram_from_values(values_array, num_bins)
 
     # Create histogram data
     histogram = HistogramData(
