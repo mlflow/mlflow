@@ -1497,6 +1497,242 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             ) from e
 
     ############################################################################################
+    # Labeling Session Management APIs
+    ############################################################################################
+
+    def create_labeling_session(self, experiment_id: int, name: str):
+        """Create a labeling session for an experiment."""
+        from mlflow.entities.labeling import LabelingSessionEntity
+        from mlflow.protos.service_pb2 import CreateLabelingSession
+
+        req_body = message_to_json(
+            CreateLabelingSession(experiment_id=experiment_id, name=name)
+        )
+        response_proto = self._call_endpoint(
+            CreateLabelingSession,
+            req_body,
+            endpoint="/api/3.0/mlflow/labeling/sessions",
+        )
+        return LabelingSessionEntity.from_proto(response_proto.labeling_session)
+
+    def get_labeling_session(self, labeling_session_id: str):
+        """Get a labeling session by ID."""
+        from mlflow.entities.labeling import LabelingSessionEntity
+        from mlflow.protos.service_pb2 import GetLabelingSession
+
+        req_body = message_to_json(GetLabelingSession(labeling_session_id=labeling_session_id))
+        response_proto = self._call_endpoint(
+            GetLabelingSession,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/labeling/sessions/{labeling_session_id}",
+        )
+        return LabelingSessionEntity.from_proto(response_proto.labeling_session)
+
+    def list_labeling_sessions(self, experiment_id: int):
+        """List all labeling sessions for an experiment."""
+        from mlflow.entities.labeling import LabelingSessionEntity
+        from mlflow.protos.service_pb2 import ListLabelingSessions
+
+        req_body = message_to_json(ListLabelingSessions(experiment_id=experiment_id))
+        response_proto = self._call_endpoint(
+            ListLabelingSessions,
+            req_body,
+            endpoint="/api/3.0/mlflow/labeling/sessions",
+        )
+        return [
+            LabelingSessionEntity.from_proto(session)
+            for session in response_proto.labeling_sessions
+        ]
+
+    def update_labeling_session(self, labeling_session_id: str, name: str):
+        """Update a labeling session."""
+        from mlflow.entities.labeling import LabelingSessionEntity
+        from mlflow.protos.service_pb2 import UpdateLabelingSession
+
+        req_body = message_to_json(
+            UpdateLabelingSession(labeling_session_id=labeling_session_id, name=name)
+        )
+        response_proto = self._call_endpoint(
+            UpdateLabelingSession,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/labeling/sessions/{labeling_session_id}",
+        )
+        return LabelingSessionEntity.from_proto(response_proto.labeling_session)
+
+    def delete_labeling_session(self, labeling_session_id: str):
+        """Delete a labeling session."""
+        from mlflow.protos.service_pb2 import DeleteLabelingSession
+
+        req_body = message_to_json(DeleteLabelingSession(labeling_session_id=labeling_session_id))
+        self._call_endpoint(
+            DeleteLabelingSession,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/labeling/sessions/{labeling_session_id}",
+        )
+
+    def create_labeling_schema(
+        self,
+        labeling_session_id: str,
+        name: str,
+        assessment_type: str,
+        title: str,
+        assessment_value_type: str,
+        instructions: str | None = None,
+    ):
+        """Create a labeling schema for a session."""
+        from mlflow.entities.labeling import LabelingSchema
+        from mlflow.protos.service_pb2 import CreateLabelingSchema
+
+        req_body = message_to_json(
+            CreateLabelingSchema(
+                labeling_session_id=labeling_session_id,
+                name=name,
+                assessment_type=assessment_type,
+                title=title,
+                assessment_value_type=assessment_value_type,
+                instructions=instructions,
+            )
+        )
+        response_proto = self._call_endpoint(
+            CreateLabelingSchema,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/labeling/sessions/{labeling_session_id}/schemas",
+        )
+        return LabelingSchema.from_proto(response_proto.labeling_schema)
+
+    def get_labeling_schema(self, labeling_session_id: str, name: str):
+        """Get a labeling schema by name."""
+        from mlflow.entities.labeling import LabelingSchema
+        from mlflow.protos.service_pb2 import GetLabelingSchema
+
+        req_body = message_to_json(
+            GetLabelingSchema(labeling_session_id=labeling_session_id, name=name)
+        )
+        response_proto = self._call_endpoint(
+            GetLabelingSchema,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/labeling/sessions/{labeling_session_id}/schemas/{name}",
+        )
+        return LabelingSchema.from_proto(response_proto.labeling_schema)
+
+    def list_labeling_schemas(self, labeling_session_id: str):
+        """List all labeling schemas for a session."""
+        from mlflow.entities.labeling import LabelingSchema
+        from mlflow.protos.service_pb2 import ListLabelingSchemas
+
+        req_body = message_to_json(ListLabelingSchemas(labeling_session_id=labeling_session_id))
+        response_proto = self._call_endpoint(
+            ListLabelingSchemas,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/labeling/sessions/{labeling_session_id}/schemas",
+        )
+        return [
+            LabelingSchema.from_proto(schema) for schema in response_proto.labeling_schemas
+        ]
+
+    def delete_labeling_schema(self, labeling_session_id: str, name: str):
+        """Delete a labeling schema."""
+        from mlflow.protos.service_pb2 import DeleteLabelingSchema
+
+        req_body = message_to_json(
+            DeleteLabelingSchema(labeling_session_id=labeling_session_id, name=name)
+        )
+        self._call_endpoint(
+            DeleteLabelingSchema,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/labeling/sessions/{labeling_session_id}/schemas/{name}",
+        )
+
+    def create_labeling_session_items(self, labeling_session_id: str, items):
+        """Create labeling session items (batch)."""
+        from mlflow.entities.labeling import LabelingSessionItem
+        from mlflow.protos.service_pb2 import CreateLabelingSessionItems
+
+        req_body = message_to_json(
+            CreateLabelingSessionItems(labeling_session_id=labeling_session_id, items=items)
+        )
+        response_proto = self._call_endpoint(
+            CreateLabelingSessionItems,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/labeling/sessions/{labeling_session_id}/items",
+        )
+        return [
+            LabelingSessionItem.from_proto(item) for item in response_proto.labeling_items
+        ]
+
+    def get_labeling_session_item(self, labeling_item_id: str):
+        """Get a labeling session item by ID."""
+        from mlflow.entities.labeling import LabelingSessionItem
+        from mlflow.protos.service_pb2 import GetLabelingSessionItem
+
+        req_body = message_to_json(GetLabelingSessionItem(labeling_item_id=labeling_item_id))
+        response_proto = self._call_endpoint(
+            GetLabelingSessionItem,
+            req_body,
+        )
+        return LabelingSessionItem.from_proto(response_proto.labeling_item)
+
+    def list_labeling_session_items(
+        self,
+        labeling_session_id: str,
+        page_token: str | None = None,
+        max_results: int | None = None,
+    ):
+        """List labeling session items (paginated)."""
+        from mlflow.entities.labeling import LabelingSessionItem
+        from mlflow.protos.service_pb2 import ListLabelingSessionItems
+        from mlflow.store.entities.paged_list import PagedList
+
+        req_body = message_to_json(
+            ListLabelingSessionItems(
+                labeling_session_id=labeling_session_id,
+                page_token=page_token,
+                max_results=max_results,
+            )
+        )
+        response_proto = self._call_endpoint(
+            ListLabelingSessionItems,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/labeling/sessions/{labeling_session_id}/items",
+        )
+        return PagedList(
+            [LabelingSessionItem.from_proto(item) for item in response_proto.labeling_items],
+            response_proto.next_page_token if response_proto.HasField("next_page_token") else None,
+        )
+
+    def update_labeling_session_item(self, labeling_item_id: str, status: int):
+        """Update a labeling session item status."""
+        from mlflow.entities.labeling import LabelingSessionItem
+        from mlflow.protos.service_pb2 import UpdateLabelingSessionItem
+
+        req_body = message_to_json(
+            UpdateLabelingSessionItem(labeling_item_id=labeling_item_id, status=status)
+        )
+        response_proto = self._call_endpoint(
+            UpdateLabelingSessionItem,
+            req_body,
+        )
+        return LabelingSessionItem.from_proto(response_proto.labeling_item)
+
+    def delete_labeling_session_items(
+        self, labeling_session_id: str, labeling_item_ids: list[str]
+    ):
+        """Delete labeling session items (batch)."""
+        from mlflow.protos.service_pb2 import DeleteLabelingSessionItems
+
+        req_body = message_to_json(
+            DeleteLabelingSessionItems(
+                labeling_session_id=labeling_session_id,
+                labeling_item_ids=labeling_item_ids,
+            )
+        )
+        self._call_endpoint(
+            DeleteLabelingSessionItems,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/labeling/sessions/{labeling_session_id}/items",
+        )
+
+    ############################################################################################
     # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
     ############################################################################################
     def deprecated_start_trace_v2(

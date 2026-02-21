@@ -135,6 +135,9 @@ from mlflow.protos.service_pb2 import (
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
+    CreateLabelingSchema,
+    CreateLabelingSession,
+    CreateLabelingSessionItems,
     CreateLoggedModel,
     CreatePromptOptimizationJob,
     CreateRun,
@@ -155,6 +158,9 @@ from mlflow.protos.service_pb2 import (
     DeletePromptOptimizationJob,
     DeleteRun,
     DeleteScorer,
+    DeleteLabelingSession,
+    DeleteLabelingSessionItems,
+    DeleteLabelingSchema,
     DeleteTag,
     DeleteTraces,
     DeleteTracesV3,
@@ -173,6 +179,9 @@ from mlflow.protos.service_pb2 import (
     GetGatewayEndpoint,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
+    GetLabelingSchema,
+    GetLabelingSession,
+    GetLabelingSessionItem,
     GetLoggedModel,
     GetMetricHistory,
     GetMetricHistoryBulkInterval,
@@ -190,6 +199,9 @@ from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
+    ListLabelingSchemas,
+    ListLabelingSessions,
+    ListLabelingSessionItems,
     ListLoggedModelArtifacts,
     ListScorers,
     ListScorerVersions,
@@ -229,6 +241,8 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
+    UpdateLabelingSession,
+    UpdateLabelingSessionItem,
     UpdateRun,
     UpdateWorkspace,
     UpsertDatasetRecords,
@@ -4450,6 +4464,312 @@ def _delete_scorer():
     return response
 
 
+# =============================================================================
+# Labeling Session Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_labeling_session():
+    request_message = _get_request_message(
+        CreateLabelingSession(),
+        schema={
+            "experiment_id": [_assert_required, _assert_intlike],
+            "name": [_assert_required, _assert_string],
+        },
+    )
+    session_entity = _get_tracking_store().create_labeling_session(
+        request_message.experiment_id,
+        request_message.name,
+    )
+    response_message = CreateLabelingSession.Response()
+    response_message.labeling_session.CopyFrom(session_entity.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_labeling_session(labeling_session_id=None):
+    request_message = _get_request_message(
+        GetLabelingSession(),
+        schema={"labeling_session_id": [_assert_string]},
+    )
+    actual_session_id = (
+        labeling_session_id if labeling_session_id else request_message.labeling_session_id
+    )
+    session_entity = _get_tracking_store().get_labeling_session(actual_session_id)
+    response_message = GetLabelingSession.Response()
+    response_message.labeling_session.CopyFrom(session_entity.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_labeling_sessions():
+    request_message = _get_request_message(
+        ListLabelingSessions(),
+        schema={"experiment_id": [_assert_required, _assert_intlike]},
+    )
+    sessions = _get_tracking_store().list_labeling_sessions(request_message.experiment_id)
+    response_message = ListLabelingSessions.Response()
+    response_message.labeling_sessions.extend([s.to_proto() for s in sessions])
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_labeling_session(labeling_session_id=None):
+    request_message = _get_request_message(
+        UpdateLabelingSession(),
+        schema={
+            "labeling_session_id": [_assert_string],
+            "name": [_assert_required, _assert_string],
+        },
+    )
+    actual_session_id = (
+        labeling_session_id if labeling_session_id else request_message.labeling_session_id
+    )
+    session_entity = _get_tracking_store().update_labeling_session(
+        actual_session_id, request_message.name
+    )
+    response_message = UpdateLabelingSession.Response()
+    response_message.labeling_session.CopyFrom(session_entity.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_labeling_session(labeling_session_id=None):
+    request_message = _get_request_message(
+        DeleteLabelingSession(),
+        schema={"labeling_session_id": [_assert_string]},
+    )
+    actual_session_id = (
+        labeling_session_id if labeling_session_id else request_message.labeling_session_id
+    )
+    _get_tracking_store().delete_labeling_session(actual_session_id)
+    response_message = DeleteLabelingSession.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_labeling_schema(labeling_session_id=None):
+    request_message = _get_request_message(
+        CreateLabelingSchema(),
+        schema={
+            "labeling_session_id": [_assert_string],
+            "name": [_assert_required, _assert_string],
+            "assessment_type": [_assert_required, _assert_string],
+            "title": [_assert_required, _assert_string],
+            "assessment_value_type": [_assert_required, _assert_string],
+            "instructions": [_assert_string],
+        },
+    )
+    actual_session_id = (
+        labeling_session_id if labeling_session_id else request_message.labeling_session_id
+    )
+    schema_entity = _get_tracking_store().create_labeling_schema(
+        actual_session_id,
+        request_message.name,
+        request_message.assessment_type,
+        request_message.title,
+        request_message.assessment_value_type,
+        request_message.instructions if request_message.HasField("instructions") else None,
+    )
+    response_message = CreateLabelingSchema.Response()
+    response_message.labeling_schema.CopyFrom(schema_entity.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_labeling_schema(labeling_session_id=None, name=None):
+    request_message = _get_request_message(
+        GetLabelingSchema(),
+        schema={
+            "labeling_session_id": [_assert_string],
+            "name": [_assert_string],
+        },
+    )
+    actual_session_id = (
+        labeling_session_id if labeling_session_id else request_message.labeling_session_id
+    )
+    actual_name = name if name else request_message.name
+    schema_entity = _get_tracking_store().get_labeling_schema(actual_session_id, actual_name)
+    response_message = GetLabelingSchema.Response()
+    response_message.labeling_schema.CopyFrom(schema_entity.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_labeling_schemas(labeling_session_id=None):
+    request_message = _get_request_message(
+        ListLabelingSchemas(),
+        schema={"labeling_session_id": [_assert_string]},
+    )
+    actual_session_id = (
+        labeling_session_id if labeling_session_id else request_message.labeling_session_id
+    )
+    schemas = _get_tracking_store().list_labeling_schemas(actual_session_id)
+    response_message = ListLabelingSchemas.Response()
+    response_message.labeling_schemas.extend([s.to_proto() for s in schemas])
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_labeling_schema(labeling_session_id=None, name=None):
+    request_message = _get_request_message(
+        DeleteLabelingSchema(),
+        schema={
+            "labeling_session_id": [_assert_string],
+            "name": [_assert_string],
+        },
+    )
+    actual_session_id = (
+        labeling_session_id if labeling_session_id else request_message.labeling_session_id
+    )
+    actual_name = name if name else request_message.name
+    _get_tracking_store().delete_labeling_schema(actual_session_id, actual_name)
+    response_message = DeleteLabelingSchema.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_labeling_session_items(labeling_session_id=None):
+    request_message = _get_request_message(
+        CreateLabelingSessionItems(),
+        schema={
+            "labeling_session_id": [_assert_string],
+            "items": [_assert_required, _assert_array],
+        },
+    )
+    actual_session_id = (
+        labeling_session_id if labeling_session_id else request_message.labeling_session_id
+    )
+    items = _get_tracking_store().create_labeling_session_items(
+        actual_session_id, request_message.items
+    )
+    response_message = CreateLabelingSessionItems.Response()
+    response_message.labeling_items.extend([item.to_proto() for item in items])
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_labeling_session_item(labeling_session_id=None, labeling_item_id=None):
+    request_message = _get_request_message(
+        GetLabelingSessionItem(),
+        schema={
+            "labeling_session_id": [_assert_string],
+            "labeling_item_id": [_assert_string],
+        },
+    )
+    actual_item_id = labeling_item_id if labeling_item_id else request_message.labeling_item_id
+    item_entity = _get_tracking_store().get_labeling_session_item(actual_item_id)
+    response_message = GetLabelingSessionItem.Response()
+    response_message.labeling_item.CopyFrom(item_entity.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_labeling_session_items(labeling_session_id=None):
+    request_message = _get_request_message(
+        ListLabelingSessionItems(),
+        schema={
+            "labeling_session_id": [_assert_string],
+            "page_token": [_assert_string],
+            "max_results": [_assert_intlike],
+        },
+    )
+    actual_session_id = (
+        labeling_session_id if labeling_session_id else request_message.labeling_session_id
+    )
+    paged_list = _get_tracking_store().list_labeling_session_items(
+        actual_session_id,
+        request_message.page_token if request_message.HasField("page_token") else None,
+        request_message.max_results if request_message.HasField("max_results") else None,
+    )
+    response_message = ListLabelingSessionItems.Response()
+    response_message.labeling_items.extend([item.to_proto() for item in paged_list])
+    if paged_list.token:
+        response_message.next_page_token = paged_list.token
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_labeling_session_item(labeling_session_id=None, labeling_item_id=None):
+    request_message = _get_request_message(
+        UpdateLabelingSessionItem(),
+        schema={
+            "labeling_session_id": [_assert_string],
+            "labeling_item_id": [_assert_string],
+            "status": [_assert_required, _assert_intlike],
+        },
+    )
+    actual_item_id = labeling_item_id if labeling_item_id else request_message.labeling_item_id
+    item_entity = _get_tracking_store().update_labeling_session_item(
+        actual_item_id, request_message.status
+    )
+    response_message = UpdateLabelingSessionItem.Response()
+    response_message.labeling_item.CopyFrom(item_entity.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_labeling_session_items(labeling_session_id=None):
+    request_message = _get_request_message(
+        DeleteLabelingSessionItems(),
+        schema={
+            "labeling_session_id": [_assert_string],
+            "labeling_item_ids": [_assert_required, _assert_array],
+        },
+    )
+    actual_session_id = (
+        labeling_session_id if labeling_session_id else request_message.labeling_session_id
+    )
+    _get_tracking_store().delete_labeling_session_items(
+        actual_session_id, list(request_message.labeling_item_ids)
+    )
+    response_message = DeleteLabelingSessionItems.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_online_scoring_configs():
@@ -6215,6 +6535,21 @@ HANDLERS = {
     ListScorerVersions: _list_scorer_versions,
     GetScorer: _get_scorer,
     DeleteScorer: _delete_scorer,
+    # Labeling Session APIs
+    CreateLabelingSession: _create_labeling_session,
+    GetLabelingSession: _get_labeling_session,
+    ListLabelingSessions: _list_labeling_sessions,
+    UpdateLabelingSession: _update_labeling_session,
+    DeleteLabelingSession: _delete_labeling_session,
+    CreateLabelingSchema: _create_labeling_schema,
+    GetLabelingSchema: _get_labeling_schema,
+    ListLabelingSchemas: _list_labeling_schemas,
+    DeleteLabelingSchema: _delete_labeling_schema,
+    CreateLabelingSessionItems: _create_labeling_session_items,
+    GetLabelingSessionItem: _get_labeling_session_item,
+    ListLabelingSessionItems: _list_labeling_session_items,
+    UpdateLabelingSessionItem: _update_labeling_session_item,
+    DeleteLabelingSessionItems: _delete_labeling_session_items,
     # Secrets APIs
     CreateGatewaySecret: _create_gateway_secret,
     GetGatewaySecretInfo: _get_gateway_secret_info,
