@@ -1059,10 +1059,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session.rollback()
                 # Divide metric keys into batches of 100 to avoid loading too much metric
                 # history data into memory at once
-                metric_keys = [m.key for m in metric_instances]
+                metric_keys = list({m.key for m in metric_instances})
                 metric_key_batches = [
                     metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
                 ]
+                # Iteratively filter out metric_instances per batch to avoid
+                # loading all metric history into memory at once
+                # (see https://github.com/mlflow/mlflow/issues/19144)
                 for metric_key_batch in metric_key_batches:
                     # obtain the metric history corresponding to the given metrics
                     metric_history = (
@@ -1073,15 +1076,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         )
                         .all()
                     )
-                    # convert to a set of Metric instance to take advantage of its hashable
-                    # and then obtain the metrics that were not logged earlier within this
-                    # run_id
                     metric_history = {m.to_mlflow_entity() for m in metric_history}
-                    non_existing_metrics = [
+                    metric_instances = [
                         m for m in metric_instances if m.to_mlflow_entity() not in metric_history
                     ]
-                    # if there exist metrics that were tried to be logged & rolled back even
-                    # though they were not violating the PK, log them
+                # if there exist metrics that were tried to be logged & rolled back even
+                # though they were not violating the PK, log them
+                if non_existing_metrics := metric_instances:
                     _insert_metrics(non_existing_metrics)
 
     def _log_model_metrics(
@@ -4027,6 +4028,33 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
         return sql_assessment
 
+    def _upsert_entity_associations(
+        self,
+        session: Session,
+        associations: list[SqlEntityAssociation],
+    ) -> None:
+        """
+        Insert entity associations one at a time, silently skipping rows that
+        already exist (duplicate primary-key / unique-constraint violation).
+
+        The check-then-insert pattern used before this helper had a race window:
+        two concurrent callers could both pass the "already exists" query and
+        then both attempt the same INSERT, producing a UniqueViolation (psycopg2)
+        or IntegrityError (SQLite).  Inserting row-by-row and catching the
+        IntegrityError per row is the correct idempotent strategy.
+        """
+        for assoc in associations:
+            try:
+                # Use a nested savepoint so that a per-row IntegrityError does
+                # not roll back the entire outer transaction.
+                with session.begin_nested():
+                    session.add(assoc)
+            except IntegrityError:
+                # Duplicate: another concurrent writer already created this
+                # association.  Treat as a no-op — the desired association
+                # exists in the database.
+                pass
+
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """
         Link multiple traces to a run by creating entity associations.
@@ -4057,31 +4085,18 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session, EntityAssociationType.TRACE, list(trace_ids)
             )
 
-            existing_associations = (
-                session.query(SqlEntityAssociation)
-                .filter(
-                    SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
-                    SqlEntityAssociation.source_id.in_(trace_ids),
-                    SqlEntityAssociation.destination_type == EntityAssociationType.RUN,
-                    SqlEntityAssociation.destination_id == run_id,
-                )
-                .all()
-            )
-            existing_trace_ids = [association.source_id for association in existing_associations]
-
-            trace_ids_to_add = [
-                trace_id for trace_id in trace_ids if trace_id not in existing_trace_ids
-            ]
-
-            session.add_all(
-                SqlEntityAssociation(
-                    association_id=uuid.uuid4().hex,
-                    source_type=EntityAssociationType.TRACE,
-                    source_id=trace_id,
-                    destination_type=EntityAssociationType.RUN,
-                    destination_id=run_id,
-                )
-                for trace_id in trace_ids_to_add
+            self._upsert_entity_associations(
+                session,
+                [
+                    SqlEntityAssociation(
+                        association_id=uuid.uuid4().hex,
+                        source_type=EntityAssociationType.TRACE,
+                        source_id=trace_id,
+                        destination_type=EntityAssociationType.RUN,
+                        destination_id=run_id,
+                    )
+                    for trace_id in trace_ids
+                ],
             )
 
     def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
@@ -4101,32 +4116,18 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Build list of prompt version IDs (format: "name/version")
             prompt_ids = [f"{pv.name}/{pv.version}" for pv in prompt_versions]
 
-            # Check for existing associations
-            existing_associations = (
-                session.query(SqlEntityAssociation)
-                .filter(
-                    SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
-                    SqlEntityAssociation.source_id == trace_id,
-                    SqlEntityAssociation.destination_type == EntityAssociationType.PROMPT_VERSION,
-                    SqlEntityAssociation.destination_id.in_(prompt_ids),
-                )
-                .all()
-            )
-            existing_prompt_ids = {
-                association.destination_id for association in existing_associations
-            }
-
-            prompt_ids_to_add = [pid for pid in prompt_ids if pid not in existing_prompt_ids]
-
-            session.add_all(
-                SqlEntityAssociation(
-                    association_id=uuid.uuid4().hex,
-                    source_type=EntityAssociationType.TRACE,
-                    source_id=trace_id,
-                    destination_type=EntityAssociationType.PROMPT_VERSION,
-                    destination_id=prompt_id,
-                )
-                for prompt_id in prompt_ids_to_add
+            self._upsert_entity_associations(
+                session,
+                [
+                    SqlEntityAssociation(
+                        association_id=uuid.uuid4().hex,
+                        source_type=EntityAssociationType.TRACE,
+                        source_id=trace_id,
+                        destination_type=EntityAssociationType.PROMPT_VERSION,
+                        destination_id=prompt_id,
+                    )
+                    for prompt_id in prompt_ids
+                ],
             )
 
     def calculate_trace_filter_correlation(

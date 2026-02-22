@@ -592,7 +592,15 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
                 _logger.debug(
                     "Server does not support SearchTracesV3 API yet. Falling back to V2 API."
                 )
-                response_proto = self._call_endpoint(SearchTraces, req_body)
+                v2_request = SearchTraces(
+                    experiment_ids=locations,
+                    filter=filter_string,
+                    max_results=max_results,
+                    order_by=order_by,
+                    page_token=page_token,
+                )
+                v2_req_body = message_to_json(v2_request)
+                response_proto = self._call_endpoint(SearchTraces, v2_req_body)
             else:
                 raise
 
@@ -1875,13 +1883,22 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         Raises:
             MlflowException: If more than 100 traces are provided.
         """
+        from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS
+
         req_body = message_to_json(
             LinkTracesToRun(
                 trace_ids=trace_ids,
                 run_id=run_id,
             )
         )
-        self._call_endpoint(LinkTracesToRun, req_body)
+        try:
+            self._call_endpoint(LinkTracesToRun, req_body)
+        except MlflowException as e:
+            # The server returns ALREADY_EXISTS / RESOURCE_ALREADY_EXISTS when a
+            # concurrent caller already created the same association(s). Treat as
+            # a no-op — the desired state exists in the database.
+            if e.error_code not in (ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS):
+                raise
 
     def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
         """
@@ -1891,6 +1908,8 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             trace_id: ID of the trace to link prompt versions to.
             prompt_versions: List of PromptVersion objects to link.
         """
+        from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS
+
         # Convert PromptVersion objects to PromptVersionRef proto messages
         prompt_refs = [
             LinkPromptsToTrace.PromptVersionRef(name=pv.name, version=str(pv.version))
@@ -1903,7 +1922,11 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
                 prompt_versions=prompt_refs,
             )
         )
-        self._call_endpoint(LinkPromptsToTrace, req_body)
+        try:
+            self._call_endpoint(LinkPromptsToTrace, req_body)
+        except MlflowException as e:
+            if e.error_code not in (ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS):
+                raise
 
     def add_dataset_to_experiments(
         self, dataset_id: str, experiment_ids: list[str]

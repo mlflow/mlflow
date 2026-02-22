@@ -20,6 +20,7 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.genai.utils.prompts.available_tools_extraction import (
@@ -968,9 +969,19 @@ def batch_link_traces_to_run(
         try:
             MlflowClient().link_traces_to_run(run_id=run_id, trace_ids=batch)
         except Exception as e:
-            # FileStore doesn't support trace linking, so we skip it
-            if "Linking traces to runs is not supported in FileStore." in str(e):
+            error_str = str(e)
+            # FileStore doesn't support trace linking — skip silently.
+            if "Linking traces to runs is not supported in FileStore." in error_str:
                 return
+            # A concurrent evaluate() call already linked the same traces.
+            # The desired association already exists — no action required.
+            from mlflow.exceptions import MlflowException
+
+            if isinstance(e, MlflowException):
+                from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS
+
+                if e.error_code in (ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS):
+                    continue
 
             _logger.warning(f"Failed to link batch of traces to run: {e}")
 
@@ -1120,9 +1131,7 @@ def _try_extract_available_tools_with_llm(
     """
     if model is None:
         if is_databricks_uri(mlflow.get_tracking_uri()):
-            # TODO: Add support for Databricks tool extraction with LLM fallback.
-            _logger.warning("Databricks is not supported for tool extraction with LLM fallback.")
-            return []
+            model = _DATABRICKS_DEFAULT_JUDGE_MODEL
         else:
             model = "openai:/gpt-4.1-mini"
 
