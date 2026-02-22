@@ -221,6 +221,8 @@ class HuggingFaceTextGenerationInferenceConfig(ConfigModel):
 
 class AWSBaseConfig(pydantic.BaseModel):
     aws_region: str | None = None
+    aws_role_arn: str | None = None
+    session_length_seconds: int = 15 * 60
 
 
 class AWSRole(AWSBaseConfig):

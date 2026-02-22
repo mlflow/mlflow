@@ -93,12 +93,14 @@ export const SecretDetails = ({ secret, showCard = true }: SecretDetailsProps) =
           </div>
         )}
 
-        <div css={styles.rowStyleFlexStart}>
-          <Typography.Text color="secondary" css={styles.labelStyle}>
-            <FormattedMessage defaultMessage="Masked Key" description="Masked API key label" />
-          </Typography.Text>
-          <MaskedValueDisplay maskedValue={secret.masked_values} />
-        </div>
+        {secret.masked_values && Object.keys(secret.masked_values).length > 0 && (
+          <div css={styles.rowStyleFlexStart}>
+            <Typography.Text color="secondary" css={styles.labelStyle}>
+              <FormattedMessage defaultMessage="Masked Key" description="Masked API key label" />
+            </Typography.Text>
+            <MaskedValueDisplay maskedValue={secret.masked_values} />
+          </div>
+        )}
 
         {authConfig && Object.keys(authConfig).filter((k) => k !== 'auth_mode').length > 0 && (
           <div css={styles.rowStyle}>
