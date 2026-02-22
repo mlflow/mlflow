@@ -26,3 +26,4 @@ export const ASSESSMENT_SESSION_METADATA_KEY = 'mlflow.trace.session';
 
 // Key used in assessment metadata to indicate which document (by index) the assessment references
 export const MLFLOW_SPAN_OUTPUT_KEY = 'span_output_key';
+export const CHUNK_INDEX_KEY = 'chunk_index';

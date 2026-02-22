@@ -72,6 +72,7 @@ import {
 } from './chat-utils/voltagent';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
+  CHUNK_INDEX_KEY,
   COST_METADATA_KEY,
   MLFLOW_SPAN_OUTPUT_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
@@ -1422,7 +1423,7 @@ export const isChunkRelevanceAssessment = (assessment: Assessment): boolean =>
   CHUNK_RELEVANCE_ASSESSMENT_NAMES.includes(assessment.assessment_name);
 
 export const getAssessmentDocumentIndex = (assessment: Assessment): number | undefined => {
-  const spanOutputKey = assessment.metadata?.[MLFLOW_SPAN_OUTPUT_KEY];
+  const spanOutputKey = assessment.metadata?.[MLFLOW_SPAN_OUTPUT_KEY] ?? assessment.metadata?.[CHUNK_INDEX_KEY];
   if (isNil(spanOutputKey)) return undefined;
   const index = Number(spanOutputKey);
   return Number.isNaN(index) ? undefined : index;
