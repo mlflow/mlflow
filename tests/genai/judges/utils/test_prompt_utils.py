@@ -12,9 +12,9 @@ def test_add_output_format_instructions():
     formatted = add_output_format_instructions(simple_prompt, output_fields=output_fields)
 
     assert simple_prompt in formatted
-    assert "JSON format" in formatted
-    assert '"result"' in formatted
-    assert '"rationale"' in formatted
+    assert "format your evaluation rating as a JSON object" in formatted
+    assert "- result" in formatted
+    assert "- rationale" in formatted
     assert "no markdown" in formatted.lower()
     assert "The evaluation rating/result" in formatted
     assert "Detailed explanation for the evaluation" in formatted
@@ -24,11 +24,12 @@ def test_add_output_format_instructions():
 
     assert complex_prompt in formatted
     assert formatted.startswith(complex_prompt)
-    assert formatted.endswith("}")
 
-    assert formatted.index(complex_prompt) < formatted.index("JSON format")
-    assert formatted.index(complex_prompt) < formatted.index('"result"')
-    assert formatted.index(complex_prompt) < formatted.index('"rationale"')
+    assert formatted.index(complex_prompt) < formatted.index(
+        "format your evaluation rating as a JSON object"
+    )
+    assert formatted.index(complex_prompt) < formatted.index("- result")
+    assert formatted.index(complex_prompt) < formatted.index("- rationale")
 
 
 @pytest.mark.parametrize(
