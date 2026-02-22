@@ -92,9 +92,11 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
             contextlib.redirect_stdout(string_io),
             contextlib.redirect_stderr(string_io),
         ):
-            # Fill in defaults for missing optional arguments
+            # Fill in defaults for missing arguments
+            # For Click 8.3.0+, we need to pass ALL parameters to the callback,
+            # even those with Sentinel.UNSET defaults, so Click can handle them properly
             for param in command.params:
-                if param.name not in kwargs and param.default is not click_unset:
+                if param.name not in kwargs:
                     kwargs[param.name] = param.default
             command.callback(**kwargs)  # type: ignore[misc]
         return string_io.getvalue().strip()
