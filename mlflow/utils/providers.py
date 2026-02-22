@@ -65,8 +65,8 @@ def _get_model_cost():
 #   - Vertex AI: https://docs.litellm.ai/docs/providers/vertex
 #   - Databricks: https://docs.litellm.ai/docs/providers/databricks
 #
-# Only user-provided modes are included (no server-provided modes like
-# managed identity, IRSA, or ADC that require specific hosting environments).
+# Includes both user-provided credential modes and a default credential chain mode
+# that uses ambient server credentials (instance profile, IRSA, ECS task role, etc.).
 _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
     "bedrock": {
         "api_key": {
@@ -127,6 +127,31 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "description": "IAM Role ARN to assume",
                     "secret": False,
                     "required": True,
+                },
+                {
+                    "name": "aws_session_name",
+                    "description": "Session name for assumed role",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
+                    "required": False,
+                },
+            ],
+        },
+        "default_chain": {
+            "display_name": "Default Credential Chain",
+            "description": "Use the server's default AWS credentials "
+            "(instance profile, IRSA, ECS task role, ~/.aws/credentials, etc.)",
+            "fields": [
+                {
+                    "name": "aws_role_name",
+                    "description": "IAM Role ARN to assume (optional, for cross-account access)",
+                    "secret": False,
+                    "required": False,
                 },
                 {
                     "name": "aws_session_name",
@@ -344,6 +369,31 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 },
             ],
         },
+        "default_chain": {
+            "display_name": "Default Credential Chain",
+            "description": "Use the server's default AWS credentials "
+            "(instance profile, IRSA, ECS task role, ~/.aws/credentials, etc.)",
+            "fields": [
+                {
+                    "name": "aws_role_name",
+                    "description": "IAM Role ARN to assume (optional, for cross-account access)",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "aws_session_name",
+                    "description": "Session name for assumed role",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
+                    "required": False,
+                },
+            ],
+        },
     },
 }
 
@@ -447,6 +497,27 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
         "auth_modes": [_build_auth_mode_response("api_key", simple_mode)],
         "default_mode": "api_key",
     }
+
+
+def auth_mode_requires_secret_fields(provider: str, auth_mode: str | None) -> bool:
+    """Check if a provider's auth mode has any required secret fields.
+
+    Returns True (secrets required) when the provider or auth_mode is unknown,
+    so callers default to the stricter validation path.
+    """
+    if not provider or not auth_mode:
+        return True
+
+    config_provider = "bedrock" if provider in _BEDROCK_PROVIDERS else provider
+    modes = _PROVIDER_AUTH_MODES.get(config_provider)
+    if not modes:
+        return True
+
+    mode_config = modes.get(auth_mode)
+    if not mode_config:
+        return True
+
+    return any(f.get("secret") and f.get("required", True) for f in mode_config.get("fields", []))
 
 
 _EXCLUDED_PROVIDERS = {"bedrock_converse"}
