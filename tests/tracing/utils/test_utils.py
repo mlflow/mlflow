@@ -25,6 +25,7 @@ from mlflow.tracing.utils import (
     _calculate_percentile,
     aggregate_cost_from_spans,
     aggregate_usage_from_spans,
+    calculate_cost_by_model_and_token_usage,
     capture_function_input_args,
     construct_full_inputs,
     encode_span_id,
@@ -630,3 +631,36 @@ def test_generate_trace_id_v4_from_otel_trace_id():
     parsed_location, parsed_id = parse_trace_id_v4(result)
     assert parsed_location == location
     assert parsed_id == expected_hex_id
+
+
+def test_litellm_debug_info_suppressed_during_cost_calculation():
+    captured = {}
+
+    def mock_cost_per_token(**kwargs):
+        import litellm
+
+        captured["suppress_debug_info"] = litellm.suppress_debug_info
+        raise Exception("unknown model")
+
+    with mock.patch("litellm.cost_per_token", side_effect=mock_cost_per_token):
+        result = calculate_cost_by_model_and_token_usage(
+            model_name="databricks-claude-sonnet-4-5",
+            usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
+        )
+
+    assert result is None
+    assert captured["suppress_debug_info"] is True
+
+
+def test_litellm_suppress_debug_info_restored_after_cost_calculation():
+    import litellm
+
+    litellm.suppress_debug_info = False
+
+    with mock.patch("litellm.cost_per_token", side_effect=Exception("unknown")):
+        calculate_cost_by_model_and_token_usage(
+            model_name="some-model",
+            usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
+        )
+
+    assert litellm.suppress_debug_info is False
