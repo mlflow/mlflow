@@ -3253,6 +3253,12 @@ message GetTrace {
   message Response {
     // The fetched trace including spans.
     optional Trace trace = 1;
+
+    // Whether all expected spans have been received from the backend.
+    // When allow_partial=true, spans may still be in transit. This flag indicates
+    // whether the actual span count matches the expected count recorded in trace metadata.
+    // Absent for backends that do not support this field (e.g. non-OSS stores).
+    optional bool spans_complete = 2;
   }
 }
 

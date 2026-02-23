@@ -2311,6 +2311,8 @@ def test_get_trace_handler(mock_get_request_message, mock_tracking_store):
     trace = response_data["trace"]
     assert trace["trace_info"]["trace_id"] == trace_id
     assert len(trace["spans"]) == 1
+    # No size stats metadata → spans_complete=True
+    assert response_data["spans_complete"] is True
 
 
 def test_get_trace_handler_with_allow_partial_false(mock_get_request_message, mock_tracking_store):
@@ -2350,6 +2352,8 @@ def test_get_trace_handler_with_allow_partial_false(mock_get_request_message, mo
     assert response.status_code == 200
     response_data = json.loads(response.get_data())
     assert "trace" in response_data
+    # No size stats metadata → spans_complete=True
+    assert response_data["spans_complete"] is True
 
 
 def test_get_trace_handler_not_found(mock_get_request_message, mock_tracking_store):
@@ -2372,6 +2376,133 @@ def test_get_trace_handler_not_found(mock_get_request_message, mock_tracking_sto
     response_data = json.loads(response.get_data())
     assert "error_code" in response_data
     assert response_data["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_get_trace_handler_spans_complete_true_when_spans_match(
+    mock_get_request_message, mock_tracking_store
+):
+    """spans_complete=True when actual span count matches the expected count in metadata."""
+    import json as json_module
+
+    from mlflow.tracing.constant import TraceMetadataKey
+
+    trace_id = "test-trace-complete"
+    get_trace_proto = GetTrace(trace_id=trace_id, allow_partial=True)
+    mock_get_request_message.return_value = get_trace_proto
+
+    otel_span = OTelReadableSpan(
+        name="test",
+        context=build_otel_context(123, 234),
+        parent=None,
+        start_time=100,
+        end_time=200,
+        attributes={},
+    )
+    mock_span = Span(otel_span)
+
+    mock_trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=EntityTraceLocation.from_experiment_id("1"),
+            request_time=1234567890,
+            execution_duration=5000,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.SIZE_STATS: json_module.dumps({"num_spans": 1}),
+            },
+        ),
+        data=TraceData(spans=[mock_span]),
+    )
+    mock_tracking_store.get_trace.return_value = mock_trace
+
+    response = _get_trace()
+
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert response_data["spans_complete"] is True
+
+
+def test_get_trace_handler_spans_complete_false_when_spans_mismatch(
+    mock_get_request_message, mock_tracking_store
+):
+    """spans_complete=False when actual span count is less than expected in metadata."""
+    import json as json_module
+
+    from mlflow.tracing.constant import TraceMetadataKey
+
+    trace_id = "test-trace-incomplete"
+    get_trace_proto = GetTrace(trace_id=trace_id, allow_partial=True)
+    mock_get_request_message.return_value = get_trace_proto
+
+    otel_span = OTelReadableSpan(
+        name="test",
+        context=build_otel_context(123, 234),
+        parent=None,
+        start_time=100,
+        end_time=200,
+        attributes={},
+    )
+    mock_span = Span(otel_span)
+
+    mock_trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=EntityTraceLocation.from_experiment_id("1"),
+            request_time=1234567890,
+            execution_duration=5000,
+            state=TraceState.OK,
+            trace_metadata={
+                # Metadata says 5 spans expected, but only 1 is present
+                TraceMetadataKey.SIZE_STATS: json_module.dumps({"num_spans": 5}),
+            },
+        ),
+        data=TraceData(spans=[mock_span]),
+    )
+    mock_tracking_store.get_trace.return_value = mock_trace
+
+    response = _get_trace()
+
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert response_data["spans_complete"] is False
+
+
+def test_get_trace_handler_spans_complete_true_when_no_size_stats(
+    mock_get_request_message, mock_tracking_store
+):
+    """spans_complete=True when trace has no size stats metadata (assume complete)."""
+    trace_id = "test-trace-no-stats"
+    get_trace_proto = GetTrace(trace_id=trace_id, allow_partial=True)
+    mock_get_request_message.return_value = get_trace_proto
+
+    otel_span = OTelReadableSpan(
+        name="test",
+        context=build_otel_context(123, 234),
+        parent=None,
+        start_time=100,
+        end_time=200,
+        attributes={},
+    )
+    mock_span = Span(otel_span)
+
+    mock_trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=EntityTraceLocation.from_experiment_id("1"),
+            request_time=1234567890,
+            execution_duration=5000,
+            state=TraceState.OK,
+            # No trace_metadata → no size stats
+        ),
+        data=TraceData(spans=[mock_span]),
+    )
+    mock_tracking_store.get_trace.return_value = mock_trace
+
+    response = _get_trace()
+
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert response_data["spans_complete"] is True
 
 
 def test_get_trace_artifact_handler(mock_tracking_store):

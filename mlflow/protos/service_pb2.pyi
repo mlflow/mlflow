@@ -846,10 +846,12 @@ class BatchGetTraces(_message.Message):
 class GetTrace(_message.Message):
     __slots__ = ("trace_id", "allow_partial")
     class Response(_message.Message):
-        __slots__ = ("trace",)
+        __slots__ = ("trace", "spans_complete")
         TRACE_FIELD_NUMBER: _ClassVar[int]
+        SPANS_COMPLETE_FIELD_NUMBER: _ClassVar[int]
         trace: Trace
-        def __init__(self, trace: _Optional[_Union[Trace, _Mapping]] = ...) -> None: ...
+        spans_complete: bool
+        def __init__(self, trace: _Optional[_Union[Trace, _Mapping]] = ..., spans_complete: bool = ...) -> None: ...
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     ALLOW_PARTIAL_FIELD_NUMBER: _ClassVar[int]
     trace_id: str
