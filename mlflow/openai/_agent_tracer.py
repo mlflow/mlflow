@@ -63,7 +63,6 @@ def clear_trace_processors():
     set_trace_processors([])
 
 
-
 def add_mlflow_trace_processor():
     processors = get_trace_provider()._multi_processor._processors
 
