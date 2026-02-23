@@ -64,6 +64,10 @@ def _load_keras_model(path, model_conf, custom_objects=None, **load_model_kwargs
         return tf.saved_model.load(model_path)
     else:
         model_path += ".keras"
+        if "safe_mode" not in load_model_kwargs:
+            from mlflow.environment_variables import MLFLOW_KERAS_SAFE_MODE
+
+            load_model_kwargs["safe_mode"] = MLFLOW_KERAS_SAFE_MODE.get()
         return keras.saving.load_model(
             model_path,
             custom_objects=custom_objects,

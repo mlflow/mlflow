@@ -26,6 +26,7 @@ from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
 from mlflow.entities import LoggedModelInput
+from mlflow.environment_variables import MLFLOW_KERAS_SAFE_MODE
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -577,6 +578,10 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
     # for older versions of TF.
     elif os.path.exists(model_path + ".keras"):
         model_path += ".keras"
+
+    # Inject safe_mode for non-h5 formats (h5 format doesn't support safe_mode)
+    if save_format != "h5" and "safe_mode" not in kwargs:
+        kwargs["safe_mode"] = MLFLOW_KERAS_SAFE_MODE.get()
 
     import tensorflow as tf
 
@@ -1508,4 +1513,6 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
                 )
             model.load_weights(downloaded_checkpoint_filepath)
             return model
-        return tf.keras.models.load_model(downloaded_checkpoint_filepath)
+        return tf.keras.models.load_model(
+            downloaded_checkpoint_filepath, safe_mode=MLFLOW_KERAS_SAFE_MODE.get()
+        )
