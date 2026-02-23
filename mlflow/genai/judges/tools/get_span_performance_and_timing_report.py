@@ -8,8 +8,8 @@ and concurrency patterns for performance analysis.
 from collections import defaultdict
 from dataclasses import dataclass
 
+import mlflow
 from mlflow.entities.span import Span
-from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
@@ -84,22 +84,30 @@ class GetSpanPerformanceAndTimingReportTool(JudgeTool):
                 ),
                 parameters=ToolParamsSchema(
                     type="object",
-                    properties={},
-                    required=[],
+                    properties={
+                        "trace_id": {
+                            "type": "string",
+                            "description": (
+                                "The ID of the MLflow trace to analyze"
+                            ),
+                        },
+                    },
+                    required=["trace_id"],
                 ),
             ),
             type="function",
         )
 
-    def invoke(self, trace: Trace) -> str:
+    def invoke(self, trace_id: str) -> str:
         """Generate span timing report for the trace.
 
         Args:
-            trace: The MLflow trace object to analyze.
+            trace_id: The ID of the MLflow trace to analyze.
 
         Returns:
             Formatted timing report as a string.
         """
+        trace = mlflow.get_trace(trace_id)
         if not trace or not trace.data or not trace.data.spans:
             return "No spans found in trace"
 

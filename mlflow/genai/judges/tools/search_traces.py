@@ -10,7 +10,6 @@ import logging
 
 import mlflow
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
-from mlflow.entities.trace import Trace
 from mlflow.entities.trace_location import TraceLocationType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
@@ -66,9 +65,9 @@ def _convert_assessments_to_tool_types(
     return tool_types
 
 
-def _get_experiment_id(trace: Trace) -> str:
+def _get_experiment_id_from_trace(trace) -> str:
     """
-    Get and validate experiment ID from trace.
+    Get and validate experiment ID from a trace object.
 
     Args:
         trace: The MLflow trace object
@@ -105,6 +104,28 @@ def _get_experiment_id(trace: Trace) -> str:
     return trace.info.trace_location.mlflow_experiment.experiment_id
 
 
+def _get_experiment_id(trace_id: str) -> str:
+    """
+    Get and validate experiment ID from trace ID.
+
+    Args:
+        trace_id: The ID of the MLflow trace
+
+    Returns:
+        Experiment ID
+
+    Raises:
+        MlflowException: If trace not found, not from MLflow experiment, or has no experiment ID
+    """
+    trace = mlflow.get_trace(trace_id)
+    if trace is None:
+        raise MlflowException(
+            f"Trace with ID '{trace_id}' not found",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    return _get_experiment_id_from_trace(trace)
+
+
 @experimental(version="3.5.0")
 class SearchTracesTool(JudgeTool):
     """
@@ -135,6 +156,13 @@ class SearchTracesTool(JudgeTool):
                 parameters=ToolParamsSchema(
                     type="object",
                     properties={
+                        "trace_id": {
+                            "type": "string",
+                            "description": (
+                                "The ID of the current trace. Used to determine the experiment "
+                                "context for searching other traces."
+                            ),
+                        },
                         "filter_string": {
                             "type": "string",
                             "description": (
@@ -185,7 +213,7 @@ class SearchTracesTool(JudgeTool):
                             "default": 20,
                         },
                     },
-                    required=[],
+                    required=["trace_id"],
                 ),
             ),
             type="function",
@@ -193,7 +221,7 @@ class SearchTracesTool(JudgeTool):
 
     def invoke(
         self,
-        trace: Trace,
+        trace_id: str,
         filter_string: str | None = None,
         order_by: list[str] | None = None,
         max_results: int = 20,
@@ -202,7 +230,7 @@ class SearchTracesTool(JudgeTool):
         Search for traces within the same experiment as the current trace.
 
         Args:
-            trace: The current MLflow trace object (used to determine experiment context)
+            trace_id: The ID of the current MLflow trace (used to determine experiment context)
             filter_string: Optional filter using MLflow search syntax
                 (e.g., 'attributes.status = "OK"')
             order_by: Optional list of order by expressions (e.g., ['timestamp DESC'])
@@ -216,7 +244,7 @@ class SearchTracesTool(JudgeTool):
             MlflowException: If trace has no experiment context or search fails
         """
         # Extract and validate experiment ID from trace
-        experiment_id = _get_experiment_id(trace)
+        experiment_id = _get_experiment_id(trace_id)
         locations = [experiment_id]
 
         # Default to chronological order

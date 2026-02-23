@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, NoReturn
 if TYPE_CHECKING:
     import litellm
 
-    from mlflow.entities.trace import Trace
     from mlflow.types.llm import ToolCall
 
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
@@ -39,14 +38,12 @@ def _raise_iteration_limit_exceeded(max_iterations: int) -> NoReturn:
 
 def _process_tool_calls(
     tool_calls: list["litellm.ChatCompletionMessageToolCall"],
-    trace: Trace | None,
 ) -> list["litellm.Message"]:
     """
     Process tool calls and return tool response messages.
 
     Args:
         tool_calls: List of tool calls from the LLM response.
-        trace: Optional trace object for context.
 
     Returns:
         List of litellm Message objects containing tool responses.
@@ -57,7 +54,7 @@ def _process_tool_calls(
     for tool_call in tool_calls:
         try:
             mlflow_tool_call = _create_mlflow_tool_call_from_litellm(litellm_tool_call=tool_call)
-            result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
+            result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call)
         except Exception as e:
             tool_response_messages.append(
                 _create_litellm_tool_response_message(

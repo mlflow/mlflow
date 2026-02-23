@@ -15,7 +15,7 @@ class Issue:
     description: str
     root_cause: str
     example_trace_ids: list[str]
-    scorer: Scorer
+    scorer: Scorer | None
     frequency: float
     confidence: int
     rationale_examples: list[str] = field(default_factory=list)
@@ -33,29 +33,51 @@ class DiscoverIssuesResult:
 # ---- Pydantic schemas for LLM structured output ----
 
 
-class _TraceAnalysis(pydantic.BaseModel):
-    trace_index: int = pydantic.Field(description="Index of the trace in the input list")
-    failure_category: str = pydantic.Field(
+class _ConversationAnalysisLLMResult(pydantic.BaseModel):
+    """Schema the LLM fills in for deep analysis."""
+
+    surface: str = pydantic.Field(
         description=(
-            "Category of failure: tool_error, hallucination, latency, "
-            "incomplete_response, error_propagation, wrong_tool_use, "
-            "context_loss, or other"
+            "Where to intervene: primary function + data/object + interaction mechanism. "
+            "5-12 word noun phrase, no failure language."
         )
     )
-    failure_summary: str = pydantic.Field(description="Brief summary of what went wrong")
-    root_cause_hypothesis: str = pydantic.Field(
-        description="Hypothesis about why this failure occurred based on span-level evidence"
+    root_cause: str = pydantic.Field(
+        description=(
+            "Technical root cause of the triage-identified failure. "
+            "3-5 short declarative sentences grounded in span evidence. "
+            "No speculation. 40-120 words."
+        )
     )
-    affected_spans: list[str] = pydantic.Field(
-        description="Names of spans most relevant to the failure"
+    symptoms: str = pydantic.Field(
+        description=(
+            "Observable interaction patterns only. 2-4 short sentences describing "
+            "what an external observer could see, in timeline order. No causal "
+            "language, no interpretation, no system internals. 15-60 words."
+        )
+    )
+    domain: str = pydantic.Field(
+        description=(
+            "The user's task area or goal. 1-10 word noun phrase, generalizable "
+            "category. Not system area. e.g. 'music playback control'"
+        )
     )
     severity: int = pydantic.Field(
-        description="Severity of the failure (1=minor, 3=moderate, 5=critical)"
+        description="Severity: 1=minor, 3=moderate, 5=critical"
     )
 
 
-class _BatchTraceAnalysisResult(pydantic.BaseModel):
-    analyses: list[_TraceAnalysis] = pydantic.Field(description="Analysis for each failing trace")
+@dataclass
+class _ConversationAnalysis:
+    """Full analysis — LLM fields plus programmatically-set trace IDs."""
+
+    surface: str
+    root_cause: str
+    symptoms: str
+    domain: str
+    affected_trace_ids: list[str]
+    severity: int
+    execution_path: str = ""
 
 
 class _ScorerSpec(pydantic.BaseModel):
@@ -80,7 +102,12 @@ class _ScorerInstructionsResult(pydantic.BaseModel):
 
 
 class _IdentifiedIssue(pydantic.BaseModel):
-    name: str = pydantic.Field(description="snake_case identifier for the issue")
+    name: str = pydantic.Field(
+        description=(
+            "Short readable title (3-8 words) followed by domain keywords in brackets, "
+            "e.g. 'Media control commands ignored [music, spotify]'"
+        )
+    )
     description: str = pydantic.Field(description="What the issue is")
     root_cause: str = pydantic.Field(description="Why this issue occurs")
     example_indices: list[int] = pydantic.Field(
@@ -95,7 +122,3 @@ class _IdentifiedIssue(pydantic.BaseModel):
     )
 
 
-class _IssueClusteringResult(pydantic.BaseModel):
-    issues: list[_IdentifiedIssue] = pydantic.Field(
-        description="Distinct issues identified from the failing traces"
-    )

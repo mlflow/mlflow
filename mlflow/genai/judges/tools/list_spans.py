@@ -7,7 +7,7 @@ to analyze traces and extract information during evaluation.
 
 from dataclasses import dataclass
 
-from mlflow.entities.trace import Trace
+import mlflow
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.types import SpanInfo
 from mlflow.genai.judges.tools.utils import create_page_token, parse_page_token
@@ -79,6 +79,10 @@ class ListSpansTool(JudgeTool):
                 parameters=ToolParamsSchema(
                     type="object",
                     properties={
+                        "trace_id": ParamProperty(
+                            type="string",
+                            description="The ID of the MLflow trace to analyze",
+                        ),
                         "max_results": ParamProperty(
                             type="integer",
                             description="Maximum number of spans to return (default: 100)",
@@ -88,26 +92,27 @@ class ListSpansTool(JudgeTool):
                             description="Token for retrieving the next page of results",
                         ),
                     },
-                    required=[],
+                    required=["trace_id"],
                 ),
             ),
             type="function",
         )
 
     def invoke(
-        self, trace: Trace, max_results: int = 100, page_token: str | None = None
+        self, trace_id: str, max_results: int = 100, page_token: str | None = None
     ) -> ListSpansResult:
         """
         List spans from a trace with pagination support.
 
         Args:
-            trace: The MLflow trace object to analyze
+            trace_id: The ID of the MLflow trace to analyze
             max_results: Maximum number of spans to return (default: 100)
             page_token: Token for retrieving the next page of results
 
         Returns:
             ListSpansResult containing spans list and optional next page token
         """
+        trace = mlflow.get_trace(trace_id)
         if not trace or not trace.data or not trace.data.spans:
             return ListSpansResult(spans=[])
 

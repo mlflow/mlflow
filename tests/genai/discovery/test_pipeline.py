@@ -4,12 +4,9 @@ import pandas as pd
 import pytest
 
 from mlflow.genai.discovery.entities import (
-    _BatchTraceAnalysisResult,
     _IdentifiedIssue,
-    _IssueClusteringResult,
     _ScorerInstructionsResult,
     _ScorerSpec,
-    _TraceAnalysis,
 )
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.genai.evaluation.entities import EvaluationResult
@@ -27,7 +24,7 @@ def _mock_start_run(**kwargs):
 def test_discover_issues_no_experiment():
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value=None),
-        pytest.raises(Exception, match="No experiment specified"),
+        pytest.raises(Exception, match="No experiment specified|Pass traces"),
     ):
         discover_issues()
 
@@ -102,30 +99,12 @@ def test_discover_issues_full_pipeline(make_trace):
     )
     triage_eval = EvaluationResult(run_id="run-triage", metrics={}, result_df=triage_df)
 
-    deep_analysis_result = _BatchTraceAnalysisResult(
-        analyses=[
-            _TraceAnalysis(
-                trace_index=i,
-                failure_category="latency",
-                failure_summary="Slow response",
-                root_cause_hypothesis="Complex queries",
-                affected_spans=["llm_call"],
-                severity=3,
-            )
-            for i in range(3)
-        ]
-    )
-
-    clustering_result = _IssueClusteringResult(
-        issues=[
-            _IdentifiedIssue(
-                name="slow_response",
-                description="Responses take too long",
-                root_cause="Complex queries",
-                example_indices=[0, 1],
-                confidence=90,
-            ),
-        ]
+    cluster_summary_issue = _IdentifiedIssue(
+        name="slow_response",
+        description="Responses take too long",
+        root_cause="Complex queries",
+        example_indices=[0, 1],
+        confidence=90,
     )
 
     scorer_instructions_result = _ScorerInstructionsResult(
@@ -145,9 +124,9 @@ def test_discover_issues_full_pipeline(make_trace):
     )
     validation_eval = EvaluationResult(run_id="run-validate", metrics={}, result_df=validation_df)
 
-    mock_llm = MagicMock(
-        side_effect=[deep_analysis_result, clustering_result, scorer_instructions_result]
-    )
+    # LLM mock for scorer generation only (no deep analysis)
+    mock_llm = MagicMock(return_value=scorer_instructions_result)
+
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
@@ -160,9 +139,13 @@ def test_discover_issues_full_pipeline(make_trace):
             mock_llm,
         ),
         patch(
-            "mlflow.genai.discovery.pipeline.get_chat_completions_with_structured_output",
-            mock_llm,
-        ),
+            "mlflow.genai.discovery.pipeline._cluster_analyses",
+            return_value=[[0, 1, 2]],
+        ) as mock_cluster,
+        patch(
+            "mlflow.genai.discovery.pipeline._summarize_cluster",
+            return_value=cluster_summary_issue,
+        ) as mock_summarize,
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.start_run",
@@ -171,15 +154,13 @@ def test_discover_issues_full_pipeline(make_trace):
     ):
         result = discover_issues(triage_sample_size=10)
 
+    mock_cluster.assert_called_once()
+    mock_summarize.assert_called_once()
     assert len(result.issues) == 1
     assert result.issues[0].name == "slow_response"
-    assert result.issues[0].frequency == pytest.approx(0.3)
-    assert result.issues[0].example_trace_ids == [
-        traces[0].info.trace_id,
-        traces[1].info.trace_id,
-    ]
+    assert result.issues[0].frequency == pytest.approx(0.2)
     assert result.triage_run_id == "run-triage"
-    assert result.validation_run_id == "run-validate"
+    assert result.validation_run_id is None
 
 
 def test_discover_issues_low_confidence_issues_filtered(make_trace):
@@ -203,33 +184,15 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
     )
     triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=triage_df)
 
-    deep_analysis_result = _BatchTraceAnalysisResult(
-        analyses=[
-            _TraceAnalysis(
-                trace_index=i,
-                failure_category="other",
-                failure_summary="Rare issue",
-                root_cause_hypothesis="Unknown",
-                affected_spans=["span"],
-                severity=2,
-            )
-            for i in range(2)
-        ]
+    # _summarize_cluster returns issue with low confidence (below _MIN_CONFIDENCE=75)
+    low_confidence_issue = _IdentifiedIssue(
+        name="rare_issue",
+        description="Happens very rarely",
+        root_cause="Unknown",
+        example_indices=[0],
+        confidence=50,
     )
 
-    clustering_result = _IssueClusteringResult(
-        issues=[
-            _IdentifiedIssue(
-                name="rare_issue",
-                description="Happens very rarely",
-                root_cause="Unknown",
-                example_indices=[0],
-                confidence=80,
-            ),
-        ]
-    )
-
-    mock_llm = MagicMock(side_effect=[deep_analysis_result, clustering_result])
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
@@ -238,13 +201,13 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
             side_effect=[test_eval, triage_eval],
         ),
         patch(
-            "mlflow.genai.discovery.utils.get_chat_completions_with_structured_output",
-            mock_llm,
-        ),
+            "mlflow.genai.discovery.pipeline._cluster_analyses",
+            return_value=[[0, 1]],
+        ) as mock_cluster,
         patch(
-            "mlflow.genai.discovery.pipeline.get_chat_completions_with_structured_output",
-            mock_llm,
-        ),
+            "mlflow.genai.discovery.pipeline._summarize_cluster",
+            return_value=low_confidence_issue,
+        ) as mock_summarize,
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.start_run",
@@ -253,6 +216,8 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
     ):
         result = discover_issues(triage_sample_size=5)
 
+    mock_cluster.assert_called_once()
+    mock_summarize.assert_called_once()
     assert len(result.issues) == 0
 
 

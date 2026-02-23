@@ -27,7 +27,8 @@ def test_list_spans_tool_get_definition():
     assert definition.function.name == "list_spans"
     assert "List information about spans within a trace" in definition.function.description
     assert definition.function.parameters.type == "object"
-    assert definition.function.parameters.required == []
+    assert "trace_id" in definition.function.parameters.properties
+    assert definition.function.parameters.required == ["trace_id"]
     assert definition.type == "function"
 
 
@@ -67,7 +68,8 @@ def mock_trace_with_spans():
 
 def test_list_spans_tool_invoke_success(mock_trace_with_spans):
     tool = ListSpansTool()
-    result = tool.invoke(mock_trace_with_spans)
+    with mock.patch("mlflow.get_trace", return_value=mock_trace_with_spans):
+        result = tool.invoke(trace_id="test-trace")
 
     assert isinstance(result, ListSpansResult)
     assert len(result.spans) == 2
@@ -96,7 +98,8 @@ def test_list_spans_tool_invoke_success(mock_trace_with_spans):
 
 def test_list_spans_tool_invoke_none_trace():
     tool = ListSpansTool()
-    result = tool.invoke(None)
+    with mock.patch("mlflow.get_trace", return_value=None):
+        result = tool.invoke(trace_id="nonexistent")
 
     assert isinstance(result, ListSpansResult)
     assert len(result.spans) == 0
@@ -114,7 +117,8 @@ def test_list_spans_tool_invoke_empty_trace():
     empty_trace = Trace(info=trace_info, data=trace_data)
 
     tool = ListSpansTool()
-    result = tool.invoke(empty_trace)
+    with mock.patch("mlflow.get_trace", return_value=empty_trace):
+        result = tool.invoke(trace_id="empty-trace")
 
     assert isinstance(result, ListSpansResult)
     assert len(result.spans) == 0
@@ -124,17 +128,18 @@ def test_list_spans_tool_invoke_empty_trace():
 def test_list_spans_tool_invoke_with_pagination(mock_trace_with_spans):
     tool = ListSpansTool()
 
-    # Test with max_results=1
-    result = tool.invoke(mock_trace_with_spans, max_results=1)
-    assert len(result.spans) == 1
-    assert result.next_page_token == "1"
-    assert result.spans[0].name == "root_span"
+    with mock.patch("mlflow.get_trace", return_value=mock_trace_with_spans):
+        # Test with max_results=1
+        result = tool.invoke(trace_id="test-trace", max_results=1)
+        assert len(result.spans) == 1
+        assert result.next_page_token == "1"
+        assert result.spans[0].name == "root_span"
 
-    # Test second page
-    result = tool.invoke(mock_trace_with_spans, max_results=1, page_token="1")
-    assert len(result.spans) == 1
-    assert result.next_page_token is None
-    assert result.spans[0].name == "child_span"
+        # Test second page
+        result = tool.invoke(trace_id="test-trace", max_results=1, page_token="1")
+        assert len(result.spans) == 1
+        assert result.next_page_token is None
+        assert result.spans[0].name == "child_span"
 
 
 def test_list_spans_tool_invoke_invalid_page_token(mock_trace_with_spans):
@@ -142,14 +147,15 @@ def test_list_spans_tool_invoke_invalid_page_token(mock_trace_with_spans):
 
     tool = ListSpansTool()
 
-    # Test with invalid string token - should raise exception
-    with pytest.raises(
-        MlflowException, match="Invalid page_token 'invalid': must be a valid integer"
-    ):
-        tool.invoke(mock_trace_with_spans, page_token="invalid")
+    with mock.patch("mlflow.get_trace", return_value=mock_trace_with_spans):
+        # Test with invalid string token - should raise exception
+        with pytest.raises(
+            MlflowException, match="Invalid page_token 'invalid': must be a valid integer"
+        ):
+            tool.invoke(trace_id="test-trace", page_token="invalid")
 
-    # Test with non-string invalid token - should raise exception
-    with pytest.raises(
-        MlflowException, match="Invalid page_token '\\[\\]': must be a valid integer"
-    ):
-        tool.invoke(mock_trace_with_spans, page_token=[])
+        # Test with non-string invalid token - should raise exception
+        with pytest.raises(
+            MlflowException, match="Invalid page_token '\\[\\]': must be a valid integer"
+        ):
+            tool.invoke(trace_id="test-trace", page_token=[])

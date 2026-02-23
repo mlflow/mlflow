@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 import pydantic
 
 if TYPE_CHECKING:
-    from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
@@ -22,7 +21,8 @@ class AdapterInvocationInput:
         model_uri: The full model URI (e.g., "openai:/gpt-4").
         prompt: The prompt to evaluate. Can be a string or list of ChatMessage objects.
         assessment_name: The name of the assessment.
-        trace: Optional trace object for context with tool calling support.
+        trace_id: Optional trace ID for feedback association.
+        tools: Optional list of tool definitions for tool calling support.
         num_retries: Number of retries on transient failures.
         response_format: Optional Pydantic model class for structured output format.
         use_case: Optional use case for telemetry tracking. Only used by some adapters.
@@ -33,7 +33,8 @@ class AdapterInvocationInput:
     model_uri: str
     prompt: str | list["ChatMessage"]
     assessment_name: str
-    trace: Trace | None = None
+    trace_id: str | None = None
+    tools: list[dict] | None = None
     num_retries: int = 10
     response_format: type[pydantic.BaseModel] | None = None
     use_case: str | None = None

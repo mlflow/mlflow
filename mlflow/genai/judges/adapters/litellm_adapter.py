@@ -13,7 +13,6 @@ import pydantic
 if TYPE_CHECKING:
     import litellm
 
-    from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
@@ -195,7 +194,7 @@ def _invoke_litellm_and_handle_tools(
     provider: str,
     model_name: str,
     messages: list["ChatMessage"],
-    trace: Trace | None,
+    tools: list[dict[str, Any]] | None,
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
@@ -207,7 +206,7 @@ def _invoke_litellm_and_handle_tools(
         provider: The provider name (e.g., 'openai', 'anthropic', 'gateway').
         model_name: The model name (or endpoint name for gateway provider).
         messages: List of ChatMessage objects.
-        trace: Optional trace object for context with tool calling support.
+        tools: Optional list of tool definitions for tool calling support.
         num_retries: Number of retries with exponential backoff on transient failures.
         response_format: Optional Pydantic model class for structured output format.
                        Used by get_chat_completions_with_structured_output for
@@ -228,8 +227,6 @@ def _invoke_litellm_and_handle_tools(
     """
     import litellm
 
-    from mlflow.genai.judges.tools import list_judge_tools
-
     messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
     # Construct model URI and gateway params
@@ -243,10 +240,8 @@ def _invoke_litellm_and_handle_tools(
         api_base = None
         api_key = None
 
-    tools = []
-    if trace is not None:
-        judge_tools = list_judge_tools()
-        tools = [tool.get_definition().to_dict() for tool in judge_tools]
+    if tools is None:
+        tools = []
 
     def _prune_messages_for_context_window() -> list[litellm.Message] | None:
         if provider == "gateway":
@@ -343,7 +338,7 @@ def _invoke_litellm_and_handle_tools(
                 )
 
             messages.append(message)
-            tool_response_messages = _process_tool_calls(tool_calls=message.tool_calls, trace=trace)
+            tool_response_messages = _process_tool_calls(tool_calls=message.tool_calls)
             messages.extend(tool_response_messages)
 
         except MlflowException:
@@ -535,7 +530,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
                 provider=input_params.model_provider,
                 model_name=input_params.model_name,
                 messages=messages,
-                trace=input_params.trace,
+                tools=input_params.tools,
                 num_retries=input_params.num_retries,
                 response_format=input_params.response_format,
                 inference_params=input_params.inference_params,
@@ -564,9 +559,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
                 source=AssessmentSource(
                     source_type=AssessmentSourceType.LLM_JUDGE, source_id=input_params.model_uri
                 ),
-                trace_id=input_params.trace.info.trace_id
-                if input_params.trace is not None
-                else None,
+                trace_id=input_params.trace_id,
                 metadata=metadata,
             )
 

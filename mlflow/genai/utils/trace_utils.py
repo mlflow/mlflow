@@ -320,6 +320,7 @@ def resolve_conversation_from_session(
     session: list[Trace],
     *,
     include_tool_calls: bool = False,
+    include_trace_ids: bool = False,
 ) -> list[dict[str, str]]:
     """
     Extract conversation history from traces in session.
@@ -328,6 +329,8 @@ def resolve_conversation_from_session(
         session: List of traces from the same session.
         include_tool_calls: If True, include tool call information from TOOL type spans
                            in the conversation. Default is False for backward compatibility.
+        include_trace_ids: If True, include the trace_id in each message dict so the LLM
+                          knows which trace each turn belongs to for tool calls.
 
     Returns:
         List of conversation messages in the format:
@@ -335,28 +338,40 @@ def resolve_conversation_from_session(
         Each trace contributes user input and assistant output messages.
         If include_tool_calls is True, tool call messages (with inputs/outputs)
         are also included in chronological order.
+        If include_trace_ids is True, each message dict also includes a "trace_id" key.
     """
     # Sort traces by creation time (timestamp_ms)
     sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
 
     conversation = []
     for trace in sorted_traces:
+        trace_id = trace.info.trace_id if include_trace_ids else None
+
         # Extract and parse input (user message)
         if inputs := extract_inputs_from_trace(trace):
             user_content = parse_inputs_to_str(inputs)
             if user_content and user_content.strip():
-                conversation.append({"role": "user", "content": user_content})
+                msg = {"role": "user", "content": user_content}
+                if trace_id:
+                    msg["trace_id"] = trace_id
+                conversation.append(msg)
 
         # Extract tool calls from TOOL type spans (if requested)
         if include_tool_calls:
             tool_messages = parse_tool_call_messages_from_trace(trace)
+            if trace_id:
+                for tool_msg in tool_messages:
+                    tool_msg["trace_id"] = trace_id
             conversation.extend(tool_messages)
 
         # Extract and parse output (assistant message)
         if outputs := extract_outputs_from_trace(trace):
             assistant_content = parse_outputs_to_str(outputs)
             if assistant_content and assistant_content.strip():
-                conversation.append({"role": "assistant", "content": assistant_content})
+                msg = {"role": "assistant", "content": assistant_content}
+                if trace_id:
+                    msg["trace_id"] = trace_id
+                conversation.append(msg)
 
     return conversation
 
