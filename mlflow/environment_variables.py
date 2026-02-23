@@ -1046,6 +1046,16 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: (default: ``None`` (an active MLflow experiment will be used))
 MLFLOW_TRACING_DESTINATION = _EnvironmentVariable("MLFLOW_TRACING_DESTINATION", str, None)
 
+#: Specifies the poll interval in seconds for long-running trace search operations.
+#: (default: ``2.0``)
+MLFLOW_SEARCH_TRACES_POLL_INTERVAL = _EnvironmentVariable(
+    "MLFLOW_SEARCH_TRACES_POLL_INTERVAL", float, 2.0
+)
+
+#: Specifies the timeout in seconds for long-running trace search operations.
+#: (default: ``600`` - 10 minutes)
+MLFLOW_SEARCH_TRACES_TIMEOUT = _EnvironmentVariable("MLFLOW_SEARCH_TRACES_TIMEOUT", float, 600.0)
+
 
 #######################################################################################
 # Model Logging
