@@ -23,6 +23,7 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 import Utils from '../../common/utils/Utils';
+import { getArtifactBlob } from '../../common/utils/ArtifactUtils';
 
 const { Text } = Typography;
 
@@ -33,6 +34,7 @@ jest.mock('../../common/utils/ArtifactUtils', () => ({
   getArtifactContent: jest.fn().mockResolvedValue(),
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
   getArtifactBytesContent: jest.fn().mockResolvedValue(),
+  getArtifactBlob: jest.fn().mockResolvedValue(new Blob(['dummy content'], { type: 'text/plain' })),
 }));
 
 describe('ArtifactView', () => {
@@ -185,5 +187,45 @@ describe('ArtifactView', () => {
     const geojsonFileElement = wrapper.find('NodeHeader').at(0);
     geojsonFileElement.simulate('click');
     expect(wrapper.find(LazyShowArtifactMapView)).toHaveLength(1);
+  });
+  test('should download artifact via fetch and blob URL', async () => {
+    // @ts-expect-error TS(2554): Expected 3 arguments, but got 2.
+    const rootNode = new ArtifactNode(true, undefined);
+    rootNode.isLoaded = true;
+    // @ts-expect-error TS(2554): Expected 3 arguments, but got 2.
+    const textFile = new ArtifactNode(false, {
+      path: 'summary.txt',
+      is_dir: false,
+      file_size: '100',
+    });
+    rootNode.setChildren([textFile.fileInfo]);
+    wrapper = getWrapper(getMockStore(rootNode), minimalProps);
+
+    const fileElement = wrapper.find('NodeHeader').at(0);
+    fileElement.simulate('click');
+    wrapper.update();
+
+    const createObjectURLSpy = jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake-url');
+    const revokeObjectURLMock = jest.fn();
+    URL.revokeObjectURL = revokeObjectURLMock;
+
+    const anchor = { href: '', download: '', click: jest.fn() } as any;
+    const createElementSpy = jest.spyOn(document, 'createElement').mockReturnValue(anchor);
+    jest.spyOn(document.body, 'appendChild').mockImplementation(() => anchor);
+    jest.spyOn(document.body, 'removeChild').mockImplementation(() => anchor);
+
+    const implInstance = wrapper.find('ArtifactViewImpl').instance() as any;
+    await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+
+    expect(getArtifactBlob).toHaveBeenCalledWith(
+      expect.stringContaining('get-artifact?path=summary.txt&run_uuid=fakeUuid'),
+    );
+    expect(createObjectURLSpy).toHaveBeenCalled();
+    expect(anchor.download).toBe('summary.txt');
+    expect(anchor.click).toHaveBeenCalled();
+    expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:fake-url');
+
+    createObjectURLSpy.mockRestore();
+    createElementSpy.mockRestore();
   });
 });
