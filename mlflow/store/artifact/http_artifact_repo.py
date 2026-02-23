@@ -113,7 +113,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         root = tail.lstrip("/")
         params = {"path": posixpath.join(root, path) if path else root}
         host_creds = get_default_host_creds(url)
-        resp = http_request(host_creds, endpoint, "GET", params=params)
+        resp = http_request(host_creds, endpoint, "GET", params=params, allow_redirects=False)
         augmented_raise_for_status(resp)
         file_infos = []
         for f in resp.json().get("files", []):
@@ -130,7 +130,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     def _download_file(self, remote_file_path, local_path):
         """Download a file by streaming through the tracking server."""
         endpoint = posixpath.join("/", remote_file_path)
-        resp = http_request(self._host_creds, endpoint, "GET", stream=True)
+        resp = http_request(self._host_creds, endpoint, "GET", stream=True, allow_redirects=False)
         augmented_raise_for_status(resp)
         with open(local_path, "wb") as f:
             chunk_size = 1024 * 1024  # 1 MB
@@ -253,13 +253,13 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             "/mlflow-artifacts/presigned", remote_file_path
         )
         host_creds = get_default_host_creds(uri)
-        resp = http_request(host_creds, endpoint, "GET")
+        resp = http_request(host_creds, endpoint, "GET", allow_redirects=False)
         augmented_raise_for_status(resp)
         return PresignedDownloadUrlResponse.from_dict(resp.json())
 
     def delete_artifacts(self, artifact_path=None):
         endpoint = posixpath.join("/", artifact_path) if artifact_path else "/"
-        resp = http_request(self._host_creds, endpoint, "DELETE", stream=True)
+        resp = http_request(self._host_creds, endpoint, "DELETE", stream=True, allow_redirects=False)
         augmented_raise_for_status(resp)
 
     def _construct_artifact_uri_and_path(self, base_endpoint, artifact_path):
@@ -281,7 +281,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             "path": local_file,
             "num_parts": num_parts,
         }
-        resp = http_request(host_creds, endpoint, "POST", json=params)
+        resp = http_request(host_creds, endpoint, "POST", json=params, allow_redirects=False)
         augmented_raise_for_status(resp)
         return CreateMultipartUploadResponse.from_dict(resp.json())
 
@@ -295,7 +295,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             "upload_id": upload_id,
             "parts": [part.to_dict() for part in parts],
         }
-        resp = http_request(host_creds, endpoint, "POST", json=params)
+        resp = http_request(host_creds, endpoint, "POST", json=params, allow_redirects=False)
         augmented_raise_for_status(resp)
 
     def abort_multipart_upload(self, local_file, upload_id, artifact_path=None):
@@ -307,7 +307,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             "path": local_file,
             "upload_id": upload_id,
         }
-        resp = http_request(host_creds, endpoint, "POST", json=params)
+        resp = http_request(host_creds, endpoint, "POST", json=params, allow_redirects=False)
         augmented_raise_for_status(resp)
 
     @staticmethod
