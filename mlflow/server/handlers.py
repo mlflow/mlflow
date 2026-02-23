@@ -1062,6 +1062,15 @@ def _validate_artifact_root_uri(value: str, field_name: str) -> str:
         )
 
     validate_query_string(parsed.query)
+
+    # SSRF Patch: Block path traversal in artifact URIs
+    if ".." in parsed.path:
+        raise MlflowException(
+            f"Invalid artifact location: '{value}'. "
+            "Path component cannot contain '..'",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     _validate_experiment_artifact_location(value)
     _validate_experiment_artifact_location_length(value)
     return value
