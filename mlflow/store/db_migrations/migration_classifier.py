@@ -161,9 +161,7 @@ def _classify_ast_call(node: ast.Call, in_batch: bool) -> MigrationOperation | N
             name="execute",
             safety=MigrationSafety.CAUTIOUS,
             detail=(
-                f"sql={sql_text[:80]}..."
-                if sql_text and len(sql_text) > 80
-                else f"sql={sql_text}"
+                f"sql={sql_text[:80]}..." if sql_text and len(sql_text) > 80 else f"sql={sql_text}"
             ),
         )
 
@@ -331,7 +329,9 @@ def classify_migration(revision: str) -> MigrationAnalysis:
 
     # Check for empty upgrade
     body_stmts = [
-        s for s in upgrade_func.body if not isinstance(s, (ast.Pass, ast.Expr))
+        s
+        for s in upgrade_func.body
+        if not isinstance(s, (ast.Pass, ast.Expr))
         or (isinstance(s, ast.Expr) and not isinstance(s.value, (ast.Constant, ast.Str)))
     ]
     if not body_stmts:
