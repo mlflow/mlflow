@@ -44,11 +44,7 @@ const DEFAULT_REQUEST_BODY_UNIFIED = JSON.stringify(
 const getPassthroughDefaultBody = (provider: Provider, endpointName: string): string => {
   switch (provider) {
     case 'openai':
-      return JSON.stringify(
-        { model: endpointName, input: 'How are you?' },
-        null,
-        2,
-      );
+      return JSON.stringify({ model: endpointName, input: 'How are you?' }, null, 2);
     case 'anthropic':
       return JSON.stringify(
         {
@@ -104,13 +100,15 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
 
   const tryItDefaultBody = useMemo(
     () =>
-      tryItApiType === 'unified' ? DEFAULT_REQUEST_BODY_UNIFIED : getPassthroughDefaultBody(tryItProvider, endpointName),
+      tryItApiType === 'unified'
+        ? DEFAULT_REQUEST_BODY_UNIFIED
+        : getPassthroughDefaultBody(tryItProvider, endpointName),
     [tryItApiType, tryItProvider, endpointName],
   );
 
   const handleSendRequest = useCallback(async () => {
     setSendError(null);
-    let parsed: object;
+    let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(requestBody);
     } catch {
@@ -367,7 +365,7 @@ print(response.candidates[0].content.parts[0].text)`;
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             <Typography.Text color="secondary">
               <FormattedMessage
-                defaultMessage='Edit the request body below and click Send request to call the endpoint. Choose Unified for the MLflow Invocations API, or Passthrough for provider-specific APIs (OpenAI, Anthropic, Gemini).'
+                defaultMessage="Edit the request body below and click Send request to call the endpoint. Choose Unified for the MLflow Invocations API, or Passthrough for provider-specific APIs (OpenAI, Anthropic, Gemini)."
                 description="Try it tab description"
               />
             </Typography.Text>
@@ -382,7 +380,9 @@ print(response.candidates[0].content.parts[0].text)`;
                 onChange={({ target: { value } }) => {
                   setTryItApiType(value as 'unified' | 'passthrough');
                   setRequestBody(
-                    value === 'unified' ? DEFAULT_REQUEST_BODY_UNIFIED : getPassthroughDefaultBody(tryItProvider, endpointName),
+                    value === 'unified'
+                      ? DEFAULT_REQUEST_BODY_UNIFIED
+                      : getPassthroughDefaultBody(tryItProvider, endpointName),
                   );
                 }}
                 css={{ marginBottom: theme.spacing.sm }}
@@ -426,7 +426,9 @@ print(response.candidates[0].content.parts[0].text)`;
               }}
             >
               <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.xs }}>
+                <div
+                  css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.xs }}
+                >
                   <Typography.Text bold>
                     <FormattedMessage defaultMessage="Request" description="Request body label" />
                   </Typography.Text>
@@ -456,7 +458,9 @@ print(response.candidates[0].content.parts[0].text)`;
                 />
               </div>
               <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.xs }}>
+                <div
+                  css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.xs }}
+                >
                   <Typography.Text bold>
                     <FormattedMessage defaultMessage="Response" description="Response body label" />
                   </Typography.Text>
@@ -479,11 +483,7 @@ print(response.candidates[0].content.parts[0].text)`;
                   readOnly
                   rows={10}
                   placeholder={
-                    sendError
-                      ? undefined
-                      : isSending
-                        ? undefined
-                        : 'Click "Send request" to see the response here.'
+                    sendError ? undefined : isSending ? undefined : 'Click "Send request" to see the response here.'
                   }
                   css={{
                     fontFamily: 'monospace',
