@@ -763,7 +763,10 @@ async def test_tracer_parallel_workflow():
         assert s.status.status_code == SpanStatusCode.OK
 
     root_span = traces[0].data.spans[0]
-    assert root_span.inputs == {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
+    expected_inputs = {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
+    # assert that the inputs are a superset of the expected inputs.
+    # this is to make the test resilient to framework changes which may add additional inputs.
+    assert root_span.inputs.items() >= expected_inputs.items()
     assert root_span.outputs == "apple, banana, grape, orange"
 
 
@@ -831,7 +834,7 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     assert all(s.status.status_code == SpanStatusCode.OK for s in spans)
 
     workflow_span = spans[0]
-    assert workflow_span.inputs == {"kwargs": {"inputs": inputs}}
+    assert workflow_span.inputs.items() >= {"kwargs": {"inputs": inputs}}.items()
     assert workflow_span.outputs == result
 
     inner_worker_spans = [s for s in spans if s.name.startswith("custom_inner_span_worker")]
