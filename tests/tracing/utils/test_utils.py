@@ -659,8 +659,30 @@ def test_litellm_suppress_debug_info_restored_after_cost_calculation():
 
     with mock.patch("litellm.cost_per_token", side_effect=Exception("unknown")):
         calculate_cost_by_model_and_token_usage(
-            model_name="some-model",
+            model_name="databricks-claude-sonnet-4-5",
             usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
         )
 
     assert litellm.suppress_debug_info is False
+
+
+def test_litellm_debug_info_not_suppressed_for_non_databricks_models():
+    captured = {}
+
+    def mock_cost_per_token(**kwargs):
+        import litellm
+
+        captured["suppress_debug_info"] = litellm.suppress_debug_info
+        raise Exception("unknown model")
+
+    import litellm
+
+    litellm.suppress_debug_info = False
+
+    with mock.patch("litellm.cost_per_token", side_effect=mock_cost_per_token):
+        calculate_cost_by_model_and_token_usage(
+            model_name="gpt-4o",
+            usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
+        )
+
+    assert captured["suppress_debug_info"] is False

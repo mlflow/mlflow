@@ -307,7 +307,8 @@ def calculate_cost_by_model_and_token_usage(
     # Suppress litellm debug messages (e.g. "Provider List: ...") that are printed
     # when litellm doesn't recognize a model name like "databricks-claude-sonnet-4-5".
     original_suppress = getattr(litellm, "suppress_debug_info", False)
-    litellm.suppress_debug_info = True
+    if model_name.startswith("databricks"):
+        litellm.suppress_debug_info = True
     try:
         try:
             input_cost_usd, output_cost_usd = cost_per_token(
