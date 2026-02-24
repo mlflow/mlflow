@@ -129,7 +129,7 @@ const TracesV3LogsImpl = React.memo(
     // Use a deterministic key for filter/column persistence so state doesn't
     // shift when the array order changes (e.g. "all endpoints" in the gateway).
     const persistenceKey = useMemo(
-      () => (experimentIds.length > 1 ? [...experimentIds].sort().join(',') : experimentIds[0] ?? ''),
+      () => (experimentIds.length > 1 ? [...experimentIds].sort().join(',') : (experimentIds[0] ?? '')),
       [experimentIds],
     );
     const makeHtmlFromMarkdown = useMarkdownConverter();
