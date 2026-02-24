@@ -297,9 +297,7 @@ describe('EndpointUsageModal', () => {
         text: () => Promise.resolve(JSON.stringify({ data: 'previous' })),
       });
 
-      const { rerender } = renderWithDesignSystem(
-        <EndpointUsageModal {...defaultProps} open={true} />,
-      );
+      const { rerender } = renderWithDesignSystem(<EndpointUsageModal {...defaultProps} open={true} />);
       await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
       expect(screen.getByText(/"data": "previous"/)).toBeInTheDocument();
 
