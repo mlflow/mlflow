@@ -649,8 +649,9 @@ def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
 
 
 def test_litellm_provider_list_printed_when_debug_logging(capsys):
-    import litellm
     import logging
+
+    import litellm
 
     litellm.suppress_debug_info = True
 
