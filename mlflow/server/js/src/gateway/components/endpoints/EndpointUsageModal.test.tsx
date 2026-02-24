@@ -1,7 +1,18 @@
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { fireEvent } from '@testing-library/react';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
+import * as FetchUtils from '../../../common/utils/FetchUtils';
 import { EndpointUsageModal } from './EndpointUsageModal';
+
+jest.mock('../../../common/utils/FetchUtils', () => {
+  const actual = jest.requireActual<typeof import('../../../common/utils/FetchUtils')>(
+    '../../../common/utils/FetchUtils',
+  );
+  return {
+    ...actual,
+    getDefaultHeaders: jest.fn((cookieStr: string) => actual.getDefaultHeaders(cookieStr)),
+  };
+});
 
 describe('EndpointUsageModal', () => {
   const defaultProps = {
@@ -181,6 +192,28 @@ describe('EndpointUsageModal', () => {
         }),
       );
       expect(await screen.findByText(/Hello from the model/)).toBeInTheDocument();
+    });
+
+    test('sends request with auth headers when auth is enabled', async () => {
+      const userEvent = (await import('@testing-library/user-event')).default;
+      const authHeaders = {
+        Authorization: 'Bearer test-token',
+      } as ReturnType<typeof FetchUtils.getDefaultHeaders>;
+      jest.mocked(FetchUtils.getDefaultHeaders).mockReturnValueOnce(authHeaders);
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ result: 'ok' })),
+      });
+
+      renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+      await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [, options] = fetchSpy.mock.calls[0];
+      expect(options?.headers).toMatchObject({
+        'Content-Type': 'application/json',
+        ...authHeaders,
+      });
     });
 
     test('shows error when request body is invalid JSON', async () => {
