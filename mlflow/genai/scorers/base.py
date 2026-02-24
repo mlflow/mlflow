@@ -1194,8 +1194,7 @@ def scorer(
     _is_session_level = "session" in func_params
 
     if _is_session_level:
-        invalid_params = func_params & {"inputs", "outputs", "trace"}
-        if invalid_params:
+        if invalid_params := func_params & {"inputs", "outputs", "trace"}:
             raise MlflowException.invalid_parameter_value(
                 f"Session-level scorers (functions with a `session` parameter) cannot "
                 f"also accept {', '.join(sorted(f'`{p}`' for p in invalid_params))}. "

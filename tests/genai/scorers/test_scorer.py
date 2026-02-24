@@ -458,26 +458,25 @@ def test_single_turn_scorer_not_session_level():
     assert single_turn.is_session_level_scorer is False
 
 
-@pytest.mark.parametrize(
-    "func_def",
-    [
-        "def bad(session, trace): pass",
-        "def bad(session, inputs): pass",
-        "def bad(session, outputs): pass",
-        "def bad(session, trace, inputs): pass",
-        "def bad(session, inputs, outputs, trace): pass",
-    ],
-)
-def test_session_param_with_single_turn_params_raises(func_def):
-    namespace = {}
-    exec(func_def, namespace)
-    func = namespace["bad"]
+def test_session_param_with_single_turn_params_raises():
+    def with_trace(session, trace):
+        pass
 
-    with pytest.raises(
-        mlflow.exceptions.MlflowException,
-        match="Session-level scorers.*cannot also accept",
-    ):
-        scorer(func)
+    def with_inputs(session, inputs):
+        pass
+
+    def with_outputs(session, outputs):
+        pass
+
+    def with_all(session, inputs, outputs, trace):
+        pass
+
+    for func in [with_trace, with_inputs, with_outputs, with_all]:
+        with pytest.raises(
+            mlflow.exceptions.MlflowException,
+            match="Session-level scorers.*cannot also accept",
+        ):
+            scorer(func)
 
 
 def test_session_level_scorer_serialization_roundtrip(is_in_databricks):
