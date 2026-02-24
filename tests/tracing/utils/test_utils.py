@@ -1,7 +1,9 @@
 import json
+import logging
 from unittest import mock
 from unittest.mock import Mock, patch
 
+import litellm
 import pytest
 from opentelemetry import trace as trace_api
 from pydantic import ValidationError
@@ -634,8 +636,6 @@ def test_generate_trace_id_v4_from_otel_trace_id():
 
 
 def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
-    import litellm
-
     litellm.suppress_debug_info = False
 
     calculate_cost_by_model_and_token_usage(
@@ -649,10 +649,6 @@ def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
 
 
 def test_litellm_provider_list_printed_when_debug_logging(capsys):
-    import logging
-
-    import litellm
-
     litellm.suppress_debug_info = True
 
     _logger = logging.getLogger("mlflow.tracing.utils")
