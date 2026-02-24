@@ -11,7 +11,7 @@ import {
   SegmentedControlButton,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { getDefaultHeaders } from '../../../common/utils/FetchUtils';
@@ -82,6 +82,18 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const base = getBaseUrl(baseUrl);
+
+  // Reset modal state when opened so users get a fresh Try-it experience each time
+  useEffect(() => {
+    if (open) {
+      setActiveTab('try-it');
+      setTryItApiType('unified');
+      setTryItProvider('openai');
+      setRequestBody(DEFAULT_REQUEST_BODY_UNIFIED);
+      setResponseBody('');
+      setSendError(null);
+    }
+  }, [open]);
 
   const tryItRequestUrl = useMemo(() => {
     if (tryItApiType === 'unified') {
