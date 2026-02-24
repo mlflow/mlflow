@@ -38,10 +38,10 @@ jobs:
           script: |
             core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
-            await autoformat.validateCommenter(context, github);
             const { comment } = context.payload;
             const shouldAutoformat = autoformat.shouldAutoformat(comment);
             if (shouldAutoformat) {
+              await autoformat.validateCommenterAndAuthor(context, github);
               await autoformat.createReaction(context, github);
               await autoformat.createStatus(context, github, core);
             }
