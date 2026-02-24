@@ -362,10 +362,13 @@ class _PredictSubmitter:
             self._queue.put(None)  # sentinel
 
     def _timed_predict(self, *args) -> None:
-        start = time.monotonic()
-        _run_predict(*args)
-        with self._time_lock:
-            self._times.append(time.monotonic() - start)
+        if self._predict_fn:
+            start = time.monotonic()
+            _run_predict(*args)
+            with self._time_lock:
+                self._times.append(time.monotonic() - start)
+        else:
+            _run_predict(*args)
 
     def drain(self, *, block: bool = False) -> list[Future]:
         """Return newly submitted predict futures from the submit thread.
@@ -493,6 +496,13 @@ class _ScoreSubmitter:
         idx = self._score_futures_to_eval_id.pop(future)
         return idx, future.result()
 
+    def _timed_multi_turn_score(self, **kwargs) -> dict[str, list[Feedback]]:
+        start = time.monotonic()
+        result = evaluate_session_level_scorers(**kwargs)
+        with self._time_lock:
+            self._times.append(time.monotonic() - start)
+        return result
+
     def run_multi_turn(
         self, multi_turn_assessments: dict[str, list[Feedback]], progress_bar
     ) -> None:
@@ -500,7 +510,7 @@ class _ScoreSubmitter:
             return
         futures = [
             self._pool.submit(
-                evaluate_session_level_scorers,
+                self._timed_multi_turn_score,
                 session_id=session_id,
                 session_items=session_items,
                 multi_turn_scorers=self._multi_turn_scorers,
@@ -568,60 +578,47 @@ def _run_pipeline(
     )
 
     try:
-        if single_turn_scorers:
-            heartbeat = _Heartbeat(predictor, scorer, len(eval_items))
+        heartbeat = _Heartbeat(predictor, scorer, len(eval_items)) if single_turn_scorers else None
 
-            predictor.start()
-            pending: set[Future] = set()
-            items_predicted = 0
-            items_scored = 0
+        predictor.start()
+        pending: set[Future] = set()
+        items_predicted = 0
+        items_done = 0
 
-            while items_scored < len(eval_items):
-                pending.update(predictor.drain(block=not pending))
-                predictor.check_error()
-                if not pending:
-                    continue
+        while items_done < len(eval_items):
+            pending.update(predictor.drain(block=not pending))
+            predictor.check_error()
+            if not pending:
+                continue
 
-                heartbeat.tick(items_predicted, items_scored)
+            if heartbeat:
+                heartbeat.tick(items_predicted, items_done)
 
-                # Timeout matches the heartbeat interval so the loop wakes periodically
-                # even if no futures complete, allowing the heartbeat to fire.
-                done, pending = wait(
-                    pending, timeout=heartbeat.interval, return_when=FIRST_COMPLETED
-                )
-                for future in done:
-                    if predictor.owns(future):
-                        idx = predictor.on_complete(future)
-                        items_predicted += 1
+            done, pending = wait(
+                pending,
+                timeout=heartbeat.interval if heartbeat else None,
+                return_when=FIRST_COMPLETED,
+            )
+            for future in done:
+                if predictor.owns(future):
+                    idx = predictor.on_complete(future)
+                    items_predicted += 1
+                    if single_turn_scorers:
                         pending.add(scorer.submit(idx))
                     else:
-                        idx, result = scorer.on_complete(future)
-                        _logger.debug(f"Score completed for item {idx}")
-                        eval_results[idx] = result
                         predictor.release_slot()
-                        items_scored += 1
-                        if progress_bar:
-                            progress_bar.update(1)
-
-            predictor.join()
-        else:
-            # No single-turn scorers — run predictions to set up traces
-            # but skip the scoring pipeline and its progress ticks.
-            predictor.start()
-            pending: set[Future] = set()
-            items_done = 0
-            while items_done < len(eval_items):
-                pending.update(predictor.drain(block=not pending))
-                predictor.check_error()
-                if not pending:
-                    continue
-                done, pending = wait(pending, return_when=FIRST_COMPLETED)
-                for future in done:
-                    idx = predictor.on_complete(future)
+                        eval_results[idx] = EvalResult(eval_item=eval_items[idx], assessments=[])
+                        items_done += 1
+                else:
+                    idx, result = scorer.on_complete(future)
+                    _logger.debug(f"Score completed for item {idx}")
+                    eval_results[idx] = result
                     predictor.release_slot()
-                    eval_results[idx] = EvalResult(eval_item=eval_items[idx], assessments=[])
                     items_done += 1
-            predictor.join()
+                    if progress_bar:
+                        progress_bar.update(1)
+
+        predictor.join()
 
         # Multi-turn scorers run after single-turn scoring completes because they
         # operate on session groups and need fully scored traces.
