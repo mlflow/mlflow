@@ -1,15 +1,19 @@
 import {
+  Button,
   Modal,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
   CopyIcon,
+  Input,
   SegmentedControlGroup,
   SegmentedControlButton,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
+import { getDefaultHeaders } from '../../../common/utils/FetchUtils';
 
 type Provider = 'openai' | 'anthropic' | 'gemini';
 type Language = 'curl' | 'python';
@@ -29,13 +33,143 @@ const getBaseUrl = (baseUrl?: string): string => {
   return 'http://localhost:5000';
 };
 
+const DEFAULT_REQUEST_BODY_UNIFIED = JSON.stringify(
+  {
+    messages: [{ role: 'user', content: 'Hello, how are you?' }],
+  },
+  null,
+  2,
+);
+
+const getPassthroughDefaultBody = (provider: Provider, endpointName: string): string => {
+  switch (provider) {
+    case 'openai':
+      return JSON.stringify({ model: endpointName, input: 'How are you?' }, null, 2);
+    case 'anthropic':
+      return JSON.stringify(
+        {
+          model: endpointName,
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: 'How are you?' }],
+        },
+        null,
+        2,
+      );
+    case 'gemini':
+      return JSON.stringify(
+        {
+          contents: [{ parts: [{ text: 'How are you?' }] }],
+        },
+        null,
+        2,
+      );
+    default:
+      return DEFAULT_REQUEST_BODY_UNIFIED;
+  }
+};
+
+const PROVIDER_DISPLAY_NAMES: Record<Provider, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  gemini: 'Google Gemini',
+};
+
 export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: EndpointUsageModalProps) => {
   const { theme } = useDesignSystemTheme();
-  const [activeTab, setActiveTab] = useState<'unified' | 'passthrough'>('unified');
+  const [activeTab, setActiveTab] = useState<'try-it' | 'unified' | 'passthrough'>('unified');
   const [selectedProvider, setSelectedProvider] = useState<Provider>('openai');
   const [selectedLanguage, setSelectedLanguage] = useState<Language>('curl');
   const [unifiedLanguage, setUnifiedLanguage] = useState<Language>('curl');
+  const [tryItApiType, setTryItApiType] = useState<'unified' | 'passthrough'>('unified');
+  const [tryItProvider, setTryItProvider] = useState<Provider>('openai');
+  const [requestBody, setRequestBody] = useState(DEFAULT_REQUEST_BODY_UNIFIED);
+  const [responseBody, setResponseBody] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const base = getBaseUrl(baseUrl);
+
+  useEffect(() => {
+    if (open) {
+      setTryItApiType('unified');
+      setTryItProvider('openai');
+      setRequestBody(DEFAULT_REQUEST_BODY_UNIFIED);
+      setResponseBody('');
+      setSendError(null);
+    }
+  }, [open]);
+
+  const tryItRequestUrl = useMemo(() => {
+    if (tryItApiType === 'unified') {
+      return `${base}/gateway/${endpointName}/mlflow/invocations`;
+    }
+    switch (tryItProvider) {
+      case 'openai':
+        return `${base}/gateway/openai/v1/responses`;
+      case 'anthropic':
+        return `${base}/gateway/anthropic/v1/messages`;
+      case 'gemini':
+        return `${base}/gateway/gemini/v1beta/models/${endpointName}:generateContent`;
+      default:
+        return `${base}/gateway/${endpointName}/mlflow/invocations`;
+    }
+  }, [base, endpointName, tryItApiType, tryItProvider]);
+
+  const tryItDefaultBody = useMemo(
+    () =>
+      tryItApiType === 'unified'
+        ? DEFAULT_REQUEST_BODY_UNIFIED
+        : getPassthroughDefaultBody(tryItProvider, endpointName),
+    [tryItApiType, tryItProvider, endpointName],
+  );
+
+  const handleSendRequest = useCallback(async () => {
+    setSendError(null);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(requestBody);
+    } catch {
+      setSendError('Invalid JSON in request body');
+      setResponseBody('');
+      return;
+    }
+    setIsSending(true);
+    setResponseBody('');
+    try {
+      const response = await fetch(tryItRequestUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getDefaultHeaders(document.cookie),
+        },
+        body: JSON.stringify(parsed),
+      });
+      const text = await response.text();
+      if (!response.ok) {
+        setSendError(`Request failed (${response.status}): ${text || response.statusText}`);
+        setResponseBody(text || '');
+        return;
+      }
+      try {
+        const formatted = JSON.stringify(JSON.parse(text), null, 2);
+        setResponseBody(formatted);
+      } catch {
+        setResponseBody(text);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setSendError(message);
+      setResponseBody('');
+    } finally {
+      setIsSending(false);
+    }
+  }, [requestBody, tryItRequestUrl]);
+
+  const handleResetExample = useCallback(() => {
+    setRequestBody(tryItDefaultBody);
+    setResponseBody('');
+    setSendError(null);
+  }, [tryItDefaultBody]);
+
   const mlflowInvocationsCurlExample = `curl -X POST ${base}/gateway/${endpointName}/mlflow/invocations \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -195,8 +329,33 @@ print(response.candidates[0].content.parts[0].text)`;
           />
         </Typography.Text>
 
-        <div css={{ display: 'flex', gap: theme.spacing.sm, borderBottom: `1px solid ${theme.colors.border}` }}>
+        <div
+          role="tablist"
+          css={{ display: 'flex', gap: theme.spacing.sm, borderBottom: `1px solid ${theme.colors.border}` }}
+        >
           <div
+            role="tab"
+            aria-selected={activeTab === 'try-it'}
+            tabIndex={0}
+            css={{
+              padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+              cursor: 'pointer',
+              borderBottom:
+                activeTab === 'try-it'
+                  ? `2px solid ${theme.colors.actionPrimaryBackgroundDefault}`
+                  : '2px solid transparent',
+              color: activeTab === 'try-it' ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.textSecondary,
+              fontWeight: activeTab === 'try-it' ? 'bold' : 'normal',
+            }}
+            onClick={() => setActiveTab('try-it')}
+            onKeyDown={(e) => e.key === 'Enter' && setActiveTab('try-it')}
+          >
+            <FormattedMessage defaultMessage="Try it" description="Try it tab - interactive request/response" />
+          </div>
+          <div
+            role="tab"
+            aria-selected={activeTab === 'unified'}
+            tabIndex={0}
             css={{
               padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
               cursor: 'pointer',
@@ -208,10 +367,14 @@ print(response.candidates[0].content.parts[0].text)`;
               fontWeight: activeTab === 'unified' ? 'bold' : 'normal',
             }}
             onClick={() => setActiveTab('unified')}
+            onKeyDown={(e) => e.key === 'Enter' && setActiveTab('unified')}
           >
             <FormattedMessage defaultMessage="Unified APIs" description="Unified APIs tab title" />
           </div>
           <div
+            role="tab"
+            aria-selected={activeTab === 'passthrough'}
+            tabIndex={0}
             css={{
               padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
               cursor: 'pointer',
@@ -224,10 +387,187 @@ print(response.candidates[0].content.parts[0].text)`;
               fontWeight: activeTab === 'passthrough' ? 'bold' : 'normal',
             }}
             onClick={() => setActiveTab('passthrough')}
+            onKeyDown={(e) => e.key === 'Enter' && setActiveTab('passthrough')}
           >
             <FormattedMessage defaultMessage="Passthrough APIs" description="Passthrough APIs tab title" />
           </div>
         </div>
+
+        {activeTab === 'try-it' && (
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="Edit the request body below and click Send request to call the endpoint. Choose Unified for the MLflow Invocations API, or Passthrough for provider-specific APIs (OpenAI, Anthropic, Gemini)."
+                description="Try it tab description"
+              />
+            </Typography.Text>
+            <div>
+              <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+                <FormattedMessage defaultMessage="API" description="API type selector label" />
+              </Typography.Text>
+              <SegmentedControlGroup
+                name="try-it-api-type"
+                componentId="mlflow.gateway.usage-modal.try-it.api-type"
+                value={tryItApiType}
+                onChange={({ target: { value } }) => {
+                  setTryItApiType(value as 'unified' | 'passthrough');
+                  setRequestBody(
+                    value === 'unified'
+                      ? DEFAULT_REQUEST_BODY_UNIFIED
+                      : getPassthroughDefaultBody(tryItProvider, endpointName),
+                  );
+                  setResponseBody('');
+                  setSendError(null);
+                }}
+                css={{ marginBottom: theme.spacing.sm }}
+              >
+                <SegmentedControlButton value="unified">
+                  <FormattedMessage defaultMessage="Unified (MLflow Invocations)" description="Unified API option" />
+                </SegmentedControlButton>
+                <SegmentedControlButton value="passthrough">
+                  <FormattedMessage defaultMessage="Passthrough" description="Passthrough API option" />
+                </SegmentedControlButton>
+              </SegmentedControlGroup>
+            </div>
+            {tryItApiType === 'passthrough' && (
+              <div>
+                <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+                  <FormattedMessage defaultMessage="Provider" description="Provider selector label" />
+                </Typography.Text>
+                <SegmentedControlGroup
+                  name="try-it-provider"
+                  componentId="mlflow.gateway.usage-modal.try-it.provider"
+                  value={tryItProvider}
+                  onChange={({ target: { value } }) => {
+                    const provider = value as Provider;
+                    setTryItProvider(provider);
+                    setRequestBody(getPassthroughDefaultBody(provider, endpointName));
+                    setResponseBody('');
+                    setSendError(null);
+                  }}
+                  css={{ marginBottom: theme.spacing.sm }}
+                >
+                  <SegmentedControlButton value="openai">OpenAI</SegmentedControlButton>
+                  <SegmentedControlButton value="anthropic">Anthropic</SegmentedControlButton>
+                  <SegmentedControlButton value="gemini">Google Gemini</SegmentedControlButton>
+                </SegmentedControlGroup>
+              </div>
+            )}
+            <div
+              css={{
+                display: 'flex',
+                gap: theme.spacing.md,
+                minHeight: 0,
+                flex: 1,
+              }}
+            >
+              <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                <div
+                  css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.xs }}
+                >
+                  <Typography.Text bold>
+                    <FormattedMessage defaultMessage="Request" description="Request body label" />
+                  </Typography.Text>
+                  <Tooltip
+                    content={
+                      tryItApiType === 'passthrough' ? (
+                        <FormattedMessage
+                          defaultMessage="JSON body for the {providerName} API. This payload is sent directly to the provider in its native format."
+                          description="Request body tooltip for passthrough provider"
+                          values={{
+                            providerName: PROVIDER_DISPLAY_NAMES[tryItProvider],
+                          }}
+                        />
+                      ) : (
+                        <FormattedMessage
+                          defaultMessage='JSON body for the MLflow Invocations API. Use "messages" for chat or "input" for embeddings.'
+                          description="Request body tooltip"
+                        />
+                      )
+                    }
+                  >
+                    <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Request help">
+                      ?
+                    </span>
+                  </Tooltip>
+                </div>
+                <Input.TextArea
+                  componentId="mlflow.gateway.usage-modal.try-it.request"
+                  value={requestBody}
+                  onChange={(e) => setRequestBody(e.target.value)}
+                  disabled={isSending}
+                  rows={10}
+                  css={{
+                    fontFamily: 'monospace',
+                    fontSize: theme.typography.fontSizeSm,
+                  }}
+                />
+              </div>
+              <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                <div
+                  css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.xs }}
+                >
+                  <Typography.Text bold>
+                    <FormattedMessage defaultMessage="Response" description="Response body label" />
+                  </Typography.Text>
+                  <Tooltip
+                    content={
+                      <FormattedMessage
+                        defaultMessage="Response from the endpoint after clicking Send request."
+                        description="Response body tooltip"
+                      />
+                    }
+                  >
+                    <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Response help">
+                      ?
+                    </span>
+                  </Tooltip>
+                </div>
+                <Input.TextArea
+                  componentId="mlflow.gateway.usage-modal.try-it.response"
+                  value={responseBody}
+                  readOnly
+                  rows={10}
+                  placeholder={sendError || isSending ? undefined : 'Click Send request to see the response here.'}
+                  css={{
+                    fontFamily: 'monospace',
+                    fontSize: theme.typography.fontSizeSm,
+                    backgroundColor: theme.colors.backgroundSecondary,
+                  }}
+                />
+                {sendError && (
+                  <Typography.Text color="danger" css={{ marginTop: theme.spacing.xs }}>
+                    {sendError}
+                  </Typography.Text>
+                )}
+              </div>
+            </div>
+            <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+              <Button
+                componentId="mlflow.gateway.usage-modal.try-it.send"
+                type="primary"
+                onClick={handleSendRequest}
+                disabled={isSending}
+              >
+                {isSending ? (
+                  <FormattedMessage
+                    defaultMessage="Sending..."
+                    description="Send request button while request is in progress"
+                  />
+                ) : (
+                  <FormattedMessage defaultMessage="Send request" description="Send request button" />
+                )}
+              </Button>
+              <Button
+                componentId="mlflow.gateway.usage-modal.try-it.reset"
+                onClick={handleResetExample}
+                disabled={isSending}
+              >
+                <FormattedMessage defaultMessage="Reset example" description="Reset example button" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         {activeTab === 'unified' && (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>

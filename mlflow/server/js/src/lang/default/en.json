@@ -615,6 +615,10 @@
     "defaultMessage": "10",
     "description": "Label for 10 first runs visible in run count selector within runs compare configuration modal"
   },
+  "2N2M5a": {
+    "defaultMessage": "Response",
+    "description": "Response body label"
+  },
   "2NJ8E5": {
     "defaultMessage": "Please select parameters and/or metrics to display the comparison.",
     "description": "Explanation displayed in the metrics and params compare plot when no values are selected"
@@ -1786,6 +1790,10 @@
     "defaultMessage": "Edit Endpoint Name",
     "description": "Title for edit endpoint name modal"
   },
+  "AbCFL2": {
+    "defaultMessage": "Response from the endpoint after clicking Send request.",
+    "description": "Response body tooltip"
+  },
   "AdlJNW": {
     "defaultMessage": "Assessment Name",
     "description": "Field label for assessment name in a creation form"
@@ -2609,6 +2617,10 @@
   "H2UIIZ": {
     "defaultMessage": "null",
     "description": "Null value in the evaluations table."
+  },
+  "H5ZY9T": {
+    "defaultMessage": "Sending...",
+    "description": "Send request button while request is in progress"
   },
   "H7JwOl": {
     "defaultMessage": "Delete version",
@@ -5755,6 +5767,10 @@
     "defaultMessage": "Fetching traces failed",
     "description": "Error message for fetching traces failed"
   },
+  "dK3xKp": {
+    "defaultMessage": "Passthrough",
+    "description": "Passthrough API option"
+  },
   "dMKo75": {
     "defaultMessage": "Search experiments",
     "description": "Placeholder text inside experiments search bar"
@@ -5895,6 +5911,10 @@
     "defaultMessage": "Discard",
     "description": "Evaluation review > assessments > discard pending assessments button label"
   },
+  "eIdMWq": {
+    "defaultMessage": "Reset example",
+    "description": "Reset example button"
+  },
   "eLgTRT": {
     "defaultMessage": "Key",
     "description": "Tag key label in unified trace tag assignment modal"
@@ -5986,6 +6006,10 @@
   "ew8ReB": {
     "defaultMessage": "Max Input Tokens",
     "description": "Table header for max input tokens"
+  },
+  "ewoUj/": {
+    "defaultMessage": "Unified (MLflow Invocations)",
+    "description": "Unified API option"
   },
   "eyGoqW": {
     "defaultMessage": "Experiment Name",
@@ -6303,6 +6327,10 @@
     "defaultMessage": "Aliases:",
     "description": "A label for the aliases list in the prompt details page"
   },
+  "h48hnl": {
+    "defaultMessage": "Send request",
+    "description": "Send request button"
+  },
   "hBAhI8": {
     "defaultMessage": "Copy",
     "description": "Tooltip message displayed on copy action"
@@ -6571,6 +6599,14 @@
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > status label > error"
   },
+  "ijIpbV": {
+    "defaultMessage": "API",
+    "description": "API type selector label"
+  },
+  "ikWP+z": {
+    "defaultMessage": "Try it",
+    "description": "Try it tab - interactive request/response"
+  },
   "imKpxw": {
     "defaultMessage": "ID",
     "description": "Label for the ID section"
@@ -6654,6 +6690,10 @@
   "jPW0Lj": {
     "defaultMessage": "Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
+  },
+  "jQDDBp": {
+    "defaultMessage": "Edit the request body below and click Send request to call the endpoint. Choose Unified for the MLflow Invocations API, or Passthrough for provider-specific APIs (OpenAI, Anthropic, Gemini).",
+    "description": "Try it tab description"
   },
   "jSDxn3": {
     "defaultMessage": "AI Gateway",
@@ -6778,6 +6818,10 @@
   "kHN/4I": {
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
     "description": "Evaluation review > assessments > tooltip > edited by human"
+  },
+  "kICSro": {
+    "defaultMessage": "JSON body for the {providerName} API. This payload is sent directly to the provider in its native format.",
+    "description": "Request body tooltip for passthrough provider"
   },
   "kIESP/": {
     "defaultMessage": "Filter applies to the first trace in each session. Only run on sessions where the first trace matches this filter; leave blank to run on all. Uses MLflow {link}.",
@@ -7135,6 +7179,10 @@
     "defaultMessage": "Delete {numRuns, plural, =1 {1 run} other {# runs}}",
     "description": "Delete evaluation runs modal title"
   },
+  "mo1su3": {
+    "defaultMessage": "Provider",
+    "description": "Provider selector label"
+  },
   "mpHsCg": {
     "defaultMessage": "Size:",
     "description": "Label to display the size of the artifact of the experiment"
@@ -7338,6 +7386,10 @@
   "o2qOGQ": {
     "defaultMessage": "Total",
     "description": "Label for total cost"
+  },
+  "o4Pk8Y": {
+    "defaultMessage": "JSON body for the MLflow Invocations API. Use \"messages\" for chat or \"input\" for embeddings.",
+    "description": "Request body tooltip"
   },
   "o5AS8R": {
     "defaultMessage": "Custom code judge",
@@ -7794,6 +7846,10 @@
   "rFT5e1": {
     "defaultMessage": "Run judge on trace",
     "description": "Title for run judge modal in traces view"
+  },
+  "rJWzb6": {
+    "defaultMessage": "Request",
+    "description": "Request body label"
   },
   "rJitqj": {
     "defaultMessage": "Permission denied for {modelName}. Error: \"{errorMsg}\"",
