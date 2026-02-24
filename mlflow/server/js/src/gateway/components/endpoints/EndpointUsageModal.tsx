@@ -431,6 +431,7 @@ print(response.candidates[0].content.parts[0].text)`;
                       <FormattedMessage defaultMessage="Request" description="Request body label" />
                     </Typography.Text>
                     <Tooltip
+                      componentId="mlflow.gateway.usage-modal.try-it.request-tooltip"
                       content={
                         tryItApiType === 'unified' ? (
                           <FormattedMessage
@@ -481,6 +482,7 @@ print(response.candidates[0].content.parts[0].text)`;
                       <FormattedMessage defaultMessage="Response" description="Response body label" />
                     </Typography.Text>
                     <Tooltip
+                      componentId="mlflow.gateway.usage-modal.try-it.response-tooltip"
                       content={
                         <FormattedMessage
                           defaultMessage="Response from the endpoint after clicking Send request."
