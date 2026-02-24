@@ -318,8 +318,8 @@ def calculate_cost_by_model_and_token_usage(
     except Exception as e:
         if model_provider:
             # pass model_provider only in exception case to avoid invalid model_provider
-            # being used when model_name itself is enough to calculate cost, since
-            # model_provider field can be with any value and litellm may not support it.
+            # being used when model_name itself is enough to calculate cost, since model_provider
+            # field can be with any value and litellm may not support it.
             try:
                 input_cost_usd, output_cost_usd = cost_per_token(
                     model=model_name,
