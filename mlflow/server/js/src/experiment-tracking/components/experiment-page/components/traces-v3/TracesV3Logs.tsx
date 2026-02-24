@@ -123,6 +123,12 @@ const TracesV3LogsImpl = React.memo(
     toolbarAddons?: React.ReactNode;
   }) => {
     const primaryExperimentId = experimentIds[0] ?? '';
+    // Use a deterministic key for filter/column persistence so state doesn't
+    // shift when the array order changes (e.g. "all endpoints" in the gateway).
+    const persistenceKey = useMemo(
+      () => (experimentIds.length > 1 ? [...experimentIds].sort().join(',') : primaryExperimentId),
+      [experimentIds, primaryExperimentId],
+    );
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
@@ -173,7 +179,7 @@ const TracesV3LogsImpl = React.memo(
     const [filters, setFilters] = useFilters({
       persist: shouldEnableTracesTableStatePersistence(),
       loadPersistedValues: shouldEnableTracesTableStatePersistence(),
-      persistKey: primaryExperimentId,
+      persistKey: persistenceKey,
     });
     const queryClient = useQueryClient();
 
@@ -210,7 +216,7 @@ const TracesV3LogsImpl = React.memo(
     );
 
     const { selectedColumns, toggleColumns, setSelectedColumns } = useSelectedColumns(
-      primaryExperimentId,
+      persistenceKey,
       allColumns,
       defaultSelectedColumns,
       undefined, // runUuid

@@ -19,8 +19,16 @@ import { TracesV3Logs } from '../../experiment-tracking/components/experiment-pa
 import { MonitoringConfigProvider } from '../../experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFiltersTimeRange } from '../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
+import type { TableFilter } from '@databricks/web-shared/genai-traces-table';
+import { FilterOperator } from '@databricks/web-shared/genai-traces-table';
 
-const GatewayLogsContent = ({ experimentIds }: { experimentIds: string[] }) => {
+const GatewayLogsContent = ({
+  experimentIds,
+  additionalFilters,
+}: {
+  experimentIds: string[];
+  additionalFilters?: TableFilter[];
+}) => {
   const { theme } = useDesignSystemTheme();
   const timeRange = useMonitoringFiltersTimeRange();
 
@@ -45,6 +53,7 @@ const GatewayLogsContent = ({ experimentIds }: { experimentIds: string[] }) => {
         disableActions
         timeRange={timeRange}
         columnStorageKeyPrefix="gateway-usage"
+        additionalFilters={additionalFilters}
       />
     </>
   );
@@ -95,10 +104,16 @@ export const GatewayUsagePage = () => {
     };
   }, []);
 
-  // Build filters from selected user ID
-  const filters = useMemo(() => {
+  // Build chart filters from selected user ID (string format for chart APIs)
+  const chartFilters = useMemo(() => {
     if (!selectedUserId) return undefined;
     return [createTraceMetadataFilter(AUTH_USER_ID_METADATA_KEY, selectedUserId)];
+  }, [selectedUserId]);
+
+  // Build table filters from selected user ID (TableFilter format for TracesV3Logs)
+  const tableFilters = useMemo((): TableFilter[] | undefined => {
+    if (!selectedUserId) return undefined;
+    return [{ column: 'user', operator: FilterOperator.EQUALS, value: selectedUserId }];
   }, [selectedUserId]);
 
   if (!isLoadingEndpoints && endpointsWithExperiments.length === 0) {
@@ -287,7 +302,7 @@ export const GatewayUsagePage = () => {
                   description="Link text to navigate to gateway endpoint logs tab"
                 />
               }
-              filters={filters}
+              filters={chartFilters}
             />
           ) : (
             <div
@@ -321,7 +336,7 @@ export const GatewayUsagePage = () => {
         >
           {experimentIds.length > 0 ? (
             <MonitoringConfigProvider>
-              <GatewayLogsContent experimentIds={experimentIds} />
+              <GatewayLogsContent experimentIds={experimentIds} additionalFilters={tableFilters} />
             </MonitoringConfigProvider>
           ) : (
             <div
