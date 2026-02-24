@@ -196,7 +196,7 @@ export const ProviderSelect = ({
         <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
       </FormUI.Label>
       <NavigableCombobox
-        componentId={componentIdPrefix}
+        componentId="codegen_mlflow_app_src_oss_gateway_components_create-endpoint_ProviderSelect.tsx_199"
         config={config}
         value={value || null}
         onChange={handleChange}

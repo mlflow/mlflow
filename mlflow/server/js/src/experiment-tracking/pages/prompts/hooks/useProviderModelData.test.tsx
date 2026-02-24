@@ -8,8 +8,8 @@ import { useModelsQuery } from '../../../../gateway/hooks/useModelsQuery';
 jest.mock('../../../../gateway/hooks/useProvidersQuery');
 jest.mock('../../../../gateway/hooks/useModelsQuery');
 
-const mockUseProvidersQuery = useProvidersQuery as jest.MockedFunction<typeof useProvidersQuery>;
-const mockUseModelsQuery = useModelsQuery as jest.MockedFunction<typeof useModelsQuery>;
+const mockUseProvidersQuery = jest.mocked(useProvidersQuery);
+const mockUseModelsQuery = jest.mocked(useModelsQuery);
 
 describe('useProviderModelData', () => {
   beforeEach(() => {

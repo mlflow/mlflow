@@ -136,7 +136,7 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
                   <FormattedMessage defaultMessage="Auth Type:" description="Auth type label" />
                 </Typography.Text>
                 <Typography.Text>
-                  {formatAuthMethodName(String(parseAuthConfig(selectedSecret)!['auth_mode']))}
+                  {formatAuthMethodName(String(parseAuthConfig(selectedSecret)?.['auth_mode']))}
                 </Typography.Text>
               </>
             )}

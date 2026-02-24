@@ -1,6 +1,6 @@
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isNil } from 'lodash';
-import { ParagraphSkeleton, Typography, Empty } from '@databricks/design-system';
+import { ParagraphSkeleton, Typography, Empty, Drawer } from '@databricks/design-system';
 import { type KeyValueEntity } from '../../../common/types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
@@ -288,7 +288,6 @@ const RunViewEvaluationsTabInner = ({
   }, [deleteTracesAction, showEditTagsModalForTrace, EditTagsModal]);
 
   const isTableLoading = traceInfosLoading || compareToRunLoading;
-  const displayLoadingOverlay = false;
 
   const selectedRunColor = getRunColor(runUuid);
   const compareToRunColor = compareToRunUuid ? getRunColor(compareToRunUuid) : undefined;
@@ -419,7 +418,7 @@ const RunViewEvaluationsTabInner = ({
                     currentTraceInfoV3={traceInfos || []}
                     compareToTraceInfoV3={compareToRunData}
                     onTraceTagsEdit={showEditTagsModalForTrace}
-                    displayLoadingOverlay={displayLoadingOverlay}
+                    isTableLoading={isTableLoading}
                     isGroupedBySession={isGroupedBySession}
                   />
                 </ContextProviders>

@@ -4,7 +4,8 @@
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const STALE_DAYS = 30;
 const MAX_CLOSES = 50;
-const CLOSE_MESSAGE = "Closing due to inactivity. Feel free to reopen if still relevant.";
+const closeMessage = (days) =>
+  `Closing due to inactivity (no activity for ${days} days). Feel free to reopen if still relevant.`;
 
 // GraphQL query to fetch open PRs with timeline data
 const QUERY = `
@@ -126,7 +127,7 @@ module.exports = async ({ context, github }) => {
           owner,
           repo,
           issue_number: pr.number,
-          body: CLOSE_MESSAGE,
+          body: closeMessage(days),
         });
         await github.rest.pulls.update({
           owner,

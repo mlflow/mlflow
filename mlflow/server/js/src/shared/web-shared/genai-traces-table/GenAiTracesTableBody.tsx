@@ -4,15 +4,14 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { isNil } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Empty, SearchIcon, Spinner, Table, useDesignSystemTheme } from '@databricks/design-system';
+import { Empty, SearchIcon, Table, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import {
-  isV4TraceId,
-  shouldUseUnifiedModelTraceComparisonUI,
-  type ModelTraceInfoV3,
-} from '@databricks/web-shared/model-trace-explorer';
-import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
+import { isV4TraceId } from '../model-trace-explorer/ModelTraceExplorer.utils';
+import { shouldUseUnifiedModelTraceComparisonUI } from '../model-trace-explorer/FeatureUtils';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '../react-table/useReactTable';
 
+import { GenAITracesTableBodySkeleton } from './GenAITracesTableBodySkeleton';
 import { GenAITracesTableContext } from './GenAITracesTableContext';
 import { sortColumns, sortGroupedColumns } from './GenAiTracesTable.utils';
 import { getColumnConfig } from './GenAiTracesTableBody.utils';
@@ -70,7 +69,7 @@ export const GenAiTracesTableBody = React.memo(
     enableRowSelection,
     enableGrouping = false,
     allColumns,
-    displayLoadingOverlay,
+    isTableLoading,
     isGroupedBySession,
     searchQuery,
   }: {
@@ -106,7 +105,7 @@ export const GenAiTracesTableBody = React.memo(
     enableRowSelection?: boolean;
     enableGrouping?: boolean;
     allColumns: TracesTableColumn[];
-    displayLoadingOverlay?: boolean;
+    isTableLoading?: boolean;
     isGroupedBySession?: boolean;
     /** When set, matching text in the Request column is highlighted. */
     searchQuery?: string;
@@ -316,6 +315,17 @@ export const GenAiTracesTableBody = React.memo(
       }
     }, [table, rowSelection, setSelectedRowIds, enableRowSelection]);
 
+    useEffect(() => {
+      if (!enableRowSelection) {
+        lastSelectedRowIdRef.current = null;
+        return;
+      }
+
+      if (!rowSelection || Object.keys(rowSelection).length === 0) {
+        lastSelectedRowIdRef.current = null;
+      }
+    }, [rowSelection, enableRowSelection]);
+
     // When the table is empty.
     const emptyDescription = intl.formatMessage({
       defaultMessage: ' No traces found. Try clearing your active filters to see more traces.',
@@ -463,7 +473,7 @@ export const GenAiTracesTableBody = React.memo(
               width: '100%',
               ...columnSizeVars, // Define column sizes on the <table> element
             }}
-            empty={isEmpty() ? emptyComponent : undefined}
+            empty={isEmpty() && !isTableLoading ? emptyComponent : undefined}
             someRowsSelected={enableRowSelection ? someRowSelected || allRowSelected : undefined}
           >
             <GenAiTracesTableHeader
@@ -486,8 +496,9 @@ export const GenAiTracesTableBody = React.memo(
               toggleAllRowsSelectedHandler={table.getToggleAllRowsSelectedHandler}
               setColumnSizing={table.setColumnSizing}
             />
-
-            {isGroupedBySession ? (
+            {isTableLoading ? (
+              <GenAITracesTableBodySkeleton table={table} />
+            ) : isGroupedBySession ? (
               <MemoizedGenAiTracesTableSessionGroupedRows
                 rows={rows}
                 groupedRows={groupedRows}
@@ -522,22 +533,6 @@ export const GenAiTracesTableBody = React.memo(
             )}
           </Table>
         </div>
-        {displayLoadingOverlay && (
-          <div
-            css={{
-              position: 'absolute',
-              inset: 0,
-              backgroundColor: theme.colors.backgroundPrimary,
-              opacity: 0.75,
-              pointerEvents: 'none',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Spinner size="large" />
-          </div>
-        )}
         {comparedTraceIds && shouldUseUnifiedModelTraceComparisonUI() ? (
           <GenAITraceComparisonModal
             traceIds={comparedTraceIds}

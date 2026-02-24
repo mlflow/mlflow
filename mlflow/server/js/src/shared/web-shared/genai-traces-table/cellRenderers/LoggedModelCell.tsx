@@ -8,12 +8,12 @@ import {
   Tag,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useQuery } from '@databricks/web-shared/query-client';
+import { useQuery } from '../../query-client/queryClient';
 
 import { ErrorCell } from './ErrorCell';
 import { NullCell } from './NullCell';
 import { StackedComponents } from './StackedComponents';
-import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';

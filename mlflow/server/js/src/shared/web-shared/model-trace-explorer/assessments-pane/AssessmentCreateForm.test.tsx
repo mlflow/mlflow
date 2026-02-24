@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import type { Assessment } from '../ModelTrace.types';

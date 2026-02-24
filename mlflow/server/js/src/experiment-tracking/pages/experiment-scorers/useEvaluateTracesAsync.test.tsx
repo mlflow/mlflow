@@ -76,7 +76,6 @@ function setupTraceFetchHandlers(server: ReturnType<typeof setupServer>, traces:
     }),
   );
 }
-
 describe('useEvaluateTracesAsync', () => {
   const server = setupServer();
   let queryClient: QueryClient;

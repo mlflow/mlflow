@@ -11,7 +11,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
+import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 
 import { ModelTraceExplorerChatMessageHeader } from './ModelTraceExplorerChatMessageHeader';
 import { CONTENT_TRUNCATION_LIMIT } from './ModelTraceExplorerChatRenderer.utils';

@@ -16,6 +16,7 @@ import Routes from '../../experiment-tracking/routes';
 import { Link } from '../../common/utils/RoutingUtils';
 import type { ExperimentEntity } from '../../experiment-tracking/types';
 import { isDemoExperiment } from '../../experiment-tracking/utils/isDemoExperiment';
+import { useUpdateExperimentTags } from '../../experiment-tracking/components/experiment-page/hooks/useUpdateExperimentTags';
 
 type ExperimentsHomeViewProps = {
   experiments?: ExperimentEntity[];
@@ -23,6 +24,7 @@ type ExperimentsHomeViewProps = {
   error?: Error | null;
   onCreateExperiment: () => void;
   onRetry: () => void;
+  onTagsUpdated?: () => void;
 };
 
 const ExperimentsEmptyState = ({ onCreateExperiment }: { onCreateExperiment: () => void }) => {
@@ -72,10 +74,14 @@ export const ExperimentsHomeView = ({
   error,
   onCreateExperiment,
   onRetry,
+  onTagsUpdated,
 }: ExperimentsHomeViewProps) => {
   const { theme } = useDesignSystemTheme();
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [sorting, setSorting] = useState<SortingState>([]);
+  const { EditTagsModal, showEditExperimentTagsModal } = useUpdateExperimentTags({
+    onSuccess: onTagsUpdated,
+  });
 
   const topExperiments = useMemo(() => {
     const sliced = experiments?.slice(0, 5) ?? [];
@@ -140,11 +146,12 @@ export const ExperimentsHomeView = ({
             rowSelection={rowSelection}
             setRowSelection={setRowSelection}
             sortingProps={{ sorting, setSorting }}
-            onEditTags={() => undefined}
+            onEditTags={showEditExperimentTagsModal}
           />
         )}
       </div>
       <Spacer shrinks={false} />
+      {EditTagsModal}
     </section>
   );
 };
