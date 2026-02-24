@@ -519,8 +519,13 @@ print(response.candidates[0].content.parts[0].text)`;
                   type="primary"
                   onClick={handleSendRequest}
                   disabled={isSending}
+                  loading={isSending}
                 >
-                  <FormattedMessage defaultMessage="Send request" description="Send request button" />
+                  {isSending ? (
+                    <FormattedMessage defaultMessage="Sending..." description="Send request button loading state" />
+                  ) : (
+                    <FormattedMessage defaultMessage="Send request" description="Send request button" />
+                  )}
                 </Button>
                 <Button
                   componentId="mlflow.gateway.usage-modal.try-it.reset"
