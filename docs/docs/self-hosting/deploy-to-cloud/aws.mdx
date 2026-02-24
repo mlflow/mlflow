@@ -6,7 +6,7 @@ title: Deploying MLflow to AWS
 
 MLflow core components include MLflow server, backend store, and artifact store. The MLflow server is the backend for experiment tracking, model registry management, tracing for LLM observability, job scheduling, and AI Gateway endpoints.
 
-This guide walks you through deploying the MLflow server to Amazon ECS (Elastic Container Service), the backend store to Amazon RDS (PostgreSQL), and the artifact store to Amazon S3. The guide also covers IAM roles, VPC subnets, security groups, and ALB (Application Load Balancer) settings. Once deployment is complete, you can access the MLflow web UI through an AWS application URL like https://ml-<unique-service-id>.ecs.<aws-region>.on.aws, and your MLflow client code can connect to the MLflow server by setting the tracking URI to this URL.
+This guide walks you through deploying the MLflow server to Amazon ECS (Elastic Container Service), the backend store to Amazon RDS (PostgreSQL), and the artifact store to Amazon S3. The guide also covers IAM roles, VPC subnets, security groups, and ALB (Application Load Balancer) settings. Once deployment is complete, you can access the MLflow web UI through an AWS application URL like `https://ml-<unique-service-id>.ecs.<aws-region>.on.aws`, and your MLflow client code can connect to the MLflow server by setting the tracking URI to this URL.
 
 The overall deployment architecture is as follows:
 
