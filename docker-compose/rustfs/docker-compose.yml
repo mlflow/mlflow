@@ -1,0 +1,115 @@
+version: "3.9"
+
+volumes:
+  pgdata:
+  rustfs-data:
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: mlflow-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  storage:
+    image: rustfs/rustfs:1.0.0-alpha.83
+    container_name: storage
+    environment:
+      RUSTFS_ADDRESS: :9000
+      RUSTFS_SERVER_DOMAINS: storage:9000
+      RUSTFS_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+      RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID:-admin}
+      RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:-admin}
+      RUSTFS_CONSOLE_ENABLE: ${RUSTFS_CONSOLE_ENABLE:-true}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - rustfs-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "sh", "-c",
+          "curl -f http://127.0.0.1:9000/health && curl -f http://127.0.0.1:9001/rustfs/console/health"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+
+  create-bucket:
+    image: amazon/aws-cli:2.33.25
+    container_name: mlflow-create-bucket
+    depends_on:
+      storage:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+        set -e;
+        echo 'Waiting a bit for S3 gateway...'; sleep 5;
+        if aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3api head-bucket --bucket ${S3_BUCKET} 2>/dev/null; then
+          echo 'Bucket ${S3_BUCKET} already exists. Skipping creation.';
+        else
+          echo 'Creating bucket ${S3_BUCKET}...';
+          aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3api create-bucket --bucket ${S3_BUCKET} --region ${AWS_DEFAULT_REGION};
+        fi
+      "
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      AWS_S3_ADDRESSING_STYLE: virtual
+    restart: "no"
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:${MLFLOW_VERSION}
+    container_name: mlflow-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+      storage:
+        condition: service_started
+      create-bucket:
+        condition: service_completed_successfully
+    environment:
+      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
+      MLFLOW_ARTIFACTS_DESTINATION: ${MLFLOW_ARTIFACTS_DESTINATION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      MLFLOW_S3_IGNORE_TLS: "true"
+      MLFLOW_HOST: ${MLFLOW_HOST}
+      MLFLOW_PORT: ${MLFLOW_PORT}
+    command: >
+      /bin/bash -c "
+      pip install --no-cache-dir psycopg2-binary boto3 &&
+      mlflow server
+      --backend-store-uri '${MLFLOW_BACKEND_STORE_URI}'
+      --artifacts-destination '${MLFLOW_ARTIFACTS_DESTINATION}'
+      --serve-artifacts
+      --host '${MLFLOW_HOST}'
+      --port '${MLFLOW_PORT}'
+      "
+    ports:
+      - "${MLFLOW_PORT}:${MLFLOW_PORT}"
+
+
+networks:
+  default:
+    name: mlflow-rustfs-network
