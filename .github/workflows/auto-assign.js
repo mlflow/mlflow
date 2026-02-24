@@ -105,11 +105,8 @@ module.exports = async ({ github, context, skipAssignment = false }) => {
         const prCreatedDate = new Date(prCreatedAt);
         const issueCreatedDate = new Date(linkedIssue.createdAt);
 
-        // Only assign if issue was created within 7 days before the PR (not in the future)
-        if (
-          issueCreatedDate <= prCreatedDate &&
-          prCreatedDate - issueCreatedDate <= SEVEN_DAYS_MS
-        ) {
+        // Only assign if issue was created within 7 days before the PR
+        if (prCreatedDate - issueCreatedDate <= SEVEN_DAYS_MS) {
           // Fetch all comments on the linked issue
           const linkedIssueComments = await github.paginate(github.rest.issues.listComments, {
             owner,
