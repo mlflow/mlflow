@@ -2070,6 +2070,10 @@
     "defaultMessage": "Next",
     "description": "Evaluation review > assessments > next button"
   },
+  "CDBd4J": {
+    "defaultMessage": "Unified API",
+    "description": "Unified API variant label"
+  },
   "CDOfWP": {
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
@@ -2357,6 +2361,10 @@
   "EaH1E1": {
     "defaultMessage": "Version {version}",
     "description": "Version display for judge"
+  },
+  "EbFweZ": {
+    "defaultMessage": "Unified",
+    "description": "Unified API option"
   },
   "EcjcgN": {
     "defaultMessage": "Metrics",
@@ -4680,10 +4688,6 @@
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
   },
-  "VtABeJ": {
-    "defaultMessage": "JSON body for the MLflow Invocations API. Use \"messages\" for chat or \"input\" for embeddings.",
-    "description": "Request body tooltip for unified API"
-  },
   "Vvn8Cb": {
     "defaultMessage": "Open dataset",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
@@ -6023,10 +6027,6 @@
     "defaultMessage": "Max Input Tokens",
     "description": "Table header for max input tokens"
   },
-  "ewoUj/": {
-    "defaultMessage": "Unified (MLflow Invocations)",
-    "description": "Unified API option"
-  },
   "eyGoqW": {
     "defaultMessage": "Experiment Name",
     "description": "Label for create experiment modal to enter a valid experiment name"
@@ -6274,6 +6274,10 @@
   "gYOuKs": {
     "defaultMessage": "Rationale",
     "description": "Label for the rationale of an expectation assessment"
+  },
+  "gYlgfM": {
+    "defaultMessage": "MLflow Invocations",
+    "description": "Unified API variant: MLflow Invocations"
   },
   "gZSJbg": {
     "defaultMessage": "All charts are filtered. Clear the search filter to see hidden metric charts.",
@@ -6786,6 +6790,10 @@
   "k/fDlw": {
     "defaultMessage": "Optimize",
     "description": "A label for a button to display the modal with instructions to optimize the prompt"
+  },
+  "k0CEIu": {
+    "defaultMessage": "OpenAI Chat Completions",
+    "description": "Unified API variant: OpenAI Chat Completions"
   },
   "k0l8lF": {
     "defaultMessage": "Boolean",
@@ -8063,6 +8071,10 @@
     "defaultMessage": "Model Configuration",
     "description": "Section header for model configuration in prompt creation"
   },
+  "sYkXR1": {
+    "defaultMessage": "JSON body for the MLflow Invocations API. Use \"messages\" for chat or \"input\" for embeddings.",
+    "description": "Request body tooltip for unified MLflow Invocations API"
+  },
   "sbHChH": {
     "defaultMessage": "Dataset name is required",
     "description": "Input field error when dataset name is empty"
@@ -8722,6 +8734,10 @@
   "xZ/PkV": {
     "defaultMessage": "Search prompts",
     "description": "Placeholder text for the search input in the prompts table on the logged model details page"
+  },
+  "xbfKJS": {
+    "defaultMessage": "JSON body for the OpenAI-compatible Chat Completions API. Include \"model\" (endpoint name) and \"messages\".",
+    "description": "Request body tooltip for unified Chat Completions API"
   },
   "xcmW/z": {
     "defaultMessage": "Enable Usage Tracking in the Configuration tab to view logs",
