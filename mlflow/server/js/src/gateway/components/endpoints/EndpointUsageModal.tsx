@@ -351,289 +351,311 @@ print(response.candidates[0].content.parts[0].text)`;
           </Tabs.List>
 
           <Tabs.Content value="try-it" css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-            <Typography.Text color="secondary">
-              <FormattedMessage
-                defaultMessage="Edit the request body below and click Send request to call the endpoint. Choose Unified for the MLflow Invocations API, or Passthrough for provider-specific APIs (OpenAI, Anthropic, Gemini)."
-                description="Try it tab description"
-              />
-            </Typography.Text>
-            <div>
-              <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-                <FormattedMessage defaultMessage="API" description="API type selector label" />
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+              <Typography.Text color="secondary">
+                <FormattedMessage
+                  defaultMessage="Edit the request body below and click Send request to call the endpoint. Choose Unified for the MLflow Invocations API, or Passthrough for provider-specific APIs (OpenAI, Anthropic, Gemini)."
+                  description="Try it tab description"
+                />
               </Typography.Text>
-              <SegmentedControlGroup
-                name="try-it-api-type"
-                componentId="mlflow.gateway.usage-modal.try-it.api-type"
-                value={tryItApiType}
-                onChange={({ target: { value } }) => {
-                  setTryItApiType(value as 'unified' | 'passthrough');
-                  setRequestBody(
-                    value === 'unified'
-                      ? DEFAULT_REQUEST_BODY_UNIFIED
-                      : getPassthroughDefaultBody(tryItProvider, endpointName),
-                  );
-                  setResponseBody('');
-                  setSendError(null);
-                }}
-                css={{ marginBottom: theme.spacing.sm }}
-              >
-                <SegmentedControlButton value="unified">
-                  <FormattedMessage defaultMessage="Unified (MLflow Invocations)" description="Unified API option" />
-                </SegmentedControlButton>
-                <SegmentedControlButton value="passthrough">
-                  <FormattedMessage defaultMessage="Passthrough" description="Passthrough API option" />
-                </SegmentedControlButton>
-              </SegmentedControlGroup>
-            </div>
-            {tryItApiType === 'passthrough' && (
               <div>
                 <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-                  <FormattedMessage defaultMessage="Provider" description="Provider selector label" />
+                  <FormattedMessage defaultMessage="API" description="API type selector label" />
                 </Typography.Text>
                 <SegmentedControlGroup
-                  name="try-it-provider"
-                  componentId="mlflow.gateway.usage-modal.try-it.provider"
-                  value={tryItProvider}
+                  name="try-it-api-type"
+                  componentId="mlflow.gateway.usage-modal.try-it.api-type"
+                  value={tryItApiType}
                   onChange={({ target: { value } }) => {
-                    const provider = value as Provider;
-                    setTryItProvider(provider);
-                    setRequestBody(getPassthroughDefaultBody(provider, endpointName));
+                    setTryItApiType(value as 'unified' | 'passthrough');
+                    setRequestBody(
+                      value === 'unified'
+                        ? DEFAULT_REQUEST_BODY_UNIFIED
+                        : getPassthroughDefaultBody(tryItProvider, endpointName),
+                    );
                     setResponseBody('');
                     setSendError(null);
                   }}
                   css={{ marginBottom: theme.spacing.sm }}
+                >
+                  <SegmentedControlButton value="unified">
+                    <FormattedMessage defaultMessage="Unified (MLflow Invocations)" description="Unified API option" />
+                  </SegmentedControlButton>
+                  <SegmentedControlButton value="passthrough">
+                    <FormattedMessage defaultMessage="Passthrough" description="Passthrough API option" />
+                  </SegmentedControlButton>
+                </SegmentedControlGroup>
+              </div>
+              {tryItApiType === 'passthrough' && (
+                <div>
+                  <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+                    <FormattedMessage defaultMessage="Provider" description="Provider selector label" />
+                  </Typography.Text>
+                  <SegmentedControlGroup
+                    name="try-it-provider"
+                    componentId="mlflow.gateway.usage-modal.try-it.provider"
+                    value={tryItProvider}
+                    onChange={({ target: { value } }) => {
+                      const provider = value as Provider;
+                      setTryItProvider(provider);
+                      setRequestBody(getPassthroughDefaultBody(provider, endpointName));
+                      setResponseBody('');
+                      setSendError(null);
+                    }}
+                    css={{ marginBottom: theme.spacing.sm }}
+                  >
+                    <SegmentedControlButton value="openai">OpenAI</SegmentedControlButton>
+                    <SegmentedControlButton value="anthropic">Anthropic</SegmentedControlButton>
+                    <SegmentedControlButton value="gemini">Google Gemini</SegmentedControlButton>
+                  </SegmentedControlGroup>
+                </div>
+              )}
+              <div
+                css={{
+                  display: 'flex',
+                  gap: theme.spacing.md,
+                  minHeight: 0,
+                  flex: 1,
+                }}
+              >
+                <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <div
+                    css={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: theme.spacing.xs,
+                      marginBottom: theme.spacing.xs,
+                    }}
+                  >
+                    <Typography.Text bold>
+                      <FormattedMessage defaultMessage="Request" description="Request body label" />
+                    </Typography.Text>
+                    <Tooltip
+                      content={
+                        tryItApiType === 'unified' ? (
+                          <FormattedMessage
+                            defaultMessage='JSON body for the MLflow Invocations API. Use "messages" for chat or "input" for embeddings.'
+                            description="Request body tooltip for unified API"
+                          />
+                        ) : (
+                          <FormattedMessage
+                            defaultMessage="JSON body for the {providerName} API. This payload is sent directly to the provider in its native format."
+                            description="Request body tooltip for passthrough provider"
+                            values={{
+                              providerName: { openai: 'OpenAI', anthropic: 'Anthropic', gemini: 'Google Gemini' }[
+                                tryItProvider
+                              ],
+                            }}
+                          />
+                        )
+                      }
+                    >
+                      <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Request help">
+                        ?
+                      </span>
+                    </Tooltip>
+                  </div>
+                  <Input.TextArea
+                    componentId="mlflow.gateway.usage-modal.try-it.request"
+                    value={requestBody}
+                    onChange={(e) => setRequestBody(e.target.value)}
+                    disabled={isSending}
+                    rows={10}
+                    css={{
+                      fontFamily: 'monospace',
+                      fontSize: theme.typography.fontSizeSm,
+                    }}
+                  />
+                </div>
+                <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <div
+                    css={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: theme.spacing.xs,
+                      marginBottom: theme.spacing.xs,
+                    }}
+                  >
+                    <Typography.Text bold>
+                      <FormattedMessage defaultMessage="Response" description="Response body label" />
+                    </Typography.Text>
+                    <Tooltip
+                      content={
+                        <FormattedMessage
+                          defaultMessage="Response from the endpoint after clicking Send request."
+                          description="Response body tooltip"
+                        />
+                      }
+                    >
+                      <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Response help">
+                        ?
+                      </span>
+                    </Tooltip>
+                  </div>
+                  <Input.TextArea
+                    componentId="mlflow.gateway.usage-modal.try-it.response"
+                    value={responseBody}
+                    readOnly
+                    rows={10}
+                    placeholder={
+                      sendError ? undefined : isSending ? undefined : 'Click "Send request" to see the response here.'
+                    }
+                    css={{
+                      fontFamily: 'monospace',
+                      fontSize: theme.typography.fontSizeSm,
+                      backgroundColor: theme.colors.backgroundSecondary,
+                    }}
+                  />
+                  {sendError && (
+                    <Typography.Text color="danger" css={{ marginTop: theme.spacing.xs }}>
+                      {sendError}
+                    </Typography.Text>
+                  )}
+                </div>
+              </div>
+              <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+                <Button
+                  componentId="mlflow.gateway.usage-modal.try-it.send"
+                  type="primary"
+                  onClick={handleSendRequest}
+                  disabled={isSending}
+                >
+                  <FormattedMessage defaultMessage="Send request" description="Send request button" />
+                </Button>
+                <Button
+                  componentId="mlflow.gateway.usage-modal.try-it.reset"
+                  onClick={handleResetExample}
+                  disabled={isSending}
+                >
+                  <FormattedMessage defaultMessage="Reset example" description="Reset example button" />
+                </Button>
+              </div>
+            </div>
+          </Tabs.Content>
+
+          <Tabs.Content value="unified" css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+              <SegmentedControlGroup
+                name="unified-language-selector"
+                componentId="mlflow.gateway.usage-modal.unified-language-selector"
+                value={unifiedLanguage}
+                onChange={({ target: { value } }) => setUnifiedLanguage(value as Language)}
+              >
+                <SegmentedControlButton value="curl">cURL</SegmentedControlButton>
+                <SegmentedControlButton value="python">Python</SegmentedControlButton>
+              </SegmentedControlGroup>
+
+              <div>
+                <Typography.Title level={4} css={{ marginTop: 0 }}>
+                  <FormattedMessage
+                    defaultMessage="MLflow Invocations API"
+                    description="MLflow invocations API section title"
+                  />
+                </Typography.Title>
+                <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+                  <FormattedMessage
+                    defaultMessage="Native MLflow API for model invocations. Supports seamless model switching and advanced routing."
+                    description="MLflow invocations API description"
+                  />
+                </Typography.Text>
+                {unifiedLanguage === 'curl' && renderCodeExample('cURL', mlflowInvocationsCurlExample, 'text')}
+                {unifiedLanguage === 'python' && renderCodeExample('Python', mlflowInvocationsPythonExample, 'python')}
+              </div>
+
+              <div>
+                <Typography.Title level={4}>
+                  <FormattedMessage
+                    defaultMessage="OpenAI-Compatible Chat Completions API"
+                    description="OpenAI compatible API section title"
+                  />
+                </Typography.Title>
+                <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+                  <FormattedMessage
+                    defaultMessage="Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter."
+                    description="OpenAI compatible API description"
+                  />
+                </Typography.Text>
+                {unifiedLanguage === 'curl' && renderCodeExample('cURL', openaiChatCurlExample, 'text')}
+                {unifiedLanguage === 'python' && renderCodeExample('Python', openaiChatPythonExample, 'python')}
+              </div>
+            </div>
+          </Tabs.Content>
+
+          <Tabs.Content value="passthrough" css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+              <div>
+                <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+                  <FormattedMessage defaultMessage="Provider" description="Provider selection label" />
+                </Typography.Text>
+                <SegmentedControlGroup
+                  name="provider-selector"
+                  componentId="mlflow.gateway.usage-modal.provider-selector"
+                  value={selectedProvider}
+                  onChange={({ target: { value } }) => setSelectedProvider(value as Provider)}
                 >
                   <SegmentedControlButton value="openai">OpenAI</SegmentedControlButton>
                   <SegmentedControlButton value="anthropic">Anthropic</SegmentedControlButton>
                   <SegmentedControlButton value="gemini">Google Gemini</SegmentedControlButton>
                 </SegmentedControlGroup>
               </div>
-            )}
-            <div
-              css={{
-                display: 'flex',
-                gap: theme.spacing.md,
-                minHeight: 0,
-                flex: 1,
-              }}
-            >
-              <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                <div
-                  css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.xs }}
-                >
-                  <Typography.Text bold>
-                    <FormattedMessage defaultMessage="Request" description="Request body label" />
-                  </Typography.Text>
-                  <Tooltip
-                    content={
-                      <FormattedMessage
-                        defaultMessage='JSON body for the MLflow Invocations API. Use "messages" for chat or "input" for embeddings.'
-                        description="Request body tooltip"
-                      />
-                    }
-                  >
-                    <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Request help">
-                      ?
-                    </span>
-                  </Tooltip>
-                </div>
-                <Input.TextArea
-                  componentId="mlflow.gateway.usage-modal.try-it.request"
-                  value={requestBody}
-                  onChange={(e) => setRequestBody(e.target.value)}
-                  disabled={isSending}
-                  rows={10}
-                  css={{
-                    fontFamily: 'monospace',
-                    fontSize: theme.typography.fontSizeSm,
-                  }}
-                />
-              </div>
-              <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                <div
-                  css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.xs }}
-                >
-                  <Typography.Text bold>
-                    <FormattedMessage defaultMessage="Response" description="Response body label" />
-                  </Typography.Text>
-                  <Tooltip
-                    content={
-                      <FormattedMessage
-                        defaultMessage="Response from the endpoint after clicking Send request."
-                        description="Response body tooltip"
-                      />
-                    }
-                  >
-                    <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Response help">
-                      ?
-                    </span>
-                  </Tooltip>
-                </div>
-                <Input.TextArea
-                  componentId="mlflow.gateway.usage-modal.try-it.response"
-                  value={responseBody}
-                  readOnly
-                  rows={10}
-                  placeholder={
-                    sendError ? undefined : isSending ? undefined : 'Click "Send request" to see the response here.'
-                  }
-                  css={{
-                    fontFamily: 'monospace',
-                    fontSize: theme.typography.fontSizeSm,
-                    backgroundColor: theme.colors.backgroundSecondary,
-                  }}
-                />
-                {sendError && (
-                  <Typography.Text color="danger" css={{ marginTop: theme.spacing.xs }}>
-                    {sendError}
+
+              <div>
+                {selectedProvider === 'openai' && (
+                  <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+                    <FormattedMessage
+                      defaultMessage="Direct access to OpenAI's Responses API for multi-turn conversations with vision and audio capabilities."
+                      description="OpenAI passthrough description"
+                    />
                   </Typography.Text>
                 )}
+                {selectedProvider === 'anthropic' && (
+                  <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+                    <FormattedMessage
+                      defaultMessage="Direct access to Anthropic's Messages API with Claude-specific features."
+                      description="Anthropic passthrough description"
+                    />
+                  </Typography.Text>
+                )}
+                {selectedProvider === 'gemini' && (
+                  <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+                    <FormattedMessage
+                      defaultMessage="Direct access to Google's Gemini API. Note: endpoint name is part of the URL path."
+                      description="Gemini passthrough description"
+                    />
+                  </Typography.Text>
+                )}
+
+                <SegmentedControlGroup
+                  name="language-selector"
+                  componentId="mlflow.gateway.usage-modal.language-selector"
+                  value={selectedLanguage}
+                  onChange={({ target: { value } }) => setSelectedLanguage(value as Language)}
+                  css={{ marginBottom: theme.spacing.md }}
+                >
+                  <SegmentedControlButton value="curl">cURL</SegmentedControlButton>
+                  <SegmentedControlButton value="python">Python</SegmentedControlButton>
+                </SegmentedControlGroup>
+
+                {selectedProvider === 'openai' &&
+                  selectedLanguage === 'curl' &&
+                  renderCodeExample('cURL', openaiPassthroughCurlExample, 'text')}
+                {selectedProvider === 'openai' &&
+                  selectedLanguage === 'python' &&
+                  renderCodeExample('Python', openaiPassthroughPythonExample, 'python')}
+                {selectedProvider === 'anthropic' &&
+                  selectedLanguage === 'curl' &&
+                  renderCodeExample('cURL', anthropicPassthroughCurlExample, 'text')}
+                {selectedProvider === 'anthropic' &&
+                  selectedLanguage === 'python' &&
+                  renderCodeExample('Python', anthropicPassthroughPythonExample, 'python')}
+                {selectedProvider === 'gemini' &&
+                  selectedLanguage === 'curl' &&
+                  renderCodeExample('cURL', geminiPassthroughCurlExample, 'text')}
+                {selectedProvider === 'gemini' &&
+                  selectedLanguage === 'python' &&
+                  renderCodeExample('Python', geminiPassthroughPythonExample, 'python')}
               </div>
             </div>
-            <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-              <Button
-                componentId="mlflow.gateway.usage-modal.try-it.send"
-                type="primary"
-                onClick={handleSendRequest}
-                disabled={isSending}
-              >
-                <FormattedMessage defaultMessage="Send request" description="Send request button" />
-              </Button>
-              <Button
-                componentId="mlflow.gateway.usage-modal.try-it.reset"
-                onClick={handleResetExample}
-                disabled={isSending}
-              >
-                <FormattedMessage defaultMessage="Reset example" description="Reset example button" />
-              </Button>
-            </div>
-          </div>
-          </Tabs.Content>
-
-          <Tabs.Content value="unified" css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-            <SegmentedControlGroup
-              name="unified-language-selector"
-              componentId="mlflow.gateway.usage-modal.unified-language-selector"
-              value={unifiedLanguage}
-              onChange={({ target: { value } }) => setUnifiedLanguage(value as Language)}
-            >
-              <SegmentedControlButton value="curl">cURL</SegmentedControlButton>
-              <SegmentedControlButton value="python">Python</SegmentedControlButton>
-            </SegmentedControlGroup>
-
-            <div>
-              <Typography.Title level={4} css={{ marginTop: 0 }}>
-                <FormattedMessage
-                  defaultMessage="MLflow Invocations API"
-                  description="MLflow invocations API section title"
-                />
-              </Typography.Title>
-              <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
-                <FormattedMessage
-                  defaultMessage="Native MLflow API for model invocations. Supports seamless model switching and advanced routing."
-                  description="MLflow invocations API description"
-                />
-              </Typography.Text>
-              {unifiedLanguage === 'curl' && renderCodeExample('cURL', mlflowInvocationsCurlExample, 'text')}
-              {unifiedLanguage === 'python' && renderCodeExample('Python', mlflowInvocationsPythonExample, 'python')}
-            </div>
-
-            <div>
-              <Typography.Title level={4}>
-                <FormattedMessage
-                  defaultMessage="OpenAI-Compatible Chat Completions API"
-                  description="OpenAI compatible API section title"
-                />
-              </Typography.Title>
-              <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
-                <FormattedMessage
-                  defaultMessage="Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter."
-                  description="OpenAI compatible API description"
-                />
-              </Typography.Text>
-              {unifiedLanguage === 'curl' && renderCodeExample('cURL', openaiChatCurlExample, 'text')}
-              {unifiedLanguage === 'python' && renderCodeExample('Python', openaiChatPythonExample, 'python')}
-            </div>
-          </div>
-          </Tabs.Content>
-
-          <Tabs.Content value="passthrough" css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-            <div>
-              <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
-                <FormattedMessage defaultMessage="Provider" description="Provider selection label" />
-              </Typography.Text>
-              <SegmentedControlGroup
-                name="provider-selector"
-                componentId="mlflow.gateway.usage-modal.provider-selector"
-                value={selectedProvider}
-                onChange={({ target: { value } }) => setSelectedProvider(value as Provider)}
-              >
-                <SegmentedControlButton value="openai">OpenAI</SegmentedControlButton>
-                <SegmentedControlButton value="anthropic">Anthropic</SegmentedControlButton>
-                <SegmentedControlButton value="gemini">Google Gemini</SegmentedControlButton>
-              </SegmentedControlGroup>
-            </div>
-
-            <div>
-              {selectedProvider === 'openai' && (
-                <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
-                  <FormattedMessage
-                    defaultMessage="Direct access to OpenAI's Responses API for multi-turn conversations with vision and audio capabilities."
-                    description="OpenAI passthrough description"
-                  />
-                </Typography.Text>
-              )}
-              {selectedProvider === 'anthropic' && (
-                <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
-                  <FormattedMessage
-                    defaultMessage="Direct access to Anthropic's Messages API with Claude-specific features."
-                    description="Anthropic passthrough description"
-                  />
-                </Typography.Text>
-              )}
-              {selectedProvider === 'gemini' && (
-                <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
-                  <FormattedMessage
-                    defaultMessage="Direct access to Google's Gemini API. Note: endpoint name is part of the URL path."
-                    description="Gemini passthrough description"
-                  />
-                </Typography.Text>
-              )}
-
-              <SegmentedControlGroup
-                name="language-selector"
-                componentId="mlflow.gateway.usage-modal.language-selector"
-                value={selectedLanguage}
-                onChange={({ target: { value } }) => setSelectedLanguage(value as Language)}
-                css={{ marginBottom: theme.spacing.md }}
-              >
-                <SegmentedControlButton value="curl">cURL</SegmentedControlButton>
-                <SegmentedControlButton value="python">Python</SegmentedControlButton>
-              </SegmentedControlGroup>
-
-              {selectedProvider === 'openai' &&
-                selectedLanguage === 'curl' &&
-                renderCodeExample('cURL', openaiPassthroughCurlExample, 'text')}
-              {selectedProvider === 'openai' &&
-                selectedLanguage === 'python' &&
-                renderCodeExample('Python', openaiPassthroughPythonExample, 'python')}
-              {selectedProvider === 'anthropic' &&
-                selectedLanguage === 'curl' &&
-                renderCodeExample('cURL', anthropicPassthroughCurlExample, 'text')}
-              {selectedProvider === 'anthropic' &&
-                selectedLanguage === 'python' &&
-                renderCodeExample('Python', anthropicPassthroughPythonExample, 'python')}
-              {selectedProvider === 'gemini' &&
-                selectedLanguage === 'curl' &&
-                renderCodeExample('cURL', geminiPassthroughCurlExample, 'text')}
-              {selectedProvider === 'gemini' &&
-                selectedLanguage === 'python' &&
-                renderCodeExample('Python', geminiPassthroughPythonExample, 'python')}
-            </div>
-          </div>
           </Tabs.Content>
         </Tabs.Root>
       </div>
