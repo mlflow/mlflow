@@ -94,7 +94,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
   const handleSubmit = useCallback(async () => {
     if (!validateForm()) return;
 
-    const authConfig: Record<string, string> = { ...formData.configFields };
+    const authConfig = { ...formData.configFields } satisfies Record<string, string>;
     if (formData.authMode) {
       authConfig['auth_mode'] = formData.authMode;
     }

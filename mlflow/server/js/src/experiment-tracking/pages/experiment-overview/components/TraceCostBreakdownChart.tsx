@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useDesignSystemTheme, PieChartIcon, type DesignSystemThemeInterface } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+// eslint-disable-next-line import/no-deprecated
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Sector } from 'recharts';
 import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceCostBreakdownChartData } from '../hooks/useTraceCostBreakdownChartData';
@@ -115,7 +116,7 @@ export const TraceCostBreakdownChart: React.FC = () => {
 
   // Custom legend handlers that also update activeIndex to show tooltip
   const onLegendMouseEnter = useCallback(
-    (data: { value: string }) => {
+    (data: { value: string | undefined }) => {
       handleLegendMouseEnter(data);
       const index = chartData.findIndex((entry) => entry.name === data.value);
       if (index !== -1) {
@@ -191,7 +192,6 @@ export const TraceCostBreakdownChart: React.FC = () => {
                 paddingAngle={PIE_PADDING_ANGLE}
                 dataKey="value"
                 nameKey="name"
-                activeIndex={activeIndex}
                 activeShape={renderActiveShape}
                 onMouseEnter={onPieEnter}
                 onMouseLeave={onPieLeave}

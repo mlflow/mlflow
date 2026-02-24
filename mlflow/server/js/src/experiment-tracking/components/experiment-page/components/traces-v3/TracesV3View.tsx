@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
+import { shouldEnableTracesTableStatePersistence } from '@databricks/web-shared/model-trace-explorer';
 import { TracesV3Logs } from './TracesV3Logs';
 import {
   MonitoringConfigProvider,
@@ -8,9 +9,12 @@ import {
 } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import { TracesV3PageWrapper } from './TracesV3PageWrapper';
 import { useMonitoringViewState } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringViewState';
-import { useMonitoringFiltersTimeRange } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
 import { useExperiments } from '../../hooks/useExperiments';
 import { TracesV3Toolbar } from './TracesV3Toolbar';
+import {
+  useMonitoringFilters,
+  useMonitoringFiltersTimeRange,
+} from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringFilters';
 
 interface TracesV3ContentProps {
   viewState: string;
