@@ -431,9 +431,10 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
         # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
-        # execution risk. Only allow loading in Databricks runtime environments where the
-        # execution environment is controlled.
-        if not is_in_databricks_runtime():
+        # execution risk. Allow loading in Databricks runtime environments and when connected
+        # to a Databricks workspace (e.g. registering a locally-defined scorer). Block loading
+        # in pure OSS environments where the source may be untrusted.
+        if not is_in_databricks_runtime() and not is_databricks_uri(get_tracking_uri()):
             code_snippet = (
                 "\n\nfrom mlflow.genai import scorer\n\n"
                 f"@scorer\ndef {serialized.original_func_name}{serialized.call_signature}:\n"
@@ -441,34 +442,17 @@ class Scorer(BaseModel):
             for line in serialized.call_source.split("\n"):
                 code_snippet += f"    {line}\n"
 
-            is_databricks_remote = is_databricks_uri(get_tracking_uri())
-
-            if is_databricks_remote:
-                error_msg = (
-                    f"Loading custom scorer '{serialized.name}' via remote access is not "
-                    "supported. You are connected to a Databricks workspace but executing code "
-                    "outside of it. Custom scorers require arbitrary code execution during "
-                    "deserialization and must be loaded within the Databricks workspace for "
-                    "security reasons.\n\n"
-                    "To use this scorer:\n"
-                    "1. Run your code inside the Databricks workspace (notebook or job), or\n"
-                    "2. Copy the code below and use it directly in your source code, or\n"
-                    "3. Use built-in scorers or make_judge() scorers instead\n\n"
-                    f"Registered scorer code:\n{code_snippet}"
-                )
-            else:
-                error_msg = (
-                    f"Loading custom scorer '{serialized.name}' is not supported outside of "
-                    "Databricks runtime environments due to security concerns. Custom scorers "
-                    "require arbitrary code execution during deserialization.\n\n"
-                    "To use this scorer, please:\n"
-                    "1. Copy the code below and save it in your source code repository\n"
-                    "2. Import and use it directly in your code, or\n"
-                    "3. Use built-in scorers or make_judge() scorers instead\n\n"
-                    f"Registered scorer code:\n{code_snippet}"
-                )
-
-            raise MlflowException.invalid_parameter_value(error_msg)
+            raise MlflowException.invalid_parameter_value(
+                f"Loading custom scorer '{serialized.name}' is not supported outside of "
+                "Databricks environments due to security concerns. Custom scorers "
+                "require arbitrary code execution during deserialization.\n\n"
+                "To use this scorer, please:\n"
+                "1. Configure MLflow to use a Databricks tracking URI, or\n"
+                "2. Copy the code below and save it in your source code repository\n"
+                "3. Import and use it directly in your code, or\n"
+                "4. Use built-in scorers or make_judge() scorers instead\n\n"
+                f"Registered scorer code:\n{code_snippet}"
+            )
 
         try:
             recreated_func = recreate_function(

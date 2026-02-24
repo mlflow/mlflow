@@ -366,23 +366,21 @@ def test_custom_scorer_loading_blocked_for_non_databricks_uri():
         Scorer._reconstruct_decorator_scorer(serialized)
 
 
-def test_custom_scorer_loading_blocked_for_databricks_remote_access():
+def test_custom_scorer_loading_allowed_for_databricks_remote_access():
     serialized = SerializedScorer(
-        name="malicious_scorer",
+        name="test_scorer",
         is_session_level_scorer=False,
-        call_source="import os\nos.system('echo hacked')\nreturn True",
+        call_source="return len(outputs) > 0",
         call_signature="(outputs)",
-        original_func_name="malicious_scorer",
+        original_func_name="test_scorer",
     )
 
     with (
         patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=False),
         patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
     ):
-        with pytest.raises(
-            mlflow.exceptions.MlflowException, match="via remote access is not supported"
-        ):
-            Scorer._reconstruct_decorator_scorer(serialized)
+        result = Scorer._reconstruct_decorator_scorer(serialized)
+        assert result.name == "test_scorer"
 
 
 def test_custom_scorer_error_message_renders_code_snippet_legibly():
