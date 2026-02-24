@@ -32,7 +32,7 @@ export function MLFlowRoot() {
   const queryClient = useMemo(() => new QueryClient(), []);
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();
+  const { isDarkTheme, setIsDarkTheme, ThemeGlobalStyles, setUseSystemTheme, themePreference } = useMLflowDarkTheme();
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const logObservabilityEvent = useCallback((event: any) => {
@@ -54,8 +54,13 @@ export function MLFlowRoot() {
           <DesignSystemEventProvider callback={logObservabilityEvent}>
             <DesignSystemContainer isDarkTheme={isDarkTheme}>
               <ApplyGlobalStyles />
-              <MlflowThemeGlobalStyles />
-              <DarkThemeProvider setIsDarkTheme={setIsDarkTheme}>
+              <ThemeGlobalStyles />
+              <DarkThemeProvider
+                isDarkTheme={isDarkTheme}
+                setIsDarkTheme={setIsDarkTheme}
+                setUseSystemTheme={setUseSystemTheme}
+                themePreference={themePreference}
+              >
                 <QueryClientProvider client={queryClient}>
                   <ServerInfoProvider>
                     <MlflowRouter />
