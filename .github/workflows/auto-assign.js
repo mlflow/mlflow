@@ -51,6 +51,27 @@ async function getLinkedIssues({ github, owner, repo, prNumber }) {
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
+async function findFirstMaintainerInIssueComments({
+  github,
+  owner,
+  repo,
+  issueNumber,
+  maintainers,
+}) {
+  for await (const response of github.paginate.iterator(github.rest.issues.listComments, {
+    owner,
+    repo,
+    issue_number: issueNumber,
+  })) {
+    for (const comment of response.data) {
+      if (maintainers.has(comment.user.login)) {
+        return comment.user.login;
+      }
+    }
+  }
+  return null;
+}
+
 module.exports = async ({ github, context, skipAssignment = false }) => {
   const { owner, repo } = context.repo;
   const maintainers = new Set(await getMaintainers({ github, context }));
@@ -90,8 +111,11 @@ module.exports = async ({ github, context, skipAssignment = false }) => {
     ]);
 
     // Check for linked issues and add maintainers who commented on them
-    // Skip if we already have commentAuthors from recent PR activity
-    if (commentAuthors.size === 0) {
+    // Skip if we already found maintainers from recent PR activity
+    const hasMaintainerFromRecentActivity = [...commentAuthors].some((login) =>
+      maintainers.has(login)
+    );
+    if (!hasMaintainerFromRecentActivity) {
       const { prCreatedAt, issues: linkedIssues } = await getLinkedIssues({
         github,
         owner,
@@ -107,19 +131,15 @@ module.exports = async ({ github, context, skipAssignment = false }) => {
 
         // Only assign if issue was created within 7 days before the PR
         if (prCreatedDate - issueCreatedDate <= SEVEN_DAYS_MS) {
-          // Fetch all comments on the linked issue
-          const linkedIssueComments = await github.paginate(github.rest.issues.listComments, {
+          const maintainer = await findFirstMaintainerInIssueComments({
+            github,
             owner,
             repo,
-            issue_number: linkedIssue.number,
+            issueNumber: linkedIssue.number,
+            maintainers,
           });
-
-          // Find the first maintainer who commented on the linked issue
-          for (const comment of linkedIssueComments) {
-            if (maintainers.has(comment.user.login)) {
-              commentAuthors.add(comment.user.login);
-              break; // Only add the first maintainer who commented
-            }
+          if (maintainer) {
+            commentAuthors.add(maintainer);
           }
         }
       }
