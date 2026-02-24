@@ -109,6 +109,43 @@ const approveWorkflowRuns = async (context, github, head_sha) => {
   }
 };
 
+const validateCommenter = async (context, github) => {
+  const { comment } = context.payload;
+  const commenterAssociation = comment.author_association.toLowerCase();
+
+  // Check if commenter is owner/member/collaborator
+  if (!["owner", "member", "collaborator"].includes(commenterAssociation)) {
+    throw new Error(
+      `This workflow can only be triggered by a repository owner, member, or collaborator. @${comment.user.login} (${comment.author_association}) does not have sufficient permissions.`
+    );
+  }
+
+  const { owner, repo } = context.repo;
+  const pull_number = context.issue.number;
+  const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+  const prAuthorAssociation = pr.author_association.toLowerCase();
+
+  // If PR author is not a member/collaborator, this is a community PR
+  if (!["owner", "member", "collaborator"].includes(prAuthorAssociation)) {
+    // Community PR — require at least one approved review
+    const { data: reviews } = await github.rest.pulls.listReviews({
+      owner,
+      repo,
+      pull_number,
+    });
+    const hasApproval = reviews.some((review) => review.state === "APPROVED");
+    if (!hasApproval) {
+      await github.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: pull_number,
+        body: `❌ **Autoformat failed**: This workflow requires an approved review before running on community PRs. Please approve the PR and comment \`/autoformat\` again.`,
+      });
+      throw new Error("This workflow requires an approved review before running on community PRs.");
+    }
+  }
+};
+
 const checkMaintainerAccess = async (context, github) => {
   const { owner, repo } = context.repo;
   const pull_number = context.issue.number;
@@ -158,4 +195,5 @@ module.exports = {
   updateStatus,
   approveWorkflowRuns,
   checkMaintainerAccess,
+  validateCommenter,
 };

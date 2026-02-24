@@ -31,7 +31,6 @@ jobs:
         with:
           sparse-checkout: |
             .github
-      - uses: ./.github/actions/validate-author
       - name: judge
         id: judge
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
@@ -39,6 +38,7 @@ jobs:
           script: |
             core.debug(JSON.stringify(context, null, 2));
             const autoformat = require('./.github/workflows/autoformat.js');
+            await autoformat.validateCommenter(context, github);
             const { comment } = context.payload;
             const shouldAutoformat = autoformat.shouldAutoformat(comment);
             if (shouldAutoformat) {
