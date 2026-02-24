@@ -62,7 +62,7 @@ const PromptFilteredTracesViewImpl = ({
       <OSSTracesV3Toolbar viewState={viewState} />
       {viewState === 'logs' && (
         <TracesV3Logs
-          experimentId={experimentId || ''}
+          experimentIds={[experimentId || '']}
           endpointName=""
           timeRange={timeRange}
           additionalFilters={additionalFilters}

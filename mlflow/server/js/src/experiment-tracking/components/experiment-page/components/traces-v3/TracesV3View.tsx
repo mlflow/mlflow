@@ -33,7 +33,7 @@ const TracesV3Content = ({
   if (viewState === 'logs') {
     return (
       <TracesV3Logs
-        experimentId={experimentId || ''}
+        experimentIds={[experimentId || '']}
         // TODO: Remove this once the endpointName is not needed
         endpointName={endpointName || ''}
         timeRange={timeRange}
