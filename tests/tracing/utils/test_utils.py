@@ -690,3 +690,31 @@ def test_litellm_debug_info_not_suppressed_when_debug_logging():
         _logger.setLevel(original_level)
 
     assert captured["suppress_debug_info"] is False
+
+
+def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
+    calculate_cost_by_model_and_token_usage(
+        model_name="databricks-claude-sonnet-4-5",
+        usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
+    )
+
+    captured = capsys.readouterr()
+    assert "Provider List" not in captured.out
+
+
+def test_litellm_provider_list_printed_when_debug_logging(capsys):
+    import logging
+
+    _logger = logging.getLogger("mlflow.tracing.utils")
+    original_level = _logger.level
+    _logger.setLevel(logging.DEBUG)
+    try:
+        calculate_cost_by_model_and_token_usage(
+            model_name="databricks-claude-sonnet-4-5",
+            usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
+        )
+    finally:
+        _logger.setLevel(original_level)
+
+    captured = capsys.readouterr()
+    assert "Provider List" in captured.out
