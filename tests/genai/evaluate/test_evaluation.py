@@ -1583,7 +1583,7 @@ def test_backpressure_limits_in_flight_items(monkeypatch):
 
     @scorer
     def blocking_scorer(outputs):
-        score_gate.wait(timeout=10)
+        score_gate.wait()
         nonlocal in_flight
         with lock:
             in_flight -= 1
@@ -1597,20 +1597,21 @@ def test_backpressure_limits_in_flight_items(monkeypatch):
             data=data, predict_fn=tracking_predict, scorers=[blocking_scorer]
         )
     )
-    eval_thread.start()
 
-    # Wait for exactly `buffer` predicts to complete. After this, the submit
-    # thread is blocked on semaphore.acquire() and no more predicts can run
-    # (scorers are blocked on score_gate).
-    for _ in range(buffer):
-        assert predict_done.acquire(timeout=5)
+    try:
+        eval_thread.start()
 
-    with lock:
-        observed_max = max_in_flight
+        # Wait for exactly `buffer` predicts to complete. After this, the submit
+        # thread is blocked on semaphore.acquire() and no more predicts can run
+        # (scorers are blocked on score_gate).
+        for _ in range(buffer):
+            assert predict_done.acquire(timeout=5)
 
-    # Release scorers and let evaluation finish
-    score_gate.set()
-    eval_thread.join(timeout=30)
+        with lock:
+            observed_max = max_in_flight
+    finally:
+        score_gate.set()
+        eval_thread.join(timeout=30)
 
     # The semaphore bounds in-flight items. Without backpressure all
     # num_items would pile up.
