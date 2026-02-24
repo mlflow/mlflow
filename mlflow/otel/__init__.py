@@ -9,7 +9,8 @@ to the MLflow backend.
 
     import mlflow.otel
 
-    mlflow.otel.autolog()  # enable
+    mlflow.otel.autolog()  # enable (synchronous export)
+    mlflow.otel.autolog(batch=True)  # enable (batched export)
     mlflow.otel.autolog(disable=True)  # disable
 """
 
@@ -21,6 +22,12 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace import TracerProvider as SdkTracerProvider
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    SimpleSpanProcessor,
+    SpanExporter,
+    SpanExportResult,
+)
 
 import mlflow
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
@@ -33,41 +40,58 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "otel"
 
 # Keep a reference so we can disable/re-enable it.
-_active_processor: "_ToggleableSpanProcessor | None" = None
+_active_processor: "_OtelAutologProcessor | None" = None
 
 
-class _ToggleableSpanProcessor(SpanProcessor):
-    """A span processor that can be enabled/disabled at runtime.
+class _NoOpExporter(SpanExporter):
+    """Exporter that discards all spans. Used as a placeholder for lifecycle-only processors."""
 
-    Wraps an ``MlflowV3SpanProcessor`` via composition.  We use
-    ``MlflowV3SpanProcessor`` because the exporter depends on
-    trace lifecycle management (``InMemoryTraceManager`` registration)
-    that the processor provides.
+    def export(self, spans):
+        return SpanExportResult.SUCCESS
 
-    Since there is no public API to *remove* a processor from a
-    TracerProvider, we instead gate on_start/on_end behind a flag
-    so that disabling autolog truly stops span processing.
+
+class _OtelAutologProcessor(SpanProcessor):
+    """A span processor that separates trace lifecycle from export strategy.
+
+    Uses composition with two internal processors:
+    - ``_lifecycle``: a ``MlflowV3SpanProcessor`` (with no-op exporter) that handles
+      trace/span registration in ``InMemoryTraceManager`` and metadata resolution.
+    - ``_delegate``: a ``SimpleSpanProcessor`` or ``BatchSpanProcessor`` that handles
+      the actual export to the MLflow backend.
+
+    This separation allows choosing between synchronous and batched export
+    without duplicating lifecycle management code.
     """
 
-    def __init__(self, inner: SpanProcessor):
-        self._inner = inner
+    def __init__(self, exporter: SpanExporter, batch: bool = False):
+        self._lifecycle = MlflowV3SpanProcessor(span_exporter=_NoOpExporter(), export_metrics=False)
+        if batch:
+            self._delegate = BatchSpanProcessor(exporter)
+        else:
+            self._delegate = SimpleSpanProcessor(exporter)
         self._enabled = True
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         if not self._enabled:
             return
-        self._inner.on_start(span, parent_context)
+        self._lifecycle.on_start(span, parent_context)
+        self._delegate.on_start(span, parent_context)
 
     def on_end(self, span: OTelReadableSpan) -> None:
         if not self._enabled:
             return
-        self._inner.on_end(span)
+        # Lifecycle: update trace state in InMemoryTraceManager (no export).
+        self._lifecycle.finalize_span(span)
+        # Export: delegate to Simple or BatchSpanProcessor.
+        self._delegate.on_end(span)
 
     def shutdown(self) -> None:
-        self._inner.shutdown()
+        self._lifecycle.shutdown()
+        self._delegate.shutdown()
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
-        return self._inner.force_flush(timeout_millis)
+        self._lifecycle.force_flush(timeout_millis)
+        return self._delegate.force_flush(timeout_millis)
 
     def enable(self):
         self._enabled = True
@@ -76,12 +100,14 @@ class _ToggleableSpanProcessor(SpanProcessor):
         self._enabled = False
 
 
-def setup_otel_processor(flavor_name: str) -> None:
+def setup_otel_processor(flavor_name: str, batch: bool = False) -> None:
     """Register an MLflow span processor on the global OTEL TracerProvider.
 
     Args:
         flavor_name: Integration name used for cleanup callback registration
             (e.g. ``"langfuse"``, ``"otel"``).
+        batch: If ``True``, use ``BatchSpanProcessor`` for buffered export.
+            If ``False`` (default), use ``SimpleSpanProcessor`` for synchronous export.
     """
     global _active_processor
 
@@ -110,8 +136,7 @@ def setup_otel_processor(flavor_name: str) -> None:
 
     tracking_uri = mlflow.get_tracking_uri()
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-    inner = MlflowV3SpanProcessor(span_exporter=exporter, export_metrics=False)
-    processor = _ToggleableSpanProcessor(inner)
+    processor = _OtelAutologProcessor(exporter=exporter, batch=batch)
     provider.add_span_processor(processor)
 
     _active_processor = processor
@@ -123,8 +148,9 @@ def setup_otel_processor(flavor_name: str) -> None:
     _AUTOLOGGING_CLEANUP_CALLBACKS.setdefault(flavor_name, []).append(teardown_otel_processor)
 
     _logger.debug(
-        "Registered MLflow span processor on global TracerProvider (tracking_uri=%s).",
+        "Registered MLflow span processor on global TracerProvider (tracking_uri=%s, batch=%s).",
         tracking_uri,
+        batch,
     )
 
 
@@ -142,6 +168,7 @@ def autolog(
     log_traces: bool = True,
     disable: bool = False,
     silent: bool = False,
+    batch: bool = False,
 ):
     """
     Enables (or disables) generic OTEL-to-MLflow span forwarding.
@@ -154,5 +181,8 @@ def autolog(
             integration.  Default ``False``.
         silent: If ``True``, suppress all event logs and warnings from
             MLflow during OTEL autologging. Default ``False``.
+        batch: If ``True``, use ``BatchSpanProcessor`` for buffered,
+            asynchronous export.  If ``False`` (default), use
+            ``SimpleSpanProcessor`` for synchronous, immediate export.
     """
-    setup_otel_processor(flavor_name=FLAVOR_NAME)
+    setup_otel_processor(flavor_name=FLAVOR_NAME, batch=batch)

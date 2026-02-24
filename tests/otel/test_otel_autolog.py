@@ -203,6 +203,28 @@ def test_autolog_is_additive():
     assert any(s.name == "add" for s in exported_spans)
 
 
+def test_batch_export():
+    mlflow.otel.autolog(batch=True)
+
+    @observe()
+    def add(x, y):
+        return x + y
+
+    result = add(2, 3)
+    assert result == 5
+
+    # BatchSpanProcessor exports asynchronously; flush to ensure export completes.
+    processor = mlflow.otel._active_processor
+    processor.force_flush()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "add"
+
+
 @pytest.mark.parametrize(
     ("source_type", "expected_mlflow_type"),
     [

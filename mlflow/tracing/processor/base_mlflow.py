@@ -90,16 +90,12 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
     def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def on_end(self, span: OTelReadableSpan) -> None:
-        """
-        Handle the end of a span. This method is called when an OpenTelemetry span is ended.
+    def finalize_span(self, span: OTelReadableSpan) -> None:
+        """Update trace state in InMemoryTraceManager without triggering export.
 
-        Args:
-            span: An OpenTelemetry ReadableSpan object that is ended.
+        This is called by on_end() but is also useful for composed processors
+        that need lifecycle management separated from export.
         """
-        if self._export_metrics:
-            self.record_metrics_for_span(span)
-
         trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
 
         # Acquire lock before accessing and modifying trace data to prevent race conditions
@@ -112,6 +108,18 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
                         self._update_trace_info(trace, span)
                 else:
                     _logger.debug(f"Trace data with request ID {trace_id} not found.")
+
+    def on_end(self, span: OTelReadableSpan) -> None:
+        """
+        Handle the end of a span. This method is called when an OpenTelemetry span is ended.
+
+        Args:
+            span: An OpenTelemetry ReadableSpan object that is ended.
+        """
+        if self._export_metrics:
+            self.record_metrics_for_span(span)
+
+        self.finalize_span(span)
         super().on_end(span)
 
     def _get_basic_trace_metadata(self) -> dict[str, Any]:
