@@ -189,15 +189,17 @@ describe('ArtifactView', () => {
     expect(wrapper.find(LazyShowArtifactMapView)).toHaveLength(1);
   });
   test('should download artifact via fetch and blob URL', async () => {
-    // @ts-expect-error TS(2554): Expected 3 arguments, but got 2.
-    const rootNode = new ArtifactNode(true, undefined);
+    const rootNode = new ArtifactNode(true, undefined, undefined);
     rootNode.isLoaded = true;
-    // @ts-expect-error TS(2554): Expected 3 arguments, but got 2.
-    const textFile = new ArtifactNode(false, {
-      path: 'summary.txt',
-      is_dir: false,
-      file_size: '100',
-    });
+    const textFile = new ArtifactNode(
+      false,
+      {
+        path: 'summary.txt',
+        is_dir: false,
+        file_size: '100',
+      },
+      undefined,
+    );
     rootNode.setChildren([textFile.fileInfo]);
     wrapper = getWrapper(getMockStore(rootNode), minimalProps);
 
