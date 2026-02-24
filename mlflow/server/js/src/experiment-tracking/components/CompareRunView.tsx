@@ -622,7 +622,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     };
   }
 
-  // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list: any,
     colWidth: any,

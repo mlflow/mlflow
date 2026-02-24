@@ -25,8 +25,8 @@ export const GenAiTracesTableFilter = ({
   experimentId,
   tableFilterOptions,
   allColumns,
-  isMetadataLoading,
-  metadataError,
+  isLoading,
+  isError,
   usesV4APIs,
 }: {
   filters: TableFilter[];
@@ -35,8 +35,8 @@ export const GenAiTracesTableFilter = ({
   experimentId: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
-  isMetadataLoading?: boolean;
-  metadataError?: Error | null;
+  isLoading?: boolean;
+  isError?: boolean;
   usesV4APIs?: boolean;
 }) => {
   const intl = useIntl();
@@ -95,7 +95,7 @@ export const GenAiTracesTableFilter = ({
         </Button>
       </Popover.Trigger>
       <Popover.Content align="start" css={{ padding: theme.spacing.md }}>
-        {metadataError ? (
+        {isError ? (
           <div
             css={{
               display: 'flex',
@@ -113,7 +113,7 @@ export const GenAiTracesTableFilter = ({
               description="Error message for fetching traces failed"
             />
           </div>
-        ) : isMetadataLoading ? (
+        ) : isLoading ? (
           <div
             css={{
               display: 'flex',

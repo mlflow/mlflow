@@ -2,7 +2,7 @@ import { Tag, Tooltip, Typography } from '@databricks/design-system';
 import { aggregateNumericAssessments } from '../utils/SessionAggregationUtils';
 import type { AssessmentInfo } from '../types';
 import { FormattedMessage } from '@databricks/i18n';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 import { NullCell } from './NullCell';
 
 const getDisplayValue = (average: number) => {

@@ -155,9 +155,6 @@ export const shouldEnableExperimentPageSideTabs = () => {
   return true;
 };
 
-/**
- * Determines if the Overview tab is enabled on the experiment page
- */
 export const shouldEnableExperimentOverviewTab = () => {
   return true;
 };
@@ -176,4 +173,8 @@ export const shouldEnableWorkflowBasedNavigation = () => {
  */
 export const shouldEnableImprovedEvalRunsComparison = () => {
   return false;
+};
+
+export const isScorerModelSelectionEnabled = () => {
+  return true;
 };
