@@ -22,13 +22,18 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
-from mlflow.entities import ViewType
+from mlflow.entities import Metric, ViewType
 from mlflow.entities.logged_model import LoggedModelParameter, LoggedModelTag
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE_STORE_URI
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+from mlflow.store.tracking.dbmodels.models import (
+    SqlLoggedModelMetric,
+    SqlLoggedModelParam,
+    SqlLoggedModelTag,
+)
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.os import is_windows
@@ -665,13 +670,6 @@ def test_mlflow_gc_experiments(get_store_details, request):
 
 
 def test_mlflow_gc_experiment_with_logged_model_params_tags_and_metrics(sqlite_store):
-    from mlflow.entities import Metric
-    from mlflow.store.tracking.dbmodels.models import (
-        SqlLoggedModelMetric,
-        SqlLoggedModelParam,
-        SqlLoggedModelTag,
-    )
-
     store, uri = sqlite_store
     exp_id = store.create_experiment("exp_with_logged_model")
     run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="run")
