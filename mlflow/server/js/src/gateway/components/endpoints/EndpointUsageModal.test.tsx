@@ -297,12 +297,12 @@ describe('EndpointUsageModal', () => {
         text: () => Promise.resolve(JSON.stringify({ data: 'previous' })),
       });
 
-      const { rerender } = renderWithDesignSystem(<EndpointUsageModal {...defaultProps} open={true} />);
+      const { rerender } = renderWithDesignSystem(<EndpointUsageModal {...defaultProps} open />);
       await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
       expect(screen.getByText(/"data": "previous"/)).toBeInTheDocument();
 
       rerender(<EndpointUsageModal {...defaultProps} open={false} />);
-      rerender(<EndpointUsageModal {...defaultProps} open={true} />);
+      rerender(<EndpointUsageModal {...defaultProps} open />);
 
       expect(screen.queryByText(/"data": "previous"/)).not.toBeInTheDocument();
       expect(screen.getByText('Send request')).toBeInTheDocument();
