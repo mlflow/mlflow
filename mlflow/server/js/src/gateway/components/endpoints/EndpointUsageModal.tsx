@@ -384,6 +384,8 @@ print(response.candidates[0].content.parts[0].text)`;
                       ? DEFAULT_REQUEST_BODY_UNIFIED
                       : getPassthroughDefaultBody(tryItProvider, endpointName),
                   );
+                  setResponseBody('');
+                  setSendError(null);
                 }}
                 css={{ marginBottom: theme.spacing.sm }}
               >
@@ -408,6 +410,8 @@ print(response.candidates[0].content.parts[0].text)`;
                     const provider = value as Provider;
                     setTryItProvider(provider);
                     setRequestBody(getPassthroughDefaultBody(provider, endpointName));
+                    setResponseBody('');
+                    setSendError(null);
                   }}
                   css={{ marginBottom: theme.spacing.sm }}
                 >
