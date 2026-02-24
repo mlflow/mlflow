@@ -119,7 +119,7 @@ const isAllowedUser = ({ author_association, user }) => {
       user.type.toLowerCase() === "bot" &&
       ["copilot", "mlflow-app[bot]"].includes(user.login.toLowerCase()))
   );
-}
+};
 
 const validatePermissions = async (context, github) => {
   const { comment } = context.payload;
