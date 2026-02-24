@@ -3,15 +3,18 @@ from __future__ import annotations
 import json
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import mlflow
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.constants import (
     _DEFAULT_ANALYSIS_MODEL,
     _DEFAULT_JUDGE_MODEL,
     _DEFAULT_TRIAGE_SAMPLE_SIZE,
     _MIN_CONFIDENCE,
     _MIN_EXAMPLES,
-    _MIN_FREQUENCY_THRESHOLD,
 )
 from mlflow.genai.discovery.entities import (
     DiscoverIssuesResult,
@@ -28,17 +31,24 @@ from mlflow.genai.discovery.utils import (
     _extract_failure_labels,
     _group_traces_by_session,
     _has_session_ids,
+    _log_discovery_artifacts,
     _sample_traces,
     _summarize_cluster,
     _test_scorer,
 )
-from mlflow.entities.assessment import Feedback
-from mlflow.entities.trace import Trace
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
+
+_NO_ISSUE_PATTERNS = frozenset({"no issues", "no issue", "no problems", "no failures", "no errors"})
+
+
+def _is_non_issue(issue: _IdentifiedIssue) -> bool:
+    name_lower = issue.name.lower()
+    desc_lower = issue.description.lower()
+    return any(p in name_lower or p in desc_lower for p in _NO_ISSUE_PATTERNS)
 
 
 def _extract_assessment_rationale(trace: Trace, scorer_name: str) -> str:
@@ -68,6 +78,7 @@ def discover_issues(
     experiment_id: str | None = None,
     traces: list | None = None,
     satisfaction_scorer: Scorer | None = None,
+    additional_scorers: list[Scorer] | None = None,
     judge_model: str | None = None,
     analysis_model: str | None = None,
     embedding_model: str = "openai:/text-embedding-3-small",
@@ -80,11 +91,13 @@ def discover_issues(
     Discover quality and operational issues in traces.
 
     Runs a multi-phase pipeline:
-    1. **Triage**: Scores traces for user satisfaction
-    2. **Deep Analysis**: Analyzes each failing conversation with tool access
-    3. **Cluster**: Embedding-based clustering of analyses into issues
-    4. **Generate Scorers**: Writes detection instructions per issue
-    5. **Validate**: Runs generated issue scorers on a broader trace set
+    1. **Triage**: Scores traces for user satisfaction using the satisfaction
+       scorer (and any additional scorers). Traces marked as failing by any
+       scorer proceed to analysis.
+    2. **Analysis**: Builds per-session analyses from triage rationales and
+       human feedback assessments.
+    3. **Cluster & Identify**: Embedding-based clustering of analyses into
+       coherent issue groups, with LLM-based summarization and refinement.
 
     Args:
         experiment_id: Experiment to analyze. Defaults to the active experiment.
@@ -93,17 +106,20 @@ def discover_issues(
             and uses these traces as the input to the pipeline.
         satisfaction_scorer: Custom scorer for triage. Defaults to a built-in
             conversation-level satisfaction judge.
+        additional_scorers: Extra scorers to run alongside the satisfaction
+            scorer during triage. A trace is considered failing if *any*
+            scorer (satisfaction or additional) marks it as ``False``.
         judge_model: LLM used for scoring traces (satisfaction + issue detection).
             Defaults to ``"openai:/gpt-5-mini"``.
-        analysis_model: LLM used for deep analysis and cluster summarization.
+        analysis_model: LLM used for analysis and cluster summarization.
             Defaults to ``"openai:/gpt-5"``.
         embedding_model: Embedding model for semantic clustering.
             Defaults to ``"openai:/text-embedding-3-small"``.
         triage_sample_size: Number of sessions (or traces, if no session metadata
             exists) to randomly sample for the triage phase. Ignored when
             ``traces`` is provided.
-        validation_sample_size: Number of sessions (or traces) to randomly sample
-            for validation. Defaults to ``5 * triage_sample_size``.
+        validation_sample_size: Reserved for future use (scorer generation and
+            validation phases are not yet implemented).
         max_issues: Maximum distinct issues to identify.
         filter_string: Filter string passed to ``search_traces``.
             Ignored when ``traces`` is provided.
@@ -175,6 +191,7 @@ def discover_issues(
         )
 
     scorer_name = satisfaction_scorer.name
+    all_scorers = [satisfaction_scorer] + (additional_scorers or [])
 
     _logger.info("Phase 1: Testing scorer on one trace...")
     t0 = time.time()
@@ -186,11 +203,12 @@ def discover_issues(
     with mlflow.start_run(run_name="discover_issues - triage"):
         triage_eval = mlflow.genai.evaluate(
             data=triage_traces,
-            scorers=[satisfaction_scorer],
+            scorers=all_scorers,
         )
     _logger.info("Phase 1: Triage scoring took %.1fs", time.time() - t0)
+    scorer_names = [s.name for s in all_scorers]
     failing_traces, rationale_map = _extract_failing_traces(
-        triage_eval, satisfaction_scorer.name, original_traces=triage_traces
+        triage_eval, scorer_names, original_traces=triage_traces
     )
 
     _logger.info(
@@ -212,14 +230,15 @@ def discover_issues(
     session_groups = _group_traces_by_session(triage_traces)
     analyses: list[_ConversationAnalysis] = []
     for session_id, session_traces in session_groups.items():
-        session_failing = [
-            t for t in session_traces if t.info.trace_id in rationale_map
-        ]
+        session_failing = [t for t in session_traces if t.info.trace_id in rationale_map]
         if not session_failing:
             continue
-        rationales = [
-            rationale_map[t.info.trace_id] for t in session_failing
-        ]
+        rationales = [rationale_map[t.info.trace_id] for t in session_failing]
+        # Also include human feedback assessments if available
+        for t in session_failing:
+            human_rationale = _extract_assessment_rationale(t, scorer_name)
+            if human_rationale:
+                rationales.append(f"[human feedback] {human_rationale}")
         combined_rationale = "; ".join(r for r in rationales if r)
         if not combined_rationale:
             continue
@@ -231,23 +250,20 @@ def discover_issues(
                 root_cause=combined_rationale,
                 symptoms=combined_rationale,
                 domain="",
-                affected_trace_ids=[
-                    t.info.trace_id for t in session_failing
-                ],
+                affected_trace_ids=[t.info.trace_id for t in session_failing],
                 severity=3,
                 execution_path=exec_path,
             )
         )
-    _logger.info(
-        "Phase 2: Built %d analyses from triage rationales", len(analyses)
-    )
+    _logger.info("Phase 2: Built %d analyses from triage rationales", len(analyses))
 
     # Phase 3: Cluster — embedding-based agglomerative clustering + LLM refinement
     _logger.info("Phase 3: Extracting failure labels for clustering...")
     t0 = time.time()
     labels = _extract_failure_labels(analyses, judge_model)
     _logger.info(
-        "Phase 3: Label extraction took %.1fs", time.time() - t0,
+        "Phase 3: Label extraction took %.1fs",
+        time.time() - t0,
     )
     for i, label in enumerate(labels):
         _logger.info("  [%d] %s", i, label)
@@ -263,10 +279,6 @@ def discover_issues(
         t_embed - t0,
         len(cluster_groups),
     )
-
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(cluster_groups))
 
@@ -311,9 +323,7 @@ def discover_issues(
         resplit_summaries: list[_IdentifiedIssue] = [None] * len(resplit_groups)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_idx = {
-                executor.submit(
-                    _summarize_one, len(cluster_groups) + ri, group
-                ): ri
+                executor.submit(_summarize_one, len(cluster_groups) + ri, group): ri
                 for ri, group in enumerate(resplit_groups)
             }
             for future in as_completed(future_to_idx):
@@ -330,16 +340,30 @@ def discover_issues(
         final_summaries.extend(resplit_summaries)
         cluster_groups = final_groups
         summaries = final_summaries
-        _logger.info(
-            "Phase 3: After re-split, %d total clusters", len(cluster_groups)
-        )
+        _logger.info("Phase 3: After re-split, %d total clusters", len(cluster_groups))
 
     identified: list[_IdentifiedIssue] = [
         issue
         for issue in summaries
         if issue.confidence >= _MIN_CONFIDENCE
         and len(issue.example_indices) >= _MIN_EXAMPLES
+        and not _is_non_issue(issue)
     ]
+
+    # Deduplicate issues with identical names
+    seen_names: dict[str, int] = {}
+    deduped: list[_IdentifiedIssue] = []
+    for issue in identified:
+        key = issue.name.strip().lower()
+        if key in seen_names:
+            existing = deduped[seen_names[key]]
+            merged_indices = list(set(existing.example_indices + issue.example_indices))
+            existing.example_indices = merged_indices
+            existing.confidence = max(existing.confidence, issue.confidence)
+        else:
+            seen_names[key] = len(deduped)
+            deduped.append(issue)
+    identified = deduped
 
     _logger.info(
         "Phase 3 complete: %d issues identified (%d clusters filtered out) in %.1fs",
@@ -373,7 +397,7 @@ def discover_issues(
     issues: list[Issue] = []
     for ident in identified:
         example_ids = _collect_example_trace_ids(ident, analyses)
-        freq = len(ident.example_indices) / max(num_total, 1)
+        freq = len(example_ids) / max(num_total, 1)
         issues.append(
             Issue(
                 name=ident.name,
@@ -397,6 +421,34 @@ def discover_issues(
         validation_run_id=None,
         summary=summary,
         total_traces_analyzed=num_total,
+    )
+
+    # Log artifacts to the triage run
+    issues_data = [
+        {
+            "name": issue.name,
+            "description": issue.description,
+            "root_cause": issue.root_cause,
+            "frequency": issue.frequency,
+            "confidence": issue.confidence,
+            "example_trace_ids": issue.example_trace_ids,
+        }
+        for issue in issues
+    ]
+    _log_discovery_artifacts(
+        triage_eval.run_id,
+        {
+            "summary.md": summary,
+            "issues.json": json.dumps(issues_data, indent=2),
+            "metadata.json": json.dumps(
+                {
+                    "total_traces_analyzed": num_total,
+                    "num_issues": len(issues),
+                    "triage_run_id": triage_eval.run_id,
+                },
+                indent=2,
+            ),
+        },
     )
 
     return result

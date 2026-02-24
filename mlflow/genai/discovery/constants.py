@@ -1,27 +1,10 @@
 _DEFAULT_TRIAGE_SAMPLE_SIZE = 100
-_MIN_FREQUENCY_THRESHOLD = 0.01
 _MIN_CONFIDENCE = 75
 _MIN_EXAMPLES = 1
-
-# Truncation limits for trace summaries shown to the analysis LLM.
-# These are generous — modern LLMs have large context windows, and
-# aggressive truncation causes false-positive "truncation" issues.
-_TRACE_IO_CHAR_LIMIT = 5000
-_SPAN_IO_CHAR_LIMIT = 2000
-_ERROR_CHAR_LIMIT = 1000
-_TRIM_MARKER = " [..TRIMMED BY ANALYSIS TOOL]"
 
 _DEFAULT_JUDGE_MODEL = "openai:/gpt-5-mini"
 _DEFAULT_ANALYSIS_MODEL = "openai:/gpt-5"
 _DEFAULT_SCORER_NAME = "_issue_discovery_judge"
-
-_TEMPLATE_VARS = {
-    "{{ trace }}",
-    "{{ inputs }}",
-    "{{ outputs }}",
-    "{{ conversation }}",
-    "{{ expectations }}",
-}
 
 # ---- Satisfaction scorer instructions ----
 
@@ -154,38 +137,6 @@ def _build_satisfaction_instructions(*, use_conversation: bool) -> str:
     return preamble + body
 
 
-# ---- Deep analysis prompt ----
-
-_DEEP_ANALYSIS_SYSTEM_PROMPT = (
-    "You are an expert at diagnosing AI application failures in multi-turn conversations.\n\n"
-    "You will be given:\n"
-    "1. A TRIAGE SUMMARY listing specific failing trace IDs and the violated user "
-    "expectations identified for each one.\n"
-    "2. The full CONVERSATION between a user and an AI assistant, where failing assistant "
-    "responses are annotated with their triage rationale.\n\n"
-    "YOUR SCOPE IS STRICTLY LIMITED TO THE FAILURES DESCRIBED IN THE TRIAGE SUMMARY.\n"
-    "- Do NOT look for other issues, root causes, or symptoms beyond what the triage "
-    "identified.\n"
-    "- Do NOT re-derive or second-guess the violated expectations — they are ground truth.\n"
-    "- Your job is to determine the technical root cause of those specific failures.\n\n"
-    "TOOL USAGE — BE EFFICIENT:\n"
-    "You have tools to inspect trace internals. Use them wisely:\n"
-    "- Use list_spans on a failing trace to see the span tree, then immediately "
-    "produce your analysis. Only call get_span if the span tree alone is insufficient "
-    "to explain the root cause.\n"
-    "- NEVER call get_trace_info — the triage summary already has what you need.\n"
-    "- NEVER call get_span_performance_and_timing_report unless the failure is about "
-    "latency.\n"
-    "- NEVER call get_root_span — root span inputs/outputs are already in the "
-    "conversation text.\n"
-    "- Batch multiple tool calls into a single round when possible.\n"
-    "- If you have enough evidence, STOP calling tools and produce your analysis.\n\n"
-    "IMPORTANT: Fields ending with '[..TRIMMED BY ANALYSIS TOOL]' were "
-    "shortened for this analysis — do NOT treat this as evidence of "
-    "truncation in the original application response.\n\n"
-    "Analyze ONLY the triage-identified failures and produce your structured analysis."
-)
-
 # ---- Failure label extraction prompt ----
 
 _FAILURE_LABEL_SYSTEM_PROMPT = (
@@ -220,31 +171,4 @@ _CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "- The root cause (synthesized from the individual analyses)\n"
     "- A confidence score 0-100 reflecting how coherent the cluster is (75+ only if the "
     "analyses clearly share the same failure pattern; 0 if they do NOT belong together)"
-)
-
-# ---- Scorer generation prompt ----
-
-_SCORER_GENERATION_SYSTEM_PROMPT = (
-    "You are an expert at writing detection instructions for AI quality judges. "
-    "Given an issue description and example failures, write concise instructions "
-    "that a judge can use to detect this issue in a trace.\n\n"
-    "IMPORTANT: The judge returns yes/no (pass/fail). A passing trace (yes) "
-    "means the trace is FREE of this issue. A failing trace (no) means "
-    "the issue WAS detected. Write instructions so that 'yes' = clean/good "
-    "and 'no' = issue found.\n\n"
-    "CRITICAL RULE ON SPLITTING SCORERS:\n"
-    "Each scorer MUST test exactly ONE criterion. If the issue involves "
-    "multiple independent criteria, you MUST split them into separate scorers. "
-    "Indicators that you need to split:\n"
-    "- The word 'and' joining two distinct checks "
-    "(e.g. 'is slow AND hallucinates')\n"
-    "- The word 'or' joining two distinct checks "
-    "(e.g. 'truncates OR omits data')\n"
-    "- Multiple failure modes that could occur independently\n"
-    "For example, 'response is truncated and uses wrong API' should become TWO "
-    "scorers: one for truncation and one for wrong API usage.\n\n"
-    "CRITICAL: Each scorer's detection_instructions MUST contain the literal text "
-    "'{{ trace }}' (with double curly braces) as a template variable — "
-    "this is how the judge receives the trace data.\n"
-    "Example: 'Analyze the {{ trace }} to determine if...'"
 )

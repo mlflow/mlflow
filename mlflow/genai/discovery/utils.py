@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import random
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -10,22 +11,12 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
     _CLUSTER_SUMMARY_SYSTEM_PROMPT,
-    _DEEP_ANALYSIS_SYSTEM_PROMPT,
     _DEFAULT_SCORER_NAME,
-    _ERROR_CHAR_LIMIT,
-    _SCORER_GENERATION_SYSTEM_PROMPT,
-    _SPAN_IO_CHAR_LIMIT,
-    _TEMPLATE_VARS,
-    _TRACE_IO_CHAR_LIMIT,
-    _TRIM_MARKER,
     _build_satisfaction_instructions,
 )
 from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
-    _ConversationAnalysisLLMResult,
     _IdentifiedIssue,
-    _ScorerInstructionsResult,
-    _ScorerSpec,
 )
 from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.genai.judges.make_judge import make_judge
@@ -36,12 +27,6 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
-
-
-def _trim(text: str, limit: int) -> str:
-    if len(text) <= limit:
-        return text
-    return text[:limit] + _TRIM_MARKER
 
 
 def _get_session_id(trace: Trace) -> str | None:
@@ -113,38 +98,6 @@ def _build_default_satisfaction_scorer(model: str | None, use_conversation: bool
     )
 
 
-def _ensure_template_var(instructions: str) -> str:
-    if any(var in instructions for var in _TEMPLATE_VARS):
-        return instructions
-    return f"Analyze the following {{{{ trace }}}} and determine:\n\n{instructions}"
-
-
-def _get_existing_score(trace: Trace, scorer_name: str) -> bool | None:
-    for assessment in trace.info.assessments:
-        if isinstance(assessment, Feedback) and assessment.name == scorer_name:
-            if isinstance(assessment.value, bool):
-                return assessment.value
-    return None
-
-
-def _partition_by_existing_scores(
-    traces: list[Trace],
-    scorer_name: str,
-) -> tuple[list[Trace], list[Trace], list[Trace]]:
-    negative: list[Trace] = []
-    positive: list[Trace] = []
-    needs_scoring: list[Trace] = []
-    for trace in traces:
-        score = _get_existing_score(trace, scorer_name)
-        if score is True:
-            positive.append(trace)
-        elif score is False:
-            negative.append(trace)
-        else:
-            needs_scoring.append(trace)
-    return negative, positive, needs_scoring
-
-
 def _test_scorer(scorer: Scorer, trace: Trace) -> None:
     result = mlflow.genai.evaluate(data=[trace], scorers=[scorer])
 
@@ -179,96 +132,6 @@ def _test_scorer(scorer: Scorer, trace: Trace) -> None:
         f"Scorer '{scorer.name}' failed on test trace "
         f"{trace.info.trace_id}: {error_msg or 'unknown error (check model API logs)'}"
     )
-
-
-def _build_span_tree(spans: list[object]) -> str:
-    if not spans:
-        return "    (no spans)"
-
-    span_by_id: dict[str, object] = {}
-    children: dict[str | None, list[object]] = {}
-    for span in spans:
-        span_by_id[span.span_id] = span
-        children.setdefault(span.parent_id, []).append(span)
-
-    def _format_span(span, depth: int) -> list[str]:
-        indent = "    " + "  " * depth
-        duration_ms = ""
-        if span.end_time_ns is not None and span.start_time_ns is not None:
-            duration_ms = f", {(span.end_time_ns - span.start_time_ns) // 1_000_000}ms"
-
-        status = span.status.status_code.value if span.status else "UNKNOWN"
-        span_type = getattr(span, "span_type", "UNKNOWN") or "UNKNOWN"
-        model = getattr(span, "model_name", None)
-        model_str = f", model={model}" if model else ""
-
-        line = f"{indent}{span.name} ({span_type}, {status}{duration_ms}{model_str})"
-        lines = [line]
-
-        if span.status and span.status.status_code == SpanStatusCode.ERROR:
-            if span.status.description:
-                lines.append(
-                    f"{indent}  ERROR: {_trim(span.status.description, _ERROR_CHAR_LIMIT)}"
-                )
-            for event in getattr(span, "events", []):
-                if event.name == "exception":
-                    exc_type = event.attributes.get("exception.type", "")
-                    exc_msg = event.attributes.get("exception.message", "")
-                    if exc_type or exc_msg:
-                        exc_text = _trim(f"{exc_type}: {exc_msg}", _ERROR_CHAR_LIMIT)
-                        lines.append(f"{indent}  EXCEPTION: {exc_text}")
-
-        inputs = getattr(span, "inputs", None)
-        outputs = getattr(span, "outputs", None)
-        if inputs:
-            lines.append(f"{indent}  in: {_trim(str(inputs), _SPAN_IO_CHAR_LIMIT)}")
-        if outputs:
-            lines.append(f"{indent}  out: {_trim(str(outputs), _SPAN_IO_CHAR_LIMIT)}")
-
-        for child in children.get(span.span_id, []):
-            lines.extend(_format_span(child, depth + 1))
-        return lines
-
-    roots = children.get(None, [])
-    if not roots:
-        roots = spans
-
-    result_lines: list[str] = []
-    for root in roots:
-        result_lines.extend(_format_span(root, 0))
-    return "\n".join(result_lines)
-
-
-def _get_root_span_io(trace: Trace) -> tuple[str, str]:
-    if trace.data.spans:
-        root = next(
-            (s for s in trace.data.spans if s.parent_id is None),
-            trace.data.spans[0],
-        )
-        request = str(root.inputs) if root.inputs else ""
-        response = str(root.outputs) if root.outputs else ""
-    else:
-        request = ""
-        response = ""
-    if not request:
-        request = trace.info.request_preview or ""
-    if not response:
-        response = trace.info.response_preview or ""
-    return request, response
-
-
-def _build_assessments_section(trace: Trace) -> str:
-    lines: list[str] = []
-    for assessment in trace.info.assessments:
-        if not isinstance(assessment, Feedback):
-            continue
-        entry = f"    {assessment.name}: {assessment.value}"
-        if assessment.rationale:
-            entry += f" — {assessment.rationale}"
-        lines.append(entry)
-    if not lines:
-        return ""
-    return "  Assessments:\n" + "\n".join(lines)
 
 
 # Span types that represent generic LLM plumbing, not meaningful execution steps.
@@ -371,25 +234,6 @@ def _extract_execution_paths_for_session(traces: list[Trace]) -> str:
     return "; ".join(paths) if paths else "(no routing)"
 
 
-def _build_enriched_trace_summary(index: int, trace: Trace, rationale: str) -> str:
-    request, response = _get_root_span_io(trace)
-    request = _trim(request, _TRACE_IO_CHAR_LIMIT)
-    response = _trim(response, _TRACE_IO_CHAR_LIMIT)
-    duration = trace.info.execution_duration or 0
-    span_tree = _build_span_tree(trace.data.spans)
-    assessments = _build_assessments_section(trace)
-    parts = [
-        f"[{index}] trace_id={trace.info.trace_id}",
-        f"  Input: {request}",
-        f"  Output: {response}",
-        f"  Duration: {duration}ms | Failure rationale: {rationale}",
-    ]
-    if assessments:
-        parts.append(assessments)
-    parts.append(f"  Span tree:\n{span_tree}")
-    return "\n".join(parts)
-
-
 def _group_traces_by_session(
     traces: list[Trace],
 ) -> dict[str, list[Trace]]:
@@ -407,165 +251,6 @@ def _group_traces_by_session(
         traces_in_group.sort(key=lambda t: t.info.timestamp_ms)
 
     return dict(groups)
-
-
-def _build_conversation_for_analysis(
-    session_traces: list[Trace],
-    rationale_map: dict[str, str],
-) -> tuple[str, str]:
-    """
-    Build a triage preamble and annotated conversation for one session.
-
-    Returns:
-        A tuple of (triage_preamble, conversation_text). The preamble lists
-        every failing trace ID with its violated expectations. The conversation
-        text has triage annotations on the assistant (not user) messages.
-    """
-    from mlflow.genai.utils.trace_utils import resolve_conversation_from_session
-
-    conversation = resolve_conversation_from_session(
-        session_traces,
-        include_trace_ids=True,
-    )
-
-    # Identify failing trace_ids in this session (preserving insertion order)
-    failing_rationales: dict[str, str] = {}
-    for t in session_traces:
-        tid = t.info.trace_id
-        if tid in rationale_map and tid not in failing_rationales:
-            failing_rationales[tid] = rationale_map[tid]
-
-    # Build triage preamble
-    preamble_lines = ["TRIAGE SUMMARY — investigate ONLY these failures:"]
-    for tid, rationale in failing_rationales.items():
-        preamble_lines.append(f"  • trace_id={tid}")
-        preamble_lines.append(f"    Violated expectations: {rationale}")
-    triage_preamble = "\n".join(preamble_lines)
-
-    # Track which trace_ids still need annotation (on assistant message)
-    pending_annotation = set(failing_rationales.keys())
-
-    # Build conversation lines with annotations on assistant messages
-    lines = []
-    for msg in conversation:
-        trace_id = msg.get("trace_id", "")
-        role = msg["role"]
-        content = msg["content"]
-        line = f"[trace_id={trace_id}] {role}: {content}"
-
-        # Annotate the assistant response (not the user question)
-        if role == "assistant" and trace_id in pending_annotation:
-            rationale = failing_rationales[trace_id]
-            line += f"\n  ** TRIAGE FAILURE: {rationale} **"
-            pending_annotation.discard(trace_id)
-
-        lines.append(line)
-
-    return triage_preamble, "\n\n".join(lines)
-
-
-def _run_deep_analysis_single(
-    triage_preamble: str,
-    conversation_text: str,
-    analysis_model: str,
-    failing_trace_ids: list[str],
-) -> _ConversationAnalysis:
-    """
-    Run deep analysis on a single conversation with tool access.
-    The triage preamble tells the LLM exactly which traces failed and why,
-    so it can make targeted tool calls only on those traces.
-    """
-    from mlflow.genai.judges.tools import list_judge_tools
-
-    judge_tools = list_judge_tools()
-    tools = [tool.get_definition().to_dict() for tool in judge_tools]
-
-    llm_result = get_chat_completions_with_structured_output(
-        model_uri=analysis_model,
-        messages=[
-            ChatMessage(role="system", content=_DEEP_ANALYSIS_SYSTEM_PROMPT),
-            ChatMessage(
-                role="user",
-                content=(f"{triage_preamble}\n\nCONVERSATION:\n\n{conversation_text}"),
-            ),
-        ],
-        output_schema=_ConversationAnalysisLLMResult,
-        tools=tools,
-    )
-    return _ConversationAnalysis(
-        surface=llm_result.surface,
-        root_cause=llm_result.root_cause,
-        symptoms=llm_result.symptoms,
-        domain=llm_result.domain,
-        affected_trace_ids=failing_trace_ids,
-        severity=llm_result.severity,
-    )
-
-
-def _run_deep_analysis(
-    session_groups: dict[str, list[Trace]],
-    rationale_map: dict[str, str],
-    analysis_model: str,
-) -> list[_ConversationAnalysis]:
-    """
-    Run deep analysis per-conversation for sessions with failures, in parallel.
-    """
-    import time
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
-
-    items: list[tuple[str, list[Trace]]] = [
-        (session_id, session_traces)
-        for session_id, session_traces in session_groups.items()
-        if any(t.info.trace_id in rationale_map for t in session_traces)
-    ]
-    if not items:
-        return []
-
-    max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(items))
-    _logger.info(
-        "Deep analysis: %d sessions, %d workers",
-        len(items),
-        max_workers,
-    )
-
-    def _analyze(idx: int, session_id: str, session_traces: list[Trace]) -> _ConversationAnalysis:
-        t0 = time.time()
-        preamble, conv_text = _build_conversation_for_analysis(session_traces, rationale_map)
-        failing_trace_ids = [
-            t.info.trace_id for t in session_traces if t.info.trace_id in rationale_map
-        ]
-        _logger.info(
-            "  [%d/%d] session %s: built conversation (%d chars) in %.1fs, calling LLM...",
-            idx + 1,
-            len(items),
-            session_id[:20],
-            len(conv_text),
-            time.time() - t0,
-        )
-        t1 = time.time()
-        result = _run_deep_analysis_single(preamble, conv_text, analysis_model, failing_trace_ids)
-        _logger.info(
-            "  [%d/%d] session %s: LLM analysis done in %.1fs",
-            idx + 1,
-            len(items),
-            session_id[:20],
-            time.time() - t1,
-        )
-        return result
-
-    analyses: list[_ConversationAnalysis] = [None] * len(items)
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_idx = {
-            executor.submit(_analyze, idx, sid, traces): idx
-            for idx, (sid, traces) in enumerate(items)
-        }
-        for future in as_completed(future_to_idx):
-            idx = future_to_idx[future]
-            analyses[idx] = future.result()
-
-    return analyses
 
 
 def _embed_texts(texts: list[str], embedding_model: str) -> list[list[float]]:
@@ -602,6 +287,7 @@ def _extract_failure_labels(
     """
     import litellm
 
+    from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
     from mlflow.genai.discovery.constants import _FAILURE_LABEL_SYSTEM_PROMPT
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
@@ -611,8 +297,7 @@ def _extract_failure_labels(
     else:
         litellm_model = f"{scheme}/{path}"
 
-    labels: list[str] = []
-    for a in analyses:
+    def _label_one(a: _ConversationAnalysis) -> str:
         rationale = a.surface[:800]
         response = litellm.completion(
             model=litellm_model,
@@ -624,7 +309,14 @@ def _extract_failure_labels(
         )
         symptom = response.choices[0].message.content.strip()
         exec_path = a.execution_path or "(no routing)"
-        labels.append(f"[{exec_path}] {symptom}")
+        return f"[{exec_path}] {symptom}"
+
+    max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(analyses))
+    labels: list[str | None] = [None] * len(analyses)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_idx = {executor.submit(_label_one, a): i for i, a in enumerate(analyses)}
+        for future in as_completed(future_to_idx):
+            labels[future_to_idx[future]] = future.result()
 
     return labels
 
@@ -751,120 +443,6 @@ def _cluster_by_llm(
     return cluster_groups
 
 
-def _merge_similar_clusters(
-    groups: list[list[int]],
-    labels: list[str],
-    max_issues: int,
-    model: str | None = None,
-) -> list[list[int]]:
-    """
-    Second pass: merge clusters that describe the same user-facing issue
-    despite different execution paths.
-
-    The initial grouping is conservative — it keeps clusters with different
-    execution paths separate. This pass asks the LLM to identify groups
-    that should be merged because they represent the same issue from the
-    user's perspective (e.g., "pause music ignored via end_conversation"
-    and "pause music ignored via pause_spotify error").
-    """
-    import json
-
-    import litellm
-
-    from mlflow.genai.discovery.constants import _DEFAULT_JUDGE_MODEL
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
-
-    if len(groups) <= 1:
-        return groups
-
-    model = model or _DEFAULT_JUDGE_MODEL
-    scheme, path = _parse_model_uri(model)
-    if scheme in ("endpoints", "databricks"):
-        litellm_model = f"databricks/{path}"
-    else:
-        litellm_model = f"{scheme}/{path}"
-
-    # Build a summary of each group for the LLM
-    group_summaries = []
-    for gi, group in enumerate(groups):
-        group_labels = [labels[idx] for idx in group]
-        summary = f"[Group {gi}] ({len(group)} members):\n"
-        for lbl in group_labels:
-            summary += f"  - {lbl}\n"
-        group_summaries.append(summary)
-
-    numbered_groups = "\n".join(group_summaries)
-    prompt = (
-        f"Below are {len(groups)} groups of failure labels from an AI agent, "
-        "already grouped by execution path and symptom.\n\n"
-        "Some groups may describe the SAME user-facing issue despite going through "
-        "different execution paths. For example, 'pause music ignored via "
-        "end_conversation' and 'pause music ignored via pause_spotify error' are "
-        "the same issue from the user's perspective: media control commands not "
-        "executed.\n\n"
-        "Identify which groups should be MERGED because they represent the same "
-        "user-facing problem. Only merge groups where the failure experienced "
-        "by the user is genuinely the same — don't merge just because symptoms "
-        "sound vaguely similar.\n\n"
-        f"Groups:\n{numbered_groups}\n\n"
-        'Return a JSON object with a "merges" key containing an array of arrays. '
-        "Each inner array lists the group indices (ints) that should be merged. "
-        "Groups not listed in any merge set remain unchanged.\n"
-        'If no merges are needed, return {"merges": []}.\n'
-        "Return ONLY the JSON, no explanation."
-    )
-
-    response = litellm.completion(
-        model=litellm_model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=4000,
-        response_format={"type": "json_object"},
-    )
-    content = (response.choices[0].message.content or "").strip()
-    if not content:
-        return groups
-
-    result = json.loads(content)
-    merge_sets = result.get("merges", [])
-
-    if not merge_sets:
-        return groups
-
-    # Apply merges
-    merged_group_indices: set[int] = set()
-    merged_groups: list[list[int]] = []
-    for merge_set in merge_sets:
-        valid_gis = [gi for gi in merge_set if 0 <= gi < len(groups)]
-        if len(valid_gis) < 2:
-            continue
-        combined = []
-        for gi in valid_gis:
-            combined.extend(groups[gi])
-            merged_group_indices.add(gi)
-        merged_groups.append(combined)
-
-    # Add unmerged groups
-    final_groups = []
-    for gi, group in enumerate(groups):
-        if gi not in merged_group_indices:
-            final_groups.append(group)
-    final_groups.extend(merged_groups)
-
-    # Cap at max_issues
-    if len(final_groups) > max_issues:
-        final_groups.sort(key=len, reverse=True)
-        final_groups = final_groups[:max_issues]
-
-    _logger.info(
-        "Merge pass: %d groups → %d groups (%d merges applied)",
-        len(groups),
-        len(final_groups),
-        len([m for m in merge_sets if len(m) >= 2]),
-    )
-
-    return final_groups
-
-
 def _cluster_by_embeddings(
     analyses: list[_ConversationAnalysis],
     embedding_model: str,
@@ -925,67 +503,46 @@ def _summarize_cluster(
     return result
 
 
-def _generate_scorer_specs(
-    issue: _IdentifiedIssue,
-    example_analyses: list[_ConversationAnalysis],
-    judge_model: str,
-) -> list[_ScorerSpec]:
-    examples_text = "\n".join(
-        f"- [surface: {a.surface}] {a.symptoms} (root cause: {a.root_cause[:200]})"
-        for a in example_analyses
-    )
-    result = get_chat_completions_with_structured_output(
-        model_uri=judge_model,
-        messages=[
-            ChatMessage(role="system", content=_SCORER_GENERATION_SYSTEM_PROMPT),
-            ChatMessage(
-                role="user",
-                content=(
-                    f"Issue: {issue.name}\n"
-                    f"Description: {issue.description}\n"
-                    f"Root cause: {issue.root_cause}\n\n"
-                    f"Example failures:\n{examples_text}\n\n"
-                    "Write detection scorer(s) for this issue. Use one scorer if the issue is "
-                    "a single criterion, or multiple scorers if it involves independent criteria."
-                ),
-            ),
-        ],
-        output_schema=_ScorerInstructionsResult,
-    )
-    for spec in result.scorers:
-        spec.detection_instructions = _ensure_template_var(spec.detection_instructions)
-    return result.scorers
-
-
 def _extract_failing_traces(
     eval_result: EvaluationResult,
-    scorer_name: str,
+    scorer_names: str | list[str],
     original_traces: list[Trace] | None = None,
 ) -> tuple[list[Trace], dict[str, str]]:
     """
     Extract failing traces and their rationales from an evaluation result.
+
+    ``scorer_names`` can be a single scorer name or a list. When multiple
+    names are provided, a trace is considered failing if ANY scorer marks
+    it as ``False``, and rationales from all failing scorers are combined.
 
     When ``original_traces`` is provided, maps results back to the original
     trace objects by DataFrame position (the evaluate framework may assign
     new trace IDs during scoring).  Rationales are extracted from the
     DataFrame column first; if absent, from the trace assessment.
     """
+    if isinstance(scorer_names, str):
+        scorer_names = [scorer_names]
+
     failing: list[Trace] = []
     rationales: dict[str, str] = {}
     df = eval_result.result_df
     if df is None:
         return failing, rationales
 
-    value_col = f"{scorer_name}/value"
-    rationale_col = f"{scorer_name}/rationale"
-    if value_col not in df.columns:
+    # Filter to scorer names whose value column actually exists
+    active_scorers = [s for s in scorer_names if f"{s}/value" in df.columns]
+    if not active_scorers:
         return failing, rationales
 
-    has_rationale_col = rationale_col in df.columns
-
     for idx, (_, row) in enumerate(df.iterrows()):
-        val = row.get(value_col)
-        if val is None or bool(val):
+        # Check if ANY scorer marks this row as failing
+        row_failing_scorers: list[str] = []
+        for scorer_name in active_scorers:
+            val = row.get(f"{scorer_name}/value")
+            if val is not None and not bool(val):
+                row_failing_scorers.append(scorer_name)
+
+        if not row_failing_scorers:
             continue
 
         # Map back to original trace by position when available.
@@ -1000,60 +557,31 @@ def _extract_failing_traces(
 
         failing.append(trace)
 
-        # Extract rationale from column or from the eval trace's assessment.
-        rationale = ""
-        if has_rationale_col:
-            rationale = str(row.get(rationale_col, "") or "")
-        if not rationale:
-            eval_trace = row.get("trace")
-            if eval_trace is not None:
-                if isinstance(eval_trace, str):
-                    eval_trace = Trace.from_json(eval_trace)
-                # Use reversed() to get the most recent assessment
-                # (traces accumulate assessments across runs).
-                rationale = next(
-                    (
-                        a.rationale
-                        for a in reversed(eval_trace.info.assessments)
-                        if isinstance(a, Feedback) and a.name == scorer_name and a.rationale
-                    ),
-                    "",
-                )
-        rationales[trace.info.trace_id] = rationale
+        # Combine rationales from all failing scorers
+        row_rationales: list[str] = []
+        for scorer_name in row_failing_scorers:
+            rationale_col = f"{scorer_name}/rationale"
+            rationale = ""
+            if rationale_col in df.columns:
+                rationale = str(row.get(rationale_col, "") or "")
+            if not rationale:
+                eval_trace = row.get("trace")
+                if eval_trace is not None:
+                    if isinstance(eval_trace, str):
+                        eval_trace = Trace.from_json(eval_trace)
+                    rationale = next(
+                        (
+                            a.rationale
+                            for a in reversed(eval_trace.info.assessments)
+                            if isinstance(a, Feedback) and a.name == scorer_name and a.rationale
+                        ),
+                        "",
+                    )
+            if rationale:
+                row_rationales.append(rationale)
+        rationales[trace.info.trace_id] = "; ".join(row_rationales)
 
     return failing, rationales
-
-
-def _compute_frequencies(
-    eval_result: EvaluationResult,
-    scorer_names: list[str],
-) -> tuple[dict[str, float], dict[str, list[str]]]:
-    frequencies: dict[str, float] = {}
-    rationale_examples: dict[str, list[str]] = {}
-    df = eval_result.result_df
-    if df is None:
-        return frequencies, rationale_examples
-
-    total = len(df)
-    for name in scorer_names:
-        value_col = f"{name}/value"
-        rationale_col = f"{name}/rationale"
-        if value_col not in df.columns:
-            continue
-
-        affected = df[value_col].eq(False).sum()
-        frequencies[name] = affected / total if total > 0 else 0.0
-
-        examples = []
-        if rationale_col in df.columns:
-            for _, row in df.iterrows():
-                val = row.get(value_col)
-                if val is not None and not bool(val) and len(examples) < 3:
-                    if r := row.get(rationale_col):
-                        examples.append(str(r))
-        rationale_examples[name] = examples
-
-    return frequencies, rationale_examples
 
 
 def _log_discovery_artifacts(run_id: str, artifacts: dict[str, str]) -> None:

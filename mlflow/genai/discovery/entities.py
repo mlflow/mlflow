@@ -33,40 +33,6 @@ class DiscoverIssuesResult:
 # ---- Pydantic schemas for LLM structured output ----
 
 
-class _ConversationAnalysisLLMResult(pydantic.BaseModel):
-    """Schema the LLM fills in for deep analysis."""
-
-    surface: str = pydantic.Field(
-        description=(
-            "Where to intervene: primary function + data/object + interaction mechanism. "
-            "5-12 word noun phrase, no failure language."
-        )
-    )
-    root_cause: str = pydantic.Field(
-        description=(
-            "Technical root cause of the triage-identified failure. "
-            "3-5 short declarative sentences grounded in span evidence. "
-            "No speculation. 40-120 words."
-        )
-    )
-    symptoms: str = pydantic.Field(
-        description=(
-            "Observable interaction patterns only. 2-4 short sentences describing "
-            "what an external observer could see, in timeline order. No causal "
-            "language, no interpretation, no system internals. 15-60 words."
-        )
-    )
-    domain: str = pydantic.Field(
-        description=(
-            "The user's task area or goal. 1-10 word noun phrase, generalizable "
-            "category. Not system area. e.g. 'music playback control'"
-        )
-    )
-    severity: int = pydantic.Field(
-        description="Severity: 1=minor, 3=moderate, 5=critical"
-    )
-
-
 @dataclass
 class _ConversationAnalysis:
     """Full analysis — LLM fields plus programmatically-set trace IDs."""
@@ -78,27 +44,6 @@ class _ConversationAnalysis:
     affected_trace_ids: list[str]
     severity: int
     execution_path: str = ""
-
-
-class _ScorerSpec(pydantic.BaseModel):
-    name: str = pydantic.Field(
-        description="snake_case name for this scorer (should match the issue name if single scorer)"
-    )
-    detection_instructions: str = pydantic.Field(
-        description=(
-            "Instructions for a judge to detect this issue from a {{ trace }}. "
-            "MUST contain the literal text '{{ trace }}'."
-        )
-    )
-
-
-class _ScorerInstructionsResult(pydantic.BaseModel):
-    scorers: list[_ScorerSpec] = pydantic.Field(
-        description=(
-            "One or more scorers to detect this issue. If the issue involves multiple "
-            "independent criteria (e.g. 'X and Y' or 'X or Y'), split into separate scorers."
-        )
-    )
 
 
 class _IdentifiedIssue(pydantic.BaseModel):
@@ -120,5 +65,3 @@ class _IdentifiedIssue(pydantic.BaseModel):
             "75=highly confident and real, 100=absolutely certain"
         ),
     )
-
-
