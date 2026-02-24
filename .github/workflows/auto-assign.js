@@ -54,6 +54,8 @@ async function getLinkedIssues({ github, owner, repo, prNumber }) {
   }
 }
 
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
 module.exports = async ({ github, context, skipAssignment = false }) => {
   const { owner, repo } = context.repo;
   const maintainers = new Set(await getMaintainers({ github, context }));
@@ -105,10 +107,9 @@ module.exports = async ({ github, context, skipAssignment = false }) => {
       const linkedIssue = linkedIssues[0];
       const prCreatedDate = new Date(prCreatedAt);
       const issueCreatedDate = new Date(linkedIssue.createdAt);
-      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-      // Only assign if issue was created within 7 days before the PR
-      if (prCreatedDate - issueCreatedDate <= SEVEN_DAYS_MS) {
+      // Only assign if issue was created within 7 days before the PR (not in the future)
+      if (issueCreatedDate <= prCreatedDate && prCreatedDate - issueCreatedDate <= SEVEN_DAYS_MS) {
         try {
           // Fetch all comments on the linked issue since it was created
           const linkedIssueComments = await github.rest.issues.listComments({
