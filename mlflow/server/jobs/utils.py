@@ -120,6 +120,58 @@ def is_process_alive(pid: int) -> bool:
         return True
 
 
+def _find_huey_consumer():
+    """
+    Find the huey_consumer executable, handling different installation methods.
+    
+    This function handles cases where huey is installed via:
+    - Traditional pip (huey_consumer.py in PATH)
+    - uv or other modern package managers (huey_consumer without .py)
+    - Module execution fallback
+    
+    Returns:
+        str or list: Path to huey_consumer executable, or command list for module execution
+        
+    Raises:
+        MlflowException: If huey_consumer cannot be found
+    """
+    import subprocess
+    
+    # Try common executable names
+    for name in ["huey_consumer", "huey_consumer.py"]:
+        path = shutil.which(name)
+        if path:
+            return path
+    
+    # Try via python module execution (fallback for uv installations)
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "huey.bin.huey_consumer", "--help"], 
+            capture_output=True, 
+            timeout=5
+        )
+        if result.returncode == 0:
+            return [sys.executable, "-m", "huey.bin.huey_consumer"]
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
+        pass
+    
+    # Final fallback: try to find huey_consumer via importlib
+    try:
+        import huey.bin.huey_consumer
+        huey_path = os.path.dirname(huey.bin.huey_consumer.__file__)
+        potential_script = os.path.join(huey_path, "huey_consumer.py")
+        if os.path.exists(potential_script):
+            return [sys.executable, potential_script]
+    except ImportError:
+        pass
+    
+    raise MlflowException(
+        "Could not find huey_consumer executable. This may be due to using uv or another "
+        "package manager that doesn't install scripts to PATH. Please ensure huey is "
+        "properly installed and accessible."
+    )
+
+
 def _start_huey_consumer_proc(
     huey_instance_key: str,
     max_job_parallelism: int,
@@ -127,13 +179,24 @@ def _start_huey_consumer_proc(
     from mlflow.server.constants import MLFLOW_HUEY_INSTANCE_KEY
     from mlflow.utils.process import _exec_cmd
 
-    cmd = [
-        sys.executable,
-        shutil.which("huey_consumer.py"),
-        "mlflow.server.jobs._huey_consumer.huey_instance",
-        "-w",
-        str(max_job_parallelism),
-    ]
+    huey_consumer = _find_huey_consumer()
+    
+    if isinstance(huey_consumer, list):
+        # Module execution approach
+        cmd = huey_consumer + [
+            "mlflow.server.jobs._huey_consumer.huey_instance",
+            "-w",
+            str(max_job_parallelism),
+        ]
+    else:
+        # Direct executable approach
+        cmd = [
+            sys.executable,
+            huey_consumer,
+            "mlflow.server.jobs._huey_consumer.huey_instance",
+            "-w",
+            str(max_job_parallelism),
+        ]
 
     # Add quiet flag if logging level is WARNING or higher
     log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
@@ -506,13 +569,24 @@ def _launch_periodic_tasks_consumer() -> None:
 
 
 def _start_periodic_tasks_consumer_proc():
-    cmd = [
-        sys.executable,
-        shutil.which("huey_consumer.py"),
-        "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
-        "-w",
-        str(PERIODIC_TASKS_WORKER_COUNT),
-    ]
+    huey_consumer = _find_huey_consumer()
+    
+    if isinstance(huey_consumer, list):
+        # Module execution approach
+        cmd = huey_consumer + [
+            "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
+            "-w",
+            str(PERIODIC_TASKS_WORKER_COUNT),
+        ]
+    else:
+        # Direct executable approach
+        cmd = [
+            sys.executable,
+            huey_consumer,
+            "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
+            "-w",
+            str(PERIODIC_TASKS_WORKER_COUNT),
+        ]
 
     # Add quiet flag if logging level is WARNING or higher
     log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
