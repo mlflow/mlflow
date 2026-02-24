@@ -507,7 +507,7 @@ print(response.candidates[0].content.parts[0].text)`;
                     }}
                   />
                   {sendError && (
-                    <Typography.Text color="danger" css={{ marginTop: theme.spacing.xs }}>
+                    <Typography.Text color="error" css={{ marginTop: theme.spacing.xs }}>
                       {sendError}
                     </Typography.Text>
                   )}
