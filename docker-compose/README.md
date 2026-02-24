@@ -3,14 +3,7 @@
 
 This directory provides multiple **Docker Compose** setups for running **MLflow** locally with a **PostgreSQL** backend store and one of several **S3-compatible artifact stores**.
 
-Originally this stack included **MinIO**, but the repository now supports **three additional S3-compatible backends**:
-
-- **MinIO** (default)
-- **GarageHQ** (distributed S3)
-- **SeaweedFS** (distributed filesystem + S3 Gateway)
-- **RustFS** (lightweight S3-compatible storage in Rust)
-
-Each backend has its own subdirectory and README.
+Originally this stack included **MinIO**, but the repository now uses **RustFS**.
 
 ---
 
@@ -24,17 +17,8 @@ All variants share the same architecture:
 - **PostgreSQL**  
   Stores MLflow’s metadata (experiments, runs, params, metrics).
 
-- **S3-Compatible Artifact Storage**  
+- **RustFS Artifact Storage**  
   Stores model files and run artifacts. Four implementations are available:
-
-  | Backend      | Directory        | Notes                                      |
-  |--------------|------------------|--------------------------------------------|
-  | **MinIO**    | `./minio/`       | Default, simple, single-node.              |
-  | **GarageHQ** | `./garage/`      | Distributed, persistent, peer-to-peer.     |
-  | **SeaweedFS**| `./seaweedfs/`   | Distributed FS with S3 gateway.            |
-  | **RustFS**   | `./rustfs/`      | Simple, fast, ideal for local development. |
-
-All setups load configuration from an `.env` file inside the selected directory (see instructions below).
 
 ---
 
@@ -63,46 +47,12 @@ cd docker-compose
 
 ---
 
-## 2. Choose an S3 Backend
-
-Each backend has its own folder:
-
-```text
-docker-compose/
- ├── minio/
- ├── garage/
- ├── seaweedfs/
- └── rustfs/
-```
-
-Enter the directory of the backend you want to use.
-
-### Example (MinIO):
-
-```bash
-cd minio
-```
-
-### Example (SeaweedFS):
-
-```bash
-cd seaweedfs
-```
-
-Each directory contains:
-
-- its own `docker-compose.yml`
-- its own `.env.example`
-- a dedicated `README.md` explaining backend-specific configuration
-
----
-
-## 3. Configure Environment
+## 2. Configure Environment
 
 Copy and customize the environment file inside the chosen backend directory:
 
 ```bash
-cp .env.example .env
+cp .env.dev.example .env
 ```
 
 The `.env` file defines:
@@ -111,35 +61,42 @@ The `.env` file defines:
 - PostgreSQL credentials  
 - S3 bucket name  
 - S3-compatible endpoint URL  
-- Backend-specific configuration (MinIO, GarageHQ, SeaweedFS, RustFS)
+- Backend-specific configuration for RustFS
 
 Example variables:
 
-```env
-MLFLOW_PORT=5000
-MLFLOW_ARTIFACTS_DESTINATION=s3://mlflow/
-MLFLOW_S3_ENDPOINT_URL=http://minio:9000
-POSTGRES_USER=mlflow
-POSTGRES_PASSWORD=mlflow
-POSTGRES_DB=mlflow
-```
+**Common variables** :
 
-Each backend README documents the correct endpoint URL and required variables.
+- **PostgreSQL**
+  - `POSTGRES_USER=mlflow`
+  - `POSTGRES_PASSWORD=mlflow`
+  - `POSTGRES_DB=mlflow`
+
+- **S3**
+  - `AWS_ACCESS_KEY_ID=admin`
+  - `AWS_SECRET_ACCESS_KEY=admin`
+  - `AWS_DEFAULT_REGION=us-east-1`
+  - `S3_BUCKET=mlflow`
+
+- **RustFS**
+  - `RUSTFS_CONSOLE_ENABLE=true`
+  
+- **MLFlow**
+  - `MLFLOW_VERSION=latest`
+  - `MLFLOW_HOST=0.0.0.0`
+  - `MLFLOW_PORT=5000`
+  - `MLFLOW_BACKEND_STORE_URI=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}`
+  - `MLFLOW_ARTIFACTS_DESTINATION=s3://${S3_BUCKET}`
+  - `MLFLOW_S3_ENDPOINT_URL=http://storage:9000`
 
 ---
 
-## 4. Launch the Stack
+## 3. Launch the Stack
 
 From **inside the backend directory**:
 
 ```bash
 docker compose up -d
-```
-
-or for GarageHQ
-
-```bash
-docker compose up -d --build
 ```
 
 This will:
@@ -191,12 +148,73 @@ docker compose down -v
 
 ## Tips & Troubleshooting
 
+### RustFS Notes (important)
+
+- Set **server domains/host** so virtual-hosted requests can be resolved by RustFS:
+  ```env
+  RUSTFS_SERVER_DOMAINS=storage:9000
+  ```
+  (match the compose service DNS name)
+
+- Prefer AWS CLI **`s3api`** for bucket creation. Some S3 clients default to **path-style** on custom endpoints; if bucket creation fails with `InvalidBucketName`, switch to `s3api` or a client like MinIO `mc`.
+
+- Inside MLflow, use the internal endpoint:
+  ```env
+  MLFLOW_S3_ENDPOINT_URL=http://storage:9000
+  MLFLOW_ARTIFACTS_DESTINATION=s3://mlflow/
+  ```
+
+### Healthcheck Example
+
+RustFS usually responds on `/`:
+```sh
+curl -I http://storage:9000/
+```
+Use that in a container healthcheck (no `-f`, 4xx may appear during bootstrap).
+
+---
+
+### Bucket Bootstrap (idempotent)
+
+```sh
+set -e
+if aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3api head-bucket --bucket ${S3_BUCKET} 2>/dev/null; then
+  echo "Bucket exists"
+else
+  aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3api create-bucket --bucket ${S3_BUCKET} --region ${AWS_DEFAULT_REGION}
+fi
+```
+
+> If `s3api create-bucket` still fails due to addressing quirks, use MinIO `mc`:
+> ```sh
+> mc alias set local http://storage:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY}
+> mc mb --ignore-existing local/${S3_BUCKET}
+> ```
+
 ### Artifact Upload Issues
 Verify:
 
 - `MLFLOW_ARTIFACTS_DESTINATION=s3://<bucket>/`
 - `MLFLOW_S3_ENDPOINT_URL=http://<service>:<port>`
 - AWS credentials match the backend configuration
+
+Bash command useful to check if the S3 is working correctly
+
+```bash
+aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3api list-buckets
+
+echo hi > /tmp/t.txt
+aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3 cp /tmp/t.txt s3://${S3_BUCKET}/t.txt
+aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3 cp s3://${S3_BUCKET}/t.txt -
+```
+
+If this passes, MLflow can read and write artifacts to RustFS.
+---
+
+### Troubleshooting
+
+- `InvalidBucketName` on create-bucket → use `s3api` (virtual-host friendly) or MinIO `mc`; ensure `RUSTFS_SERVER_DOMAINS` matches the S3 hostname.
+- Endpoint issues from MLflow → make sure `MLFLOW_S3_ENDPOINT_URL` uses the **service name** visible from MLflow (e.g., `http://storage:9000`).
 
 ### Resetting the Environment
 
@@ -221,23 +239,6 @@ Edit `.env` and restart containers:
 docker compose down
 docker compose up -d
 ```
-
----
-
-## Backend-Specific READMEs
-
-- **minio/README.md** — simple S3 dev setup  
-- **garage/README.md** — distributed S3-compatible object storage  
-- **seaweedfs/README.md** — SeaweedFS master/volume/filer/S3 gateway architecture  
-- **rustfs/README.md** — lightweight Rust-based S3-compatible local storage  
-
-These explain:
-
-- architecture  
-- compose layout  
-- healthchecks  
-- bucket initialization  
-- known limitations and troubleshooting  
 
 ---
 

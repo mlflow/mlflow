@@ -65,11 +65,11 @@ For production deployments or custom backend configurations, see <ins>[Backend S
 
 ### Docker Compose
 
-The MLflow repository includes a ready-to-run Compose project under `docker-compose/` that provisions different samples with S3-compatible storage: [Garage](), [SeaweedFS](), [RustFS](). All the example starts MLflow, PostgreSQL, and the S3 Storage.
+The MLflow repository includes a ready-to-run Compose project under `docker-compose/` that provisions MLflow, PostgreSQL, and [RustFS](https://rustfs.com/).
 
 ```bash
 git clone https://github.com/mlflow/mlflow.git
-cd docker-compose/<S3_STORAGE_FOLDER>
+cd docker-compose
 cp .env.dev.example .env
 docker compose up -d
 ```
