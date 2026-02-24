@@ -2,6 +2,7 @@ import {
   Button,
   Modal,
   Tooltip,
+  Tabs,
   Typography,
   useDesignSystemTheme,
   CopyIcon,
@@ -312,56 +313,32 @@ print(response.candidates[0].content.parts[0].text)`;
           />
         </Typography.Text>
 
-        <div css={{ display: 'flex', gap: theme.spacing.sm, borderBottom: `1px solid ${theme.colors.border}` }}>
-          <div
+        <Tabs.Root
+          componentId="mlflow.gateway.usage-modal.tabs"
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as 'try-it' | 'unified' | 'passthrough')}
+          css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+        >
+          <Tabs.List
             css={{
-              padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-              cursor: 'pointer',
-              borderBottom:
-                activeTab === 'try-it'
-                  ? `2px solid ${theme.colors.actionPrimaryBackgroundDefault}`
-                  : '2px solid transparent',
-              color: activeTab === 'try-it' ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.textSecondary,
-              fontWeight: activeTab === 'try-it' ? 'bold' : 'normal',
+              display: 'flex',
+              gap: theme.spacing.sm,
+              borderBottom: `1px solid ${theme.colors.border}`,
+              padding: 0,
             }}
-            onClick={() => setActiveTab('try-it')}
           >
-            <FormattedMessage defaultMessage="Try it" description="Try it tab - interactive request/response" />
-          </div>
-          <div
-            css={{
-              padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-              cursor: 'pointer',
-              borderBottom:
-                activeTab === 'unified'
-                  ? `2px solid ${theme.colors.actionPrimaryBackgroundDefault}`
-                  : '2px solid transparent',
-              color: activeTab === 'unified' ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.textSecondary,
-              fontWeight: activeTab === 'unified' ? 'bold' : 'normal',
-            }}
-            onClick={() => setActiveTab('unified')}
-          >
-            <FormattedMessage defaultMessage="Unified APIs" description="Unified APIs tab title" />
-          </div>
-          <div
-            css={{
-              padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-              cursor: 'pointer',
-              borderBottom:
-                activeTab === 'passthrough'
-                  ? `2px solid ${theme.colors.actionPrimaryBackgroundDefault}`
-                  : '2px solid transparent',
-              color:
-                activeTab === 'passthrough' ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.textSecondary,
-              fontWeight: activeTab === 'passthrough' ? 'bold' : 'normal',
-            }}
-            onClick={() => setActiveTab('passthrough')}
-          >
-            <FormattedMessage defaultMessage="Passthrough APIs" description="Passthrough APIs tab title" />
-          </div>
-        </div>
+            <Tabs.Trigger value="try-it">
+              <FormattedMessage defaultMessage="Try it" description="Try it tab - interactive request/response" />
+            </Tabs.Trigger>
+            <Tabs.Trigger value="unified">
+              <FormattedMessage defaultMessage="Unified APIs" description="Unified APIs tab title" />
+            </Tabs.Trigger>
+            <Tabs.Trigger value="passthrough">
+              <FormattedMessage defaultMessage="Passthrough APIs" description="Passthrough APIs tab title" />
+            </Tabs.Trigger>
+          </Tabs.List>
 
-        {activeTab === 'try-it' && (
+          <Tabs.Content value="try-it" css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             <Typography.Text color="secondary">
               <FormattedMessage
@@ -520,9 +497,9 @@ print(response.candidates[0].content.parts[0].text)`;
               </Button>
             </div>
           </div>
-        )}
+          </Tabs.Content>
 
-        {activeTab === 'unified' && (
+          <Tabs.Content value="unified" css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
             <SegmentedControlGroup
               name="unified-language-selector"
@@ -568,9 +545,9 @@ print(response.candidates[0].content.parts[0].text)`;
               {unifiedLanguage === 'python' && renderCodeExample('Python', openaiChatPythonExample, 'python')}
             </div>
           </div>
-        )}
+          </Tabs.Content>
 
-        {activeTab === 'passthrough' && (
+          <Tabs.Content value="passthrough" css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
             <div>
               <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
@@ -645,7 +622,8 @@ print(response.candidates[0].content.parts[0].text)`;
                 renderCodeExample('Python', geminiPassthroughPythonExample, 'python')}
             </div>
           </div>
-        )}
+          </Tabs.Content>
+        </Tabs.Root>
       </div>
     </Modal>
   );
