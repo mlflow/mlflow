@@ -116,6 +116,7 @@ def _log_multi_turn_assessments_to_traces(
 
     with ThreadPoolExecutor(
         max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+        thread_name_prefix="MlflowGenAIEvalLogAssessments",
     ) as executor:
         futures = [executor.submit(_log_for_result, er) for er in eval_results]
         for future in as_completed(futures):
@@ -261,8 +262,6 @@ class _Heartbeat:
 
 
 class _PredictSubmitter:
-    """Owns the submit thread, predict pool, backpressure semaphore, and predict timing."""
-
     def __init__(
         self,
         eval_items: list[EvalItem],
@@ -362,13 +361,11 @@ class _PredictSubmitter:
             self._queue.put(None)  # sentinel
 
     def _timed_predict(self, *args) -> None:
-        if self._predict_fn:
-            start = time.monotonic()
-            _run_predict(*args)
+        start = time.monotonic() if self._predict_fn else None
+        _run_predict(*args)
+        if start is not None:
             with self._time_lock:
                 self._times.append(time.monotonic() - start)
-        else:
-            _run_predict(*args)
 
     def drain(self, *, block: bool = False) -> list[Future]:
         """Return newly submitted predict futures from the submit thread.
@@ -409,8 +406,6 @@ class _PredictSubmitter:
 
 
 class _ScoreSubmitter:
-    """Owns the score pool, score futures, multi-turn scoring, and score timing."""
-
     def __init__(
         self,
         eval_items: list[EvalItem],
@@ -827,7 +822,7 @@ def _run_score(
     return eval_result
 
 
-def _invoke_scorer(scorer_func: Callable, eval_item: EvalItem):
+def _invoke_scorer(scorer_func: Callable[..., Any], eval_item: EvalItem):
     return scorer_func(
         inputs=eval_item.inputs,
         outputs=eval_item.outputs,
