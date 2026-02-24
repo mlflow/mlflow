@@ -142,7 +142,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
       });
       const text = await response.text();
       if (!response.ok) {
-        setSendError(`Request failed (${response.status}): ${text || response.statusText}`);
+        setSendError(`Request failed (${response.status})`);
         setResponseBody(text || '');
         return;
       }
