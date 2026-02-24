@@ -111,7 +111,7 @@ const approveWorkflowRuns = async (context, github, head_sha) => {
 
 const VALID_AUTHOR_ASSOCIATIONS = ["owner", "member", "collaborator"];
 
-function isAllowedUser({ author_association, user }) {
+const isAllowedUser = ({ author_association, user }) => {
   return (
     VALID_AUTHOR_ASSOCIATIONS.includes(author_association.toLowerCase()) ||
     // Allow Copilot and mlflow-app bot to run this workflow
