@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 
 from mlflow.demo.base import (
-    DEMO_EXPERIMENT_NAME,
     DEMO_PROMPT_PREFIX,
     BaseDemoGenerator,
     DemoFeature,
     DemoResult,
+    get_demo_experiment_name,
 )
 from mlflow.genai.scorers.registry import delete_scorer, list_scorers
 from mlflow.tracking._tracking_service.utils import _get_store
@@ -18,6 +18,10 @@ _logger = logging.getLogger(__name__)
 DEMO_JUDGE_PREFIX = f"{DEMO_PROMPT_PREFIX}.judges"
 # Legacy prefix for cleanup of old demo data
 _LEGACY_SCORER_PREFIX = f"{DEMO_PROMPT_PREFIX}.scorers"
+
+
+def _is_demo_judge(name: str) -> bool:
+    return name.startswith((DEMO_JUDGE_PREFIX, _LEGACY_SCORER_PREFIX))
 
 
 class JudgesDemoGenerator(BaseDemoGenerator):
@@ -35,8 +39,8 @@ class JudgesDemoGenerator(BaseDemoGenerator):
         from mlflow.genai.judges import make_judge
 
         self._restore_experiment_if_deleted()
-        mlflow.set_experiment(DEMO_EXPERIMENT_NAME)
-        experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+        mlflow.set_experiment(get_demo_experiment_name())
+        experiment = mlflow.get_experiment_by_name(get_demo_experiment_name())
         experiment_id = experiment.experiment_id
 
         registered_judges = []
@@ -100,12 +104,12 @@ class JudgesDemoGenerator(BaseDemoGenerator):
 
     def _data_exists(self) -> bool:
         try:
-            experiment = _get_store().get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+            experiment = _get_store().get_experiment_by_name(get_demo_experiment_name())
             if experiment is None:
                 return False
 
             scorers = list_scorers(experiment_id=experiment.experiment_id)
-            demo_judges = [s for s in scorers if s.name.startswith(DEMO_JUDGE_PREFIX)]
+            demo_judges = [s for s in scorers if _is_demo_judge(s.name)]
             return len(demo_judges) > 0
         except Exception:
             _logger.debug("Failed to check if judges demo exists", exc_info=True)
@@ -113,14 +117,13 @@ class JudgesDemoGenerator(BaseDemoGenerator):
 
     def delete_demo(self) -> None:
         try:
-            experiment = _get_store().get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+            experiment = _get_store().get_experiment_by_name(get_demo_experiment_name())
             if experiment is None:
                 return
 
             scorers = list_scorers(experiment_id=experiment.experiment_id)
             for scorer in scorers:
-                # Delete both current and legacy prefixed judges
-                if scorer.name.startswith((DEMO_JUDGE_PREFIX, _LEGACY_SCORER_PREFIX)):
+                if _is_demo_judge(scorer.name):
                     try:
                         delete_scorer(
                             name=scorer.name,
@@ -135,7 +138,7 @@ class JudgesDemoGenerator(BaseDemoGenerator):
     def _restore_experiment_if_deleted(self) -> None:
         store = _get_store()
         try:
-            experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+            experiment = store.get_experiment_by_name(get_demo_experiment_name())
             if experiment is not None and experiment.lifecycle_stage == "deleted":
                 _logger.info("Restoring soft-deleted demo experiment")
                 client = MlflowClient()

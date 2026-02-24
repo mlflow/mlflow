@@ -3,11 +3,12 @@ from __future__ import annotations
 import logging
 
 from mlflow.demo.base import (
-    DEMO_EXPERIMENT_NAME,
-    DEMO_PROMPT_PREFIX,
     BaseDemoGenerator,
     DemoFeature,
     DemoResult,
+    get_demo_experiment_name,
+    get_demo_prompt_search_filter,
+    resolve_demo_name,
 )
 from mlflow.demo.data import DEMO_PROMPTS, DemoPromptDef
 from mlflow.genai.prompts import (
@@ -26,7 +27,7 @@ class PromptsDemoGenerator(BaseDemoGenerator):
     """Generates demo prompts showing version history and alias management.
 
     Creates:
-    - 3 prompts: customer-support, document-summarizer, code-reviewer
+    - 3 prompts: customer_support, document_summarizer, code_reviewer
     - Each with 3-4 versions showing prompt evolution
     - Version-specific aliases (baseline, improvements, production)
     """
@@ -38,7 +39,7 @@ class PromptsDemoGenerator(BaseDemoGenerator):
         import mlflow
 
         self._restore_experiment_if_deleted()
-        mlflow.set_experiment(DEMO_EXPERIMENT_NAME)
+        mlflow.set_experiment(get_demo_experiment_name())
 
         prompt_names = []
         total_versions = 0
@@ -60,9 +61,10 @@ class PromptsDemoGenerator(BaseDemoGenerator):
         )
 
     def _create_prompt_with_versions(self, prompt_def: DemoPromptDef) -> int:
+        resolved_name = resolve_demo_name(prompt_def.name)
         for version_num, version_def in enumerate(prompt_def.versions, start=1):
             register_prompt(
-                name=prompt_def.name,
+                name=resolved_name,
                 template=version_def.template,
                 commit_message=version_def.commit_message,
                 tags={"demo": "true"},
@@ -70,7 +72,7 @@ class PromptsDemoGenerator(BaseDemoGenerator):
 
             if version_def.aliases:
                 set_prompt_alias(
-                    name=prompt_def.name,
+                    name=resolved_name,
                     alias=version_def.aliases[0],
                     version=version_num,
                 )
@@ -80,7 +82,7 @@ class PromptsDemoGenerator(BaseDemoGenerator):
     def _data_exists(self) -> bool:
         try:
             prompts = search_prompts(
-                filter_string=f"name LIKE '{DEMO_PROMPT_PREFIX}.%'",
+                filter_string=get_demo_prompt_search_filter(),
                 max_results=1,
             )
             return len(prompts) > 0
@@ -96,7 +98,7 @@ class PromptsDemoGenerator(BaseDemoGenerator):
 
         try:
             prompts = search_prompts(
-                filter_string=f"name LIKE '{DEMO_PROMPT_PREFIX}.%'",
+                filter_string=get_demo_prompt_search_filter(),
                 max_results=100,
             )
 
@@ -122,7 +124,7 @@ class PromptsDemoGenerator(BaseDemoGenerator):
     def _restore_experiment_if_deleted(self) -> None:
         store = _get_store()
         try:
-            experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+            experiment = store.get_experiment_by_name(get_demo_experiment_name())
             if experiment is not None and experiment.lifecycle_stage == "deleted":
                 _logger.info("Restoring soft-deleted demo experiment")
                 client = MlflowClient()
