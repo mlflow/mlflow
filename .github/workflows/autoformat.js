@@ -121,7 +121,7 @@ function isAllowedUser({ author_association, user }) {
   );
 }
 
-const validateCommenterAndAuthor = async (context, github) => {
+const validatePermissions = async (context, github) => {
   const { comment } = context.payload;
   const { owner, repo } = context.repo;
   const pull_number = context.issue.number;
@@ -213,5 +213,5 @@ module.exports = {
   updateStatus,
   approveWorkflowRuns,
   checkMaintainerAccess,
-  validateCommenterAndAuthor,
+  validatePermissions,
 };

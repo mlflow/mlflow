@@ -41,7 +41,7 @@ jobs:
             const { comment } = context.payload;
             const shouldAutoformat = autoformat.shouldAutoformat(comment);
             if (shouldAutoformat) {
-              await autoformat.validateCommenterAndAuthor(context, github);
+              await autoformat.validatePermissions(context, github);
               await autoformat.createReaction(context, github);
               await autoformat.createStatus(context, github, core);
             }
