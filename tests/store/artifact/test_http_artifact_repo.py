@@ -20,7 +20,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACKING_TOKEN,
     MLFLOW_TRACKING_USERNAME,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
@@ -70,7 +70,13 @@ class FileObjectMatcher:
 @pytest.fixture
 def http_artifact_repo():
     artifact_uri = "http://test.com/api/2.0/mlflow-artifacts/artifacts"
-    return HttpArtifactRepository(artifact_uri)
+    repo = HttpArtifactRepository(artifact_uri)
+    # Pre-seed the cached property to avoid unexpected server-info HTTP calls in tests.
+    repo.__dict__["_server_enforcement"] = {
+        "enforce_proxy_multipart_upload": False,
+        "enforce_proxy_multipart_download": False,
+    }
+    return repo
 
 
 @pytest.fixture
@@ -79,10 +85,15 @@ def mlflow_artifact_repo_for_download():
 
     For multipart download tests.
     """
-    return MlflowArtifactsRepository(
+    repo = MlflowArtifactsRepository(
         artifact_uri="mlflow-artifacts:/",
         tracking_uri="http://test.com",
     )
+    repo.__dict__["_server_enforcement"] = {
+        "enforce_proxy_multipart_upload": False,
+        "enforce_proxy_multipart_download": False,
+    }
+    return repo
 
 
 @pytest.mark.parametrize(
@@ -138,29 +149,22 @@ def test_log_artifact(
         http_artifact_repo.log_artifact(file_path, artifact_path)
         mock_mpu.assert_called_once()
 
-    # assert reverted to normal upload when mpu is not supported
-    # mock that create_multipart_upload will returns a 400 error with appropriate message
-    with (
-        mock.patch.object(
-            http_artifact_repo,
-            "create_multipart_upload",
-            side_effect=HTTPError(
-                response=MockResponse(
-                    data={
-                        "message": "Multipart upload is not supported for the current "
-                        "artifact repository"
-                    },
-                    status_code=501,
-                )
-            ),
+    # assert unsupported multipart raises when multipart is enabled (no fallback)
+    with mock.patch.object(
+        http_artifact_repo,
+        "create_multipart_upload",
+        side_effect=HTTPError(
+            response=MockResponse(
+                data={
+                    "message": "Multipart upload is not supported for the current "
+                    "artifact repository"
+                },
+                status_code=501,
+            )
         ),
-        mock.patch(
-            "mlflow.store.artifact.http_artifact_repo.http_request",
-            return_value=MockResponse({}, 200),
-        ) as mock_put,
     ):
-        http_artifact_repo.log_artifact(file_path, artifact_path)
-        assert_called_log_artifact(mock_put)
+        with pytest.raises(_UnsupportedMultipartUploadException):
+            http_artifact_repo.log_artifact(file_path, artifact_path)
 
     # assert if mpu is triggered but the uploads failed, mpu is aborted and exception is raised
     with (
@@ -182,6 +186,68 @@ def test_log_artifact(
         with pytest.raises(Exception, match="MPU_UPLOAD_FAILS"):
             http_artifact_repo.log_artifact(file_path, artifact_path)
         mock_abort.assert_called_once()
+
+
+def test_log_artifact_small_file_uses_multipart_when_enabled(
+    http_artifact_repo, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+
+    file_path = tmp_path / "tiny.txt"
+    file_path.write_text("x")  # 1 byte — well below minimum file size threshold
+
+    with mock.patch.object(
+        http_artifact_repo, "_try_multipart_upload"
+    ) as mock_mpu:
+        http_artifact_repo.log_artifact(file_path)
+        mock_mpu.assert_called_once()
+
+
+def test_log_artifact_no_fallback_when_multipart_enabled(
+    http_artifact_repo, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+
+    file_path = tmp_path / "file.bin"
+    file_path.write_bytes(b"x" * MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get())
+
+    with (
+        mock.patch.object(
+            http_artifact_repo,
+            "create_multipart_upload",
+            side_effect=HTTPError(
+                response=MockResponse(
+                    data={
+                        "message": "Multipart upload is not supported for the current "
+                        "artifact repository"
+                    },
+                    status_code=501,
+                )
+            ),
+        ),
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+        ) as mock_http_request,
+    ):
+        with pytest.raises(_UnsupportedMultipartUploadException):
+            http_artifact_repo.log_artifact(file_path)
+
+        mock_http_request.assert_not_called()
+
+
+def test_log_artifact_empty_file_uses_multipart_when_enabled(
+    http_artifact_repo, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+
+    file_path = tmp_path / "empty.txt"
+    file_path.write_bytes(b"")
+
+    with mock.patch.object(
+        http_artifact_repo, "_try_multipart_upload"
+    ) as mock_mpu:
+        http_artifact_repo.log_artifact(file_path)
+        mock_mpu.assert_called_once()
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
@@ -581,7 +647,7 @@ def test_download_file_multipart_success_does_not_call_proxy_download(
         mock_parent_download.assert_not_called()
 
 
-def test_download_file_fallback_when_presigned_not_supported(
+def test_download_file_raises_when_presigned_not_supported(
     mlflow_artifact_repo_for_download, tmp_path, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
@@ -589,12 +655,35 @@ def test_download_file_fallback_when_presigned_not_supported(
     remote_file_path = "test.txt"
 
     mock_response = mock.MagicMock()
-    mock_response.status_code = 501  # Not Implemented
+    mock_response.status_code = 501
     mock_response.headers = {"Content-Type": "application/json"}
     mock_response.json.return_value = {
         "message": "Presigned URL download is not supported for the current artifact repository"
     }
 
+    with mock.patch.object(
+        mlflow_artifact_repo_for_download,
+        "_get_presigned_download_url",
+        side_effect=HTTPError(response=mock_response),
+    ):
+        file_path = tmp_path / "test.txt"
+        with pytest.raises(HTTPError):
+            mlflow_artifact_repo_for_download._download_file(
+                remote_file_path, str(file_path)
+            )
+
+
+def test_download_file_no_fallback_when_multipart_enabled(
+    mlflow_artifact_repo_for_download, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "true")
+    remote_file_path = "test.txt"
+    mock_response = mock.MagicMock()
+    mock_response.status_code = 501
+    mock_response.headers = {"Content-Type": "application/json"}
+    mock_response.json.return_value = {
+        "message": "Presigned URL download is not supported"
+    }
     with (
         mock.patch.object(
             mlflow_artifact_repo_for_download,
@@ -603,18 +692,14 @@ def test_download_file_fallback_when_presigned_not_supported(
         ),
         mock.patch(
             "mlflow.store.artifact.http_artifact_repo.http_request",
-            return_value=MockStreamResponse("data", 200),
         ) as mock_http_request,
     ):
         file_path = tmp_path / "test.txt"
-        mlflow_artifact_repo_for_download._download_file(remote_file_path, str(file_path))
-
-        mock_http_request.assert_called_once_with(
-            mlflow_artifact_repo_for_download._host_creds,
-            posixpath.join("/", remote_file_path),
-            "GET",
-            stream=True,
-        )
+        with pytest.raises(HTTPError):
+            mlflow_artifact_repo_for_download._download_file(
+                remote_file_path, str(file_path)
+            )
+        mock_http_request.assert_not_called()
 
 
 def test_download_file_multipart_disabled_uses_proxy(
@@ -711,3 +796,132 @@ def test_get_presigned_download_url(http_artifact_repo):
             f"/mlflow-artifacts/presigned/{remote_file_path}",
             "GET",
         )
+
+
+# Tests for server enforcement auto-enable
+
+
+def test_should_use_multipart_upload_true_when_env_var_set(http_artifact_repo, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    assert http_artifact_repo._should_use_multipart_upload() is True
+
+
+def test_should_use_multipart_upload_true_when_server_enforces(http_artifact_repo):
+    http_artifact_repo.__dict__["_server_enforcement"] = {
+        "enforce_proxy_multipart_upload": True,
+        "enforce_proxy_multipart_download": False,
+    }
+    assert http_artifact_repo._should_use_multipart_upload() is True
+
+
+def test_should_use_multipart_upload_false_by_default(http_artifact_repo):
+    http_artifact_repo.__dict__["_server_enforcement"] = {
+        "enforce_proxy_multipart_upload": False,
+        "enforce_proxy_multipart_download": False,
+    }
+    assert http_artifact_repo._should_use_multipart_upload() is False
+
+
+def test_server_enforcement_fetches_from_server_info(http_artifact_repo):
+    # Clear pre-seeded cache to test actual fetch behavior.
+    del http_artifact_repo.__dict__["_server_enforcement"]
+    response_data = {
+        "enforce_proxy_multipart_upload": True,
+        "enforce_proxy_multipart_download": True,
+    }
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse(response_data, 200),
+    ) as mock_request:
+        result = http_artifact_repo._server_enforcement
+        assert result["enforce_proxy_multipart_upload"] is True
+        assert result["enforce_proxy_multipart_download"] is True
+        mock_request.assert_called_once()
+        call_args = mock_request.call_args
+        assert call_args[0][0].host == "http://test.com"
+        assert call_args[0][1] == "/api/3.0/mlflow/server-info"
+        assert call_args[0][2] == "GET"
+        assert call_args[1]["timeout"] == 3
+
+
+def test_server_enforcement_defaults_on_failure(http_artifact_repo):
+    del http_artifact_repo.__dict__["_server_enforcement"]
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        side_effect=Exception("connection failed"),
+    ) as mock_request:
+        result = http_artifact_repo._server_enforcement
+        assert result["enforce_proxy_multipart_upload"] is False
+        assert result["enforce_proxy_multipart_download"] is False
+        mock_request.assert_called_once()
+
+
+def test_server_enforcement_defaults_on_old_server(http_artifact_repo):
+    del http_artifact_repo.__dict__["_server_enforcement"]
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockResponse({"store_type": "SqlStore"}, 200),
+    ) as mock_request:
+        result = http_artifact_repo._server_enforcement
+        assert result["enforce_proxy_multipart_upload"] is False
+        assert result["enforce_proxy_multipart_download"] is False
+        mock_request.assert_called_once()
+
+
+# Tests for download auto-enable via server enforcement
+
+
+def test_download_file_auto_enables_multipart_when_server_enforces(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", raising=False)
+
+    repo = MlflowArtifactsRepository(
+        artifact_uri="mlflow-artifacts:/",
+        tracking_uri="http://localhost:5000",
+    )
+    repo.__dict__["_server_enforcement"] = {
+        "enforce_proxy_multipart_upload": False,
+        "enforce_proxy_multipart_download": True,
+    }
+
+    presigned_response = PresignedDownloadUrlResponse(
+        url="https://s3.amazonaws.com/bucket/key?sig=abc",
+        headers={},
+        file_size=1000,
+    )
+
+    with (
+        mock.patch.object(
+            repo, "_get_presigned_download_url", return_value=presigned_response
+        ) as mock_presigned,
+        mock.patch.object(repo, "_multipart_download") as mock_multipart,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockStreamResponse("data", 200),
+        ),
+    ):
+        repo._download_file("artifact.bin", "/tmp/artifact.bin")
+        mock_presigned.assert_called_once_with("artifact.bin")
+        mock_multipart.assert_called_once()
+
+
+def test_download_file_no_multipart_when_not_enforced_and_env_var_off(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", raising=False)
+
+    repo = MlflowArtifactsRepository(
+        artifact_uri="mlflow-artifacts:/",
+        tracking_uri="http://localhost:5000",
+    )
+    repo.__dict__["_server_enforcement"] = {
+        "enforce_proxy_multipart_upload": False,
+        "enforce_proxy_multipart_download": False,
+    }
+
+    with (
+        mock.patch.object(repo, "_get_presigned_download_url") as mock_presigned,
+        mock.patch(
+            "mlflow.store.artifact.http_artifact_repo.http_request",
+            return_value=MockStreamResponse("data", 200),
+        ),
+    ):
+        repo._download_file("artifact.bin", "/tmp/artifact.bin")
+        mock_presigned.assert_not_called()

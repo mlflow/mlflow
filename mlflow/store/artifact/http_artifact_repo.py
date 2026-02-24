@@ -1,8 +1,10 @@
+import functools
 import logging
 import os
 import posixpath
 import time
 from concurrent.futures import as_completed
+from urllib.parse import urlparse, urlunparse
 
 import requests
 from requests import HTTPError
@@ -15,11 +17,11 @@ from mlflow.entities.multipart_upload import (
 )
 from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD,
     MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
-    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -67,20 +69,46 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     def _host_creds(self):
         return get_default_host_creds(self.artifact_uri)
 
+    @functools.cached_property
+    def _server_enforcement(self):
+        try:
+            parsed = urlparse(self.artifact_uri)
+            base_url = urlunparse((parsed.scheme, parsed.netloc, "", "", "", ""))
+            creds = get_default_host_creds(base_url)
+            resp = http_request(creds, "/api/3.0/mlflow/server-info", "GET", timeout=3)
+            if resp.status_code == 200:
+                data = resp.json()
+                return {
+                    "enforce_proxy_multipart_upload": data.get(
+                        "enforce_proxy_multipart_upload", False
+                    ),
+                    "enforce_proxy_multipart_download": data.get(
+                        "enforce_proxy_multipart_download", False
+                    ),
+                }
+        except Exception:
+            pass
+        return {
+            "enforce_proxy_multipart_upload": False,
+            "enforce_proxy_multipart_download": False,
+        }
+
+    def _should_use_multipart_upload(self):
+        if MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get():
+            return True
+        return self._server_enforcement["enforce_proxy_multipart_upload"]
+
+    def _should_use_multipart_download(self):
+        if MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD.get():
+            return True
+        return self._server_enforcement["enforce_proxy_multipart_download"]
+
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
 
-        # Try to perform multipart upload if the file is large.
-        # If the server does not support, or if the upload failed, revert to normal upload.
-        if (
-            MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.get()
-            and os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
-        ):
-            try:
-                self._try_multipart_upload(local_file, artifact_path)
-                return
-            except _UnsupportedMultipartUploadException:
-                pass
+        if self._should_use_multipart_upload():
+            self._try_multipart_upload(local_file, artifact_path)
+            return
 
         file_name = os.path.basename(local_file)
         mime_type = _guess_mime_type(file_name)
@@ -328,7 +356,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         Raises UnsupportedMultipartUploadException if multipart upload is unsupported.
         """
         chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-        num_parts = _compute_num_chunks(local_file, chunk_size)
+        num_parts = max(1, _compute_num_chunks(local_file, chunk_size))
 
         try:
             create = self.create_multipart_upload(local_file, num_parts, artifact_path)
