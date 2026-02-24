@@ -284,7 +284,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
         </DropdownMenu.HintRow>
       </DropdownMenu.Item>
       <DropdownMenu.Item
-        componentId="mlflow.experiment-scorers.add-variable-expectations"
+        componentId="mlflow.experiment-scorers.add-variable-trace"
         onClick={(e) => {
           e.stopPropagation();
           appendVariable('{{ trace }}');
