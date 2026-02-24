@@ -1,7 +1,7 @@
 
 # MLflow with Docker Compose (PostgreSQL + S3-Compatible Storage)
 
-This directory provides multiple **Docker Compose** setups for running **MLflow** locally with a **PostgreSQL** backend store and one of several **S3-compatible artifact stores**.
+This directory provides a **Docker Compose** setup for running **MLflow** locally with a **PostgreSQL** backend store and an S3-compatible artifact stores like **RustFS**.
 
 Originally this stack included **MinIO**, but the repository now uses **RustFS**.
 
@@ -18,7 +18,7 @@ All variants share the same architecture:
   Stores MLflow’s metadata (experiments, runs, params, metrics).
 
 - **RustFS Artifact Storage**  
-  Stores model files and run artifacts. Four implementations are available:
+  Stores model files and run artifacts.
 
 ---
 
@@ -49,7 +49,7 @@ cd docker-compose
 
 ## 2. Configure Environment
 
-Copy and customize the environment file inside the chosen backend directory:
+Copy and customize the environment file:
 
 ```bash
 cp .env.dev.example .env
@@ -81,7 +81,7 @@ Example variables:
 - **RustFS**
   - `RUSTFS_CONSOLE_ENABLE=true`
   
-- **MLFlow**
+- **MLflow**
   - `MLFLOW_VERSION=latest`
   - `MLFLOW_HOST=0.0.0.0`
   - `MLFLOW_PORT=5000`
@@ -93,7 +93,7 @@ Example variables:
 
 ## 3. Launch the Stack
 
-From **inside the backend directory**:
+From **this directory**:
 
 ```bash
 docker compose up -d

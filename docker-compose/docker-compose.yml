@@ -40,14 +40,9 @@ services:
       - rustfs-data:/data
     restart: unless-stopped
     healthcheck:
-      test:
-        [
-          "CMD",
-          "sh", "-c",
-          "curl -f http://127.0.0.1:9000/health && curl -f http://127.0.0.1:9001/rustfs/console/health"
-        ]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "curl -s http://127.0.0.1:9000/health | grep -q '\"status\"\\s*:\\s*\"ok\"'"]
+      interval: 10s
+      timeout: 5s
       retries: 5
       start_period: 10s
 
@@ -57,7 +52,7 @@ services:
     container_name: mlflow-create-bucket
     depends_on:
       storage:
-        condition: service_started
+        condition: service_healthy
     entrypoint: >
       /bin/sh -c "
         set -e;
@@ -74,6 +69,8 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
       AWS_S3_ADDRESSING_STYLE: virtual
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
+      S3_BUCKET: ${S3_BUCKET}
     restart: "no"
 
   mlflow:
@@ -83,7 +80,7 @@ services:
       postgres:
         condition: service_healthy
       storage:
-        condition: service_started
+        condition: service_healthy
       create-bucket:
         condition: service_completed_successfully
     environment:
