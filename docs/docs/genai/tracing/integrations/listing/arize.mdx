@@ -115,6 +115,16 @@ This works because both MLflow and Phoenix register as span processors on the sa
 
 All OpenInference span kinds (`LLM`, `EMBEDDING`, `TOOL`, `RETRIEVER`, `AGENT`, `CHAIN`, `RERANKER`, `GUARDRAIL`, `EVALUATOR`) map 1-to-1 to the corresponding MLflow span type of the same name.
 
+## Batched Export
+
+By default, `mlflow.otel.autolog()` exports each trace synchronously as it completes. For high-throughput applications, you can enable batched export to buffer spans and send them in the background:
+
+```python
+mlflow.otel.autolog(batch=True)
+```
+
+Batched export uses OpenTelemetry's `BatchSpanProcessor`, which accumulates spans and flushes them periodically. This reduces per-request latency at the cost of a short delay before traces appear in the MLflow UI.
+
 ## Disable auto-tracing
 
 Auto tracing can be disabled globally by calling `mlflow.otel.autolog(disable=True)`.
