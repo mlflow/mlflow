@@ -34,7 +34,8 @@ const getBaseUrl = (baseUrl?: string): string => {
   return 'http://localhost:5000';
 };
 
-const DEFAULT_REQUEST_BODY_UNIFIED = JSON.stringify(
+// Default request body for MLflow Invocations (no endpoint name in body). Used for initial state and by getCodeExamples.
+const MLFLOW_INVOCATIONS_DEFAULT_BODY = JSON.stringify(
   {
     messages: [{ role: 'user', content: 'Hello, how are you?' }],
   },
@@ -42,42 +43,191 @@ const DEFAULT_REQUEST_BODY_UNIFIED = JSON.stringify(
   2,
 );
 
-const getUnifiedChatCompletionsDefaultBody = (endpointName: string): string =>
-  JSON.stringify(
-    {
-      model: endpointName,
-      messages: [{ role: 'user', content: 'How are you?' }],
-    },
-    null,
-    2,
-  );
+type TryItUnifiedVariant = 'mlflow-invocations' | 'chat-completions';
 
-const getPassthroughDefaultBody = (provider: Provider, endpointName: string): string => {
+const getTryItRequestUrl = (
+  base: string,
+  endpointName: string,
+  apiType: 'unified' | 'passthrough',
+  unifiedVariant: TryItUnifiedVariant,
+  provider: Provider,
+): string => {
+  if (apiType === 'unified') {
+    if (unifiedVariant === 'chat-completions') {
+      return `${base}/gateway/mlflow/v1/chat/completions`;
+    }
+    return `${base}/gateway/${endpointName}/mlflow/invocations`;
+  }
   switch (provider) {
     case 'openai':
-      return JSON.stringify({ model: endpointName, input: 'How are you?' }, null, 2);
+      return `${base}/gateway/openai/v1/responses`;
     case 'anthropic':
-      return JSON.stringify(
-        {
-          model: endpointName,
-          max_tokens: 1024,
-          messages: [{ role: 'user', content: 'How are you?' }],
-        },
-        null,
-        2,
-      );
+      return `${base}/gateway/anthropic/v1/messages`;
     case 'gemini':
-      return JSON.stringify(
-        {
-          contents: [{ parts: [{ text: 'How are you?' }] }],
-        },
-        null,
-        2,
-      );
+      return `${base}/gateway/gemini/v1beta/models/${endpointName}:generateContent`;
     default:
-      return DEFAULT_REQUEST_BODY_UNIFIED;
+      return `${base}/gateway/${endpointName}/mlflow/invocations`;
   }
 };
+
+type CodeExampleVariant = TryItUnifiedVariant | Provider;
+
+const getCodeExamples = (
+  base: string,
+  endpointName: string,
+  variant: CodeExampleVariant,
+): { curl: string; python: string; defaultBody: string } => {
+  switch (variant) {
+    case 'mlflow-invocations':
+      return {
+        curl: `curl -X POST ${base}/gateway/${endpointName}/mlflow/invocations \\
+  -H "Content-Type: application/json" \\
+  -d '{
+  "messages": [
+    {"role": "user", "content": "Hello, how are you?"}
+  ]
+}'`,
+        python: `import requests
+
+response = requests.post(
+    "${base}/gateway/${endpointName}/mlflow/invocations",
+    json={
+        "messages": [
+            {"role": "user", "content": "Hello, how are you?"}
+        ]
+    }
+)
+print(response.json())`,
+        defaultBody: MLFLOW_INVOCATIONS_DEFAULT_BODY,
+      };
+    case 'chat-completions':
+      return {
+        curl: `curl -X POST ${base}/gateway/mlflow/v1/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -d '{
+  "model": "${endpointName}",
+  "messages": [
+    {"role": "user", "content": "How are you?"}
+  ]
+}'`,
+        python: `from openai import OpenAI
+
+client = OpenAI(
+    base_url="${base}/gateway/mlflow/v1",
+    api_key="",  # API key not needed, configured server-side
+)
+
+messages = [{"role": "user", "content": "How are you?"}]
+
+response = client.chat.completions.create(
+    model="${endpointName}",  # Endpoint name as model
+    messages=messages,
+)
+print(response.choices[0].message)`,
+        defaultBody: JSON.stringify(
+          {
+            model: endpointName,
+            messages: [{ role: 'user', content: 'How are you?' }],
+          },
+          null,
+          2,
+        ),
+      };
+    case 'openai':
+      return {
+        curl: `curl -X POST ${base}/gateway/openai/v1/responses \\
+  -H "Content-Type: application/json" \\
+  -d '{
+  "model": "${endpointName}",
+  "input": "How are you?"
+}'`,
+        python: `from openai import OpenAI
+
+client = OpenAI(
+    base_url="${base}/gateway/openai/v1",
+    api_key="dummy",  # API key not needed, configured server-side
+)
+
+response = client.responses.create(
+    model="${endpointName}",
+    input="How are you?",
+)
+print(response.output_text)`,
+        defaultBody: JSON.stringify({ model: endpointName, input: 'How are you?' }, null, 2),
+      };
+    case 'anthropic':
+      return {
+        curl: `curl -X POST ${base}/gateway/anthropic/v1/messages \\
+  -H "Content-Type: application/json" \\
+  -d '{
+  "model": "${endpointName}",
+  "max_tokens": 1024,
+  "messages": [
+    {"role": "user", "content": "How are you?"}
+  ]
+}'`,
+        python: `import anthropic
+
+client = anthropic.Anthropic(
+    base_url="${base}/gateway/anthropic",
+    api_key="dummy",  # API key not needed, configured server-side
+)
+
+response = client.messages.create(
+    model="${endpointName}",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "How are you?"}],
+)
+print(response.content[0].text)`,
+        defaultBody: JSON.stringify(
+          {
+            model: endpointName,
+            max_tokens: 1024,
+            messages: [{ role: 'user', content: 'How are you?' }],
+          },
+          null,
+          2,
+        ),
+      };
+    case 'gemini':
+      return {
+        curl: `curl -X POST ${base}/gateway/gemini/v1beta/models/${endpointName}:generateContent \\
+  -H "Content-Type: application/json" \\
+  -d '{
+  "contents": [{
+    "parts": [{"text": "How are you?"}]
+  }]
+}'`,
+        python: `from google import genai
+
+# Configure with custom endpoint
+client = genai.Client(
+    api_key='dummy',
+    http_options={
+        'base_url': "${base}/gateway/gemini",
+    }
+)
+response = client.models.generate_content(
+    model="${endpointName}",
+    contents={'text': 'How are you?'},
+)
+client.close()
+print(response.candidates[0].content.parts[0].text)`,
+        defaultBody: JSON.stringify(
+          {
+            contents: [{ parts: [{ text: 'How are you?' }] }],
+          },
+          null,
+          2,
+        ),
+      };
+    default:
+      return getCodeExamples(base, endpointName, 'mlflow-invocations');
+  }
+};
+
+const getDefaultRequestBody = (endpointName: string, variant: CodeExampleVariant): string =>
+  getCodeExamples('', endpointName, variant).defaultBody;
 
 export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: EndpointUsageModalProps) => {
   const { theme } = useDesignSystemTheme();
@@ -90,7 +240,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
     'mlflow-invocations',
   );
   const [tryItProvider, setTryItProvider] = useState<Provider>('openai');
-  const [requestBody, setRequestBody] = useState(DEFAULT_REQUEST_BODY_UNIFIED);
+  const [requestBody, setRequestBody] = useState(MLFLOW_INVOCATIONS_DEFAULT_BODY);
   const [responseBody, setResponseBody] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -103,38 +253,19 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
       setTryItApiType('unified');
       setTryItUnifiedVariant('mlflow-invocations');
       setTryItProvider('openai');
-      setRequestBody(DEFAULT_REQUEST_BODY_UNIFIED);
+      setRequestBody(MLFLOW_INVOCATIONS_DEFAULT_BODY);
       setResponseBody('');
       setSendError(null);
     }
   }, [open]);
 
-  const tryItRequestUrl = useMemo(() => {
-    if (tryItApiType === 'unified') {
-      if (tryItUnifiedVariant === 'chat-completions') {
-        return `${base}/gateway/mlflow/v1/chat/completions`;
-      }
-      return `${base}/gateway/${endpointName}/mlflow/invocations`;
-    }
-    switch (tryItProvider) {
-      case 'openai':
-        return `${base}/gateway/openai/v1/responses`;
-      case 'anthropic':
-        return `${base}/gateway/anthropic/v1/messages`;
-      case 'gemini':
-        return `${base}/gateway/gemini/v1beta/models/${endpointName}:generateContent`;
-      default:
-        return `${base}/gateway/${endpointName}/mlflow/invocations`;
-    }
-  }, [base, endpointName, tryItApiType, tryItUnifiedVariant, tryItProvider]);
+  const tryItRequestUrl = useMemo(
+    () => getTryItRequestUrl(base, endpointName, tryItApiType, tryItUnifiedVariant, tryItProvider),
+    [base, endpointName, tryItApiType, tryItUnifiedVariant, tryItProvider],
+  );
 
   const tryItDefaultBody = useMemo(
-    () =>
-      tryItApiType === 'unified'
-        ? tryItUnifiedVariant === 'chat-completions'
-          ? getUnifiedChatCompletionsDefaultBody(endpointName)
-          : DEFAULT_REQUEST_BODY_UNIFIED
-        : getPassthroughDefaultBody(tryItProvider, endpointName),
+    () => getDefaultRequestBody(endpointName, tryItApiType === 'unified' ? tryItUnifiedVariant : tryItProvider),
     [tryItApiType, tryItUnifiedVariant, tryItProvider, endpointName],
   );
 
@@ -185,118 +316,6 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
     setResponseBody('');
     setSendError(null);
   }, [tryItDefaultBody]);
-  const mlflowInvocationsCurlExample = `curl -X POST ${base}/gateway/${endpointName}/mlflow/invocations \\
-  -H "Content-Type: application/json" \\
-  -d '{
-  "messages": [
-    {"role": "user", "content": "Hello, how are you?"}
-  ]
-}'`;
-
-  const mlflowInvocationsPythonExample = `import requests
-
-response = requests.post(
-    "${base}/gateway/${endpointName}/mlflow/invocations",
-    json={
-        "messages": [
-            {"role": "user", "content": "Hello, how are you?"}
-        ]
-    }
-)
-print(response.json())`;
-
-  const openaiChatCurlExample = `curl -X POST ${base}/gateway/mlflow/v1/chat/completions \\
-  -H "Content-Type: application/json" \\
-  -d '{
-  "model": "${endpointName}",
-  "messages": [
-    {"role": "user", "content": "How are you?"}
-  ]
-}'`;
-
-  const openaiChatPythonExample = `from openai import OpenAI
-
-client = OpenAI(
-    base_url="${base}/gateway/mlflow/v1",
-    api_key="",  # API key not needed, configured server-side
-)
-
-messages = [{"role": "user", "content": "How are you?"}]
-
-response = client.chat.completions.create(
-    model="${endpointName}",  # Endpoint name as model
-    messages=messages,
-)
-print(response.choices[0].message)`;
-
-  const openaiPassthroughCurlExample = `curl -X POST ${base}/gateway/openai/v1/responses \\
-  -H "Content-Type: application/json" \\
-  -d '{
-  "model": "${endpointName}",
-  "input": "How are you?"
-}'`;
-
-  const openaiPassthroughPythonExample = `from openai import OpenAI
-
-client = OpenAI(
-    base_url="${base}/gateway/openai/v1",
-    api_key="dummy",  # API key not needed, configured server-side
-)
-
-response = client.responses.create(
-    model="${endpointName}",
-    input="How are you?",
-)
-print(response.output_text)`;
-
-  const anthropicPassthroughCurlExample = `curl -X POST ${base}/gateway/anthropic/v1/messages \\
-  -H "Content-Type: application/json" \\
-  -d '{
-  "model": "${endpointName}",
-  "max_tokens": 1024,
-  "messages": [
-    {"role": "user", "content": "How are you?"}
-  ]
-}'`;
-
-  const anthropicPassthroughPythonExample = `import anthropic
-
-client = anthropic.Anthropic(
-    base_url="${base}/gateway/anthropic",
-    api_key="dummy",  # API key not needed, configured server-side
-)
-
-response = client.messages.create(
-    model="${endpointName}",
-    max_tokens=1024,
-    messages=[{"role": "user", "content": "How are you?"}],
-)
-print(response.content[0].text)`;
-
-  const geminiPassthroughCurlExample = `curl -X POST ${base}/gateway/gemini/v1beta/models/${endpointName}:generateContent \\
-  -H "Content-Type: application/json" \\
-  -d '{
-  "contents": [{
-    "parts": [{"text": "How are you?"}]
-  }]
-}'`;
-
-  const geminiPassthroughPythonExample = `from google import genai
-
-# Configure with custom endpoint
-client = genai.Client(
-    api_key='dummy',
-    http_options={
-        'base_url': "${base}/gateway/gemini",
-    }
-)
-response = client.models.generate_content(
-    model="${endpointName}",
-    contents={'text': 'How are you?'},
-)
-client.close()
-print(response.candidates[0].content.parts[0].text)`;
-
   const renderCodeExample = (label: string, code: string, language: 'text' | 'python' = 'text') => (
     <div css={{ marginBottom: theme.spacing.md }}>
       <div
@@ -388,11 +407,7 @@ print(response.candidates[0].content.parts[0].text)`;
                   onChange={({ target: { value } }) => {
                     setTryItApiType(value as 'unified' | 'passthrough');
                     setRequestBody(
-                      value === 'unified'
-                        ? tryItUnifiedVariant === 'chat-completions'
-                          ? getUnifiedChatCompletionsDefaultBody(endpointName)
-                          : DEFAULT_REQUEST_BODY_UNIFIED
-                        : getPassthroughDefaultBody(tryItProvider, endpointName),
+                      getDefaultRequestBody(endpointName, value === 'unified' ? tryItUnifiedVariant : tryItProvider),
                     );
                     setResponseBody('');
                     setSendError(null);
@@ -419,9 +434,7 @@ print(response.candidates[0].content.parts[0].text)`;
                     onChange={({ target: { value } }) => {
                       setTryItUnifiedVariant(value as 'mlflow-invocations' | 'chat-completions');
                       setRequestBody(
-                        value === 'chat-completions'
-                          ? getUnifiedChatCompletionsDefaultBody(endpointName)
-                          : DEFAULT_REQUEST_BODY_UNIFIED,
+                        getDefaultRequestBody(endpointName, value as 'mlflow-invocations' | 'chat-completions'),
                       );
                       setResponseBody('');
                       setSendError(null);
@@ -455,7 +468,7 @@ print(response.candidates[0].content.parts[0].text)`;
                     onChange={({ target: { value } }) => {
                       const provider = value as Provider;
                       setTryItProvider(provider);
-                      setRequestBody(getPassthroughDefaultBody(provider, endpointName));
+                      setRequestBody(getDefaultRequestBody(endpointName, provider));
                       setResponseBody('');
                       setSendError(null);
                     }}
@@ -631,8 +644,14 @@ print(response.candidates[0].content.parts[0].text)`;
                     description="MLflow invocations API description"
                   />
                 </Typography.Text>
-                {unifiedLanguage === 'curl' && renderCodeExample('cURL', mlflowInvocationsCurlExample, 'text')}
-                {unifiedLanguage === 'python' && renderCodeExample('Python', mlflowInvocationsPythonExample, 'python')}
+                {unifiedLanguage === 'curl' &&
+                  renderCodeExample('cURL', getCodeExamples(base, endpointName, 'mlflow-invocations').curl, 'text')}
+                {unifiedLanguage === 'python' &&
+                  renderCodeExample(
+                    'Python',
+                    getCodeExamples(base, endpointName, 'mlflow-invocations').python,
+                    'python',
+                  )}
               </div>
 
               <div>
@@ -648,8 +667,10 @@ print(response.candidates[0].content.parts[0].text)`;
                     description="OpenAI compatible API description"
                   />
                 </Typography.Text>
-                {unifiedLanguage === 'curl' && renderCodeExample('cURL', openaiChatCurlExample, 'text')}
-                {unifiedLanguage === 'python' && renderCodeExample('Python', openaiChatPythonExample, 'python')}
+                {unifiedLanguage === 'curl' &&
+                  renderCodeExample('cURL', getCodeExamples(base, endpointName, 'chat-completions').curl, 'text')}
+                {unifiedLanguage === 'python' &&
+                  renderCodeExample('Python', getCodeExamples(base, endpointName, 'chat-completions').python, 'python')}
               </div>
             </div>
           </Tabs.Content>
@@ -711,22 +732,22 @@ print(response.candidates[0].content.parts[0].text)`;
 
                 {selectedProvider === 'openai' &&
                   selectedLanguage === 'curl' &&
-                  renderCodeExample('cURL', openaiPassthroughCurlExample, 'text')}
+                  renderCodeExample('cURL', getCodeExamples(base, endpointName, 'openai').curl, 'text')}
                 {selectedProvider === 'openai' &&
                   selectedLanguage === 'python' &&
-                  renderCodeExample('Python', openaiPassthroughPythonExample, 'python')}
+                  renderCodeExample('Python', getCodeExamples(base, endpointName, 'openai').python, 'python')}
                 {selectedProvider === 'anthropic' &&
                   selectedLanguage === 'curl' &&
-                  renderCodeExample('cURL', anthropicPassthroughCurlExample, 'text')}
+                  renderCodeExample('cURL', getCodeExamples(base, endpointName, 'anthropic').curl, 'text')}
                 {selectedProvider === 'anthropic' &&
                   selectedLanguage === 'python' &&
-                  renderCodeExample('Python', anthropicPassthroughPythonExample, 'python')}
+                  renderCodeExample('Python', getCodeExamples(base, endpointName, 'anthropic').python, 'python')}
                 {selectedProvider === 'gemini' &&
                   selectedLanguage === 'curl' &&
-                  renderCodeExample('cURL', geminiPassthroughCurlExample, 'text')}
+                  renderCodeExample('cURL', getCodeExamples(base, endpointName, 'gemini').curl, 'text')}
                 {selectedProvider === 'gemini' &&
                   selectedLanguage === 'python' &&
-                  renderCodeExample('Python', geminiPassthroughPythonExample, 'python')}
+                  renderCodeExample('Python', getCodeExamples(base, endpointName, 'gemini').python, 'python')}
               </div>
             </div>
           </Tabs.Content>
