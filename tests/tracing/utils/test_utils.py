@@ -644,7 +644,7 @@ def test_litellm_debug_info_suppressed_during_cost_calculation():
 
     with mock.patch("litellm.cost_per_token", side_effect=mock_cost_per_token):
         result = calculate_cost_by_model_and_token_usage(
-            model_name="databricks-claude-sonnet-4-5",
+            model_name="gpt-4o",
             usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
         )
 
@@ -659,14 +659,16 @@ def test_litellm_suppress_debug_info_restored_after_cost_calculation():
 
     with mock.patch("litellm.cost_per_token", side_effect=Exception("unknown")):
         calculate_cost_by_model_and_token_usage(
-            model_name="databricks-claude-sonnet-4-5",
+            model_name="gpt-4o",
             usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
         )
 
     assert litellm.suppress_debug_info is False
 
 
-def test_litellm_debug_info_not_suppressed_for_non_databricks_models():
+def test_litellm_debug_info_not_suppressed_when_debug_logging():
+    import logging
+
     captured = {}
 
     def mock_cost_per_token(**kwargs):
@@ -675,14 +677,16 @@ def test_litellm_debug_info_not_suppressed_for_non_databricks_models():
         captured["suppress_debug_info"] = litellm.suppress_debug_info
         raise Exception("unknown model")
 
-    import litellm
-
-    litellm.suppress_debug_info = False
-
-    with mock.patch("litellm.cost_per_token", side_effect=mock_cost_per_token):
-        calculate_cost_by_model_and_token_usage(
-            model_name="gpt-4o",
-            usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
-        )
+    _logger = logging.getLogger("mlflow.tracing.utils")
+    original_level = _logger.level
+    _logger.setLevel(logging.DEBUG)
+    try:
+        with mock.patch("litellm.cost_per_token", side_effect=mock_cost_per_token):
+            calculate_cost_by_model_and_token_usage(
+                model_name="gpt-4o",
+                usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
+            )
+    finally:
+        _logger.setLevel(original_level)
 
     assert captured["suppress_debug_info"] is False

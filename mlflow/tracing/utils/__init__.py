@@ -304,43 +304,41 @@ def calculate_cost_by_model_and_token_usage(
     if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
         cache_kwargs["cache_creation_input_tokens"] = created
 
-    # Suppress litellm debug messages (e.g. "Provider List: ...") that are printed
-    # when litellm doesn't recognize a model name like "databricks-claude-sonnet-4-5".
+    # Suppress litellm debug messages (e.g. "Provider List: ...") unless
+    # MLflow's logger is set to DEBUG level.
     original_suppress = getattr(litellm, "suppress_debug_info", False)
-    if model_name.startswith("databricks"):
-        litellm.suppress_debug_info = True
+    litellm.suppress_debug_info = not _logger.isEnabledFor(logging.DEBUG)
     try:
-        try:
-            input_cost_usd, output_cost_usd = cost_per_token(
-                model=model_name,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                **cache_kwargs,
-            )
-        except Exception as e:
-            if model_provider:
-                # pass model_provider only in exception case to avoid invalid model_provider
-                # being used when model_name itself is enough to calculate cost, since
-                # model_provider field can be with any value and litellm may not support it.
-                try:
-                    input_cost_usd, output_cost_usd = cost_per_token(
-                        model=model_name,
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        custom_llm_provider=model_provider,
-                        **cache_kwargs,
-                    )
-                except Exception as e:
-                    _logger.debug(
-                        f"Failed to calculate cost for model {model_name}: {e}", exc_info=True
-                    )
-                    return None
-            else:
+        input_cost_usd, output_cost_usd = cost_per_token(
+            model=model_name,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            **cache_kwargs,
+        )
+    except Exception as e:
+        if model_provider:
+            # pass model_provider only in exception case to avoid invalid model_provider
+            # being used when model_name itself is enough to calculate cost, since
+            # model_provider field can be with any value and litellm may not support it.
+            try:
+                input_cost_usd, output_cost_usd = cost_per_token(
+                    model=model_name,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    custom_llm_provider=model_provider,
+                    **cache_kwargs,
+                )
+            except Exception as e:
                 _logger.debug(
-                    f"Failed to calculate cost for model {model_name} without provider: {e}",
-                    exc_info=True,
+                    f"Failed to calculate cost for model {model_name}: {e}", exc_info=True
                 )
                 return None
+        else:
+            _logger.debug(
+                f"Failed to calculate cost for model {model_name} without provider: {e}",
+                exc_info=True,
+            )
+            return None
     finally:
         litellm.suppress_debug_info = original_suppress
 
