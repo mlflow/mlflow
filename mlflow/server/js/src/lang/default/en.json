@@ -758,6 +758,10 @@
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search models"
   },
+  "3cn8ue": {
+    "defaultMessage": "Sending...",
+    "description": "Send request button loading state"
+  },
   "3geT+I": {
     "defaultMessage": "Use the log artifact APIs to store file outputs from MLflow runs.",
     "description": "Information in the empty state explaining how one could log artifacts output files for the experiment runs"
@@ -4676,6 +4680,10 @@
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
   },
+  "VtABeJ": {
+    "defaultMessage": "JSON body for the MLflow Invocations API. Use \"messages\" for chat or \"input\" for embeddings.",
+    "description": "Request body tooltip for unified API"
+  },
   "Vvn8Cb": {
     "defaultMessage": "Open dataset",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
@@ -6823,6 +6831,10 @@
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
     "description": "Evaluation review > assessments > tooltip > edited by human"
   },
+  "kICSro": {
+    "defaultMessage": "JSON body for the {providerName} API. This payload is sent directly to the provider in its native format.",
+    "description": "Request body tooltip for passthrough provider"
+  },
   "kIESP/": {
     "defaultMessage": "Filter applies to the first trace in each session. Only run on sessions where the first trace matches this filter; leave blank to run on all. Uses MLflow {link}.",
     "description": "Hint text for filter string input for session-level scorers"
@@ -7390,10 +7402,6 @@
   "o2qOGQ": {
     "defaultMessage": "Total",
     "description": "Label for total cost"
-  },
-  "o4Pk8Y": {
-    "defaultMessage": "JSON body for the MLflow Invocations API. Use \"messages\" for chat or \"input\" for embeddings.",
-    "description": "Request body tooltip"
   },
   "o5AS8R": {
     "defaultMessage": "Custom code judge",
