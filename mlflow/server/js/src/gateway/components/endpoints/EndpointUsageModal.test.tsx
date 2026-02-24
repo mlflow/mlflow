@@ -22,15 +22,19 @@ describe('EndpointUsageModal', () => {
     expect(screen.queryByText('Query endpoint')).not.toBeInTheDocument();
   });
 
-  test('renders unified APIs tab by default', () => {
+  test('renders Try it tab by default', () => {
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
 
-    expect(screen.getByText('MLflow Invocations API')).toBeInTheDocument();
-    expect(screen.getByText('OpenAI-Compatible Chat Completions API')).toBeInTheDocument();
+    expect(screen.getByText('Send request')).toBeInTheDocument();
+    expect(screen.getByText('Request')).toBeInTheDocument();
+    expect(screen.getByText('Response')).toBeInTheDocument();
   });
 
-  test('renders language selector in unified APIs tab', () => {
+  test('renders language selector in unified APIs tab', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    await userEvent.click(screen.getByText('Unified APIs'));
 
     // Verify language selector is rendered with both options
     expect(screen.getByRole('radio', { name: /cURL/ })).toBeInTheDocument();
@@ -42,8 +46,11 @@ describe('EndpointUsageModal', () => {
     expect(curlElements.length).toBe(2); // MLflow Invocations and OpenAI-Compatible both show cURL
   });
 
-  test('shows code examples with endpoint name in unified APIs', () => {
+  test('shows code examples with endpoint name in unified APIs', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    await userEvent.click(screen.getByText('Unified APIs'));
 
     // The endpoint name appears in multiple code examples, so use getAllByText
     const matchingElements = screen.getAllByText(/gateway\/test-endpoint\/mlflow\/invocations/);
@@ -54,7 +61,6 @@ describe('EndpointUsageModal', () => {
     const userEvent = (await import('@testing-library/user-event')).default;
 
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-
     await userEvent.click(screen.getByText('Passthrough APIs'));
 
     expect(screen.getByText('Provider')).toBeInTheDocument();
@@ -110,7 +116,8 @@ describe('EndpointUsageModal', () => {
     expect(screen.getByText(/curl -X POST/)).toBeInTheDocument();
   });
 
-  test('uses window.location.origin when baseUrl is not provided', () => {
+  test('uses window.location.origin when baseUrl is not provided', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
     const originalLocation = window.location;
     Object.defineProperty(window, 'location', {
       value: { origin: 'http://custom-origin:8080' },
@@ -118,6 +125,7 @@ describe('EndpointUsageModal', () => {
     });
 
     renderWithDesignSystem(<EndpointUsageModal open onClose={jest.fn()} endpointName="my-endpoint" />);
+    await userEvent.click(screen.getByText('Unified APIs'));
 
     // The URL should appear in multiple code examples, so use getAllByText
     const matchingElements = screen.getAllByText(/http:\/\/custom-origin:8080\/gateway\/my-endpoint/);
@@ -126,8 +134,11 @@ describe('EndpointUsageModal', () => {
     Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
   });
 
-  test('renders copy buttons for code examples', () => {
+  test('renders copy buttons for code examples', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    await userEvent.click(screen.getByText('Unified APIs'));
 
     const copyButtons = screen.getAllByRole('button');
     expect(copyButtons.length).toBeGreaterThan(0);
