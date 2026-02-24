@@ -85,14 +85,15 @@ export const GatewayUsagePage = () => {
   }, [showAllEndpoints, endpointsWithExperiments, selectedEndpoint]);
 
   const tooltipLinkUrlBuilder = useMemo(() => {
-    if (!selectedEndpoint) return undefined;
-    return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) =>
-      GatewayRoutes.getEndpointDetailsRoute(selectedEndpoint.endpoint_id, {
-        tab: 'traces',
-        startTime: new Date(timestampMs).toISOString(),
-        endTime: new Date(timestampMs + timeIntervalSeconds * 1000).toISOString(),
-      });
-  }, [selectedEndpoint]);
+    return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) => {
+      const params = new URLSearchParams();
+      params.set('tab', 'logs');
+      params.set('startTimeLabel', 'CUSTOM');
+      params.set('startTime', new Date(timestampMs).toISOString());
+      params.set('endTime', new Date(timestampMs + timeIntervalSeconds * 1000).toISOString());
+      return `${GatewayRoutes.usagePageRoute}?${params.toString()}`;
+    };
+  }, []);
 
   // Build filters from selected user ID
   const filters = useMemo(() => {
@@ -279,7 +280,6 @@ export const GatewayUsagePage = () => {
             <GatewayChartsPanel
               experimentIds={experimentIds}
               showTokenStats
-              hideTooltipLinks={showAllEndpoints}
               tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
               tooltipLinkText={
                 <FormattedMessage
