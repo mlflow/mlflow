@@ -609,7 +609,7 @@ class _MismatchedPackageInfo(NamedTuple):
         return f"{self.package_name} (current: {current_status}, required: {self.requirement})"
 
 
-def _check_requirement_satisfied(requirement_str):
+def _check_requirement_satisfied(requirement_str: str) -> _MismatchedPackageInfo | None:
     """
     Checks whether the current python environment satisfies the given requirement if it is parsable
     as a package name and a set of version specifiers, and returns a `_MismatchedPackageInfo`
@@ -624,6 +624,8 @@ def _check_requirement_satisfied(requirement_str):
         # Extracting the package name from the requirement string is not trivial,
         # so we skip the check.
         return
+    if req.marker and not req.marker.evaluate():
+        return None
     pkg_name = req.name
 
     try:
