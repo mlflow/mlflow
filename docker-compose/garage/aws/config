@@ -1,0 +1,3 @@
+[default]
+s3 =
+    addressing_style = path

@@ -1,0 +1,9 @@
+# Fase 1: prendiamo il binario 'garage' dall'immagine ufficiale
+FROM dxflrs/garage:v2.2.0 AS garage
+
+# Fase 2: ambiente shell minimale per scripting
+FROM alpine:3.19
+COPY --from=garage /garage /garage
+COPY garage-init.sh /usr/local/bin/garage-init.sh
+RUN chmod +x /usr/local/bin/garage-init.sh
+ENTRYPOINT ["/bin/sh","-c"]
