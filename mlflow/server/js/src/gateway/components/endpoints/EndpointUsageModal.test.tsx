@@ -1,7 +1,7 @@
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { fireEvent } from '@testing-library/react';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
-import * as FetchUtils from '../../../common/utils/FetchUtils';
+import { getDefaultHeaders } from '../../../common/utils/FetchUtils';
 import { EndpointUsageModal } from './EndpointUsageModal';
 
 jest.mock('../../../common/utils/FetchUtils', () => {
@@ -198,8 +198,8 @@ describe('EndpointUsageModal', () => {
       const userEvent = (await import('@testing-library/user-event')).default;
       const authHeaders = {
         Authorization: 'Bearer test-token',
-      } as ReturnType<typeof FetchUtils.getDefaultHeaders>;
-      jest.mocked(FetchUtils.getDefaultHeaders).mockReturnValueOnce(authHeaders);
+      } as ReturnType<typeof getDefaultHeaders>;
+      jest.mocked(getDefaultHeaders).mockReturnValueOnce(authHeaders);
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         text: () => Promise.resolve(JSON.stringify({ result: 'ok' })),
