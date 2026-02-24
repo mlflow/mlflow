@@ -2,7 +2,7 @@ import json
 import time
 from enum import Enum
 
-from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, EndpointConfig
+from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, EndpointConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
 )
@@ -183,12 +183,12 @@ class AmazonBedrockProvider(BaseProvider):
         self._client_created = 0
 
     def _client_expired(self):
-        if not self.bedrock_config.aws_config.aws_role_arn:
+        if not isinstance(self.bedrock_config.aws_config, AWSRole):
             return False
 
         return (
             (time.monotonic_ns() - self._client_created)
-            >= self.bedrock_config.aws_config.session_length_seconds * 1_000_000_000
+            >= (self.bedrock_config.aws_config.session_length_seconds) * 1_000_000_000,
         )
 
     def get_bedrock_client(self):
@@ -224,14 +224,7 @@ class AmazonBedrockProvider(BaseProvider):
     def _construct_client_args(self, session):
         aws_config = self.bedrock_config.aws_config
 
-        if isinstance(aws_config, AWSIdAndKey):
-            return {
-                "aws_access_key_id": aws_config.aws_access_key_id,
-                "aws_secret_access_key": aws_config.aws_secret_access_key,
-                "aws_session_token": aws_config.aws_session_token,
-            }
-
-        if aws_config.aws_role_arn:
+        if isinstance(aws_config, AWSRole):
             role = session.client(service_name="sts").assume_role(
                 RoleArn=aws_config.aws_role_arn,
                 RoleSessionName="ai-gateway-bedrock",
@@ -242,8 +235,15 @@ class AmazonBedrockProvider(BaseProvider):
                 "aws_secret_access_key": role["Credentials"]["SecretAccessKey"],
                 "aws_session_token": role["Credentials"]["SessionToken"],
             }
-
-        return {}
+        elif isinstance(aws_config, AWSIdAndKey):
+            return {
+                "aws_access_key_id": aws_config.aws_access_key_id,
+                "aws_secret_access_key": aws_config.aws_secret_access_key,
+                "aws_session_token": aws_config.aws_session_token,
+            }
+        else:
+            # TODO: handle session token authentication
+            return {}
 
     @property
     def _underlying_provider(self):
