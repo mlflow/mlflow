@@ -5,7 +5,6 @@ volumes:
   rustfs-data:
 
 services:
-
   postgres:
     image: postgres:15
     container_name: mlflow-postgres
@@ -40,12 +39,12 @@ services:
       - rustfs-data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://127.0.0.1:9000/health | grep -q '\"status\"\\s*:\\s*\"ok\"'"]
+      test:
+        ["CMD-SHELL", "curl -s http://127.0.0.1:9000/health | grep -q '\"status\"\\s*:\\s*\"ok\"'"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
-
 
   create-bucket:
     image: amazon/aws-cli:2.33.25
@@ -105,7 +104,6 @@ services:
       "
     ports:
       - "${MLFLOW_PORT}:${MLFLOW_PORT}"
-
 
 networks:
   default:
