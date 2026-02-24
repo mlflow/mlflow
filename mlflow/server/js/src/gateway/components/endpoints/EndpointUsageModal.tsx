@@ -460,10 +460,11 @@ print(response.candidates[0].content.parts[0].text)`;
                     value={requestBody}
                     onChange={(e) => setRequestBody(e.target.value)}
                     disabled={isSending}
-                    rows={10}
+                    rows={14}
                     css={{
                       fontFamily: 'monospace',
                       fontSize: theme.typography.fontSizeSm,
+                      minHeight: 220,
                     }}
                   />
                 </div>
@@ -496,7 +497,7 @@ print(response.candidates[0].content.parts[0].text)`;
                     componentId="mlflow.gateway.usage-modal.try-it.response"
                     value={responseBody}
                     readOnly
-                    rows={10}
+                    rows={14}
                     placeholder={
                       sendError ? undefined : isSending ? undefined : 'Click "Send request" to see the response here.'
                     }
@@ -504,6 +505,7 @@ print(response.candidates[0].content.parts[0].text)`;
                       fontFamily: 'monospace',
                       fontSize: theme.typography.fontSizeSm,
                       backgroundColor: theme.colors.backgroundSecondary,
+                      minHeight: 220,
                     }}
                   />
                   {sendError && (
