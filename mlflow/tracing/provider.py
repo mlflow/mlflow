@@ -26,6 +26,7 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocationBase,
     UCSchemaLocation,
+    UcTablePrefixLocation,
 )
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
@@ -320,6 +321,9 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
                 an MLflow experiment.
             - :py:class:`~mlflow.entities.trace_location.UCSchemaLocation`: Logs traces to a
                 Databricks Unity Catalog schema. Only available in Databricks.
+            - :py:class:`~mlflow.entities.trace_location.UcTablePrefixLocation`: Logs traces to
+                Databricks Unity Catalog tables using OTLP export. Requires OTLP environment
+                variables to be configured. Only available in Databricks.
 
         context_local: If False (default), the destination is set globally. If True, the destination
             is isolated per async task or thread, providing isolation in concurrent applications.
@@ -381,7 +385,7 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
             "The destination must be an instance of TraceLocation."
         )
 
-    if isinstance(destination, UCSchemaLocation) and (
+    if isinstance(destination, (UCSchemaLocation, UcTablePrefixLocation)) and (
         mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
     ):
         mlflow.set_tracking_uri("databricks")
@@ -480,6 +484,7 @@ def _initialize_tracer_provider(disabled=False):
     if not otel_service_name and not otel_resource_attributes:
         # Setting an empty resource to avoid triggering resource aggregation, which causes
         # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
+
         # Add telemetry resource: https://opentelemetry.io/docs/specs/semconv/resource/#telemetry-sdk
         resource = Resource(sdk_attributes)
     else:
@@ -562,6 +567,11 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
             processors.append(processor)
 
+        elif isinstance(trace_destination, UcTablePrefixLocation):
+            # Register location and create processor with filled table names
+            if processor := _get_processor_for_uc_table_prefix_destination(trace_destination):
+                processors.append(processor)
+
         elif isinstance(trace_destination, MlflowExperimentLocation):
             if is_in_databricks_model_serving_environment():
                 _logger.info(
@@ -577,6 +587,22 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         # Ignore OTLP (unless dual export is set and we should use OTLP)
         if not (should_use_otlp_exporter() and MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()):
             return processors
+    else:
+        # No user-specified destination. Check for Databricks telemetry destination ID
+        # to get the destination configuration from the backend.
+        if telemetry_destination_id := os.environ.get("DATABRICKS_TELEMETRY_DESTINATION_ID"):
+            if should_use_otlp_exporter():
+                # Use OTLP export for spans + REST API for TraceInfo
+                if processor := _get_uc_table_with_otel_processor(telemetry_destination_id):
+                    processors.append(processor)
+                    return processors
+            else:
+                # Use REST API export for both spans and TraceInfo
+                if processor := _get_uc_table_processor_from_storage_location(
+                    telemetry_destination_id
+                ):
+                    processors.append(processor)
+                    return processors
 
     # If no explicit trace destination OR we passed the dual exporter check, honor OTLP
     # configuration.
@@ -635,6 +661,220 @@ def _get_mlflow_span_processor(tracking_uri: str):
         span_exporter=exporter,
         export_metrics=should_export_otlp_metrics(),
     )
+
+
+def _create_uc_table_with_otel_processor(uc_location: UcTablePrefixLocation):
+    """
+    Create a UC table with OTLP span processor from a filled UcTablePrefixLocation.
+
+    This processor combines OTLP span export with TraceInfo persistence to UC tables.
+
+    Args:
+        uc_location: A filled UcTablePrefixLocation with table names populated.
+
+    Returns:
+        The span processor, or None if the location is invalid.
+    """
+    from mlflow.tracing.export.uc_table_with_otel import (
+        DatabricksUCTableWithOtelSpanExporter,
+    )
+    from mlflow.tracing.processor.uc_table_with_otel import (
+        DatabricksUCTableWithOtelSpanProcessor,
+    )
+
+    if not uc_location.catalog_name or not uc_location.schema_name:
+        _logger.warning(
+            "UcTablePrefixLocation is missing catalog_name or schema_name. Cannot create processor."
+        )
+        return None
+
+    otlp_exporter = get_otlp_exporter()
+    exporter = DatabricksUCTableWithOtelSpanExporter(
+        otlp_exporter=otlp_exporter,
+        tracking_uri=mlflow.get_tracking_uri(),
+    )
+    return DatabricksUCTableWithOtelSpanProcessor(
+        span_exporter=exporter,
+        uc_location=uc_location,
+        export_metrics=should_export_otlp_metrics(),
+    )
+
+
+def _create_uc_table_rest_processor(uc_location: UcTablePrefixLocation):
+    """
+    Create a UC table REST span processor from a filled UcTablePrefixLocation.
+
+    This processor uses REST API for both span export and TraceInfo persistence.
+
+    Args:
+        uc_location: A filled UcTablePrefixLocation with table names populated.
+
+    Returns:
+        The span processor, or None if the location is invalid.
+    """
+    from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+    from mlflow.tracing.processor.uc_table_from_storage_location import (
+        DatabricksUCTableFromStorageLocationSpanProcessor,
+    )
+
+    if not uc_location.catalog_name or not uc_location.schema_name:
+        _logger.warning(
+            "UcTablePrefixLocation is missing catalog_name or schema_name. Cannot create processor."
+        )
+        return None
+
+    if not uc_location.spans_table_name:
+        _logger.warning(
+            "UcTablePrefixLocation is missing spans_table_name. Cannot create processor."
+        )
+        return None
+
+    exporter = DatabricksUCTableSpanExporter(
+        tracking_uri=mlflow.get_tracking_uri(),
+        spans_table_name=uc_location.spans_table_name,
+    )
+    return DatabricksUCTableFromStorageLocationSpanProcessor(
+        span_exporter=exporter,
+        uc_location=uc_location,
+    )
+
+
+def _get_uc_table_with_otel_processor(telemetry_destination_id: str):
+    """
+    Get the UC table with OTLP span processor for the given telemetry destination ID.
+
+    Fetches the UcTablePrefixLocation from the backend and creates the processor.
+
+    Args:
+        telemetry_destination_id: The telemetry destination ID to fetch
+            configuration from.
+
+    Returns:
+        The span processor, or None if the UcTablePrefixLocation could not be fetched.
+    """
+    try:
+        uc_location = _fetch_uc_storage_location(telemetry_destination_id)
+        if uc_location is None:
+            _logger.warning(
+                f"Failed to fetch UcTablePrefixLocation for destination ID "
+                f"'{telemetry_destination_id}'. Falling back to default tracing "
+                "configuration."
+            )
+            return None
+        return _create_uc_table_with_otel_processor(uc_location)
+    except Exception as e:
+        _logger.warning(
+            f"Failed to initialize UC table with OTLP processor: {e}. "
+            "Falling back to default tracing configuration."
+        )
+        return None
+
+
+def _get_uc_table_processor_from_storage_location(telemetry_destination_id: str):
+    """
+    Get the UC table span processor for the given telemetry destination ID.
+
+    Fetches the UcTablePrefixLocation from the backend and creates the processor.
+
+    Args:
+        telemetry_destination_id: The telemetry destination ID to fetch
+            configuration from.
+
+    Returns:
+        The span processor, or None if the UcTablePrefixLocation could not be fetched.
+    """
+    try:
+        uc_location = _fetch_uc_storage_location(telemetry_destination_id)
+        if uc_location is None:
+            _logger.warning(
+                f"Failed to fetch UcTablePrefixLocation for destination ID "
+                f"'{telemetry_destination_id}'. Falling back to default tracing "
+                "configuration."
+            )
+            return None
+        return _create_uc_table_rest_processor(uc_location)
+    except Exception as e:
+        _logger.warning(
+            f"Failed to initialize UC table processor from storage location: {e}. "
+            "Falling back to default tracing configuration."
+        )
+        return None
+
+
+def _get_processor_for_uc_table_prefix_destination(uc_location: UcTablePrefixLocation):
+    """
+    Get the span processor for a UcTablePrefixLocation destination.
+
+    This is used when the user calls set_destination(UcTablePrefixLocation(...)).
+    It registers the location with the backend to get filled table names, then
+    creates the REST-based processor (consistent with UCSchemaLocation behavior).
+
+    Args:
+        uc_location: The UcTablePrefixLocation from set_destination (without table names).
+
+    Returns:
+        The span processor, or None if registration or processor creation fails.
+    """
+    try:
+        filled_location = _register_uc_table_prefix_location(uc_location)
+        if filled_location is None:
+            _logger.warning(
+                "Failed to register UcTablePrefixLocation. "
+                "Falling back to default tracing configuration."
+            )
+            return None
+
+        # Use REST-based processor (consistent with UCSchemaLocation handling)
+        # OTLP is only used when destination comes from DATABRICKS_TELEMETRY_DESTINATION_ID
+        return _create_uc_table_rest_processor(filled_location)
+    except Exception as e:
+        _logger.warning(
+            f"Failed to initialize processor for UcTablePrefixLocation: {e}. "
+            "Falling back to default tracing configuration."
+        )
+        return None
+
+
+def _register_uc_table_prefix_location(uc_location: UcTablePrefixLocation):
+    """
+    Register a UcTablePrefixLocation with the backend and get filled table names.
+
+    Args:
+        uc_location: The UcTablePrefixLocation with catalog, schema, and table_prefix.
+
+    Returns:
+        The filled UcTablePrefixLocation with table names, or None if registration fails.
+    """
+    from mlflow.tracing.client import TracingClient
+
+    tracking_uri = mlflow.get_tracking_uri()
+    try:
+        client = TracingClient(tracking_uri)
+        return client.create_uc_table_prefix_location(uc_location)
+    except Exception as e:
+        _logger.warning(f"Failed to register UcTablePrefixLocation: {e}")
+        return None
+
+
+def _fetch_uc_storage_location(telemetry_destination_id: str):
+    """
+    Fetch the UcTablePrefixLocation from the backend for the given destination ID.
+
+    Args:
+        telemetry_destination_id: The telemetry destination ID.
+
+    Returns:
+        The UcTablePrefixLocation, or None if it could not be fetched.
+    """
+    from mlflow.tracing.client import TracingClient
+
+    tracking_uri = mlflow.get_tracking_uri()
+    try:
+        client = TracingClient(tracking_uri)
+        return client.get_trace_uc_storage_location(telemetry_destination_id)
+    except Exception as e:
+        _logger.warning(f"Failed to fetch UcTablePrefixLocation: {e}")
+        return None
 
 
 @raise_as_trace_exception
