@@ -29,7 +29,7 @@ SeaweedFS provides a distributed filesystem with an **S3 gateway**. We have two 
 
 1. Copy env and adjust values:
    ```bash
-   cp .env.example .env
+   cp .env.dev.example .env
    ```
 2. Start services:
    1. Simple setup

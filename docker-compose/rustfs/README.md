@@ -14,7 +14,7 @@
 
 1. Copy env and adjust values:
    ```bash
-   cp .env.example .env
+   cp .env.dev.example .env
    ```
 2. Start services:
    ```bash
