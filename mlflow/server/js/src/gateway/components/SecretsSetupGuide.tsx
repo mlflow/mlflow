@@ -2,13 +2,18 @@ import {
   Alert,
   CloudModelIcon,
   CopyIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
   NewWindowIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { useEffect, useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
+import { v4 as uuidv4 } from 'uuid';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
+import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
 
 const INSTALL_SNIPPET = `pip install "mlflow[genai]"`;
 
@@ -27,6 +32,18 @@ const GATEWAY_DOCS_URL = 'https://mlflow.org/docs/latest';
 
 export const GatewaySetupGuide = () => {
   const { theme } = useDesignSystemTheme();
+  const logTelemetryEvent = useLogTelemetryEvent();
+  const viewId = useMemo(() => uuidv4(), []);
+
+  useEffect(() => {
+    logTelemetryEvent({
+      componentId: 'mlflow.gateway.setup_guide',
+      componentViewId: viewId,
+      componentType: DesignSystemEventProviderComponentTypes.Card,
+      eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+      value: 'impression',
+    });
+  }, [logTelemetryEvent, viewId]);
 
   return (
     <div
