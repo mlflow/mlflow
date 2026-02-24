@@ -568,39 +568,61 @@ def _run_pipeline(
     )
 
     try:
-        heartbeat = _Heartbeat(predictor, scorer, len(eval_items))
+        if single_turn_scorers:
+            heartbeat = _Heartbeat(predictor, scorer, len(eval_items))
 
-        predictor.start()
-        pending: set[Future] = set()
-        items_predicted = 0
-        items_scored = 0
+            predictor.start()
+            pending: set[Future] = set()
+            items_predicted = 0
+            items_scored = 0
 
-        while items_scored < len(eval_items):
-            pending.update(predictor.drain(block=not pending))
-            predictor.check_error()
-            if not pending:
-                continue
+            while items_scored < len(eval_items):
+                pending.update(predictor.drain(block=not pending))
+                predictor.check_error()
+                if not pending:
+                    continue
 
-            heartbeat.tick(items_predicted, items_scored)
+                heartbeat.tick(items_predicted, items_scored)
 
-            # Timeout matches the heartbeat interval so the loop wakes periodically
-            # even if no futures complete, allowing the heartbeat to fire.
-            done, pending = wait(pending, timeout=heartbeat.interval, return_when=FIRST_COMPLETED)
-            for future in done:
-                if predictor.owns(future):
+                # Timeout matches the heartbeat interval so the loop wakes periodically
+                # even if no futures complete, allowing the heartbeat to fire.
+                done, pending = wait(
+                    pending, timeout=heartbeat.interval, return_when=FIRST_COMPLETED
+                )
+                for future in done:
+                    if predictor.owns(future):
+                        idx = predictor.on_complete(future)
+                        items_predicted += 1
+                        pending.add(scorer.submit(idx))
+                    else:
+                        idx, result = scorer.on_complete(future)
+                        _logger.debug(f"Score completed for item {idx}")
+                        eval_results[idx] = result
+                        predictor.release_slot()
+                        items_scored += 1
+                        if progress_bar:
+                            progress_bar.update(1)
+
+            predictor.join()
+        else:
+            # No single-turn scorers — run predictions to set up traces
+            # but skip the scoring pipeline and its progress ticks.
+            predictor.start()
+            pending: set[Future] = set()
+            items_done = 0
+            while items_done < len(eval_items):
+                pending.update(predictor.drain(block=not pending))
+                predictor.check_error()
+                if not pending:
+                    continue
+                done, pending = wait(pending, return_when=FIRST_COMPLETED)
+                for future in done:
                     idx = predictor.on_complete(future)
-                    items_predicted += 1
-                    pending.add(scorer.submit(idx))
-                else:
-                    idx, result = scorer.on_complete(future)
-                    _logger.debug(f"Score completed for item {idx}")
-                    eval_results[idx] = result
                     predictor.release_slot()
-                    items_scored += 1
-                    if progress_bar:
-                        progress_bar.update(1)
+                    eval_results[idx] = EvalResult(eval_item=eval_items[idx], assessments=[])
+                    items_done += 1
+            predictor.join()
 
-        predictor.join()
         # Multi-turn scorers run after single-turn scoring completes because they
         # operate on session groups and need fully scored traces.
         scorer.run_multi_turn(multi_turn_assessments, progress_bar)
@@ -633,7 +655,7 @@ def run(
 
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
     session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
-    total_tasks = len(eval_items) + len(session_groups)
+    total_tasks = (len(eval_items) if single_turn_scorers else 0) + len(session_groups)
 
     progress_bar = (
         tqdm(
