@@ -649,6 +649,25 @@ const buildTracesFromSearchAndArtifacts = (
   };
 };
 
+/**
+ * Escapes special characters in filter string values to help avoid malformed filter
+ * expressions and quote-termination issues in string literals.
+ * - Single quotes are escaped as '' (SQL-standard string literal escaping)
+ * - Non-string values are converted to strings
+ *
+ * Note: This utility only escapes literal values. It does not validate or sanitize
+ * operators, column names, or other parts of the filter expression and should not
+ * be relied upon as a complete SQL injection defense.
+ *
+ * LIKE/ILIKE wildcards (% and _) are NOT escaped because:
+ * 1. Escaping them would break non-LIKE operators (e.g., exact match with =)
+ * 2. MLflow's backend does not support escaping wildcards as literals in LIKE patterns
+ */
+const escapeFilterValue = (value: string | boolean | number | null | undefined): string => {
+  const stringValue = String(value);
+  return stringValue.replace(/'/g, "''");
+};
+
 export const createMlflowSearchFilter = (
   runUuid: string | null | undefined,
   timeRange?: { startTime?: string; endTime?: string } | null,
@@ -658,10 +677,10 @@ export const createMlflowSearchFilter = (
 ) => {
   const filter: string[] = [];
   if (runUuid) {
-    filter.push(`attributes.run_id = '${runUuid}'`);
+    filter.push(`attributes.run_id = '${escapeFilterValue(runUuid)}'`);
   }
   if (searchQuery) {
-    filter.push(`trace.text ILIKE '%${searchQuery}%'`);
+    filter.push(`trace.text ILIKE '%${escapeFilterValue(searchQuery)}%'`);
   }
   if (timeRange) {
     const timestampField = 'attributes.timestamp_ms';
@@ -673,7 +692,7 @@ export const createMlflowSearchFilter = (
     }
   }
   if (loggedModelId) {
-    filter.push(`request_metadata."mlflow.modelId" = '${loggedModelId}'`);
+    filter.push(`request_metadata."mlflow.modelId" = '${escapeFilterValue(loggedModelId)}'`);
   }
   if (networkFilters) {
     networkFilters.forEach((networkFilter) => {
@@ -686,7 +705,7 @@ export const createMlflowSearchFilter = (
               networkFilter.key.includes('.') || networkFilter.key.includes(' ')
                 ? `${tagField}.\`${networkFilter.key}\``
                 : `${tagField}.${networkFilter.key}`;
-            filter.push(`${fieldName} ${networkFilter.operator} '${networkFilter.value}'`);
+            filter.push(`${fieldName} ${networkFilter.operator} '${escapeFilterValue(networkFilter.value)}'`);
           }
           break;
         case EXECUTION_DURATION_COLUMN_ID:
@@ -695,26 +714,28 @@ export const createMlflowSearchFilter = (
           break;
         case STATE_COLUMN_ID:
           const statusField = 'attributes.status';
-          filter.push(`${statusField} = '${networkFilter.value}'`);
+          filter.push(`${statusField} = '${escapeFilterValue(networkFilter.value)}'`);
           break;
         case USER_COLUMN_ID:
-          filter.push(`request_metadata."mlflow.trace.user" = '${networkFilter.value}'`);
+          filter.push(`request_metadata."mlflow.trace.user" = '${escapeFilterValue(networkFilter.value)}'`);
           break;
         case RUN_NAME_COLUMN_ID:
-          filter.push(`attributes.run_id = '${networkFilter.value}'`);
+          filter.push(`attributes.run_id = '${escapeFilterValue(networkFilter.value)}'`);
           break;
         case LOGGED_MODEL_COLUMN_ID:
-          filter.push(`request_metadata."mlflow.modelId" = '${networkFilter.value}'`);
+          filter.push(`request_metadata."mlflow.modelId" = '${escapeFilterValue(networkFilter.value)}'`);
           break;
         // Only available in OSS
         case LINKED_PROMPTS_COLUMN_ID:
-          filter.push(`prompt = '${networkFilter.value}'`);
+          filter.push(`prompt = '${escapeFilterValue(networkFilter.value)}'`);
           break;
         case TRACE_NAME_COLUMN_ID:
-          filter.push(`attributes.name ${networkFilter.operator} '${networkFilter.value}'`);
+          filter.push(`attributes.name ${networkFilter.operator} '${escapeFilterValue(networkFilter.value)}'`);
           break;
         case SOURCE_COLUMN_ID:
-          filter.push(`request_metadata."mlflow.source.name" ${networkFilter.operator} '${networkFilter.value}'`);
+          filter.push(
+            `request_metadata."mlflow.source.name" ${networkFilter.operator} '${escapeFilterValue(networkFilter.value)}'`,
+          );
           break;
         case TracesTableColumnGroup.ASSESSMENT:
           // Handle IS NULL / IS NOT NULL operators for assessments
@@ -724,46 +745,54 @@ export const createMlflowSearchFilter = (
             networkFilter.operator === FilterOperator.IS_NOT_NULL
           ) {
             filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator}`);
-          } else if (networkFilter.value !== 'undefined') {
+          } else if (
+            networkFilter.value !== 'undefined' &&
+            networkFilter.value !== undefined &&
+            networkFilter.value !== null
+          ) {
             // Skip 'undefined' values - these must be filtered client-side since they represent
             // absence of an assessment, which cannot be queried on the backend
-            filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
+            filter.push(
+              `feedback.\`${networkFilter.key}\` ${networkFilter.operator} '${escapeFilterValue(networkFilter.value)}'`,
+            );
           }
           break;
         case TracesTableColumnGroup.EXPECTATION:
-          filter.push(`expectation.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
+          filter.push(
+            `expectation.\`${networkFilter.key}\` ${networkFilter.operator} '${escapeFilterValue(networkFilter.value)}'`,
+          );
           break;
         case SPAN_NAME_COLUMN_ID:
           if (networkFilter.operator === '=') {
             // Use ILIKE instead of = for case-insensitive matching (better UX for span name filtering)
-            filter.push(`span.name ILIKE '${networkFilter.value}'`);
+            filter.push(`span.name ILIKE '${escapeFilterValue(networkFilter.value)}'`);
           } else if (networkFilter.operator === 'CONTAINS') {
-            filter.push(`span.name ILIKE '%${networkFilter.value}%'`);
+            filter.push(`span.name ILIKE '%${escapeFilterValue(networkFilter.value)}%'`);
           } else {
-            filter.push(`span.name ${networkFilter.operator} '${networkFilter.value}'`);
+            filter.push(`span.name ${networkFilter.operator} '${escapeFilterValue(networkFilter.value)}'`);
           }
           break;
         case INPUTS_COLUMN_ID:
         case RESPONSE_COLUMN_ID:
-          filter.push(`${networkFilter.column} ${networkFilter.operator} '${networkFilter.value}'`);
+          filter.push(`${networkFilter.column} ${networkFilter.operator} '${escapeFilterValue(networkFilter.value)}'`);
           break;
         case SPAN_TYPE_COLUMN_ID:
           if (networkFilter.operator === '=') {
             // Use ILIKE instead of = for case-insensitive matching (better UX for span type filtering)
-            filter.push(`span.type ILIKE '${networkFilter.value}'`);
+            filter.push(`span.type ILIKE '${escapeFilterValue(networkFilter.value)}'`);
           } else if (networkFilter.operator === 'CONTAINS') {
-            filter.push(`span.type ILIKE '%${networkFilter.value}%'`);
+            filter.push(`span.type ILIKE '%${escapeFilterValue(networkFilter.value)}%'`);
           } else {
-            filter.push(`span.type ${networkFilter.operator} '${networkFilter.value}'`);
+            filter.push(`span.type ${networkFilter.operator} '${escapeFilterValue(networkFilter.value)}'`);
           }
           break;
         case SPAN_STATUS_COLUMN_ID:
           // Span status uses exact match (OK, ERROR, UNSET)
-          filter.push(`span.status ${networkFilter.operator} '${networkFilter.value}'`);
+          filter.push(`span.status ${networkFilter.operator} '${escapeFilterValue(networkFilter.value)}'`);
           break;
         case SPAN_CONTENT_COLUMN_ID:
           if (networkFilter.operator === 'CONTAINS') {
-            filter.push(`span.content ILIKE '%${networkFilter.value}%'`);
+            filter.push(`span.content ILIKE '%${escapeFilterValue(networkFilter.value)}%'`);
           }
           break;
         default:
@@ -772,9 +801,9 @@ export const createMlflowSearchFilter = (
             if (networkFilter.operator === HiddenFilterOperator.IS_NOT_NULL) {
               filter.push(`${columnKey} IS NOT NULL`);
             } else if (networkFilter.operator === FilterOperator.CONTAINS) {
-              filter.push(`${columnKey} ILIKE '%${networkFilter.value}%'`);
+              filter.push(`${columnKey} ILIKE '%${escapeFilterValue(networkFilter.value)}%'`);
             } else {
-              filter.push(`${columnKey} ${networkFilter.operator} '${networkFilter.value}'`);
+              filter.push(`${columnKey} ${networkFilter.operator} '${escapeFilterValue(networkFilter.value)}'`);
             }
           }
           break;
