@@ -42,6 +42,16 @@ const DEFAULT_REQUEST_BODY_UNIFIED = JSON.stringify(
   2,
 );
 
+const getUnifiedChatCompletionsDefaultBody = (endpointName: string): string =>
+  JSON.stringify(
+    {
+      model: endpointName,
+      messages: [{ role: 'user', content: 'How are you?' }],
+    },
+    null,
+    2,
+  );
+
 const getPassthroughDefaultBody = (provider: Provider, endpointName: string): string => {
   switch (provider) {
     case 'openai':
@@ -76,6 +86,9 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
   const [selectedLanguage, setSelectedLanguage] = useState<Language>('curl');
   const [unifiedLanguage, setUnifiedLanguage] = useState<Language>('curl');
   const [tryItApiType, setTryItApiType] = useState<'unified' | 'passthrough'>('unified');
+  const [tryItUnifiedVariant, setTryItUnifiedVariant] = useState<'mlflow-invocations' | 'chat-completions'>(
+    'mlflow-invocations',
+  );
   const [tryItProvider, setTryItProvider] = useState<Provider>('openai');
   const [requestBody, setRequestBody] = useState(DEFAULT_REQUEST_BODY_UNIFIED);
   const [responseBody, setResponseBody] = useState('');
@@ -88,6 +101,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
     if (open) {
       setActiveTab('try-it');
       setTryItApiType('unified');
+      setTryItUnifiedVariant('mlflow-invocations');
       setTryItProvider('openai');
       setRequestBody(DEFAULT_REQUEST_BODY_UNIFIED);
       setResponseBody('');
@@ -97,6 +111,9 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
 
   const tryItRequestUrl = useMemo(() => {
     if (tryItApiType === 'unified') {
+      if (tryItUnifiedVariant === 'chat-completions') {
+        return `${base}/gateway/mlflow/v1/chat/completions`;
+      }
       return `${base}/gateway/${endpointName}/mlflow/invocations`;
     }
     switch (tryItProvider) {
@@ -109,14 +126,16 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
       default:
         return `${base}/gateway/${endpointName}/mlflow/invocations`;
     }
-  }, [base, endpointName, tryItApiType, tryItProvider]);
+  }, [base, endpointName, tryItApiType, tryItUnifiedVariant, tryItProvider]);
 
   const tryItDefaultBody = useMemo(
     () =>
       tryItApiType === 'unified'
-        ? DEFAULT_REQUEST_BODY_UNIFIED
+        ? tryItUnifiedVariant === 'chat-completions'
+          ? getUnifiedChatCompletionsDefaultBody(endpointName)
+          : DEFAULT_REQUEST_BODY_UNIFIED
         : getPassthroughDefaultBody(tryItProvider, endpointName),
-    [tryItApiType, tryItProvider, endpointName],
+    [tryItApiType, tryItUnifiedVariant, tryItProvider, endpointName],
   );
 
   const handleSendRequest = useCallback(async () => {
@@ -370,7 +389,9 @@ print(response.candidates[0].content.parts[0].text)`;
                     setTryItApiType(value as 'unified' | 'passthrough');
                     setRequestBody(
                       value === 'unified'
-                        ? DEFAULT_REQUEST_BODY_UNIFIED
+                        ? tryItUnifiedVariant === 'chat-completions'
+                          ? getUnifiedChatCompletionsDefaultBody(endpointName)
+                          : DEFAULT_REQUEST_BODY_UNIFIED
                         : getPassthroughDefaultBody(tryItProvider, endpointName),
                     );
                     setResponseBody('');
@@ -379,13 +400,49 @@ print(response.candidates[0].content.parts[0].text)`;
                   css={{ marginBottom: theme.spacing.sm }}
                 >
                   <SegmentedControlButton value="unified">
-                    <FormattedMessage defaultMessage="Unified (MLflow Invocations)" description="Unified API option" />
+                    <FormattedMessage defaultMessage="Unified" description="Unified API option" />
                   </SegmentedControlButton>
                   <SegmentedControlButton value="passthrough">
                     <FormattedMessage defaultMessage="Passthrough" description="Passthrough API option" />
                   </SegmentedControlButton>
                 </SegmentedControlGroup>
               </div>
+              {tryItApiType === 'unified' && (
+                <div>
+                  <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+                    <FormattedMessage defaultMessage="Unified API" description="Unified API variant label" />
+                  </Typography.Text>
+                  <SegmentedControlGroup
+                    name="try-it-unified-variant"
+                    componentId="mlflow.gateway.usage-modal.try-it.unified-variant"
+                    value={tryItUnifiedVariant}
+                    onChange={({ target: { value } }) => {
+                      setTryItUnifiedVariant(value as 'mlflow-invocations' | 'chat-completions');
+                      setRequestBody(
+                        value === 'chat-completions'
+                          ? getUnifiedChatCompletionsDefaultBody(endpointName)
+                          : DEFAULT_REQUEST_BODY_UNIFIED,
+                      );
+                      setResponseBody('');
+                      setSendError(null);
+                    }}
+                    css={{ marginBottom: theme.spacing.sm }}
+                  >
+                    <SegmentedControlButton value="mlflow-invocations">
+                      <FormattedMessage
+                        defaultMessage="MLflow Invocations"
+                        description="Unified API variant: MLflow Invocations"
+                      />
+                    </SegmentedControlButton>
+                    <SegmentedControlButton value="chat-completions">
+                      <FormattedMessage
+                        defaultMessage="OpenAI Chat Completions"
+                        description="Unified API variant: OpenAI Chat Completions"
+                      />
+                    </SegmentedControlButton>
+                  </SegmentedControlGroup>
+                </div>
+              )}
               {tryItApiType === 'passthrough' && (
                 <div>
                   <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
@@ -434,10 +491,17 @@ print(response.candidates[0].content.parts[0].text)`;
                       componentId="mlflow.gateway.usage-modal.try-it.request-tooltip"
                       content={
                         tryItApiType === 'unified' ? (
-                          <FormattedMessage
-                            defaultMessage='JSON body for the MLflow Invocations API. Use "messages" for chat or "input" for embeddings.'
-                            description="Request body tooltip for unified API"
-                          />
+                          tryItUnifiedVariant === 'chat-completions' ? (
+                            <FormattedMessage
+                              defaultMessage='JSON body for the OpenAI-compatible Chat Completions API. Include "model" (endpoint name) and "messages".'
+                              description="Request body tooltip for unified Chat Completions API"
+                            />
+                          ) : (
+                            <FormattedMessage
+                              defaultMessage='JSON body for the MLflow Invocations API. Use "messages" for chat or "input" for embeddings.'
+                              description="Request body tooltip for unified MLflow Invocations API"
+                            />
+                          )
                         ) : (
                           <FormattedMessage
                             defaultMessage="JSON body for the {providerName} API. This payload is sent directly to the provider in its native format."

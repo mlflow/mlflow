@@ -243,8 +243,35 @@ describe('EndpointUsageModal', () => {
       await userEvent.click(screen.getByRole('radio', { name: 'Passthrough' }));
       expect(getRequestBodyTextarea().value).toContain('model');
 
-      await userEvent.click(screen.getByRole('radio', { name: 'Unified (MLflow Invocations)' }));
+      await userEvent.click(screen.getByRole('radio', { name: 'Unified' }));
       expect(getRequestBodyTextarea().value).toContain('messages');
+    });
+
+    test('Unified OpenAI Chat Completions variant updates request body and sends to chat completions URL', async () => {
+      const userEvent = (await import('@testing-library/user-event')).default;
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ choices: [{ message: { content: 'Hi' } }] })),
+      });
+
+      renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+      await userEvent.click(screen.getByRole('radio', { name: 'OpenAI Chat Completions' }));
+
+      expect(getRequestBodyTextarea().value).toContain('model');
+      expect(getRequestBodyTextarea().value).toContain('messages');
+      expect(getRequestBodyTextarea().value).toContain(defaultProps.endpointName);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).toHaveBeenCalledWith(
+        `${defaultProps.baseUrl}/gateway/mlflow/v1/chat/completions`,
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+        }),
+      );
+      expect(await screen.findByText(/Hi/)).toBeInTheDocument();
     });
 
     test('provider selection in Try it passthrough updates request body', async () => {
