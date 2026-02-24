@@ -23,6 +23,7 @@ from mlflow.entities.span import SpanType
 from mlflow.environment_variables import (
     MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
     MLFLOW_LOG_MODEL_COMPRESSION,
+    MLFLOW_UV_AUTO_DETECT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -1209,7 +1210,12 @@ def _save_model_with_class_artifacts_params(
     # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
-    uv_source_dir = uv_project_path or original_cwd
+    if uv_project_path is not None:
+        uv_source_dir = uv_project_path
+    elif MLFLOW_UV_AUTO_DETECT.get():
+        uv_source_dir = original_cwd
+    else:
+        uv_source_dir = None
 
     if conda_env is None:
         if pip_requirements is None:
@@ -1250,7 +1256,8 @@ def _save_model_with_class_artifacts_params(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     # Copy uv project files (uv.lock and pyproject.toml) if detected
-    copy_uv_project_files(dest_dir=path, source_dir=uv_source_dir)
+    if uv_source_dir is not None:
+        copy_uv_project_files(dest_dir=path, source_dir=uv_source_dir)
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
