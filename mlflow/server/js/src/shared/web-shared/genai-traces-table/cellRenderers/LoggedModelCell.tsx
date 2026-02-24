@@ -19,7 +19,7 @@ import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
 
 export const LoggedModelCell = (props: {
-  experimentId: string;
+  experimentId?: string;
   currentTraceInfo?: ModelTraceInfoV3;
   otherTraceInfo?: ModelTraceInfoV3;
   isComparing: boolean;
@@ -49,7 +49,7 @@ export const LoggedModelCell = (props: {
   );
 };
 
-const LoggedModelComponent = (props: { experimentId: string; modelId: string; isComparing: boolean }) => {
+const LoggedModelComponent = (props: { experimentId?: string; modelId: string; isComparing: boolean }) => {
   const { experimentId, modelId, isComparing } = props;
   const { theme } = useDesignSystemTheme();
 
@@ -68,39 +68,58 @@ const LoggedModelComponent = (props: { experimentId: string; modelId: string; is
     return <NullCell isComparing={isComparing} />;
   }
 
+  const content = (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        maxWidth: '100%',
+      }}
+    >
+      <ModelsIcon css={{ color: theme.colors.textPrimary, fontSize: 16 }} />
+      <Typography.Text css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {modelName}
+      </Typography.Text>
+    </div>
+  );
+
   return (
     <Tooltip componentId="mlflow.eval-runs.model-version-cell-tooltip" content={modelName}>
       <Tag
         componentId="mlflow.eval-runs.model-version-cell"
         id="model-version-cell"
-        css={{ width: 'fit-content', maxWidth: '100%', marginRight: 0, cursor: 'pointer' }}
+        css={{ width: 'fit-content', maxWidth: '100%', marginRight: 0, cursor: experimentId ? 'pointer' : undefined }}
       >
-        <Link
-          to={MlflowUtils.getLoggedModelPageRoute(experimentId, modelId)}
-          target="_blank"
-          css={{
-            maxWidth: '100%',
-            display: 'block',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-          title={modelName}
-        >
-          <div
+        {experimentId ? (
+          <Link
+            to={MlflowUtils.getLoggedModelPageRoute(experimentId, modelId)}
+            target="_blank"
             css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.xs,
               maxWidth: '100%',
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
+            title={modelName}
           >
-            <ModelsIcon css={{ color: theme.colors.textPrimary, fontSize: 16 }} />
-            <Typography.Text css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {modelName}
-            </Typography.Text>
-          </div>
-        </Link>
+            {content}
+          </Link>
+        ) : (
+          <span
+            css={{
+              maxWidth: '100%',
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={modelName}
+          >
+            {content}
+          </span>
+        )}
       </Tag>
     </Tooltip>
   );

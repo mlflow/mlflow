@@ -36,7 +36,7 @@ export const TableFilterItemValueInput = ({
   tableFilter: TableFilter;
   assessmentInfos: AssessmentInfo[];
   onChange: (tableFilter: TableFilter, index: number) => void;
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
 }) => {
   const intl = useIntl();
@@ -53,7 +53,7 @@ export const TableFilterItemValueInput = ({
   }, [tableFilter, index, onChange, localValue]);
 
   // Fetch runs data when the run name column is selected
-  const runsQuery = useGenAiExperimentRunsForComparison(experimentId);
+  const runsQuery = useGenAiExperimentRunsForComparison(experimentId ?? '', !experimentId);
 
   // Transform runs data into the format expected by TableFilterItemTypeahead
   const runNameQuery = useMemo(() => {
@@ -71,7 +71,7 @@ export const TableFilterItemValueInput = ({
   }, [runsQuery]);
 
   // Fetch versions data when the version column is selected
-  const versionsDataQuery = useExperimentVersionsQuery(experimentId);
+  const versionsDataQuery = useExperimentVersionsQuery(experimentId ?? '', !experimentId);
 
   // Transform versions data into the format expected by TableFilterItemTypeahead
   const versionsQuery = useMemo(() => {

@@ -122,12 +122,15 @@ const TracesV3LogsImpl = React.memo(
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
   }) => {
-    const primaryExperimentId = experimentIds[0] ?? '';
+    // When viewing a single experiment, pass its ID to enable experiment-specific
+    // features (run name links, logged model links, session links, filter dropdowns).
+    // When viewing multiple experiments, pass undefined to disable those features.
+    const singleExperimentId = experimentIds.length === 1 ? experimentIds[0] : undefined;
     // Use a deterministic key for filter/column persistence so state doesn't
     // shift when the array order changes (e.g. "all endpoints" in the gateway).
     const persistenceKey = useMemo(
-      () => (experimentIds.length > 1 ? [...experimentIds].sort().join(',') : primaryExperimentId),
-      [experimentIds, primaryExperimentId],
+      () => (experimentIds.length > 1 ? [...experimentIds].sort().join(',') : experimentIds[0] ?? ''),
+      [experimentIds],
     );
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
@@ -405,9 +408,9 @@ const TracesV3LogsImpl = React.memo(
                 />
               </div>
             ) : (
-              <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={primaryExperimentId}>
+              <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={singleExperimentId}>
                 <GenAITracesTableBodyContainer
-                  experimentId={primaryExperimentId}
+                  experimentId={singleExperimentId}
                   allColumns={allColumns}
                   currentTraceInfoV3={traceInfos || []}
                   currentRunDisplayName={endpointName}
@@ -435,7 +438,7 @@ const TracesV3LogsImpl = React.memo(
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={AssistantAwareDrawer}
       >
-        <GenAITracesTableProvider experimentId={primaryExperimentId} isGroupedBySession={isGroupedBySession}>
+        <GenAITracesTableProvider experimentId={singleExperimentId} isGroupedBySession={isGroupedBySession}>
           <div
             css={{
               overflowY: 'hidden',
@@ -445,7 +448,7 @@ const TracesV3LogsImpl = React.memo(
             }}
           >
             <GenAITracesTableToolbar
-              experimentId={primaryExperimentId}
+              experimentId={singleExperimentId}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               filters={filters}

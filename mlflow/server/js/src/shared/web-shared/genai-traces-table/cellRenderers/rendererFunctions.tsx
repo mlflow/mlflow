@@ -415,7 +415,7 @@ export const inputColumnCellRenderer = (
 };
 
 export const traceInfoCellRenderer = (
-  experimentId: string,
+  experimentId: string | undefined,
   isComparing: boolean,
   colId: string,
   comparisonEntry: EvalTraceComparisonEntry,

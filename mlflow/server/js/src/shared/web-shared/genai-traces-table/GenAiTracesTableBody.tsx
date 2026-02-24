@@ -73,7 +73,7 @@ export const GenAiTracesTableBody = React.memo(
     isGroupedBySession,
     searchQuery,
   }: {
-    experimentId: string;
+    experimentId?: string;
     selectedColumns: TracesTableColumn[];
     evaluations: EvalTraceComparisonEntry[];
     selectedEvaluationId: string | undefined;
@@ -511,7 +511,7 @@ export const GenAiTracesTableBody = React.memo(
                 selectedColumns={sortedGroupedColumns}
                 expandedSessions={expandedSessions}
                 toggleSessionExpanded={toggleSessionExpanded}
-                experimentId={experimentId}
+                experimentId={experimentId ?? ''}
                 getRunColor={getRunColor}
                 runUuid={runUuid}
                 compareToRunUuid={compareToRunUuid}
@@ -542,7 +542,7 @@ export const GenAiTracesTableBody = React.memo(
         ) : (
           selectedEvaluationId && (
             <GenAiEvaluationTracesReviewModal
-              experimentId={experimentId}
+              experimentId={experimentId ?? ''}
               runUuid={runUuid}
               runDisplayName={runDisplayName}
               otherRunDisplayName={compareToRunDisplayName}
