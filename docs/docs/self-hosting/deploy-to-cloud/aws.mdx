@@ -1,14 +1,18 @@
 ---
-title: Deploy MLflow to AWS cloud
+title: Deploying MLflow to AWS
 ---
 
-# Deploy MLflow to AWS cloud
+# Deploying MLflow to AWS
 
-MLflow core components include MLflow server, backend store, and artifact store.
+MLflow core components include MLflow server, backend store, and artifact store. The MLflow server is the backend for experiment tracking, model registry management, tracing for LLM observability, job scheduling, and AI Gateway endpoints.
 
-In this guide, the MLflow server is deployed to Amazon ECS (Elastic container service), the backend store is deployed to Amazon RDS (PostgreSQL), and the artifact store is deployed to Amazon S3. The guide also includes IAM role, VPC subnet and security group, ALB (Application Load Balancer) settings. Once deployment completes, you can access MLflow service web UI through the AWS application URL like `https://ml-<unique-service-id>.ecs.<aws-region>.on.aws`, and your MLflow client code can access the MLflow service through setting MLflow tracking URI to the above URI.
+This guide walks you through deploying the MLflow server to Amazon ECS (Elastic Container Service), the backend store to Amazon RDS (PostgreSQL), and the artifact store to Amazon S3. The guide also covers IAM roles, VPC subnets, security groups, and ALB (Application Load Balancer) settings. Once deployment is complete, you can access the MLflow web UI through an AWS application URL like https://ml-<unique-service-id>.ecs.<aws-region>.on.aws, and your MLflow client code can connect to the MLflow server by setting the tracking URI to this URL.
 
-The following deployment architecture has a couple of advantages:
+The overall deployment architecture is as follows:
+
+![overall architecture](/images/self-hosting/aws-self-hosting-arch.png)
+
+The deployment architecture has a couple of advantages:
 
 - **High Availability**
   - The Amazon S3 provides built-in multi-AZ durability and extremely high availability for MLflow artifact storage.
@@ -25,13 +29,17 @@ The following deployment architecture has a couple of advantages:
   - Serverless Compute (ECS on Fargate), no EC2 instances to manage, patch, or scale manually.
   - Managed Database (RDS): Automated backups, patching, and failover.
 
-## Create S3 bucket
+Note that you can also use ![managed MLflow on AWS SageMaker](https://aws.amazon.com/sagemaker/ai/experiments/) instead of the self-hosting approach in this guide. The managed MLflow on AWS SageMaker provides a fully integrated, fully managed machine learning tracking and experiment management service.
+
+## Step 1: Create S3 bucket
 
 Create a S3 bucket with name like "mlflow-artifacts-123", and block all public access as follows:
 
 ![create s3 bucket](/images/self-hosting/create-aws-s3-bucket.png)
 
-## Create RDS instance
+MLflow will store large artifacts such as model weight, figures, videos, within the specified S3 bucket.
+
+## Step 2: Create RDS instance
 
 Create an RDS instance of PostgreSQL type, set credentials management to "Self managed", and set master username / password. Once creation completes, you can view the RDS instance endpoint information as follows:
 
@@ -39,7 +47,9 @@ Create an RDS instance of PostgreSQL type, set credentials management to "Self m
 
 Then you can construct the database URI like `postgresql://<username>:<password>@<endpoint>:5432/<database-name>`. The database URI is used by MLflow server.
 
-## Create IAM role for MLflow service to access the S3 bucket
+MLflow will store metadata of experiments / runs / logged models / registered models / traces / jobs / gateway endpoints in the database.
+
+## Step 3: Create IAM role for MLflow service to access the S3 bucket
 
 The s3 bucket that is created in the first step blocks all public access. Create an IAM role "mlflow-task-role" with an inline policy as follows:
 
@@ -65,14 +75,14 @@ The s3 bucket that is created in the first step blocks all public access. Create
 }
 ```
 
-## Create ECS (Elastic container service) service to host the MLflow server
+## Step 4: Create ECS (Elastic container service) service to host the MLflow server
 
-Create ECS (Elastic container service) service to host the MLflow server, choose "Express mode" to configure most settings including VPC and ALB automatically, but you need to fill the following settings correctly:
+Create ECS (Elastic container service) service to host the MLflow web server and the UI. Choose "Express mode" to configure most settings including VPC and ALB automatically, but you need to fill the following settings correctly:
 
-- Set the "Image URI" to a certain version MLflow image, e.g. "ghcr.io/mlflow/mlflow:latest".
+- Set the "Image URI" to a certain version MLflow image, e.g. `ghcr.io/mlflow/mlflow:3.10.0`. You can find available MLflow images in this ![page](https://github.com/mlflow/mlflow/pkgs/container/mlflow).
 - Set the "Container port" to 5000, this is the port of the MLflow server running inside the container.
 - Set the "Health check" path to "/health"
-- Set the "Command" to `bash,-c,mlflow server --backend-store-uri {database-URL} --default-artifact-root s3://{s3-bucket-name}/ --host 0.0.0.0 --port 5000 --disable-security-middleware`, note that we disable the security middleware because the MLflow service is protected behind the Amazon ALB Security group + VPC subnet, and the ECS express mode will generate the default ALB / VPC settings automatically.
+- Set the "Command" to `bash,-c,mlflow server --backend-store-uri {database-URL} --artifacts-destination s3://{s3-bucket-name}/ --host 0.0.0.0 --port 5000 --disable-security-middleware`, note that we disable the security middleware because the MLflow service is protected behind the Amazon ALB Security group + VPC subnet, and the ECS express mode will generate the default ALB / VPC settings automatically.
 - Set the "Task role" to the "mlflow-task-role" that is created above.
 - Set the compute resources used by the MLflow server (CPU / memory etc) properly.
 - Set both of "Minimum number of tasks" and "Maximum number of tasks" to 1. We only need to run 1 MLflow server task at a time.
@@ -81,3 +91,13 @@ After creation, you can view the ECS express service overview page as follows:
 ![create ECS](/images/self-hosting/create-aws-ecs.png)
 
 The "Application URL" on the overview page is the MLflow service URL that you can access from public network.
+
+## Step 5: Validate the deployment
+
+Use ![MLflow demo](https://mlflow.org/docs/latest/api_reference/cli.html#mlflow-demo) CLI to validate the deployment. Run the command from your own laptop as follows:
+
+```
+mlflow demo --tracking-uri <ECS-application-URL>
+```
+
+then open the application URL in your browser, view the experiment with name "MLflow Demo", and explore GenAI features like traces, evaluation runs, prompt management etc.

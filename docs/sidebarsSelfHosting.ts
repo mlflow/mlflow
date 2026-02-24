@@ -93,7 +93,7 @@ const sidebarsSelfHosting: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Deploy MLflow to cloud',
+      label: 'Deploying MLflow to cloud',
       items: [
         {
           type: 'doc',
@@ -103,7 +103,7 @@ const sidebarsSelfHosting: SidebarsConfig = {
         {
           type: 'doc',
           id: 'deploy-to-cloud/aws',
-          label: 'AWS cloud',
+          label: 'AWS',
         },
       ],
     },
