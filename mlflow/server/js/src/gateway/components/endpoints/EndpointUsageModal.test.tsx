@@ -11,7 +11,7 @@ describe('EndpointUsageModal', () => {
     baseUrl: 'http://localhost:5000',
   };
 
-  let fetchSpy: jest.SpyInstance;
+  let fetchSpy: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
     fetchSpy = jest.spyOn(global, 'fetch');
@@ -156,9 +156,9 @@ describe('EndpointUsageModal', () => {
   });
 
   describe('Try it tab', () => {
-    const getRequestBodyTextarea = () => {
+    const getRequestBodyTextarea = (): HTMLTextAreaElement => {
       const textareas = screen.getAllByRole('textbox');
-      return textareas[0];
+      return textareas[0] as HTMLTextAreaElement;
     };
 
     test('sends request and displays response on success', async () => {
