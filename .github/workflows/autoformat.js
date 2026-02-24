@@ -109,12 +109,14 @@ const approveWorkflowRuns = async (context, github, head_sha) => {
   }
 };
 
+const VALID_AUTHOR_ASSOCIATIONS = ["owner", "member", "collaborator"];
+
 const validateCommenter = async (context, github) => {
   const { comment } = context.payload;
   const commenterAssociation = comment.author_association.toLowerCase();
 
   // Check if commenter is owner/member/collaborator
-  if (!["owner", "member", "collaborator"].includes(commenterAssociation)) {
+  if (!VALID_AUTHOR_ASSOCIATIONS.includes(commenterAssociation)) {
     throw new Error(
       `This workflow can only be triggered by a repository owner, member, or collaborator. @${comment.user.login} (${comment.author_association}) does not have sufficient permissions.`
     );
@@ -126,14 +128,31 @@ const validateCommenter = async (context, github) => {
   const prAuthorAssociation = pr.author_association.toLowerCase();
 
   // If PR author is not a member/collaborator, this is a community PR
-  if (!["owner", "member", "collaborator"].includes(prAuthorAssociation)) {
+  if (!VALID_AUTHOR_ASSOCIATIONS.includes(prAuthorAssociation)) {
     // Community PR — require at least one approved review
     const { data: reviews } = await github.rest.pulls.listReviews({
       owner,
       repo,
       pull_number,
     });
-    const hasApproval = reviews.some((review) => review.state === "APPROVED");
+
+    // Get the most recent review state per reviewer
+    const latestReviewsByUser = new Map();
+    for (const review of reviews) {
+      const userId = review.user.id;
+      const existingReview = latestReviewsByUser.get(userId);
+      if (
+        !existingReview ||
+        new Date(review.submitted_at) > new Date(existingReview.submitted_at)
+      ) {
+        latestReviewsByUser.set(userId, review);
+      }
+    }
+
+    const hasApproval = Array.from(latestReviewsByUser.values()).some(
+      (review) => review.state === "APPROVED"
+    );
+
     if (!hasApproval) {
       await github.rest.issues.createComment({
         owner,
