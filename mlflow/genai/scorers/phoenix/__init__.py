@@ -1,9 +1,13 @@
 """
 Phoenix (Arize) integration for MLflow.
+
 This module provides integration with Phoenix evaluators, allowing them to be used
 with MLflow's scorer interface.
+
 Example usage:
+
 .. code-block:: python
+
     from mlflow.genai.scorers.phoenix import get_scorer
 
     scorer = get_scorer("Hallucination", model="openai:/gpt-4")
@@ -158,6 +162,7 @@ class Hallucination(PhoenixScorer):
 
     Examples:
         .. code-block:: python
+
             from mlflow.genai.scorers.phoenix import Hallucination
 
             scorer = Hallucination(model="openai:/gpt-4")
@@ -181,6 +186,7 @@ class Relevance(PhoenixScorer):
 
     Examples:
         .. code-block:: python
+
             from mlflow.genai.scorers.phoenix import Relevance
 
             scorer = Relevance(model="databricks")
@@ -203,6 +209,7 @@ class Toxicity(PhoenixScorer):
 
     Examples:
         .. code-block:: python
+
             from mlflow.genai.scorers.phoenix import Toxicity
 
             scorer = Toxicity()
@@ -222,6 +229,7 @@ class QA(PhoenixScorer):
 
     Examples:
         .. code-block:: python
+
             from mlflow.genai.scorers.phoenix import QA
 
             scorer = QA(model="openai:/gpt-4o")
@@ -245,6 +253,7 @@ class Summarization(PhoenixScorer):
 
     Examples:
         .. code-block:: python
+
             from mlflow.genai.scorers.phoenix import Summarization
 
             scorer = Summarization()
