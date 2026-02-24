@@ -1,0 +1,210 @@
+version: "3.9"
+
+volumes:
+  pgdata:
+  seaweedfs-admin:
+  seaweedfs-data1:
+  seaweedfs-data2:
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: mlflow-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  seaweedfs-master:
+    image: chrislusf/seaweedfs:4.13
+    container_name: seaweedfs-master
+    ports:
+      - "9333:9333"
+      - "19333:19333"
+    command: master -port=9333 -mdir=/data/master -volumeSizeLimitMB=1024 -defaultReplication=001
+    volumes:
+      - seaweedfs-admin:/data/master
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "sh", "-c",
+          "curl -f http://localhost:9333/cluster/status || exit 1"
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  seaweedfs-volume-1:
+    image: chrislusf/seaweedfs:4.13
+    container_name: seaweedfs-volume-1
+    ports:
+      - 8080:8080
+      - 18080:18080
+    command: volume -dataCenter=dc1 -rack=v1 -port=8080 -master=seaweedfs-master:9333 -dir=/data/volume -ip.bind=0.0.0.0
+    volumes:
+      - seaweedfs-data1:/data/volume
+    depends_on:
+      - seaweedfs-master
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:8080/ui/index.html >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+
+  seaweedfs-volume-2:
+    image: chrislusf/seaweedfs:4.13
+    container_name: seaweedfs-volume-2
+    ports:
+      - 8081:8081
+      - 18081:18081
+    command: volume -dataCenter=dc1 -rack=v1 -port=8081 -master=seaweedfs-master:9333 -dir=/data/volume -ip.bind=0.0.0.0
+    volumes:
+      - seaweedfs-data2:/data/volume
+    depends_on:
+      - seaweedfs-master
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:8081/ui/index.html >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+  
+  filer:
+    image: chrislusf/seaweedfs:4.13
+    container_name: seaweedfs-filer
+    ports:
+      - "8888:8888"
+      - "18888:18888"
+      - "8111:8111"
+    command: 'filer -defaultReplicaPlacement=001 -master=seaweedfs-master:9333'
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+    depends_on:
+      - seaweedfs-master
+      - seaweedfs-volume-1
+      - seaweedfs-volume-2
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf 'http://localhost:8888/?pretty=y' >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  storage:
+    image: chrislusf/seaweedfs:4.13
+    container_name: seaweedfs-s3
+    ports:
+      - "9000:9000"
+    command: 's3 -filer="seaweedfs-filer:8888" -port=9000'
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+    depends_on:
+      - seaweedfs-master
+      - seaweedfs-volume-1
+      - seaweedfs-volume-2
+      - filer
+    healthcheck:
+      test: ["CMD-SHELL", "curl -I http://localhost:9000/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+
+  create-bucket:
+    image: amazon/aws-cli:2.33.25
+    container_name: mlflow-create-bucket
+    depends_on:
+      storage:
+        condition: service_healthy
+      filer:
+        condition: service_healthy
+      seaweedfs-master:
+        condition: service_healthy
+      seaweedfs-volume-1:
+        condition: service_healthy
+      seaweedfs-volume-2:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        set -e;
+        echo 'Waiting a bit for S3 gateway...'; sleep 5;
+        if aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3api head-bucket --bucket ${S3_BUCKET} 2>/dev/null; then
+          echo 'Bucket ${S3_BUCKET} already exists. Skipping creation.';
+        else
+          echo 'Creating bucket ${S3_BUCKET}...';
+          aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3api create-bucket --bucket ${S3_BUCKET} --region ${AWS_DEFAULT_REGION};
+        fi
+      "
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+    restart: "no"
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:${MLFLOW_VERSION}
+    container_name: mlflow-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seaweedfs-master:
+        condition: service_healthy
+      seaweedfs-volume-1:
+        condition: service_healthy
+      seaweedfs-volume-2:
+        condition: service_healthy
+      filer:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+      create-bucket:
+        condition: service_completed_successfully
+    environment:
+      MLFLOW_BACKEND_STORE_URI: ${MLFLOW_BACKEND_STORE_URI}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
+      MLFLOW_ARTIFACTS_DESTINATION: ${MLFLOW_ARTIFACTS_DESTINATION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      MLFLOW_S3_IGNORE_TLS: "true"
+      MLFLOW_HOST: ${MLFLOW_HOST}
+      MLFLOW_PORT: ${MLFLOW_PORT}
+    command: >
+      /bin/bash -c "
+      pip install --no-cache-dir psycopg2-binary boto3 &&
+      mlflow server
+      --backend-store-uri '${MLFLOW_BACKEND_STORE_URI}'
+      --artifacts-destination '${MLFLOW_ARTIFACTS_DESTINATION}'
+      --serve-artifacts
+      --host '${MLFLOW_HOST}'
+      --port '${MLFLOW_PORT}'
+      "
+    ports:
+      - "${MLFLOW_PORT}:${MLFLOW_PORT}"
+
+networks:
+  default:
+    name: mlflow-seaweedfs-network
