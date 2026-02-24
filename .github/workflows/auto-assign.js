@@ -20,6 +20,40 @@ async function getMaintainers({ github, context }) {
     .sort();
 }
 
+async function getLinkedIssues({ github, owner, repo, prNumber }) {
+  const query = `
+    query($owner: String!, $repo: String!, $number: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $number) {
+          createdAt
+          closingIssuesReferences(first: 10) {
+            nodes {
+              number
+              createdAt
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const result = await github.graphql(query, {
+      owner,
+      repo,
+      number: prNumber,
+    });
+
+    return {
+      prCreatedAt: result.repository.pullRequest.createdAt,
+      issues: result.repository.pullRequest.closingIssuesReferences.nodes,
+    };
+  } catch (error) {
+    console.error(`Error fetching linked issues for PR #${prNumber}:`, error.message);
+    return { prCreatedAt: null, issues: [] };
+  }
+}
+
 module.exports = async ({ github, context, skipAssignment = false }) => {
   const { owner, repo } = context.repo;
   const maintainers = new Set(await getMaintainers({ github, context }));
@@ -57,6 +91,48 @@ module.exports = async ({ github, context, skipAssignment = false }) => {
       ...issueComments.data.map((c) => c.user.login),
       ...recentReviews.map((r) => r.user.login),
     ]);
+
+    // Check for linked issues and add maintainers who commented on them
+    const { prCreatedAt, issues: linkedIssues } = await getLinkedIssues({
+      github,
+      owner,
+      repo,
+      prNumber: pr.number,
+    });
+
+    // Only check linked issue comments if exactly one issue is linked
+    if (linkedIssues.length === 1 && prCreatedAt) {
+      const linkedIssue = linkedIssues[0];
+      const prCreatedDate = new Date(prCreatedAt);
+      const issueCreatedDate = new Date(linkedIssue.createdAt);
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+      // Only assign if issue was created within 7 days before the PR
+      if (prCreatedDate - issueCreatedDate <= SEVEN_DAYS_MS) {
+        try {
+          // Fetch all comments on the linked issue since it was created
+          const linkedIssueComments = await github.rest.issues.listComments({
+            owner,
+            repo,
+            issue_number: linkedIssue.number,
+            since: linkedIssue.createdAt,
+          });
+
+          // Find the first maintainer who commented on the linked issue
+          for (const comment of linkedIssueComments.data) {
+            if (maintainers.has(comment.user.login)) {
+              commentAuthors.add(comment.user.login);
+              break; // Only add the first maintainer who commented
+            }
+          }
+        } catch (error) {
+          console.error(
+            `Error fetching comments for linked issue #${linkedIssue.number}:`,
+            error.message
+          );
+        }
+      }
+    }
 
     // Use Set operations to find maintainers to assign
     const prAuthor = pr.user.login;
