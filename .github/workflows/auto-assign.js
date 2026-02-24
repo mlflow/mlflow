@@ -110,16 +110,15 @@ module.exports = async ({ github, context, skipAssignment = false }) => {
           issueCreatedDate <= prCreatedDate &&
           prCreatedDate - issueCreatedDate <= SEVEN_DAYS_MS
         ) {
-          // Fetch all comments on the linked issue since it was created
-          const linkedIssueComments = await github.rest.issues.listComments({
+          // Fetch all comments on the linked issue
+          const linkedIssueComments = await github.paginate(github.rest.issues.listComments, {
             owner,
             repo,
             issue_number: linkedIssue.number,
-            since: linkedIssue.createdAt,
           });
 
           // Find the first maintainer who commented on the linked issue
-          for (const comment of linkedIssueComments.data) {
+          for (const comment of linkedIssueComments) {
             if (maintainers.has(comment.user.login)) {
               commentAuthors.add(comment.user.login);
               break; // Only add the first maintainer who commented
