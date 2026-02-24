@@ -664,4 +664,6 @@ def test_litellm_provider_list_printed_when_debug_logging(capsys):
 
     captured = capsys.readouterr()
     assert "Provider List" in captured.out
+    # During the call to calculate cost, suppress was set to False
+    # We are asserting that suppress is reset to the original value after
     assert litellm.suppress_debug_info is True
