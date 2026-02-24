@@ -434,6 +434,61 @@ def complex_scorer(outputs):
     assert expected_code.strip() in error_msg
 
 
+def test_session_level_scorer_auto_detected_from_session_param():
+    @scorer
+    def session_scorer(session):
+        return len(session)
+
+    assert session_scorer.is_session_level_scorer is True
+
+
+def test_session_level_scorer_with_expectations():
+    @scorer
+    def session_scorer(session, expectations):
+        return len(session)
+
+    assert session_scorer.is_session_level_scorer is True
+
+
+def test_single_turn_scorer_not_session_level():
+    @scorer
+    def single_turn(inputs, outputs):
+        return True
+
+    assert single_turn.is_session_level_scorer is False
+
+
+@pytest.mark.parametrize(
+    "func_def",
+    [
+        "def bad(session, trace): pass",
+        "def bad(session, inputs): pass",
+        "def bad(session, outputs): pass",
+        "def bad(session, trace, inputs): pass",
+        "def bad(session, inputs, outputs, trace): pass",
+    ],
+)
+def test_session_param_with_single_turn_params_raises(func_def):
+    namespace = {}
+    exec(func_def, namespace)
+    func = namespace["bad"]
+
+    with pytest.raises(
+        mlflow.exceptions.MlflowException,
+        match="Session-level scorers.*cannot also accept",
+    ):
+        scorer(func)
+
+
+def test_session_level_scorer_serialization_roundtrip(is_in_databricks):
+    @scorer
+    def session_scorer(session):
+        return len(session)
+
+    dumped = session_scorer.model_dump()
+    assert dumped["is_session_level_scorer"] is True
+
+
 def test_make_judge_scorer_works_without_databricks_uri():
     experiment_id = mlflow.create_experiment("test_make_judge_experiment")
 

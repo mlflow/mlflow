@@ -1070,6 +1070,15 @@ def scorer(
           - A trace object corresponding to the prediction for the row.
           - Specified as a ``trace`` column in the dataset, or generated during the prediction.
 
+        * - ``session``
+          - A list of trace objects belonging to the same conversation session.
+          - When this parameter is present, the scorer is automatically treated as a
+            **session-level** (multi-turn) scorer. It will be called once per session
+            rather than once per trace.
+
+            * ``session`` can only be combined with ``expectations``. Using ``session``
+              together with ``inputs``, ``outputs``, or ``trace`` is not allowed.
+
     The scorer function should return one of the following:
 
     * A boolean value
@@ -1157,6 +1166,18 @@ def scorer(
                 )
 
 
+            # Session-level scorer that evaluates an entire conversation.
+            # Including `session` in the function signature automatically makes this
+            # a session-level scorer.
+            @scorer
+            def conversation_quality(session) -> Feedback:
+                total_turns = len(session)
+                has_errors = any(t.info.status == "ERROR" for t in session)
+                return Feedback(
+                    value=not has_errors, rationale=f"{total_turns} turns, errors={has_errors}"
+                )
+
+
             # Use the scorer in an evaluation
             mlflow.genai.evaluate(
                 data=data,
@@ -1168,6 +1189,20 @@ def scorer(
         return functools.partial(
             scorer, name=name, description=description, aggregations=aggregations
         )
+
+    func_params = set(inspect.signature(func).parameters.keys())
+    _is_session_level = "session" in func_params
+
+    if _is_session_level:
+        invalid_params = func_params & {"inputs", "outputs", "trace"}
+        if invalid_params:
+            raise MlflowException.invalid_parameter_value(
+                f"Session-level scorers (functions with a `session` parameter) cannot "
+                f"also accept {', '.join(sorted(f'`{p}`' for p in invalid_params))}. "
+                f"Session-level scorers are called once per session with the full list "
+                f"of traces, so single-turn parameters are not available. "
+                f"Use only `session` and optionally `expectations`."
+            )
 
     class CustomScorer(Scorer):
         # Store reference to the original function
@@ -1183,6 +1218,10 @@ def scorer(
 
         def __call__(self, *args, **kwargs):
             return func(*args, **kwargs)
+
+        @property
+        def is_session_level_scorer(self) -> bool:
+            return _is_session_level
 
         @property
         def kind(self) -> ScorerKind:
