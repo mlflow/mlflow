@@ -19,8 +19,8 @@ from opentelemetry import trace as otel_trace_api
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
+from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace import TracerProvider as SdkTracerProvider
-from opentelemetry.sdk.trace.export import SpanExporter
 
 import mlflow
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
@@ -36,27 +36,38 @@ FLAVOR_NAME = "otel"
 _active_processor: "_ToggleableSpanProcessor | None" = None
 
 
-class _ToggleableSpanProcessor(MlflowV3SpanProcessor):
+class _ToggleableSpanProcessor(SpanProcessor):
     """A span processor that can be enabled/disabled at runtime.
+
+    Wraps an ``MlflowV3SpanProcessor`` via composition.  We use
+    ``MlflowV3SpanProcessor`` because the exporter depends on
+    trace lifecycle management (``InMemoryTraceManager`` registration)
+    that the processor provides.
 
     Since there is no public API to *remove* a processor from a
     TracerProvider, we instead gate on_start/on_end behind a flag
     so that disabling autolog truly stops span processing.
     """
 
-    def __init__(self, span_exporter: SpanExporter, export_metrics: bool):
-        super().__init__(span_exporter=span_exporter, export_metrics=export_metrics)
+    def __init__(self, inner: SpanProcessor):
+        self._inner = inner
         self._enabled = True
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         if not self._enabled:
             return
-        super().on_start(span, parent_context)
+        self._inner.on_start(span, parent_context)
 
     def on_end(self, span: OTelReadableSpan) -> None:
         if not self._enabled:
             return
-        super().on_end(span)
+        self._inner.on_end(span)
+
+    def shutdown(self) -> None:
+        self._inner.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return self._inner.force_flush(timeout_millis)
 
     def enable(self):
         self._enabled = True
@@ -99,7 +110,8 @@ def setup_otel_processor(flavor_name: str) -> None:
 
     tracking_uri = mlflow.get_tracking_uri()
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-    processor = _ToggleableSpanProcessor(span_exporter=exporter, export_metrics=False)
+    inner = MlflowV3SpanProcessor(span_exporter=exporter, export_metrics=False)
+    processor = _ToggleableSpanProcessor(inner)
     provider.add_span_processor(processor)
 
     _active_processor = processor
