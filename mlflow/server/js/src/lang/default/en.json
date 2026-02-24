@@ -43,10 +43,6 @@
     "defaultMessage": "Rename Run",
     "description": "Modal title to rename the experiment run name"
   },
-  "+HgSTK": {
-    "defaultMessage": "Use these code examples to call your endpoint. Choose between unified APIs for seamless model switching or passthrough APIs for provider-specific features.",
-    "description": "Endpoint usage modal description"
-  },
   "+LLlvi": {
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
@@ -6934,6 +6930,10 @@
   "lDGQGa": {
     "defaultMessage": "Toggle detailed view",
     "description": "Experiment page > artifact compare view > table header > label for \"toggle detailed view\" button"
+  },
+  "lDP3Wo": {
+    "defaultMessage": "Use the Try it tab to send a request directly to your endpoint, or browse the Unified and Passthrough API code examples below.",
+    "description": "Endpoint usage modal description"
   },
   "lDQtCN": {
     "defaultMessage": "The conversational guidelines LLM judge evaluates whether the assistant's responses throughout a conversation comply with the provided guidelines.",

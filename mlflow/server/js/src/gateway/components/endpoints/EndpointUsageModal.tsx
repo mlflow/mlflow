@@ -324,7 +324,7 @@ print(response.candidates[0].content.parts[0].text)`;
       >
         <Typography.Text color="secondary">
           <FormattedMessage
-            defaultMessage="Use these code examples to call your endpoint. Choose between unified APIs for seamless model switching or passthrough APIs for provider-specific features."
+            defaultMessage="Use the Try it tab to send a request directly to your endpoint, or browse the Unified and Passthrough API code examples below."
             description="Endpoint usage modal description"
           />
         </Typography.Text>
