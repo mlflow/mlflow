@@ -2,6 +2,9 @@ import { APILink } from "@site/src/components/APILink";
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Bot, GitBranch, Shield } from "lucide-react";
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import TabsWrapper from '@site/src/components/TabsWrapper';
 
 # TruLens
 
@@ -17,7 +20,9 @@ pip install trulens trulens-providers-litellm
 
 ## Quick Start
 
-You can call TruLens scorers directly:
+<TabsWrapper>
+<Tabs groupId="invocation-method">
+  <TabItem value="direct" label="Invoke directly" default>
 
 ```python
 from mlflow.genai.scorers.trulens import Groundedness
@@ -35,7 +40,8 @@ print(feedback.value)  # "yes" or "no"
 print(feedback.metadata["score"])  # 0.85
 ```
 
-Or use them in <APILink fn="mlflow.genai.evaluate">mlflow.genai.evaluate</APILink>:
+  </TabItem>
+  <TabItem value="evaluate" label="Invoke with evaluate()">
 
 ```python
 import mlflow
@@ -66,6 +72,10 @@ results = mlflow.genai.evaluate(
     ],
 )
 ```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Available TruLens Scorers
 
