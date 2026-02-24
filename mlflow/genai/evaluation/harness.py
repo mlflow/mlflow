@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
+import queue
+import threading
 import time
 import traceback
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, as_completed, wait
 from typing import Any, Callable
 
 import pandas as pd
@@ -40,9 +42,12 @@ from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT,
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
+    MLFLOW_GENAI_EVAL_MAX_RETRIES,
     MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS,
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
+    MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT,
     MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT,
 )
 from mlflow.genai.evaluation import context
@@ -51,6 +56,8 @@ from mlflow.genai.evaluation.rate_limiter import (
     NoOpRateLimiter,
     RateLimiter,
     RPSRateLimiter,
+    call_with_retry,
+    eval_retry_context,
 )
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
@@ -88,22 +95,14 @@ def _log_multi_turn_assessments_to_traces(
     eval_results: list[EvalResult],
     run_id: str,
 ) -> None:
-    """
-    Log multi-turn assessments to the first trace of each session.
+    """Log multi-turn assessments to traces in parallel."""
 
-    Args:
-        multi_turn_assessments: Dictionary mapping trace_id to list of assessments
-        eval_results: List of EvalResult objects to update with multi-turn assessments
-        run_id: MLflow run ID for logging
-    """
-    for eval_result in eval_results:
+    def _log_for_result(eval_result: EvalResult) -> None:
         if eval_result.eval_item.trace is None:
-            continue
-
+            return
         trace_id = eval_result.eval_item.trace.info.trace_id
         if trace_id not in multi_turn_assessments:
-            continue
-
+            return
         assessments_list = multi_turn_assessments[trace_id]
         try:
             _log_assessments(
@@ -115,6 +114,17 @@ def _log_multi_turn_assessments_to_traces(
         except Exception as e:
             _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
 
+    with ThreadPoolExecutor(
+        max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+        thread_name_prefix="MlflowGenAIEvalLogAssessments",
+    ) as executor:
+        futures = [executor.submit(_log_for_result, er) for er in eval_results]
+        for future in as_completed(futures):
+            future.result()
+
+
+AUTO_INITIAL_RPS = 10.0
+
 
 def _parse_rate_limit(raw: str | None) -> tuple[float | None, bool]:
     """Parse a rate-limit env var into (rps_or_none, adaptive).
@@ -124,11 +134,10 @@ def _parse_rate_limit(raw: str | None) -> tuple[float | None, bool]:
         (rps, True)            when "auto"
         (rps, False)           when a fixed numeric value
     """
-    auto_initial_rps = 10.0
     if raw is None:
         return None, False
     if raw.strip().lower() == "auto":
-        return auto_initial_rps, True
+        return AUTO_INITIAL_RPS, True
     rate = float(raw)
     if rate <= 0:
         return None, False
@@ -146,18 +155,19 @@ def _make_rate_limiter(
     return RPSRateLimiter(rps, adaptive=adaptive, max_rps_multiplier=max_rps_multiplier)
 
 
-def _pool_size(rps: float | None) -> int:
+def _pool_size(rps: float | None, max_rps_multiplier: float = 1.0) -> int:
     """Derive thread count from rate limit, capped at [10, 500].
 
-    Assumes each LLM call takes about ``_AVG_LLM_LATENCY_SECS`` seconds on
-    average, so we need ``rps * latency`` threads to keep the pipeline busy.
-    The rate limiter handles queueing — threads that can't get a token just
-    block in acquire(). The HTTP connection pool is auto-sized to match.
+    Assumes each LLM call takes about ``avg_llm_latency_secs`` seconds on
+    average, so we need ``peak_rps * latency`` threads to keep the pipeline
+    busy at the AIMD ceiling. The rate limiter handles queueing — threads
+    that can't get a token just block in acquire().
     """
     avg_llm_latency_secs = 2
     if not rps:
         return 10
-    return min(500, max(10, int(rps * avg_llm_latency_secs)))
+    peak_rps = rps * max_rps_multiplier
+    return min(500, max(10, int(peak_rps * avg_llm_latency_secs)))
 
 
 def backpressure_buffer(score_workers: int) -> int:
@@ -185,6 +195,7 @@ def _get_scorer_rate_config(
 def _get_pool_sizes(
     predict_rps: float | None,
     scorer_rps: float | None,
+    max_rps_multiplier: float = 1.0,
 ) -> tuple[int, int]:
     """Determine predict and score thread pool sizes.
 
@@ -194,7 +205,424 @@ def _get_pool_sizes(
     if MLFLOW_GENAI_EVAL_MAX_WORKERS.is_set():
         size = MLFLOW_GENAI_EVAL_MAX_WORKERS.get()
         return size, size
-    return _pool_size(predict_rps), _pool_size(scorer_rps)
+    return (
+        _pool_size(predict_rps, max_rps_multiplier),
+        _pool_size(scorer_rps, max_rps_multiplier),
+    )
+
+
+class _Heartbeat:
+    """Periodic debug-level heartbeat for the pipeline loop.
+
+    Only active when ``MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT`` is set to True.
+    """
+
+    def __init__(
+        self,
+        predictor: "_PredictSubmitter",
+        scorer: "_ScoreSubmitter",
+        total_items: int,
+        interval_secs: float = 15,
+    ):
+        self._enabled = MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT.get()
+        self._predictor = predictor
+        self._scorer = scorer
+        self._total = total_items
+        self._interval = interval_secs
+        self._last_time = time.monotonic()
+
+    @property
+    def interval(self) -> float:
+        return self._interval
+
+    @staticmethod
+    def _format_rps(limiter: RateLimiter) -> str:
+        rps = limiter.current_rps
+        return f"{rps:.1f}" if rps is not None else "off"
+
+    def tick(self, items_predicted: int, items_scored: int) -> None:
+        if not self._enabled:
+            return
+        now = time.monotonic()
+        if now - self._last_time < self._interval:
+            return
+        self._last_time = now
+        _logger.debug(
+            "[heartbeat] predicted=%d/%d, scored=%d/%d, "
+            "pending: %d predict, %d score, rate: predict=%s rps, score=%s rps",
+            items_predicted,
+            self._total,
+            items_scored,
+            self._total,
+            self._predictor.pending_count,
+            self._scorer.pending_count,
+            self._format_rps(self._predictor.limiter),
+            self._format_rps(self._scorer.limiter),
+        )
+
+
+class _PredictSubmitter:
+    def __init__(
+        self,
+        eval_items: list[EvalItem],
+        predict_fn: Callable[..., Any] | None,
+        run_id: str | None,
+        max_retries: int,
+        rps: float | None,
+        adaptive: bool,
+        max_rps_multiplier: float,
+        pool_workers: int,
+        score_workers: int,
+    ):
+        """
+        Args:
+            eval_items: Items to evaluate — each will be submitted for prediction.
+            predict_fn: User-provided function that produces outputs from inputs.
+                When None, predictions are skipped and existing traces are used.
+            run_id: MLflow run ID for trace/assessment logging.
+            max_retries: Max 429-retry attempts per predict call.
+            rps: Requests-per-second for the predict rate limiter, or None to disable.
+            adaptive: Whether the rate limiter uses AIMD to adapt to 429 signals.
+            max_rps_multiplier: AIMD ceiling as a multiple of the initial rps.
+            pool_workers: Number of threads in the predict pool.
+            score_workers: Number of score-pool threads, used to size the
+                backpressure buffer that bounds predicted-but-not-yet-scored items.
+        """
+        self._eval_items = eval_items
+        self._predict_fn = predict_fn
+        self._run_id = run_id
+        self._max_retries = max_retries
+
+        self._limiter = _make_rate_limiter(
+            rps, adaptive=adaptive, max_rps_multiplier=max_rps_multiplier
+        )
+        self._pool = ThreadPoolExecutor(
+            max_workers=pool_workers, thread_name_prefix="MlflowGenAIEvalPredict"
+        )
+        self._in_flight = threading.Semaphore(backpressure_buffer(score_workers))
+        self._queue: queue.Queue[tuple[Future, int] | None] = queue.Queue()
+        self._predict_futures_to_eval_id: dict[Future, int] = {}
+        self._times: list[float] = []
+        self._time_lock = threading.Lock()
+        self._submit_error: Exception | None = None
+        self._thread: threading.Thread | None = None
+
+    @property
+    def limiter(self) -> RateLimiter:
+        return self._limiter
+
+    @property
+    def predict_times(self) -> list[float]:
+        return self._times
+
+    @property
+    def pending_count(self) -> int:
+        return len(self._predict_futures_to_eval_id)
+
+    def shutdown(self) -> None:
+        self._pool.shutdown(wait=False, cancel_futures=True)
+
+    def start(self) -> None:
+        """Submit all eval items to the predict pool from a background thread.
+
+        Each submission blocks on the backpressure semaphore to bound the number
+        of predicted-but-not-yet-scored items. Completed futures are placed on
+        ``self._queue`` for the main loop to drain. A None sentinel signals
+        that all items have been submitted (or an error occurred).
+        """
+
+        self._thread = threading.Thread(
+            target=self._submit_all, daemon=True, name="MlflowGenAIEvalSubmit"
+        )
+        self._thread.start()
+
+    def join(self) -> None:
+        if self._thread is not None:
+            self._thread.join()
+
+    def _submit_all(self) -> None:
+        try:
+            for i, eval_item in enumerate(self._eval_items):
+                _logger.debug(f"Submit thread: waiting for backpressure slot (item {i})")
+                self._in_flight.acquire()
+                _logger.debug(f"Submit thread: submitting predict for item {i}")
+                future = self._pool.submit(
+                    self._timed_predict,
+                    eval_item,
+                    self._predict_fn,
+                    self._run_id,
+                    self._limiter,
+                    self._max_retries,
+                )
+                self._queue.put((future, i))
+        except Exception as e:
+            self._submit_error = e
+        finally:
+            self._queue.put(None)  # sentinel
+
+    def _timed_predict(self, *args) -> None:
+        start = time.monotonic() if self._predict_fn else None
+        _run_predict(*args)
+        if start is not None:
+            with self._time_lock:
+                self._times.append(time.monotonic() - start)
+
+    def drain(self, *, block: bool = False) -> list[Future]:
+        """Return newly submitted predict futures from the submit thread.
+
+        When *block* is True, waits briefly (10 ms) for new items so the main
+        loop doesn't busy-wait when there is no other pending work.
+        """
+        drained: list[Future] = []
+        while True:
+            try:
+                item = self._queue.get_nowait() if not block else self._queue.get(timeout=0.01)
+            except queue.Empty:
+                break
+            if item is None:
+                break
+            block = False  # only block on the first get
+            future, idx = item
+            self._predict_futures_to_eval_id[future] = idx
+            drained.append(future)
+        return drained
+
+    def check_error(self) -> None:
+        if self._submit_error:
+            raise self._submit_error
+
+    def owns(self, future: Future) -> bool:
+        return future in self._predict_futures_to_eval_id
+
+    def on_complete(self, future: Future) -> int:
+        """Finalize a completed predict future: propagate exceptions and return its item index."""
+        idx = self._predict_futures_to_eval_id.pop(future)
+        future.result()  # propagate exceptions
+        return idx
+
+    def release_slot(self) -> None:
+        """Release one backpressure slot, allowing the submit thread to enqueue another predict."""
+        self._in_flight.release()
+
+
+class _ScoreSubmitter:
+    def __init__(
+        self,
+        eval_items: list[EvalItem],
+        single_turn_scorers: list[Scorer],
+        multi_turn_scorers: list[Scorer],
+        session_groups: dict[str, list[EvalItem]],
+        run_id: str | None,
+        max_retries: int,
+        rps: float | None,
+        adaptive: bool,
+        max_rps_multiplier: float,
+        pool_workers: int,
+    ):
+        """
+        Args:
+            eval_items: Items to evaluate — indexed by position for score dispatch.
+            single_turn_scorers: Scorers applied to each item individually.
+            multi_turn_scorers: Scorers applied to session groups after the
+                single-turn pipeline completes.
+            session_groups: Mapping of session_id to ordered list of eval items
+                for multi-turn scoring.
+            run_id: MLflow run ID for trace/assessment logging.
+            max_retries: Max 429-retry attempts per scorer call.
+            rps: Requests-per-second for the scorer rate limiter, or None to disable.
+            adaptive: Whether the rate limiter uses AIMD to adapt to 429 signals.
+            max_rps_multiplier: AIMD ceiling as a multiple of the initial rps.
+            pool_workers: Number of threads in the score pool.
+        """
+        self._eval_items = eval_items
+        self._single_turn_scorers = single_turn_scorers
+        self._multi_turn_scorers = multi_turn_scorers
+        self._session_groups = session_groups
+        self._run_id = run_id
+        self._max_retries = max_retries
+
+        self._limiter = _make_rate_limiter(
+            rps, adaptive=adaptive, max_rps_multiplier=max_rps_multiplier
+        )
+        self._pool = ThreadPoolExecutor(
+            max_workers=pool_workers, thread_name_prefix="MlflowGenAIEvalScore"
+        )
+        self._score_futures_to_eval_id: dict[Future, int] = {}
+        self._times: list[float] = []
+        self._time_lock = threading.Lock()
+
+    @property
+    def limiter(self) -> RateLimiter:
+        return self._limiter
+
+    @property
+    def score_times(self) -> list[float]:
+        return self._times
+
+    @property
+    def pending_count(self) -> int:
+        return len(self._score_futures_to_eval_id)
+
+    def shutdown(self) -> None:
+        self._pool.shutdown(wait=False, cancel_futures=True)
+
+    def submit(self, idx: int) -> Future:
+        """Submit a score task for eval item *idx* and return the future."""
+        _logger.debug(f"Predict completed for item {idx}, submitting score")
+        future = self._pool.submit(
+            self._timed_score,
+            self._eval_items[idx],
+            self._single_turn_scorers,
+            self._run_id,
+            self._limiter,
+            self._max_retries,
+        )
+        self._score_futures_to_eval_id[future] = idx
+        return future
+
+    def _timed_score(self, *args) -> EvalResult:
+        start = time.monotonic()
+        result = _run_score(*args)
+        with self._time_lock:
+            self._times.append(time.monotonic() - start)
+        return result
+
+    def on_complete(self, future: Future) -> tuple[int, EvalResult]:
+        idx = self._score_futures_to_eval_id.pop(future)
+        return idx, future.result()
+
+    def _timed_multi_turn_score(self, **kwargs) -> dict[str, list[Feedback]]:
+        start = time.monotonic()
+        result = evaluate_session_level_scorers(**kwargs)
+        with self._time_lock:
+            self._times.append(time.monotonic() - start)
+        return result
+
+    def run_multi_turn(
+        self, multi_turn_assessments: dict[str, list[Feedback]], progress_bar
+    ) -> None:
+        if not self._multi_turn_scorers or not self._session_groups:
+            return
+        futures = [
+            self._pool.submit(
+                self._timed_multi_turn_score,
+                session_id=session_id,
+                session_items=session_items,
+                multi_turn_scorers=self._multi_turn_scorers,
+                scorer_rate_limiter=self._limiter,
+                max_retries=self._max_retries,
+            )
+            for session_id, session_items in self._session_groups.items()
+        ]
+        for future in as_completed(futures):
+            multi_turn_assessments.update(future.result())
+            if progress_bar:
+                progress_bar.update(1)
+
+
+def _run_pipeline(
+    eval_items: list[EvalItem],
+    eval_results: list[EvalResult | None],
+    predict_fn: Callable[..., Any] | None,
+    single_turn_scorers: list[Scorer],
+    multi_turn_scorers: list[Scorer],
+    session_groups: dict[str, list[EvalItem]],
+    run_id: str | None,
+    progress_bar,
+    multi_turn_assessments: dict[str, list[Feedback]],
+) -> tuple[list[float], list[float]]:
+    """Run the predict→score pipeline and multi-turn scoring.
+
+    Creates rate limiters and thread pools from environment variables,
+    runs the pipelined predict→score loop, then multi-turn scoring.
+    Returns (predict_times, score_times) for reporting.
+    """
+    _warmup_databricks_sdk()
+
+    predict_rps, predict_adaptive = _parse_rate_limit(MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get())
+    num_scorers = len(single_turn_scorers) + len(multi_turn_scorers)
+    scorer_rps, scorer_adaptive = _get_scorer_rate_config(
+        predict_rps, predict_adaptive, num_scorers
+    )
+    max_retries = MLFLOW_GENAI_EVAL_MAX_RETRIES.get()
+    pool_multiplier = _AIMD_UPPER_MULTIPLIER if predict_adaptive else 1.0
+    predict_workers, score_workers = _get_pool_sizes(predict_rps, scorer_rps, pool_multiplier)
+
+    predictor = _PredictSubmitter(
+        eval_items,
+        predict_fn,
+        run_id,
+        max_retries,
+        rps=predict_rps,
+        adaptive=predict_adaptive,
+        max_rps_multiplier=_AIMD_UPPER_MULTIPLIER,
+        pool_workers=predict_workers,
+        score_workers=score_workers,
+    )
+    scorer = _ScoreSubmitter(
+        eval_items,
+        single_turn_scorers,
+        multi_turn_scorers,
+        session_groups,
+        run_id,
+        max_retries,
+        rps=scorer_rps,
+        adaptive=scorer_adaptive,
+        max_rps_multiplier=_AIMD_UPPER_MULTIPLIER,
+        pool_workers=score_workers,
+    )
+
+    try:
+        heartbeat = _Heartbeat(predictor, scorer, len(eval_items)) if single_turn_scorers else None
+
+        predictor.start()
+        pending: set[Future] = set()
+        items_predicted = 0
+        items_done = 0
+
+        while items_done < len(eval_items):
+            pending.update(predictor.drain(block=not pending))
+            predictor.check_error()
+            if not pending:
+                continue
+
+            if heartbeat:
+                heartbeat.tick(items_predicted, items_done)
+
+            done, pending = wait(
+                pending,
+                timeout=heartbeat.interval if heartbeat else None,
+                return_when=FIRST_COMPLETED,
+            )
+            for future in done:
+                if predictor.owns(future):
+                    idx = predictor.on_complete(future)
+                    items_predicted += 1
+                    if single_turn_scorers:
+                        pending.add(scorer.submit(idx))
+                    else:
+                        predictor.release_slot()
+                        eval_results[idx] = EvalResult(eval_item=eval_items[idx], assessments=[])
+                        items_done += 1
+                else:
+                    idx, result = scorer.on_complete(future)
+                    _logger.debug(f"Score completed for item {idx}")
+                    eval_results[idx] = result
+                    predictor.release_slot()
+                    items_done += 1
+                    if progress_bar:
+                        progress_bar.update(1)
+
+        predictor.join()
+
+        # Multi-turn scorers run after single-turn scoring completes because they
+        # operate on session groups and need fully scored traces.
+        scorer.run_multi_turn(multi_turn_assessments, progress_bar)
+
+        return predictor.predict_times, scorer.score_times
+    finally:
+        predictor.shutdown()
+        scorer.shutdown()
 
 
 @context.eval_context
@@ -208,92 +636,59 @@ def run(
     """
     Runs GenAI evaluation harness to the given dataset.
 
-    The overall flow is:
-
-    1. Convert the dataset to a list of EvalItem objects
-    2. Classify scorers into single-turn and multi-turn
-    3. Run the prediction and single-turn scoring for each EvalItem in parallel
-        a. If predict_fn is provided, invoke the predict_fn for the EvalItem
-        b. If predict_fn is not provided, create a dummy trace for the EvalItem
-        c. Execute the single-turn scorers to compute assessments.
-        d. Log the assessments to the trace.
-    4. If multi-turn scorers exist, evaluate them on session groups
-    5. Compute the aggregated metrics from the assessments.
+    Rate limiting is controlled via environment variables:
+    - MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT: max predict_fn calls/second
+    - MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT: max scorer calls/second
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
     eval_start_time = int(time.time() * 1000)
 
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
 
-    # Classify scorers into single-turn and multi-turn
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
-
     session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
+    total_tasks = (len(eval_items) if single_turn_scorers else 0) + len(session_groups)
 
-    total_tasks = len(eval_items) + len(session_groups)
-
-    with ThreadPoolExecutor(
-        max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
-        thread_name_prefix="MlflowGenAIEvalHarness",
-    ) as executor:
-        # Submit single-turn tasks
-        single_turn_futures = {
-            executor.submit(
-                _run_single,
-                eval_item=eval_item,
-                scorers=single_turn_scorers,
-                predict_fn=predict_fn,
-                run_id=run_id,
-            ): i
-            for i, eval_item in enumerate(eval_items)
-        }
-
-        # Collect results with unified progress bar
-        eval_results = [None] * len(eval_items)
-        multi_turn_assessments = {}
-
-        # Create progress bar for all tasks
-        progress_bar = (
-            tqdm(
-                total=total_tasks,
-                desc="Evaluating",
-                smoothing=0,
-                bar_format=PGBAR_FORMAT,
-            )
-            if tqdm is not None
-            else None
+    progress_bar = (
+        tqdm(
+            total=total_tasks,
+            desc="Evaluating",
+            smoothing=0,
+            bar_format=PGBAR_FORMAT,
         )
+        if tqdm is not None
+        else None
+    )
 
-        try:
-            # Phase 1: Complete single-turn tasks
-            for future in as_completed(single_turn_futures):
-                idx = single_turn_futures[future]
-                eval_results[idx] = future.result()
-                if progress_bar:
-                    progress_bar.update(1)
+    eval_results = [None] * len(eval_items)
+    multi_turn_assessments = {}
+    predict_times: list[float] = []
+    score_times: list[float] = []
 
-            # Phase 2: Submit and complete multi-turn tasks (after single-turn)
-            # We run multi-turn scorers after single-turn, since single-turn scorers may create new
-            # traces that are needed by multi-turn scorers.
-            if multi_turn_scorers and session_groups:
-                multi_turn_futures = [
-                    executor.submit(
-                        evaluate_session_level_scorers,
-                        session_id=session_id,
-                        session_items=session_items,
-                        multi_turn_scorers=multi_turn_scorers,
-                    )
-                    for session_id, session_items in session_groups.items()
-                ]
-
-                for future in as_completed(multi_turn_futures):
-                    session_result = future.result()
-                    multi_turn_assessments.update(session_result)
-                    if progress_bar:
-                        progress_bar.update(1)
-        finally:
-            if progress_bar:
-                progress_bar.close()
+    try:
+        predict_times, score_times = _run_pipeline(
+            eval_items=eval_items,
+            eval_results=eval_results,
+            predict_fn=predict_fn,
+            single_turn_scorers=single_turn_scorers,
+            multi_turn_scorers=multi_turn_scorers,
+            session_groups=session_groups,
+            run_id=run_id,
+            progress_bar=progress_bar,
+            multi_turn_assessments=multi_turn_assessments,
+        )
+    finally:
+        predict_total = sum(predict_times)
+        score_total = sum(score_times)
+        total_thread_time = predict_total + score_total
+        if progress_bar:
+            if total_thread_time > 0:
+                predict_pct = predict_total / total_thread_time * 100
+                score_pct = score_total / total_thread_time * 100
+                split = f" [predict_fn: {predict_pct:.0f}%, scorers: {score_pct:.0f}%]"
+                progress_bar.bar_format = PGBAR_FORMAT + split
+                progress_bar.refresh()
+            progress_bar.close()
 
     if multi_turn_assessments:
         _log_multi_turn_assessments_to_traces(
@@ -339,17 +734,14 @@ def run(
     )
 
 
-def _run_single(
+def _run_predict(
     eval_item: EvalItem,
-    scorers: list[Scorer],
+    predict_fn: Callable[..., Any] | None,
     run_id: str | None,
-    predict_fn: Callable[..., Any] | None = None,
-) -> EvalResult:
-    """Run the logic of the eval harness for a single eval item."""
-    # Set the MLflow run ID in the context for this thread
+    rate_limiter: RateLimiter,
+    max_retries: int = 0,
+) -> None:
     if run_id:
-        # Manually set the mlflow_run_id for this context to be the same as was set in
-        # the parent thread. This is required because MLflow runs are thread-local.
         ctx = context.get_context()
         ctx.set_mlflow_run_id(run_id)
 
@@ -357,9 +749,16 @@ def _run_single(
         # NB: Setting prediction context let us retrieve the trace by a custom ID. Setting
         # is_evaluate=True disables async trace logging to make sure the trace is available.
         eval_request_id = str(uuid.uuid4())
-        with set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)):
+        with (
+            set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)),
+            eval_retry_context(),
+        ):
             try:
-                eval_item.outputs = predict_fn(eval_item.inputs)
+                eval_item.outputs = call_with_retry(
+                    lambda: predict_fn(eval_item.inputs),
+                    rate_limiter,
+                    max_retries,
+                )
             except Exception as e:
                 eval_item.error_message = (
                     f"Failed to invoke the predict_fn with {eval_item.inputs}: {e}"
@@ -378,11 +777,27 @@ def _run_single(
     else:
         # When static dataset (a pair of inputs and outputs) is given, we create a minimal
         # trace with root span only, to log the assessments on it.
-        minimal_trace = create_minimal_trace(eval_item)
-        eval_item.trace = minimal_trace
+        eval_item.trace = create_minimal_trace(eval_item)
 
-    # Execute the scorers
-    assessments = _compute_eval_scores(eval_item=eval_item, scorers=scorers)
+
+def _run_score(
+    eval_item: EvalItem,
+    scorers: list[Scorer],
+    run_id: str | None,
+    scorer_rate_limiter: RateLimiter,
+    max_retries: int = 0,
+) -> EvalResult:
+    if run_id:
+        ctx = context.get_context()
+        ctx.set_mlflow_run_id(run_id)
+
+    with eval_retry_context():
+        assessments = _compute_eval_scores(
+            eval_item=eval_item,
+            scorers=scorers,
+            rate_limiter=scorer_rate_limiter,
+            max_retries=max_retries,
+        )
     assessments.extend(_get_new_expectations(eval_item))
     eval_result = EvalResult(eval_item=eval_item, assessments=assessments)
 
@@ -393,7 +808,6 @@ def _run_single(
         try:
             mlflow.set_trace_tag(trace_id=eval_item.trace.info.trace_id, key=key, value=tags[key])
         except Exception as e:
-            # Failures in logging to MLflow should not fail the entire harness run
             _logger.warning(f"Failed to log tag {key} to MLflow: {e}")
 
     try:
@@ -403,26 +817,27 @@ def _run_single(
             assessments=eval_result.assessments,
         )
     except Exception as e:
-        # Failures in logging to MLflow should not fail the entire harness run
         _logger.warning(f"Failed to log trace and assessments to MLflow: {e}")
 
     return eval_result
+
+
+def _invoke_scorer(scorer_func: Callable[..., Any], eval_item: EvalItem):
+    return scorer_func(
+        inputs=eval_item.inputs,
+        outputs=eval_item.outputs,
+        expectations=eval_item.expectations,
+        trace=eval_item.trace,
+    )
 
 
 def _compute_eval_scores(
     *,
     eval_item: EvalItem,
     scorers: list[Scorer],
+    rate_limiter: RateLimiter = NoOpRateLimiter(),
+    max_retries: int = 0,
 ) -> list[Feedback]:
-    """Compute the per-eval-item scores.
-
-    Args:
-        eval_item: The evaluation item containing inputs, outputs, expectations, and trace.
-        scorers: List of scorer instances to run.
-
-    Returns:
-        List of Feedback objects from all scorers.
-    """
     if not scorers:
         return []
 
@@ -437,11 +852,8 @@ def _compute_eval_scores(
                     scorer_func
                 )
 
-            value = scorer_func(
-                inputs=eval_item.inputs,
-                outputs=eval_item.outputs,
-                expectations=eval_item.expectations,
-                trace=eval_item.trace,
+            value = call_with_retry(
+                lambda: _invoke_scorer(scorer_func, eval_item), rate_limiter, max_retries
             )
             feedbacks = standardize_scorer_value(scorer.name, value)
 
