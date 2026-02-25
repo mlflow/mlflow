@@ -25,6 +25,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationType,
     BudgetOnExceeded,
     BudgetTargetType,
+    BudgetType,
     GatewayBudgetPolicy,
 )
 from mlflow.entities.gateway_endpoint import (
@@ -147,6 +148,7 @@ __all__ = [
     "BudgetDurationType",
     "BudgetOnExceeded",
     "BudgetTargetType",
+    "BudgetType",
     "FallbackConfig",
     "FallbackStrategy",
     "GatewayBudgetPolicy",

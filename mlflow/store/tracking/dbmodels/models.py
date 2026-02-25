@@ -65,6 +65,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationType,
     BudgetOnExceeded,
     BudgetTargetType,
+    BudgetType,
     GatewayBudgetPolicy,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -2786,17 +2787,17 @@ class SqlGatewayBudgetPolicy(Base):
     """
     Budget policy ID: `String` (limit 36 characters). *Primary Key*.
     """
-    name = Column(String(255), nullable=False)
+    budget_type = Column(String(32), nullable=False)
     """
-    Budget policy name: `String` (limit 255 characters). Workspace-unique.
+    Budget measurement type: `String` (USD).
     """
-    limit_usd = Column(Float, nullable=False)
+    budget_amount = Column(Float, nullable=False)
     """
-    Budget limit in USD: `Float`.
+    Budget limit amount: `Float`.
     """
     duration_type = Column(String(32), nullable=False)
     """
-    Duration type for the fixed window: `String` (HOURS, DAYS, MONTHS).
+    Duration type for the fixed window: `String` (MINUTES, HOURS, DAYS, MONTHS).
     """
     duration_value = Column(Integer, nullable=False)
     """
@@ -2808,7 +2809,7 @@ class SqlGatewayBudgetPolicy(Base):
     """
     on_exceeded = Column(String(32), nullable=False)
     """
-    Action when budget exceeded: `String` (ALERT, REJECT, ALERT_AND_REJECT).
+    Action when budget exceeded: `String` (ALERT, REJECT).
     """
     created_by = Column(String(255), nullable=True)
     """
@@ -2838,18 +2839,17 @@ class SqlGatewayBudgetPolicy(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("budget_policy_id", name="budget_policies_pk"),
-        UniqueConstraint("workspace", "name", name="uq_budget_policies_workspace_name"),
         Index("idx_budget_policies_workspace", "workspace"),
     )
 
     def __repr__(self):
-        return f"<SqlGatewayBudgetPolicy ({self.budget_policy_id}, {self.name})>"
+        return f"<SqlGatewayBudgetPolicy ({self.budget_policy_id})>"
 
     def to_mlflow_entity(self):
         return GatewayBudgetPolicy(
             budget_policy_id=self.budget_policy_id,
-            name=self.name,
-            limit_usd=self.limit_usd,
+            budget_type=BudgetType(self.budget_type),
+            budget_amount=self.budget_amount,
             duration_type=BudgetDurationType(self.duration_type),
             duration_value=self.duration_value,
             target_type=BudgetTargetType(self.target_type),

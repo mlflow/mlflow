@@ -24,6 +24,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationType,
     BudgetOnExceeded,
     BudgetTargetType,
+    BudgetType,
     GatewayBudgetPolicy,
 )
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
@@ -1173,8 +1174,8 @@ class SqlAlchemyGatewayStoreMixin:
 
     def create_budget_policy(
         self,
-        name: str,
-        limit_usd: float,
+        budget_type: BudgetType,
+        budget_amount: float,
         duration_type: BudgetDurationType,
         duration_value: int,
         target_type: BudgetTargetType,
@@ -1188,8 +1189,10 @@ class SqlAlchemyGatewayStoreMixin:
             sql_budget_policy = self._with_workspace_field(
                 SqlGatewayBudgetPolicy(
                     budget_policy_id=budget_policy_id,
-                    name=name,
-                    limit_usd=limit_usd,
+                    budget_type=budget_type.value
+                    if isinstance(budget_type, BudgetType)
+                    else budget_type,
+                    budget_amount=budget_amount,
                     duration_type=duration_type.value
                     if isinstance(duration_type, BudgetDurationType)
                     else duration_type,
@@ -1207,44 +1210,29 @@ class SqlAlchemyGatewayStoreMixin:
                 )
             )
 
-            try:
-                session.add(sql_budget_policy)
-                session.flush()
-            except IntegrityError:
-                raise MlflowException(
-                    f"Budget policy with name '{name}' already exists in this workspace",
-                    error_code=RESOURCE_ALREADY_EXISTS,
-                )
+            session.add(sql_budget_policy)
+            session.flush()
 
             return sql_budget_policy.to_mlflow_entity()
 
     def get_budget_policy(
         self,
-        budget_policy_id: str | None = None,
-        name: str | None = None,
+        budget_policy_id: str,
     ) -> GatewayBudgetPolicy:
-        _validate_one_of(
-            "budget_policy_id", budget_policy_id,
-            "name", name,
-        )
-
         with self.ManagedSessionMaker() as session:
-            filters = {}
-            if budget_policy_id:
-                filters["budget_policy_id"] = budget_policy_id
-            else:
-                filters["name"] = name
-
             sql_budget_policy = self._get_entity_or_raise(
-                session, SqlGatewayBudgetPolicy, filters, "BudgetPolicy"
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
             )
             return sql_budget_policy.to_mlflow_entity()
 
     def update_budget_policy(
         self,
         budget_policy_id: str,
-        name: str | None = None,
-        limit_usd: float | None = None,
+        budget_type: BudgetType | None = None,
+        budget_amount: float | None = None,
         duration_type: BudgetDurationType | None = None,
         duration_value: int | None = None,
         target_type: BudgetTargetType | None = None,
@@ -1259,10 +1247,14 @@ class SqlAlchemyGatewayStoreMixin:
                 "BudgetPolicy",
             )
 
-            if name is not None:
-                sql_budget_policy.name = name
-            if limit_usd is not None:
-                sql_budget_policy.limit_usd = limit_usd
+            if budget_type is not None:
+                sql_budget_policy.budget_type = (
+                    budget_type.value
+                    if isinstance(budget_type, BudgetType)
+                    else budget_type
+                )
+            if budget_amount is not None:
+                sql_budget_policy.budget_amount = budget_amount
             if duration_type is not None:
                 sql_budget_policy.duration_type = (
                     duration_type.value
@@ -1288,13 +1280,7 @@ class SqlAlchemyGatewayStoreMixin:
             if updated_by is not None:
                 sql_budget_policy.last_updated_by = updated_by
 
-            try:
-                session.flush()
-            except IntegrityError:
-                raise MlflowException(
-                    f"Budget policy with name '{name}' already exists in this workspace",
-                    error_code=RESOURCE_ALREADY_EXISTS,
-                )
+            session.flush()
 
             return sql_budget_policy.to_mlflow_entity()
 

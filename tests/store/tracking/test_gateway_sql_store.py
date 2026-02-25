@@ -8,6 +8,7 @@ from mlflow.entities import (
     BudgetDurationType,
     BudgetOnExceeded,
     BudgetTargetType,
+    BudgetType,
     FallbackConfig,
     FallbackStrategy,
     GatewayBudgetPolicy,
@@ -2014,8 +2015,8 @@ def test_create_gateway_endpoint_with_traffic_split(store: SqlAlchemyStore):
 
 def test_create_budget_policy(store: SqlAlchemyStore):
     policy = store.create_budget_policy(
-        name="monthly-budget",
-        limit_usd=100.0,
+        budget_type=BudgetType.USD,
+        budget_amount=100.0,
         duration_type=BudgetDurationType.MONTHS,
         duration_value=1,
         target_type=BudgetTargetType.GLOBAL,
@@ -2024,8 +2025,8 @@ def test_create_budget_policy(store: SqlAlchemyStore):
     )
     assert isinstance(policy, GatewayBudgetPolicy)
     assert policy.budget_policy_id.startswith("bp-")
-    assert policy.name == "monthly-budget"
-    assert policy.limit_usd == 100.0
+    assert policy.budget_type == BudgetType.USD
+    assert policy.budget_amount == 100.0
     assert policy.duration_type == BudgetDurationType.MONTHS
     assert policy.duration_value == 1
     assert policy.target_type == BudgetTargetType.GLOBAL
@@ -2035,56 +2036,23 @@ def test_create_budget_policy(store: SqlAlchemyStore):
     assert policy.last_updated_at > 0
 
 
-def test_create_budget_policy_duplicate_name_raises(store: SqlAlchemyStore):
-    store.create_budget_policy(
-        name="dup-budget",
-        limit_usd=50.0,
-        duration_type=BudgetDurationType.DAYS,
-        duration_value=1,
-        target_type=BudgetTargetType.GLOBAL,
-        on_exceeded=BudgetOnExceeded.REJECT,
-    )
-    with pytest.raises(MlflowException, match="already exists"):
-        store.create_budget_policy(
-            name="dup-budget",
-            limit_usd=200.0,
-            duration_type=BudgetDurationType.DAYS,
-            duration_value=7,
-            target_type=BudgetTargetType.GLOBAL,
-            on_exceeded=BudgetOnExceeded.ALERT,
-        )
-
-
 def test_get_budget_policy_by_id(store: SqlAlchemyStore):
     created = store.create_budget_policy(
-        name="get-by-id",
-        limit_usd=75.0,
+        budget_type=BudgetType.USD,
+        budget_amount=75.0,
         duration_type=BudgetDurationType.HOURS,
         duration_value=24,
         target_type=BudgetTargetType.WORKSPACE,
-        on_exceeded=BudgetOnExceeded.ALERT_AND_REJECT,
+        on_exceeded=BudgetOnExceeded.REJECT,
     )
     fetched = store.get_budget_policy(budget_policy_id=created.budget_policy_id)
     assert fetched.budget_policy_id == created.budget_policy_id
-    assert fetched.name == "get-by-id"
-    assert fetched.limit_usd == 75.0
+    assert fetched.budget_type == BudgetType.USD
+    assert fetched.budget_amount == 75.0
     assert fetched.duration_type == BudgetDurationType.HOURS
     assert fetched.duration_value == 24
     assert fetched.target_type == BudgetTargetType.WORKSPACE
-    assert fetched.on_exceeded == BudgetOnExceeded.ALERT_AND_REJECT
-
-
-def test_get_budget_policy_by_name(store: SqlAlchemyStore):
-    created = store.create_budget_policy(
-        name="get-by-name",
-        limit_usd=50.0,
-        duration_type=BudgetDurationType.DAYS,
-        duration_value=7,
-        target_type=BudgetTargetType.GLOBAL,
-        on_exceeded=BudgetOnExceeded.REJECT,
-    )
-    fetched = store.get_budget_policy(name="get-by-name")
-    assert fetched.budget_policy_id == created.budget_policy_id
+    assert fetched.on_exceeded == BudgetOnExceeded.REJECT
 
 
 def test_get_budget_policy_not_found_raises(store: SqlAlchemyStore):
@@ -2092,18 +2060,10 @@ def test_get_budget_policy_not_found_raises(store: SqlAlchemyStore):
         store.get_budget_policy(budget_policy_id="bp-nonexistent")
 
 
-def test_get_budget_policy_requires_one_of_id_or_name(store: SqlAlchemyStore):
-    with pytest.raises(MlflowException, match="Exactly one of"):
-        store.get_budget_policy()
-
-    with pytest.raises(MlflowException, match="Exactly one of"):
-        store.get_budget_policy(budget_policy_id="bp-123", name="test")
-
-
 def test_update_budget_policy(store: SqlAlchemyStore):
     created = store.create_budget_policy(
-        name="update-me",
-        limit_usd=100.0,
+        budget_type=BudgetType.USD,
+        budget_amount=100.0,
         duration_type=BudgetDurationType.MONTHS,
         duration_value=1,
         target_type=BudgetTargetType.GLOBAL,
@@ -2111,14 +2071,12 @@ def test_update_budget_policy(store: SqlAlchemyStore):
     )
     updated = store.update_budget_policy(
         budget_policy_id=created.budget_policy_id,
-        name="updated-name",
-        limit_usd=200.0,
-        on_exceeded=BudgetOnExceeded.ALERT_AND_REJECT,
+        budget_amount=200.0,
+        on_exceeded=BudgetOnExceeded.REJECT,
         updated_by="editor",
     )
-    assert updated.name == "updated-name"
-    assert updated.limit_usd == 200.0
-    assert updated.on_exceeded == BudgetOnExceeded.ALERT_AND_REJECT
+    assert updated.budget_amount == 200.0
+    assert updated.on_exceeded == BudgetOnExceeded.REJECT
     assert updated.last_updated_by == "editor"
     assert updated.last_updated_at >= created.last_updated_at
     # Unchanged fields should remain
@@ -2131,14 +2089,14 @@ def test_update_budget_policy_not_found_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="BudgetPolicy"):
         store.update_budget_policy(
             budget_policy_id="bp-nonexistent",
-            limit_usd=999.0,
+            budget_amount=999.0,
         )
 
 
 def test_delete_budget_policy(store: SqlAlchemyStore):
     created = store.create_budget_policy(
-        name="delete-me",
-        limit_usd=10.0,
+        budget_type=BudgetType.USD,
+        budget_amount=10.0,
         duration_type=BudgetDurationType.DAYS,
         duration_value=1,
         target_type=BudgetTargetType.GLOBAL,
@@ -2157,16 +2115,16 @@ def test_delete_budget_policy_not_found_raises(store: SqlAlchemyStore):
 
 def test_list_budget_policies(store: SqlAlchemyStore):
     store.create_budget_policy(
-        name="global-budget",
-        limit_usd=100.0,
+        budget_type=BudgetType.USD,
+        budget_amount=100.0,
         duration_type=BudgetDurationType.MONTHS,
         duration_value=1,
         target_type=BudgetTargetType.GLOBAL,
         on_exceeded=BudgetOnExceeded.ALERT,
     )
     store.create_budget_policy(
-        name="workspace-budget",
-        limit_usd=50.0,
+        budget_type=BudgetType.USD,
+        budget_amount=50.0,
         duration_type=BudgetDurationType.DAYS,
         duration_value=7,
         target_type=BudgetTargetType.WORKSPACE,
@@ -2178,11 +2136,11 @@ def test_list_budget_policies(store: SqlAlchemyStore):
 
     global_policies = store.list_budget_policies(target_type=BudgetTargetType.GLOBAL)
     assert len(global_policies) == 1
-    assert global_policies[0].name == "global-budget"
+    assert global_policies[0].target_type == BudgetTargetType.GLOBAL
 
     workspace_policies = store.list_budget_policies(target_type=BudgetTargetType.WORKSPACE)
     assert len(workspace_policies) == 1
-    assert workspace_policies[0].name == "workspace-budget"
+    assert workspace_policies[0].target_type == BudgetTargetType.WORKSPACE
 
 
 def test_list_budget_policies_empty(store: SqlAlchemyStore):
@@ -2191,10 +2149,10 @@ def test_list_budget_policies_empty(store: SqlAlchemyStore):
 
 
 def test_create_budget_policy_all_duration_types(store: SqlAlchemyStore):
-    for i, dt in enumerate(BudgetDurationType):
+    for dt in BudgetDurationType:
         policy = store.create_budget_policy(
-            name=f"budget-{dt.value.lower()}",
-            limit_usd=100.0,
+            budget_type=BudgetType.USD,
+            budget_amount=100.0,
             duration_type=dt,
             duration_value=1,
             target_type=BudgetTargetType.GLOBAL,
@@ -2206,8 +2164,8 @@ def test_create_budget_policy_all_duration_types(store: SqlAlchemyStore):
 def test_create_budget_policy_all_on_exceeded_modes(store: SqlAlchemyStore):
     for mode in BudgetOnExceeded:
         policy = store.create_budget_policy(
-            name=f"budget-{mode.value.lower()}",
-            limit_usd=100.0,
+            budget_type=BudgetType.USD,
+            budget_amount=100.0,
             duration_type=BudgetDurationType.MONTHS,
             duration_value=1,
             target_type=BudgetTargetType.GLOBAL,

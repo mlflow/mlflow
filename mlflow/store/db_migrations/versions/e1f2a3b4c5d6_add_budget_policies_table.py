@@ -18,8 +18,8 @@ def upgrade():
     op.create_table(
         "budget_policies",
         sa.Column("budget_policy_id", sa.String(length=36), nullable=False),
-        sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("limit_usd", sa.Float(), nullable=False),
+        sa.Column("budget_type", sa.String(length=32), nullable=False),
+        sa.Column("budget_amount", sa.Float(), nullable=False),
         sa.Column("duration_type", sa.String(length=32), nullable=False),
         sa.Column("duration_value", sa.Integer(), nullable=False),
         sa.Column("target_type", sa.String(length=32), nullable=False),
@@ -35,7 +35,6 @@ def upgrade():
             server_default=sa.text("'default'"),
         ),
         sa.PrimaryKeyConstraint("budget_policy_id", name="budget_policies_pk"),
-        sa.UniqueConstraint("workspace", "name", name="uq_budget_policies_workspace_name"),
     )
     op.create_index("idx_budget_policies_workspace", "budget_policies", ["workspace"])
 

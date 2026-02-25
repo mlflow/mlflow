@@ -15,6 +15,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationType,
     BudgetOnExceeded,
     BudgetTargetType,
+    BudgetType,
     GatewayBudgetPolicy,
 )
 
@@ -437,8 +438,8 @@ class GatewayStoreMixin:
 
     def create_budget_policy(
         self,
-        name: str,
-        limit_usd: float,
+        budget_type: BudgetType,
+        budget_amount: float,
         duration_type: BudgetDurationType,
         duration_value: int,
         target_type: BudgetTargetType,
@@ -449,9 +450,9 @@ class GatewayStoreMixin:
         Create a new budget policy.
 
         Args:
-            name: User-friendly name for the budget policy.
-            limit_usd: Budget limit in USD.
-            duration_type: Type of time window (HOURS, DAYS, MONTHS).
+            budget_type: Type of budget measurement (e.g. USD).
+            budget_amount: Budget limit amount.
+            duration_type: Type of time window (MINUTES, HOURS, DAYS, MONTHS).
             duration_value: Length of the window in units of duration_type.
             target_type: Scope of the budget (GLOBAL or WORKSPACE).
             on_exceeded: Action when budget is exceeded.
@@ -464,15 +465,13 @@ class GatewayStoreMixin:
 
     def get_budget_policy(
         self,
-        budget_policy_id: str | None = None,
-        name: str | None = None,
+        budget_policy_id: str,
     ) -> GatewayBudgetPolicy:
         """
-        Retrieve a budget policy by ID or name.
+        Retrieve a budget policy by ID.
 
         Args:
             budget_policy_id: ID of the budget policy.
-            name: Name of the budget policy.
 
         Returns:
             GatewayBudgetPolicy entity.
@@ -482,8 +481,8 @@ class GatewayStoreMixin:
     def update_budget_policy(
         self,
         budget_policy_id: str,
-        name: str | None = None,
-        limit_usd: float | None = None,
+        budget_type: BudgetType | None = None,
+        budget_amount: float | None = None,
         duration_type: BudgetDurationType | None = None,
         duration_value: int | None = None,
         target_type: BudgetTargetType | None = None,
@@ -495,8 +494,8 @@ class GatewayStoreMixin:
 
         Args:
             budget_policy_id: ID of the budget policy to update.
-            name: Optional new name.
-            limit_usd: Optional new budget limit in USD.
+            budget_type: Optional new budget type.
+            budget_amount: Optional new budget amount.
             duration_type: Optional new duration type.
             duration_value: Optional new duration value.
             target_type: Optional new target type.
