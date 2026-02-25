@@ -12,6 +12,7 @@ from datetime import datetime
 from unittest import mock
 
 import pytest
+from opentelemetry.sdk.trace.export import SpanExporter
 
 import mlflow
 from mlflow.entities import (
@@ -2824,8 +2825,6 @@ def test_flush_trace_async_logging_skips_when_async_queue_missing():
     # A bare SpanExporter (as used by StrandsSpanProcessor, mlflow/strands/autolog.py:40)
     # has no _async_queue attribute. flush_trace_async_logging() should return without
     # reaching the error handler.
-    from opentelemetry.sdk.trace.export import SpanExporter
-
     exporter = SpanExporter()
     assert not hasattr(exporter, "_async_queue")
     with (
