@@ -482,15 +482,15 @@ def _fire_budget_crossed_webhooks(newly_crossed: list, workspace: str | None) ->
 
     for window in newly_crossed:
         policy = window.policy
-        if policy.on_exceeded.value != "ALERT":
+        if policy.budget_action.value != "ALERT":
             continue
 
         payload = BudgetPolicyCrossedPayload(
             budget_policy_id=policy.budget_policy_id,
-            budget_type=policy.budget_type.value,
+            budget_unit=policy.budget_unit.value,
             budget_amount=policy.budget_amount,
             current_spend=window.cumulative_spend,
-            duration_type=policy.duration_type.value,
+            duration_unit=policy.duration_unit.value,
             duration_value=policy.duration_value,
             target_type=policy.target_type.value,
             workspace=workspace or (policy.workspace or "default"),
