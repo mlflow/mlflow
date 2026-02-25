@@ -19,22 +19,22 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
 import { BudgetsFilterButton, type BudgetsFilter } from './BudgetsFilterButton';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
-import type { BudgetPolicy, BudgetType, DurationType, OnExceededAction, TargetType } from '../../types';
+import type { BudgetPolicy, BudgetUnit, DurationUnit, BudgetAction, TargetType } from '../../types';
 
 interface BudgetsListProps {
   onEditClick?: (policy: BudgetPolicy) => void;
   onDeleteClick?: (policy: BudgetPolicy) => void;
 }
 
-function formatBudgetAmount(amount: number, budgetType: BudgetType): string {
-  if (budgetType === 'USD') {
+function formatBudgetAmount(amount: number, budgetUnit: BudgetUnit): string {
+  if (budgetUnit === 'USD') {
     return `$${amount.toFixed(2)}`;
   }
   return `${amount}`;
 }
 
-function formatDuration(value: number, type: DurationType): string {
-  const typeLabels: Record<DurationType, string> = {
+function formatDuration(value: number, type: DurationUnit): string {
+  const typeLabels: Record<DurationUnit, string> = {
     MINUTES: value === 1 ? 'Minute' : 'Minutes',
     HOURS: value === 1 ? 'Hour' : 'Hours',
     DAYS: value === 1 ? 'Day' : 'Days',
@@ -43,8 +43,8 @@ function formatDuration(value: number, type: DurationType): string {
   return `${value} ${typeLabels[type]}`;
 }
 
-function formatOnExceeded(action: OnExceededAction): string {
-  const labels: Record<OnExceededAction, string> = {
+function formatOnExceeded(action: BudgetAction): string {
+  const labels: Record<BudgetAction, string> = {
     ALERT: 'Alert',
     REJECT: 'Reject',
   };
@@ -199,16 +199,16 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
               </div>
             </TableCell>
             <TableCell css={{ flex: 1 }}>
-              <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_type)}</Typography.Text>
+              <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_unit)}</Typography.Text>
             </TableCell>
             <TableCell css={{ flex: 1 }}>
-              <Typography.Text>{formatDuration(policy.duration_value, policy.duration_type)}</Typography.Text>
+              <Typography.Text>{formatDuration(policy.duration_value, policy.duration_unit)}</Typography.Text>
             </TableCell>
             <TableCell css={{ flex: 1 }}>
               <Typography.Text>{formatTargetType(policy.target_type)}</Typography.Text>
             </TableCell>
             <TableCell css={{ flex: 1 }}>
-              <Typography.Text>{formatOnExceeded(policy.on_exceeded)}</Typography.Text>
+              <Typography.Text>{formatOnExceeded(policy.budget_action)}</Typography.Text>
             </TableCell>
             <TableCell css={{ flex: 1 }}>
               <TimeAgo date={new Date(policy.last_updated_at)} />
