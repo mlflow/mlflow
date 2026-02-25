@@ -548,7 +548,7 @@ export const GenAiTracesTableBody = React.memo(
           />
         ) : (
           selectedEvaluationId &&
-            selectedEvaluationExperimentId && (
+          selectedEvaluationExperimentId && (
             <GenAiEvaluationTracesReviewModal
               experimentId={selectedEvaluationExperimentId}
               runUuid={runUuid}
