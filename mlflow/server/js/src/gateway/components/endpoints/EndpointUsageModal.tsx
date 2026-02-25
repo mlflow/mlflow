@@ -14,8 +14,8 @@ import { FormattedMessage } from 'react-intl';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
-import { getDefaultHeaders } from '../../../common/utils/FetchUtils';
 import { TryItPanel } from './TryItPanel';
+import { useTryIt } from '../../hooks/useTryIt';
 
 type Provider = 'openai' | 'anthropic' | 'gemini';
 type Language = 'curl' | 'python';
@@ -281,53 +281,16 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  const handleSendRequest = useCallback(async () => {
-    setSendError(null);
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(requestBody);
-    } catch {
-      setSendError('Invalid JSON in request body');
-      setResponseBody('');
-      return;
-    }
-    setIsSending(true);
-    setResponseBody('');
-    try {
-      const response = await fetch(tryItRequestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getDefaultHeaders(document.cookie),
-        },
-        body: JSON.stringify(parsed),
-      });
-      const text = await response.text();
-      if (!response.ok) {
-        setSendError(`Request failed (${response.status})`);
-        setResponseBody(text || '');
-        return;
-      }
-      try {
-        const formatted = JSON.stringify(JSON.parse(text), null, 2);
-        setResponseBody(formatted);
-      } catch {
-        setResponseBody(text);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setSendError(message);
-      setResponseBody('');
-    } finally {
-      setIsSending(false);
-    }
-  }, [requestBody, tryItRequestUrl]);
+  const { handleSendRequest, handleResetExample } = useTryIt({
+    requestBody,
+    tryItRequestUrl,
+    tryItDefaultBody,
+    setRequestBody,
+    setResponseBody,
+    setSendError,
+    setIsSending,
+  });
 
-  const handleResetExample = useCallback(() => {
-    setRequestBody(tryItDefaultBody);
-    setResponseBody('');
-    setSendError(null);
-  }, [tryItDefaultBody]);
   const renderCodeExample = (label: string, code: string, language: 'text' | 'python' = 'text') => (
     <div css={{ marginBottom: theme.spacing.md }}>
       <div css={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: theme.spacing.xs }}>
