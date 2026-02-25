@@ -22,7 +22,7 @@ The deployment architecture has a couple of advantages:
 - **Security by design**
   - Public traffic is encrypted using HTTPS, ensuring secure communication between clients and the application endpoint.
   - The Azure blob data container blocks all public access and MLflow server uses access key for secure access to the blob storage.
-  - VPC Isolation and VPC Security Groups: Application containers run in private subnets, preventing direct exposure to the public internet, only the load balancer can access the Azure container App task that runs MLflow server, there is no unnecessary inbound exposure.
+  - Virtual network isolation and NSG-based access control: The Azure Container Apps environment runs in a dedicated subnet within an Azure virtual network. The MLflow server is only reachable via the Azure Container Apps ingress endpoint (which can be limited to internal VNet access), and the underlying containers are not directly exposed to the public internet. Network Security Groups and optional private endpoints for PostgreSQL and Blob Storage can further restrict inbound and outbound traffic.
   - The architecture can integrate with MLflow authentication configurations.
 
 - **Operational Simplicity**
@@ -67,7 +67,7 @@ Basic configurations:
 - Image source: Docker hub or other registries
 - Image type: Public
 - Registry login server: ghcr.io
-- Image and tag: ghcr.io/mlflow/mlflow:v3.10.0-full
+- Image and tag: `ghcr.io/mlflow/mlflow:<version>-full` (The version is value like `v3.10.0`)
 - Command override: /bin/bash
 - Arguments override: `-c, pip install azure-storage-blob==12.28.0 && mlflow server --backend-store-uri <database-URL> --artifacts-destination wasbs://<container-name>@<storage-account-name>.blob.core.windows.net --host 0.0.0.0 --port 5000 --disable-security-middleware`, note that a space must follow the comma.
 - CPU and memory: It requires at least 1 CPU core and 2Gi memory
@@ -87,9 +87,9 @@ MLflow supports [basic authentication](https://mlflow.org/docs/latest/self-hosti
 - Additional environment variable settings: Set them as the environment variables of the Azure container app.
 - Additional mlflow server CLI options: Append them in the "Basic configurations / Arguments override" setting.
 
-## Step 5:
+## Step 5: Validate the deployment
 
-Use ![MLflow demo](https://mlflow.org/docs/latest/api_reference/cli.html#mlflow-demo) CLI to validate the deployment. Run the command from your own laptop as follows:
+Use [MLflow demo](https://mlflow.org/docs/latest/api_reference/cli.html#mlflow-demo) CLI to validate the deployment. Run the command from your own laptop as follows:
 
 ```
 mlflow demo --tracking-uri <Azure-Container-App-URL>
