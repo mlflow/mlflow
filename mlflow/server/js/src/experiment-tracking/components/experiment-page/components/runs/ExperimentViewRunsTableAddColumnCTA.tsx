@@ -219,7 +219,11 @@ export const ExperimentViewRunsTableAddColumnCTA = ({
             componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunstableaddcolumncta.tsx_218"
             css={styles.button}
             type="link"
-            onClick={onClick}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onClick();
+            }}
           >
             <PlusCircleIcon css={styles.buttonIcon} />
             <div css={styles.caption}>
