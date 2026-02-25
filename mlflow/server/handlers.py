@@ -5175,12 +5175,7 @@ def _list_budget_policies():
         ListGatewayBudgetPolicies(),
         schema={},
     )
-    target_type = (
-        BudgetTargetType.from_proto(request_message.target_type)
-        if request_message.HasField("target_type")
-        else None
-    )
-    policies = _get_tracking_store().list_budget_policies(target_type=target_type)
+    policies = _get_tracking_store().list_budget_policies()
     response_message = ListGatewayBudgetPolicies.Response()
     response_message.budget_policies.extend([p.to_proto() for p in policies])
     return _wrap_response(response_message)

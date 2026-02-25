@@ -516,9 +516,15 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_budget_policies(self) -> list[GatewayBudgetPolicy]:
+    def list_budget_policies(
+        self,
+        target_type: BudgetTargetType | None = None,
+    ) -> list[GatewayBudgetPolicy]:
         """
-        List all budget policies.
+        List budget policies, optionally filtered by target type.
+
+        Args:
+            target_type: If provided, only return policies with this target type.
 
         Returns:
             List of GatewayBudgetPolicy entities.

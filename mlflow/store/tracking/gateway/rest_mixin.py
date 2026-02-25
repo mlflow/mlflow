@@ -687,14 +687,7 @@ class RestGatewayStoreMixin:
         req_body = message_to_json(DeleteGatewayBudgetPolicy(budget_policy_id=budget_policy_id))
         self._call_endpoint(DeleteGatewayBudgetPolicy, req_body)
 
-    def list_budget_policies(
-        self,
-        target_type: BudgetTargetType | None = None,
-    ) -> list[GatewayBudgetPolicy]:
-        req_body = message_to_json(
-            ListGatewayBudgetPolicies(
-                target_type=target_type.to_proto() if target_type else None,
-            )
-        )
+    def list_budget_policies(self) -> list[GatewayBudgetPolicy]:
+        req_body = message_to_json(ListGatewayBudgetPolicies())
         response_proto = self._call_endpoint(ListGatewayBudgetPolicies, req_body)
         return [GatewayBudgetPolicy.from_proto(p) for p in response_proto.budget_policies]
