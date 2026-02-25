@@ -20,11 +20,12 @@ import { Link } from '../utils/RoutingUtils';
 import { getExperimentIdFromTraceLocation } from '../utils/TraceUtils';
 
 export const LoggedModelCell = (props: {
+  experimentId?: string;
   currentTraceInfo?: ModelTraceInfoV3;
   otherTraceInfo?: ModelTraceInfoV3;
   isComparing: boolean;
 }) => {
-  const { currentTraceInfo, otherTraceInfo, isComparing } = props;
+  const { experimentId, currentTraceInfo, otherTraceInfo, isComparing } = props;
   const currentModelId = currentTraceInfo?.trace_metadata?.['mlflow.modelId'];
   const otherModelId = otherTraceInfo?.trace_metadata?.['mlflow.modelId'];
 
@@ -33,7 +34,7 @@ export const LoggedModelCell = (props: {
       first={
         currentModelId ? (
           <LoggedModelComponent
-            experimentId={getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location)}
+            experimentId={getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location) ?? experimentId}
             modelId={currentModelId}
             isComparing={isComparing}
           />
@@ -45,7 +46,7 @@ export const LoggedModelCell = (props: {
         isComparing &&
         (otherModelId ? (
           <LoggedModelComponent
-            experimentId={getExperimentIdFromTraceLocation(otherTraceInfo?.trace_location)}
+            experimentId={getExperimentIdFromTraceLocation(otherTraceInfo?.trace_location) ?? experimentId}
             modelId={otherModelId}
             isComparing={isComparing}
           />

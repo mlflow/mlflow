@@ -44,6 +44,7 @@ import { getExperimentIdFromTraceLocation, getRowIdFromEvaluation } from './util
 export const GenAiTracesTableBody = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
+    experimentId,
     selectedColumns,
     evaluations,
     selectedEvaluationId,
@@ -72,6 +73,7 @@ export const GenAiTracesTableBody = React.memo(
     isGroupedBySession,
     searchQuery,
   }: {
+    experimentId?: string;
     selectedColumns: TracesTableColumn[];
     evaluations: EvalTraceComparisonEntry[];
     selectedEvaluationId: string | undefined;
@@ -148,6 +150,7 @@ export const GenAiTracesTableBody = React.memo(
             isComparing,
             theme,
             intl,
+            experimentId,
             onChangeEvaluationId,
             onTraceTagsEdit,
           }),
@@ -175,6 +178,7 @@ export const GenAiTracesTableBody = React.memo(
             isComparing,
             theme,
             intl,
+            experimentId,
             onChangeEvaluationId,
             onTraceTagsEdit,
           }),
@@ -205,6 +209,7 @@ export const GenAiTracesTableBody = React.memo(
       onChangeEvaluationId,
       theme,
       intl,
+      experimentId,
       onTraceTagsEdit,
       enableGrouping,
       allColumns,
@@ -441,12 +446,13 @@ export const GenAiTracesTableBody = React.memo(
       );
     }, [selectedEvaluationId, evaluations, evalEntryMatchesEvaluationId]);
 
-    // Derive experimentId from the selected evaluation's trace_location
+    // Derive experimentId from the selected evaluation's trace_location, falling back to the prop
     const selectedEvaluationExperimentId = useMemo(
       () =>
         getExperimentIdFromTraceLocation(selectedEvaluation?.currentRunValue?.traceInfo?.trace_location) ??
-        getExperimentIdFromTraceLocation(selectedEvaluation?.otherRunValue?.traceInfo?.trace_location),
-      [selectedEvaluation],
+        getExperimentIdFromTraceLocation(selectedEvaluation?.otherRunValue?.traceInfo?.trace_location) ??
+        experimentId,
+      [selectedEvaluation, experimentId],
     );
 
     // Get the trace IDs for the comparison modal.
@@ -519,6 +525,7 @@ export const GenAiTracesTableBody = React.memo(
                 selectedColumns={sortedGroupedColumns}
                 expandedSessions={expandedSessions}
                 toggleSessionExpanded={toggleSessionExpanded}
+                experimentId={experimentId}
                 getRunColor={getRunColor}
                 runUuid={runUuid}
                 compareToRunUuid={compareToRunUuid}

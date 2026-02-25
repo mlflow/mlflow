@@ -422,6 +422,7 @@ export const traceInfoCellRenderer = (
   onChangeEvaluationId: (evalId: string, traceInfo?: ModelTraceInfoV3) => void,
   intl: IntlShape,
   theme: ThemeType,
+  experimentId?: string,
   onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void,
   traceIdToTurnMap?: Record<string, number>,
   searchQuery?: string,
@@ -628,7 +629,10 @@ export const traceInfoCellRenderer = (
     }
 
     return (
-      <RunName experimentId={getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location)} runUuid={runUuid} />
+      <RunName
+        experimentId={getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location) ?? experimentId}
+        runUuid={runUuid}
+      />
     );
   } else if (colId === USER_COLUMN_ID) {
     const value = currentTraceInfo?.trace_metadata?.['mlflow.trace.user'] || currentTraceInfo?.tags?.['mlflow.user'];
@@ -745,7 +749,7 @@ export const traceInfoCellRenderer = (
           value ? (
             <SessionIdLinkWrapper
               sessionId={value}
-              experimentId={getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location)}
+              experimentId={getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location) ?? experimentId}
               traceId={currentTraceId}
             >
               <Tag
@@ -782,7 +786,7 @@ export const traceInfoCellRenderer = (
           (otherValue ? (
             <SessionIdLinkWrapper
               sessionId={otherValue}
-              experimentId={getExperimentIdFromTraceLocation(otherTraceInfo?.trace_location)}
+              experimentId={getExperimentIdFromTraceLocation(otherTraceInfo?.trace_location) ?? experimentId}
               traceId={otherTraceId}
             >
               <Tag
@@ -846,7 +850,12 @@ export const traceInfoCellRenderer = (
     );
   } else if (colId === LOGGED_MODEL_COLUMN_ID) {
     return (
-      <LoggedModelCell currentTraceInfo={currentTraceInfo} otherTraceInfo={otherTraceInfo} isComparing={isComparing} />
+      <LoggedModelCell
+        experimentId={experimentId}
+        currentTraceInfo={currentTraceInfo}
+        otherTraceInfo={otherTraceInfo}
+        isComparing={isComparing}
+      />
     );
   } else if (colId === TOKENS_COLUMN_ID) {
     return <TokensCell currentTraceInfo={currentTraceInfo} otherTraceInfo={otherTraceInfo} isComparing={isComparing} />;

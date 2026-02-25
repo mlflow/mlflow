@@ -101,6 +101,7 @@ describe('GenAITracesTableBodyContainer - integration test', () => {
     const defaultColumns = createTestColumns(defaultAssessmentInfos);
 
     const defaultProps: ComponentProps<typeof GenAITracesTableBodyContainer> = {
+      experimentId: testExperimentId,
       currentRunDisplayName: 'Test Run',
       runUuid: testRunUuid,
       compareToRunUuid: testCompareToRunUuid,

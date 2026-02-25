@@ -402,6 +402,7 @@ const RunViewEvaluationsTabInner = ({
               ) : (
                 <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
                   <GenAITracesTableBodyContainer
+                    experimentId={experimentId}
                     currentRunDisplayName={runDisplayName}
                     compareToRunDisplayName={compareToRunDisplayName}
                     runUuid={runUuid}

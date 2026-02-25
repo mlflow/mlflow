@@ -81,7 +81,8 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
         {children}
         {renderExportTracesToDatasetsModal?.({
           selectedTraceInfos: selectedTraces ? compact(selectedTraces.map((trace) => trace.traceInfo)) : [],
-          experimentId: getExperimentIdFromTraceLocation(selectedTraces?.[0]?.traceInfo?.trace_location) ?? experimentId ?? '',
+          experimentId:
+            getExperimentIdFromTraceLocation(selectedTraces?.[0]?.traceInfo?.trace_location) ?? experimentId ?? '',
           visible: showDatasetModal,
           setVisible: setShowDatasetModal,
         })}

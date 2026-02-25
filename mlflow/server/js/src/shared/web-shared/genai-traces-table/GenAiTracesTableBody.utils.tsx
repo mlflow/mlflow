@@ -125,6 +125,7 @@ export const getColumnConfig = (
     isComparing,
     theme,
     intl,
+    experimentId,
     onChangeEvaluationId,
     onTraceTagsEdit,
   }: {
@@ -132,6 +133,7 @@ export const getColumnConfig = (
     isComparing: boolean;
     theme: ThemeType;
     intl: IntlShape;
+    experimentId?: string;
     onChangeEvaluationId: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
     onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
   },
@@ -267,6 +269,7 @@ export const getColumnConfig = (
             onChangeEvaluationId,
             intl,
             theme,
+            experimentId,
             onTraceTagsEdit,
             traceIdToTurnMap,
             searchQuery,
