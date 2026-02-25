@@ -885,10 +885,7 @@ def flush_trace_async_logging(terminate=False) -> None:
     Args:
         terminate: If True, shut down the logging threads after flushing.
     """
-    try:
-        exporter = _get_trace_exporter()
-    except Exception:
-        return
+    exporter = _get_trace_exporter()
     if exporter is None or not hasattr(exporter, "_async_queue"):
         return
     # Access _async_queue outside the try/except so a missing attribute
