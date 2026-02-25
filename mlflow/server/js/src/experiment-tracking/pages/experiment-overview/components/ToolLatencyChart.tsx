@@ -14,6 +14,8 @@ import {
   useChartYAxisProps,
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
+  useClickableTooltip,
+  LockedTooltipOverlay,
 } from './OverviewChartComponents';
 import { formatLatency, useLegendHighlight, useChartColors, getLineDotStyle } from '../utils/chartUtils';
 
@@ -29,12 +31,19 @@ export const ToolLatencyChart: React.FC = () => {
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
   const { getChartColor } = useChartColors();
 
+  const { lockedTooltip, isLocked, containerRef, tooltipRef, handleChartClick } = useClickableTooltip();
+
   // Fetch and process tool latency chart data
   const { chartData, toolNames, isLoading, error, hasData } = useToolLatencyChartData();
 
   const tooltipFormatter = useCallback(
     (value: number, name: string) => [formatLatency(value), name] as [string, string],
     [],
+  );
+
+  const onChartClick = useCallback(
+    (data: any, event: React.MouseEvent) => handleChartClick(data, event),
+    [handleChartClick],
   );
 
   if (isLoading) {
@@ -58,36 +67,42 @@ export const ToolLatencyChart: React.FC = () => {
       />
 
       {/* Chart */}
-      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
+      <div ref={containerRef} css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm, position: 'relative' }}>
         {hasData ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              <XAxis dataKey="timestamp" {...xAxisProps} />
-              <YAxis {...yAxisProps} />
-              <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
-                cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-              />
-              {toolNames.map((toolName, index) => (
-                <Line
-                  key={toolName}
-                  type="monotone"
-                  dataKey={toolName}
-                  stroke={getChartColor(index)}
-                  strokeWidth={2}
-                  strokeOpacity={getOpacity(toolName)}
-                  dot={getLineDotStyle(getChartColor(index))}
+          <>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }} onClick={onChartClick}>
+                <XAxis dataKey="timestamp" {...xAxisProps} />
+                <YAxis {...yAxisProps} />
+                <Tooltip
+                  content={isLocked ? () => null : <ScrollableTooltip formatter={tooltipFormatter} />}
+                  cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
                 />
-              ))}
-              <Legend
-                verticalAlign="bottom"
-                iconType="plainline"
-                onMouseEnter={handleLegendMouseEnter}
-                onMouseLeave={handleLegendMouseLeave}
-                {...scrollableLegendProps}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+                {toolNames.map((toolName, index) => (
+                  <Line
+                    key={toolName}
+                    type="monotone"
+                    dataKey={toolName}
+                    stroke={getChartColor(index)}
+                    strokeWidth={2}
+                    strokeOpacity={getOpacity(toolName)}
+                    dot={getLineDotStyle(getChartColor(index))}
+                    cursor="pointer"
+                  />
+                ))}
+                <Legend
+                  verticalAlign="bottom"
+                  iconType="plainline"
+                  onMouseEnter={handleLegendMouseEnter}
+                  onMouseLeave={handleLegendMouseLeave}
+                  {...scrollableLegendProps}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+            {lockedTooltip && (
+              <LockedTooltipOverlay data={lockedTooltip} tooltipRef={tooltipRef} formatter={tooltipFormatter} />
+            )}
+          </>
         ) : (
           <OverviewChartEmptyState />
         )}

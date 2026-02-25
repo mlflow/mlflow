@@ -14,6 +14,8 @@ import {
   useChartYAxisProps,
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
+  useClickableTooltip,
+  LockedTooltipOverlay,
 } from './OverviewChartComponents';
 import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
 
@@ -29,12 +31,19 @@ export const ToolUsageChart: React.FC = () => {
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
   const { getChartColor } = useChartColors();
 
+  const { lockedTooltip, isLocked, containerRef, tooltipRef, handleChartClick } = useClickableTooltip();
+
   // Fetch and process tool usage chart data
   const { chartData, toolNames, isLoading, error, hasData } = useToolUsageChartData();
 
   const tooltipFormatter = useCallback(
     (value: number, name: string) => [formatCount(value), name] as [string, string],
     [],
+  );
+
+  const onChartClick = useCallback(
+    (data: any, event: React.MouseEvent) => handleChartClick(data, event),
+    [handleChartClick],
   );
 
   if (isLoading) {
@@ -53,34 +62,40 @@ export const ToolUsageChart: React.FC = () => {
       />
 
       {/* Chart */}
-      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
+      <div ref={containerRef} css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm, position: 'relative' }}>
         {hasData ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              <XAxis dataKey="timestamp" {...xAxisProps} />
-              <YAxis {...yAxisProps} />
-              <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
-                cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-              />
-              {toolNames.map((toolName, index) => (
-                <Bar
-                  key={toolName}
-                  dataKey={toolName}
-                  stackId="tools"
-                  fill={getChartColor(index)}
-                  fillOpacity={getOpacity(toolName)}
+          <>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }} onClick={onChartClick}>
+                <XAxis dataKey="timestamp" {...xAxisProps} />
+                <YAxis {...yAxisProps} />
+                <Tooltip
+                  content={isLocked ? () => null : <ScrollableTooltip formatter={tooltipFormatter} />}
+                  cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
                 />
-              ))}
-              <Legend
-                verticalAlign="bottom"
-                iconType="square"
-                onMouseEnter={handleLegendMouseEnter}
-                onMouseLeave={handleLegendMouseLeave}
-                {...scrollableLegendProps}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+                {toolNames.map((toolName, index) => (
+                  <Bar
+                    key={toolName}
+                    dataKey={toolName}
+                    stackId="tools"
+                    fill={getChartColor(index)}
+                    fillOpacity={getOpacity(toolName)}
+                    cursor="pointer"
+                  />
+                ))}
+                <Legend
+                  verticalAlign="bottom"
+                  iconType="square"
+                  onMouseEnter={handleLegendMouseEnter}
+                  onMouseLeave={handleLegendMouseLeave}
+                  {...scrollableLegendProps}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+            {lockedTooltip && (
+              <LockedTooltipOverlay data={lockedTooltip} tooltipRef={tooltipRef} formatter={tooltipFormatter} />
+            )}
+          </>
         ) : (
           <OverviewChartEmptyState />
         )}
