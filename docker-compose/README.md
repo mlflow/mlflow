@@ -8,8 +8,6 @@ Originally this stack included **MinIO**, but the repository now uses **RustFS**
 
 ## Overview
 
-All variants share the same architecture:
-
 - **MLflow Tracking Server**  
   Serves the REST API and UI (default: `http://localhost:5000`).
 
@@ -41,7 +39,7 @@ docker compose version
 
 ```bash
 git clone https://github.com/mlflow/mlflow.git
-cd docker-compose
+cd mlflow/docker-compose/
 ```
 
 ---
@@ -95,7 +93,7 @@ Example variables:
 
 ## 3. Launch the Stack
 
-From **this directory**:
+Inside directory **mlflow/docker-compose**:
 
 ```bash
 docker compose up -d
@@ -104,9 +102,9 @@ docker compose up -d
 This will:
 
 - Start PostgreSQL
-- Start the selected S3-compatible backend
+- Start the RustFS S3-compatible storage service
 - Start MLflow
-- Optionally create the S3 bucket (backend-specific init job)
+- Optionally create the S3 bucket (RustFS init job)
 
 Check status:
 
@@ -122,7 +120,7 @@ docker compose logs -f
 
 ---
 
-## 5. Access MLflow
+## 4. Access MLflow
 
 Once running:
 
@@ -132,7 +130,7 @@ You can now log runs, metrics, artifacts, and models to your local MLflow instan
 
 ---
 
-## 6. Shutdown
+## 5. Shutdown
 
 To stop and remove containers:
 
@@ -170,33 +168,15 @@ docker compose down -v
 
 ### Healthcheck Example
 
-RustFS usually responds on `/`:
+RustFS usually responds on `/health` with a json that contains the status of the server:
 
 ```sh
-curl -I http://storage:9000/
+curl -s http://127.0.0.1:9000/health | grep -q '\"status\"\\s*:\\s*\"ok\"'
 ```
 
 Use that in a container healthcheck (no `-f`, 4xx may appear during bootstrap).
 
 ---
-
-### Bucket Bootstrap (idempotent)
-
-```sh
-set -e
-if aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3api head-bucket --bucket ${S3_BUCKET} 2>/dev/null; then
-  echo "Bucket exists"
-else
-  aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3api create-bucket --bucket ${S3_BUCKET} --region ${AWS_DEFAULT_REGION}
-fi
-```
-
-> If `s3api create-bucket` still fails due to addressing quirks, use MinIO `mc`:
->
-> ```sh
-> mc alias set local http://storage:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY}
-> mc mb --ignore-existing local/${S3_BUCKET}
-> ```
 
 ### Artifact Upload Issues
 
@@ -235,7 +215,7 @@ docker compose up -d
 ```bash
 docker compose logs -f mlflow
 docker compose logs -f postgres
-docker compose logs -f <s3-service>
+docker compose logs -f storage
 ```
 
 ### Port Conflicts
