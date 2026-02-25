@@ -405,6 +405,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/claude_code',
     category: 'Tools',
   },
+  {
+    id: 'opencode',
+    name: 'Opencode',
+    logoPath: '/images/logos/opencode-logo.png',
+    link: '/genai/tracing/integrations/listing/opencode',
+    category: 'Tools',
+  },
   // Gateways
   {
     id: 'mlflow-ai-gateway',
