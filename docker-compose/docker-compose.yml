@@ -1,6 +1,6 @@
 volumes:
   pgdata:
-  rustfs-data:
+  storage-data:
 
 services:
   postgres:
@@ -34,11 +34,10 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - rustfs-data:/data
+      - storage-data:/data
     restart: unless-stopped
     healthcheck:
-      test:
-        ["CMD-SHELL", "curl -s http://127.0.0.1:9000/health | grep -q '\"status\":\"ok\"'"]
+      test: ["CMD-SHELL", 'curl -s http://127.0.0.1:9000/health | grep -q ''"status":"ok"''']
       interval: 10s
       timeout: 5s
       retries: 5

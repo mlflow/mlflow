@@ -1,8 +1,6 @@
 # MLflow with Docker Compose (PostgreSQL + S3-Compatible Storage)
 
-This directory provides a **Docker Compose** setup for running **MLflow** locally with a **PostgreSQL** backend store and an S3-compatible artifact stores like **RustFS**.
-
-Originally this stack included **MinIO**, but the repository now uses **RustFS**.
+This directory provides a **Docker Compose** setup for running **MLflow** locally with a **PostgreSQL** backend store and **RustFS** for S3-compatible artifact storage.
 
 ---
 
@@ -60,20 +58,23 @@ The `.env` file defines:
 - S3-compatible endpoint URL
 - Backend-specific configuration for RustFS
 
-**Common variables** :
+**Common variables**:
 
 - **PostgreSQL**
+
   - `POSTGRES_USER=mlflow`
   - `POSTGRES_PASSWORD=mlflow`
   - `POSTGRES_DB=mlflow`
 
 - **S3**
+
   - `AWS_ACCESS_KEY_ID=s3admin`
   - `AWS_SECRET_ACCESS_KEY=s3admin`
   - `AWS_DEFAULT_REGION=us-east-1`
   - `S3_BUCKET=mlflow`
 
 - **RustFS**
+
   - `RUSTFS_CONSOLE_ENABLE=true`
 
 - **MLflow**
@@ -97,9 +98,9 @@ docker compose up -d
 This will:
 
 - Start PostgreSQL
-- Start the RustFS S3-compatible storage service
+- Start RustFS
 - Start MLflow
-- Optionally create the S3 bucket (RustFS init job)
+- Create the S3 bucket if it doesn't exist
 
 Check status:
 
@@ -181,7 +182,7 @@ Verify:
 - `MLFLOW_S3_ENDPOINT_URL=http://<service>:<port>`
 - AWS credentials match the backend configuration
 
-Bash command useful to check if the S3 is working correctly
+To verify S3 storage is working:
 
 ```bash
 aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3api list-buckets
