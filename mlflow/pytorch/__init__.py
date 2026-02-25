@@ -508,8 +508,8 @@ def save_model(
                 "If `serialization_format` is set to 'pt2', then `input_example` is required and "
                 "must be a numpy array or torch tensor, or a tuple / list of numpy arrays or "
                 "torch tensors, because 'pt2' is a traced-graph format, "
-                "and PyTorch traces the model graph by virtually executing `model.forward` with the "
-                "provided example input."
+                "and PyTorch traces the model graph by virtually executing `model.forward` with "
+                "the provided example input."
             )
 
         if not (
