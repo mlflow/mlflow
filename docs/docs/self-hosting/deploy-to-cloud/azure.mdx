@@ -63,16 +63,20 @@ Basic configurations:
 
 - Deployment source: Container image
 - Container Apps environment: Create a new environment, and in the environment networking setting page, enable public network access, and select the VNet and the "aca-infra-subnet" subnet.
-  Container configurations:
+
+Container configurations:
+
 - Image source: Docker hub or other registries
 - Image type: Public
 - Registry login server: ghcr.io
-- Image and tag: `ghcr.io/mlflow/mlflow:<version>-full` (The version is value like `v3.10.0`)
+- Image and tag: `ghcr.io/mlflow/mlflow:<version>-full` (The version is value like `v3.10.0`, you can find available MLflow images in this [page](https://github.com/mlflow/mlflow/pkgs/container/mlflow))
 - Command override: /bin/bash
 - Arguments override: `-c, pip install azure-storage-blob==12.28.0 && mlflow server --backend-store-uri <database-URL> --artifacts-destination wasbs://<container-name>@<storage-account-name>.blob.core.windows.net --host 0.0.0.0 --port 5000 --disable-security-middleware`, note that a space must follow the comma.
 - CPU and memory: It requires at least 1 CPU core and 2Gi memory
 - Environment variables: name "AZURE_STORAGE_ACCESS_KEY", value: the access key of the blob storage configured in the step 1.
-  Ingress configurations:
+
+Ingress configurations:
+
 - Enable ingress (limited to Container App environment)
 - Ingress type: HTTP
 - Target port: 5000
