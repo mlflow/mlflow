@@ -29,6 +29,7 @@ from mlflow.genai.discovery.utils import (
     _extract_execution_paths_for_session,
     _extract_failing_traces,
     _extract_failure_labels,
+    _extract_span_errors,
     _group_traces_by_session,
     _has_session_ids,
     _log_discovery_artifacts,
@@ -46,9 +47,14 @@ _NO_ISSUE_PATTERNS = frozenset({"no issues", "no issue", "no problems", "no fail
 
 
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:
-    name_lower = issue.name.lower()
-    desc_lower = issue.description.lower()
-    return any(p in name_lower or p in desc_lower for p in _NO_ISSUE_PATTERNS)
+    from mlflow.genai.discovery.constants import _NO_ISSUE_KEYWORD
+
+    # Primary check: canonical keyword from the LLM prompt
+    if _NO_ISSUE_KEYWORD.lower() in issue.name.lower():
+        return True
+    # Fallback: pattern matching across name, description, and root_cause
+    texts = (issue.name.lower(), issue.description.lower(), issue.root_cause.lower())
+    return any(p in text for p in _NO_ISSUE_PATTERNS for text in texts)
 
 
 def _extract_assessment_rationale(trace: Trace, scorer_name: str) -> str:
@@ -75,7 +81,7 @@ def _collect_example_trace_ids(
 
 def _format_trace_content(trace: Trace) -> str:
     """Build a compact text representation of a trace for annotation prompts."""
-    from mlflow.genai.discovery.utils import _extract_execution_path
+    from mlflow.genai.discovery.utils import _extract_execution_path, _extract_span_errors
 
     parts = []
     request = trace.data.request
@@ -87,6 +93,9 @@ def _format_trace_content(trace: Trace) -> str:
     exec_path = _extract_execution_path(trace)
     if exec_path and exec_path != "(no routing)":
         parts.append(f"Execution path: {exec_path}")
+    errors = _extract_span_errors(trace)
+    if errors:
+        parts.append(f"Errors: {errors}")
     return "\n".join(parts) if parts else "(trace content not available)"
 
 
@@ -352,16 +361,25 @@ def discover_issues(
         session_failing = [t for t in session_traces if t.info.trace_id in rationale_map]
         if not session_failing:
             continue
-        rationales = [rationale_map[t.info.trace_id] for t in session_failing]
-        # Also include human feedback assessments if available
+        rationales: list[str] = []
+        seen_rationales: set[str] = set()
         for t in session_failing:
+            r = rationale_map[t.info.trace_id]
+            if r and r not in seen_rationales:
+                seen_rationales.add(r)
+                rationales.append(r)
             human_rationale = _extract_assessment_rationale(t, scorer_name)
-            if human_rationale:
+            if human_rationale and human_rationale not in seen_rationales:
+                seen_rationales.add(human_rationale)
                 rationales.append(f"[human feedback] {human_rationale}")
-        combined_rationale = "; ".join(r for r in rationales if r)
+            span_errors = _extract_span_errors(t)
+            if span_errors and span_errors not in seen_rationales:
+                seen_rationales.add(span_errors)
+                rationales.append(f"[span errors] {span_errors}")
+        combined_rationale = "; ".join(rationales)
         if not combined_rationale:
             continue
-        surface = combined_rationale[:500]
+        surface = combined_rationale[:800]
         exec_path = _extract_execution_paths_for_session(session_failing)
         analyses.append(
             _ConversationAnalysis(

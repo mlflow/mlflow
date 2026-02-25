@@ -444,3 +444,31 @@ def test_group_traces_by_session_mixed(make_trace):
     assert len(groups) == 2
     assert len(groups["s1"]) == 1
     assert t2.info.trace_id in groups
+
+
+# ---- _extract_span_errors ----
+
+
+def test_extract_span_errors_with_error_span(make_trace):
+    from mlflow.genai.discovery.utils import _extract_span_errors
+
+    trace = make_trace(error_span=True)
+    result = _extract_span_errors(trace)
+    assert result
+    assert "Connection failed" in result
+
+
+def test_extract_span_errors_no_errors(make_trace):
+    from mlflow.genai.discovery.utils import _extract_span_errors
+
+    trace = make_trace()
+    result = _extract_span_errors(trace)
+    assert result == ""
+
+
+def test_extract_span_errors_truncation(make_trace):
+    from mlflow.genai.discovery.utils import _extract_span_errors
+
+    trace = make_trace(error_span=True)
+    result = _extract_span_errors(trace, max_length=10)
+    assert len(result) <= 10

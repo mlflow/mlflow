@@ -59,7 +59,9 @@ the assistant should have exhibited.
 for clarification) \
 - Consider the user's change in subject as an indication of failure — users may change their mind or pursue multiple lines of inquiry
 - Treat casual, off-hand remarks (e.g., emotional asides, small talk) as concrete goals \
-that require specific fulfillment\
+that require specific fulfillment
+- Mark the assistant as failing for things outside its defined scope or capabilities — \
+if a system prompt defines what the assistant can/cannot do, evaluate only against that scope\
 {extra_donts}
 
 Return True if the user's goals were achieved efficiently, False otherwise.
@@ -97,6 +99,9 @@ Evaluate whether the output is correct and complete:
 - If the input contains system/developer instructions defining a task, did the \
 application actually perform that task?
 - Are there contradictions, missing information, or obvious errors in the output?
+- If the input contains a system prompt defining the assistant's capabilities or \
+limitations, do NOT mark it as failing for things outside its defined scope. \
+Evaluate only against what the assistant is designed to do.
 
 Return True if the output correctly fulfills the input request.
 Return False if there are significant quality problems.
@@ -156,16 +161,22 @@ _FAILURE_LABEL_SYSTEM_PROMPT = (
 
 # ---- Cluster summary prompt ----
 
+_NO_ISSUE_KEYWORD = "NO_ISSUE_DETECTED"
+
 _CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "You are an expert at analyzing AI application failures. You will be given a group of "
     "per-conversation failure analyses that were pre-clustered by semantic similarity.\n\n"
     "Your job is to:\n"
     "1. **Summarize** the cluster into a single issue with a name, description, and root cause\n"
     "2. **Validate** whether the grouped analyses actually represent the same underlying issue\n\n"
+    "IMPORTANT: If the analyses do NOT represent a real failure — e.g. the user's goals were "
+    "achieved, the system functioned correctly, or there is no concrete deficiency — you MUST "
+    f'set the name to exactly "{_NO_ISSUE_KEYWORD}" and set confidence to 0. Do NOT invent '
+    "an issue where none exists.\n\n"
     "Provide:\n"
     "- A name prefixed with 'Issue: ' followed by a short readable description "
     "(3-8 words, plain English), e.g. 'Issue: Media control commands ignored', "
-    "'Issue: Incorrect data returned'\n"
+    f"'Issue: Incorrect data returned' — or exactly \"{_NO_ISSUE_KEYWORD}\" if no real issue\n"
     "- A clear description of what the issue is\n"
     "- The root cause (synthesized from the individual analyses)\n"
     "- A confidence score 0-100 reflecting how coherent the cluster is (75+ only if the "

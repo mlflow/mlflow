@@ -314,22 +314,29 @@ def test_discover_issues_additional_scorers(make_trace):
 
 
 @pytest.mark.parametrize(
-    ("name", "description", "expected"),
+    ("name", "description", "root_cause", "expected"),
     [
-        ("No issues detected [general]", "Everything looks fine", True),
-        ("No problems found", "All traces passed", True),
-        ("Slow response times [api]", "Responses are slow", False),
-        ("Data errors [db]", "Schema validation passes but data is wrong", False),
-        ("Missing data [api]", "No errors found in logs", True),
+        # Canonical keyword — primary mechanism
+        ("NO_ISSUE_DETECTED", "Goals were met", "N/A", True),
+        ("no_issue_detected", "All good", "N/A", True),
+        # Fallback patterns in name/description
+        ("No issues detected [general]", "Everything looks fine", "test", True),
+        ("No problems found", "All traces passed", "test", True),
+        ("Missing data [api]", "No errors found in logs", "test", True),
+        # Fallback pattern in root_cause
+        ("General analysis", "System output summary", "no issues found in analysis", True),
+        # Real issues — not filtered
+        ("Slow response times [api]", "Responses are slow", "Complex queries", False),
+        ("Data errors [db]", "Schema validation passes but data is wrong", "Misconfig", False),
     ],
 )
-def test_is_non_issue(name, description, expected):
+def test_is_non_issue(name, description, root_cause, expected):
     from mlflow.genai.discovery.pipeline import _is_non_issue
 
     issue = _IdentifiedIssue(
         name=name,
         description=description,
-        root_cause="test",
+        root_cause=root_cause,
         example_indices=[0],
         confidence=90,
     )
@@ -363,6 +370,65 @@ def test_discover_issues_filters_no_issue_results(make_trace):
         root_cause="N/A",
         example_indices=[0, 1, 2],
         confidence=100,
+    )
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
+        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            side_effect=[test_eval, triage_eval],
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._extract_failure_labels",
+            return_value=["label1", "label2", "label3"],
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._cluster_analyses",
+            return_value=[[0, 1, 2]],
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._summarize_cluster",
+            return_value=no_issue_result,
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.start_run",
+            side_effect=_mock_start_run,
+        ),
+    ):
+        result = discover_issues(triage_sample_size=10)
+
+    assert len(result.issues) == 0
+
+
+def test_discover_issues_filters_canonical_no_issue_keyword(make_trace):
+    traces = [make_trace() for _ in range(10)]
+
+    test_df = pd.DataFrame(
+        {
+            "_issue_discovery_judge/value": [True],
+            "_issue_discovery_judge/rationale": ["ok"],
+            "trace": [traces[0]],
+        }
+    )
+    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
+
+    triage_df = pd.DataFrame(
+        {
+            "_issue_discovery_judge/value": [False] * 3 + [True] * 7,
+            "_issue_discovery_judge/rationale": ["bad"] * 3 + ["good"] * 7,
+            "trace": traces,
+        }
+    )
+    triage_eval = EvaluationResult(run_id="run-triage", metrics={}, result_df=triage_df)
+
+    no_issue_result = _IdentifiedIssue(
+        name="NO_ISSUE_DETECTED",
+        description="The analyses do not represent a real failure.",
+        root_cause="N/A",
+        example_indices=[0, 1, 2],
+        confidence=0,
     )
 
     with (
@@ -598,3 +664,20 @@ class TestAnnotateIssueTraces:
         assert feedback_names.count("Issue B") == 2
         assert len(issues[0].rationale_examples) == 1
         assert len(issues[1].rationale_examples) == 2
+
+
+def test_format_trace_content_includes_errors(make_trace):
+    from mlflow.genai.discovery.pipeline import _format_trace_content
+
+    trace = make_trace(error_span=True)
+    content = _format_trace_content(trace)
+    assert "Errors:" in content
+    assert "Connection failed" in content
+
+
+def test_format_trace_content_no_errors(make_trace):
+    from mlflow.genai.discovery.pipeline import _format_trace_content
+
+    trace = make_trace()
+    content = _format_trace_content(trace)
+    assert "Errors:" not in content

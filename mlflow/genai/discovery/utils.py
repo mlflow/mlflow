@@ -234,6 +234,42 @@ def _extract_execution_paths_for_session(traces: list[Trace]) -> str:
     return "; ".join(paths) if paths else "(no routing)"
 
 
+def _extract_span_errors(trace: Trace, max_length: int = 500) -> str:
+    """Collect error messages from trace spans (status descriptions and exception events)."""
+    spans = trace.data.spans
+    if not spans:
+        return ""
+
+    errors: list[str] = []
+    seen: set[str] = set()
+
+    for span in spans:
+        if not (span.status and span.status.status_code == SpanStatusCode.ERROR):
+            continue
+        # Status description (e.g., "Exception: Connection failed")
+        if span.status.description:
+            msg = f"{span.name}: {span.status.description}"
+            if msg not in seen:
+                seen.add(msg)
+                errors.append(msg)
+        # Exception events carry type + message
+        for event in span.events or []:
+            if event.name != "exception":
+                continue
+            attrs = event.attributes or {}
+            exc_type = attrs.get("exception.type", "")
+            exc_msg = attrs.get("exception.message", "")
+            msg = f"{exc_type}: {exc_msg}" if exc_type else exc_msg
+            if msg and msg not in seen:
+                seen.add(msg)
+                errors.append(msg)
+
+    if not errors:
+        return ""
+    combined = "; ".join(errors)
+    return combined[:max_length] if len(combined) > max_length else combined
+
+
 def _group_traces_by_session(
     traces: list[Trace],
 ) -> dict[str, list[Trace]]:
@@ -479,13 +515,13 @@ def _summarize_cluster(
     analysis_model: str,
 ) -> _IdentifiedIssue:
     cluster_analyses = [analyses[i] for i in cluster_indices]
-    analyses_text = "\n\n".join(
-        f"[{i}] surface: {a.surface}\n"
-        f"  root_cause: {a.root_cause}\n"
-        f"  symptoms: {a.symptoms}\n"
-        f"  domain: {a.domain}"
-        for i, a in zip(cluster_indices, cluster_analyses)
-    )
+    parts = []
+    for i, a in zip(cluster_indices, cluster_analyses):
+        entry = f"[{i}] {a.surface}"
+        if a.execution_path:
+            entry += f"\n  execution_path: {a.execution_path}"
+        parts.append(entry)
+    analyses_text = "\n\n".join(parts)
 
     result = get_chat_completions_with_structured_output(
         model_uri=analysis_model,
