@@ -7,7 +7,6 @@ functionality directly into the MLflow tracking server.
 """
 
 import functools
-import logging
 import time
 from collections.abc import Callable
 from typing import Any
@@ -54,8 +53,6 @@ from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationTyp
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
-
-_logger = logging.getLogger(__name__)
 
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
 
@@ -316,10 +313,6 @@ def _create_provider(
         ]
 
         if not fallback_models:
-            _logger.warning(
-                f"Endpoint '{endpoint_config.endpoint_name}' has fallback_config "
-                "but no FALLBACK models configured"
-            )
             return primary_provider
 
         # Sort fallback models by fallback_order
