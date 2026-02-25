@@ -40,7 +40,7 @@ export const GatewaySetupGuide = () => {
       componentId: 'mlflow.gateway.setup_guide',
       componentViewId: viewId,
       componentType: DesignSystemEventProviderComponentTypes.Card,
-      eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+      eventType: DesignSystemEventProviderAnalyticsEventTypes.OnView,
       value: 'impression',
     });
   }, [logTelemetryEvent, viewId]);
