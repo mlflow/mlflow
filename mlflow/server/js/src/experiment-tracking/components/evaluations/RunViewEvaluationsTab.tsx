@@ -360,7 +360,7 @@ const RunViewEvaluationsTabInner = ({
         DrawerComponent={AssistantAwareDrawer}
       >
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-          <GenAITracesTableProvider isGroupedBySession={isGroupedBySession}>
+          <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
             <div
               css={{
                 overflowY: 'hidden',
