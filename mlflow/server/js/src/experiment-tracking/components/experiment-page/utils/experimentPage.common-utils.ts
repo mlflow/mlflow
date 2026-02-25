@@ -19,8 +19,9 @@ const EXPERIMENT_TYPE_TAG = 'mlflow.experimentType';
 export const EXPERIMENT_SOURCE_TYPE_TAG = 'mlflow.experiment.sourceType';
 const EXPERIMENT_SOURCE_ID_TAG = 'mlflow.experiment.sourceId';
 
-enum ExperimentSourceType {
+export enum ExperimentSourceType {
   REPO_NOTEBOOK = 'REPO_NOTEBOOK',
+  GATEWAY = 'GATEWAY',
 }
 
 /**
