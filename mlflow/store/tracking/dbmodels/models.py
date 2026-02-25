@@ -62,10 +62,10 @@ from mlflow.entities import (
 )
 from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
 from mlflow.entities.gateway_budget_policy import (
-    BudgetDurationType,
-    BudgetOnExceeded,
+    BudgetAction,
+    BudgetDurationUnit,
     BudgetTargetType,
-    BudgetType,
+    BudgetUnit,
     GatewayBudgetPolicy,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -2787,17 +2787,17 @@ class SqlGatewayBudgetPolicy(Base):
     """
     Budget policy ID: `String` (limit 36 characters). *Primary Key*.
     """
-    budget_type = Column(String(32), nullable=False)
+    budget_unit = Column(String(32), nullable=False)
     """
-    Budget measurement type: `String` (USD).
+    Budget measurement unit: `String` (USD).
     """
     budget_amount = Column(Float, nullable=False)
     """
     Budget limit amount: `Float`.
     """
-    duration_type = Column(String(32), nullable=False)
+    duration_unit = Column(String(32), nullable=False)
     """
-    Duration type for the fixed window: `String` (MINUTES, HOURS, DAYS, MONTHS).
+    Duration unit for the fixed window: `String` (MINUTES, HOURS, DAYS, MONTHS).
     """
     duration_value = Column(Integer, nullable=False)
     """
@@ -2807,7 +2807,7 @@ class SqlGatewayBudgetPolicy(Base):
     """
     Target scope: `String` (GLOBAL, WORKSPACE).
     """
-    on_exceeded = Column(String(32), nullable=False)
+    budget_action = Column(String(32), nullable=False)
     """
     Action when budget exceeded: `String` (ALERT, REJECT).
     """
@@ -2848,12 +2848,12 @@ class SqlGatewayBudgetPolicy(Base):
     def to_mlflow_entity(self):
         return GatewayBudgetPolicy(
             budget_policy_id=self.budget_policy_id,
-            budget_type=BudgetType(self.budget_type),
+            budget_unit=BudgetUnit(self.budget_unit),
             budget_amount=self.budget_amount,
-            duration_type=BudgetDurationType(self.duration_type),
+            duration_unit=BudgetDurationUnit(self.duration_unit),
             duration_value=self.duration_value,
             target_type=BudgetTargetType(self.target_type),
-            on_exceeded=BudgetOnExceeded(self.on_exceeded),
+            budget_action=BudgetAction(self.budget_action),
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,

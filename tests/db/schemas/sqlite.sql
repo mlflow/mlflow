@@ -7,12 +7,12 @@ CREATE TABLE alembic_version (
 
 CREATE TABLE budget_policies (
 	budget_policy_id VARCHAR(36) NOT NULL,
-	budget_type VARCHAR(32) NOT NULL,
+	budget_unit VARCHAR(32) NOT NULL,
 	budget_amount FLOAT NOT NULL,
-	duration_type VARCHAR(32) NOT NULL,
+	duration_unit VARCHAR(32) NOT NULL,
 	duration_value INTEGER NOT NULL,
 	target_type VARCHAR(32) NOT NULL,
-	on_exceeded VARCHAR(32) NOT NULL,
+	budget_action VARCHAR(32) NOT NULL,
 	created_by VARCHAR(255),
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),

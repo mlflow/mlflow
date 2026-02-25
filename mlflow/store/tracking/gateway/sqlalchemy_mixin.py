@@ -21,10 +21,10 @@ from mlflow.entities import (
 )
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.gateway_budget_policy import (
-    BudgetDurationType,
-    BudgetOnExceeded,
+    BudgetAction,
+    BudgetDurationUnit,
     BudgetTargetType,
-    BudgetType,
+    BudgetUnit,
     GatewayBudgetPolicy,
 )
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
@@ -1174,12 +1174,12 @@ class SqlAlchemyGatewayStoreMixin:
 
     def create_budget_policy(
         self,
-        budget_type: BudgetType,
+        budget_unit: BudgetUnit,
         budget_amount: float,
-        duration_type: BudgetDurationType,
+        duration_unit: BudgetDurationUnit,
         duration_value: int,
         target_type: BudgetTargetType,
-        on_exceeded: BudgetOnExceeded,
+        budget_action: BudgetAction,
         created_by: str | None = None,
     ) -> GatewayBudgetPolicy:
         with self.ManagedSessionMaker() as session:
@@ -1189,20 +1189,20 @@ class SqlAlchemyGatewayStoreMixin:
             sql_budget_policy = self._with_workspace_field(
                 SqlGatewayBudgetPolicy(
                     budget_policy_id=budget_policy_id,
-                    budget_type=budget_type.value
-                    if isinstance(budget_type, BudgetType)
-                    else budget_type,
+                    budget_unit=budget_unit.value
+                    if isinstance(budget_unit, BudgetUnit)
+                    else budget_unit,
                     budget_amount=budget_amount,
-                    duration_type=duration_type.value
-                    if isinstance(duration_type, BudgetDurationType)
-                    else duration_type,
+                    duration_unit=duration_unit.value
+                    if isinstance(duration_unit, BudgetDurationUnit)
+                    else duration_unit,
                     duration_value=duration_value,
                     target_type=target_type.value
                     if isinstance(target_type, BudgetTargetType)
                     else target_type,
-                    on_exceeded=on_exceeded.value
-                    if isinstance(on_exceeded, BudgetOnExceeded)
-                    else on_exceeded,
+                    budget_action=budget_action.value
+                    if isinstance(budget_action, BudgetAction)
+                    else budget_action,
                     created_at=current_time,
                     last_updated_at=current_time,
                     created_by=created_by,
@@ -1231,12 +1231,12 @@ class SqlAlchemyGatewayStoreMixin:
     def update_budget_policy(
         self,
         budget_policy_id: str,
-        budget_type: BudgetType | None = None,
+        budget_unit: BudgetUnit | None = None,
         budget_amount: float | None = None,
-        duration_type: BudgetDurationType | None = None,
+        duration_unit: BudgetDurationUnit | None = None,
         duration_value: int | None = None,
         target_type: BudgetTargetType | None = None,
-        on_exceeded: BudgetOnExceeded | None = None,
+        budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
     ) -> GatewayBudgetPolicy:
         with self.ManagedSessionMaker() as session:
@@ -1247,17 +1247,17 @@ class SqlAlchemyGatewayStoreMixin:
                 "BudgetPolicy",
             )
 
-            if budget_type is not None:
-                sql_budget_policy.budget_type = (
-                    budget_type.value if isinstance(budget_type, BudgetType) else budget_type
+            if budget_unit is not None:
+                sql_budget_policy.budget_unit = (
+                    budget_unit.value if isinstance(budget_unit, BudgetUnit) else budget_unit
                 )
             if budget_amount is not None:
                 sql_budget_policy.budget_amount = budget_amount
-            if duration_type is not None:
-                sql_budget_policy.duration_type = (
-                    duration_type.value
-                    if isinstance(duration_type, BudgetDurationType)
-                    else duration_type
+            if duration_unit is not None:
+                sql_budget_policy.duration_unit = (
+                    duration_unit.value
+                    if isinstance(duration_unit, BudgetDurationUnit)
+                    else duration_unit
                 )
             if duration_value is not None:
                 sql_budget_policy.duration_value = duration_value
@@ -1265,9 +1265,11 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_budget_policy.target_type = (
                     target_type.value if isinstance(target_type, BudgetTargetType) else target_type
                 )
-            if on_exceeded is not None:
-                sql_budget_policy.on_exceeded = (
-                    on_exceeded.value if isinstance(on_exceeded, BudgetOnExceeded) else on_exceeded
+            if budget_action is not None:
+                sql_budget_policy.budget_action = (
+                    budget_action.value
+                    if isinstance(budget_action, BudgetAction)
+                    else budget_action
                 )
 
             sql_budget_policy.last_updated_at = get_current_time_millis()

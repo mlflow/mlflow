@@ -22,10 +22,10 @@ from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.gateway_budget_policy import (
-    BudgetDurationType,
-    BudgetOnExceeded,
+    BudgetAction,
+    BudgetDurationUnit,
     BudgetTargetType,
-    BudgetType,
+    BudgetUnit,
     GatewayBudgetPolicy,
 )
 from mlflow.entities.gateway_endpoint import (
@@ -145,10 +145,10 @@ __all__ = [
     "DatasetRecordSource",
     "DatasetRecordSourceType",
     "EntityAssociationType",
-    "BudgetDurationType",
-    "BudgetOnExceeded",
+    "BudgetAction",
+    "BudgetDurationUnit",
     "BudgetTargetType",
-    "BudgetType",
+    "BudgetUnit",
     "FallbackConfig",
     "FallbackStrategy",
     "GatewayBudgetPolicy",

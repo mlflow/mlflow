@@ -12,10 +12,10 @@ from mlflow.entities import (
     RoutingStrategy,
 )
 from mlflow.entities.gateway_budget_policy import (
-    BudgetDurationType,
-    BudgetOnExceeded,
+    BudgetAction,
+    BudgetDurationUnit,
     BudgetTargetType,
-    BudgetType,
+    BudgetUnit,
     GatewayBudgetPolicy,
 )
 
@@ -438,24 +438,24 @@ class GatewayStoreMixin:
 
     def create_budget_policy(
         self,
-        budget_type: BudgetType,
+        budget_unit: BudgetUnit,
         budget_amount: float,
-        duration_type: BudgetDurationType,
+        duration_unit: BudgetDurationUnit,
         duration_value: int,
         target_type: BudgetTargetType,
-        on_exceeded: BudgetOnExceeded,
+        budget_action: BudgetAction,
         created_by: str | None = None,
     ) -> GatewayBudgetPolicy:
         """
         Create a new budget policy.
 
         Args:
-            budget_type: Type of budget measurement (e.g. USD).
+            budget_unit: Budget measurement unit (e.g. USD).
             budget_amount: Budget limit amount.
-            duration_type: Type of time window (MINUTES, HOURS, DAYS, MONTHS).
-            duration_value: Length of the window in units of duration_type.
+            duration_unit: Unit of time window (MINUTES, HOURS, DAYS, MONTHS).
+            duration_value: Length of the window in units of duration_unit.
             target_type: Scope of the budget (GLOBAL or WORKSPACE).
-            on_exceeded: Action when budget is exceeded.
+            budget_action: Action when budget is exceeded.
             created_by: Username of the creator.
 
         Returns:
@@ -481,12 +481,12 @@ class GatewayStoreMixin:
     def update_budget_policy(
         self,
         budget_policy_id: str,
-        budget_type: BudgetType | None = None,
+        budget_unit: BudgetUnit | None = None,
         budget_amount: float | None = None,
-        duration_type: BudgetDurationType | None = None,
+        duration_unit: BudgetDurationUnit | None = None,
         duration_value: int | None = None,
         target_type: BudgetTargetType | None = None,
-        on_exceeded: BudgetOnExceeded | None = None,
+        budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
     ) -> GatewayBudgetPolicy:
         """
@@ -494,12 +494,12 @@ class GatewayStoreMixin:
 
         Args:
             budget_policy_id: ID of the budget policy to update.
-            budget_type: Optional new budget type.
+            budget_unit: Optional new budget unit.
             budget_amount: Optional new budget amount.
-            duration_type: Optional new duration type.
+            duration_unit: Optional new duration unit.
             duration_value: Optional new duration value.
             target_type: Optional new target type.
-            on_exceeded: Optional new on_exceeded action.
+            budget_action: Optional new budget action.
             updated_by: Username of the updater.
 
         Returns:

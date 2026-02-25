@@ -7,8 +7,8 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
-class BudgetDurationType(str, Enum):
-    """Duration type for budget policy fixed windows."""
+class BudgetDurationUnit(str, Enum):
+    """Duration unit for budget policy fixed windows."""
 
     MINUTES = "MINUTES"
     HOURS = "HOURS"
@@ -23,15 +23,15 @@ class BudgetTargetType(str, Enum):
     WORKSPACE = "WORKSPACE"
 
 
-class BudgetOnExceeded(str, Enum):
+class BudgetAction(str, Enum):
     """Action to take when a budget is exceeded."""
 
     ALERT = "ALERT"
     REJECT = "REJECT"
 
 
-class BudgetType(str, Enum):
-    """Type of budget measurement unit."""
+class BudgetUnit(str, Enum):
+    """Budget measurement unit."""
 
     USD = "USD"
 
@@ -46,12 +46,12 @@ class GatewayBudgetPolicy(_MlflowObject):
 
     Args:
         budget_policy_id: Unique identifier for this budget policy.
-        budget_type: Type of budget measurement (e.g. USD).
+        budget_unit: Budget measurement unit (e.g. USD).
         budget_amount: Budget limit amount.
-        duration_type: Type of time window (MINUTES, HOURS, DAYS, MONTHS).
-        duration_value: Length of the window in units of duration_type.
+        duration_unit: Unit of time window (MINUTES, HOURS, DAYS, MONTHS).
+        duration_value: Length of the window in units of duration_unit.
         target_type: Scope of the budget (GLOBAL or WORKSPACE).
-        on_exceeded: Action when budget is exceeded (ALERT, REJECT).
+        budget_action: Action when budget is exceeded (ALERT, REJECT).
         created_at: Timestamp (milliseconds) when the policy was created.
         last_updated_at: Timestamp (milliseconds) when the policy was last updated.
         created_by: User ID who created the policy.
@@ -60,12 +60,12 @@ class GatewayBudgetPolicy(_MlflowObject):
     """
 
     budget_policy_id: str
-    budget_type: BudgetType
+    budget_unit: BudgetUnit
     budget_amount: float
-    duration_type: BudgetDurationType
+    duration_unit: BudgetDurationUnit
     duration_value: int
     target_type: BudgetTargetType
-    on_exceeded: BudgetOnExceeded
+    budget_action: BudgetAction
     created_at: int
     last_updated_at: int
     created_by: str | None = None
@@ -74,11 +74,11 @@ class GatewayBudgetPolicy(_MlflowObject):
 
     def __post_init__(self):
         self.workspace = resolve_entity_workspace_name(self.workspace)
-        if isinstance(self.budget_type, str):
-            self.budget_type = BudgetType(self.budget_type)
-        if isinstance(self.duration_type, str):
-            self.duration_type = BudgetDurationType(self.duration_type)
+        if isinstance(self.budget_unit, str):
+            self.budget_unit = BudgetUnit(self.budget_unit)
+        if isinstance(self.duration_unit, str):
+            self.duration_unit = BudgetDurationUnit(self.duration_unit)
         if isinstance(self.target_type, str):
             self.target_type = BudgetTargetType(self.target_type)
-        if isinstance(self.on_exceeded, str):
-            self.on_exceeded = BudgetOnExceeded(self.on_exceeded)
+        if isinstance(self.budget_action, str):
+            self.budget_action = BudgetAction(self.budget_action)
