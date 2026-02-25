@@ -5,7 +5,7 @@ import logging
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Callable, Literal, TypeAlias, TypeVar, overload
+from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -16,11 +16,10 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracking import get_tracking_uri
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.uri import is_databricks_uri
+from mlflow.utils.databricks_utils import is_databricks_uri, is_in_databricks_runtime
 
 _logger = logging.getLogger(__name__)
 
@@ -1190,6 +1189,7 @@ def scorer(
     class CustomScorer(Scorer):
         # Store reference to the original function
         _original_func: Callable[..., Any] | None = PrivateAttr(default=None)
+        _is_session_level_scorer: ClassVar[bool] = _is_session_level
 
         def __init__(self, **data):
             super().__init__(**data)
@@ -1204,7 +1204,7 @@ def scorer(
 
         @property
         def is_session_level_scorer(self) -> bool:
-            return _is_session_level
+            return self._is_session_level_scorer
 
         @property
         def kind(self) -> ScorerKind:

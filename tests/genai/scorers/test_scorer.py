@@ -7,6 +7,11 @@ import pytest
 import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.assessment_error import AssessmentError
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.genai import Scorer, scorer
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.utils import CategoricalRating
@@ -484,6 +489,40 @@ def test_session_level_scorer_serialization_roundtrip(is_in_databricks):
 
     dumped = session_scorer.model_dump()
     assert dumped["is_session_level_scorer"] is True
+
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        loaded = Scorer.model_validate(dumped)
+        assert loaded.name == "session_scorer"
+        assert loaded.is_session_level_scorer is True
+
+
+def test_session_level_scorer_invocation_with_traces():
+    @scorer
+    def session_scorer(session) -> Feedback:
+        total = len(session)
+        errors = sum(1 for t in session if t.info.state == TraceState.ERROR)
+        return Feedback(value=errors == 0, rationale=f"{total} turns, {errors} errors")
+
+    traces = [
+        Trace(
+            info=TraceInfo(
+                trace_id=f"tr-{i}",
+                trace_location=TraceLocation.from_experiment_id("0"),
+                request_time=i,
+                execution_duration=100,
+                state=TraceState.OK,
+                trace_metadata={},
+                tags={},
+            ),
+            data=TraceData(spans=[]),
+        )
+        for i in range(3)
+    ]
+
+    result = session_scorer.run(session=traces)
+    assert result.value is True
+    assert "3 turns" in result.rationale
+    assert "0 errors" in result.rationale
 
 
 def test_make_judge_scorer_works_without_databricks_uri():
