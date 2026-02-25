@@ -60,25 +60,20 @@ The `.env` file defines:
 - S3-compatible endpoint URL
 - Backend-specific configuration for RustFS
 
-Example variables:
-
 **Common variables** :
 
 - **PostgreSQL**
-
   - `POSTGRES_USER=mlflow`
   - `POSTGRES_PASSWORD=mlflow`
   - `POSTGRES_DB=mlflow`
 
 - **S3**
-
-  - `AWS_ACCESS_KEY_ID=admin`
-  - `AWS_SECRET_ACCESS_KEY=admin`
+  - `AWS_ACCESS_KEY_ID=s3admin`
+  - `AWS_SECRET_ACCESS_KEY=s3admin`
   - `AWS_DEFAULT_REGION=us-east-1`
   - `S3_BUCKET=mlflow`
 
 - **RustFS**
-
   - `RUSTFS_CONSOLE_ENABLE=true`
 
 - **MLflow**
@@ -196,7 +191,7 @@ aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3 cp /tmp/t.txt s3://${S3_BUCKET}/
 aws --endpoint-url=${MLFLOW_S3_ENDPOINT_URL} s3 cp s3://${S3_BUCKET}/t.txt -
 ```
 
-## If this passes, MLflow can read and write artifacts to RustFS.
+If this passes, MLflow can read and write artifacts to RustFS.
 
 ### Troubleshooting
 
