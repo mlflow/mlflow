@@ -2112,6 +2112,98 @@ service MlflowService {
     };
   }
 
+  // ==================== Budget Policy APIs ====================
+
+  // Create a new budget policy
+  rpc createBudgetPolicy(CreateGatewayBudgetPolicy) returns (CreateGatewayBudgetPolicy.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/budgets/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Budget Policy"
+    };
+  }
+
+  // Get a budget policy by ID or name
+  rpc getBudgetPolicy(GetGatewayBudgetPolicy) returns (GetGatewayBudgetPolicy.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/budgets/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Budget Policy"
+    };
+  }
+
+  // Update a budget policy
+  rpc updateBudgetPolicy(UpdateGatewayBudgetPolicy) returns (UpdateGatewayBudgetPolicy.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/budgets/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Budget Policy"
+    };
+  }
+
+  // Delete a budget policy
+  rpc deleteBudgetPolicy(DeleteGatewayBudgetPolicy) returns (DeleteGatewayBudgetPolicy.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/budgets/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Budget Policy"
+    };
+  }
+
+  // List budget policies
+  rpc listBudgetPolicies(ListGatewayBudgetPolicies) returns (ListGatewayBudgetPolicies.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/budgets/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Budget Policies"
+    };
+  }
+
   // Create a new prompt optimization job.
   // This endpoint initiates an optimization run with the specified configuration.
   // The optimization process runs asynchronously and can be monitored via getPromptOptimizationJob.
@@ -4694,6 +4786,29 @@ enum GatewayModelLinkageType {
   FALLBACK = 2;
 }
 
+// Duration type for budget policy fixed windows
+enum BudgetDurationType {
+  DURATION_TYPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  HOURS = 1;
+  DAYS = 2;
+  MONTHS = 3;
+}
+
+// Target scope for a budget policy
+enum BudgetTargetType {
+  TARGET_TYPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  GLOBAL = 1;
+  WORKSPACE = 2;
+}
+
+// Action to take when a budget is exceeded
+enum BudgetOnExceeded {
+  ON_EXCEEDED_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  ALERT = 1;
+  REJECT = 2;
+  ALERT_AND_REJECT = 3;
+}
+
 // Configuration for fallback routing
 message FallbackConfig {
   // The fallback strategy.
@@ -4880,6 +4995,86 @@ message DeleteGatewayEndpointTag {
   optional string key = 2;
 
   message Response {}
+}
+
+// ========== Budget Policy API Messages ==========
+
+// Represents a budget policy for the AI Gateway
+message GatewayBudgetPolicy {
+  // Unique identifier for this budget policy
+  optional string budget_policy_id = 1;
+  // User-friendly name for the budget policy
+  optional string name = 2;
+  // Budget limit in USD
+  optional double limit_usd = 3;
+  // Type of time window (HOURS, DAYS, MONTHS)
+  optional BudgetDurationType duration_type = 4;
+  // Length of the window in units of duration_type
+  optional int32 duration_value = 5;
+  // Scope of the budget (GLOBAL or WORKSPACE)
+  optional BudgetTargetType target_type = 6;
+  // Action when budget is exceeded
+  optional BudgetOnExceeded on_exceeded = 7;
+  // User ID who created the policy
+  optional string created_by = 8;
+  // Creation timestamp in milliseconds
+  optional int64 created_at = 9;
+  // User ID who last updated the policy
+  optional string last_updated_by = 10;
+  // Last update timestamp in milliseconds
+  optional int64 last_updated_at = 11;
+}
+
+message CreateGatewayBudgetPolicy {
+  optional string name = 1;
+  optional double limit_usd = 2;
+  optional BudgetDurationType duration_type = 3;
+  optional int32 duration_value = 4;
+  optional BudgetTargetType target_type = 5;
+  optional BudgetOnExceeded on_exceeded = 6;
+  optional string created_by = 7;
+
+  message Response {
+    optional GatewayBudgetPolicy budget_policy = 1;
+  }
+}
+
+message GetGatewayBudgetPolicy {
+  optional string budget_policy_id = 1;
+  optional string name = 2;
+
+  message Response {
+    optional GatewayBudgetPolicy budget_policy = 1;
+  }
+}
+
+message UpdateGatewayBudgetPolicy {
+  optional string budget_policy_id = 1;
+  optional string name = 2;
+  optional double limit_usd = 3;
+  optional BudgetDurationType duration_type = 4;
+  optional int32 duration_value = 5;
+  optional BudgetTargetType target_type = 6;
+  optional BudgetOnExceeded on_exceeded = 7;
+  optional string updated_by = 8;
+
+  message Response {
+    optional GatewayBudgetPolicy budget_policy = 1;
+  }
+}
+
+message DeleteGatewayBudgetPolicy {
+  optional string budget_policy_id = 1;
+
+  message Response {}
+}
+
+message ListGatewayBudgetPolicies {
+  optional BudgetTargetType target_type = 1;
+
+  message Response {
+    repeated GatewayBudgetPolicy budget_policies = 1;
+  }
 }
 
 // ========== Secrets Configuration API Messages ==========

@@ -40,6 +40,11 @@ from mlflow.entities import (
     Workspace,
     WorkspaceDeletionMode,
 )
+from mlflow.entities.gateway_budget_policy import (
+    BudgetDurationType,
+    BudgetOnExceeded,
+    BudgetTargetType,
+)
 from mlflow.entities import (
     RoutingStrategy as RoutingStrategyEntity,
 )
@@ -131,6 +136,7 @@ from mlflow.protos.service_pb2 import (
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
+    CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
@@ -145,6 +151,7 @@ from mlflow.protos.service_pb2 import (
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
+    DeleteGatewayBudgetPolicy,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayEndpointTag,
@@ -170,6 +177,7 @@ from mlflow.protos.service_pb2 import (
     GetDatasetRecords,
     GetExperiment,
     GetExperimentByName,
+    GetGatewayBudgetPolicy,
     GetGatewayEndpoint,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
@@ -186,6 +194,7 @@ from mlflow.protos.service_pb2 import (
     LinkPromptsToTrace,
     LinkTracesToRun,
     ListArtifacts,
+    ListGatewayBudgetPolicies,
     ListGatewayEndpointBindings,
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
@@ -226,6 +235,7 @@ from mlflow.protos.service_pb2 import (
     StartTraceV3,
     UpdateAssessment,
     UpdateExperiment,
+    UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
@@ -5059,6 +5069,124 @@ def _delete_gateway_endpoint_tag():
     return response
 
 
+# =============================================================================
+# Budget Policy Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_budget_policy():
+    request_message = _get_request_message(
+        CreateGatewayBudgetPolicy(),
+        schema={
+            "name": [_assert_required, _assert_string],
+            "limit_usd": [_assert_required],
+            "duration_value": [_assert_required],
+            "created_by": [_assert_string],
+        },
+    )
+    policy = _get_tracking_store().create_budget_policy(
+        name=request_message.name,
+        limit_usd=request_message.limit_usd,
+        duration_type=BudgetDurationType.from_proto(request_message.duration_type),
+        duration_value=request_message.duration_value,
+        target_type=BudgetTargetType.from_proto(request_message.target_type),
+        on_exceeded=BudgetOnExceeded.from_proto(request_message.on_exceeded),
+        created_by=request_message.created_by or None,
+    )
+    response_message = CreateGatewayBudgetPolicy.Response()
+    response_message.budget_policy.CopyFrom(policy.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_budget_policy():
+    request_message = _get_request_message(
+        GetGatewayBudgetPolicy(),
+        schema={
+            "budget_policy_id": [_assert_string],
+            "name": [_assert_string],
+        },
+    )
+    policy = _get_tracking_store().get_budget_policy(
+        budget_policy_id=request_message.budget_policy_id or None,
+        name=request_message.name or None,
+    )
+    response_message = GetGatewayBudgetPolicy.Response()
+    response_message.budget_policy.CopyFrom(policy.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_budget_policy():
+    request_message = _get_request_message(
+        UpdateGatewayBudgetPolicy(),
+        schema={
+            "budget_policy_id": [_assert_required, _assert_string],
+            "name": [_assert_string],
+            "updated_by": [_assert_string],
+        },
+    )
+    policy = _get_tracking_store().update_budget_policy(
+        budget_policy_id=request_message.budget_policy_id,
+        name=request_message.name or None,
+        limit_usd=request_message.limit_usd
+        if request_message.HasField("limit_usd")
+        else None,
+        duration_type=BudgetDurationType.from_proto(request_message.duration_type)
+        if request_message.HasField("duration_type")
+        else None,
+        duration_value=request_message.duration_value
+        if request_message.HasField("duration_value")
+        else None,
+        target_type=BudgetTargetType.from_proto(request_message.target_type)
+        if request_message.HasField("target_type")
+        else None,
+        on_exceeded=BudgetOnExceeded.from_proto(request_message.on_exceeded)
+        if request_message.HasField("on_exceeded")
+        else None,
+        updated_by=request_message.updated_by or None,
+    )
+    response_message = UpdateGatewayBudgetPolicy.Response()
+    response_message.budget_policy.CopyFrom(policy.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_budget_policy():
+    request_message = _get_request_message(
+        DeleteGatewayBudgetPolicy(),
+        schema={
+            "budget_policy_id": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_budget_policy(request_message.budget_policy_id)
+    response_message = DeleteGatewayBudgetPolicy.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_budget_policies():
+    request_message = _get_request_message(
+        ListGatewayBudgetPolicies(),
+        schema={},
+    )
+    target_type = (
+        BudgetTargetType.from_proto(request_message.target_type)
+        if request_message.HasField("target_type")
+        else None
+    )
+    policies = _get_tracking_store().list_budget_policies(target_type=target_type)
+    response_message = ListGatewayBudgetPolicies.Response()
+    response_message.budget_policies.extend([p.to_proto() for p in policies])
+    return _wrap_response(response_message)
+
+
 @catch_mlflow_exception
 def _get_server_info():
     from mlflow.store.tracking.file_store import FileStore
@@ -6243,6 +6371,12 @@ HANDLERS = {
     # Endpoint Tags APIs
     SetGatewayEndpointTag: _set_gateway_endpoint_tag,
     DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
+    # Budget Policy APIs
+    CreateGatewayBudgetPolicy: _create_budget_policy,
+    GetGatewayBudgetPolicy: _get_budget_policy,
+    UpdateGatewayBudgetPolicy: _update_budget_policy,
+    DeleteGatewayBudgetPolicy: _delete_budget_policy,
+    ListGatewayBudgetPolicies: _list_budget_policies,
     # Prompt Optimization APIs
     CreatePromptOptimizationJob: _create_prompt_optimization_job,
     GetPromptOptimizationJob: _get_prompt_optimization_job,
