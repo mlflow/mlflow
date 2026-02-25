@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Link } from '../../common/utils/RoutingUtils';
+import { Link, useSearchParams } from '../../common/utils/RoutingUtils';
 import {
   ChartLineIcon,
   SimpleSelect,
   SimpleSelectOption,
   Spinner,
+  Tabs,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -14,11 +15,57 @@ import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
 import { useUsersQuery } from '../hooks/useUsersQuery';
 import { GatewayChartsPanel } from '../components/GatewayChartsPanel';
 import GatewayRoutes from '../routes';
+import { TracesV3Logs } from '../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
+import { MonitoringConfigProvider } from '../../experiment-tracking/hooks/useMonitoringConfig';
+import { useMonitoringFiltersTimeRange } from '../../experiment-tracking/hooks/useMonitoringFilters';
+import { TracesV3DateSelector } from '../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
+import type { TableFilter } from '@databricks/web-shared/genai-traces-table';
+import { FilterOperator } from '@databricks/web-shared/genai-traces-table';
+
+const GatewayLogsContent = ({
+  experimentIds,
+  additionalFilters,
+}: {
+  experimentIds: string[];
+  additionalFilters?: TableFilter[];
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const timeRange = useMonitoringFiltersTimeRange();
+
+  if (experimentIds.length === 0) {
+    return null;
+  }
+
+  return (
+    <>
+      <div
+        css={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: theme.spacing.sm,
+        }}
+      >
+        <TracesV3DateSelector excludeOptions={['ALL']} />
+      </div>
+      <TracesV3Logs
+        experimentIds={experimentIds}
+        disableActions
+        timeRange={timeRange}
+        columnStorageKeyPrefix="gateway-usage"
+        additionalFilters={additionalFilters}
+      />
+    </>
+  );
+};
 
 export const GatewayUsagePage = () => {
   const { theme } = useDesignSystemTheme();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+
+  const activeTab = searchParams.get('tab') || 'usage';
 
   // Fetch all endpoints to get their experiment IDs
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
@@ -47,19 +94,26 @@ export const GatewayUsagePage = () => {
   }, [showAllEndpoints, endpointsWithExperiments, selectedEndpoint]);
 
   const tooltipLinkUrlBuilder = useMemo(() => {
-    if (!selectedEndpoint) return undefined;
-    return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) =>
-      GatewayRoutes.getEndpointDetailsRoute(selectedEndpoint.endpoint_id, {
-        tab: 'traces',
-        startTime: new Date(timestampMs).toISOString(),
-        endTime: new Date(timestampMs + timeIntervalSeconds * 1000).toISOString(),
-      });
-  }, [selectedEndpoint]);
+    return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) => {
+      const params = new URLSearchParams();
+      params.set('tab', 'logs');
+      params.set('startTimeLabel', 'CUSTOM');
+      params.set('startTime', new Date(timestampMs).toISOString());
+      params.set('endTime', new Date(timestampMs + timeIntervalSeconds * 1000).toISOString());
+      return `${GatewayRoutes.usagePageRoute}?${params.toString()}`;
+    };
+  }, []);
 
-  // Build filters from selected user ID
-  const filters = useMemo(() => {
+  // Build chart filters from selected user ID (string format for chart APIs)
+  const chartFilters = useMemo(() => {
     if (!selectedUserId) return undefined;
     return [createTraceMetadataFilter(AUTH_USER_ID_METADATA_KEY, selectedUserId)];
+  }, [selectedUserId]);
+
+  // Build table filters from selected user ID (TableFilter format for TracesV3Logs)
+  const tableFilters = useMemo((): TableFilter[] | undefined => {
+    if (!selectedUserId) return undefined;
+    return [{ column: 'user', operator: FilterOperator.EQUALS, value: selectedUserId }];
   }, [selectedUserId]);
 
   if (!isLoadingEndpoints && endpointsWithExperiments.length === 0) {
@@ -100,7 +154,7 @@ export const GatewayUsagePage = () => {
     );
   }
 
-  const additionalControls = (
+  const endpointAndUserControls = (
     <>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
         <Typography.Text color="secondary">
@@ -159,66 +213,151 @@ export const GatewayUsagePage = () => {
         display: 'flex',
         flexDirection: 'column',
         flex: 1,
-        overflow: 'auto',
-        padding: theme.spacing.md,
+        overflow: 'hidden',
       }}
     >
       {/* Header */}
       <div
         css={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: theme.spacing.sm,
+          padding: theme.spacing.md,
+          paddingBottom: 0,
         }}
       >
-        <div>
-          <Typography.Title level={2} css={{ margin: 0 }}>
-            <FormattedMessage defaultMessage="Gateway Usage" description="Page title" />
-          </Typography.Title>
-          <Typography.Text color="secondary">
-            <FormattedMessage
-              defaultMessage="Monitor usage and performance across all endpoints"
-              description="Page subtitle"
-            />
-          </Typography.Text>
+        <div
+          css={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: theme.spacing.sm,
+          }}
+        >
+          <div>
+            <Typography.Title level={2} css={{ margin: 0 }}>
+              <FormattedMessage defaultMessage="Gateway Usage" description="Page title" />
+            </Typography.Title>
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="Monitor usage and performance across all endpoints"
+                description="Page subtitle"
+              />
+            </Typography.Text>
+          </div>
         </div>
-      </div>
 
-      {/* Charts */}
-      {isLoadingEndpoints || experimentIds.length > 0 ? (
-        <GatewayChartsPanel
-          experimentIds={experimentIds}
-          showTokenStats
-          additionalControls={additionalControls}
-          hideTooltipLinks={showAllEndpoints}
-          tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
-          tooltipLinkText={
-            <FormattedMessage
-              defaultMessage="View logs for this period"
-              description="Link text to navigate to gateway endpoint logs tab"
-            />
-          }
-          filters={filters}
-        />
-      ) : (
+        {/* Filters */}
         <div
           css={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 200,
-            color: theme.colors.textSecondary,
+            gap: theme.spacing.md,
+            marginBottom: theme.spacing.sm,
           }}
         >
-          <Typography.Text>
-            <FormattedMessage
-              defaultMessage="Select an endpoint to view usage metrics"
-              description="No endpoint selected message"
-            />
-          </Typography.Text>
+          {endpointAndUserControls}
         </div>
-      )}
+      </div>
+
+      {/* Tabs */}
+      <Tabs.Root
+        componentId="mlflow.gateway.usage.tabs"
+        value={activeTab}
+        onValueChange={(value) => {
+          setSearchParams(
+            (params) => {
+              params.set('tab', value);
+              return params;
+            },
+            { replace: true },
+          );
+        }}
+        css={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+      >
+        <div css={{ paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }}>
+          <Tabs.List>
+            <Tabs.Trigger value="usage">
+              <FormattedMessage defaultMessage="Usage" description="Tab label for usage charts" />
+            </Tabs.Trigger>
+            <Tabs.Trigger value="logs">
+              <FormattedMessage defaultMessage="Logs" description="Tab label for trace logs" />
+            </Tabs.Trigger>
+          </Tabs.List>
+        </div>
+
+        <Tabs.Content
+          value="usage"
+          css={{
+            flex: 1,
+            overflow: 'auto',
+            padding: theme.spacing.md,
+          }}
+        >
+          {isLoadingEndpoints || experimentIds.length > 0 ? (
+            <GatewayChartsPanel
+              experimentIds={experimentIds}
+              showTokenStats
+              tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
+              tooltipLinkText={
+                <FormattedMessage
+                  defaultMessage="View logs for this period"
+                  description="Link text to navigate to gateway endpoint logs tab"
+                />
+              }
+              filters={chartFilters}
+            />
+          ) : (
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 200,
+                color: theme.colors.textSecondary,
+              }}
+            >
+              <Typography.Text>
+                <FormattedMessage
+                  defaultMessage="Select an endpoint to view usage metrics"
+                  description="No endpoint selected message"
+                />
+              </Typography.Text>
+            </div>
+          )}
+        </Tabs.Content>
+
+        <Tabs.Content
+          value="logs"
+          css={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            padding: theme.spacing.md,
+          }}
+        >
+          {experimentIds.length > 0 ? (
+            <MonitoringConfigProvider>
+              <GatewayLogsContent experimentIds={experimentIds} additionalFilters={tableFilters} />
+            </MonitoringConfigProvider>
+          ) : (
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 200,
+                color: theme.colors.textSecondary,
+              }}
+            >
+              <Typography.Text>
+                <FormattedMessage
+                  defaultMessage="Select an endpoint to view logs"
+                  description="No endpoint selected message for logs tab"
+                />
+              </Typography.Text>
+            </div>
+          )}
+        </Tabs.Content>
+      </Tabs.Root>
     </div>
   );
 };
