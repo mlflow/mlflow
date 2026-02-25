@@ -1,12 +1,15 @@
-// Auto-close duplicate community PRs that reference the same issue
+// Label duplicate community PRs that reference the same issue
 // Only considers PRs opened in the last 14 days
-// Keeps the oldest PR and closes the rest as duplicates
+// Adds 'duplicate' label to all PRs in a duplicate group
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DAYS_TO_CONSIDER = 14;
+const DUPLICATE_LABEL = "duplicate";
 
-const closeMessage = (issueNumber, keeperPrNumber) =>
-  `Closing as duplicate. #${issueNumber} is already addressed by #${keeperPrNumber} (opened earlier). Feel free to reopen if your PR takes a different approach.`;
+const duplicateMessage = (issueNumber, otherPRs) => {
+  const prList = otherPRs.map((pr) => `#${pr}`).join(", ");
+  return `This PR appears to reference the same issue (#${issueNumber}) as ${prList}. If your change is already covered, please consider closing this PR.`;
+};
 
 // GraphQL query to fetch open PRs created in the last 14 days
 const QUERY = `
@@ -114,7 +117,7 @@ module.exports = async ({ context, github }) => {
     console.log(`Found ${prsByIssue.size} issues with associated PRs`);
 
     // Process each issue that has multiple PRs
-    let closeCount = 0;
+    let labelCount = 0;
     for (const [issueNumber, prs] of prsByIssue.entries()) {
       if (prs.length <= 1) {
         // Only one PR for this issue, no duplicates
@@ -126,34 +129,34 @@ module.exports = async ({ context, github }) => {
       // Sort PRs by creation date (oldest first)
       prs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-      // Keep the oldest PR, close the rest
-      const keeperPR = prs[0];
-      const duplicatePRs = prs.slice(1);
+      // Label and comment on all PRs in the duplicate group
+      for (const pr of prs) {
+        // Get list of other PR numbers in this group
+        const otherPRs = prs.filter((p) => p.number !== pr.number).map((p) => p.number);
 
-      console.log(`  Keeping PR #${keeperPR.number} (oldest, created ${keeperPR.createdAt})`);
+        console.log(`  Labeling PR #${pr.number} as duplicate (created ${pr.createdAt})`);
 
-      for (const dupPR of duplicatePRs) {
-        console.log(`  Closing duplicate PR #${dupPR.number} (created ${dupPR.createdAt})`);
+        // Add duplicate label
+        await github.rest.issues.addLabels({
+          owner,
+          repo,
+          issue_number: pr.number,
+          labels: [DUPLICATE_LABEL],
+        });
 
+        // Post comment encouraging author to close if duplicate
         await github.rest.issues.createComment({
           owner,
           repo,
-          issue_number: dupPR.number,
-          body: closeMessage(issueNumber, keeperPR.number),
+          issue_number: pr.number,
+          body: duplicateMessage(issueNumber, otherPRs),
         });
 
-        await github.rest.pulls.update({
-          owner,
-          repo,
-          pull_number: dupPR.number,
-          state: "closed",
-        });
-
-        closeCount++;
+        labelCount++;
       }
     }
 
-    console.log(`Closed ${closeCount} duplicate PRs.`);
+    console.log(`Labeled ${labelCount} duplicate PRs.`);
   } catch (error) {
     if (error.status === 429 || error.message?.includes("rate limit")) {
       console.log(`Rate limit hit. Exiting gracefully.`);

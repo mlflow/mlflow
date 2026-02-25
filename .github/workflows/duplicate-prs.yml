@@ -1,4 +1,4 @@
-name: Close Duplicate PRs
+name: Duplicate PRs
 
 on:
   schedule:
@@ -10,10 +10,11 @@ defaults:
     shell: bash
 
 jobs:
-  close-duplicate-prs:
+  duplicate-prs:
     if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-slim
     permissions:
+      issues: write
       pull-requests: write
     timeout-minutes: 10
     steps:
@@ -24,5 +25,5 @@ jobs:
       - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
-            const script = require(".github/workflows/close-duplicate-prs.js");
+            const script = require(".github/workflows/duplicate-prs.js");
             await script({ context, github });
