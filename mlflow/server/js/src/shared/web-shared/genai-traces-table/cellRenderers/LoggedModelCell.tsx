@@ -77,9 +77,9 @@ const LoggedModelComponent = (props: { experimentId?: string; modelId: string; i
   }
 
   const content = (
-    <div
+    <span
       css={{
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
         gap: theme.spacing.xs,
         maxWidth: '100%',
@@ -89,7 +89,7 @@ const LoggedModelComponent = (props: { experimentId?: string; modelId: string; i
       <Typography.Text css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {modelName}
       </Typography.Text>
-    </div>
+    </span>
   );
 
   return (
