@@ -18,12 +18,12 @@ The deployment architecture has a couple of advantages:
   - The Amazon S3 provides built-in multi-AZ durability and extremely high availability for MLflow artifact storage.
   - Amazon RDS supports automatic failover to a standby instance in a different Availability Zone, minimizing database downtime for MLflow backend store.
   - Amazon ECS on Fargate automatically restarts failed tasks and can redeploy them in another Availability Zone if needed, minimizing MLflow service downtime.
-  - ALB (Application Load Balancer) distributes traffic across multiple Availability Zones and remains available even if a single AZ fails.
 
 - **Security by design**
   - Public traffic is encrypted using HTTPS, ensuring secure communication between clients and the application endpoint.
   - IAM Roles: The S3 bucket blocks all public access and MLflow server uses IAM role for secure access to the S3 bucket.
   - VPC Isolation and VPC Security Groups: Application containers run in private subnets, preventing direct exposure to the public internet, only the load balancer can access the ECS task that runs MLflow server, there is no unnecessary inbound exposure.
+  - The architecture can integrate with MLflow authentication configurations.
 
 - **Operational Simplicity**
   - Serverless Compute (ECS on Fargate), no EC2 instances to manage, patch, or scale manually.
@@ -93,6 +93,15 @@ After creation, you can view the ECS express service overview page as follows:
 ![create ECS](/images/self-hosting/create-aws-ecs.png)
 
 The "Application URL" on the overview page is the MLflow service URL that you can access from public network.
+
+
+### Integration with MLflow authentication
+
+MLflow supports [basic authentication](https://mlflow.org/docs/latest/self-hosting/security/basic-http-auth/) and [authentication with OIDC plugin](https://mlflow.org/docs/latest/self-hosting/security/sso/#using-oidc-plugin), the 2 kinds of authentication settings require:
+
+- Additional pip package installation: Inject it as a `pip install` command into the "Command" setting.
+- Additional environment variable settings: Set them as the environment variables of the ECS service.
+- Additional mlflow server CLI options: Append them in the "Command" setting.
 
 ## Step 5: Validate the deployment
 
