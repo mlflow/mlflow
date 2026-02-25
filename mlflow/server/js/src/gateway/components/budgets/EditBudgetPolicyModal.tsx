@@ -20,8 +20,7 @@ interface EditBudgetPolicyModalProps {
 }
 
 interface FormData {
-  name: string;
-  limitUsd: string;
+  budgetAmount: string;
   durationType: DurationType;
   durationValue: string;
   targetType: TargetType;
@@ -32,12 +31,11 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [formData, setFormData] = useState<FormData>({
-    name: '',
-    limitUsd: '',
+    budgetAmount: '',
     durationType: 'DAYS',
     durationValue: '30',
     targetType: 'GLOBAL',
-    onExceeded: 'ALERT_AND_REJECT',
+    onExceeded: 'REJECT',
   });
   const { mutateAsync: updateBudgetPolicy, isLoading, error: mutationError, reset: resetMutation } =
     useUpdateBudgetPolicy();
@@ -45,8 +43,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
   useEffect(() => {
     if (policy) {
       setFormData({
-        name: policy.name,
-        limitUsd: String(policy.limit_usd),
+        budgetAmount: String(policy.budget_amount),
         durationType: policy.duration_type,
         durationValue: String(policy.duration_value),
         targetType: policy.target_type,
@@ -70,21 +67,20 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
   );
 
   const isFormValid = useMemo(() => {
-    if (!formData.name.trim()) return false;
-    const limit = parseFloat(formData.limitUsd);
-    if (isNaN(limit) || limit <= 0) return false;
+    const amount = parseFloat(formData.budgetAmount);
+    if (isNaN(amount) || amount <= 0) return false;
     const duration = parseInt(formData.durationValue, 10);
     if (isNaN(duration) || duration <= 0) return false;
     return true;
-  }, [formData.name, formData.limitUsd, formData.durationValue]);
+  }, [formData.budgetAmount, formData.durationValue]);
 
   const handleSubmit = useCallback(async () => {
     if (!isFormValid || !policy) return;
 
     await updateBudgetPolicy({
       budget_policy_id: policy.budget_policy_id,
-      name: formData.name.trim(),
-      limit_usd: parseFloat(formData.limitUsd),
+      budget_type: 'USD',
+      budget_amount: parseFloat(formData.budgetAmount),
       duration_type: formData.durationType,
       duration_value: parseInt(formData.durationValue, 10),
       target_type: formData.targetType,
@@ -98,13 +94,6 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
   const errorMessage = useMemo((): string | null => {
     if (!mutationError) return null;
     const message = (mutationError as Error).message;
-
-    if (message.toLowerCase().includes('unique constraint') || message.toLowerCase().includes('duplicate')) {
-      return intl.formatMessage({
-        defaultMessage: 'A budget policy with this name already exists. Please choose a different name.',
-        description: 'Error message for duplicate budget policy name',
-      });
-    }
 
     if (message.length > 200) {
       return intl.formatMessage({
@@ -152,23 +141,12 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <Typography.Text bold>
-            <FormattedMessage defaultMessage="Policy name" description="Budget policy name label" />
+            <FormattedMessage defaultMessage="Budget amount (USD)" description="Budget amount label" />
           </Typography.Text>
           <Input
-            componentId="mlflow.gateway.edit-budget-policy-modal.name"
-            value={formData.name}
-            onChange={(e) => handleFieldChange('name', e.target.value)}
-          />
-        </div>
-
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          <Typography.Text bold>
-            <FormattedMessage defaultMessage="Limit (USD)" description="Budget limit label" />
-          </Typography.Text>
-          <Input
-            componentId="mlflow.gateway.edit-budget-policy-modal.limit"
-            value={formData.limitUsd}
-            onChange={(e) => handleFieldChange('limitUsd', e.target.value)}
+            componentId="mlflow.gateway.edit-budget-policy-modal.budget-amount"
+            value={formData.budgetAmount}
+            onChange={(e) => handleFieldChange('budgetAmount', e.target.value)}
             type="number"
             min={0}
             step="0.01"
@@ -186,6 +164,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
               value={formData.durationType}
               onChange={({ target }) => handleFieldChange('durationType', target.value as DurationType)}
             >
+              <SimpleSelectOption value="MINUTES">Minutes</SimpleSelectOption>
               <SimpleSelectOption value="HOURS">Hours</SimpleSelectOption>
               <SimpleSelectOption value="DAYS">Days</SimpleSelectOption>
               <SimpleSelectOption value="MONTHS">Months</SimpleSelectOption>
@@ -234,7 +213,6 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
           >
             <SimpleSelectOption value="ALERT">Alert only</SimpleSelectOption>
             <SimpleSelectOption value="REJECT">Reject requests</SimpleSelectOption>
-            <SimpleSelectOption value="ALERT_AND_REJECT">Alert and reject requests</SimpleSelectOption>
           </SimpleSelect>
         </div>
       </div>
