@@ -62,7 +62,10 @@ export const ToolUsageChart: React.FC = () => {
       />
 
       {/* Chart */}
-      <div ref={containerRef} css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm, position: 'relative' }}>
+      <div
+        ref={containerRef}
+        css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm, position: 'relative' }}
+      >
         {hasData ? (
           <>
             <ResponsiveContainer width="100%" height="100%">

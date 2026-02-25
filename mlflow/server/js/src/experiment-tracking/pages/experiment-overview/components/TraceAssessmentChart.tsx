@@ -152,7 +152,9 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
                 <YAxis type="category" dataKey="name" {...yAxisProps} width={60} />
                 <Tooltip
                   content={
-                    distributionTooltip.isLocked ? () => null : (
+                    distributionTooltip.isLocked ? (
+                      () => null
+                    ) : (
                       <ScrollableTooltip
                         formatter={distributionTooltipFormatter}
                         linkConfig={{
@@ -217,7 +219,9 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
                   <YAxis {...yAxisProps} />
                   <Tooltip
                     content={
-                      timeSeriesTooltip.isLocked ? () => null : (
+                      timeSeriesTooltip.isLocked ? (
+                        () => null
+                      ) : (
                         <ScrollableTooltip
                           formatter={timeSeriestooltipFormatter}
                           linkConfig={{
