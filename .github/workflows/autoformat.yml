@@ -171,7 +171,7 @@ jobs:
       # ************************************************************************
       - if: steps.diff.outputs.api == 'true'
         run: |
-          uv run --group docs --extra gateway --directory docs/api_reference make dummy
+          uv run --group docs --extra gateway --directory docs/api_reference make rsthtml
       # ************************************************************************
       # Upload patch
       # ************************************************************************
