@@ -163,12 +163,32 @@ _CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "1. **Summarize** the cluster into a single issue with a name, description, and root cause\n"
     "2. **Validate** whether the grouped analyses actually represent the same underlying issue\n\n"
     "Provide:\n"
-    "- A short, readable name for the issue (3-8 words, plain English) followed by "
-    "domain keywords in brackets listing the user-facing domains affected "
-    "(e.g. 'Media control commands ignored [music, spotify]', "
-    "'Incorrect data returned [finance, S&P 500]')\n"
+    "- A name prefixed with 'Issue: ' followed by a short readable description "
+    "(3-8 words, plain English), e.g. 'Issue: Media control commands ignored', "
+    "'Issue: Incorrect data returned'\n"
     "- A clear description of what the issue is\n"
     "- The root cause (synthesized from the individual analyses)\n"
     "- A confidence score 0-100 reflecting how coherent the cluster is (75+ only if the "
     "analyses clearly share the same failure pattern; 0 if they do NOT belong together)"
+)
+
+# ---- Trace annotation prompt ----
+
+_TRACE_ANNOTATION_SYSTEM_PROMPT = (
+    "You are annotating a trace that was identified as exhibiting a known issue.\n\n"
+    "You will be given:\n"
+    "- The issue (name, description, root cause)\n"
+    "- The trace's actual input/output and execution path\n"
+    "- The triage judge's rationale for why this trace was flagged\n\n"
+    "Write a specific rationale (3-5 sentences) for why THIS trace is affected by "
+    "this issue. You MUST:\n"
+    "1. Reference concrete details from the trace input/output "
+    "(e.g. what the user asked, what the assistant returned or failed to return)\n"
+    "2. Identify where in the execution path the failure occurred "
+    "(e.g. which tool call failed, which step returned an error)\n"
+    "3. Connect this trace's specific failure to the broader issue pattern\n\n"
+    "Be specific — cite actual content from the trace, not generic descriptions. "
+    "A developer should be able to read this rationale and immediately understand "
+    "what went wrong in this particular interaction.\n\n"
+    "Return ONLY the rationale text, nothing else."
 )

@@ -73,6 +73,125 @@ def _collect_example_trace_ids(
     return trace_ids
 
 
+def _format_trace_content(trace: Trace) -> str:
+    """Build a compact text representation of a trace for annotation prompts."""
+    from mlflow.genai.discovery.utils import _extract_execution_path
+
+    parts = []
+    request = trace.data.request
+    if request:
+        parts.append(f"Input: {str(request)[:1000]}")
+    response = trace.data.response
+    if response:
+        parts.append(f"Output: {str(response)[:1000]}")
+    exec_path = _extract_execution_path(trace)
+    if exec_path and exec_path != "(no routing)":
+        parts.append(f"Execution path: {exec_path}")
+    return "\n".join(parts) if parts else "(trace content not available)"
+
+
+def _annotate_issue_traces(
+    issues: list[Issue],
+    rationale_map: dict[str, str],
+    trace_lookup: dict[str, Trace],
+    model: str,
+) -> None:
+    """Log a Feedback assessment on each trace affected by a discovered issue.
+
+    For each (issue, trace_id) pair, calls an LLM with the issue context,
+    the trace's actual content (inputs/outputs/execution path), and the
+    triage judge's rationale to produce a specific annotation explaining
+    how this trace exhibits the issue. Logs it via ``mlflow.log_feedback``.
+    """
+    import litellm
+
+    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+    from mlflow.genai.discovery.constants import _TRACE_ANNOTATION_SYSTEM_PROMPT
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    scheme, path = _parse_model_uri(model)
+    if scheme in ("endpoints", "databricks"):
+        litellm_model = f"databricks/{path}"
+    else:
+        litellm_model = f"{scheme}/{path}"
+
+    source = AssessmentSource(
+        source_type=AssessmentSourceType.LLM_JUDGE,
+        source_id=model,
+    )
+
+    # Build work items: (issue, trace_id) pairs
+    work_items: list[tuple[Issue, str]] = []
+    for issue in issues:
+        for trace_id in issue.example_trace_ids:
+            work_items.append((issue, trace_id))
+
+    if not work_items:
+        return
+
+    def _annotate_one(issue: Issue, trace_id: str) -> str | None:
+        triage_rationale = rationale_map.get(trace_id, "")
+        trace = trace_lookup.get(trace_id)
+        trace_content = _format_trace_content(trace) if trace else "(trace not available)"
+
+        user_content = (
+            f"=== ISSUE ===\n"
+            f"Name: {issue.name}\n"
+            f"Description: {issue.description}\n"
+            f"Root cause: {issue.root_cause}\n\n"
+            f"=== TRACE ===\n"
+            f"{trace_content}\n\n"
+            f"=== TRIAGE JUDGE RATIONALE ===\n"
+            f"{triage_rationale or '(not available)'}"
+        )
+        try:
+            response = litellm.completion(
+                model=litellm_model,
+                messages=[
+                    {"role": "system", "content": _TRACE_ANNOTATION_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+                max_tokens=4096,
+            )
+            annotation = (response.choices[0].message.content or "").strip()
+        except Exception:
+            _logger.debug("Failed to generate annotation for trace %s", trace_id, exc_info=True)
+            annotation = (
+                f"This trace was flagged for issue '{issue.name}'. "
+                f"Triage rationale: {triage_rationale or '(not available)'}"
+            )
+
+        try:
+            mlflow.log_feedback(
+                trace_id=trace_id,
+                name=issue.name,
+                value=False,
+                source=source,
+                rationale=annotation,
+            )
+        except Exception:
+            _logger.debug("Failed to log feedback for trace %s", trace_id, exc_info=True)
+            return None
+        return annotation
+
+    max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(work_items))
+    annotations: dict[str, list[str]] = {}
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_item = {
+            executor.submit(_annotate_one, issue, trace_id): (issue, trace_id)
+            for issue, trace_id in work_items
+        }
+        for future in as_completed(future_to_item):
+            issue, trace_id = future_to_item[future]
+            result = future.result()
+            if result:
+                annotations.setdefault(issue.name, []).append(result)
+
+    # Populate rationale_examples on each issue (up to 3 per issue)
+    for issue in issues:
+        issue.rationale_examples = annotations.get(issue.name, [])[:3]
+
+
 @experimental(version="3.11.0")
 def discover_issues(
     experiment_id: str | None = None,
@@ -412,6 +531,16 @@ def discover_issues(
         )
 
     issues.sort(key=lambda i: i.frequency, reverse=True)
+
+    # Phase 4: Annotate affected traces with per-issue feedback assessments
+    trace_lookup = {t.info.trace_id: t for t in triage_traces}
+    _logger.info(
+        "Phase 4: Annotating %d traces across %d issues...", len(rationale_map), len(issues)
+    )
+    t0 = time.time()
+    _annotate_issue_traces(issues, rationale_map, trace_lookup, judge_model)
+    _logger.info("Phase 4: Annotation took %.1fs", time.time() - t0)
+
     summary = _build_summary(issues, num_total)
     _logger.info("Done. Found %d issues across %d traces.", len(issues), num_total)
 

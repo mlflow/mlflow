@@ -49,8 +49,8 @@ class _ConversationAnalysis:
 class _IdentifiedIssue(pydantic.BaseModel):
     name: str = pydantic.Field(
         description=(
-            "Short readable title (3-8 words) followed by domain keywords in brackets, "
-            "e.g. 'Media control commands ignored [music, spotify]'"
+            "Title prefixed with 'Issue: ' followed by a short readable description (3-8 words), "
+            "e.g. 'Issue: Media control commands ignored'"
         )
     )
     description: str = pydantic.Field(description="What the issue is")

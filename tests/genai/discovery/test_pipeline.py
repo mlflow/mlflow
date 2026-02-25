@@ -127,11 +127,13 @@ def test_discover_issues_full_pipeline(make_trace):
             "mlflow.genai.discovery.pipeline.mlflow.start_run",
             side_effect=_mock_start_run,
         ),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces") as mock_annotate,
     ):
         result = discover_issues(triage_sample_size=10)
 
     mock_cluster.assert_called_once()
     mock_summarize.assert_called_once()
+    mock_annotate.assert_called_once()
     assert len(result.issues) == 1
     assert result.issues[0].name == "slow_response"
     assert result.issues[0].frequency == pytest.approx(0.2)
@@ -391,3 +393,208 @@ def test_discover_issues_filters_no_issue_results(make_trace):
         result = discover_issues(triage_sample_size=10)
 
     assert len(result.issues) == 0
+
+
+def _make_litellm_response(content: str):
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = content
+    return mock_response
+
+
+class TestAnnotateIssueTraces:
+    def test_annotates_each_trace_with_feedback(self):
+        from mlflow.genai.discovery.entities import Issue
+        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+
+        issues = [
+            Issue(
+                name="Slow responses [api]",
+                description="Responses take too long",
+                root_cause="Complex queries",
+                example_trace_ids=["trace-1", "trace-2"],
+                scorer=None,
+                frequency=0.5,
+                confidence=90,
+                rationale_examples=[],
+            ),
+        ]
+        rationale_map = {
+            "trace-1": "Response was slow and incomplete",
+            "trace-2": "Timed out on user request",
+        }
+
+        with (
+            patch(
+                "litellm.completion",
+                return_value=_make_litellm_response("This trace shows slow response behavior."),
+            ) as mock_completion,
+            patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
+        ):
+            _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
+
+        assert mock_completion.call_count == 2
+        assert mock_feedback.call_count == 2
+        for c in mock_feedback.call_args_list:
+            assert c.kwargs["name"] == "Slow responses [api]"
+            assert c.kwargs["value"] is False
+            assert "slow response" in c.kwargs["rationale"]
+
+    def test_populates_rationale_examples(self):
+        from mlflow.genai.discovery.entities import Issue
+        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+
+        issues = [
+            Issue(
+                name="Bad data [db]",
+                description="Wrong data returned",
+                root_cause="Schema mismatch",
+                example_trace_ids=["t1", "t2", "t3", "t4"],
+                scorer=None,
+                frequency=0.4,
+                confidence=85,
+                rationale_examples=[],
+            ),
+        ]
+        rationale_map = {"t1": "r1", "t2": "r2", "t3": "r3", "t4": "r4"}
+
+        with (
+            patch(
+                "litellm.completion",
+                return_value=_make_litellm_response("Annotation text."),
+            ),
+            patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback"),
+        ):
+            _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
+
+        assert len(issues[0].rationale_examples) == 3
+        assert all(ex == "Annotation text." for ex in issues[0].rationale_examples)
+
+    def test_no_work_items_returns_early(self):
+        from mlflow.genai.discovery.entities import Issue
+        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+
+        issues = [
+            Issue(
+                name="Empty issue",
+                description="No traces",
+                root_cause="N/A",
+                example_trace_ids=[],
+                scorer=None,
+                frequency=0.0,
+                confidence=90,
+                rationale_examples=[],
+            ),
+        ]
+
+        with patch("litellm.completion") as mock_completion:
+            _annotate_issue_traces(issues, {}, {}, "openai:/gpt-5-mini")
+
+        mock_completion.assert_not_called()
+
+    def test_llm_failure_falls_back_to_triage_rationale(self):
+        from mlflow.genai.discovery.entities import Issue
+        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+
+        issues = [
+            Issue(
+                name="Timeout [api]",
+                description="Request timed out",
+                root_cause="Upstream latency",
+                example_trace_ids=["t1"],
+                scorer=None,
+                frequency=0.1,
+                confidence=80,
+                rationale_examples=[],
+            ),
+        ]
+        rationale_map = {"t1": "Original triage rationale"}
+
+        with (
+            patch(
+                "litellm.completion",
+                side_effect=Exception("LLM unavailable"),
+            ),
+            patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
+        ):
+            _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
+
+        mock_feedback.assert_called_once()
+        rationale = mock_feedback.call_args.kwargs["rationale"]
+        assert "Original triage rationale" in rationale
+        assert "Timeout [api]" in rationale
+
+    def test_log_feedback_failure_handled_gracefully(self):
+        from mlflow.genai.discovery.entities import Issue
+        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+
+        issues = [
+            Issue(
+                name="Error [db]",
+                description="DB error",
+                root_cause="Connection pool",
+                example_trace_ids=["t1"],
+                scorer=None,
+                frequency=0.1,
+                confidence=80,
+                rationale_examples=[],
+            ),
+        ]
+
+        with (
+            patch(
+                "litellm.completion",
+                return_value=_make_litellm_response("Annotation."),
+            ),
+            patch(
+                "mlflow.genai.discovery.pipeline.mlflow.log_feedback",
+                side_effect=Exception("Tracking server down"),
+            ),
+        ):
+            _annotate_issue_traces(issues, {"t1": "rationale"}, {}, "openai:/gpt-5-mini")
+
+        assert issues[0].rationale_examples == []
+
+    def test_multiple_issues_annotated_independently(self):
+        from mlflow.genai.discovery.entities import Issue
+        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+
+        issues = [
+            Issue(
+                name="Issue A",
+                description="Desc A",
+                root_cause="Cause A",
+                example_trace_ids=["t1"],
+                scorer=None,
+                frequency=0.2,
+                confidence=85,
+                rationale_examples=[],
+            ),
+            Issue(
+                name="Issue B",
+                description="Desc B",
+                root_cause="Cause B",
+                example_trace_ids=["t2", "t3"],
+                scorer=None,
+                frequency=0.3,
+                confidence=90,
+                rationale_examples=[],
+            ),
+        ]
+        rationale_map = {"t1": "r1", "t2": "r2", "t3": "r3"}
+
+        with (
+            patch(
+                "litellm.completion",
+                return_value=_make_litellm_response("Annotated."),
+            ),
+            patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
+        ):
+            _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
+
+        assert mock_feedback.call_count == 3
+        feedback_names = [c.kwargs["name"] for c in mock_feedback.call_args_list]
+        assert feedback_names.count("Issue A") == 1
+        assert feedback_names.count("Issue B") == 2
+        assert len(issues[0].rationale_examples) == 1
+        assert len(issues[1].rationale_examples) == 2
