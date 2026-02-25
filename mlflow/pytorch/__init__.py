@@ -462,7 +462,12 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(mlflow_model, input_example, path)
+
+    try:
+        saved_example = _save_example(mlflow_model, input_example, path)
+    except MlflowException:
+        # `_save_example` does not support tensor / list of tensor / list of numpy array as input.
+        saved_example = None
 
     if signature is None and saved_example is not None:
         wrapped_model = _PyTorchWrapper(pytorch_model, device="cpu")
@@ -494,11 +499,16 @@ def save_model(
                 "models, please set `serialization_format` to 'pickle'."
             )
 
-        if input_example is None or not isinstance(input_example, np.ndarray):
+        if isinstance(input_example, (np.ndarray, torch.Tensor)):
+            input_example = (input_example,)
+        if input_example is None or not all(
+            isinstance(value, (np.ndarray, torch.Tensor)) for value in input_example
+        ):
             raise MlflowException(
                 "If `serialization_format` is set to 'pt2', then `input_example` is required and "
-                "must be a numpy array, because 'pt2' is a traced-graph format, and PyTorch "
-                "traces the model graph by virtually executing `model.forward` with the "
+                "must be a numpy array or torch tensor, or a tuple / list of numpy arrays or "
+                "torch tensors, because 'pt2' is a traced-graph format, "
+                "and PyTorch traces the model graph by virtually executing `model.forward` with the "
                 "provided example input."
             )
 
@@ -514,8 +524,6 @@ def save_model(
             )
 
         tensor_spec_list = signature.inputs.inputs
-        if isinstance(input_example, np.ndarray):
-            input_example = (input_example,)
 
         dynamic_shapes = []
 
@@ -529,7 +537,7 @@ def save_model(
 
         exported_prog = torch.export.export(
             pytorch_model,
-            tuple(torch.from_numpy(v) for v in input_example),
+            tuple(torch.from_numpy(v) if isinstance(v, np.ndarray) else v for v in input_example),
             dynamic_shapes=dynamic_shapes,
         )
         model_path = os.path.join(model_data_path, _EXPORTED_TORCH_MODEL_FILE_NAME)
