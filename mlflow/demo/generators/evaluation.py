@@ -20,9 +20,10 @@ from mlflow.demo.base import (
     DemoResult,
 )
 from mlflow.demo.data import EXPECTED_ANSWERS
-from mlflow.demo.generators.traces import DEMO_VERSION_TAG, TracesDemoGenerator
-from mlflow.entities.assessment import AssessmentSource, Feedback
+from mlflow.demo.generators.traces import DEMO_TRACE_TYPE_TAG, DEMO_VERSION_TAG, TracesDemoGenerator
+from mlflow.entities.assessment import AssessmentSource, Expectation, Feedback
 from mlflow.entities.trace import Trace
+from mlflow.entities.view_type import ViewType
 from mlflow.genai.datasets import create_dataset, delete_dataset, search_datasets
 from mlflow.genai.scorers import scorer
 
@@ -48,8 +49,9 @@ def _suppress_evaluation_output():
             os.environ["TQDM_DISABLE"] = original_tqdm_disable
 
 
-DEMO_DATASET_V1_NAME = "demo-baseline-dataset"
-DEMO_DATASET_V2_NAME = "demo-improved-dataset"
+DEMO_DATASET_TRACE_LEVEL_NAME = "demo-trace-level-dataset"
+DEMO_DATASET_BASELINE_SESSION_NAME = "demo-baseline-session-dataset"
+DEMO_DATASET_IMPROVED_SESSION_NAME = "demo-improved-session-dataset"
 
 
 def _get_relevance_rationale(is_relevant: bool) -> str:
@@ -79,72 +81,77 @@ def _get_safety_rationale(is_safe: bool) -> str:
     return "The response may contain potentially harmful or inappropriate content."
 
 
-def _create_pass_fail_scorer(
+def _create_quality_aware_scorer(
     name: str,
-    pass_rate: float,
+    baseline_pass_rate: float,
+    improved_pass_rate: float,
     rationale_fn: Callable[[bool], str],
 ):
-    """Create a deterministic scorer that returns 'yes' or 'no' Feedback.
+    """Create a deterministic scorer that simulates quality-aware evaluation.
 
-    These scorers simulate LLM judges but use deterministic pass/fail decisions
-    based on content hashes, making demo data reproducible.
+    The scorer detects response quality based on content characteristics:
+    - Longer, more detailed responses get evaluated with higher pass rates
+    - Shorter, less detailed responses get evaluated with lower pass rates
+
+    This simulates the real-world scenario where improved model outputs
+    naturally score better when evaluated by the same scorers.
     """
+    quality_threshold = 400
 
     @scorer(name=name)
-    def pass_fail_scorer(inputs, outputs) -> Feedback:
+    def quality_aware_scorer(inputs, outputs, trace) -> Feedback:
         content = str(inputs) + str(outputs)
+        output_str = str(outputs)
+
+        if len(output_str) > quality_threshold:
+            effective_pass_rate = improved_pass_rate
+        else:
+            effective_pass_rate = baseline_pass_rate
+
+        # Use content hash for deterministic but varied results
         hash_input = f"{content}:{name}"
         hash_val = int(hashlib.md5(hash_input.encode(), usedforsecurity=False).hexdigest()[:8], 16)
         normalized = hash_val / 0xFFFFFFFF
-        is_passing = normalized < pass_rate
+        is_passing = normalized < effective_pass_rate
+
+        # Use the trace timestamp so the quality overview chart shows a trend
+        # across days instead of a single dot at the current time.
+        trace_timestamp_ms = trace.info.timestamp_ms if trace else None
+
         return Feedback(
             value="yes" if is_passing else "no",
             rationale=rationale_fn(is_passing),
             source=AssessmentSource(
                 source_type="LLM_JUDGE",
-                source_id=f"demo-judge/{name}",
+                source_id=f"judges/{name}",
             ),
+            create_time_ms=trace_timestamp_ms,
+            last_update_time_ms=trace_timestamp_ms,
         )
 
-    return pass_fail_scorer
+    return quality_aware_scorer
 
 
-BASELINE_PROFILE = {
-    "name": "baseline-evaluation",
-    "pass_rates": {
-        "relevance": 0.65,
-        "correctness": 0.60,
-        "groundedness": 0.55,
-        "safety": 0.95,
-    },
-}
-
-IMPROVED_PROFILE = {
-    "name": "improved-evaluation",
-    "pass_rates": {
-        "relevance": 0.90,
-        "correctness": 0.85,
-        "groundedness": 0.85,
-        "safety": 1.0,
-    },
+SCORER_PASS_RATES = {
+    "relevance": {"baseline": 0.65, "improved": 0.92},
+    "correctness": {"baseline": 0.58, "improved": 0.88},
+    "groundedness": {"baseline": 0.52, "improved": 0.85},
+    "safety": {"baseline": 0.95, "improved": 1.0},
 }
 
 
 class EvaluationDemoGenerator(BaseDemoGenerator):
-    """Generates demo evaluation data comparing baseline (v1) and improved (v2) traces.
+    """Generates demo evaluation data.
 
     Creates:
     - Ground truth expectations on all demo traces
-    - Two datasets: baseline (v1) and improved (v2) - both include all trace types
-    - Two evaluation runs comparing the same inputs with different outputs
+    - Three datasets and evaluation runs, each in a single mode:
+      - trace-level-evaluation: non-session traces (v1 + v2 combined)
+      - baseline-session-evaluation: v1 session traces
+      - improved-session-evaluation: v2 session traces
 
-    The baseline and improved evaluations include matching trace types:
-    - 2 RAG traces
-    - 2 agent traces
-    - 6 prompt traces (2 per prompt type)
-    - Session traces
-
-    This allows direct comparison between v1 and v2 performance.
+    Assessment timestamps are spread to match trace timestamps so the
+    quality overview chart shows a trend across days.
     """
 
     name = DemoFeature.EVALUATION
@@ -159,39 +166,56 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
         experiment_id = experiment.experiment_id
 
-        v1_traces = self._fetch_demo_traces(experiment_id, "v1")
-        v2_traces = self._fetch_demo_traces(experiment_id, "v2")
+        # Fetch traces split by session vs non-session
+        v1_non_session = self._fetch_demo_traces(experiment_id, "v1", session=False)
+        v2_non_session = self._fetch_demo_traces(experiment_id, "v2", session=False)
+        v1_session = self._fetch_demo_traces(experiment_id, "v1", session=True)
+        v2_session = self._fetch_demo_traces(experiment_id, "v2", session=True)
 
-        self._add_expectations_to_traces(v1_traces)
-        self._add_expectations_to_traces(v2_traces)
+        all_traces = v1_non_session + v2_non_session + v1_session + v2_session
+        self._add_expectations_to_traces(all_traces)
 
-        v1_traces_with_expectations = self._fetch_demo_traces(experiment_id, "v1")
-        v2_traces_with_expectations = self._fetch_demo_traces(experiment_id, "v2")
+        # Re-fetch to include expectations
+        v1_non_session = self._fetch_demo_traces(experiment_id, "v1", session=False)
+        v2_non_session = self._fetch_demo_traces(experiment_id, "v2", session=False)
+        v1_session = self._fetch_demo_traces(experiment_id, "v1", session=True)
+        v2_session = self._fetch_demo_traces(experiment_id, "v2", session=True)
 
+        trace_level_traces = v1_non_session + v2_non_session
+
+        # Create datasets
         self._create_evaluation_dataset(
-            v1_traces_with_expectations, experiment_id, DEMO_DATASET_V1_NAME
+            trace_level_traces, experiment_id, DEMO_DATASET_TRACE_LEVEL_NAME
         )
         self._create_evaluation_dataset(
-            v2_traces_with_expectations, experiment_id, DEMO_DATASET_V2_NAME
+            v1_session, experiment_id, DEMO_DATASET_BASELINE_SESSION_NAME
+        )
+        self._create_evaluation_dataset(
+            v2_session, experiment_id, DEMO_DATASET_IMPROVED_SESSION_NAME
         )
 
-        v1_run_id = self._create_single_evaluation_run(
-            traces=v1_traces_with_expectations,
+        # Create evaluation runs
+        trace_level_run_id = self._create_evaluation_run(
+            traces=trace_level_traces,
             experiment_id=experiment_id,
-            run_name=BASELINE_PROFILE["name"],
-            pass_rates=BASELINE_PROFILE["pass_rates"],
+            run_name="trace-level-evaluation",
         )
 
-        v2_run_id = self._create_single_evaluation_run(
-            traces=v2_traces_with_expectations,
+        baseline_session_run_id = self._create_evaluation_run(
+            traces=v1_session,
             experiment_id=experiment_id,
-            run_name=IMPROVED_PROFILE["name"],
-            pass_rates=IMPROVED_PROFILE["pass_rates"],
+            run_name="baseline-session-evaluation",
+        )
+
+        improved_session_run_id = self._create_evaluation_run(
+            traces=v2_session,
+            experiment_id=experiment_id,
+            run_name="improved-session-evaluation",
         )
 
         return DemoResult(
             feature=self.name,
-            entity_ids=[v1_run_id, v2_run_id],
+            entity_ids=[trace_level_run_id, baseline_session_run_id, improved_session_run_id],
             navigation_url=f"#/experiments/{experiment_id}/evaluation-runs",
         )
 
@@ -222,23 +246,38 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
             runs = client.search_runs(
                 experiment_ids=[experiment.experiment_id],
                 filter_string="params.demo = 'true'",
+                run_view_type=ViewType.ALL,
                 max_results=100,
             )
             for run in runs:
                 try:
+                    if run.info.lifecycle_stage == "deleted":
+                        client.restore_run(run.info.run_id)
                     client.delete_run(run.info.run_id)
                 except Exception:
                     _logger.debug("Failed to delete run %s", run.info.run_id, exc_info=True)
         except Exception:
             _logger.debug("Failed to delete evaluation demo runs", exc_info=True)
 
-        self._delete_demo_dataset(experiment.experiment_id, DEMO_DATASET_V1_NAME)
-        self._delete_demo_dataset(experiment.experiment_id, DEMO_DATASET_V2_NAME)
+        for name in [
+            DEMO_DATASET_TRACE_LEVEL_NAME,
+            DEMO_DATASET_BASELINE_SESSION_NAME,
+            DEMO_DATASET_IMPROVED_SESSION_NAME,
+        ]:
+            self._delete_demo_dataset(experiment.experiment_id, name)
 
-    def _fetch_demo_traces(self, experiment_id: str, version: Literal["v1", "v2"]) -> list[Trace]:
+    def _fetch_demo_traces(
+        self,
+        experiment_id: str,
+        version: Literal["v1", "v2"],
+        session: bool | None = None,
+    ) -> list[Trace]:
+        filter_parts = [f"metadata.`{DEMO_VERSION_TAG}` = '{version}'"]
+        operator = "=" if session else "!="
+        filter_parts.append(f"metadata.`{DEMO_TRACE_TYPE_TAG}` {operator} 'session'")
         return mlflow.search_traces(
             locations=[experiment_id],
-            filter_string=f"metadata.`{DEMO_VERSION_TAG}` = '{version}'",
+            filter_string=" AND ".join(filter_parts),
             max_results=100,
             return_type="list",
         )
@@ -248,6 +287,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         for trace in traces:
             trace_id = trace.info.trace_id
+            trace_timestamp_ms = trace.info.timestamp_ms
 
             root_span = next((span for span in trace.data.spans if span.parent_id is None), None)
             if root_span is None:
@@ -258,8 +298,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
             if expected_answer := self._find_expected_answer(query):
                 try:
-                    mlflow.log_expectation(
-                        trace_id=trace_id,
+                    expectation = Expectation(
                         name="expected_response",
                         value=expected_answer,
                         source=AssessmentSource(
@@ -267,7 +306,11 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
                             source_id="demo_annotator",
                         ),
                         metadata={"demo": "true"},
+                        trace_id=trace_id,
+                        create_time_ms=trace_timestamp_ms,
+                        last_update_time_ms=trace_timestamp_ms,
                     )
+                    mlflow.log_assessment(trace_id=trace_id, assessment=expectation)
                     expectation_count += 1
                 except Exception:
                     _logger.debug("Failed to log expectation for trace %s", trace_id, exc_info=True)
@@ -295,8 +338,6 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         )
 
         dataset.merge_records(traces)
-
-        # Return the dataset object for use with evaluate()
         return get_dataset(dataset_id=dataset.dataset_id)
 
     def _delete_demo_dataset(self, experiment_id: str, dataset_name: str) -> None:
@@ -311,32 +352,35 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
             except Exception:
                 _logger.debug("Failed to delete dataset %s", ds.dataset_id, exc_info=True)
 
-    def _create_single_evaluation_run(
+    def _create_evaluation_run(
         self,
         traces: list[Trace],
         experiment_id: str,
         run_name: str,
-        pass_rates: dict[str, float],
     ) -> str:
         demo_scorers = [
-            _create_pass_fail_scorer(
+            _create_quality_aware_scorer(
                 name="relevance",
-                pass_rate=pass_rates["relevance"],
+                baseline_pass_rate=SCORER_PASS_RATES["relevance"]["baseline"],
+                improved_pass_rate=SCORER_PASS_RATES["relevance"]["improved"],
                 rationale_fn=_get_relevance_rationale,
             ),
-            _create_pass_fail_scorer(
+            _create_quality_aware_scorer(
                 name="correctness",
-                pass_rate=pass_rates["correctness"],
+                baseline_pass_rate=SCORER_PASS_RATES["correctness"]["baseline"],
+                improved_pass_rate=SCORER_PASS_RATES["correctness"]["improved"],
                 rationale_fn=_get_correctness_rationale,
             ),
-            _create_pass_fail_scorer(
+            _create_quality_aware_scorer(
                 name="groundedness",
-                pass_rate=pass_rates["groundedness"],
+                baseline_pass_rate=SCORER_PASS_RATES["groundedness"]["baseline"],
+                improved_pass_rate=SCORER_PASS_RATES["groundedness"]["improved"],
                 rationale_fn=_get_groundedness_rationale,
             ),
-            _create_pass_fail_scorer(
+            _create_quality_aware_scorer(
                 name="safety",
-                pass_rate=pass_rates["safety"],
+                baseline_pass_rate=SCORER_PASS_RATES["safety"]["baseline"],
+                improved_pass_rate=SCORER_PASS_RATES["safety"]["improved"],
                 rationale_fn=_get_safety_rationale,
             ),
         ]

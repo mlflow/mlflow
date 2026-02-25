@@ -27,6 +27,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
 from mlflow.entities.trace_metrics import (
     AggregationType,
@@ -34,11 +35,13 @@ from mlflow.entities.trace_metrics import (
     MetricDataPoint,
     MetricViewType,
 )
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -133,12 +136,15 @@ from mlflow.server.handlers import (
     _get_model_version,
     _get_model_version_by_alias,
     _get_model_version_download_uri,
+    _get_presigned_download_url,
     _get_registered_model,
     _get_request_message,
     _get_scorer,
     _get_trace,
     _get_trace_artifact_repo,
+    _get_workspace_scoped_repo_path_if_enabled,
     _link_prompts_to_trace,
+    _list_artifacts_for_proxied_run_artifact_root,
     _list_scorer_versions,
     _list_scorers,
     _list_webhooks,
@@ -165,10 +171,14 @@ from mlflow.server.handlers import (
     _upsert_dataset_records_handler,
     _validate_source_run,
     catch_mlflow_exception,
+    get_artifact_handler,
     get_endpoints,
+    get_logged_model_artifact_handler,
+    get_model_version_artifact_handler,
     get_trace_artifact_handler,
     get_ui_telemetry_handler,
     post_ui_telemetry_handler,
+    upload_artifact_handler,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -189,6 +199,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.providers import _PROVIDER_BACKEND_AVAILABLE
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
 @pytest.fixture
@@ -337,10 +349,11 @@ def test_version():
 
 def test_server_info():
     with app.test_client() as c:
-        response = c.get("/server-info")
+        response = c.get("/api/3.0/mlflow/server-info")
         assert response.status_code == 200
         data = response.get_json()
         assert data["store_type"] == "SqlStore"
+        assert data["workspaces_enabled"] is False
 
 
 def test_get_endpoints():
@@ -761,6 +774,50 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        "file:///etc/passwd",
+        "file:///",
+        "/etc/passwd",
+        "file:///proc/self/environ",
+        "file://remote-host/etc/passwd",
+        "file://remote-host/",
+    ],
+)
+def test_create_model_version_rejects_local_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "Invalid prompt source" in resp.get_json()["message"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "https://example.com/../../etc/passwd",
+        "http://example.com/path/..%2f..%2fsecret",
+    ],
+)
+def test_create_model_version_rejects_traversal_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "Invalid model version source" in resp.get_json()["message"]
+
+
 def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):
     name = "model1"
     tag = RegisteredModelTag(key="some weird key", value="some value")
@@ -1051,6 +1108,69 @@ def test_delete_artifact_mlflow_artifacts_throws_for_malicious_path(enable_serve
     json_response = json.loads(response.get_data())
     assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert json_response["message"] == "Invalid path"
+
+
+def test_get_presigned_download_url_success(enable_serve_artifacts):
+    from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
+
+    class MockMultipartDownloadRepo(MultipartDownloadMixin):
+        def get_download_presigned_url(self, artifact_path, expiration=300):
+            return PresignedDownloadUrlResponse(
+                url="https://storage.example.com/presigned?token=abc",
+                headers={"x-custom-header": "value"},
+                file_size=1024,
+            )
+
+    artifact_path = "run_id/artifacts/model.pkl"
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=MockMultipartDownloadRepo(),
+        ),
+    ):
+        response = _get_presigned_download_url(artifact_path)
+
+    assert response.status_code == 200
+    data = json.loads(response.get_data())
+    assert data["url"] == "https://storage.example.com/presigned?token=abc"
+    assert data["headers"] == {"x-custom-header": "value"}
+    assert data["file_size"] == 1024
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/path",
+        "path/../to/file",
+        "/etc/passwd",
+        "/etc/passwd%00.jpg",
+        "/file://etc/passwd",
+        "%2E%2E%2F%2E%2E%2Fpath",
+    ],
+)
+def test_get_presigned_download_url_throws_for_malicious_path(enable_serve_artifacts, path):
+    response = _get_presigned_download_url(path)
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert json_response["message"] == "Invalid path"
+
+
+def test_get_presigned_download_url_unsupported_repo(enable_serve_artifacts, tmp_path):
+    with (
+        app.test_request_context(method="GET"),
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=LocalArtifactRepository(str(tmp_path)),
+        ),
+    ):
+        response = _get_presigned_download_url("some/artifact/path")
+
+    assert response.status_code == 501
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert "multipart" in json_response["message"].lower()
 
 
 @pytest.mark.parametrize(
@@ -3791,3 +3911,244 @@ def test_delete_prompt_optimization_job_skips_run_deletion_when_run_not_found(
     mock_job_store.delete_jobs.assert_called_once_with(job_ids=["job-123"])
     # delete_run should not be called since run doesn't exist
     mock_tracking_store.delete_run.assert_not_called()
+
+
+def test_get_workspace_scoped_repo_path_if_enabled_allows_legacy_default_artifacts(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        assert (
+            _get_workspace_scoped_repo_path_if_enabled("1/legacy/artifact") == "1/legacy/artifact"
+        )
+
+
+def test_get_workspace_scoped_repo_path_if_enabled_still_scopes_non_default(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    with WorkspaceContext("team-blue"):
+        scoped = _get_workspace_scoped_repo_path_if_enabled("2/new/artifact")
+    assert scoped.startswith("workspaces/team-blue/2/new/artifact")
+
+
+def test_get_workspace_scoped_repo_path_if_enabled_prevents_cross_workspace_access(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    with WorkspaceContext("team-a"):
+        with pytest.raises(MlflowException, match="targets workspace 'team-b'"):
+            _get_workspace_scoped_repo_path_if_enabled("workspaces/team-b/secret.txt")
+
+        with pytest.raises(MlflowException, match="targets workspace 'other'"):
+            _get_workspace_scoped_repo_path_if_enabled("workspaces/other/data/model.pkl")
+
+
+def test_get_workspace_scoped_repo_path_if_enabled_rejects_empty_workspace_in_path(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    with WorkspaceContext("team-a"):
+        with pytest.raises(MlflowException, match="must include a workspace name"):
+            _get_workspace_scoped_repo_path_if_enabled("workspaces/")
+
+        with pytest.raises(MlflowException, match="must include a workspace name"):
+            _get_workspace_scoped_repo_path_if_enabled("workspaces//data.txt")
+
+
+def test_get_workspace_scoped_repo_path_if_enabled_allows_matching_workspace_prefix(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    with WorkspaceContext("team-a"):
+        result = _get_workspace_scoped_repo_path_if_enabled("workspaces/team-a/data.txt")
+        assert result == "workspaces/team-a/data.txt"
+
+        result = _get_workspace_scoped_repo_path_if_enabled("/workspaces/team-a/nested/path")
+        assert result == "workspaces/team-a/nested/path"
+
+
+def test_get_workspace_scoped_repo_path_if_enabled_default_workspace_cross_access_blocked(
+    monkeypatch,
+):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        result = _get_workspace_scoped_repo_path_if_enabled("legacy/artifact.txt")
+        assert result == "legacy/artifact.txt"
+
+        with pytest.raises(MlflowException, match="targets workspace 'team-b'"):
+            _get_workspace_scoped_repo_path_if_enabled("workspaces/team-b/data.txt")
+
+
+def test_get_workspace_scoped_repo_path_if_enabled_requires_active_workspace(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    with pytest.raises(MlflowException, match="Active workspace is required"):
+        _get_workspace_scoped_repo_path_if_enabled("some/path")
+
+
+def test_get_artifact_handler_applies_workspace_scoping(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "mlflow-artifacts:/exp1/run1/artifacts"
+
+    mock_artifact_repo = mock.MagicMock()
+    mock_artifact_repo.download_artifacts.return_value = "/tmp/artifact.txt"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        mock_repo.return_value = mock_artifact_repo
+
+        with WorkspaceContext("team-blue"):
+            with app.test_request_context(
+                method="GET", query_string={"run_id": "run1", "path": "model/weights.bin"}
+            ):
+                get_artifact_handler()
+
+        mock_send.assert_called_once()
+        artifact_path = mock_send.call_args[0][1]
+        assert artifact_path.startswith("workspaces/team-blue/")
+
+
+def test_get_artifact_handler_no_scoping_when_workspaces_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "mlflow-artifacts:/exp1/run1/artifacts"
+
+    mock_artifact_repo = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        mock_repo.return_value = mock_artifact_repo
+
+        with app.test_request_context(
+            method="GET", query_string={"run_id": "run1", "path": "model/weights.bin"}
+        ):
+            get_artifact_handler()
+
+        mock_send.assert_called_once()
+        artifact_path = mock_send.call_args[0][1]
+        assert not artifact_path.startswith("workspaces/")
+
+
+def test_get_model_version_artifact_handler_applies_workspace_scoping(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_artifact_repo = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.handlers._get_model_registry_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_model_version_download_uri.return_value = (
+            "mlflow-artifacts:/models/MyModel/1"
+        )
+        mock_repo.return_value = mock_artifact_repo
+
+        with WorkspaceContext("team-red"):
+            with app.test_request_context(
+                method="GET", query_string={"name": "MyModel", "version": "1", "path": "model.pkl"}
+            ):
+                get_model_version_artifact_handler()
+
+        mock_send.assert_called_once()
+        artifact_path = mock_send.call_args[0][1]
+        assert artifact_path.startswith("workspaces/team-red/")
+
+
+def test_get_logged_model_artifact_handler_applies_workspace_scoping(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.artifact_location = "mlflow-artifacts:/exp1/run1/artifacts/model"
+
+    mock_artifact_repo = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        mock.patch("mlflow.server.handlers._send_artifact") as mock_send,
+    ):
+        mock_store.return_value.get_logged_model.return_value = mock_logged_model
+        mock_repo.return_value = mock_artifact_repo
+
+        with WorkspaceContext("team-green"):
+            with app.test_request_context(
+                method="GET", query_string={"artifact_file_path": "MLmodel"}
+            ):
+                get_logged_model_artifact_handler("model123")
+
+        mock_send.assert_called_once()
+        artifact_path = mock_send.call_args[0][1]
+        assert artifact_path.startswith("workspaces/team-green/")
+
+
+def test_upload_artifact_handler_applies_workspace_scoping(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = "mlflow-artifacts:/exp1/run1/artifacts"
+    mock_run.info.experiment_id = "exp1"
+    mock_run.info.run_id = "run1"
+
+    mock_artifact_repo = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+    ):
+        mock_store.return_value.get_run.return_value = mock_run
+        mock_repo.return_value = mock_artifact_repo
+
+        with WorkspaceContext("team-purple"):
+            with app.test_request_context(
+                method="POST",
+                query_string={"run_uuid": "run1", "path": "output.txt"},
+                data=b"test data",
+            ):
+                upload_artifact_handler()
+
+        mock_artifact_repo.log_artifact.assert_called_once()
+        logged_path = mock_artifact_repo.log_artifact.call_args[0][1]
+        assert logged_path.startswith("workspaces/team-purple/")
+
+
+def test_list_artifacts_for_proxied_run_artifact_root_applies_workspace_scoping(monkeypatch):
+    from mlflow.store.artifact.artifact_repo import ArtifactRepository
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_artifact_repo = mock.MagicMock(spec=ArtifactRepository)
+    mock_artifact_repo.list_artifacts.return_value = []
+
+    with (
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+        WorkspaceContext("team-orange"),
+    ):
+        mock_repo.return_value = mock_artifact_repo
+
+        _list_artifacts_for_proxied_run_artifact_root(
+            proxied_artifact_root="mlflow-artifacts:/exp1/run1/artifacts",
+            relative_path="model",
+        )
+
+        mock_artifact_repo.list_artifacts.assert_called_once()
+        listed_path = mock_artifact_repo.list_artifacts.call_args[0][0]
+        assert listed_path.startswith("workspaces/team-orange/")

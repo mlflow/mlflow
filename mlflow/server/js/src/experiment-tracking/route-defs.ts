@@ -1,4 +1,5 @@
-import { createLazyRouteElement, RouteHandle, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
+import type { RouteHandle } from '../common/utils/RoutingUtils';
+import { createLazyRouteElement, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
 
 import { PageId, RoutePaths } from './routes';
 
@@ -217,7 +218,7 @@ const getExperimentPageRouteDefs = () => {
 export const getRouteDefs = () => [
   {
     path: RoutePaths.rootRoute,
-    element: createLazyRouteElement(() => import('../home/HomePage')),
+    element: createLazyRouteElement(() => import('../home/RootPage')),
     pageId: PageId.home,
     handle: {
       getPageTitle: () => 'Home',

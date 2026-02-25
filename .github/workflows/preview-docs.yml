@@ -22,18 +22,29 @@ jobs:
         with:
           sparse-checkout: |
             .github
-      - name: Download alias
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ github.event.workflow_run.id }}
-          name: alias
-          path: /tmp
       - name: Set alias
         id: alias
+        env:
+          EVENT: ${{ github.event.workflow_run.event }}
+          HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
-          cat /tmp/alias.txt
-          echo "value=$(cat /tmp/alias.txt)" >> $GITHUB_OUTPUT
+          if [ "$EVENT" = "push" ]; then
+            ALIAS="dev"
+          else
+            # Derive PR number from the workflow run's head branch via API
+            # instead of trusting the artifact (which fork PRs can manipulate)
+            PR_NUMBER=$(gh api "repos/$REPO/pulls?head=$HEAD_OWNER:$HEAD_BRANCH&state=open" \
+              --jq '.[0].number // empty')
+            if [ -z "$PR_NUMBER" ]; then
+              echo "::error::Could not find PR for $HEAD_OWNER:$HEAD_BRANCH"
+              exit 1
+            fi
+            ALIAS="pr-$PR_NUMBER"
+          fi
+          echo "value=$ALIAS" >> $GITHUB_OUTPUT
       - name: Download build artifact
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:

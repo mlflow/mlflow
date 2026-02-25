@@ -25,13 +25,20 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_TESTING,
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_TRACKING_URI,
+    MLFLOW_WORKSPACE,
+    MLFLOW_WORKSPACE_STORE_URI,
+)
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.provider import get_current_otel_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.utils import workspace_context, workspace_utils
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
@@ -656,15 +663,6 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
 
-        if summary_path := os.environ.get("GITHUB_STEP_SUMMARY"):
-            summary_path = Path(summary_path).resolve()
-            with summary_path.open("a") as f:
-                f.write("## Failed tests\n")
-                f.write("Run the following command to run the failed tests:\n")
-                f.write("```bash\n")
-                f.write(" ".join(["pytest"] + ids) + "\n")
-                f.write("```\n\n")
-
         # If some tests failed at installing mlflow, we suggest using `--serve-wheel` flag.
         # Some test cases try to install mlflow via pip e.g. model loading. They pins
         # mlflow version to install based on local environment i.e. dev version ahead of
@@ -735,9 +733,14 @@ def remote_backend_for_tracing_sdk_test():
             [
                 "uv",
                 "run",
+                "--no-dev",
                 "--directory",
                 # Install from the dev version
                 mlflow_root,
+                "--with",
+                "setuptools<82",  # setuptools 82+ removed pkg_resources
+                "--with",
+                "litellm",  # Required for computing cost of LLM calls
                 "mlflow",
                 "server",
                 "--port",
@@ -787,6 +790,45 @@ def tracking_uri_mock(db_uri: str, request: pytest.FixtureRequest) -> Iterator[s
             yield db_uri
     else:
         yield None
+
+
+@pytest.fixture(autouse=True)
+def disable_workspace_mode_by_default(monkeypatch):
+    """
+    Ensure tests default to single-tenant mode regardless of the outer environment.
+    Individual tests can still opt in by setting ``MLFLOW_ENABLE_WORKSPACES`` explicitly.
+    """
+
+    for env_var in (
+        MLFLOW_ENABLE_WORKSPACES,
+        MLFLOW_WORKSPACE,
+        MLFLOW_WORKSPACE_STORE_URI,
+    ):
+        monkeypatch.delenv(env_var.name, raising=False)
+
+    if workspace_context is not None:
+        workspace_context.clear_server_request_workspace()
+
+    if workspace_utils is not None:
+        workspace_utils.set_workspace_store_uri(None)
+
+    yield
+
+    # Clear env vars at teardown to prevent leaking to subprocess servers.
+    # monkeypatch only tracks changes made through itself, so direct os.environ
+    # modifications (or those made by other code) would otherwise persist.
+    for env_var in (
+        MLFLOW_ENABLE_WORKSPACES,
+        MLFLOW_WORKSPACE,
+        MLFLOW_WORKSPACE_STORE_URI,
+    ):
+        os.environ.pop(env_var.name, None)
+
+    if workspace_context is not None:
+        workspace_context.clear_server_request_workspace()
+
+    if workspace_utils is not None:
+        workspace_utils.set_workspace_store_uri(None)
 
 
 @pytest.fixture(autouse=True)
@@ -1185,11 +1227,17 @@ def mock_litellm_cost():
     Uses cost of 1.0 per input token and 2.0 per output token.
     Returns (input_cost, output_cost) based on the token counts passed.
     """
+    try:
+        import litellm  # noqa: F401
+    except ImportError:
+        # mock.patch will fail if litellm is not installed, e.g. tracing SDK test
+        yield None
+        return
 
-    def calculate_cost(model, prompt_tokens, completion_tokens):
+    def calculate_cost(model, prompt_tokens, completion_tokens, **kwargs):
         input_cost = prompt_tokens * 1.0
         output_cost = completion_tokens * 2.0
         return (input_cost, output_cost)
 
-    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost) as mock_cost:
+    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost, create=True) as mock_cost:
         yield mock_cost

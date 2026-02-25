@@ -1,17 +1,15 @@
 import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { useMutation, useQueryClient } from '../../../common/utils/reactQueryHooks';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FeedbackAssessment, ModelTrace } from '../../../shared/web-shared/model-trace-explorer';
-import { EvaluateTracesParams } from './types';
+import type { FeedbackAssessment, ModelTrace } from '../../../shared/web-shared/model-trace-explorer';
+import type { EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
-import {
-  getMlflowTraceV3ForEvaluation,
-  JudgeEvaluationResult,
-  SessionJudgeEvaluationResult,
-} from './useEvaluateTraces.common';
+import type { JudgeEvaluationResult, SessionJudgeEvaluationResult } from './useEvaluateTraces.common';
+import { getMlflowTraceV3ForEvaluation } from './useEvaluateTraces.common';
 import { TrackingJobStatus } from '../../../common/hooks/useGetTrackingServerJobStatus';
 import { compact, uniq, zipObject } from 'lodash';
-import { SessionForEvaluation, useGetSessionsForEvaluation } from './useGetSessionsForEvaluation';
+import type { SessionForEvaluation } from './useGetSessionsForEvaluation';
+import { useGetSessionsForEvaluation } from './useGetSessionsForEvaluation';
 import { ScorerEvaluationScope } from './constants';
 import { parseJSONSafe } from '../../../common/utils/TagUtils';
 
@@ -282,11 +280,14 @@ export const useEvaluateTracesAsync = ({
     { evaluateParams: EvaluateTracesParams; traceIds: string[]; requestKey: string }
   >({
     mutationFn: async ({ evaluateParams, traceIds }) =>
-      fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/scorer/invoke'), 'POST', {
-        experiment_id: evaluateParams.experimentId,
-        serialized_scorer: evaluateParams.serializedScorer,
-        trace_ids: traceIds,
-        log_assessments: evaluateParams.saveAssessment,
+      fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/scorer/invoke'), {
+        method: 'POST',
+        body: {
+          experiment_id: evaluateParams.experimentId,
+          serialized_scorer: evaluateParams.serializedScorer,
+          trace_ids: traceIds,
+          log_assessments: evaluateParams.saveAssessment,
+        },
       }),
     onSuccess: (data, { requestKey }) => {
       const jobIds = data.jobs.map((j) => j.job_id);
@@ -377,7 +378,7 @@ export const useEvaluateTracesAsync = ({
         return;
       }
       for (const jobId of evaluation.jobIds) {
-        fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), 'PATCH').catch(() => {});
+        fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), { method: 'PATCH' }).catch(() => {});
       }
       finalizedRef.current.add(requestKey);
       setEvaluations((prev) => {
@@ -393,7 +394,7 @@ export const useEvaluateTracesAsync = ({
       for (const ev of Object.values(evaluationsRef.current)) {
         if (!finalizedRef.current.has(ev.requestKey)) {
           for (const jobId of ev.jobIds) {
-            fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), 'PATCH').catch(() => {});
+            fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), { method: 'PATCH' }).catch(() => {});
           }
         }
       }

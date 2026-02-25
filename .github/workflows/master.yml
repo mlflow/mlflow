@@ -7,6 +7,13 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
   push:
     branches:
       - master
@@ -137,6 +144,9 @@ jobs:
               tests/store/tracking/test_sqlalchemy_store_query_trace_metrics.py \
               tests/store/tracking/test_gateway_sql_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
+              tests/store/model_registry/test_sqlalchemy_workspace_store.py \
+              tests/store/workspace/test_sqlalchemy_store.py \
+              tests/store/tracking/test_sqlalchemy_workspace_store.py \
               tests/db
               RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
           done
@@ -263,7 +273,7 @@ jobs:
           uv sync --extra extras --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
-            torch transformers pyspark langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
+            torch transformers pyspark langchain langchain-experimental shap lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests

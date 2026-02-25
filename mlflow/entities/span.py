@@ -30,6 +30,7 @@ from mlflow.tracing.utils import (
     generate_trace_id_v4_from_otel_trace_id,
     parse_trace_id_v4,
     set_span_cost_attribute,
+    should_compute_cost_client_side,
 )
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
@@ -387,6 +388,12 @@ class Span:
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
         """
+        # Validate required fields - empty bytes indicate missing trace_id or span_id
+        if not otel_proto_span.trace_id:
+            raise ValueError("trace_id is required but was empty")
+        if not otel_proto_span.span_id:
+            raise ValueError("span_id is required but was empty")
+
         trace_id = _otel_proto_bytes_to_id(otel_proto_span.trace_id)
         span_id = _otel_proto_bytes_to_id(otel_proto_span.span_id)
         parent_id = None
@@ -669,7 +676,8 @@ class LiveSpan(Span):
             if self.status.status_code != SpanStatusCode.ERROR:
                 self.set_status(SpanStatus(SpanStatusCode.OK))
 
-            set_span_cost_attribute(self)
+            if should_compute_cost_client_side():
+                set_span_cost_attribute(self)
 
             # Apply span processors
             apply_span_processors(self)

@@ -4,6 +4,7 @@ from clint.rules.do_not_disable import DoNotDisable
 from clint.rules.docstring_param_order import DocstringParamOrder
 from clint.rules.empty_notebook_cell import EmptyNotebookCell
 from clint.rules.example_syntax_error import ExampleSyntaxError
+from clint.rules.except_bool_op import ExceptBoolOp
 from clint.rules.extraneous_docstring_param import ExtraneousDocstringParam
 from clint.rules.forbidden_deprecation_warning import ForbiddenDeprecationWarning
 from clint.rules.forbidden_make_judge_in_builtin_scorers import (
@@ -47,6 +48,7 @@ from clint.rules.unknown_mlflow_function import UnknownMlflowFunction
 from clint.rules.unnamed_thread import UnnamedThread
 from clint.rules.unnamed_thread_pool import UnnamedThreadPool
 from clint.rules.unparameterized_generic_type import UnparameterizedGenericType
+from clint.rules.unused_disable_comment import UnusedDisableComment
 from clint.rules.use_gh_token import UseGhToken
 from clint.rules.use_sys_executable import UseSysExecutable
 from clint.rules.use_walrus_operator import UseWalrusOperator, WalrusOperatorVisitor
@@ -62,6 +64,7 @@ __all__ = [
     "DocstringParamOrder",
     "EmptyNotebookCell",
     "ExampleSyntaxError",
+    "ExceptBoolOp",
     "ExtraneousDocstringParam",
     "ForbiddenDeprecationWarning",
     "ForbiddenMakeJudgeInBuiltinScorers",
@@ -103,6 +106,7 @@ __all__ = [
     "MultiAssign",
     "UnnamedThread",
     "UnparameterizedGenericType",
+    "UnusedDisableComment",
     "AssignBeforeAppend",
     "UseGhToken",
     "UseSysExecutable",

@@ -9,6 +9,7 @@ import React, { Component } from 'react';
 
 import { injectIntl } from 'react-intl';
 import { Input, LegacyForm } from '@databricks/design-system';
+import { shouldEnableWorkspaces } from '../../../common/utils/FeatureUtils';
 
 export const EXP_NAME_FIELD = 'experimentName';
 export const ARTIFACT_LOCATION = 'artifactLocation';
@@ -26,6 +27,8 @@ type Props = {
  */
 class CreateExperimentFormComponent extends Component<Props> {
   render() {
+    const workspacesEnabled = shouldEnableWorkspaces();
+
     return (
       // @ts-expect-error TS(2322): Type '{ children: Element[]; ref: any; layout: "ve... Remove this comment to see the full error message
       <LegacyForm ref={this.props.innerRef} layout="vertical">
@@ -57,26 +60,28 @@ class CreateExperimentFormComponent extends Component<Props> {
             autoFocus
           />
         </LegacyForm.Item>
-        <LegacyForm.Item
-          name={ARTIFACT_LOCATION}
-          label={this.props.intl.formatMessage({
-            defaultMessage: 'Artifact Location',
-            description: 'Label for create experiment modal to enter a artifact location',
-          })}
-          rules={[
-            {
-              required: false,
-            },
-          ]}
-        >
-          <Input
-            componentId="codegen_mlflow_app_src_experiment-tracking_components_modals_createexperimentform.tsx_71"
-            placeholder={this.props.intl.formatMessage({
-              defaultMessage: 'Input an artifact location (optional)',
-              description: 'Input placeholder to enter artifact location for create experiment',
+        {!workspacesEnabled && (
+          <LegacyForm.Item
+            name={ARTIFACT_LOCATION}
+            label={this.props.intl.formatMessage({
+              defaultMessage: 'Artifact Location',
+              description: 'Label for create experiment modal to enter a artifact location',
             })}
-          />
-        </LegacyForm.Item>
+            rules={[
+              {
+                required: false,
+              },
+            ]}
+          >
+            <Input
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_modals_createexperimentform.tsx_71"
+              placeholder={this.props.intl.formatMessage({
+                defaultMessage: 'Input an artifact location (optional)',
+                description: 'Input placeholder to enter artifact location for create experiment',
+              })}
+            />
+          </LegacyForm.Item>
+        )}
       </LegacyForm>
     );
   }

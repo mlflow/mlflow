@@ -270,6 +270,20 @@ class GeminiAdapter(ProviderAdapter):
         )
 
     @classmethod
+    def _build_chat_usage(cls, usage_metadata: dict[str, Any]) -> chat_schema.ChatUsage:
+        prompt_tokens_details = None
+        if "cachedContentTokenCount" in usage_metadata:
+            prompt_tokens_details = chat_schema.PromptTokensDetails(
+                cached_tokens=usage_metadata["cachedContentTokenCount"]
+            )
+        return chat_schema.ChatUsage(
+            prompt_tokens=usage_metadata.get("promptTokenCount"),
+            completion_tokens=usage_metadata.get("candidatesTokenCount"),
+            total_tokens=usage_metadata.get("totalTokenCount"),
+            prompt_tokens_details=prompt_tokens_details,
+        )
+
+    @classmethod
     def model_to_chat(cls, resp, config):
         # Documentation: https://ai.google.dev/api/generate-content
         #
@@ -325,11 +339,7 @@ class GeminiAdapter(ProviderAdapter):
             object="chat.completion",
             model=config.model.name,
             choices=choices,
-            usage=chat_schema.ChatUsage(
-                prompt_tokens=usage_metadata.get("promptTokenCount", None),
-                completion_tokens=usage_metadata.get("candidatesTokenCount", None),
-                total_tokens=usage_metadata.get("totalTokenCount", None),
-            ),
+            usage=cls._build_chat_usage(usage_metadata),
         )
 
     @classmethod
@@ -390,11 +400,7 @@ class GeminiAdapter(ProviderAdapter):
         # Extract usage from usageMetadata (available in final chunk)
         usage = None
         if usage_metadata := resp.get("usageMetadata"):
-            usage = chat_schema.ChatUsage(
-                prompt_tokens=usage_metadata.get("promptTokenCount"),
-                completion_tokens=usage_metadata.get("candidatesTokenCount"),
-                total_tokens=usage_metadata.get("totalTokenCount"),
-            )
+            usage = cls._build_chat_usage(usage_metadata)
 
         return chat_schema.StreamResponsePayload(
             id=f"gemini-chat-stream-{current_time}",
@@ -789,6 +795,73 @@ class GeminiProvider(BaseProvider):
             resp = json.loads(data)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config)
 
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from Gemini passthrough response.
+
+        Gemini response format:
+        {
+            "usageMetadata": {
+                "promptTokenCount": int,
+                "candidatesTokenCount": int,
+                "totalTokenCount": int
+            }
+        }
+        """
+        usage_metadata = result.get("usageMetadata")
+        return self._extract_token_usage_from_dict(
+            usage_metadata,
+            "promptTokenCount",
+            "candidatesTokenCount",
+            "totalTokenCount",
+            cache_read_key="cachedContentTokenCount",
+        )
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        """
+        Extract token usage from Gemini streaming chunks.
+
+        Gemini streaming format uses SSE with usageMetadata in chunks (typically final chunk):
+        data: {"candidates": [...], "usageMetadata": {"promptTokenCount": X, ...}}
+
+        Returns:
+            A dictionary with token usage found in this chunk.
+        """
+        try:
+            chunk_str = chunk.decode("utf-8").strip()
+            if not chunk_str:
+                return {}
+
+            # Parse SSE format - look for data lines
+            for line in chunk_str.split("\n"):
+                line = line.strip()
+                if not line.startswith("data:"):
+                    continue
+
+                data_str = line[5:].strip()
+                if not data_str or data_str == "[DONE]":
+                    continue
+
+                data = json.loads(data_str)
+
+                # Extract usageMetadata if present
+                usage_metadata = data.get("usageMetadata")
+                if token_usage := self._extract_token_usage_from_dict(
+                    usage_metadata,
+                    "promptTokenCount",
+                    "candidatesTokenCount",
+                    "totalTokenCount",
+                    cache_read_key="cachedContentTokenCount",
+                ):
+                    return token_usage
+
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+        return {}
+
     async def _passthrough(
         self,
         action: PassthroughAction,
@@ -803,12 +876,13 @@ class GeminiProvider(BaseProvider):
         is_streaming = action == PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT
 
         if is_streaming:
-            return send_stream_request(
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
             )
+            return self._stream_passthrough_with_usage(stream)
         else:
             return await send_request(
                 headers=request_headers,

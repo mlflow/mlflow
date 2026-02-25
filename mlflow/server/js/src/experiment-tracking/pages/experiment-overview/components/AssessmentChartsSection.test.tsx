@@ -16,6 +16,7 @@ import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create an assessment count data point (for getting all assessment names)
 const createCountDataPoint = (assessmentName: string, count: number) => ({
@@ -44,7 +45,7 @@ describe('AssessmentChartsSection', () => {
   ];
 
   const contextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -82,7 +83,7 @@ describe('AssessmentChartsSection', () => {
   // avgData: for ASSESSMENT_VALUE query (gets avg for numeric assessments)
   const setupTraceMetricsHandler = (countData: any[], avgData: any[] = countData) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
         if (body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
           return res(ctx.json({ data_points: countData }));
@@ -103,7 +104,7 @@ describe('AssessmentChartsSection', () => {
     it('should render loading skeleton while data is being fetched', async () => {
       // Never resolve the request to keep loading
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -118,7 +119,7 @@ describe('AssessmentChartsSection', () => {
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
         }),
       );
@@ -147,7 +148,7 @@ describe('AssessmentChartsSection', () => {
     it('should render time range message when assessments exist outside the current time range', async () => {
       // Setup handler that returns empty for time-filtered queries but data for non-time-filtered queries
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           // If query has no time range (from useHasAssessmentsOutsideTimeRange), return data
           // Note: undefined values are omitted when serialized to JSON, so we check if the property doesn't exist
@@ -270,7 +271,7 @@ describe('AssessmentChartsSection', () => {
       let capturedCountRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           if (body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
             capturedCountRequest = body;
@@ -297,7 +298,7 @@ describe('AssessmentChartsSection', () => {
       let capturedAvgRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           if (body.metric_name === AssessmentMetricKey.ASSESSMENT_VALUE) {
             capturedAvgRequest = body;
@@ -324,7 +325,7 @@ describe('AssessmentChartsSection', () => {
       let capturedCountRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           if (body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
             capturedCountRequest = body;

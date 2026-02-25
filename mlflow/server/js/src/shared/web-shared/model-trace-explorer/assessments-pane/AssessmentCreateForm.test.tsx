@@ -4,12 +4,15 @@ import userEvent from '@testing-library/user-event';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import type { Assessment } from '../ModelTrace.types';
 import { MOCK_ASSESSMENT, MOCK_EXPECTATION } from '../ModelTraceExplorer.test-utils';
 import { AssessmentSchemaContextProvider } from '../contexts/AssessmentSchemaContext';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 
 // Mock the hooks
 jest.mock('../hooks/useCreateAssessment', () => ({
@@ -79,7 +82,8 @@ describe('AssessmentCreateForm', () => {
 
       // Change assessment type to expectation and data type to number
       await user.click(assessmentTypeSelect);
-      await user.click(screen.getByText('Expectation'));
+      const expectationOption = await screen.findByText('Expectation');
+      await user.click(expectationOption);
       await waitFor(() => {
         expect(assessmentTypeSelect).toHaveTextContent('Expectation');
       });
@@ -128,7 +132,8 @@ describe('AssessmentCreateForm', () => {
 
       // Change assessment type to expectation and data type to number
       await user.click(assessmentTypeSelect);
-      await user.click(screen.getByText('Expectation'));
+      const expectationOption = await screen.findByText('Expectation');
+      await user.click(expectationOption);
       await waitFor(() => {
         expect(assessmentTypeSelect).toHaveTextContent('Expectation');
       });
@@ -179,7 +184,8 @@ describe('AssessmentCreateForm', () => {
 
       // Change to non-default values
       await user.click(assessmentTypeSelect);
-      await user.click(screen.getByText('Expectation'));
+      const expectationOption = await screen.findByText('Expectation');
+      await user.click(expectationOption);
 
       await user.click(dataTypeSelect);
       await user.click(screen.getAllByText('String')[0]);
@@ -218,7 +224,8 @@ describe('AssessmentCreateForm', () => {
 
       // Change some values
       await user.click(assessmentTypeSelect);
-      await user.click(screen.getByText('Expectation'));
+      const expectationOption = await screen.findByText('Expectation');
+      await user.click(expectationOption);
 
       const nameInput = screen.getByPlaceholderText('Enter an assessment name');
       await user.type(nameInput, 'test_name');

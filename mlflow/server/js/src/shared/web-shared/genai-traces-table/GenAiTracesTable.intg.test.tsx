@@ -4,8 +4,8 @@ import type { ComponentProps } from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { getUser } from '@databricks/web-shared/global-settings';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { getUser } from '../global-settings/getUser';
+import { QueryClient, QueryClientProvider } from '../query-client/queryClient';
 
 import { GenAiTracesTable } from './GenAITracesTable';
 // eslint-disable-next-line import/no-namespace
@@ -18,7 +18,7 @@ import { testRoute, TestRouter } from './utils/RoutingTestUtils';
 jest.setTimeout(120000); // This is quite expensive test
 
 jest.mock('../model-trace-explorer/FeatureUtils', () => ({
-  shoudlEnableURLPersistenceForSortAndColumns: () => false,
+  shouldEnableTracesTableStatePersistence: () => false,
   shouldBlockLargeTraceDisplay: () => false,
   getLargeTraceDisplaySizeThreshold: () => 1e9,
   shouldUseTracesV4API: () => false,
@@ -29,13 +29,13 @@ jest.mock('../model-trace-explorer/FeatureUtils', () => ({
 }));
 
 // Mock necessary modules
-jest.mock('@databricks/web-shared/global-settings', () => ({
+jest.mock('../global-settings/getUser', () => ({
   getUser: jest.fn(),
 }));
 
-jest.mock('@databricks/web-shared/hooks', () => {
+jest.mock('../hooks/useLocalStorage', () => {
   return {
-    ...jest.requireActual<typeof import('@databricks/web-shared/hooks')>('@databricks/web-shared/hooks'),
+    ...jest.requireActual<typeof import('../hooks/useLocalStorage')>('../hooks/useLocalStorage'),
     getLocalStorageItemByParams: jest.fn().mockReturnValue({ hiddenColumns: undefined }),
     useLocalStorage: jest.fn().mockReturnValue([{}, jest.fn()]),
   };

@@ -12,6 +12,8 @@ import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
+import { LazyTraceCostBreakdownChart } from './components/LazyTraceCostBreakdownChart';
+import { LazyTraceCostOverTimeChart } from './components/LazyTraceCostOverTimeChart';
 import { AssessmentChartsSection } from './components/AssessmentChartsSection';
 import { ToolCallStatistics } from './components/ToolCallStatistics';
 import { ToolCallChartsSection } from './components/ToolCallChartsSection';
@@ -20,7 +22,8 @@ import { LazyToolLatencyChart } from './components/LazyToolLatencyChart';
 import { LazyToolPerformanceSummary } from './components/LazyToolPerformanceSummary';
 import { TabContentContainer, ChartGrid } from './components/OverviewLayoutComponents';
 import { TimeUnitSelector } from './components/TimeUnitSelector';
-import { TimeUnit, TIME_UNIT_SECONDS, calculateDefaultTimeUnit, isTimeUnitValid } from './utils/timeUtils';
+import type { TimeUnit } from './utils/timeUtils';
+import { TIME_UNIT_SECONDS, calculateDefaultTimeUnit, isTimeUnitValid } from './utils/timeUtils';
 import { generateTimeBuckets } from './utils/chartUtils';
 import { OverviewChartProvider } from './OverviewChartContext';
 import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
@@ -149,7 +152,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </div>
 
         <OverviewChartProvider
-          experimentId={experimentId}
+          experimentIds={[experimentId]}
           startTimeMs={startTimeMs}
           endTimeMs={endTimeMs}
           timeIntervalSeconds={timeIntervalSeconds}
@@ -170,6 +173,12 @@ const ExperimentGenAIOverviewPageImpl = () => {
               <ChartGrid>
                 <LazyTraceTokenUsageChart />
                 <LazyTraceTokenStatsChart />
+              </ChartGrid>
+
+              {/* Cost Breakdown and Cost Over Time charts - side by side */}
+              <ChartGrid>
+                <LazyTraceCostBreakdownChart />
+                <LazyTraceCostOverTimeChart />
               </ChartGrid>
             </TabContentContainer>
           </Tabs.Content>

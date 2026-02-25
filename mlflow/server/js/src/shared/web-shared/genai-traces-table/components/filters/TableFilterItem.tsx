@@ -27,6 +27,7 @@ import {
   CUSTOM_METADATA_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
 } from '../../hooks/useTableColumns';
 import type {
@@ -82,6 +83,10 @@ const getAvailableOperators = (column: string, key?: string): FilterOperator[] =
     return [FilterOperator.EQUALS, FilterOperator.NOT_EQUALS, FilterOperator.CONTAINS];
   }
 
+  if (column === SPAN_STATUS_COLUMN_ID) {
+    return [FilterOperator.EQUALS, FilterOperator.NOT_EQUALS];
+  }
+
   if (column === SPAN_CONTENT_COLUMN_ID) {
     return [FilterOperator.CONTAINS];
   }
@@ -113,7 +118,7 @@ export const TableFilterItem = ({
   onChange: (filter: TableFilter, index: number) => void;
   onDelete: () => void;
   assessmentInfos: AssessmentInfo[];
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
   usesV4APIs?: boolean;
@@ -163,6 +168,7 @@ export const TableFilterItem = ({
         // these when the search API supports them
         { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
         { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
+        { value: SPAN_STATUS_COLUMN_ID, renderValue: () => 'Span status' },
         { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
       );
     }

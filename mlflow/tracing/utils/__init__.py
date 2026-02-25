@@ -182,10 +182,9 @@ def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
 def _aggregate_from_spans(
     spans: list[LiveSpan],
     attribute_key: str,
-    input_key: str,
-    output_key: str,
-    total_key: str,
+    keys: list[str],
     default: int | float,
+    optional_keys: list[str] | None = None,
 ) -> dict[str, int | float] | None:
     """Generic aggregation of data from spans using DFS traversal.
 
@@ -194,17 +193,15 @@ def _aggregate_from_spans(
     Args:
         spans: List of spans to aggregate from.
         attribute_key: The span attribute key to look up.
-        input_key: Key for extracting input value from span data.
-        output_key: Key for extracting output value from span data.
-        total_key: Key for extracting total value from span data.
+        keys: Keys to aggregate. Always included in the result.
         default: Default value (0 for int, 0.0 for float) that also determines return type.
+        optional_keys: Additional keys to aggregate. Only included in the result
+            when the key is present in the span attribute.
 
     Returns:
         Aggregated dictionary with the keys, or None if no data found.
     """
-    input_val = default
-    output_val = default
-    total_val = default
+    totals: dict[str, int | float] = dict.fromkeys(keys, default)
     has_data = False
 
     span_id_to_spans = {span.span_id: span for span in spans}
@@ -219,15 +216,17 @@ def _aggregate_from_spans(
             roots.append(span)
 
     def dfs(span: LiveSpan, ancestor_has_data: bool) -> None:
-        nonlocal input_val, output_val, total_val, has_data
+        nonlocal has_data
 
         data = span.get_attribute(attribute_key)
         span_has_data = data is not None
 
         if span_has_data and not ancestor_has_data:
-            input_val += data.get(input_key, default)
-            output_val += data.get(output_key, default)
-            total_val += data.get(total_key, default)
+            for k in keys:
+                totals[k] += data.get(k, default)
+            for k in optional_keys or []:
+                if k in data:
+                    totals[k] = totals.get(k, default) + data[k]
             has_data = True
 
         next_ancestor_has_data = ancestor_has_data or span_has_data
@@ -240,11 +239,7 @@ def _aggregate_from_spans(
     if not has_data:
         return None
 
-    return {
-        input_key: input_val,
-        output_key: output_val,
-        total_key: total_val,
-    }
+    return totals
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
@@ -252,10 +247,9 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     return _aggregate_from_spans(
         spans,
         SpanAttributeKey.CHAT_USAGE,
-        TokenUsageKey.INPUT_TOKENS,
-        TokenUsageKey.OUTPUT_TOKENS,
-        TokenUsageKey.TOTAL_TOKENS,
-        0,
+        keys=[TokenUsageKey.INPUT_TOKENS, TokenUsageKey.OUTPUT_TOKENS, TokenUsageKey.TOTAL_TOKENS],
+        default=0,
+        optional_keys=TokenUsageKey.cache_keys(),
     )
 
 
@@ -264,10 +258,8 @@ def aggregate_cost_from_spans(spans: list[LiveSpan]) -> dict[str, float] | None:
     return _aggregate_from_spans(
         spans,
         SpanAttributeKey.LLM_COST,
-        CostKey.INPUT_COST,
-        CostKey.OUTPUT_COST,
-        CostKey.TOTAL_COST,
-        0.0,
+        keys=[CostKey.INPUT_COST, CostKey.OUTPUT_COST, CostKey.TOTAL_COST],
+        default=0.0,
     )
 
 
@@ -294,6 +286,7 @@ def calculate_cost_by_model_and_token_usage(
         return None
 
     try:
+        import litellm
         from litellm import cost_per_token
     except ImportError:
         _logger.debug("LiteLLM not available for cost calculation")
@@ -305,9 +298,23 @@ def calculate_cost_by_model_and_token_usage(
     if prompt_tokens == 0 and completion_tokens == 0:
         return None
 
+    cache_kwargs = {}
+    if (cached := usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS)) is not None:
+        cache_kwargs["cache_read_input_tokens"] = cached
+    if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
+        cache_kwargs["cache_creation_input_tokens"] = created
+
+    original_suppress = None
     try:
+        # Suppress litellm debug messages (e.g. "Provider List: ...") unless
+        # MLflow's logger is set to DEBUG level.
+        original_suppress = getattr(litellm, "suppress_debug_info")
+        litellm.suppress_debug_info = not _logger.isEnabledFor(logging.DEBUG)
         input_cost_usd, output_cost_usd = cost_per_token(
-            model=model_name, prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
+            model=model_name,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            **cache_kwargs,
         )
     except Exception as e:
         if model_provider:
@@ -320,6 +327,7 @@ def calculate_cost_by_model_and_token_usage(
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     custom_llm_provider=model_provider,
+                    **cache_kwargs,
                 )
             except Exception as e:
                 _logger.debug(
@@ -332,6 +340,9 @@ def calculate_cost_by_model_and_token_usage(
                 exc_info=True,
             )
             return None
+    finally:
+        if original_suppress is not None:
+            litellm.suppress_debug_info = original_suppress
 
     return {
         CostKey.INPUT_COST: input_cost_usd,
@@ -790,6 +801,19 @@ def set_span_model_attribute(span: LiveSpan, inputs: dict[str, Any]) -> None:
             span.set_attribute(SpanAttributeKey.MODEL, model)
     except Exception as e:
         _logger.debug(f"Failed to set model for {span}. Error: {e}")
+
+
+def should_compute_cost_client_side() -> bool:
+    """Whether LLM cost should be computed on the client side.
+
+    Returns True only for Databricks backends where server-side
+    translate_span_when_storing() does not run. For non-Databricks backends,
+    cost is computed server-side in sqlalchemy_store.log_spans().
+    """
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.utils.uri import is_databricks_uri
+
+    return is_databricks_uri(get_tracking_uri())
 
 
 def set_span_cost_attribute(span: LiveSpan) -> None:

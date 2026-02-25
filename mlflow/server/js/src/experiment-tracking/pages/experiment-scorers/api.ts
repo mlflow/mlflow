@@ -39,12 +39,12 @@ export interface ListScorersResponse {
 /**
  * Get scheduled scorers for an experiment
  */
-export async function listScheduledScorers(experimentId: string): Promise<ListScorersResponse> {
+export async function listScheduledScorers(experimentId: string) {
   const params = new URLSearchParams();
   params.append('experiment_id', experimentId);
   return fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/scorers/list?${params.toString()}`))
     .then((res) => res.json())
-    .catch(catchNetworkErrorIfExists);
+    .catch(catchNetworkErrorIfExists) as Promise<ListScorersResponse>;
 }
 
 /**
@@ -117,9 +117,9 @@ export async function deleteScheduledScorers(experimentId: string, scorerNames?:
   };
 
   // Add scorer name if provided to delete a specific scorer
-  if (scorerNames && scorerNames.length > 0) {
+  if (scorerNames && (scorerNames?.length ?? 0) > 0) {
     // Backend expects 'name' parameter for the scorer name
-    body.name = scorerNames[0];
+    body.name = scorerNames?.[0];
   }
 
   return fetchOrFail(getAjaxUrl('ajax-api/3.0/mlflow/scorers/delete'), {
@@ -162,9 +162,7 @@ export async function updateOnlineScoringConfig(
   sampleRate: number,
   filterString?: string,
 ): Promise<{ config: OnlineScoringConfig }> {
-  const url = getAjaxUrl('ajax-api/3.0/mlflow/scorers/online-config');
-  // eslint-disable-next-line no-restricted-globals -- Need direct fetch for proper error handling
-  const response = await fetch(url, {
+  return fetchOrFail(getAjaxUrl('ajax-api/3.0/mlflow/scorers/online-config'), {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -175,15 +173,7 @@ export async function updateOnlineScoringConfig(
       sample_rate: sampleRate,
       filter_string: filterString || null,
     }),
-  });
-
-  if (!response.ok) {
-    // Extract error message from response body
-    const body = await response.json().catch(() => ({}));
-    const errorMessage = body?.message || body?.error_code || `Request failed with status ${response.status}`;
-    const error = new Error(errorMessage);
-    throw error;
-  }
-
-  return response.json();
+  })
+    .then((res) => res.json())
+    .catch(catchNetworkErrorIfExists);
 }

@@ -16,6 +16,8 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
+from mlflow.gateway.utils import parse_sse_lines
+from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCallDelta
 
 _logger = logging.getLogger(__name__)
@@ -210,11 +212,30 @@ class AnthropicAdapter(ProviderAdapter):
                     finish_reason=stop_reason,
                 )
             ],
-            usage=chat.ChatUsage(
-                prompt_tokens=resp["usage"]["input_tokens"],
-                completion_tokens=resp["usage"]["output_tokens"],
-                total_tokens=resp["usage"]["input_tokens"] + resp["usage"]["output_tokens"],
-            ),
+            usage=cls._build_chat_usage(resp["usage"]),
+        )
+
+    @classmethod
+    def _build_chat_usage(cls, usage_data: dict[str, Any]) -> chat.ChatUsage:
+        input_tokens = usage_data.get("input_tokens")
+        output_tokens = usage_data.get("output_tokens")
+        total_tokens = None
+        if input_tokens is not None and output_tokens is not None:
+            total_tokens = input_tokens + output_tokens
+        prompt_tokens_details = None
+        if "cache_read_input_tokens" in usage_data:
+            prompt_tokens_details = chat.PromptTokensDetails(
+                cached_tokens=usage_data["cache_read_input_tokens"]
+            )
+        extra = {}
+        if "cache_creation_input_tokens" in usage_data:
+            extra["cache_creation_input_tokens"] = usage_data["cache_creation_input_tokens"]
+        return chat.ChatUsage(
+            prompt_tokens=input_tokens,
+            completion_tokens=output_tokens,
+            total_tokens=total_tokens,
+            prompt_tokens_details=prompt_tokens_details,
+            **extra,
         )
 
     @classmethod
@@ -255,16 +276,7 @@ class AnthropicAdapter(ProviderAdapter):
         # Extract usage from accumulated usage data (message_delta events)
         usage = None
         if usage_data := resp.get("_usage_data"):
-            input_tokens = usage_data.get("input_tokens")
-            output_tokens = usage_data.get("output_tokens")
-            total_tokens = None
-            if input_tokens is not None and output_tokens is not None:
-                total_tokens = input_tokens + output_tokens
-            usage = chat.ChatUsage(
-                prompt_tokens=input_tokens,
-                completion_tokens=output_tokens,
-                total_tokens=total_tokens,
-            )
+            usage = cls._build_chat_usage(usage_data)
 
         return chat.StreamResponsePayload(
             id=resp["id"],
@@ -477,9 +489,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             if resp["type"] == "message_start":
                 metadata["id"] = resp["message"]["id"]
                 metadata["model"] = resp["message"]["model"]
-                # Capture input_tokens from message_start
+                # Capture input_tokens and cache tokens from message_start
                 if message_usage := resp["message"].get("usage"):
                     usage_data["input_tokens"] = message_usage.get("input_tokens")
+                    if (cached := message_usage.get("cache_read_input_tokens")) is not None:
+                        usage_data["cache_read_input_tokens"] = cached
+                    if (created := message_usage.get("cache_creation_input_tokens")) is not None:
+                        usage_data["cache_creation_input_tokens"] = created
                 continue
 
             if resp["type"] not in (
@@ -556,6 +572,59 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
         return AnthropicAdapter.model_to_completions(resp, self.config)
 
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from Anthropic passthrough response.
+
+        Anthropic response format:
+        {
+            "usage": {
+                "input_tokens": int,
+                "output_tokens": int,
+                "cache_read_input_tokens": int,
+                "cache_creation_input_tokens": int
+            }
+        }
+        """
+        return self._extract_token_usage_from_dict(
+            result.get("usage"),
+            "input_tokens",
+            "output_tokens",
+            cache_read_key="cache_read_input_tokens",
+            cache_creation_key="cache_creation_input_tokens",
+        )
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        """
+        Extract token usage from Anthropic streaming chunks.
+
+        Anthropic streaming format:
+        - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
+        - message_delta event: {"usage": {"output_tokens": Y}}
+
+        Returns:
+            A dictionary with token usage found in this chunk.
+            Total is calculated by the base class after accumulation.
+        """
+        usage: dict[str, int] = {}
+        for data in parse_sse_lines(chunk):
+            match data:
+                case {
+                    "type": "message_start",
+                    "message": {"usage": dict(msg_usage)},
+                }:
+                    if (input_tokens := msg_usage.get("input_tokens")) is not None:
+                        usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                    if (cached := msg_usage.get("cache_read_input_tokens")) is not None:
+                        usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+                    if (created := msg_usage.get("cache_creation_input_tokens")) is not None:
+                        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+                case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
+                    usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+        return usage
+
     async def _passthrough(
         self,
         action: PassthroughAction,
@@ -570,12 +639,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         request_headers = self._get_headers(payload, headers)
 
         if payload.get("stream"):
-            return send_stream_request(
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload,
             )
+            return self._stream_passthrough_with_usage(stream)
         else:
             return await send_request(
                 headers=request_headers,

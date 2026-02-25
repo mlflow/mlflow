@@ -1,7 +1,7 @@
-import { isSessionLevelAssessment, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { isSessionLevelAssessment } from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 
 import { isAssessmentPassing } from '../components/EvaluationsReviewAssessmentTag';
-import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
 import type { AssessmentInfo } from '../types';
 
 /**
@@ -10,6 +10,7 @@ import type { AssessmentInfo } from '../types';
 export interface PassFailAggregationResult {
   passCount: number;
   totalCount: number;
+  errorCount: number;
 }
 
 /**
@@ -53,12 +54,18 @@ export function aggregatePassFailAssessments(
 ): PassFailAggregationResult {
   let passCount = 0;
   let totalCount = 0;
+  let errorCount = 0;
 
   for (const trace of traces) {
     const assessments = getValidAssessments(trace, assessmentInfo.name);
 
     for (const assessment of assessments) {
       if (!('feedback' in assessment)) {
+        continue;
+      }
+
+      if (assessment.feedback.error?.error_message) {
+        errorCount++;
         continue;
       }
 
@@ -76,7 +83,7 @@ export function aggregatePassFailAssessments(
     }
   }
 
-  return { passCount, totalCount };
+  return { passCount, totalCount, errorCount };
 }
 
 /**

@@ -8,6 +8,7 @@ import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create a single data point
 const createTraceCountDataPoint = (timeBucket: string, count: number) => ({
@@ -32,7 +33,7 @@ describe('TraceRequestsChart', () => {
 
   // Context props reused across tests
   const defaultContextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -67,7 +68,7 @@ describe('TraceRequestsChart', () => {
   // Helper to setup MSW handler for trace metrics endpoint
   const setupTraceMetricsHandler = (dataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
         return res(ctx.json({ data_points: dataPoints }));
       }),
     );
@@ -82,7 +83,7 @@ describe('TraceRequestsChart', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -97,7 +98,7 @@ describe('TraceRequestsChart', () => {
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
         }),
       );

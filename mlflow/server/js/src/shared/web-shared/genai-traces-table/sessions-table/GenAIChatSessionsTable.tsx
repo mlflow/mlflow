@@ -1,4 +1,4 @@
-import type { Row, SortingState, RowSelectionState } from '@tanstack/react-table';
+import type { Row, RowSelectionState, SortingState } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import React, { useEffect, useMemo, useState } from 'react';
 
@@ -9,10 +9,9 @@ import {
   TableRow,
   TableRowSelectCell,
   TableSkeletonRows,
-  useDesignSystemTheme,
 } from '@databricks/design-system';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { useReactTable_verifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
+import { useReactTable_verifiedWithReact18 as useReactTable } from '../../react-table/useReactTable';
 
 import { GenAIChatSessionsEmptyState } from './GenAIChatSessionsEmptyState';
 import { GenAIChatSessionsToolbar } from './GenAIChatSessionsToolbar';
@@ -22,10 +21,10 @@ import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRen
 import { useSessionsTableColumnVisibility } from './hooks/useSessionsTableColumnVisibility';
 import type { SessionTableRow, SessionTableColumn } from './types';
 import { getSessionTableRows } from './utils';
+import { useGenAiTraceTableRowSelection } from '../hooks/useGenAiTraceTableRowSelection';
 import type { TraceActions } from '../types';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link, useLocation } from '../utils/RoutingUtils';
-import { useGenAiTraceTableRowSelection } from '../hooks/useGenAiTraceTableRowSelection';
 
 const columns: SessionTableColumn[] = [
   {
@@ -98,7 +97,6 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
       openLinksInNewTab = false,
     }) {
       const { search } = useLocation();
-      const { theme } = useDesignSystemTheme();
 
       return (
         <TableRow key={row.id} className="eval-datasets-table-row">
@@ -178,8 +176,6 @@ export const GenAIChatSessionsTable = ({
   toolbarAddons?: React.ReactNode;
   onRowSelectionChange?: (rowSelection: RowSelectionState) => void;
 }) => {
-  const { theme } = useDesignSystemTheme();
-
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'sessionStartTime', desc: true }]);
   const { rowSelection, setRowSelection } = useGenAiTraceTableRowSelection();
@@ -264,35 +260,37 @@ export const GenAIChatSessionsTable = ({
           enableRowSelection ? table.getIsAllRowsSelected() || table.getIsSomeRowsSelected() : undefined
         }
       >
-        <TableRow isHeader>
-          {enableRowSelection && (
-            <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
-              <TableRowSelectCell
-                componentId="mlflow.chat-sessions.table-header-checkbox"
-                checked={table.getIsAllRowsSelected()}
-                indeterminate={table.getIsSomeRowsSelected()}
-                onChange={table.getToggleAllRowsSelectedHandler()}
-              />
-            </div>
-          )}
-          {table.getLeafHeaders().map((header) => (
-            <TableHeader
-              key={header.id}
-              componentId="mlflow.chat-sessions.table-header"
-              header={header}
-              column={header.column}
-              sortable={header.column.getCanSort()}
-              css={{
-                cursor: header.column.getCanSort() ? 'pointer' : 'default',
-                flex: `calc(var(--col-${header.id}-size) / 100)`,
-              }}
-              sortDirection={header.column.getIsSorted() || 'none'}
-              onToggleSort={header.column.getToggleSortingHandler()}
-            >
-              {flexRender(header.column.columnDef.header, header.getContext())}
-            </TableHeader>
-          ))}
-        </TableRow>
+        {sessionTableRows.length > 0 && (
+          <TableRow isHeader>
+            {enableRowSelection && (
+              <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
+                <TableRowSelectCell
+                  componentId="mlflow.chat-sessions.table-header-checkbox"
+                  checked={table.getIsAllRowsSelected()}
+                  indeterminate={table.getIsSomeRowsSelected()}
+                  onChange={table.getToggleAllRowsSelectedHandler()}
+                />
+              </div>
+            )}
+            {table.getLeafHeaders().map((header) => (
+              <TableHeader
+                key={header.id}
+                componentId="mlflow.chat-sessions.table-header"
+                header={header}
+                column={header.column}
+                sortable={header.column.getCanSort()}
+                css={{
+                  cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                  flex: `calc(var(--col-${header.id}-size) / 100)`,
+                }}
+                sortDirection={header.column.getIsSorted() || 'none'}
+                onToggleSort={header.column.getToggleSortingHandler()}
+              >
+                {flexRender(header.column.columnDef.header, header.getContext())}
+              </TableHeader>
+            ))}
+          </TableRow>
+        )}
 
         {!isLoading &&
           table

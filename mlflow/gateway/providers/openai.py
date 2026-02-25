@@ -24,7 +24,7 @@ from mlflow.gateway.uc_function_utils import (
     parse_uc_functions,
     prepend_uc_functions,
 )
-from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
+from mlflow.gateway.utils import parse_sse_lines, stream_sse_data
 from mlflow.utils.uri import append_to_uri_path, append_to_uri_query_params
 
 if TYPE_CHECKING:
@@ -113,11 +113,19 @@ class OpenAIAdapter(ProviderAdapter):
                 )
                 for idx, c in enumerate(resp["choices"])
             ],
-            usage=chat.ChatUsage(
-                prompt_tokens=resp["usage"]["prompt_tokens"],
-                completion_tokens=resp["usage"]["completion_tokens"],
-                total_tokens=resp["usage"]["total_tokens"],
-            ),
+            usage=cls._build_chat_usage(resp["usage"]),
+        )
+
+    @classmethod
+    def _build_chat_usage(cls, usage_data: dict[str, Any]) -> chat.ChatUsage:
+        prompt_tokens_details = None
+        if details := usage_data.get("prompt_tokens_details"):
+            prompt_tokens_details = chat.PromptTokensDetails(**details)
+        return chat.ChatUsage(
+            prompt_tokens=usage_data.get("prompt_tokens"),
+            completion_tokens=usage_data.get("completion_tokens"),
+            total_tokens=usage_data.get("total_tokens"),
+            prompt_tokens_details=prompt_tokens_details,
         )
 
     @classmethod
@@ -125,11 +133,7 @@ class OpenAIAdapter(ProviderAdapter):
         # Extract usage from the final chunk (when stream_options.include_usage=true)
         usage = None
         if usage_data := resp.get("usage"):
-            usage = chat.ChatUsage(
-                prompt_tokens=usage_data.get("prompt_tokens"),
-                completion_tokens=usage_data.get("completion_tokens"),
-                total_tokens=usage_data.get("total_tokens"),
-            )
+            usage = cls._build_chat_usage(usage_data)
 
         return chat.StreamResponsePayload(
             id=resp["id"],
@@ -405,16 +409,7 @@ class OpenAIProvider(BaseProvider):
             payload=self.adapter_class.chat_to_model(payload, self.config),
         )
 
-        async for chunk in handle_incomplete_chunks(stream):
-            chunk = chunk.strip()
-            if not chunk:
-                continue
-
-            data = strip_sse_prefix(chunk.decode("utf-8"))
-            if data == "[DONE]":
-                return
-
-            resp = json.loads(data)
+        async for resp in stream_sse_data(stream):
             yield OpenAIAdapter.model_to_chat_streaming(resp, self.config)
 
     async def _send_chat_request(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
@@ -643,16 +638,7 @@ class OpenAIProvider(BaseProvider):
             payload=OpenAIAdapter.completion_to_model(payload, self.config),
         )
 
-        async for chunk in handle_incomplete_chunks(stream):
-            chunk = chunk.strip()
-            if not chunk:
-                continue
-
-            data = strip_sse_prefix(chunk.decode("utf-8"))
-            if data == "[DONE]":
-                return
-
-            resp = json.loads(data)
+        async for resp in stream_sse_data(stream):
             yield OpenAIAdapter.model_to_completions_streaming(resp, self.config)
 
     async def _completions(
@@ -683,6 +669,76 @@ class OpenAIProvider(BaseProvider):
         )
         return OpenAIAdapter.model_to_embeddings(resp, self.config)
 
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        """
+        Extract token usage from OpenAI passthrough response.
+
+        Chat Completions: usage.prompt_tokens/completion_tokens, prompt_tokens_details.cached_tokens
+        Responses API: usage.input_tokens/output_tokens, input_tokens_details.cached_tokens
+        """
+        usage = result.get("usage")
+        if not usage:
+            return None
+
+        if action == PassthroughAction.OPENAI_RESPONSES:
+            return self._extract_token_usage_from_dict(
+                usage,
+                "input_tokens",
+                "output_tokens",
+                "total_tokens",
+                cache_read_key="input_tokens_details.cached_tokens",
+            )
+        else:
+            return self._extract_token_usage_from_dict(
+                usage,
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+                cache_read_key="prompt_tokens_details.cached_tokens",
+            )
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        """
+        Extract token usage from OpenAI streaming chunks.
+
+        Handles two formats:
+        - Chat Completions API: data.usage with prompt_tokens/completion_tokens
+        - Responses API: data.response.usage with input_tokens/output_tokens
+
+        Returns:
+            A dictionary with token usage found in this chunk.
+        """
+        for data in parse_sse_lines(chunk):
+            # Responses API: usage nested under data.response
+            resp_usage = data.get("response", {}).get("usage")
+            # Chat Completions API: usage at top level
+            chat_usage = data.get("usage")
+
+            if resp_usage:
+                token_usage = self._extract_token_usage_from_dict(
+                    resp_usage,
+                    "input_tokens",
+                    "output_tokens",
+                    "total_tokens",
+                    cache_read_key="input_tokens_details.cached_tokens",
+                )
+            elif chat_usage:
+                token_usage = self._extract_token_usage_from_dict(
+                    chat_usage,
+                    "prompt_tokens",
+                    "completion_tokens",
+                    "total_tokens",
+                    cache_read_key="prompt_tokens_details.cached_tokens",
+                )
+            else:
+                continue
+
+            if token_usage:
+                return token_usage
+        return {}
+
     async def _passthrough(
         self,
         action: PassthroughAction,
@@ -700,12 +756,19 @@ class OpenAIProvider(BaseProvider):
         supports_streaming = action != PassthroughAction.OPENAI_EMBEDDINGS
 
         if supports_streaming and payload_with_model.get("stream"):
-            return send_stream_request(
+            if self._enable_tracing and action == PassthroughAction.OPENAI_CHAT:
+                if payload_with_model.get("stream_options") is None:
+                    payload_with_model["stream_options"] = {"include_usage": True}
+                elif "include_usage" not in payload_with_model["stream_options"]:
+                    payload_with_model["stream_options"]["include_usage"] = True
+
+            stream = send_stream_request(
                 headers=request_headers,
                 base_url=self.base_url,
                 path=provider_path,
                 payload=payload_with_model,
             )
+            return self._stream_passthrough_with_usage(stream)
         else:
             return await send_request(
                 headers=request_headers,

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 SESSION_IDENTIFIER_FIELDS = frozenset({"goal"})
-SESSION_INPUT_FIELDS = frozenset({"persona", "goal", "context"})
+SESSION_INPUT_FIELDS = frozenset({"persona", "goal", "context", "simulation_guidelines"})
 SESSION_ALLOWED_COLUMNS = SESSION_INPUT_FIELDS | {"expectations", "tags", "source"}
 
 

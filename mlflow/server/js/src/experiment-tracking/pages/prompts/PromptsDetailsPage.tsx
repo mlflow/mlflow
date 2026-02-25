@@ -100,12 +100,13 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
     setTracesMode,
     switchSides,
     viewState,
+    selectedVersion,
     setSelectedVersion,
     setComparedVersion,
   } = usePromptDetailsPageViewState(promptDetailsData);
 
   useRegisterAssistantContext('promptName', promptName);
-  useRegisterAssistantContext('promptVersion', viewState.selectedVersion);
+  useRegisterAssistantContext('promptVersion', selectedVersion);
   useRegisterAssistantContext('comparedPromptVersion', viewState.comparedVersion);
 
   const { mode } = viewState;
@@ -117,9 +118,7 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
     !isEmptyVersions &&
     [PromptVersionsTableMode.PREVIEW, PromptVersionsTableMode.COMPARE, PromptVersionsTableMode.TRACES].includes(mode);
 
-  const selectedVersionEntity = promptDetailsData?.versions.find(
-    ({ version }) => version === viewState.selectedVersion,
-  );
+  const selectedVersionEntity = promptDetailsData?.versions.find(({ version }) => version === selectedVersion);
 
   const comparedVersionEntity = promptDetailsData?.versions.find(
     ({ version }) => version === viewState.comparedVersion,
@@ -266,7 +265,7 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
             isLoading={isLoading}
             registeredPrompt={promptDetailsData?.prompt}
             promptVersions={promptDetailsData?.versions}
-            selectedVersion={viewState.selectedVersion}
+            selectedVersion={selectedVersion}
             comparedVersion={viewState.comparedVersion}
             showEditAliasesModal={showEditAliasesModal}
             aliasesByVersion={aliasesByVersion}

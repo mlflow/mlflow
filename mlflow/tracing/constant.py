@@ -25,6 +25,9 @@ class TraceMetadataKey:
     # Gateway-specific metadata keys
     GATEWAY_ENDPOINT_ID = "mlflow.gateway.endpointId"
     GATEWAY_REQUEST_TYPE = "mlflow.gateway.requestType"
+    # Store the user ID/name from authentication
+    AUTH_USER_ID = "mlflow.auth.userId"
+    AUTH_USERNAME = "mlflow.auth.username"
 
 
 class TraceTagKey:
@@ -47,10 +50,22 @@ class TokenUsageKey:
     INPUT_TOKENS = "input_tokens"
     OUTPUT_TOKENS = "output_tokens"
     TOTAL_TOKENS = "total_tokens"
+    CACHE_READ_INPUT_TOKENS = "cache_read_input_tokens"
+    CACHE_CREATION_INPUT_TOKENS = "cache_creation_input_tokens"
 
     @classmethod
     def all_keys(cls):
-        return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
+        return [
+            cls.INPUT_TOKENS,
+            cls.OUTPUT_TOKENS,
+            cls.TOTAL_TOKENS,
+            cls.CACHE_READ_INPUT_TOKENS,
+            cls.CACHE_CREATION_INPUT_TOKENS,
+        ]
+
+    @classmethod
+    def cache_keys(cls):
+        return [cls.CACHE_READ_INPUT_TOKENS, cls.CACHE_CREATION_INPUT_TOKENS]
 
 
 class CostKey:
@@ -81,7 +96,8 @@ class SpanAttributeKey:
     START_TIME_NS = "mlflow.spanStartTimeNs"
     CHAT_TOOLS = "mlflow.chat.tools"
     # This attribute is used to store token usage information from LLM responses.
-    # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
+    # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int,
+    #   "cache_read_input_tokens"?: int, "cache_creation_input_tokens"?: int} format.
     CHAT_USAGE = "mlflow.chat.tokenUsage"
     # This attribute stores cost information calculated from token usage and model pricing.
     # Stored in {"input_cost": float, "output_cost": float, "total_cost": float} format (USD).
@@ -101,13 +117,16 @@ class SpanAttributeKey:
     # within an active span. Stored as a JSON list of {"name": "...", "version": "..."} objects,
     # same format as LINKED_PROMPTS_TAG_KEY in traces.
     LINKED_PROMPTS = "mlflow.linkedPrompts"
-    # Provider name for LLM provider spans (e.g., "OpenAI", "Anthropic")
-    MODEL_PROVIDER = "mlflow.llm.provider"
-    # Model name for LLM provider spans (e.g., "gpt-4", "claude-3-opus")
-    MODEL = "mlflow.llm.model"
-    # User attributes for gateway tracing
-    USERNAME = "mlflow.user.username"
-    USER_ID = "mlflow.user.id"
+    # This attribute stores the trace ID of the linked gateway trace, used when a gateway
+    # endpoint is called by a traced agent via distributed tracing (traceparent header).
+    LINKED_GATEWAY_TRACE_ID = "mlflow.gateway.linkedTraceId"
+
+    # User and session IDs copied from trace metadata to root span attributes for OTLP export.
+    # Following OTel semantic conventions:
+    # https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/#user-id
+    # https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
+    USER_ID = "user.id"
+    SESSION_ID = "session.id"
 
 
 class AssessmentMetadataKey:
@@ -208,6 +227,13 @@ class SpanMetricKey:
 
     SPAN_COUNT = "span_count"
     LATENCY = "latency"
+    INPUT_COST = "input_cost"
+    OUTPUT_COST = "output_cost"
+    TOTAL_COST = "total_cost"
+
+    @classmethod
+    def cost_keys(cls) -> list[str]:
+        return [cls.INPUT_COST, cls.OUTPUT_COST, cls.TOTAL_COST]
 
 
 class SpanMetricDimensionKey:
@@ -218,6 +244,8 @@ class SpanMetricDimensionKey:
     SPAN_NAME = "span_name"
     SPAN_TYPE = "span_type"
     SPAN_STATUS = "span_status"
+    SPAN_MODEL_NAME = "span_model_name"
+    SPAN_MODEL_PROVIDER = "span_model_provider"
 
 
 class AssessmentMetricKey:

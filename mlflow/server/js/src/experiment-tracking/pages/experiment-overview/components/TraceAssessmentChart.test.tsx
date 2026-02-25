@@ -15,6 +15,7 @@ import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create an assessment value data point (for time series)
 const createAssessmentDataPoint = (timeBucket: string, avgValue: number) => ({
@@ -47,7 +48,7 @@ describe('TraceAssessmentChart', () => {
 
   // Context props reused across tests
   const defaultContextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -94,7 +95,7 @@ describe('TraceAssessmentChart', () => {
   // Helper to setup MSW handler for the trace metrics endpoint
   const setupTraceMetricsHandler = (dataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
         return res(ctx.json({ data_points: dataPoints }));
       }),
     );
@@ -103,7 +104,7 @@ describe('TraceAssessmentChart', () => {
   // Helper to setup MSW handler that returns different responses based on metric_name
   const setupTraceMetricsHandlerWithDistribution = (timeSeriesData: any[], distributionData: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
         if (body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
           return res(ctx.json({ data_points: distributionData }));
@@ -122,7 +123,7 @@ describe('TraceAssessmentChart', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -137,7 +138,7 @@ describe('TraceAssessmentChart', () => {
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
         }),
       );
@@ -282,7 +283,7 @@ describe('TraceAssessmentChart', () => {
       let capturedTimeSeriesRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           // Only capture the time series request (ASSESSMENT_VALUE metric)
           if (body.metric_name === AssessmentMetricKey.ASSESSMENT_VALUE) {

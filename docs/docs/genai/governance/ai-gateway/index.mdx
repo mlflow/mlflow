@@ -2,6 +2,7 @@ import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import { Shield, Globe, Zap, Users, Wrench, Play, GitBranch, BarChart3, Lock } from "lucide-react";
+import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
 
 # MLflow AI Gateway
 
@@ -44,6 +45,8 @@ MLflow AI Gateway also offers passthrough endpoints, enabling requests to be for
   }
 ]} />
 
+<GenAIDemoCard />
+
 ## Next Steps
 
 <TilesGrid>
@@ -74,6 +77,13 @@ MLflow AI Gateway also offers passthrough endpoints, enabling requests to be for
     description="Configure traffic splitting and fallbacks for high availability"
     href="./traffic-routing-fallbacks"
     linkText="Learn routing →"
+  />
+  <TileCard
+    icon={BarChart3}
+    title="Usage Tracking"
+    description="Monitor endpoint usage, performance, token consumption, and costs"
+    href="./usage-tracking"
+    linkText="View metrics →"
   />
   <TileCard
     icon={Lock}

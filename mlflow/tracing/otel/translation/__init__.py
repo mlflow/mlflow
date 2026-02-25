@@ -12,7 +12,7 @@ import logging
 from typing import Any
 
 from mlflow.entities.span import Span
-from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.constant import CostKey, SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
@@ -91,12 +91,12 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
 
     # Extract and normalize model name from various sources
     if SpanAttributeKey.MODEL not in attributes and (model_name := _get_model_name(attributes)):
-        attributes[SpanAttributeKey.MODEL] = model_name
+        attributes[SpanAttributeKey.MODEL] = dump_span_attribute_value(model_name)
 
     if SpanAttributeKey.MODEL_PROVIDER not in attributes and (
         model_provider := _get_model_provider(attributes)
     ):
-        attributes[SpanAttributeKey.MODEL_PROVIDER] = model_provider
+        attributes[SpanAttributeKey.MODEL_PROVIDER] = dump_span_attribute_value(model_provider)
 
     # Calculate cost if both token usage and model are available
     if (
@@ -253,7 +253,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
         attributes: Dictionary of span attributes
 
     Returns:
-        JSON-encoded string of model name or None if not found
+        Model name or None if not found
     """
     for translator in _TRANSLATORS:
         if model_name := translator.get_model_name(attributes):
@@ -265,7 +265,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
             if isinstance(inputs, str):
                 inputs = json.loads(inputs)
             if isinstance(inputs, dict) and (model := inputs.get("model")):
-                return dump_span_attribute_value(model) if isinstance(model, str) else None
+                return model if isinstance(model, str) else None
         except Exception:
             _logger.debug("Failed to parse inputs for model name", exc_info=True)
 
@@ -275,7 +275,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
             if isinstance(outputs, str):
                 outputs = json.loads(outputs)
             if isinstance(outputs, dict) and (model := outputs.get("model")):
-                return dump_span_attribute_value(model) if isinstance(model, str) else None
+                return model if isinstance(model, str) else None
         except Exception:
             _logger.debug("Failed to parse outputs for model name", exc_info=True)
 
@@ -290,7 +290,7 @@ def _get_model_provider(attributes: dict[str, Any]) -> str | None:
         attributes: Dictionary of span attributes
 
     Returns:
-        JSON-encoded string of model provider or None if not found
+        model provider or None if not found
     """
     for translator in _TRANSLATORS:
         if model_provider := translator.get_model_provider(attributes):
@@ -362,14 +362,11 @@ def update_token_usage(
         if isinstance(new_token_usage, str):
             new_token_usage = json.loads(new_token_usage) or {}
         if new_token_usage:
-            for key in [
-                TokenUsageKey.INPUT_TOKENS,
-                TokenUsageKey.OUTPUT_TOKENS,
-                TokenUsageKey.TOTAL_TOKENS,
-            ]:
-                current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage.get(
-                    key, 0
-                )
+            for key in TokenUsageKey.all_keys():
+                if key in new_token_usage or key in current_token_usage:
+                    current_token_usage[key] = current_token_usage.get(
+                        key, 0
+                    ) + new_token_usage.get(key, 0)
     except Exception:
         _logger.debug(
             f"Failed to update token usage with current_token_usage: {current_token_usage}, "
@@ -378,6 +375,40 @@ def update_token_usage(
         )
 
     return current_token_usage
+
+
+def update_cost(
+    current_cost: str | dict[str, Any], new_cost: str | dict[str, Any]
+) -> str | dict[str, Any]:
+    """
+    Update current cost in-place by adding the new cost.
+
+    Args:
+        current_cost: Current cost, dictionary or JSON string
+        new_cost: New cost, dictionary or JSON string
+
+    Returns:
+        Updated cost dictionary or JSON string
+    """
+    try:
+        if isinstance(current_cost, str):
+            current_cost = json.loads(current_cost) or {}
+        if isinstance(new_cost, str):
+            new_cost = json.loads(new_cost) or {}
+        if new_cost:
+            for key in [
+                CostKey.INPUT_COST,
+                CostKey.OUTPUT_COST,
+                CostKey.TOTAL_COST,
+            ]:
+                current_cost[key] = current_cost.get(key, 0.0) + new_cost.get(key, 0.0)
+    except Exception:
+        _logger.debug(
+            f"Failed to update cost with current_cost: {current_cost}, new_cost: {new_cost}",
+            exc_info=True,
+        )
+
+    return current_cost
 
 
 def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
