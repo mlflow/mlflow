@@ -26,7 +26,7 @@ export const DeleteBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: De
       onClose={onClose}
       onConfirm={handleConfirm}
       title="Delete Budget Policy"
-      itemName={policy.name}
+      itemName={policy.budget_policy_id}
       itemType="budget policy"
       componentIdPrefix="mlflow.gateway.delete-budget-policy-modal"
     />

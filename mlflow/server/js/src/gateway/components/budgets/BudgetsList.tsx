@@ -19,19 +19,23 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
 import { BudgetsFilterButton, type BudgetsFilter } from './BudgetsFilterButton';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
-import type { BudgetPolicy, DurationType, OnExceededAction, TargetType } from '../../types';
+import type { BudgetPolicy, BudgetType, DurationType, OnExceededAction, TargetType } from '../../types';
 
 interface BudgetsListProps {
   onEditClick?: (policy: BudgetPolicy) => void;
   onDeleteClick?: (policy: BudgetPolicy) => void;
 }
 
-function formatLimitUsd(limitUsd: number): string {
-  return `$${limitUsd.toFixed(2)}`;
+function formatBudgetAmount(amount: number, budgetType: BudgetType): string {
+  if (budgetType === 'USD') {
+    return `$${amount.toFixed(2)}`;
+  }
+  return `${amount}`;
 }
 
 function formatDuration(value: number, type: DurationType): string {
   const typeLabels: Record<DurationType, string> = {
+    MINUTES: value === 1 ? 'Minute' : 'Minutes',
     HOURS: value === 1 ? 'Hour' : 'Hours',
     DAYS: value === 1 ? 'Day' : 'Days',
     MONTHS: value === 1 ? 'Month' : 'Months',
@@ -43,7 +47,6 @@ function formatOnExceeded(action: OnExceededAction): string {
   const labels: Record<OnExceededAction, string> = {
     ALERT: 'Alert',
     REJECT: 'Reject',
-    ALERT_AND_REJECT: 'Alert & Reject',
   };
   return labels[action];
 }
@@ -71,7 +74,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
 
     if (searchFilter.trim()) {
       const lowerFilter = searchFilter.toLowerCase();
-      filtered = filtered.filter((policy) => policy.name.toLowerCase().includes(lowerFilter));
+      filtered = filtered.filter((policy) => policy.budget_policy_id.toLowerCase().includes(lowerFilter));
     }
 
     if (filter.scopes.length > 0) {
@@ -164,11 +167,11 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
         }}
       >
         <TableRow isHeader>
-          <TableHeader componentId="mlflow.gateway.budgets-list.name-header" css={{ flex: 2 }}>
-            <FormattedMessage defaultMessage="Name" description="Budget policy name column header" />
+          <TableHeader componentId="mlflow.gateway.budgets-list.id-header" css={{ flex: 2 }}>
+            <FormattedMessage defaultMessage="Policy ID" description="Budget policy ID column header" />
           </TableHeader>
           <TableHeader componentId="mlflow.gateway.budgets-list.limit-header" css={{ flex: 1 }}>
-            <FormattedMessage defaultMessage="Limit" description="Budget limit column header" />
+            <FormattedMessage defaultMessage="Budget" description="Budget amount column header" />
           </TableHeader>
           <TableHeader componentId="mlflow.gateway.budgets-list.duration-header" css={{ flex: 1 }}>
             <FormattedMessage defaultMessage="Duration" description="Budget duration column header" />
@@ -192,11 +195,11 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
             <TableCell css={{ flex: 2 }}>
               <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
                 <CreditCardIcon css={{ color: theme.colors.textSecondary, flexShrink: 0 }} />
-                <Typography.Text bold>{policy.name}</Typography.Text>
+                <Typography.Text bold>{policy.budget_policy_id}</Typography.Text>
               </div>
             </TableCell>
             <TableCell css={{ flex: 1 }}>
-              <Typography.Text>{formatLimitUsd(policy.limit_usd)}</Typography.Text>
+              <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_type)}</Typography.Text>
             </TableCell>
             <TableCell css={{ flex: 1 }}>
               <Typography.Text>{formatDuration(policy.duration_value, policy.duration_type)}</Typography.Text>
