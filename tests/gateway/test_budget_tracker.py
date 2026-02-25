@@ -4,10 +4,10 @@ from unittest.mock import patch
 import pytest
 
 from mlflow.entities.gateway_budget_policy import (
-    BudgetDurationType,
-    BudgetOnExceeded,
+    BudgetAction,
+    BudgetDurationUnit,
     BudgetTargetType,
-    BudgetType,
+    BudgetUnit,
     GatewayBudgetPolicy,
 )
 from mlflow.gateway.budget_tracker import (
@@ -22,20 +22,20 @@ from mlflow.gateway.budget_tracker import (
 def _make_policy(
     budget_policy_id="bp-test",
     budget_amount=100.0,
-    duration_type=BudgetDurationType.DAYS,
+    duration_unit=BudgetDurationUnit.DAYS,
     duration_value=1,
     target_type=BudgetTargetType.GLOBAL,
-    on_exceeded=BudgetOnExceeded.ALERT,
+    budget_action=BudgetAction.ALERT,
     workspace=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
-        budget_type=BudgetType.USD,
+        budget_unit=BudgetUnit.USD,
         budget_amount=budget_amount,
-        duration_type=duration_type,
+        duration_unit=duration_unit,
         duration_value=duration_value,
         target_type=target_type,
-        on_exceeded=on_exceeded,
+        budget_action=on_exceeded,
         created_at=0,
         last_updated_at=0,
         workspace=workspace,
@@ -47,19 +47,19 @@ def _make_policy(
 
 def test_compute_window_start_minutes():
     now = datetime(2025, 6, 15, 10, 37, 0, tzinfo=timezone.utc)
-    start = _compute_window_start(BudgetDurationType.MINUTES, 15, now)
+    start = _compute_window_start(BudgetDurationUnit.MINUTES, 15, now)
     assert start == datetime(2025, 6, 15, 10, 30, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_start_hours():
     now = datetime(2025, 6, 15, 10, 30, 0, tzinfo=timezone.utc)
-    start = _compute_window_start(BudgetDurationType.HOURS, 2, now)
+    start = _compute_window_start(BudgetDurationUnit.HOURS, 2, now)
     assert start == datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_start_days():
     now = datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
-    start = _compute_window_start(BudgetDurationType.DAYS, 7, now)
+    start = _compute_window_start(BudgetDurationUnit.DAYS, 7, now)
     epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
     days_since_epoch = (now - epoch).days
     window_index = days_since_epoch // 7
@@ -69,7 +69,7 @@ def test_compute_window_start_days():
 
 def test_compute_window_start_months():
     now = datetime(2025, 8, 15, tzinfo=timezone.utc)
-    start = _compute_window_start(BudgetDurationType.MONTHS, 3, now)
+    start = _compute_window_start(BudgetDurationUnit.MONTHS, 3, now)
     # Total months from epoch: (2025-1970)*12 + (8-1) = 660 + 7 = 667
     # Window index: 667 // 3 = 222, window_start_months = 666
     # start_year = 1970 + 666//12 = 1970 + 55 = 2025, start_month = (666%12)+1 = 7
@@ -81,31 +81,31 @@ def test_compute_window_start_months():
 
 def test_compute_window_end_minutes():
     start = datetime(2025, 6, 15, 10, 30, 0, tzinfo=timezone.utc)
-    end = _compute_window_end(BudgetDurationType.MINUTES, 15, start)
+    end = _compute_window_end(BudgetDurationUnit.MINUTES, 15, start)
     assert end == datetime(2025, 6, 15, 10, 45, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_end_hours():
     start = datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
-    end = _compute_window_end(BudgetDurationType.HOURS, 2, start)
+    end = _compute_window_end(BudgetDurationUnit.HOURS, 2, start)
     assert end == datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_end_days():
     start = datetime(2025, 6, 15, 0, 0, 0, tzinfo=timezone.utc)
-    end = _compute_window_end(BudgetDurationType.DAYS, 7, start)
+    end = _compute_window_end(BudgetDurationUnit.DAYS, 7, start)
     assert end == datetime(2025, 6, 22, 0, 0, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_end_months():
     start = datetime(2025, 7, 1, tzinfo=timezone.utc)
-    end = _compute_window_end(BudgetDurationType.MONTHS, 3, start)
+    end = _compute_window_end(BudgetDurationUnit.MONTHS, 3, start)
     assert end == datetime(2025, 10, 1, tzinfo=timezone.utc)
 
 
 def test_compute_window_end_months_crosses_year():
     start = datetime(2025, 11, 1, tzinfo=timezone.utc)
-    end = _compute_window_end(BudgetDurationType.MONTHS, 3, start)
+    end = _compute_window_end(BudgetDurationUnit.MONTHS, 3, start)
     assert end == datetime(2026, 2, 1, tzinfo=timezone.utc)
 
 
@@ -192,7 +192,7 @@ def test_record_cost_incremental_crossing():
 
 def test_is_budget_exceeded_reject():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0, on_exceeded=BudgetOnExceeded.REJECT)])
+    tracker.load_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)])
 
     tracker.record_cost(150.0)
     exceeded, policy = tracker.is_budget_exceeded()
@@ -202,7 +202,7 @@ def test_is_budget_exceeded_reject():
 
 def test_is_budget_exceeded_alert_only():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0, on_exceeded=BudgetOnExceeded.ALERT)])
+    tracker.load_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)])
 
     tracker.record_cost(150.0)
     exceeded, policy = tracker.is_budget_exceeded()
@@ -212,7 +212,7 @@ def test_is_budget_exceeded_alert_only():
 
 def test_is_budget_exceeded_not_yet():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0, on_exceeded=BudgetOnExceeded.REJECT)])
+    tracker.load_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)])
 
     tracker.record_cost(50.0)
     exceeded, policy = tracker.is_budget_exceeded()
@@ -224,7 +224,7 @@ def test_window_resets_on_expiry():
     tracker = InMemoryBudgetTracker()
     policy = _make_policy(
         budget_amount=100.0,
-        duration_type=BudgetDurationType.MINUTES,
+        duration_unit=BudgetDurationUnit.MINUTES,
         duration_value=5,
     )
     tracker.load_policies([policy])
@@ -277,12 +277,12 @@ def test_multiple_policies_independent():
     policy_alert = _make_policy(
         budget_policy_id="bp-alert",
         budget_amount=50.0,
-        on_exceeded=BudgetOnExceeded.ALERT,
+        budget_action=BudgetAction.ALERT,
     )
     policy_reject = _make_policy(
         budget_policy_id="bp-reject",
         budget_amount=100.0,
-        on_exceeded=BudgetOnExceeded.REJECT,
+        budget_action=BudgetAction.REJECT,
     )
     tracker.load_policies([policy_alert, policy_reject])
 
@@ -321,10 +321,10 @@ def test_workspace_scoped_cost_recording():
     assert window.cumulative_spend == 50.0
 
 
-@pytest.mark.parametrize("duration_type", list(BudgetDurationType))
-def test_all_duration_types_window_consistency(duration_type):
+@pytest.mark.parametrize("duration_unit", list(BudgetDurationUnit))
+def test_all_duration_units_window_consistency(duration_unit):
     now = datetime(2025, 6, 15, 10, 30, 0, tzinfo=timezone.utc)
-    start = _compute_window_start(duration_type, 1, now)
-    end = _compute_window_end(duration_type, 1, start)
+    start = _compute_window_start(duration_unit, 1, now)
+    end = _compute_window_end(duration_unit, 1, start)
     assert start < end
     assert start <= now < end
