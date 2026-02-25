@@ -1,0 +1,9 @@
+---
+title: Deploying MLflow to Azure
+---
+
+# Deploying MLflow to Azure
+
+MLflow core components include MLflow server, backend store, and artifact store. The MLflow server is the backend for experiment tracking, model registry management, tracing for LLM observability, job scheduling, and AI Gateway endpoints.
+
+This guide walks you through deploying the MLflow server to Azure Container App, the backend store to Azure Database for PostgreSQL flexible servers, and the artifact store to Azure blob storage. The guide also covers virtual network, container app environment settings. Once deployment is complete, you can access the MLflow web UI through an Azure application URL like `https://<app-name>.<unique-id>.<region-name>.azurecontainerapps.io/`, and your MLflow client code can connect to the MLflow server by setting the tracking URI to this URL.
