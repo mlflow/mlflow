@@ -7,11 +7,6 @@ import pytest
 import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.assessment_error import AssessmentError
-from mlflow.entities.trace import Trace
-from mlflow.entities.trace_data import TraceData
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import TraceLocation
-from mlflow.entities.trace_state import TraceState
 from mlflow.genai import Scorer, scorer
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.utils import CategoricalRating
@@ -500,23 +495,19 @@ def test_session_level_scorer_invocation_with_traces():
     @scorer
     def session_scorer(session) -> Feedback:
         total = len(session)
-        errors = sum(1 for t in session if t.info.state == TraceState.ERROR)
+        errors = sum(1 for t in session if t.info.state == "ERROR")
         return Feedback(value=errors == 0, rationale=f"{total} turns, {errors} errors")
 
+    def create_trace(name, user_input, bot_response):
+        span = mlflow.start_span_no_context(name, inputs={"question": user_input})
+        span.set_outputs({"answer": bot_response})
+        span.end()
+        return mlflow.get_trace(span.trace_id)
+
     traces = [
-        Trace(
-            info=TraceInfo(
-                trace_id=f"tr-{i}",
-                trace_location=TraceLocation.from_experiment_id("0"),
-                request_time=i,
-                execution_duration=100,
-                state=TraceState.OK,
-                trace_metadata={},
-                tags={},
-            ),
-            data=TraceData(spans=[]),
-        )
-        for i in range(3)
+        create_trace("turn_1", "What is MLflow?", "An ML platform."),
+        create_trace("turn_2", "How do I track?", "Use mlflow.log_param()."),
+        create_trace("turn_3", "Thanks!", "You're welcome!"),
     ]
 
     result = session_scorer.run(session=traces)
