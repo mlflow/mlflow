@@ -122,4 +122,4 @@ services:
 
 networks:
   default:
-    name: mlflow-rustfs-network
+    name: mlflow-network
