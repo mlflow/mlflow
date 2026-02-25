@@ -4,7 +4,13 @@ from pathlib import Path
 
 import click
 
-from mlflow.claude_code.config import get_tracing_status, setup_environment_config
+from mlflow.claude_code.config import (
+    ENVIRONMENT_FIELD,
+    get_environment_field_name,
+    get_tracing_status,
+    load_claude_config,
+    setup_environment_config,
+)
 from mlflow.claude_code.hooks import disable_tracing_hooks, setup_hooks_config
 
 
@@ -93,6 +99,7 @@ def _show_status(target_dir: Path, settings_file: Path) -> None:
     """Show current tracing status."""
     click.echo(f"📍 Claude tracing status in: {target_dir}")
 
+    env_field = get_environment_field_name(load_claude_config(settings_file))
     status = get_tracing_status(settings_file)
 
     if not status.enabled:
@@ -110,6 +117,8 @@ def _show_status(target_dir: Path, settings_file: Path) -> None:
         click.echo(f"🔬 Experiment Name: {status.experiment_name}")
     else:
         click.echo("🔬 Experiment: Default (experiment 0)")
+    if env_field:
+        click.echo(f"⚙️ Environment key: {env_field}")
 
 
 def _show_setup_status(
@@ -137,6 +146,7 @@ def _show_setup_status(
         click.echo(f"🔬 Experiment Name: {experiment_name}")
     else:
         click.echo("🔬 Experiment: Default (experiment 0)")
+    click.echo(f"⚙️ Environment key: {ENVIRONMENT_FIELD}")
 
     # Show next steps
     click.echo("\n" + "=" * 30)

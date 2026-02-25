@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from mlflow.claude_code.config import (
-    ENVIRONMENT_FIELD,
+    ENVIRONMENT_FIELDS,
     HOOK_FIELD_COMMAND,
     HOOK_FIELD_HOOKS,
     MLFLOW_EXPERIMENT_ID,
@@ -130,21 +130,23 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
             del config[HOOK_FIELD_HOOKS]["Stop"]
             hooks_removed = True
 
-    # Remove config variables
-    if ENVIRONMENT_FIELD in config:
-        mlflow_vars = [
-            MLFLOW_TRACING_ENABLED,
-            MLFLOW_TRACKING_URI,
-            MLFLOW_EXPERIMENT_ID,
-            MLFLOW_EXPERIMENT_NAME,
-        ]
+    # Remove config variables from both canonical and legacy environment keys.
+    mlflow_vars = [
+        MLFLOW_TRACING_ENABLED,
+        MLFLOW_TRACKING_URI.name,
+        MLFLOW_EXPERIMENT_ID.name,
+        MLFLOW_EXPERIMENT_NAME.name,
+    ]
+    for env_field in ENVIRONMENT_FIELDS:
+        env_vars = config.get(env_field)
+        if not isinstance(env_vars, dict):
+            continue
         for var in mlflow_vars:
-            if var in config[ENVIRONMENT_FIELD]:
-                del config[ENVIRONMENT_FIELD][var]
+            if var in env_vars:
+                del env_vars[var]
                 env_removed = True
-
-        if not config[ENVIRONMENT_FIELD]:
-            del config[ENVIRONMENT_FIELD]
+        if not env_vars:
+            del config[env_field]
 
     # Clean up empty hooks section
     if HOOK_FIELD_HOOKS in config and not config[HOOK_FIELD_HOOKS]:
