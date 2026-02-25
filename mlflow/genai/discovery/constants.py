@@ -41,7 +41,8 @@ Exhibiting even a single behavior from the list above is sufficient to conclude 
 were NOT achieved efficiently, even if the assistant later corrected the issue. The user \
 should not have to fix the assistant's mistakes.
 
-If you are unsure, then also consider the goals achieved efficiently.
+If you are unsure, then also consider the goals achieved efficiently. Do NOT guess \
+what the user thinks or feels — rely only on explicit signals in their messages.
 
 3. If not achieved (or achieved poorly), identify ALL likely *user* expectations that were \
 violated. An expectation is something the user expected the assistant to do or a property that \
@@ -102,6 +103,11 @@ application actually perform that task?
 - If the input contains a system prompt defining the assistant's capabilities or \
 limitations, do NOT mark it as failing for things outside its defined scope. \
 Evaluate only against what the assistant is designed to do.
+
+When in doubt, return True. Only return False for clear, unambiguous failures — \
+not stylistic preferences, minor omissions, or responses that are correct but \
+could be improved. The bar is whether the output *fails* the request, not \
+whether it is *perfect*.
 
 Return True if the output correctly fulfills the input request.
 Return False if there are significant quality problems.
@@ -177,8 +183,15 @@ _CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "- A name prefixed with 'Issue: ' followed by a short readable description "
     "(3-8 words, plain English), e.g. 'Issue: Media control commands ignored', "
     f"'Issue: Incorrect data returned' — or exactly \"{_NO_ISSUE_KEYWORD}\" if no real issue\n"
-    "- A clear description of what the issue is\n"
-    "- The root cause (synthesized from the individual analyses)\n"
+    "- A description of what specifically went wrong from the user's perspective. "
+    "Cite observable symptoms (e.g. 'returned empty response', 'ignored the user's "
+    "constraint to avoid implementation'). Avoid vague language like 'inefficient' "
+    "or 'suboptimal' without concrete details.\n"
+    "- The root cause: why this likely happens AND where to investigate. Identify "
+    "the probable component, behavior, or configuration at fault (e.g. 'the retrieval "
+    "tool may be returning stale cached results', 'the system prompt does not instruct "
+    "the agent to respect user constraints'). Be specific but note these are hypotheses "
+    "based on observed symptoms.\n"
     "- A confidence score 0-100 reflecting how coherent the cluster is (75+ only if the "
     "analyses clearly share the same failure pattern; 0 if they do NOT belong together)"
 )
