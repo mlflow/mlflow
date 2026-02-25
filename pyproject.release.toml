@@ -128,6 +128,8 @@ openai = "mlflow.deployments.openai"
 
 [tool.setuptools.package-data]
 mlflow = [
+  "py.typed",
+  "**/*.pyi",
   "store/db_migrations/alembic.ini",
   "temporary_db_migrations_for_pre_1_users/alembic.ini",
   "pyspark/ml/log_model_allowlist.txt",
