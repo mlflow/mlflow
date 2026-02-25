@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from mlflow.genai.discovery.entities import _IdentifiedIssue
+from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.genai.evaluation.entities import EvaluationResult
 
@@ -100,7 +100,7 @@ def test_discover_issues_full_pipeline(make_trace):
         description="Responses take too long",
         root_cause="Complex queries",
         example_indices=[0, 1],
-        confidence=90,
+        confidence="definitely_yes",
     )
 
     with (
@@ -162,13 +162,13 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
     )
     triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=triage_df)
 
-    # _summarize_cluster returns issue with low confidence (below _MIN_CONFIDENCE=75)
+    # _summarize_cluster returns issue with low confidence (below _MIN_CONFIDENCE="weak_yes")
     low_confidence_issue = _IdentifiedIssue(
         name="rare_issue",
         description="Happens very rarely",
         root_cause="Unknown",
         example_indices=[0],
-        confidence=50,
+        confidence="maybe",
     )
 
     with (
@@ -325,6 +325,12 @@ def test_discover_issues_additional_scorers(make_trace):
         ("Missing data [api]", "No errors found in logs", "test", True),
         # Fallback pattern in root_cause
         ("General analysis", "System output summary", "no issues found in analysis", True),
+        # New expanded patterns
+        ("System review", "The system is functioning correctly overall", "N/A", True),
+        ("Goals achieved", "The user's goals were achieved in this session", "N/A", True),
+        ("Evaluation", "System is working as intended for this use case", "N/A", True),
+        ("Summary", "Nothing wrong with the response quality", "N/A", True),
+        ("Assessment", "No significant issue identified here", "N/A", True),
         # Real issues — not filtered
         ("Slow response times [api]", "Responses are slow", "Complex queries", False),
         ("Data errors [db]", "Schema validation passes but data is wrong", "Misconfig", False),
@@ -338,7 +344,7 @@ def test_is_non_issue(name, description, root_cause, expected):
         description=description,
         root_cause=root_cause,
         example_indices=[0],
-        confidence=90,
+        confidence="definitely_yes",
     )
     assert _is_non_issue(issue) == expected
 
@@ -369,7 +375,7 @@ def test_discover_issues_filters_no_issue_results(make_trace):
         description="This trace analysis found no identifiable issues.",
         root_cause="N/A",
         example_indices=[0, 1, 2],
-        confidence=100,
+        confidence="definitely_yes",
     )
 
     with (
@@ -428,7 +434,7 @@ def test_discover_issues_filters_canonical_no_issue_keyword(make_trace):
         description="The analyses do not represent a real failure.",
         root_cause="N/A",
         example_indices=[0, 1, 2],
-        confidence=0,
+        confidence="definitely_no",
     )
 
     with (
@@ -481,7 +487,7 @@ class TestAnnotateIssueTraces:
                 example_trace_ids=["trace-1", "trace-2"],
                 scorer=None,
                 frequency=0.5,
-                confidence=90,
+                confidence="definitely_yes",
                 rationale_examples=[],
             ),
         ]
@@ -518,7 +524,7 @@ class TestAnnotateIssueTraces:
                 example_trace_ids=["t1", "t2", "t3", "t4"],
                 scorer=None,
                 frequency=0.4,
-                confidence=85,
+                confidence="definitely_yes",
                 rationale_examples=[],
             ),
         ]
@@ -548,7 +554,7 @@ class TestAnnotateIssueTraces:
                 example_trace_ids=[],
                 scorer=None,
                 frequency=0.0,
-                confidence=90,
+                confidence="definitely_yes",
                 rationale_examples=[],
             ),
         ]
@@ -570,7 +576,7 @@ class TestAnnotateIssueTraces:
                 example_trace_ids=["t1"],
                 scorer=None,
                 frequency=0.1,
-                confidence=80,
+                confidence="weak_yes",
                 rationale_examples=[],
             ),
         ]
@@ -602,7 +608,7 @@ class TestAnnotateIssueTraces:
                 example_trace_ids=["t1"],
                 scorer=None,
                 frequency=0.1,
-                confidence=80,
+                confidence="weak_yes",
                 rationale_examples=[],
             ),
         ]
@@ -633,7 +639,7 @@ class TestAnnotateIssueTraces:
                 example_trace_ids=["t1"],
                 scorer=None,
                 frequency=0.2,
-                confidence=85,
+                confidence="definitely_yes",
                 rationale_examples=[],
             ),
             Issue(
@@ -643,7 +649,7 @@ class TestAnnotateIssueTraces:
                 example_trace_ids=["t2", "t3"],
                 scorer=None,
                 frequency=0.3,
-                confidence=90,
+                confidence="definitely_yes",
                 rationale_examples=[],
             ),
         ]
@@ -681,3 +687,215 @@ def test_format_trace_content_no_errors(make_trace):
     trace = make_trace()
     content = _format_trace_content(trace)
     assert "Errors:" not in content
+
+
+class TestReclusterSingletons:
+    def test_merges_similar_singletons(self):
+        from mlflow.genai.discovery.pipeline import _recluster_singletons
+
+        analyses = [
+            _ConversationAnalysis(
+                surface="tool error A",
+                root_cause="API failure",
+                symptoms="timeout",
+                domain="",
+                affected_trace_ids=["t1"],
+                severity=3,
+            ),
+            _ConversationAnalysis(
+                surface="tool error B",
+                root_cause="API failure",
+                symptoms="timeout",
+                domain="",
+                affected_trace_ids=["t2"],
+                severity=3,
+            ),
+        ]
+        singletons = [
+            _IdentifiedIssue(
+                name="Issue A",
+                description="Error A",
+                root_cause="API failure",
+                example_indices=[0],
+                confidence="definitely_yes",
+            ),
+            _IdentifiedIssue(
+                name="Issue B",
+                description="Error B",
+                root_cause="API failure",
+                example_indices=[1],
+                confidence="definitely_yes",
+            ),
+        ]
+        labels = ["[tool_call] API timeout", "[tool_call] API timeout"]
+
+        merged_issue = _IdentifiedIssue(
+            name="Issue: API timeouts",
+            description="Merged",
+            root_cause="API failure",
+            example_indices=[0, 1],
+            confidence="definitely_yes",
+        )
+
+        with (
+            patch(
+                "mlflow.genai.discovery.utils._cluster_by_llm",
+                return_value=[[0, 1]],
+            ) as mock_cluster,
+            patch(
+                "mlflow.genai.discovery.pipeline._summarize_cluster",
+                return_value=merged_issue,
+            ) as mock_summarize,
+        ):
+            result = _recluster_singletons(
+                singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
+            )
+
+        mock_cluster.assert_called_once()
+        mock_summarize.assert_called_once()
+        assert len(result) == 1
+        assert result[0].example_indices == [0, 1]
+
+    def test_keeps_unmerged_singletons(self):
+        from mlflow.genai.discovery.pipeline import _recluster_singletons
+
+        analyses = [
+            _ConversationAnalysis(
+                surface="error A",
+                root_cause="A",
+                symptoms="A",
+                domain="",
+                affected_trace_ids=["t1"],
+                severity=3,
+            ),
+            _ConversationAnalysis(
+                surface="error B",
+                root_cause="B",
+                symptoms="B",
+                domain="",
+                affected_trace_ids=["t2"],
+                severity=3,
+            ),
+        ]
+        singletons = [
+            _IdentifiedIssue(
+                name="Issue A",
+                description="A",
+                root_cause="A",
+                example_indices=[0],
+                confidence="definitely_yes",
+            ),
+            _IdentifiedIssue(
+                name="Issue B",
+                description="B",
+                root_cause="B",
+                example_indices=[1],
+                confidence="definitely_yes",
+            ),
+        ]
+        labels = ["[path_a] symptom a", "[path_b] symptom b"]
+
+        with patch(
+            "mlflow.genai.discovery.utils._cluster_by_llm",
+            return_value=[[0], [1]],
+        ) as mock_cluster:
+            result = _recluster_singletons(
+                singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
+            )
+
+        mock_cluster.assert_called_once()
+        assert len(result) == 2
+
+    def test_single_singleton_returns_as_is(self):
+        from mlflow.genai.discovery.pipeline import _recluster_singletons
+
+        singletons = [
+            _IdentifiedIssue(
+                name="Solo",
+                description="Only one",
+                root_cause="N/A",
+                example_indices=[0],
+                confidence="definitely_yes",
+            ),
+        ]
+        result = _recluster_singletons(singletons, ["label"], [], "m", "m", 25)
+        assert len(result) == 1
+        assert result[0].name == "Solo"
+
+    def test_low_confidence_merge_keeps_originals(self):
+        from mlflow.genai.discovery.pipeline import _recluster_singletons
+
+        analyses = [
+            _ConversationAnalysis(
+                surface="A",
+                root_cause="A",
+                symptoms="A",
+                domain="",
+                affected_trace_ids=["t1"],
+                severity=3,
+            ),
+            _ConversationAnalysis(
+                surface="B",
+                root_cause="B",
+                symptoms="B",
+                domain="",
+                affected_trace_ids=["t2"],
+                severity=3,
+            ),
+        ]
+        singletons = [
+            _IdentifiedIssue(
+                name="A",
+                description="A",
+                root_cause="A",
+                example_indices=[0],
+                confidence="weak_yes",
+            ),
+            _IdentifiedIssue(
+                name="B",
+                description="B",
+                root_cause="B",
+                example_indices=[1],
+                confidence="weak_yes",
+            ),
+        ]
+        labels = ["label a", "label b"]
+
+        low_conf_merged = _IdentifiedIssue(
+            name="Merged",
+            description="M",
+            root_cause="M",
+            example_indices=[0, 1],
+            confidence="maybe",
+        )
+
+        with (
+            patch(
+                "mlflow.genai.discovery.utils._cluster_by_llm",
+                return_value=[[0, 1]],
+            ),
+            patch(
+                "mlflow.genai.discovery.pipeline._summarize_cluster",
+                return_value=low_conf_merged,
+            ),
+        ):
+            result = _recluster_singletons(
+                singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
+            )
+
+        assert len(result) == 2
+        assert result[0].name == "A"
+        assert result[1].name == "B"
+
+
+def test_confidence_helpers():
+    from mlflow.genai.discovery.constants import _confidence_gte, _confidence_max
+
+    assert _confidence_gte("definitely_yes", "weak_yes")
+    assert _confidence_gte("weak_yes", "weak_yes")
+    assert not _confidence_gte("maybe", "weak_yes")
+    assert not _confidence_gte("definitely_no", "weak_yes")
+
+    assert _confidence_max("definitely_yes", "weak_yes") == "definitely_yes"
+    assert _confidence_max("maybe", "weak_yes") == "weak_yes"
+    assert _confidence_max("definitely_no", "maybe") == "maybe"

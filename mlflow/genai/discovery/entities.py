@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 import pydantic
 
 from mlflow.genai.scorers.base import Scorer
+
+ConfidenceLevel = Literal["definitely_no", "weak_no", "maybe", "weak_yes", "definitely_yes"]
 
 # ---- Public dataclasses ----
 
@@ -17,7 +20,7 @@ class Issue:
     example_trace_ids: list[str]
     scorer: Scorer | None
     frequency: float
-    confidence: int
+    confidence: ConfidenceLevel
     rationale_examples: list[str] = field(default_factory=list)
 
 
@@ -58,10 +61,10 @@ class _IdentifiedIssue(pydantic.BaseModel):
     example_indices: list[int] = pydantic.Field(
         description="Indices into the input trace summary list that exemplify this issue"
     )
-    confidence: int = pydantic.Field(
+    confidence: ConfidenceLevel = pydantic.Field(
         description=(
-            "Confidence that this is a real, distinct issue (0-100). "
-            "0=not confident, 25=might be real, 50=moderately confident, "
-            "75=highly confident and real, 100=absolutely certain"
+            "Confidence that this is a real, distinct issue. "
+            "definitely_no=not a real issue, weak_no=probably not real, "
+            "maybe=uncertain, weak_yes=probably real, definitely_yes=certainly real"
         ),
     )

@@ -15,6 +15,8 @@ from mlflow.genai.discovery.constants import (
     _DEFAULT_TRIAGE_SAMPLE_SIZE,
     _MIN_CONFIDENCE,
     _MIN_EXAMPLES,
+    _confidence_gte,
+    _confidence_max,
 )
 from mlflow.genai.discovery.entities import (
     DiscoverIssuesResult,
@@ -43,7 +45,26 @@ from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
-_NO_ISSUE_PATTERNS = frozenset({"no issues", "no issue", "no problems", "no failures", "no errors"})
+_NO_ISSUE_PATTERNS = frozenset(
+    {
+        "no issues",
+        "no issue",
+        "no problems",
+        "no failures",
+        "no errors",
+        "no real issue",
+        "no failure",
+        "no deficiency",
+        "no significant issue",
+        "nothing wrong",
+        "goals were achieved",
+        "functioning correctly",
+        "operating as expected",
+        "working as intended",
+        "performed well",
+        "no discernible issue",
+    }
+)
 
 
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:
@@ -77,6 +98,43 @@ def _collect_example_trace_ids(
         if 0 <= idx < len(analyses):
             trace_ids.extend(analyses[idx].affected_trace_ids)
     return trace_ids
+
+
+def _recluster_singletons(
+    singletons: list[_IdentifiedIssue],
+    labels: list[str],
+    analyses: list[_ConversationAnalysis],
+    analysis_model: str,
+    label_model: str,
+    max_issues: int,
+) -> list[_IdentifiedIssue]:
+    """Re-cluster singleton issues via a second LLM pass to find better groupings."""
+    from mlflow.genai.discovery.utils import _cluster_by_llm
+
+    if len(singletons) < 2:
+        return list(singletons)
+
+    singleton_labels = []
+    for s in singletons:
+        idx = s.example_indices[0]
+        singleton_labels.append(labels[idx] if idx < len(labels) else s.name)
+
+    new_groups = _cluster_by_llm(singleton_labels, max_issues, label_model)
+
+    result: list[_IdentifiedIssue] = []
+    for group in new_groups:
+        if len(group) == 1:
+            result.append(singletons[group[0]])
+            continue
+        merged_indices = [singletons[g].example_indices[0] for g in group]
+        merged_issue = _summarize_cluster(merged_indices, analyses, analysis_model)
+        if _confidence_gte(merged_issue.confidence, _MIN_CONFIDENCE):
+            result.append(merged_issue)
+        else:
+            for g in group:
+                result.append(singletons[g])
+
+    return result
 
 
 def _format_trace_content(trace: Trace) -> str:
@@ -445,10 +503,10 @@ def discover_issues(
     # each one so the individual items get a fair standalone assessment.
     resplit_groups: list[list[int]] = []
     for group, issue in zip(cluster_groups, summaries):
-        if issue.confidence < _MIN_CONFIDENCE and len(group) > 1:
+        if not _confidence_gte(issue.confidence, _MIN_CONFIDENCE) and len(group) > 1:
             _logger.info(
                 "Phase 3: Re-splitting incoherent cluster '%s' "
-                "(confidence=%d, %d members) into singletons",
+                "(confidence=%s, %d members) into singletons",
                 issue.name,
                 issue.confidence,
                 len(group),
@@ -469,7 +527,7 @@ def discover_issues(
         final_groups: list[list[int]] = []
         final_summaries: list[_IdentifiedIssue] = []
         for group, issue in zip(cluster_groups, summaries):
-            if issue.confidence < _MIN_CONFIDENCE and len(group) > 1:
+            if not _confidence_gte(issue.confidence, _MIN_CONFIDENCE) and len(group) > 1:
                 continue
             final_groups.append(group)
             final_summaries.append(issue)
@@ -482,7 +540,7 @@ def discover_issues(
     identified: list[_IdentifiedIssue] = [
         issue
         for issue in summaries
-        if issue.confidence >= _MIN_CONFIDENCE
+        if _confidence_gte(issue.confidence, _MIN_CONFIDENCE)
         and len(issue.example_indices) >= _MIN_EXAMPLES
         and not _is_non_issue(issue)
     ]
@@ -496,11 +554,27 @@ def discover_issues(
             existing = deduped[seen_names[key]]
             merged_indices = list(set(existing.example_indices + issue.example_indices))
             existing.example_indices = merged_indices
-            existing.confidence = max(existing.confidence, issue.confidence)
+            existing.confidence = _confidence_max(existing.confidence, issue.confidence)
         else:
             seen_names[key] = len(deduped)
             deduped.append(issue)
     identified = deduped
+
+    # Phase 3d: Re-cluster singletons — second LLM pass to merge orphaned
+    # single-analysis issues into better groupings
+    singletons = [i for i in identified if len(i.example_indices) == 1]
+    multi_member = [i for i in identified if len(i.example_indices) > 1]
+    if len(singletons) >= 2:
+        _logger.info("Phase 3d: Re-clustering %d singleton issues...", len(singletons))
+        merged = _recluster_singletons(
+            singletons, labels, analyses, analysis_model, judge_model, max_issues
+        )
+        identified = multi_member + merged
+        _logger.info(
+            "Phase 3d: %d singletons → %d issues after re-clustering",
+            len(singletons),
+            len(merged),
+        )
 
     _logger.info(
         "Phase 3 complete: %d issues identified (%d clusters filtered out) in %.1fs",
@@ -511,7 +585,7 @@ def discover_issues(
     for issue in identified:
         example_ids = _collect_example_trace_ids(issue, analyses)
         _logger.info(
-            "  %s (confidence %d): %s | root_cause: %s | examples: %s",
+            "  %s (confidence %s): %s | root_cause: %s | examples: %s",
             issue.name,
             issue.confidence,
             issue.description,
@@ -528,13 +602,20 @@ def discover_issues(
             total_traces_analyzed=len(triage_traces),
         )
 
-    # Build final Issue objects directly from identified clusters.
-    # (Phase 4 scorer generation and Phase 5 validation are skipped for now.)
+    # Build final Issue objects. Compute frequency based on affected sessions
+    # (falls back to traces when no session IDs exist).
     num_total = len(triage_traces)
+    total_sessions = len(session_groups)
+    trace_to_session: dict[str, str] = {}
+    for sid, traces_in_session in session_groups.items():
+        for t in traces_in_session:
+            trace_to_session[t.info.trace_id] = sid
+
     issues: list[Issue] = []
     for ident in identified:
         example_ids = _collect_example_trace_ids(ident, analyses)
-        freq = len(example_ids) / max(num_total, 1)
+        affected_sessions = len({trace_to_session.get(tid, tid) for tid in example_ids})
+        freq = affected_sessions / max(total_sessions, 1)
         issues.append(
             Issue(
                 name=ident.name,
@@ -548,7 +629,12 @@ def discover_issues(
             )
         )
 
-    issues.sort(key=lambda i: i.frequency, reverse=True)
+    from mlflow.genai.discovery.constants import _CONFIDENCE_ORDER
+
+    issues.sort(
+        key=lambda i: (i.frequency, _CONFIDENCE_ORDER.get(i.confidence, 0)),
+        reverse=True,
+    )
 
     # Phase 4: Annotate affected traces with per-issue feedback assessments
     trace_lookup = {t.info.trace_id: t for t in triage_traces}

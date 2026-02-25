@@ -417,11 +417,11 @@ def _cluster_by_llm(
         "The execution path shows which sub-agents and tools were called.\n\n"
         "Group these labels into coherent issue categories. Two labels belong "
         "in the same group when:\n"
-        "  1. They went through similar execution paths (same sub-agents/tools)\n"
-        "  2. They failed in a similar way (same symptom pattern)\n\n"
-        "Labels with different execution paths should generally be in DIFFERENT "
-        "groups, even if the symptom sounds similar — different paths mean "
-        "different parts of the system are involved.\n\n"
+        "  1. They share the same failure pattern (similar symptom)\n"
+        "  2. They involve the same tool, sub-agent, or execution path\n\n"
+        "Same tool/path strongly suggests the same root cause — group together "
+        "unless symptoms are clearly unrelated. Different paths MAY still be the "
+        "same issue if symptoms are very similar.\n\n"
         "Rules:\n"
         "- Each group should have a name prefixed with 'Issue: ' followed by a short "
         "readable description (3-8 words), e.g. 'Issue: Incomplete response details'\n"
@@ -641,7 +641,7 @@ def _build_summary(issues: list[object], total_traces: int) -> str:
     for i, issue in enumerate(issues, 1):
         lines.append(
             f"### {i}. {issue.name} ({issue.frequency:.0%} of traces, "
-            f"confidence: {issue.confidence}/100)\n\n"
+            f"confidence: {issue.confidence})\n\n"
             f"{issue.description}\n\n"
             f"**Root cause:** {issue.root_cause}\n"
         )

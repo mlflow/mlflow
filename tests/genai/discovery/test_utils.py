@@ -166,7 +166,7 @@ def test_summarize_cluster():
         description="LLM generates incorrect facts",
         root_cause="Model confabulation",
         example_indices=[],
-        confidence=85,
+        confidence="definitely_yes",
     )
 
     with patch(
@@ -294,7 +294,7 @@ def test_build_summary_with_issues():
             example_trace_ids=["t-0"],
             scorer=MagicMock(),
             frequency=0.3,
-            confidence=85,
+            confidence="definitely_yes",
         ),
     ]
     summary = _build_summary(issues, 100)

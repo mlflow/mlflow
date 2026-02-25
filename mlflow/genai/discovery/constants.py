@@ -1,6 +1,19 @@
 _DEFAULT_TRIAGE_SAMPLE_SIZE = 100
-_MIN_CONFIDENCE = 75
 _MIN_EXAMPLES = 1
+
+# Likert confidence scale — ordinal comparison for filtering/sorting
+_CONFIDENCE_LEVELS = ("definitely_no", "weak_no", "maybe", "weak_yes", "definitely_yes")
+_CONFIDENCE_ORDER = {level: i for i, level in enumerate(_CONFIDENCE_LEVELS)}
+_MIN_CONFIDENCE = "weak_yes"
+
+
+def _confidence_gte(a: str, b: str) -> bool:
+    return _CONFIDENCE_ORDER.get(a, -1) >= _CONFIDENCE_ORDER.get(b, 0)
+
+
+def _confidence_max(a: str, b: str) -> str:
+    return a if _CONFIDENCE_ORDER.get(a, 0) >= _CONFIDENCE_ORDER.get(b, 0) else b
+
 
 _DEFAULT_JUDGE_MODEL = "openai:/gpt-5-mini"
 _DEFAULT_ANALYSIS_MODEL = "openai:/gpt-5"
@@ -177,8 +190,8 @@ _CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "2. **Validate** whether the grouped analyses actually represent the same underlying issue\n\n"
     "IMPORTANT: If the analyses do NOT represent a real failure — e.g. the user's goals were "
     "achieved, the system functioned correctly, or there is no concrete deficiency — you MUST "
-    f'set the name to exactly "{_NO_ISSUE_KEYWORD}" and set confidence to 0. Do NOT invent '
-    "an issue where none exists.\n\n"
+    f'set the name to exactly "{_NO_ISSUE_KEYWORD}" and set confidence to "definitely_no". '
+    "Do NOT invent an issue where none exists.\n\n"
     "Provide:\n"
     "- A name prefixed with 'Issue: ' followed by a short readable description "
     "(3-8 words, plain English), e.g. 'Issue: Media control commands ignored', "
@@ -192,8 +205,9 @@ _CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "tool may be returning stale cached results', 'the system prompt does not instruct "
     "the agent to respect user constraints'). Be specific but note these are hypotheses "
     "based on observed symptoms.\n"
-    "- A confidence score 0-100 reflecting how coherent the cluster is (75+ only if the "
-    "analyses clearly share the same failure pattern; 0 if they do NOT belong together)"
+    "- A confidence level from: definitely_no, weak_no, maybe, weak_yes, definitely_yes. "
+    "Use weak_yes or definitely_yes only if the analyses clearly share the same failure "
+    "pattern. Use definitely_no if they do NOT belong together or represent no real issue."
 )
 
 # ---- Trace annotation prompt ----
