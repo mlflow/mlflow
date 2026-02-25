@@ -8,7 +8,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetType,
     GatewayBudgetPolicy,
 )
-from mlflow.gateway.budget_tracker import BudgetTracker
+from mlflow.gateway.budget_tracker import InMemoryBudgetTracker
 from mlflow.server.gateway_api import (
     _fire_budget_crossed_webhooks,
     _get_model_info,
@@ -19,10 +19,10 @@ from mlflow.server.gateway_api import (
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.tracing.constant import CostKey
 
-_COST_FUNC = "mlflow.tracing.utils.calculate_cost_by_model_and_token_usage"
-_TRACKER_FUNC = "mlflow.gateway.budget_tracker.get_budget_tracker"
-_DELIVER_FUNC = "mlflow.webhooks.delivery.deliver_webhook"
-_REGISTRY_FUNC = "mlflow.server.handlers._get_model_registry_store"
+_COST_FUNC = "mlflow.server.gateway_api.calculate_cost_by_model_and_token_usage"
+_TRACKER_FUNC = "mlflow.server.gateway_api.get_budget_tracker"
+_DELIVER_FUNC = "mlflow.server.gateway_api.deliver_webhook"
+_REGISTRY_FUNC = "mlflow.server.gateway_api._get_model_registry_store"
 
 
 def _make_policy(
@@ -99,7 +99,7 @@ class _FakeResponse:
 @patch(_TRACKER_FUNC)
 @patch(_COST_FUNC, return_value={CostKey.TOTAL_COST: 0.05})
 def test_maybe_record_budget_cost_with_usage_object(mock_cost, mock_tracker):
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
     mock_tracker.return_value = tracker
 
@@ -119,7 +119,7 @@ def test_maybe_record_budget_cost_with_usage_object(mock_cost, mock_tracker):
 @patch(_TRACKER_FUNC)
 @patch(_COST_FUNC, return_value={CostKey.TOTAL_COST: 0.03})
 def test_maybe_record_budget_cost_with_usage_dict(mock_cost, mock_tracker):
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
     mock_tracker.return_value = tracker
 
@@ -144,7 +144,7 @@ def test_maybe_record_budget_cost_with_usage_dict(mock_cost, mock_tracker):
 def test_maybe_record_budget_cost_with_anthropic_dict_keys(
     mock_cost, mock_tracker
 ):
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
     mock_tracker.return_value = tracker
 
@@ -196,7 +196,7 @@ def test_maybe_record_budget_cost_none_usage_attr():
 def test_fire_budget_crossed_webhooks_alert(mock_registry, mock_deliver):
     mock_registry.return_value = MagicMock()
 
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     policy = _make_policy(
         budget_amount=50.0, on_exceeded=BudgetOnExceeded.ALERT
     )
@@ -220,7 +220,7 @@ def test_fire_budget_crossed_webhooks_reject_skipped(
 ):
     mock_registry.return_value = MagicMock()
 
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     policy = _make_policy(
         budget_amount=50.0, on_exceeded=BudgetOnExceeded.REJECT
     )
@@ -239,7 +239,7 @@ def test_fire_budget_crossed_webhooks_with_workspace(
 ):
     mock_registry.return_value = MagicMock()
 
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     policy = _make_policy(
         budget_amount=50.0, on_exceeded=BudgetOnExceeded.ALERT
     )
@@ -256,7 +256,7 @@ def test_fire_budget_crossed_webhooks_with_workspace(
 
 @patch(_TRACKER_FUNC)
 def test_maybe_refresh_budget_policies(mock_get_tracker):
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     mock_get_tracker.return_value = tracker
 
     store = MagicMock()
@@ -272,7 +272,7 @@ def test_maybe_refresh_budget_policies(mock_get_tracker):
 
 @patch(_TRACKER_FUNC)
 def test_maybe_refresh_skips_when_not_needed(mock_get_tracker):
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy()])
     mock_get_tracker.return_value = tracker
 
@@ -292,7 +292,7 @@ def test_maybe_refresh_skips_when_not_needed(mock_get_tracker):
 def test_cost_recording_reducer(
     mock_aggregate, mock_cost, mock_get_tracker
 ):
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
     mock_get_tracker.return_value = tracker
 
@@ -343,7 +343,7 @@ def test_record_cost_triggers_webhook(
 ):
     mock_registry.return_value = MagicMock()
 
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([
         _make_policy(
             budget_amount=100.0, on_exceeded=BudgetOnExceeded.ALERT
@@ -378,7 +378,7 @@ def test_record_cost_no_webhook_for_reject(
 ):
     mock_registry.return_value = MagicMock()
 
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([
         _make_policy(
             budget_amount=100.0, on_exceeded=BudgetOnExceeded.REJECT
