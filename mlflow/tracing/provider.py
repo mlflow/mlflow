@@ -409,8 +409,6 @@ def _get_trace_exporter():
     Get the exporter instance that is used by the current tracer provider.
     """
     if tracer_provider := provider.get():
-        if not hasattr(tracer_provider, "_active_span_processor"):
-            return None
         processors = tracer_provider._active_span_processor._span_processors
         # There should be only one processor used for MLflow tracing
         processor = processors[0]

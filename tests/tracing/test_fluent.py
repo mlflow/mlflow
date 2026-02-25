@@ -2835,3 +2835,10 @@ def test_flush_trace_async_logging_skips_when_async_queue_missing():
         ),
     ):
         mlflow.flush_trace_async_logging(terminate=False)
+
+
+def test_flush_trace_async_logging_no_spurious_error_when_tracing_disabled():
+    mlflow.tracing.disable()
+    with mock.patch("mlflow.tracking.fluent._logger") as mock_logger:
+        mlflow.flush_trace_async_logging()
+    mock_logger.error.assert_not_called()
