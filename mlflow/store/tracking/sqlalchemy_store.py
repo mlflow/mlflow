@@ -100,7 +100,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.analytics import trace_correlation
-from mlflow.store.db.db_types import MSSQL, MYSQL
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
@@ -1364,6 +1364,55 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 for metric in metrics
             ]
+
+    def get_metric_history_bulk_interval(
+        self, run_ids: list[str], metric_key: str, max_results: int, start_step: int, end_step: int
+    ) -> list[MetricWithRunId]:
+        """
+        This is an override function to improve performance by pushing down the sampling logic to DB
+        UNIFORM SAMPLING (Top-X Spaced Samples Per Run):
+         - Divide each run's chronological steps into max_results buckets using `ntile`.
+         - Select the first item per bucket per run
+         - This results in max_results uniformly spaced metrics per run.
+        """
+
+        dialect = self._get_dialect()
+        if dialect != POSTGRES:
+            return super().get_metric_history_bulk_interval(
+                run_ids, metric_key, max_results, start_step, end_step
+            )
+
+        with self.ManagedSessionMaker() as session:
+            filters = [SqlMetric.key == metric_key, SqlMetric.run_uuid.in_(run_ids)]
+            if start_step is not None:
+                filters.append(SqlMetric.step >= start_step)
+            if end_step is not None:
+                filters.append(SqlMetric.step <= end_step)
+
+            metrics_with_ntile = (
+                session.query(
+                    SqlMetric,
+                    func.ntile(max_results)
+                    .over(partition_by=SqlMetric.run_uuid, order_by=SqlMetric.step)
+                    .label("nt"),
+                )
+                .filter(*filters)
+                .order_by(SqlMetric.run_uuid, SqlMetric.step)
+                .cte("metrics_with_ntile")
+            )
+            metrics_with_ntile = sqlalchemy.orm.aliased(SqlMetric, metrics_with_ntile)
+            metrics = (
+                session.query(metrics_with_ntile).distinct(metrics_with_ntile.run_uuid, "nt").all()
+            )
+
+            return [
+                MetricWithRunId(
+                    run_id=metric.run_uuid,
+                    metric=metric.to_mlflow_entity(),
+                )
+                for metric in metrics
+            ]
+
 
     def get_max_step_for_metric(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
