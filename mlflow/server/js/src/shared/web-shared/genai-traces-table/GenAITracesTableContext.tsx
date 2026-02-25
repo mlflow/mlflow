@@ -39,14 +39,12 @@ export const GenAITracesTableContext = createContext<GenAITracesTableContextValu
 
 interface GenAITracesTableProviderProps {
   children: React.ReactNode;
-  experimentId?: string;
   getTrace?: GetTraceFunction;
   isGroupedBySession: boolean;
 }
 
 export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITracesTableProviderProps>> = ({
   children,
-  experimentId,
   getTrace,
   isGroupedBySession,
 }) => {
@@ -81,8 +79,7 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
         {children}
         {renderExportTracesToDatasetsModal?.({
           selectedTraceInfos: selectedTraces ? compact(selectedTraces.map((trace) => trace.traceInfo)) : [],
-          experimentId:
-            getExperimentIdFromTraceLocation(selectedTraces?.[0]?.traceInfo?.trace_location) ?? experimentId ?? '',
+          experimentId: getExperimentIdFromTraceLocation(selectedTraces?.[0]?.traceInfo?.trace_location) ?? '',
           visible: showDatasetModal,
           setVisible: setShowDatasetModal,
         })}

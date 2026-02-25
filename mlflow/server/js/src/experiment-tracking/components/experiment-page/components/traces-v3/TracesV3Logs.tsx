@@ -423,7 +423,7 @@ const TracesV3LogsImpl = React.memo(
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={AssistantAwareDrawer}
       >
-        <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
+        <GenAITracesTableProvider isGroupedBySession={isGroupedBySession}>
           <div
             css={{
               overflowY: 'hidden',
