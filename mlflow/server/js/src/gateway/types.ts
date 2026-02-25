@@ -281,19 +281,19 @@ export interface ListUsersResponse {
 }
 
 // Budget Policy types
-export type BudgetType = 'USD';
-export type DurationType = 'MINUTES' | 'HOURS' | 'DAYS' | 'MONTHS';
+export type BudgetUnit = 'USD';
+export type DurationUnit = 'MINUTES' | 'HOURS' | 'DAYS' | 'MONTHS';
 export type TargetType = 'GLOBAL' | 'WORKSPACE';
-export type OnExceededAction = 'ALERT' | 'REJECT';
+export type BudgetAction = 'ALERT' | 'REJECT';
 
 export interface BudgetPolicy {
   budget_policy_id: string;
-  budget_type: BudgetType;
+  budget_unit: BudgetUnit;
   budget_amount: number;
-  duration_type: DurationType;
+  duration_unit: DurationUnit;
   duration_value: number;
   target_type: TargetType;
-  on_exceeded: OnExceededAction;
+  budget_action: BudgetAction;
   created_at: number;
   last_updated_at: number;
   created_by?: string | null;
@@ -302,12 +302,12 @@ export interface BudgetPolicy {
 }
 
 export interface CreateBudgetPolicyRequest {
-  budget_type: BudgetType;
+  budget_unit: BudgetUnit;
   budget_amount: number;
-  duration_type: DurationType;
+  duration_unit: DurationUnit;
   duration_value: number;
   target_type: TargetType;
-  on_exceeded: OnExceededAction;
+  budget_action: BudgetAction;
 }
 
 export interface CreateBudgetPolicyResponse {
@@ -320,12 +320,12 @@ export interface GetBudgetPolicyResponse {
 
 export interface UpdateBudgetPolicyRequest {
   budget_policy_id: string;
-  budget_type?: BudgetType;
+  budget_unit?: BudgetUnit;
   budget_amount?: number;
-  duration_type?: DurationType;
+  duration_unit?: DurationUnit;
   duration_value?: number;
   target_type?: TargetType;
-  on_exceeded?: OnExceededAction;
+  budget_action?: BudgetAction;
 }
 
 export interface UpdateBudgetPolicyResponse {

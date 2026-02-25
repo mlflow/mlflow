@@ -10,7 +10,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useUpdateBudgetPolicy } from '../../hooks/useUpdateBudgetPolicy';
-import type { BudgetPolicy, DurationType, TargetType, OnExceededAction } from '../../types';
+import type { BudgetPolicy, DurationUnit, TargetType, BudgetAction } from '../../types';
 
 interface EditBudgetPolicyModalProps {
   open: boolean;
@@ -21,10 +21,10 @@ interface EditBudgetPolicyModalProps {
 
 interface FormData {
   budgetAmount: string;
-  durationType: DurationType;
+  durationUnit: DurationUnit;
   durationValue: string;
   targetType: TargetType;
-  onExceeded: OnExceededAction;
+  budgetAction: BudgetAction;
 }
 
 export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: EditBudgetPolicyModalProps) => {
@@ -32,10 +32,10 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
   const intl = useIntl();
   const [formData, setFormData] = useState<FormData>({
     budgetAmount: '',
-    durationType: 'DAYS',
+    durationUnit: 'DAYS',
     durationValue: '30',
     targetType: 'GLOBAL',
-    onExceeded: 'REJECT',
+    budgetAction: 'REJECT',
   });
   const { mutateAsync: updateBudgetPolicy, isLoading, error: mutationError, reset: resetMutation } =
     useUpdateBudgetPolicy();
@@ -44,10 +44,10 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
     if (policy) {
       setFormData({
         budgetAmount: String(policy.budget_amount),
-        durationType: policy.duration_type,
+        durationUnit: policy.duration_unit,
         durationValue: String(policy.duration_value),
         targetType: policy.target_type,
-        onExceeded: policy.on_exceeded,
+        budgetAction: policy.budget_action,
       });
       resetMutation();
     }
@@ -79,12 +79,12 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
 
     await updateBudgetPolicy({
       budget_policy_id: policy.budget_policy_id,
-      budget_type: 'USD',
+      budget_unit: 'USD',
       budget_amount: parseFloat(formData.budgetAmount),
-      duration_type: formData.durationType,
+      duration_unit: formData.durationUnit,
       duration_value: parseInt(formData.durationValue, 10),
       target_type: formData.targetType,
-      on_exceeded: formData.onExceeded,
+      budget_action: formData.budgetAction,
     }).then(() => {
       handleClose();
       onSuccess?.();
@@ -161,8 +161,8 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
             <SimpleSelect
               id="edit-budget-policy-duration-type"
               componentId="mlflow.gateway.edit-budget-policy-modal.duration-type"
-              value={formData.durationType}
-              onChange={({ target }) => handleFieldChange('durationType', target.value as DurationType)}
+              value={formData.durationUnit}
+              onChange={({ target }) => handleFieldChange('durationUnit', target.value as DurationUnit)}
             >
               <SimpleSelectOption value="MINUTES">Minutes</SimpleSelectOption>
               <SimpleSelectOption value="HOURS">Hours</SimpleSelectOption>
@@ -208,8 +208,8 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
           <SimpleSelect
             id="edit-budget-policy-on-exceeded"
             componentId="mlflow.gateway.edit-budget-policy-modal.on-exceeded"
-            value={formData.onExceeded}
-            onChange={({ target }) => handleFieldChange('onExceeded', target.value as OnExceededAction)}
+            value={formData.budgetAction}
+            onChange={({ target }) => handleFieldChange('budgetAction', target.value as BudgetAction)}
           >
             <SimpleSelectOption value="ALERT">Alert only</SimpleSelectOption>
             <SimpleSelectOption value="REJECT">Reject requests</SimpleSelectOption>
