@@ -1,5 +1,6 @@
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { getDefaultHeaders } from '../../../common/utils/FetchUtils';
 import { EndpointUsageModal } from './EndpointUsageModal';
@@ -38,7 +39,6 @@ describe('Try it tab', () => {
   });
 
   test('sends request and displays response on success', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const mockResponse = { output: 'Hello from the model' };
     fetchSpy.mockResolvedValueOnce({
       ok: true,
@@ -60,7 +60,6 @@ describe('Try it tab', () => {
   });
 
   test('sends request with auth headers when auth is enabled', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const authHeaders = {
       Authorization: 'Bearer test-token',
     } as ReturnType<typeof getDefaultHeaders>;
@@ -82,8 +81,6 @@ describe('Try it tab', () => {
   });
 
   test('shows error when request body is invalid JSON', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
     const requestBody = getRequestBodyTextarea();
     await userEvent.clear(requestBody);
@@ -95,7 +92,6 @@ describe('Try it tab', () => {
   });
 
   test('shows error and response body when request fails with HTTP error', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     fetchSpy.mockResolvedValueOnce({
       ok: false,
       status: 500,
@@ -112,7 +108,6 @@ describe('Try it tab', () => {
   });
 
   test('shows error when network request fails', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     fetchSpy.mockRejectedValueOnce(new Error('Network failure'));
 
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
@@ -123,8 +118,6 @@ describe('Try it tab', () => {
   });
 
   test('switching to Passthrough APIs tab shows provider selector and updates request body', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
     expect(getRequestBodyTextarea().value).toContain('messages');
 
@@ -135,8 +128,6 @@ describe('Try it tab', () => {
   });
 
   test('switching from Passthrough APIs back to Unified APIs resets request body to unified format', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
     await userEvent.click(screen.getByText('Passthrough APIs'));
     expect(getRequestBodyTextarea().value).toContain('model');
@@ -146,7 +137,6 @@ describe('Try it tab', () => {
   });
 
   test('Unified OpenAI Chat Completions variant updates request body and sends to chat completions URL', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     fetchSpy.mockResolvedValueOnce({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({ choices: [{ message: { content: 'Hi' } }] })),
@@ -173,8 +163,6 @@ describe('Try it tab', () => {
   });
 
   test('provider selection in Try it passthrough updates request body', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
     await userEvent.click(screen.getByText('Passthrough APIs'));
 
@@ -187,7 +175,6 @@ describe('Try it tab', () => {
   });
 
   test('state reset when switching API type clears response and error', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     fetchSpy.mockResolvedValueOnce({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({ result: 'old' })),
@@ -203,7 +190,6 @@ describe('Try it tab', () => {
   });
 
   test('state reset when switching provider clears response and error', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     fetchSpy.mockRejectedValueOnce(new Error('First error'));
 
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
@@ -216,7 +202,6 @@ describe('Try it tab', () => {
   });
 
   test('state reset when modal opens clears previous response and error', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     fetchSpy.mockResolvedValueOnce({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({ data: 'previous' })),
@@ -234,7 +219,6 @@ describe('Try it tab', () => {
   });
 
   test('Reset example restores default request body and clears response and error', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     fetchSpy.mockResolvedValueOnce({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({ out: 1 })),

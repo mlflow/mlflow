@@ -1,4 +1,5 @@
 import { describe, test, expect, jest } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { EndpointUsageModal } from './EndpointUsageModal';
 
@@ -31,8 +32,6 @@ describe('EndpointUsageModal', () => {
   });
 
   test('Unified APIs tab shows Try it, cURL, and Python view options', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
     // Unified APIs is selected by default; view mode selector has Try it | cURL | Python
     expect(screen.getByRole('radio', { name: /cURL/ })).toBeInTheDocument();
@@ -44,8 +43,6 @@ describe('EndpointUsageModal', () => {
   });
 
   test('shows code examples with endpoint name in unified APIs when cURL selected', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
     await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
 
@@ -54,8 +51,6 @@ describe('EndpointUsageModal', () => {
   });
 
   test('switches to passthrough APIs tab when clicked', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
     await userEvent.click(screen.getByText('Passthrough APIs'));
 
@@ -66,8 +61,6 @@ describe('EndpointUsageModal', () => {
   });
 
   test('shows OpenAI passthrough example in passthrough tab when cURL selected', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
     await userEvent.click(screen.getByText('Passthrough APIs'));
     await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
@@ -81,8 +74,6 @@ describe('EndpointUsageModal', () => {
   });
 
   test('renders provider selector in passthrough tab', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
 
     await userEvent.click(screen.getByText('Passthrough APIs'));
@@ -97,8 +88,6 @@ describe('EndpointUsageModal', () => {
   });
 
   test('passthrough tab shows Try it, cURL, Python and code when cURL selected', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
     await userEvent.click(screen.getByText('Passthrough APIs'));
 
@@ -110,7 +99,6 @@ describe('EndpointUsageModal', () => {
   });
 
   test('uses window.location.origin when baseUrl is not provided', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const originalLocation = window.location;
     Object.defineProperty(window, 'location', {
       value: { origin: 'http://custom-origin:8080' },
@@ -127,8 +115,6 @@ describe('EndpointUsageModal', () => {
   });
 
   test('renders copy buttons for code examples when cURL selected', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
     await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
 
