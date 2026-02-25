@@ -12,6 +12,7 @@ from mlflow.entities.gateway_budget_policy import (
 )
 from mlflow.gateway.budget_tracker import (
     BudgetTracker,
+    InMemoryBudgetTracker,
     _compute_window_end,
     _compute_window_start,
     _policy_applies,
@@ -132,11 +133,16 @@ def test_policy_applies_workspace_none():
     assert _policy_applies(policy, None) is False
 
 
-# --- BudgetTracker tests ---
+# --- InMemoryBudgetTracker tests ---
+
+
+def test_in_memory_tracker_is_budget_tracker():
+    tracker = InMemoryBudgetTracker()
+    assert isinstance(tracker, BudgetTracker)
 
 
 def test_record_cost_below_limit():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
     newly_crossed = tracker.record_cost(50.0)
@@ -148,7 +154,7 @@ def test_record_cost_below_limit():
 
 
 def test_record_cost_crosses_threshold():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
     newly_crossed = tracker.record_cost(150.0)
@@ -161,7 +167,7 @@ def test_record_cost_crosses_threshold():
 
 
 def test_record_cost_crosses_only_once():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
     crossed1 = tracker.record_cost(150.0)
@@ -175,7 +181,7 @@ def test_record_cost_crosses_only_once():
 
 
 def test_record_cost_incremental_crossing():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
     assert tracker.record_cost(60.0) == []
@@ -185,7 +191,7 @@ def test_record_cost_incremental_crossing():
 
 
 def test_is_budget_exceeded_reject():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0, on_exceeded=BudgetOnExceeded.REJECT)])
 
     tracker.record_cost(150.0)
@@ -195,7 +201,7 @@ def test_is_budget_exceeded_reject():
 
 
 def test_is_budget_exceeded_alert_only():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0, on_exceeded=BudgetOnExceeded.ALERT)])
 
     tracker.record_cost(150.0)
@@ -205,7 +211,7 @@ def test_is_budget_exceeded_alert_only():
 
 
 def test_is_budget_exceeded_not_yet():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0, on_exceeded=BudgetOnExceeded.REJECT)])
 
     tracker.record_cost(50.0)
@@ -215,7 +221,7 @@ def test_is_budget_exceeded_not_yet():
 
 
 def test_window_resets_on_expiry():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     policy = _make_policy(
         budget_amount=100.0,
         duration_type=BudgetDurationType.MINUTES,
@@ -242,7 +248,7 @@ def test_window_resets_on_expiry():
 
 
 def test_load_policies_preserves_spend_in_same_window():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     policy = _make_policy(budget_amount=100.0)
     tracker.load_policies([policy])
     tracker.record_cost(60.0)
@@ -254,7 +260,7 @@ def test_load_policies_preserves_spend_in_same_window():
 
 
 def test_load_policies_removes_deleted_policy():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     policy1 = _make_policy(budget_policy_id="bp-1", budget_amount=100.0)
     policy2 = _make_policy(budget_policy_id="bp-2", budget_amount=200.0)
     tracker.load_policies([policy1, policy2])
@@ -267,7 +273,7 @@ def test_load_policies_removes_deleted_policy():
 
 
 def test_multiple_policies_independent():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     policy_alert = _make_policy(
         budget_policy_id="bp-alert",
         budget_amount=50.0,
@@ -297,7 +303,7 @@ def test_multiple_policies_independent():
 
 
 def test_workspace_scoped_cost_recording():
-    tracker = BudgetTracker()
+    tracker = InMemoryBudgetTracker()
     policy = _make_policy(
         target_type=BudgetTargetType.WORKSPACE,
         workspace="ws1",
