@@ -24,7 +24,6 @@ import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './uti
 
 interface GenAITracesTableBodyContainerProps {
   // Experiment metadata
-  experimentId: string;
   currentRunDisplayName?: string;
   runUuid?: string;
   compareToRunUuid?: string;
@@ -72,7 +71,6 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   React.memo((props: GenAITracesTableBodyContainerProps) => {
     const {
-      experimentId,
       currentTraceInfoV3,
       compareToTraceInfoV3,
       currentRunDisplayName,
@@ -235,7 +233,6 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
           >
             <AssessmentSchemaContextProvider assessments={assessments}>
               <GenAiTracesTableBody
-                experimentId={experimentId}
                 selectedColumns={selectedColumns}
                 allColumns={allColumns}
                 evaluations={evaluationResults}

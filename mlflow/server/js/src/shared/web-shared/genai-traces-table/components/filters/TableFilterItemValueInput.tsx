@@ -36,7 +36,7 @@ export const TableFilterItemValueInput = ({
   tableFilter: TableFilter;
   assessmentInfos: AssessmentInfo[];
   onChange: (tableFilter: TableFilter, index: number) => void;
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
 }) => {
   const intl = useIntl();

@@ -23,7 +23,6 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   selectedColumns: TracesTableColumn[];
   expandedSessions: Set<string>;
   toggleSessionExpanded: (sessionId: string) => void;
-  experimentId: string;
   getRunColor?: (runUuid: string) => string;
   runUuid?: string;
   compareToRunUuid?: string;
@@ -42,7 +41,6 @@ interface SessionHeaderRowProps {
   goal?: string;
   persona?: string;
   selectedColumns: TracesTableColumn[];
-  experimentId: string;
   isExpanded: boolean;
   isComparing: boolean;
   toggleSessionExpanded: (sessionId: string) => void;
@@ -61,7 +59,6 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
   virtualizerTotalSize,
   virtualizerMeasureElement,
   selectedColumns,
-  experimentId,
   expandedSessions,
   toggleSessionExpanded,
   getRunColor,
@@ -120,7 +117,6 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
                 goal={groupedRow.goal}
                 persona={groupedRow.persona}
                 selectedColumns={selectedColumns}
-                experimentId={experimentId}
                 isExpanded={expandedSessions.has(groupedRow.sessionId)}
                 isComparing={isComparing}
                 toggleSessionExpanded={toggleSessionExpanded}
@@ -188,7 +184,6 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
   goal,
   persona,
   selectedColumns,
-  experimentId,
   isExpanded,
   isComparing,
   toggleSessionExpanded,
@@ -226,7 +221,6 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
           otherTraces={otherTraces}
           goal={goal}
           persona={persona}
-          experimentId={experimentId}
           isComparing={isComparing}
           getRunColor={getRunColor}
           runUuid={runUuid}

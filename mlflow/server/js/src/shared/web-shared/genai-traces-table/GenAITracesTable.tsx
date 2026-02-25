@@ -540,7 +540,6 @@ function GenAiTracesTableImpl({
                 }}
               >
                 <GenAiTracesTableBody
-                  experimentId={experimentId}
                   selectedColumns={selectedColumns}
                   allColumns={allColumns}
                   evaluations={displayEvaluationResults}

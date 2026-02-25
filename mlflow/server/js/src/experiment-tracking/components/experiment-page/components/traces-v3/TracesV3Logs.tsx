@@ -396,7 +396,6 @@ const TracesV3LogsImpl = React.memo(
             ) : (
               <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
                 <GenAITracesTableBodyContainer
-                  experimentId={experimentId}
                   allColumns={allColumns}
                   currentTraceInfoV3={traceInfos || []}
                   currentRunDisplayName={endpointName}

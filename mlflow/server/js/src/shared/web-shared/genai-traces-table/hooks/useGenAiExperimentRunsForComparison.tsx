@@ -31,15 +31,15 @@ const queryFn = async ({
 /**
  * Fetches the runs for the given experiment, used for the "compare to" dropdown in the eval page.
  */
-export const useGenAiExperimentRunsForComparison = (experimentId: string, disabled = false) => {
+export const useGenAiExperimentRunsForComparison = (experimentId: string | undefined, disabled = false) => {
   const { data, error, isLoading, isFetching } = useQuery<
     RawSearchRunsResponse,
     Error,
     RawSearchRunsResponse,
     UseExperimentRunsForTraceComparisonQueryKey
-  >(getQueryKey(experimentId), {
+  >(getQueryKey(experimentId ?? ''), {
     queryFn,
-    enabled: !disabled,
+    enabled: !disabled && Boolean(experimentId),
     cacheTime: Infinity,
     staleTime: Infinity,
   });

@@ -17,14 +17,14 @@ import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.typ
 import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
+import { getExperimentIdFromTraceLocation } from '../utils/TraceUtils';
 
 export const LoggedModelCell = (props: {
-  experimentId: string;
   currentTraceInfo?: ModelTraceInfoV3;
   otherTraceInfo?: ModelTraceInfoV3;
   isComparing: boolean;
 }) => {
-  const { experimentId, currentTraceInfo, otherTraceInfo, isComparing } = props;
+  const { currentTraceInfo, otherTraceInfo, isComparing } = props;
   const currentModelId = currentTraceInfo?.trace_metadata?.['mlflow.modelId'];
   const otherModelId = otherTraceInfo?.trace_metadata?.['mlflow.modelId'];
 
@@ -32,7 +32,11 @@ export const LoggedModelCell = (props: {
     <StackedComponents
       first={
         currentModelId ? (
-          <LoggedModelComponent experimentId={experimentId} modelId={currentModelId} isComparing={isComparing} />
+          <LoggedModelComponent
+            experimentId={getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location)}
+            modelId={currentModelId}
+            isComparing={isComparing}
+          />
         ) : (
           <NullCell isComparing={isComparing} />
         )
@@ -40,7 +44,11 @@ export const LoggedModelCell = (props: {
       second={
         isComparing &&
         (otherModelId ? (
-          <LoggedModelComponent experimentId={experimentId} modelId={otherModelId} isComparing={isComparing} />
+          <LoggedModelComponent
+            experimentId={getExperimentIdFromTraceLocation(otherTraceInfo?.trace_location)}
+            modelId={otherModelId}
+            isComparing={isComparing}
+          />
         ) : (
           <NullCell isComparing={isComparing} />
         ))
@@ -49,7 +57,7 @@ export const LoggedModelCell = (props: {
   );
 };
 
-const LoggedModelComponent = (props: { experimentId: string; modelId: string; isComparing: boolean }) => {
+const LoggedModelComponent = (props: { experimentId?: string; modelId: string; isComparing: boolean }) => {
   const { experimentId, modelId, isComparing } = props;
   const { theme } = useDesignSystemTheme();
 
@@ -68,39 +76,58 @@ const LoggedModelComponent = (props: { experimentId: string; modelId: string; is
     return <NullCell isComparing={isComparing} />;
   }
 
+  const content = (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        maxWidth: '100%',
+      }}
+    >
+      <ModelsIcon css={{ color: theme.colors.textPrimary, fontSize: 16 }} />
+      <Typography.Text css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {modelName}
+      </Typography.Text>
+    </div>
+  );
+
   return (
     <Tooltip componentId="mlflow.eval-runs.model-version-cell-tooltip" content={modelName}>
       <Tag
         componentId="mlflow.eval-runs.model-version-cell"
         id="model-version-cell"
-        css={{ width: 'fit-content', maxWidth: '100%', marginRight: 0, cursor: 'pointer' }}
+        css={{ width: 'fit-content', maxWidth: '100%', marginRight: 0, cursor: experimentId ? 'pointer' : undefined }}
       >
-        <Link
-          to={MlflowUtils.getLoggedModelPageRoute(experimentId, modelId)}
-          target="_blank"
-          css={{
-            maxWidth: '100%',
-            display: 'block',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-          title={modelName}
-        >
-          <div
+        {experimentId ? (
+          <Link
+            to={MlflowUtils.getLoggedModelPageRoute(experimentId, modelId)}
+            target="_blank"
             css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.xs,
               maxWidth: '100%',
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
+            title={modelName}
           >
-            <ModelsIcon css={{ color: theme.colors.textPrimary, fontSize: 16 }} />
-            <Typography.Text css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {modelName}
-            </Typography.Text>
-          </div>
-        </Link>
+            {content}
+          </Link>
+        ) : (
+          <span
+            css={{
+              maxWidth: '100%',
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={modelName}
+          >
+            {content}
+          </span>
+        )}
       </Tag>
     </Tooltip>
   );
