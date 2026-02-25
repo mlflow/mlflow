@@ -33,11 +33,19 @@ def _compute_window_start(
     """Compute the start of the current fixed window for a given policy.
 
     Windows are aligned to:
+    - MINUTES: aligned to epoch minutes
     - HOURS: aligned to epoch hours (e.g., duration_value=2 → 0:00, 2:00, 4:00, …)
     - DAYS: aligned to epoch days (e.g., duration_value=7 → weekly from epoch)
     - MONTHS: aligned to first of the month
     """
-    if duration_type == BudgetDurationType.HOURS:
+    if duration_type == BudgetDurationType.MINUTES:
+        epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        minutes_since_epoch = (now - epoch).total_seconds() / 60
+        window_index = int(minutes_since_epoch) // duration_value
+        window_start_minutes = window_index * duration_value
+        return epoch + timedelta(minutes=window_start_minutes)
+
+    elif duration_type == BudgetDurationType.HOURS:
         epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
         hours_since_epoch = (now - epoch).total_seconds() / 3600
         window_index = int(hours_since_epoch) // duration_value
@@ -73,7 +81,9 @@ def _compute_window_end(
     window_start: datetime,
 ) -> datetime:
     """Compute the end of the current fixed window."""
-    if duration_type == BudgetDurationType.HOURS:
+    if duration_type == BudgetDurationType.MINUTES:
+        return window_start + timedelta(minutes=duration_value)
+    elif duration_type == BudgetDurationType.HOURS:
         return window_start + timedelta(hours=duration_value)
     elif duration_type == BudgetDurationType.DAYS:
         return window_start + timedelta(days=duration_value)
@@ -96,7 +106,7 @@ class _BudgetWindow:
     policy: GatewayBudgetPolicy
     window_start: datetime
     window_end: datetime
-    cumulative_cost_usd: float = 0.0
+    cumulative_spend: float = 0.0
     crossed: bool = False
 
 
@@ -185,17 +195,17 @@ class BudgetTracker:
                         window.policy.duration_value,
                         window.window_start,
                     )
-                    window.cumulative_cost_usd = 0.0
+                    window.cumulative_spend = 0.0
                     window.crossed = False
 
                 if not _policy_applies(window.policy, workspace):
                     continue
 
-                window.cumulative_cost_usd += cost_usd
+                window.cumulative_spend += cost_usd
 
                 if (
                     not window.crossed
-                    and window.cumulative_cost_usd >= window.policy.limit_usd
+                    and window.cumulative_spend >= window.policy.budget_amount
                 ):
                     window.crossed = True
                     newly_crossed.append(window)
@@ -225,13 +235,10 @@ class BudgetTracker:
                 if not _policy_applies(window.policy, workspace):
                     continue
 
-                if window.policy.on_exceeded not in (
-                    BudgetOnExceeded.REJECT,
-                    BudgetOnExceeded.ALERT_AND_REJECT,
-                ):
+                if window.policy.on_exceeded != BudgetOnExceeded.REJECT:
                     continue
 
-                if window.cumulative_cost_usd >= window.policy.limit_usd:
+                if window.cumulative_spend >= window.policy.budget_amount:
                     return True, window.policy
 
         return False, None
