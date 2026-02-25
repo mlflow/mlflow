@@ -102,7 +102,7 @@ const renderComponent = (props = {}) => {
             <QueryClientProvider client={queryClient}>
               <DesignSystemProvider>
                 <GenAITracesTableProvider isGroupedBySession={false}>
-                  <TracesV3Logs experimentId="test-experiment" endpointName="test-endpoint" {...props} />
+                  <TracesV3Logs experimentIds={['test-experiment']} endpointName="test-endpoint" {...props} />
                 </GenAITracesTableProvider>
               </DesignSystemProvider>
             </QueryClientProvider>
