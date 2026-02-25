@@ -16,7 +16,7 @@ const MLFLOW_NOTEBOOK_TYPE = 'NOTEBOOK';
 const MLFLOW_EXPERIMENT_TYPE = 'MLFLOW_EXPERIMENT';
 
 const EXPERIMENT_TYPE_TAG = 'mlflow.experimentType';
-const EXPERIMENT_SOURCE_TYPE_TAG = 'mlflow.experiment.sourceType';
+export const EXPERIMENT_SOURCE_TYPE_TAG = 'mlflow.experiment.sourceType';
 const EXPERIMENT_SOURCE_ID_TAG = 'mlflow.experiment.sourceId';
 
 enum ExperimentSourceType {
