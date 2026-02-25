@@ -653,9 +653,7 @@ class RestGatewayStoreMixin:
         self,
         budget_policy_id: str,
     ) -> GatewayBudgetPolicy:
-        req_body = message_to_json(
-            GetGatewayBudgetPolicy(budget_policy_id=budget_policy_id)
-        )
+        req_body = message_to_json(GetGatewayBudgetPolicy(budget_policy_id=budget_policy_id))
         response_proto = self._call_endpoint(GetGatewayBudgetPolicy, req_body)
         return GatewayBudgetPolicy.from_proto(response_proto.budget_policy)
 
@@ -686,9 +684,7 @@ class RestGatewayStoreMixin:
         return GatewayBudgetPolicy.from_proto(response_proto.budget_policy)
 
     def delete_budget_policy(self, budget_policy_id: str) -> None:
-        req_body = message_to_json(
-            DeleteGatewayBudgetPolicy(budget_policy_id=budget_policy_id)
-        )
+        req_body = message_to_json(DeleteGatewayBudgetPolicy(budget_policy_id=budget_policy_id))
         self._call_endpoint(DeleteGatewayBudgetPolicy, req_body)
 
     def list_budget_policies(

@@ -40,14 +40,14 @@ from mlflow.entities import (
     Workspace,
     WorkspaceDeletionMode,
 )
+from mlflow.entities import (
+    RoutingStrategy as RoutingStrategyEntity,
+)
 from mlflow.entities.gateway_budget_policy import (
     BudgetDurationType,
     BudgetOnExceeded,
     BudgetTargetType,
     BudgetType,
-)
-from mlflow.entities import (
-    RoutingStrategy as RoutingStrategyEntity,
 )
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
