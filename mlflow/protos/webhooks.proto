@@ -133,6 +133,7 @@ enum WebhookEntity {
   PROMPT_TAG = 7; // Prompt tag entity
   PROMPT_VERSION_TAG = 8; // Prompt version tag entity
   PROMPT_ALIAS = 9; // Prompt alias entity
+  BUDGET_POLICY = 10; // Budget policy entity
 }
 
 // Webhook action types
@@ -142,6 +143,7 @@ enum WebhookAction {
   UPDATED = 2; // Entity was updated
   DELETED = 3; // Entity was deleted
   SET = 4; // Entity was set (e.g., tag set)
+  CROSSED = 5; // Budget limit was crossed
 }
 
 // Webhook event definition

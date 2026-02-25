@@ -460,6 +460,61 @@ class PromptAliasDeletedPayload(TypedDict):
         )
 
 
+class BudgetPolicyCrossedPayload(TypedDict):
+    """Payload sent when a budget policy limit is crossed.
+
+    Example payload:
+
+    .. code-block:: python
+
+        {
+            "budget_policy_id": "bp-abc123",
+            "budget_policy_name": "dev-team-monthly",
+            "limit_usd": 100.0,
+            "current_spend_usd": 105.50,
+            "duration_type": "MONTHS",
+            "duration_value": 1,
+            "target_type": "WORKSPACE",
+            "workspace": "default",
+            "window_start": 1704067200000,
+        }
+
+    """
+
+    budget_policy_id: str
+    """The unique identifier of the budget policy."""
+    budget_policy_name: str
+    """The name of the budget policy."""
+    limit_usd: float
+    """The budget limit in USD."""
+    current_spend_usd: float
+    """The current cumulative spend in USD when the limit was crossed."""
+    duration_type: str
+    """The duration type (HOURS, DAYS, MONTHS)."""
+    duration_value: int
+    """The duration value."""
+    target_type: str
+    """The target type (GLOBAL or WORKSPACE)."""
+    workspace: str
+    """The workspace this budget applies to."""
+    window_start: int
+    """The start timestamp (milliseconds) of the current budget window."""
+
+    @classmethod
+    def example(cls) -> "BudgetPolicyCrossedPayload":
+        return cls(
+            budget_policy_id="bp-abc123",
+            budget_policy_name="dev-team-monthly",
+            limit_usd=100.0,
+            current_spend_usd=105.50,
+            duration_type="MONTHS",
+            duration_value=1,
+            target_type="WORKSPACE",
+            workspace="default",
+            window_start=1704067200000,
+        )
+
+
 WebhookPayload: TypeAlias = (
     RegisteredModelCreatedPayload
     | ModelVersionCreatedPayload
@@ -475,6 +530,7 @@ WebhookPayload: TypeAlias = (
     | PromptVersionTagDeletedPayload
     | PromptAliasCreatedPayload
     | PromptAliasDeletedPayload
+    | BudgetPolicyCrossedPayload
 )
 
 # Mapping of (entity, action) tuples to their corresponding payload classes
@@ -493,6 +549,7 @@ EVENT_TO_PAYLOAD_CLASS: dict[tuple[WebhookEntity, WebhookAction], type[WebhookPa
     (WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.DELETED): PromptVersionTagDeletedPayload,
     (WebhookEntity.PROMPT_ALIAS, WebhookAction.CREATED): PromptAliasCreatedPayload,
     (WebhookEntity.PROMPT_ALIAS, WebhookAction.DELETED): PromptAliasDeletedPayload,
+    (WebhookEntity.BUDGET_POLICY, WebhookAction.CROSSED): BudgetPolicyCrossedPayload,
 }
 
 
