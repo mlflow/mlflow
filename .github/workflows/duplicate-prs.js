@@ -1,15 +1,13 @@
 // Label duplicate community PRs that reference the same issue
 // Only considers PRs opened in the last 14 days
-// Adds 'duplicate' label to all PRs in a duplicate group
+// Keeps the oldest PR and labels newer ones as duplicates
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DAYS_TO_CONSIDER = 14;
 const DUPLICATE_LABEL = "duplicate";
 
-const duplicateMessage = (issueNumber, otherPRs) => {
-  const prList = otherPRs.map((pr) => `#${pr}`).join(", ");
-  return `This PR appears to reference the same issue (#${issueNumber}) as ${prList}. If your change is already covered, please consider closing this PR.`;
-};
+const duplicateMessage = (issueNumber, keeperPR) =>
+  `This PR appears to reference the same issue (#${issueNumber}) as #${keeperPR} (opened earlier). If your change is already covered, please consider closing this PR.`;
 
 // GraphQL query to fetch open PRs created in the last 14 days
 const QUERY = `
@@ -129,11 +127,11 @@ module.exports = async ({ context, github }) => {
       // Sort PRs by creation date (oldest first)
       prs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-      // Label and comment on all PRs in the duplicate group
-      for (const pr of prs) {
-        // Get list of other PR numbers in this group
-        const otherPRs = prs.filter((p) => p.number !== pr.number).map((p) => p.number);
+      // Keep the oldest PR, label the rest as duplicates
+      const [keeper, ...duplicates] = prs;
+      console.log(`  Keeping PR #${keeper.number} (oldest, created ${keeper.createdAt})`);
 
+      for (const pr of duplicates) {
         console.log(`  Labeling PR #${pr.number} as duplicate (created ${pr.createdAt})`);
 
         // Add duplicate label
@@ -149,7 +147,7 @@ module.exports = async ({ context, github }) => {
           owner,
           repo,
           issue_number: pr.number,
-          body: duplicateMessage(issueNumber, otherPRs),
+          body: duplicateMessage(issueNumber, keeper.number),
         });
 
         labelCount++;
