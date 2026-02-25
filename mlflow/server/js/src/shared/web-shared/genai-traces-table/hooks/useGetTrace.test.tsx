@@ -2,8 +2,8 @@ import { describe, beforeEach, afterEach, jest, test, expect } from '@jest/globa
 import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 
-import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import type { ModelTrace, ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 
 import type { GetTraceFunction } from './useGetTrace';
 import { useGetTrace } from './useGetTrace';

@@ -55,7 +55,7 @@ const getTestExperiment = async (isCompressed: boolean) => {
 describe('useSharedExperimentViewState', () => {
   const uiStateSetterMock = jest.fn();
   const updateSearchFacetsMock = jest.fn();
-  const navigateMock = jest.fn<ReturnType<typeof useNavigate>>();
+  const navigateMock = jest.fn();
 
   const renderHookWithIntl = (hook: () => ReturnType<typeof useSharedExperimentViewState>) => {
     return renderHook(hook, { wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider> });
@@ -64,7 +64,7 @@ describe('useSharedExperimentViewState', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), jest.fn()]);
-    jest.mocked(useNavigate).mockReturnValue(navigateMock as unknown as NavigateFunction);
+    jest.mocked(useNavigate).mockReturnValue(navigateMock as ReturnType<typeof useNavigate>);
     jest.mocked(useUpdateExperimentPageSearchFacets).mockReturnValue(updateSearchFacetsMock);
   });
 

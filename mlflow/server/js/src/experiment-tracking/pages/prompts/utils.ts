@@ -147,7 +147,6 @@ export const getModelConfigFromTags = (tags?: KeyValueEntity[]): PromptModelConf
   try {
     return JSON.parse(configTag.value) as PromptModelConfig;
   } catch (error) {
-    console.error('Failed to parse model config:', error);
     return undefined;
   }
 };

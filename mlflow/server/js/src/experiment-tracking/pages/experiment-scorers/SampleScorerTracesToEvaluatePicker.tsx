@@ -1,6 +1,6 @@
 import { Button } from '@databricks/design-system';
 
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage } from '@databricks/i18n';
 import { useState } from 'react';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { SelectTracesModal } from '../../components/SelectTracesModal';

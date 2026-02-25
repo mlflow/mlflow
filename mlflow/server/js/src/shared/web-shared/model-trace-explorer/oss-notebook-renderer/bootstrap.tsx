@@ -2,8 +2,8 @@ import React, { useMemo } from 'react';
 import ReactDOM from 'react-dom';
 
 import { IntlProvider } from '@databricks/i18n';
-import { SupportsDuBoisThemes } from '@databricks/web-shared/design-system';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { SupportsDuBoisThemes } from '../../design-system/SupportsDuBoisThemes';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 import { setActiveWorkspace } from '@mlflow/mlflow/src/workspaces/utils/WorkspaceUtils';
 import '@databricks/design-system/dist/index.css';
 import '@databricks/design-system/dist/index-dark.css';
@@ -18,7 +18,7 @@ if (workspaceParam) {
 }
 
 const LazyModelTraceExplorer = React.lazy(() =>
-  import('@databricks/web-shared/model-trace-explorer').then((module) => ({
+  import('../index').then((module) => ({
     default: module.ModelTraceExplorerOSSNotebookRenderer,
   })),
 );
@@ -50,35 +50,8 @@ const DesignSystemProviders: React.FC<React.PropsWithChildren<unknown>> = ({ chi
   );
 };
 
-const FLAG_OVERRIDES: Record<string, boolean> = {
-  // without this, the tags look really ugly in OSS
-  'databricks.fe.designsystem.useNewTagColors': true,
-  'databricks.fe.traceExplorer.enableSummaryView': true,
-};
-
 export const AppComponent = () => {
   const queryClient = useMemo(() => new QueryClient(), []);
-
-  // hack to silence console warnings in OSS
-  if (!(window as any).__databricks_mfe_rpc) {
-    Object.defineProperty(window, '__databricks_mfe_rpc', {
-      configurable: false,
-      writable: false,
-      value: {
-        // mock all safex calls to return their default value
-        makeCall: (id: string, args: any) => {
-          if (args?.flagName in FLAG_OVERRIDES) {
-            return FLAG_OVERRIDES[args?.flagName];
-          }
-
-          return args?.defaultValue;
-        },
-        hasHandlerFor: () => true,
-        registerHandler: () => {},
-        unregisterHandler: () => {},
-      },
-    });
-  }
 
   return (
     <React.Suspense fallback={null}>

@@ -217,4 +217,4 @@ export const TEMPLATE_INSTRUCTIONS_MAP: Record<string, string> = {
 
   // Custom template has no default instructions
   [LLM_TEMPLATE.CUSTOM]: '',
-};
+} satisfies Record<string, string>;
