@@ -1,0 +1,143 @@
+---
+title: Budget Alerts & Limits
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Budget Alerts & Limits
+
+Budget policies let you control AI Gateway spending by setting cost thresholds with automatic alerts and request rejection. Each policy defines a dollar amount, a time window, and an action to take when the threshold is crossed.
+
+## Key Concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Budget Amount** | The spending threshold in USD for the time window |
+| **Duration** | The fixed time window: minutes, hours, days, or months |
+| **Target Scope** | `GLOBAL` (all requests) or `WORKSPACE` (scoped to a specific workspace) |
+| **On Exceeded** | `ALERT` sends a webhook notification; `REJECT` blocks requests with HTTP 429 |
+
+## Creating a Budget Policy
+
+Budget policies require admin privileges. Use the REST API to create a policy:
+
+```bash
+curl -X POST http://localhost:5000/api/3.0/mlflow/gateway/budgets/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "budget_type": "USD",
+    "budget_amount": 500.0,
+    "duration_type": "MONTHS",
+    "duration_value": 1,
+    "target_type": "GLOBAL",
+    "on_exceeded": "ALERT"
+  }'
+```
+
+### Create Request Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `budget_type` | string | Yes | Budget measurement type. Currently only `USD` |
+| `budget_amount` | double | Yes | Spending limit in the specified currency |
+| `duration_type` | string | Yes | Window type: `MINUTES`, `HOURS`, `DAYS`, or `MONTHS` |
+| `duration_value` | int | Yes | Window length in units of `duration_type` |
+| `target_type` | string | Yes | `GLOBAL` or `WORKSPACE` |
+| `on_exceeded` | string | Yes | `ALERT` (webhook only) or `REJECT` (block requests) |
+
+## Managing Policies
+
+### List all policies
+
+```bash
+curl http://localhost:5000/api/3.0/mlflow/gateway/budgets/list
+```
+
+### Get a specific policy
+
+```bash
+curl http://localhost:5000/api/3.0/mlflow/gateway/budgets/get?budget_policy_id=bp-abc123
+```
+
+### Update a policy
+
+Only the fields you include will be updated:
+
+```bash
+curl -X POST http://localhost:5000/api/3.0/mlflow/gateway/budgets/update \
+  -H "Content-Type: application/json" \
+  -d '{
+    "budget_policy_id": "bp-abc123",
+    "budget_amount": 1000.0
+  }'
+```
+
+### Delete a policy
+
+```bash
+curl -X DELETE http://localhost:5000/api/3.0/mlflow/gateway/budgets/delete \
+  -H "Content-Type: application/json" \
+  -d '{"budget_policy_id": "bp-abc123"}'
+```
+
+## Alert Behavior
+
+When an `ALERT` policy's threshold is crossed, the gateway fires a webhook with details about the breach. Requests continue to be processed normally.
+
+The webhook payload includes:
+
+```json
+{
+  "budget_policy_id": "bp-abc123",
+  "budget_type": "USD",
+  "budget_amount": 500.0,
+  "current_spend": 523.40,
+  "duration_type": "MONTHS",
+  "duration_value": 1,
+  "target_type": "GLOBAL",
+  "workspace": "default",
+  "window_start": 1704067200000
+}
+```
+
+The alert fires once per window — subsequent requests within the same window do not trigger additional webhooks.
+
+## Reject Behavior
+
+When a `REJECT` policy's threshold is crossed, the gateway blocks all subsequent requests to AI Gateway endpoints with an HTTP 429 response:
+
+```
+HTTP/1.1 429 Too Many Requests
+
+{
+  "detail": "Budget limit exceeded for policy 'bp-abc123'. Limit: $500.00 USD per 1 months. Request rejected."
+}
+```
+
+Requests resume automatically when the current time window expires and a new window begins.
+
+## Time Windows
+
+Budget windows are fixed intervals aligned to the epoch (January 1, 1970 UTC):
+
+- **Minutes** — e.g., `duration_value=15` creates 15-minute windows aligned to :00, :15, :30, :45
+- **Hours** — e.g., `duration_value=2` creates 2-hour windows aligned to 0:00, 2:00, 4:00, etc.
+- **Days** — e.g., `duration_value=7` creates weekly windows aligned to the epoch
+- **Months** — e.g., `duration_value=1` creates windows starting on the 1st of each month
+
+Accumulated spend resets to zero at the start of each new window. Budget tracking is in-memory and resets on server restart.
+
+## Authorization
+
+- **Read access** (list, get): All authenticated users
+- **Write access** (create, update, delete): Admin users only
+
+Non-admin users who attempt to create, update, or delete a budget policy receive an HTTP 403 response.
+
+## Best Practices
+
+- **Start with `ALERT`** to observe spending patterns before enforcing hard limits with `REJECT`
+- **Combine policies** — use an `ALERT` policy at 80% of your budget alongside a `REJECT` policy at 100% for early warning before cutoff
+- **Use workspace-scoped policies** to set different limits for different teams or projects
+- **Set short windows for testing** (e.g., `MINUTES` / 5) to verify alert and rejection behavior before deploying longer windows
