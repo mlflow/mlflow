@@ -1249,9 +1249,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             if budget_type is not None:
                 sql_budget_policy.budget_type = (
-                    budget_type.value
-                    if isinstance(budget_type, BudgetType)
-                    else budget_type
+                    budget_type.value if isinstance(budget_type, BudgetType) else budget_type
                 )
             if budget_amount is not None:
                 sql_budget_policy.budget_amount = budget_amount
@@ -1265,15 +1263,11 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_budget_policy.duration_value = duration_value
             if target_type is not None:
                 sql_budget_policy.target_type = (
-                    target_type.value
-                    if isinstance(target_type, BudgetTargetType)
-                    else target_type
+                    target_type.value if isinstance(target_type, BudgetTargetType) else target_type
                 )
             if on_exceeded is not None:
                 sql_budget_policy.on_exceeded = (
-                    on_exceeded.value
-                    if isinstance(on_exceeded, BudgetOnExceeded)
-                    else on_exceeded
+                    on_exceeded.value if isinstance(on_exceeded, BudgetOnExceeded) else on_exceeded
                 )
 
             sql_budget_policy.last_updated_at = get_current_time_millis()
