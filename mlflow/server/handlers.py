@@ -44,10 +44,10 @@ from mlflow.entities import (
     RoutingStrategy as RoutingStrategyEntity,
 )
 from mlflow.entities.gateway_budget_policy import (
-    BudgetDurationType,
-    BudgetOnExceeded,
+    BudgetAction,
+    BudgetDurationUnit,
     BudgetTargetType,
-    BudgetType,
+    BudgetUnit,
 )
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -5087,12 +5087,12 @@ def _create_budget_policy():
         },
     )
     policy = _get_tracking_store().create_budget_policy(
-        budget_type=BudgetType.from_proto(request_message.budget_type),
+        budget_unit=BudgetUnit.from_proto(request_message.budget_unit),
         budget_amount=request_message.budget_amount,
-        duration_type=BudgetDurationType.from_proto(request_message.duration_type),
+        duration_unit=BudgetDurationUnit.from_proto(request_message.duration_unit),
         duration_value=request_message.duration_value,
         target_type=BudgetTargetType.from_proto(request_message.target_type),
-        on_exceeded=BudgetOnExceeded.from_proto(request_message.on_exceeded),
+        budget_action=BudgetAction.from_proto(request_message.budget_action),
         created_by=request_message.created_by or None,
     )
     response_message = CreateGatewayBudgetPolicy.Response()
@@ -5129,14 +5129,14 @@ def _update_budget_policy():
     )
     policy = _get_tracking_store().update_budget_policy(
         budget_policy_id=request_message.budget_policy_id,
-        budget_type=BudgetType.from_proto(request_message.budget_type)
-        if request_message.HasField("budget_type")
+        budget_unit=BudgetUnit.from_proto(request_message.budget_unit)
+        if request_message.HasField("budget_unit")
         else None,
         budget_amount=request_message.budget_amount
         if request_message.HasField("budget_amount")
         else None,
-        duration_type=BudgetDurationType.from_proto(request_message.duration_type)
-        if request_message.HasField("duration_type")
+        duration_unit=BudgetDurationUnit.from_proto(request_message.duration_unit)
+        if request_message.HasField("duration_unit")
         else None,
         duration_value=request_message.duration_value
         if request_message.HasField("duration_value")
@@ -5144,8 +5144,8 @@ def _update_budget_policy():
         target_type=BudgetTargetType.from_proto(request_message.target_type)
         if request_message.HasField("target_type")
         else None,
-        on_exceeded=BudgetOnExceeded.from_proto(request_message.on_exceeded)
-        if request_message.HasField("on_exceeded")
+        budget_action=BudgetAction.from_proto(request_message.budget_action)
+        if request_message.HasField("budget_action")
         else None,
         updated_by=request_message.updated_by or None,
     )

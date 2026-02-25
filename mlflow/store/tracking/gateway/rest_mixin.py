@@ -16,10 +16,10 @@ from mlflow.entities import (
     RoutingStrategy,
 )
 from mlflow.entities.gateway_budget_policy import (
-    BudgetDurationType,
-    BudgetOnExceeded,
+    BudgetAction,
+    BudgetDurationUnit,
     BudgetTargetType,
-    BudgetType,
+    BudgetUnit,
     GatewayBudgetPolicy,
 )
 from mlflow.protos.service_pb2 import (
@@ -627,22 +627,22 @@ class RestGatewayStoreMixin:
 
     def create_budget_policy(
         self,
-        budget_type: BudgetType,
+        budget_unit: BudgetUnit,
         budget_amount: float,
-        duration_type: BudgetDurationType,
+        duration_unit: BudgetDurationUnit,
         duration_value: int,
         target_type: BudgetTargetType,
-        on_exceeded: BudgetOnExceeded,
+        budget_action: BudgetAction,
         created_by: str | None = None,
     ) -> GatewayBudgetPolicy:
         req_body = message_to_json(
             CreateGatewayBudgetPolicy(
-                budget_type=budget_type.to_proto(),
+                budget_unit=budget_unit.to_proto(),
                 budget_amount=budget_amount,
-                duration_type=duration_type.to_proto(),
+                duration_unit=duration_unit.to_proto(),
                 duration_value=duration_value,
                 target_type=target_type.to_proto(),
-                on_exceeded=on_exceeded.to_proto(),
+                budget_action=budget_action.to_proto(),
                 created_by=created_by,
             )
         )
@@ -660,23 +660,23 @@ class RestGatewayStoreMixin:
     def update_budget_policy(
         self,
         budget_policy_id: str,
-        budget_type: BudgetType | None = None,
+        budget_unit: BudgetUnit | None = None,
         budget_amount: float | None = None,
-        duration_type: BudgetDurationType | None = None,
+        duration_unit: BudgetDurationUnit | None = None,
         duration_value: int | None = None,
         target_type: BudgetTargetType | None = None,
-        on_exceeded: BudgetOnExceeded | None = None,
+        budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
     ) -> GatewayBudgetPolicy:
         req_body = message_to_json(
             UpdateGatewayBudgetPolicy(
                 budget_policy_id=budget_policy_id,
-                budget_type=budget_type.to_proto() if budget_type else None,
+                budget_unit=budget_unit.to_proto() if budget_unit else None,
                 budget_amount=budget_amount,
-                duration_type=duration_type.to_proto() if duration_type else None,
+                duration_unit=duration_unit.to_proto() if duration_unit else None,
                 duration_value=duration_value,
                 target_type=target_type.to_proto() if target_type else None,
-                on_exceeded=on_exceeded.to_proto() if on_exceeded else None,
+                budget_action=budget_action.to_proto() if budget_action else None,
                 updated_by=updated_by,
             )
         )
