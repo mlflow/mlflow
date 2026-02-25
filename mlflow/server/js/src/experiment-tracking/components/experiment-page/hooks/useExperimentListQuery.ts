@@ -8,7 +8,6 @@ import type { CursorPaginationProps } from '@databricks/design-system';
 import type { SortingState } from '@tanstack/react-table';
 import type { TagFilter } from './useTagsFilter';
 import { isDemoExperiment } from '../../../utils/isDemoExperiment';
-import { isGatewayExperiment } from '../utils/experimentPage.common-utils';
 
 const STORE_KEY = {
   PAGE_SIZE: 'experiments_page.page_size',
@@ -52,11 +51,10 @@ function getFilters({ searchFilter, tagsFilter }: Pick<ExperimentListQueryKey['1
     filters.push(tagFilterToSql(tagFilter));
   }
 
-  if (filters.length > 0) {
-    return ['filter', filters.join(' AND ')];
-  } else {
-    return undefined;
-  }
+  // Exclude gateway experiments server-side to ensure consistent page sizes
+  filters.push(`tags.\`mlflow.experiment.sourceType\` != 'GATEWAY'`);
+
+  return ['filter', filters.join(' AND ')];
 }
 
 const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => {
@@ -135,9 +133,8 @@ export const useExperimentListQuery = ({
   const sortedExperiments = useMemo(() => {
     const experiments = queryResult.data?.experiments;
     if (!experiments) return undefined;
-    const nonGateway = experiments.filter((e) => !isGatewayExperiment(e));
-    const demo = nonGateway.filter(isDemoExperiment);
-    const nonDemo = nonGateway.filter((e) => !isDemoExperiment(e));
+    const demo = experiments.filter(isDemoExperiment);
+    const nonDemo = experiments.filter((e) => !isDemoExperiment(e));
     return [...demo, ...nonDemo];
   }, [queryResult.data?.experiments]);
 
