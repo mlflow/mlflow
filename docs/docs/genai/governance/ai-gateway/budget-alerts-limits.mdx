@@ -16,7 +16,7 @@ Budget policies let you control AI Gateway spending by setting cost thresholds w
 | **Budget Amount** | The spending threshold in USD for the time window |
 | **Duration** | The fixed time window: minutes, hours, days, or months |
 | **Target Scope** | `GLOBAL` (all requests) or `WORKSPACE` (scoped to a specific workspace) |
-| **On Exceeded** | `ALERT` sends a webhook notification; `REJECT` blocks requests with HTTP 429 |
+| **Budget Action** | `ALERT` sends a webhook notification; `REJECT` blocks requests with HTTP 429 |
 
 ## Creating a Budget Policy
 
@@ -26,12 +26,12 @@ Budget policies require admin privileges. Use the REST API to create a policy:
 curl -X POST http://localhost:5000/api/3.0/mlflow/gateway/budgets/create \
   -H "Content-Type: application/json" \
   -d '{
-    "budget_type": "USD",
+    "budget_unit": "USD",
     "budget_amount": 500.0,
-    "duration_type": "MONTHS",
+    "duration_unit": "MONTHS",
     "duration_value": 1,
     "target_type": "GLOBAL",
-    "on_exceeded": "ALERT"
+    "budget_action": "ALERT"
   }'
 ```
 
@@ -39,12 +39,12 @@ curl -X POST http://localhost:5000/api/3.0/mlflow/gateway/budgets/create \
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `budget_type` | string | Yes | Budget measurement type. Currently only `USD` |
+| `budget_unit` | string | Yes | Budget measurement unit. Currently only `USD` |
 | `budget_amount` | double | Yes | Spending limit in the specified currency |
-| `duration_type` | string | Yes | Window type: `MINUTES`, `HOURS`, `DAYS`, or `MONTHS` |
-| `duration_value` | int | Yes | Window length in units of `duration_type` |
+| `duration_unit` | string | Yes | Window unit: `MINUTES`, `HOURS`, `DAYS`, or `MONTHS` |
+| `duration_value` | int | Yes | Window length in units of `duration_unit` |
 | `target_type` | string | Yes | `GLOBAL` or `WORKSPACE` |
-| `on_exceeded` | string | Yes | `ALERT` (webhook only) or `REJECT` (block requests) |
+| `budget_action` | string | Yes | `ALERT` (webhook only) or `REJECT` (block requests) |
 
 ## Managing Policies
 
@@ -90,10 +90,10 @@ The webhook payload includes:
 ```json
 {
   "budget_policy_id": "bp-abc123",
-  "budget_type": "USD",
+  "budget_unit": "USD",
   "budget_amount": 500.0,
   "current_spend": 523.40,
-  "duration_type": "MONTHS",
+  "duration_unit": "MONTHS",
   "duration_value": 1,
   "target_type": "GLOBAL",
   "workspace": "default",
