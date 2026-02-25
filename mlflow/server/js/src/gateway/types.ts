@@ -279,3 +279,58 @@ export interface UserInfo {
 export interface ListUsersResponse {
   users: UserInfo[];
 }
+
+// Budget Policy types
+export type DurationType = 'HOURS' | 'DAYS' | 'MONTHS';
+export type TargetType = 'GLOBAL' | 'WORKSPACE';
+export type OnExceededAction = 'ALERT' | 'REJECT' | 'ALERT_AND_REJECT';
+
+export interface BudgetPolicy {
+  budget_policy_id: string;
+  name: string;
+  limit_usd: number;
+  duration_type: DurationType;
+  duration_value: number;
+  target_type: TargetType;
+  on_exceeded: OnExceededAction;
+  created_at: number;
+  last_updated_at: number;
+  created_by?: string | null;
+  last_updated_by?: string | null;
+  workspace?: string | null;
+}
+
+export interface CreateBudgetPolicyRequest {
+  name: string;
+  limit_usd: number;
+  duration_type: DurationType;
+  duration_value: number;
+  target_type: TargetType;
+  on_exceeded: OnExceededAction;
+}
+
+export interface CreateBudgetPolicyResponse {
+  budget_policy: BudgetPolicy;
+}
+
+export interface GetBudgetPolicyResponse {
+  budget_policy: BudgetPolicy;
+}
+
+export interface UpdateBudgetPolicyRequest {
+  budget_policy_id: string;
+  name?: string;
+  limit_usd?: number;
+  duration_type?: DurationType;
+  duration_value?: number;
+  target_type?: TargetType;
+  on_exceeded?: OnExceededAction;
+}
+
+export interface UpdateBudgetPolicyResponse {
+  budget_policy: BudgetPolicy;
+}
+
+export interface ListBudgetPoliciesResponse {
+  budget_policies: BudgetPolicy[];
+}

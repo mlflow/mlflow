@@ -30,6 +30,12 @@ import type {
   ListEndpointBindingsResponse,
   SecretsConfigResponse,
   ListUsersResponse,
+  CreateBudgetPolicyRequest,
+  CreateBudgetPolicyResponse,
+  GetBudgetPolicyResponse,
+  UpdateBudgetPolicyRequest,
+  UpdateBudgetPolicyResponse,
+  ListBudgetPoliciesResponse,
 } from './types';
 
 const defaultErrorHandler = async ({
@@ -304,5 +310,50 @@ export const GatewayApi = {
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/secrets/config',
       error: defaultErrorHandler,
     }) as Promise<SecretsConfigResponse>;
+  },
+
+  // Budget Policies Management
+  createBudgetPolicy: (request: CreateBudgetPolicyRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/2.0/mlflow/gateway/budgets/create',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<CreateBudgetPolicyResponse>;
+  },
+
+  getBudgetPolicy: (budgetPolicyId: string) => {
+    const params = new URLSearchParams();
+    params.append('budget_policy_id', budgetPolicyId);
+    const relativeUrl = ['ajax-api/2.0/mlflow/gateway/budgets/get', params.toString()].join('?');
+    return fetchEndpoint({
+      relativeUrl,
+      error: defaultErrorHandler,
+    }) as Promise<GetBudgetPolicyResponse>;
+  },
+
+  updateBudgetPolicy: (request: UpdateBudgetPolicyRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/2.0/mlflow/gateway/budgets/update',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<UpdateBudgetPolicyResponse>;
+  },
+
+  deleteBudgetPolicy: (budgetPolicyId: string) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/2.0/mlflow/gateway/budgets/delete',
+      method: 'DELETE',
+      body: JSON.stringify({ budget_policy_id: budgetPolicyId }),
+      error: defaultErrorHandler,
+    });
+  },
+
+  listBudgetPolicies: () => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/2.0/mlflow/gateway/budgets/list',
+      error: defaultErrorHandler,
+    }) as Promise<ListBudgetPoliciesResponse>;
   },
 };
