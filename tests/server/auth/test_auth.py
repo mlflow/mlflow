@@ -1731,12 +1731,12 @@ def test_gateway_budget_policy_admin_only(client, monkeypatch):
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/budgets/create",
             json={
-                "budget_type": "USD",
+                "budget_unit": "USD",
                 "budget_amount": 100.0,
-                "duration_type": "DAYS",
+                "duration_unit": "DAYS",
                 "duration_value": 30,
                 "target_type": "GLOBAL",
-                "on_exceeded": "ALERT",
+                "budget_action": "ALERT",
             },
             auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
         )
@@ -1765,12 +1765,12 @@ def test_gateway_budget_policy_admin_only(client, monkeypatch):
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/budgets/create",
             json={
-                "budget_type": "USD",
+                "budget_unit": "USD",
                 "budget_amount": 50.0,
-                "duration_type": "DAYS",
+                "duration_unit": "DAYS",
                 "duration_value": 7,
                 "target_type": "GLOBAL",
-                "on_exceeded": "REJECT",
+                "budget_action": "REJECT",
             },
             auth=(user1, password1),
         )
