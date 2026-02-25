@@ -23,6 +23,7 @@ The deployment architecture has a couple of advantages:
   - Public traffic is encrypted using HTTPS, ensuring secure communication between clients and the application endpoint.
   - The Azure blob data container blocks all public access and MLflow server uses access key for secure access to the blob storage.
   - VPC Isolation and VPC Security Groups: Application containers run in private subnets, preventing direct exposure to the public internet, only the load balancer can access the Azure container App task that runs MLflow server, there is no unnecessary inbound exposure.
+  - The architecture can integrate with MLflow authentication configurations.
 
 - **Operational Simplicity**
   - Serverless Compute (Azure Container App), no virtual machine instances to manage, patch, or scale manually.
@@ -77,6 +78,14 @@ Basic configurations:
 - Target port: 5000
 
 After creating the container application, in the container app configuration page, select menu Application -> Scale, and set both "Min replicas" and "Max replicas" to 1, and then click "Save as a new revision" button to make this configuration effective. We only need to run 1 MLflow server task at a time. This replica configuration guarantees that only one replica is running at a time. If a replica crashes, a new replica will be automatically started to replace it.
+
+### Integration with MLflow authentication
+
+MLflow supports [basic authentication](https://mlflow.org/docs/latest/self-hosting/security/basic-http-auth/) and [authentication with OIDC plugin](https://mlflow.org/docs/latest/self-hosting/security/sso/#using-oidc-plugin), the 2 kinds of authentication settings require:
+
+- Additional pip package installation: Inject it as a `pip install` command into the "Basic configurations / Arguments override" setting.
+- Additional environment variable settings: Set them as the environment variables of the Azure container app.
+- Additional mlflow server CLI options: Append them in the "Basic configurations / Arguments override" setting.
 
 ## Step 5:
 
