@@ -135,7 +135,7 @@ pip install 'mlflow[genai]' openai
   </TabItem>
   <TabItem value="typescript" label="TypeScript">
 ```bash
-npm install mlflow-openai openai
+npm install @mlflow/openai openai
 ```
   </TabItem>
 </Tabs>
@@ -187,8 +187,8 @@ print(response.choices[0].message.content)
     Initialize MLflow tracing with `init()` and wrap the OpenAI client with the `tracedOpenAI` function.
 
 ```typescript
-import { init } from "mlflow-tracing";
-import { tracedOpenAI } from "mlflow-openai";
+import { init } from "@mlflow/core";
+import { tracedOpenAI } from "@mlflow/openai";
 import { OpenAI } from "openai";
 
 // Initialize MLflow tracing
@@ -264,8 +264,8 @@ print(answer)
   <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import { init, trace, SpanType } from "mlflow-tracing";
-import { tracedOpenAI } from "mlflow-openai";
+import { init, trace, SpanType } from "@mlflow/core";
+import { tracedOpenAI } from "@mlflow/openai";
 import { OpenAI } from "openai";
 
 init({
