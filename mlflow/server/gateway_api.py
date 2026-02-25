@@ -387,6 +387,122 @@ def _validate_store(store: AbstractStore) -> None:
         )
 
 
+def _maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
+    """Refresh budget policies from the database if stale."""
+    from mlflow.gateway.budget_tracker import get_budget_tracker
+
+    tracker = get_budget_tracker()
+    if tracker.needs_refresh():
+        try:
+            policies = store.list_budget_policies()
+            tracker.load_policies(policies)
+        except Exception:
+            _logger.debug("Failed to refresh budget policies", exc_info=True)
+
+
+def _maybe_record_budget_cost(
+    store: SqlAlchemyStore,
+    response: Any,
+    model_name: str | None = None,
+    model_provider: str | None = None,
+    workspace: str | None = None,
+) -> None:
+    """Record cost from a gateway response against budget policies.
+
+    Extracts token usage from the response, calculates cost via LiteLLM,
+    records it in the budget tracker, and fires webhooks for newly-crossed
+    budget windows.
+
+    This is a best-effort operation; errors are logged but not raised.
+    """
+    from mlflow.gateway.budget_tracker import get_budget_tracker
+    from mlflow.tracing.constant import CostKey, TokenUsageKey
+    from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
+
+    try:
+        # Extract token usage from response
+        usage_dict = None
+        if hasattr(response, "usage") and response.usage is not None:
+            usage = response.usage
+            usage_dict = {}
+            if hasattr(usage, "prompt_tokens") and usage.prompt_tokens is not None:
+                usage_dict[TokenUsageKey.INPUT_TOKENS] = usage.prompt_tokens
+            if hasattr(usage, "completion_tokens") and usage.completion_tokens is not None:
+                usage_dict[TokenUsageKey.OUTPUT_TOKENS] = usage.completion_tokens
+            if hasattr(usage, "total_tokens") and usage.total_tokens is not None:
+                usage_dict[TokenUsageKey.TOTAL_TOKENS] = usage.total_tokens
+        elif isinstance(response, dict):
+            raw_usage = response.get("usage")
+            if raw_usage:
+                usage_dict = {
+                    TokenUsageKey.INPUT_TOKENS: raw_usage.get(
+                        "prompt_tokens", raw_usage.get("input_tokens", 0)
+                    ),
+                    TokenUsageKey.OUTPUT_TOKENS: raw_usage.get(
+                        "completion_tokens", raw_usage.get("output_tokens", 0)
+                    ),
+                }
+
+        if not usage_dict:
+            return
+
+        cost = calculate_cost_by_model_and_token_usage(
+            model_name=model_name,
+            usage=usage_dict,
+            model_provider=model_provider,
+        )
+        if not cost:
+            return
+
+        total_cost = cost.get(CostKey.TOTAL_COST, 0.0)
+        if total_cost <= 0:
+            return
+
+        _maybe_refresh_budget_policies(store)
+        tracker = get_budget_tracker()
+        newly_crossed = tracker.record_cost(total_cost, workspace=workspace)
+
+        # Fire webhooks for newly-crossed budget windows
+        if newly_crossed:
+            _fire_budget_crossed_webhooks(newly_crossed, workspace)
+    except Exception:
+        _logger.debug("Failed to record budget cost", exc_info=True)
+
+
+def _fire_budget_crossed_webhooks(newly_crossed: list, workspace: str | None) -> None:
+    """Fire budget_crossed webhooks for newly-crossed budget windows."""
+    from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
+    from mlflow.server.handlers import _get_model_registry_store
+    from mlflow.webhooks.delivery import deliver_webhook
+    from mlflow.webhooks.types import BudgetPolicyCrossedPayload
+
+    try:
+        registry_store = _get_model_registry_store()
+    except Exception:
+        _logger.debug("Failed to get model registry store for webhook delivery", exc_info=True)
+        return
+
+    event = WebhookEvent(WebhookEntity.BUDGET_POLICY, WebhookAction.CROSSED)
+
+    for window in newly_crossed:
+        policy = window.policy
+        if policy.on_exceeded.value not in ("ALERT", "ALERT_AND_REJECT"):
+            continue
+
+        payload = BudgetPolicyCrossedPayload(
+            budget_policy_id=policy.budget_policy_id,
+            budget_policy_name=policy.name,
+            limit_usd=policy.limit_usd,
+            current_spend_usd=window.cumulative_cost_usd,
+            duration_type=policy.duration_type.value,
+            duration_value=policy.duration_value,
+            target_type=policy.target_type.value,
+            workspace=workspace or (policy.workspace or "default"),
+            window_start=int(window.window_start.timestamp() * 1000),
+        )
+        deliver_webhook(event=event, payload=payload, store=registry_store)
+
+
 def _extract_endpoint_name_from_model(body: dict[str, Any]) -> str:
     """
     Extract and validate the endpoint name from the 'model' parameter in the request body.
