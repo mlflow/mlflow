@@ -50,6 +50,7 @@ import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
 import { escapeCssSpecialCharacters, highlightSearchInText } from '../utils/DisplayUtils';
 import {
   convertFeedbackAssessmentToRunEvalAssessment,
+  getExperimentIdFromTraceLocation,
   getTraceInfoInputs,
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
@@ -72,7 +73,7 @@ interface SessionHeaderCellProps {
   goal?: string;
   persona?: string;
   onChangeEvaluationId?: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
-  experimentId: string;
+  experimentId?: string;
   isComparing?: boolean;
   getRunColor?: (runUuid: string) => string;
   runUuid?: string;
@@ -94,7 +95,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
   otherTraces,
   goal,
   persona,
-  experimentId,
+  experimentId: experimentIdProp,
   isComparing,
   getRunColor,
   runUuid,
@@ -105,6 +106,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const firstTrace = traces[0];
+  const experimentId = getExperimentIdFromTraceLocation(firstTrace?.trace_location) ?? experimentIdProp;
   const firstOtherTrace = otherTraces?.[0];
 
   // Get run colors - use the passed runUuid/compareToRunUuid props directly for consistency with the comparison header.

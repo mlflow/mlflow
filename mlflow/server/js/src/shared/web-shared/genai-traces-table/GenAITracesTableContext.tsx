@@ -6,6 +6,7 @@ import type { EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './t
 import { ModelTraceExplorerPreferencesProvider } from '../model-trace-explorer/ModelTraceExplorerPreferencesContext';
 import { useModelTraceExplorerContext } from '../model-trace-explorer/ModelTraceExplorerContext';
 import type { GetTraceFunction } from './hooks/useGetTrace';
+import { getExperimentIdFromTraceLocation } from './utils/TraceUtils';
 
 type TraceRow = EvalTraceComparisonEntry & { multiline?: boolean };
 
@@ -80,7 +81,8 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
         {children}
         {renderExportTracesToDatasetsModal?.({
           selectedTraceInfos: selectedTraces ? compact(selectedTraces.map((trace) => trace.traceInfo)) : [],
-          experimentId: experimentId ?? '',
+          experimentId:
+            getExperimentIdFromTraceLocation(selectedTraces?.[0]?.traceInfo?.trace_location) ?? experimentId ?? '',
           visible: showDatasetModal,
           setVisible: setShowDatasetModal,
         })}
