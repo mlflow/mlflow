@@ -14,7 +14,7 @@ from mlflow.tracing.distributed import (
     set_tracing_context_from_http_request_headers,
 )
 
-REQUEST_TIMEOUT = 10
+REQUEST_TIMEOUT = 20
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 logger = logging.getLogger(__name__)
