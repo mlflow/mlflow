@@ -351,6 +351,10 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "0QTEQi": {
+    "defaultMessage": "Usage",
+    "description": "Tab label for usage charts"
+  },
   "0Qu0bD": {
     "defaultMessage": "Endpoints",
     "description": "Endpoints using this key column header"
@@ -5083,6 +5087,10 @@
     "defaultMessage": "Choose experiment type",
     "description": "A title for the modal displayed when the experiment type could not be inferred"
   },
+  "YrYgo5": {
+    "defaultMessage": "Select an endpoint to view logs",
+    "description": "No endpoint selected message for logs tab"
+  },
   "YuYnxd": {
     "defaultMessage": "Delete",
     "description": "Text for delete button on the experiment view page header"
@@ -8702,6 +8710,10 @@
   "xqc4yl": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling a judge run"
+  },
+  "xvd8So": {
+    "defaultMessage": "Logs",
+    "description": "Tab label for trace logs"
   },
   "xwe7WH": {
     "defaultMessage": "Default rendering",
