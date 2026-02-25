@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from unittest.mock import MagicMock, patch
 
 from mlflow.entities.gateway_budget_policy import (
-    BudgetDurationType,
-    BudgetOnExceeded,
+    BudgetAction,
+    BudgetDurationUnit,
     BudgetTargetType,
-    BudgetType,
+    BudgetUnit,
     GatewayBudgetPolicy,
 )
 from mlflow.gateway.budget_tracker import InMemoryBudgetTracker
@@ -28,16 +28,16 @@ _REGISTRY_FUNC = "mlflow.server.gateway_api._get_model_registry_store"
 def _make_policy(
     budget_policy_id="bp-test",
     budget_amount=100.0,
-    on_exceeded=BudgetOnExceeded.ALERT,
+    budget_action=BudgetAction.ALERT,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
-        budget_type=BudgetType.USD,
+        budget_unit=BudgetUnit.USD,
         budget_amount=budget_amount,
-        duration_type=BudgetDurationType.DAYS,
+        duration_unit=BudgetDurationUnit.DAYS,
         duration_value=1,
         target_type=BudgetTargetType.GLOBAL,
-        on_exceeded=on_exceeded,
+        budget_action=on_exceeded,
         created_at=0,
         last_updated_at=0,
     )
@@ -198,7 +198,7 @@ def test_fire_budget_crossed_webhooks_alert(mock_registry, mock_deliver):
 
     tracker = InMemoryBudgetTracker()
     policy = _make_policy(
-        budget_amount=50.0, on_exceeded=BudgetOnExceeded.ALERT
+        budget_amount=50.0, budget_action=BudgetAction.ALERT
     )
     tracker.load_policies([policy])
     crossed = tracker.record_cost(60.0)
@@ -222,7 +222,7 @@ def test_fire_budget_crossed_webhooks_reject_skipped(
 
     tracker = InMemoryBudgetTracker()
     policy = _make_policy(
-        budget_amount=50.0, on_exceeded=BudgetOnExceeded.REJECT
+        budget_amount=50.0, budget_action=BudgetAction.REJECT
     )
     tracker.load_policies([policy])
     crossed = tracker.record_cost(60.0)
@@ -241,7 +241,7 @@ def test_fire_budget_crossed_webhooks_with_workspace(
 
     tracker = InMemoryBudgetTracker()
     policy = _make_policy(
-        budget_amount=50.0, on_exceeded=BudgetOnExceeded.ALERT
+        budget_amount=50.0, budget_action=BudgetAction.ALERT
     )
     tracker.load_policies([policy])
     crossed = tracker.record_cost(60.0)
@@ -346,7 +346,7 @@ def test_record_cost_triggers_webhook(
     tracker = InMemoryBudgetTracker()
     tracker.load_policies([
         _make_policy(
-            budget_amount=100.0, on_exceeded=BudgetOnExceeded.ALERT
+            budget_amount=100.0, budget_action=BudgetAction.ALERT
         )
     ])
     mock_get_tracker.return_value = tracker
@@ -354,7 +354,7 @@ def test_record_cost_triggers_webhook(
     store = MagicMock()
     store.list_budget_policies.return_value = [
         _make_policy(
-            budget_amount=100.0, on_exceeded=BudgetOnExceeded.ALERT
+            budget_amount=100.0, budget_action=BudgetAction.ALERT
         )
     ]
 
@@ -381,7 +381,7 @@ def test_record_cost_no_webhook_for_reject(
     tracker = InMemoryBudgetTracker()
     tracker.load_policies([
         _make_policy(
-            budget_amount=100.0, on_exceeded=BudgetOnExceeded.REJECT
+            budget_amount=100.0, budget_action=BudgetAction.REJECT
         )
     ])
     mock_get_tracker.return_value = tracker
@@ -389,7 +389,7 @@ def test_record_cost_no_webhook_for_reject(
     store = MagicMock()
     store.list_budget_policies.return_value = [
         _make_policy(
-            budget_amount=100.0, on_exceeded=BudgetOnExceeded.REJECT
+            budget_amount=100.0, budget_action=BudgetAction.REJECT
         )
     ]
 
