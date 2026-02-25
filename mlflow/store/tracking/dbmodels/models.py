@@ -61,6 +61,12 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
+from mlflow.entities.gateway_budget_policy import (
+    BudgetDurationType,
+    BudgetOnExceeded,
+    BudgetTargetType,
+    GatewayBudgetPolicy,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
@@ -2766,3 +2772,91 @@ class SqlGatewayEndpointTag(Base):
 
     def to_mlflow_entity(self):
         return GatewayEndpointTag(key=self.key, value=self.value)
+
+
+class SqlGatewayBudgetPolicy(Base):
+    """
+    DB model for budget policies. These are recorded in ``budget_policies`` table.
+    Represents cost-based budget limits for the AI Gateway with fixed time windows.
+    """
+
+    __tablename__ = "budget_policies"
+
+    budget_policy_id = Column(String(36), nullable=False)
+    """
+    Budget policy ID: `String` (limit 36 characters). *Primary Key*.
+    """
+    name = Column(String(255), nullable=False)
+    """
+    Budget policy name: `String` (limit 255 characters). Workspace-unique.
+    """
+    limit_usd = Column(Float, nullable=False)
+    """
+    Budget limit in USD: `Float`.
+    """
+    duration_type = Column(String(32), nullable=False)
+    """
+    Duration type for the fixed window: `String` (HOURS, DAYS, MONTHS).
+    """
+    duration_value = Column(Integer, nullable=False)
+    """
+    Duration value: `Integer`. Length of the window in units of duration_type.
+    """
+    target_type = Column(String(32), nullable=False)
+    """
+    Target scope: `String` (GLOBAL, WORKSPACE).
+    """
+    on_exceeded = Column(String(32), nullable=False)
+    """
+    Action when budget exceeded: `String` (ALERT, REJECT, ALERT_AND_REJECT).
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("budget_policy_id", name="budget_policies_pk"),
+        UniqueConstraint("workspace", "name", name="uq_budget_policies_workspace_name"),
+        Index("idx_budget_policies_workspace", "workspace"),
+    )
+
+    def __repr__(self):
+        return f"<SqlGatewayBudgetPolicy ({self.budget_policy_id}, {self.name})>"
+
+    def to_mlflow_entity(self):
+        return GatewayBudgetPolicy(
+            budget_policy_id=self.budget_policy_id,
+            name=self.name,
+            limit_usd=self.limit_usd,
+            duration_type=BudgetDurationType(self.duration_type),
+            duration_value=self.duration_value,
+            target_type=BudgetTargetType(self.target_type),
+            on_exceeded=BudgetOnExceeded(self.on_exceeded),
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            workspace=self.workspace,
+        )

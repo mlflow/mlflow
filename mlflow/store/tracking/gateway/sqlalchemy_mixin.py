@@ -20,6 +20,12 @@ from mlflow.entities import (
     RoutingStrategy,
 )
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.entities.gateway_budget_policy import (
+    BudgetDurationType,
+    BudgetOnExceeded,
+    BudgetTargetType,
+    GatewayBudgetPolicy,
+)
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -37,6 +43,7 @@ from mlflow.store.tracking._secret_cache import (
     SecretCache,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
@@ -1161,3 +1168,159 @@ class SqlAlchemyGatewayStoreMixin:
                 SqlGatewayEndpointTag.endpoint_id == endpoint_id,
                 SqlGatewayEndpointTag.key == key,
             ).delete()
+
+    # Budget Policy APIs
+
+    def create_budget_policy(
+        self,
+        name: str,
+        limit_usd: float,
+        duration_type: BudgetDurationType,
+        duration_value: int,
+        target_type: BudgetTargetType,
+        on_exceeded: BudgetOnExceeded,
+        created_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        with self.ManagedSessionMaker() as session:
+            budget_policy_id = f"bp-{uuid.uuid4().hex}"
+            current_time = get_current_time_millis()
+
+            sql_budget_policy = self._with_workspace_field(
+                SqlGatewayBudgetPolicy(
+                    budget_policy_id=budget_policy_id,
+                    name=name,
+                    limit_usd=limit_usd,
+                    duration_type=duration_type.value
+                    if isinstance(duration_type, BudgetDurationType)
+                    else duration_type,
+                    duration_value=duration_value,
+                    target_type=target_type.value
+                    if isinstance(target_type, BudgetTargetType)
+                    else target_type,
+                    on_exceeded=on_exceeded.value
+                    if isinstance(on_exceeded, BudgetOnExceeded)
+                    else on_exceeded,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
+            )
+
+            try:
+                session.add(sql_budget_policy)
+                session.flush()
+            except IntegrityError:
+                raise MlflowException(
+                    f"Budget policy with name '{name}' already exists in this workspace",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                )
+
+            return sql_budget_policy.to_mlflow_entity()
+
+    def get_budget_policy(
+        self,
+        budget_policy_id: str | None = None,
+        name: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        _validate_one_of(
+            "budget_policy_id", budget_policy_id,
+            "name", name,
+        )
+
+        with self.ManagedSessionMaker() as session:
+            filters = {}
+            if budget_policy_id:
+                filters["budget_policy_id"] = budget_policy_id
+            else:
+                filters["name"] = name
+
+            sql_budget_policy = self._get_entity_or_raise(
+                session, SqlGatewayBudgetPolicy, filters, "BudgetPolicy"
+            )
+            return sql_budget_policy.to_mlflow_entity()
+
+    def update_budget_policy(
+        self,
+        budget_policy_id: str,
+        name: str | None = None,
+        limit_usd: float | None = None,
+        duration_type: BudgetDurationType | None = None,
+        duration_value: int | None = None,
+        target_type: BudgetTargetType | None = None,
+        on_exceeded: BudgetOnExceeded | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        with self.ManagedSessionMaker() as session:
+            sql_budget_policy = self._get_entity_or_raise(
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
+            )
+
+            if name is not None:
+                sql_budget_policy.name = name
+            if limit_usd is not None:
+                sql_budget_policy.limit_usd = limit_usd
+            if duration_type is not None:
+                sql_budget_policy.duration_type = (
+                    duration_type.value
+                    if isinstance(duration_type, BudgetDurationType)
+                    else duration_type
+                )
+            if duration_value is not None:
+                sql_budget_policy.duration_value = duration_value
+            if target_type is not None:
+                sql_budget_policy.target_type = (
+                    target_type.value
+                    if isinstance(target_type, BudgetTargetType)
+                    else target_type
+                )
+            if on_exceeded is not None:
+                sql_budget_policy.on_exceeded = (
+                    on_exceeded.value
+                    if isinstance(on_exceeded, BudgetOnExceeded)
+                    else on_exceeded
+                )
+
+            sql_budget_policy.last_updated_at = get_current_time_millis()
+            if updated_by is not None:
+                sql_budget_policy.last_updated_by = updated_by
+
+            try:
+                session.flush()
+            except IntegrityError:
+                raise MlflowException(
+                    f"Budget policy with name '{name}' already exists in this workspace",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                )
+
+            return sql_budget_policy.to_mlflow_entity()
+
+    def delete_budget_policy(self, budget_policy_id: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            sql_budget_policy = self._get_entity_or_raise(
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
+            )
+            session.delete(sql_budget_policy)
+
+    def list_budget_policies(
+        self,
+        target_type: BudgetTargetType | None = None,
+    ) -> list[GatewayBudgetPolicy]:
+        with self.ManagedSessionMaker() as session:
+            query = self._get_query(session, SqlGatewayBudgetPolicy)
+            if target_type is not None:
+                target_type_value = (
+                    target_type.value
+                    if isinstance(target_type, BudgetTargetType)
+                    else target_type
+                )
+                query = query.filter(
+                    SqlGatewayBudgetPolicy.target_type == target_type_value
+                )
+            return [bp.to_mlflow_entity() for bp in query.all()]
