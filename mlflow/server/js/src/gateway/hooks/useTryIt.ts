@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { getDefaultHeaders } from '../../common/utils/FetchUtils';
+import { fetchOrFail } from '../../common/utils/FetchUtils';
+import { NetworkRequestError } from '../../shared/web-shared/errors/PredefinedErrors';
 
 export interface UseTryItParams {
   requestBody: string;
@@ -21,6 +22,14 @@ export function useTryIt({
   setIsSending,
 }: UseTryItParams) {
   const handleSendRequest = useCallback(async () => {
+    const setResponseFromText = (text: string) => {
+      try {
+        setResponseBody(JSON.stringify(JSON.parse(text), null, 2));
+      } catch {
+        setResponseBody(text);
+      }
+    };
+
     setSendError(null);
     let parsed: Record<string, unknown>;
     try {
@@ -33,30 +42,18 @@ export function useTryIt({
     setIsSending(true);
     setResponseBody('');
     try {
-      const response = await fetch(tryItRequestUrl, {
+      const response = await fetchOrFail(tryItRequestUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getDefaultHeaders(document.cookie),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsed),
       });
       const text = await response.text();
-      if (!response.ok) {
-        setSendError(`Request failed (${response.status})`);
-        setResponseBody(text || '');
-        return;
-      }
-      try {
-        const formatted = JSON.stringify(JSON.parse(text), null, 2);
-        setResponseBody(formatted);
-      } catch {
-        setResponseBody(text);
-      }
+      setResponseFromText(text);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      const text = err instanceof NetworkRequestError ? (await err.response?.text()) || '' : '';
       setSendError(message);
-      setResponseBody('');
+      setResponseFromText(text);
     } finally {
       setIsSending(false);
     }
