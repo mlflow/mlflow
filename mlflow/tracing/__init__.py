@@ -7,6 +7,7 @@ from mlflow.tracing.distributed import (
 )
 from mlflow.tracing.enablement import set_experiment_trace_location, unset_experiment_trace_location
 from mlflow.tracing.provider import disable, enable, reset, set_destination
+from mlflow.tracing.session_context import get_session_id, set_session, set_session_id
 from mlflow.tracing.utils import set_span_chat_tools
 
 __all__ = [
@@ -15,8 +16,11 @@ __all__ = [
     "enable",
     "disable_notebook_display",
     "enable_notebook_display",
+    "get_session_id",
     "get_tracing_context_headers_for_http_request",
     "set_experiment_trace_location",
+    "set_session",
+    "set_session_id",
     "set_span_chat_tools",
     "set_destination",
     "reset",
