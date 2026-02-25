@@ -388,4 +388,52 @@ describe('useExperimentListQuery', () => {
       expect(pageTokenParam?.[1]).toBe('page_2_token');
     });
   });
+
+  describe('gateway experiment filtering', () => {
+    it('filters out experiments tagged as GATEWAY source type', async () => {
+      mockSearchExperiments.mockResolvedValueOnce({
+        experiments: [
+          {
+            experimentId: '1',
+            name: 'Regular Experiment',
+            artifactLocation: '/artifacts/1',
+            lifecycleStage: 'active',
+            lastUpdateTime: Date.now(),
+            creationTime: Date.now(),
+            tags: [],
+            allowedActions: [],
+          },
+          {
+            experimentId: '2',
+            name: 'Gateway Experiment',
+            artifactLocation: '/artifacts/2',
+            lifecycleStage: 'active',
+            lastUpdateTime: Date.now(),
+            creationTime: Date.now(),
+            tags: [{ key: 'mlflow.experiment.sourceType', value: 'GATEWAY' }],
+            allowedActions: [],
+          },
+          {
+            experimentId: '3',
+            name: 'Another Regular Experiment',
+            artifactLocation: '/artifacts/3',
+            lifecycleStage: 'active',
+            lastUpdateTime: Date.now(),
+            creationTime: Date.now(),
+            tags: [],
+            allowedActions: [],
+          },
+        ],
+      });
+
+      const { result } = renderHook(() => useExperimentListQuery(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(result.current.data).toHaveLength(2);
+      expect(result.current.data?.map((e) => e.experimentId)).toEqual(['1', '3']);
+    });
+  });
 });
