@@ -103,8 +103,7 @@ const TracesV3LogsImpl = React.memo(
     toolbarAddons,
   }: {
     /**
-     * Array of experiment IDs to search traces for. The first ID is used as the
-     * primary experiment for filter persistence, column storage, and other single-ID uses.
+     * Array of experiment IDs to search traces for.
      */
     experimentIds: string[];
     endpointName?: string;
@@ -410,7 +409,7 @@ const TracesV3LogsImpl = React.memo(
             ) : (
               <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={singleExperimentId}>
                 <GenAITracesTableBodyContainer
-                  experimentId={experimentId}
+                  experimentId={singleExperimentId}
                   allColumns={allColumns}
                   currentTraceInfoV3={traceInfos || []}
                   currentRunDisplayName={endpointName}
@@ -438,7 +437,7 @@ const TracesV3LogsImpl = React.memo(
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={AssistantAwareDrawer}
       >
-        <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
+        <GenAITracesTableProvider experimentId={singleExperimentId} isGroupedBySession={isGroupedBySession}>
           <div
             css={{
               overflowY: 'hidden',
