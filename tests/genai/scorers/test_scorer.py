@@ -25,6 +25,13 @@ def increase_db_pool_size(monkeypatch):
     return
 
 
+def _create_test_trace(name, inputs, outputs):
+    with mlflow.start_span(name=name) as span:
+        span.set_inputs(inputs)
+        span.set_outputs(outputs)
+    return mlflow.get_trace(span.trace_id)
+
+
 def always_yes(inputs, outputs, expectations, trace):
     return "yes"
 
@@ -498,16 +505,10 @@ def test_session_level_scorer_invocation_with_traces():
         errors = sum(1 for t in session if t.info.state == "ERROR")
         return Feedback(value=errors == 0, rationale=f"{total} turns, {errors} errors")
 
-    def create_trace(name, user_input, bot_response):
-        span = mlflow.start_span_no_context(name, inputs={"question": user_input})
-        span.set_outputs({"answer": bot_response})
-        span.end()
-        return mlflow.get_trace(span.trace_id)
-
     traces = [
-        create_trace("turn_1", "What is MLflow?", "An ML platform."),
-        create_trace("turn_2", "How do I track?", "Use mlflow.log_param()."),
-        create_trace("turn_3", "Thanks!", "You're welcome!"),
+        _create_test_trace("turn_1", {"question": "What is MLflow?"}, "An ML platform."),
+        _create_test_trace("turn_2", {"question": "How do I track?"}, "Use mlflow.log_param()."),
+        _create_test_trace("turn_3", {"question": "Thanks!"}, "You're welcome!"),
     ]
 
     result = session_scorer.run(session=traces)
