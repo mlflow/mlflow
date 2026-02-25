@@ -191,33 +191,23 @@ def run(
             if progress_bar:
                 progress_bar.close()
 
-    import time as _time
-
     if multi_turn_assessments:
-        _t = _time.time()
         _log_multi_turn_assessments_to_traces(
             multi_turn_assessments=multi_turn_assessments,
             eval_results=eval_results,
             run_id=run_id,
         )
-        _logger.info("[TIMING] log_multi_turn_assessments: %.1fs", _time.time() - _t)
 
     # Link traces to the run if the backend support it
-    _t = _time.time()
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
-    _logger.info("[TIMING] batch_link_traces_to_run: %.1fs", _time.time() - _t)
 
     # Refresh traces on eval_results to include all logged assessments.
     # This is done once after all assessments (single-turn and multi-turn) are logged to the traces.
-    _t = _time.time()
     _refresh_eval_result_traces(eval_results)
-    _logger.info("[TIMING] refresh_eval_result_traces: %.1fs", _time.time() - _t)
 
     # Aggregate metrics and log to MLflow run
-    _t = _time.time()
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
     mlflow.log_metrics(aggregated_metrics)
-    _logger.info("[TIMING] aggregate_metrics + log_metrics: %.1fs", _time.time() - _t)
 
     try:
         emit_metric_usage_event(scorers, len(eval_items), len(session_groups), aggregated_metrics)
@@ -226,9 +216,7 @@ def run(
 
     # Search for all traces in the run. We need to fetch the traces from backend here to include
     # all traces in the result.
-    _t = _time.time()
     traces = mlflow.search_traces(run_id=run_id, include_spans=False, return_type="list")
-    _logger.info("[TIMING] search_traces: %.1fs (%d traces)", _time.time() - _t, len(traces))
 
     # Collect trace IDs from eval results to preserve them during cleanup.
     input_trace_ids = {
@@ -238,17 +226,11 @@ def run(
     }
 
     # Clean up noisy traces generated during evaluation
-    _t = _time.time()
     clean_up_extra_traces(traces, eval_start_time, input_trace_ids)
-    _logger.info("[TIMING] clean_up_extra_traces: %.1fs", _time.time() - _t)
-
-    _t = _time.time()
-    result_df = construct_eval_result_df(run_id, traces, eval_results)
-    _logger.info("[TIMING] construct_eval_result_df: %.1fs", _time.time() - _t)
 
     return EvaluationResult(
         run_id=run_id,
-        result_df=result_df,
+        result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
     )
 
