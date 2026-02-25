@@ -21,7 +21,6 @@ const EXPERIMENT_SOURCE_ID_TAG = 'mlflow.experiment.sourceId';
 
 enum ExperimentSourceType {
   REPO_NOTEBOOK = 'REPO_NOTEBOOK',
-  GATEWAY = 'GATEWAY',
 }
 
 /**
@@ -67,12 +66,6 @@ export const getExperimentSourceId = (experiment: ExperimentEntity) =>
  */
 export const isRepoNotebookExperiment = (experiment: ExperimentEntity) =>
   experiment.tags?.find((tag) => tag.key === EXPERIMENT_SOURCE_TYPE_TAG)?.value === ExperimentSourceType.REPO_NOTEBOOK;
-
-/**
- * Function that checks if experiment was created for the AI gateway
- */
-export const isGatewayExperiment = (experiment: ExperimentEntity) =>
-  experiment.tags?.find((tag) => tag.key === EXPERIMENT_SOURCE_TYPE_TAG)?.value === ExperimentSourceType.GATEWAY;
 
 /**
  * Function used for downloading run data in CSV form.
