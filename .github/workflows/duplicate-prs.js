@@ -6,8 +6,8 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DAYS_TO_CONSIDER = 14;
 const DUPLICATE_LABEL = "duplicate";
 
-const duplicateMessage = (issueNumber, keeperPR) =>
-  `This PR appears to reference the same issue (#${issueNumber}) as #${keeperPR} (opened earlier). If your change is already covered, please consider closing this PR.`;
+const duplicateMessage = (author, issueNumber, keeperPR) =>
+  `@${author} This PR appears to reference the same issue (#${issueNumber}) as #${keeperPR} (opened earlier). If your change is already covered, please consider closing this PR.`;
 
 // GraphQL query to fetch open PRs created in the last 14 days
 const QUERY = `
@@ -147,7 +147,7 @@ module.exports = async ({ context, github }) => {
           owner,
           repo,
           issue_number: pr.number,
-          body: duplicateMessage(issueNumber, keeper.number),
+          body: duplicateMessage(pr.author.login, issueNumber, keeper.number),
         });
 
         labelCount++;
