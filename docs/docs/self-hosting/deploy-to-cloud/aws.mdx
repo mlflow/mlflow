@@ -81,7 +81,7 @@ The s3 bucket that is created in the first step blocks all public access. Create
 
 Create ECS (Elastic container service) service to host the MLflow web server and the UI. Choose "Express mode" to configure most settings including VPC and ALB automatically, but you need to fill the following settings correctly:
 
-- Set the "Image URI" to a certain version MLflow image, e.g. `ghcr.io/mlflow/mlflow:v3.10.0-full`. You can find available MLflow images in this ![page](https://github.com/mlflow/mlflow/pkgs/container/mlflow).
+- Set the "Image URI" to a certain version MLflow image, e.g. `ghcr.io/mlflow/mlflow:v3.10.0-full`. You can find available MLflow images in this [page](https://github.com/mlflow/mlflow/pkgs/container/mlflow).
 - Set the "Container port" to 5000, this is the port of the MLflow server running inside the container.
 - Set the "Health check" path to "/health"
 - Set the "Command" to `bash,-c,mlflow server --backend-store-uri {database-URL} --artifacts-destination s3://{s3-bucket-name}/ --host 0.0.0.0 --port 5000 --disable-security-middleware`, note that we disable the security middleware because the MLflow service is protected behind the Amazon ALB Security group + VPC subnet, and the ECS express mode will generate the default ALB / VPC settings automatically.
