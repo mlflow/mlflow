@@ -469,9 +469,9 @@ class BudgetPolicyCrossedPayload(TypedDict):
 
         {
             "budget_policy_id": "bp-abc123",
-            "budget_policy_name": "dev-team-monthly",
-            "limit_usd": 100.0,
-            "current_spend_usd": 105.50,
+            "budget_type": "USD",
+            "budget_amount": 100.0,
+            "current_spend": 105.50,
             "duration_type": "MONTHS",
             "duration_value": 1,
             "target_type": "WORKSPACE",
@@ -483,14 +483,14 @@ class BudgetPolicyCrossedPayload(TypedDict):
 
     budget_policy_id: str
     """The unique identifier of the budget policy."""
-    budget_policy_name: str
-    """The name of the budget policy."""
-    limit_usd: float
-    """The budget limit in USD."""
-    current_spend_usd: float
-    """The current cumulative spend in USD when the limit was crossed."""
+    budget_type: str
+    """The type of budget measurement (e.g. USD)."""
+    budget_amount: float
+    """The budget limit amount."""
+    current_spend: float
+    """The current cumulative spend when the limit was crossed."""
     duration_type: str
-    """The duration type (HOURS, DAYS, MONTHS)."""
+    """The duration type (MINUTES, HOURS, DAYS, MONTHS)."""
     duration_value: int
     """The duration value."""
     target_type: str
@@ -504,9 +504,9 @@ class BudgetPolicyCrossedPayload(TypedDict):
     def example(cls) -> "BudgetPolicyCrossedPayload":
         return cls(
             budget_policy_id="bp-abc123",
-            budget_policy_name="dev-team-monthly",
-            limit_usd=100.0,
-            current_spend_usd=105.50,
+            budget_type="USD",
+            budget_amount=100.0,
+            current_spend=105.50,
             duration_type="MONTHS",
             duration_value=1,
             target_type="WORKSPACE",
