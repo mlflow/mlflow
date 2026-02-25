@@ -2134,14 +2134,6 @@ def test_list_budget_policies(store: SqlAlchemyStore):
     all_policies = store.list_budget_policies()
     assert len(all_policies) == 2
 
-    global_policies = store.list_budget_policies(target_type=BudgetTargetType.GLOBAL)
-    assert len(global_policies) == 1
-    assert global_policies[0].target_type == BudgetTargetType.GLOBAL
-
-    workspace_policies = store.list_budget_policies(target_type=BudgetTargetType.WORKSPACE)
-    assert len(workspace_policies) == 1
-    assert workspace_policies[0].target_type == BudgetTargetType.WORKSPACE
-
 
 def test_list_budget_policies_empty(store: SqlAlchemyStore):
     policies = store.list_budget_policies()
