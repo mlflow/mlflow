@@ -1,7 +1,7 @@
-"""In-memory budget tracker for AI Gateway cost management.
+"""Budget tracker for AI Gateway cost management.
 
-Tracks cumulative cost per budget policy and fixed time window.
-Cost accumulation lives in memory and resets on server restart (acceptable for P0).
+Provides an abstract BudgetTracker interface and an in-memory implementation.
+Cost accumulation in InMemoryBudgetTracker lives in memory and resets on server restart.
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
@@ -23,6 +24,74 @@ _logger = logging.getLogger(__name__)
 
 # How often (seconds) to re-fetch policies from the database
 _REFRESH_INTERVAL_SECONDS = 60
+
+
+@dataclass
+class BudgetWindow:
+    """Tracks spend within a single fixed time window for one policy."""
+
+    policy: GatewayBudgetPolicy
+    window_start: datetime
+    window_end: datetime
+    cumulative_spend: float = 0.0
+    crossed: bool = False
+
+
+class BudgetTracker(ABC):
+    """Abstract base class for budget trackers.
+
+    Defines the interface for tracking cumulative cost per budget policy
+    within fixed time windows. Concrete implementations may store state
+    in memory, Redis, or other backends.
+    """
+
+    @abstractmethod
+    def needs_refresh(self) -> bool:
+        """Check whether policies should be re-fetched from the database."""
+
+    @abstractmethod
+    def load_policies(self, policies: list[GatewayBudgetPolicy]) -> None:
+        """Load or refresh policies from the database.
+
+        Preserves accumulated cost for unchanged windows. Removes windows
+        for policies that no longer exist.
+        """
+
+    @abstractmethod
+    def record_cost(
+        self,
+        cost_usd: float,
+        workspace: str | None = None,
+    ) -> list[BudgetWindow]:
+        """Record a cost against all applicable policies.
+
+        Args:
+            cost_usd: The cost in USD to record.
+            workspace: The workspace the request was made from (None for default).
+
+        Returns:
+            List of windows that were newly crossed (limit exceeded for the first
+            time in this window). Used to trigger webhook alerts.
+        """
+
+    @abstractmethod
+    def is_budget_exceeded(
+        self,
+        workspace: str | None = None,
+    ) -> tuple[bool, GatewayBudgetPolicy | None]:
+        """Check if any REJECT-capable policy is exceeded.
+
+        Args:
+            workspace: The workspace to check against.
+
+        Returns:
+            Tuple of (exceeded, policy). If exceeded is True, policy is the
+            first exceeded policy found.
+        """
+
+    @abstractmethod
+    def get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
+        """Get the current window info for a policy (for payload construction)."""
 
 
 def _compute_window_start(
@@ -60,11 +129,8 @@ def _compute_window_start(
         return epoch + timedelta(days=window_start_days)
 
     elif duration_type == BudgetDurationType.MONTHS:
-        # Align to first of month, stepping by duration_value months
         year = now.year
         month = now.month
-        # Find the window start: step back to the aligned month
-        # Month numbering: 0-indexed from some epoch month
         total_months = (year - 1970) * 12 + (month - 1)
         window_index = total_months // duration_value
         window_start_months = window_index * duration_value
@@ -88,7 +154,6 @@ def _compute_window_end(
     elif duration_type == BudgetDurationType.DAYS:
         return window_start + timedelta(days=duration_value)
     elif duration_type == BudgetDurationType.MONTHS:
-        # Advance by duration_value months
         year = window_start.year
         month = window_start.month + duration_value
         while month > 12:
@@ -99,26 +164,29 @@ def _compute_window_end(
     raise ValueError(f"Unknown duration type: {duration_type}")
 
 
+def _policy_applies(policy: GatewayBudgetPolicy, workspace: str | None) -> bool:
+    """Check if a policy applies to a given workspace.
+
+    GLOBAL policies apply to all workspaces. WORKSPACE policies only apply
+    when the request workspace matches the policy's workspace.
+    """
+    if policy.target_type == BudgetTargetType.GLOBAL:
+        return True
+    if workspace and policy.workspace:
+        return policy.workspace == workspace
+    return False
+
+
 @dataclass
-class _BudgetWindow:
-    """Tracks spend within a single fixed time window for one policy."""
-
-    policy: GatewayBudgetPolicy
-    window_start: datetime
-    window_end: datetime
-    cumulative_spend: float = 0.0
-    crossed: bool = False
-
-
-@dataclass
-class BudgetTracker:
+class InMemoryBudgetTracker(BudgetTracker):
     """Thread-safe in-memory budget tracker.
 
     Tracks cumulative cost per budget policy within fixed time windows.
     Policies are periodically refreshed from the database.
+    Cost accumulation resets on server restart.
     """
 
-    _windows: dict[str, _BudgetWindow] = field(default_factory=dict)
+    _windows: dict[str, BudgetWindow] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
     _last_refresh_time: float = 0.0
 
@@ -133,7 +201,7 @@ class BudgetTracker:
         for policies that no longer exist.
         """
         now = datetime.now(timezone.utc)
-        new_windows: dict[str, _BudgetWindow] = {}
+        new_windows: dict[str, BudgetWindow] = {}
 
         with self._lock:
             for policy in policies:
@@ -147,13 +215,11 @@ class BudgetTracker:
 
                 existing = self._windows.get(pid)
                 if existing and existing.window_start == window_start:
-                    # Same window: preserve accumulated cost and crossed flag
                     existing.policy = policy
                     existing.window_end = window_end
                     new_windows[pid] = existing
                 else:
-                    # New window or new policy: reset
-                    new_windows[pid] = _BudgetWindow(
+                    new_windows[pid] = BudgetWindow(
                         policy=policy,
                         window_start=window_start,
                         window_end=window_end,
@@ -166,7 +232,7 @@ class BudgetTracker:
         self,
         cost_usd: float,
         workspace: str | None = None,
-    ) -> list[_BudgetWindow]:
+    ) -> list[BudgetWindow]:
         """Record a cost against all applicable policies.
 
         Args:
@@ -177,14 +243,12 @@ class BudgetTracker:
             List of windows that were newly crossed (limit exceeded for the first
             time in this window). Used to trigger webhook alerts.
         """
-        newly_crossed: list[_BudgetWindow] = []
+        newly_crossed: list[BudgetWindow] = []
         now = datetime.now(timezone.utc)
 
         with self._lock:
             for window in self._windows.values():
-                # Check if window is still active
                 if now >= window.window_end:
-                    # Window expired; reset it
                     window.window_start = _compute_window_start(
                         window.policy.duration_type,
                         window.policy.duration_value,
@@ -243,24 +307,10 @@ class BudgetTracker:
 
         return False, None
 
-    def get_window_info(self, budget_policy_id: str) -> _BudgetWindow | None:
+    def get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
         """Get the current window info for a policy (for payload construction)."""
         with self._lock:
             return self._windows.get(budget_policy_id)
-
-
-def _policy_applies(policy: GatewayBudgetPolicy, workspace: str | None) -> bool:
-    """Check if a policy applies to a given workspace.
-
-    GLOBAL policies apply to all workspaces. WORKSPACE policies only apply
-    when the request workspace matches the policy's workspace.
-    """
-    if policy.target_type == BudgetTargetType.GLOBAL:
-        return True
-    # WORKSPACE-scoped policy: match on workspace
-    if workspace and policy.workspace:
-        return policy.workspace == workspace
-    return False
 
 
 # Module-level singleton
@@ -274,5 +324,5 @@ def get_budget_tracker() -> BudgetTracker:
     if _budget_tracker is None:
         with _tracker_lock:
             if _budget_tracker is None:
-                _budget_tracker = BudgetTracker()
+                _budget_tracker = InMemoryBudgetTracker()
     return _budget_tracker
