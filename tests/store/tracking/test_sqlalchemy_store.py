@@ -3643,7 +3643,6 @@ def test_get_metric_history_on_non_existent_metric_key(store: SqlAlchemyStore):
 
 
 def test_get_metric_history_bulk_interval(store: SqlAlchemyStore):
-    """Test that the SQL-optimized bulk interval override returns correct results."""
     run = _run_factory(store)
     run_id = run.info.run_id
 
@@ -3682,7 +3681,6 @@ def test_get_metric_history_bulk_interval(store: SqlAlchemyStore):
 
 
 def test_get_metric_history_bulk_interval_no_metrics(store: SqlAlchemyStore):
-    """Test bulk interval with no logged metrics returns empty list."""
     run = _run_factory(store)
     result = store.get_metric_history_bulk_interval(
         run_ids=[run.info.run_id],
@@ -3695,7 +3693,6 @@ def test_get_metric_history_bulk_interval_no_metrics(store: SqlAlchemyStore):
 
 
 def test_get_metric_history_bulk_interval_multiple_runs(store: SqlAlchemyStore):
-    """Test bulk interval across multiple runs."""
     exp_id = _create_experiments(store, "test_bulk_interval_multi")
     run1 = _run_factory(store, config=_get_run_configs(experiment_id=exp_id))
     run2 = _run_factory(store, config=_get_run_configs(experiment_id=exp_id))
