@@ -119,10 +119,6 @@
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
   },
-  "+li9YN": {
-    "defaultMessage": "Provider",
-    "description": "Provider selection label"
-  },
   "+mAXPc": {
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
@@ -2306,6 +2302,10 @@
     "defaultMessage": "Delete",
     "description": "Delete evaluation runs modal button text"
   },
+  "ECjBf5": {
+    "defaultMessage": "Edit the request body below and click Send request to call the endpoint.",
+    "description": "Try it description for unified"
+  },
   "ED1+Xu": {
     "defaultMessage": "Prompts & versions",
     "description": "Label for the versions section in the MLflow experiment navbar"
@@ -2361,10 +2361,6 @@
   "EaH1E1": {
     "defaultMessage": "Version {version}",
     "description": "Version display for judge"
-  },
-  "EbFweZ": {
-    "defaultMessage": "Unified",
-    "description": "Unified API option"
   },
   "EcjcgN": {
     "defaultMessage": "Metrics",
@@ -4991,10 +4987,6 @@
     "defaultMessage": "Endpoint name is required",
     "description": "Error message when endpoint name is empty"
   },
-  "Y7AIKR": {
-    "defaultMessage": "MLflow Invocations API",
-    "description": "MLflow invocations API section title"
-  },
   "Y7DzTT": {
     "defaultMessage": "Input",
     "description": "Label for the input tokens in the tooltip for the tokens cell."
@@ -5154,6 +5146,10 @@
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
     "description": "Code comment which states how we can perform SparkML inference"
+  },
+  "ZKtBkW": {
+    "defaultMessage": "Edit the request body below and click Send request to call the provider API.",
+    "description": "Try it description for passthrough"
   },
   "ZNYFUr": {
     "defaultMessage": "Adheres to guidelines",
@@ -5787,10 +5783,6 @@
     "defaultMessage": "Fetching traces failed",
     "description": "Error message for fetching traces failed"
   },
-  "dK3xKp": {
-    "defaultMessage": "Passthrough",
-    "description": "Passthrough API option"
-  },
   "dMKo75": {
     "defaultMessage": "Search experiments",
     "description": "Placeholder text inside experiments search bar"
@@ -5858,10 +5850,6 @@
   "dqfOjO": {
     "defaultMessage": "You cannot select rows when comparing runs",
     "description": "Tooltip message for the select button when comparing runs"
-  },
-  "dsPsxG": {
-    "defaultMessage": "OpenAI-Compatible Chat Completions API",
-    "description": "OpenAI compatible API section title"
   },
   "dt3hj5": {
     "defaultMessage": "Add tags",
@@ -6615,14 +6603,6 @@
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > status label > error"
   },
-  "ijIpbV": {
-    "defaultMessage": "API",
-    "description": "API type selector label"
-  },
-  "ikWP+z": {
-    "defaultMessage": "Try it",
-    "description": "Try it tab - interactive request/response"
-  },
   "imKpxw": {
     "defaultMessage": "ID",
     "description": "Label for the ID section"
@@ -6706,10 +6686,6 @@
   "jPW0Lj": {
     "defaultMessage": "Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
-  },
-  "jQDDBp": {
-    "defaultMessage": "Edit the request body below and click Send request to call the endpoint. Choose Unified for the MLflow Invocations API, or Passthrough for provider-specific APIs (OpenAI, Anthropic, Gemini).",
-    "description": "Try it tab description"
   },
   "jSDxn3": {
     "defaultMessage": "AI Gateway",
@@ -6878,6 +6854,10 @@
   "kZaBMS": {
     "defaultMessage": "trace.status = 'OK'",
     "description": "Placeholder example for filter string input"
+  },
+  "ka9hO4": {
+    "defaultMessage": "Try it",
+    "description": "Try it - interactive request/response"
   },
   "kbOsmf": {
     "defaultMessage": "The AI Gateway is using the default encryption passphrase. This is acceptable for development or single-user deployments, but for multi-user production environments, you should rotate the passphrase using the CLI command: mlflow crypto rotate-kek",
