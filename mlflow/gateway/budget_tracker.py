@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from mlflow.entities.gateway_budget_policy import (
-    BudgetDurationType,
-    BudgetOnExceeded,
+    BudgetAction,
+    BudgetDurationUnit,
     BudgetTargetType,
     GatewayBudgetPolicy,
 )
@@ -95,7 +95,7 @@ class BudgetTracker(ABC):
 
 
 def _compute_window_start(
-    duration_type: BudgetDurationType,
+    duration_unit: BudgetDurationUnit,
     duration_value: int,
     now: datetime,
 ) -> datetime:
@@ -107,28 +107,28 @@ def _compute_window_start(
     - DAYS: aligned to epoch days (e.g., duration_value=7 → weekly from epoch)
     - MONTHS: aligned to first of the month
     """
-    if duration_type == BudgetDurationType.MINUTES:
+    if duration_unit == BudgetDurationUnit.MINUTES:
         epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
         minutes_since_epoch = (now - epoch).total_seconds() / 60
         window_index = int(minutes_since_epoch) // duration_value
         window_start_minutes = window_index * duration_value
         return epoch + timedelta(minutes=window_start_minutes)
 
-    elif duration_type == BudgetDurationType.HOURS:
+    elif duration_unit == BudgetDurationUnit.HOURS:
         epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
         hours_since_epoch = (now - epoch).total_seconds() / 3600
         window_index = int(hours_since_epoch) // duration_value
         window_start_hours = window_index * duration_value
         return epoch + timedelta(hours=window_start_hours)
 
-    elif duration_type == BudgetDurationType.DAYS:
+    elif duration_unit == BudgetDurationUnit.DAYS:
         epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
         days_since_epoch = (now - epoch).days
         window_index = days_since_epoch // duration_value
         window_start_days = window_index * duration_value
         return epoch + timedelta(days=window_start_days)
 
-    elif duration_type == BudgetDurationType.MONTHS:
+    elif duration_unit == BudgetDurationUnit.MONTHS:
         year = now.year
         month = now.month
         total_months = (year - 1970) * 12 + (month - 1)
@@ -138,22 +138,22 @@ def _compute_window_start(
         start_month = (window_start_months % 12) + 1
         return datetime(start_year, start_month, 1, tzinfo=timezone.utc)
 
-    raise ValueError(f"Unknown duration type: {duration_type}")
+    raise ValueError(f"Unknown duration type: {duration_unit}")
 
 
 def _compute_window_end(
-    duration_type: BudgetDurationType,
+    duration_unit: BudgetDurationUnit,
     duration_value: int,
     window_start: datetime,
 ) -> datetime:
     """Compute the end of the current fixed window."""
-    if duration_type == BudgetDurationType.MINUTES:
+    if duration_unit == BudgetDurationUnit.MINUTES:
         return window_start + timedelta(minutes=duration_value)
-    elif duration_type == BudgetDurationType.HOURS:
+    elif duration_unit == BudgetDurationUnit.HOURS:
         return window_start + timedelta(hours=duration_value)
-    elif duration_type == BudgetDurationType.DAYS:
+    elif duration_unit == BudgetDurationUnit.DAYS:
         return window_start + timedelta(days=duration_value)
-    elif duration_type == BudgetDurationType.MONTHS:
+    elif duration_unit == BudgetDurationUnit.MONTHS:
         year = window_start.year
         month = window_start.month + duration_value
         while month > 12:
@@ -161,7 +161,7 @@ def _compute_window_end(
             year += 1
         return datetime(year, month, 1, tzinfo=timezone.utc)
 
-    raise ValueError(f"Unknown duration type: {duration_type}")
+    raise ValueError(f"Unknown duration type: {duration_unit}")
 
 
 def _policy_applies(policy: GatewayBudgetPolicy, workspace: str | None) -> bool:
@@ -207,10 +207,10 @@ class InMemoryBudgetTracker(BudgetTracker):
             for policy in policies:
                 pid = policy.budget_policy_id
                 window_start = _compute_window_start(
-                    policy.duration_type, policy.duration_value, now
+                    policy.duration_unit, policy.duration_value, now
                 )
                 window_end = _compute_window_end(
-                    policy.duration_type, policy.duration_value, window_start
+                    policy.duration_unit, policy.duration_value, window_start
                 )
 
                 existing = self._windows.get(pid)
@@ -250,12 +250,12 @@ class InMemoryBudgetTracker(BudgetTracker):
             for window in self._windows.values():
                 if now >= window.window_end:
                     window.window_start = _compute_window_start(
-                        window.policy.duration_type,
+                        window.policy.duration_unit,
                         window.policy.duration_value,
                         now,
                     )
                     window.window_end = _compute_window_end(
-                        window.policy.duration_type,
+                        window.policy.duration_unit,
                         window.policy.duration_value,
                         window.window_start,
                     )
@@ -299,7 +299,7 @@ class InMemoryBudgetTracker(BudgetTracker):
                 if not _policy_applies(window.policy, workspace):
                     continue
 
-                if window.policy.on_exceeded != BudgetOnExceeded.REJECT:
+                if window.policy.budget_action != BudgetAction.REJECT:
                     continue
 
                 if window.cumulative_spend >= window.policy.budget_amount:
