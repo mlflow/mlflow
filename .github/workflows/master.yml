@@ -366,4 +366,4 @@ jobs:
           uv pip install -r requirements/test-requirements.txt
       - name: Run python tests
         run: |
-          uv run --no-sync pytest tests/tracing/test_distributed.py::test_distributed_tracing_e2e_nested_call -xvs --log-cli-level=INFO --count=20 2>&1
+          uv run --no-sync pytest tests/tracing/test_distributed.py::test_distributed_tracing_e2e_nested_call -xv --log-cli-level=INFO --count=100 2>&1
