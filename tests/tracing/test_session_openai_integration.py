@@ -12,19 +12,24 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.session_context import set_session
 
 
-@pytest.fixture
-def mock_openai(monkeypatch):
+@pytest.fixture(scope="module")
+def mock_openai_server():
     """Set up mock OpenAI server using MLflow's test infrastructure."""
     from tests.helper_functions import start_mock_openai_server
 
     with start_mock_openai_server() as mock_server:
-        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-        monkeypatch.setenv("OPENAI_API_BASE", mock_server)
+        yield mock_server
 
-        import openai
 
-        client = openai.OpenAI(api_key="test-key", base_url=mock_server)
-        yield client
+@pytest.fixture
+def mock_openai(mock_openai_server, monkeypatch):
+    """Create OpenAI client pointing to the mock server."""
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai_server)
+
+    import openai
+
+    return openai.OpenAI(api_key="test-key", base_url=mock_openai_server)
 
 
 @pytest.mark.skipif(
