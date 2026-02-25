@@ -44,7 +44,7 @@ describe('EndpointUsageModal', () => {
     expect(screen.queryByText('Query endpoint')).not.toBeInTheDocument();
   });
 
-  test('renders Try it tab by default', () => {
+  test('renders Try it by default in Unified APIs tab', () => {
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
 
     expect(screen.getByText('Send request')).toBeInTheDocument();
@@ -52,29 +52,25 @@ describe('EndpointUsageModal', () => {
     expect(screen.getByText('Response')).toBeInTheDocument();
   });
 
-  test('renders language selector in unified APIs tab', async () => {
+  test('Unified APIs tab shows Try it, cURL, and Python view options', async () => {
     const userEvent = (await import('@testing-library/user-event')).default;
 
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-    await userEvent.click(screen.getByText('Unified APIs'));
-
-    // Verify language selector is rendered with both options
+    // Unified APIs is selected by default; view mode selector has Try it | cURL | Python
     expect(screen.getByRole('radio', { name: /cURL/ })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Python/ })).toBeInTheDocument();
 
-    // cURL is selected by default - shows curl content for both API sections
-    expect(screen.getByRole('radio', { name: /cURL/ })).toBeChecked();
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
     const curlElements = screen.getAllByText(/curl -X POST/);
-    expect(curlElements.length).toBe(2); // MLflow Invocations and OpenAI-Compatible both show cURL
+    expect(curlElements.length).toBe(1); // Only the selected unified variant (MLflow Invocations by default) is shown
   });
 
-  test('shows code examples with endpoint name in unified APIs', async () => {
+  test('shows code examples with endpoint name in unified APIs when cURL selected', async () => {
     const userEvent = (await import('@testing-library/user-event')).default;
 
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-    await userEvent.click(screen.getByText('Unified APIs'));
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
 
-    // The endpoint name appears in multiple code examples, so use getAllByText
     const matchingElements = screen.getAllByText(/gateway\/test-endpoint\/mlflow\/invocations/);
     expect(matchingElements.length).toBeGreaterThan(0);
   });
@@ -91,12 +87,12 @@ describe('EndpointUsageModal', () => {
     expect(screen.getByText('Google Gemini')).toBeInTheDocument();
   });
 
-  test('shows OpenAI passthrough example by default in passthrough tab', async () => {
+  test('shows OpenAI passthrough example in passthrough tab when cURL selected', async () => {
     const userEvent = (await import('@testing-library/user-event')).default;
 
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-
     await userEvent.click(screen.getByText('Passthrough APIs'));
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
 
     expect(
       screen.getByText(
@@ -122,19 +118,16 @@ describe('EndpointUsageModal', () => {
     expect(screen.getByRole('radio', { name: /OpenAI/ })).toBeChecked();
   });
 
-  test('renders language selector in passthrough tab', async () => {
+  test('passthrough tab shows Try it, cURL, Python and code when cURL selected', async () => {
     const userEvent = (await import('@testing-library/user-event')).default;
 
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-
     await userEvent.click(screen.getByText('Passthrough APIs'));
 
-    // Verify language selector is rendered with both options
     expect(screen.getByRole('radio', { name: /cURL/ })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Python/ })).toBeInTheDocument();
 
-    // cURL is selected by default and shows curl content
-    expect(screen.getByRole('radio', { name: /cURL/ })).toBeChecked();
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
     expect(screen.getByText(/curl -X POST/)).toBeInTheDocument();
   });
 
@@ -147,20 +140,19 @@ describe('EndpointUsageModal', () => {
     });
 
     renderWithDesignSystem(<EndpointUsageModal open onClose={jest.fn()} endpointName="my-endpoint" />);
-    await userEvent.click(screen.getByText('Unified APIs'));
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
 
-    // The URL should appear in multiple code examples, so use getAllByText
     const matchingElements = screen.getAllByText(/http:\/\/custom-origin:8080\/gateway\/my-endpoint/);
     expect(matchingElements.length).toBeGreaterThan(0);
 
     Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
   });
 
-  test('renders copy buttons for code examples', async () => {
+  test('renders copy buttons for code examples when cURL selected', async () => {
     const userEvent = (await import('@testing-library/user-event')).default;
 
     renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-    await userEvent.click(screen.getByText('Unified APIs'));
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
 
     const copyButtons = screen.getAllByRole('button');
     expect(copyButtons.length).toBeGreaterThan(0);
@@ -257,26 +249,26 @@ describe('EndpointUsageModal', () => {
       expect(screen.getByText('Network failure')).toBeInTheDocument();
     });
 
-    test('switching API type shows provider selector and updates request body for passthrough', async () => {
+    test('switching to Passthrough APIs tab shows provider selector and updates request body', async () => {
       const userEvent = (await import('@testing-library/user-event')).default;
 
       renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
       expect(getRequestBodyTextarea().value).toContain('messages');
 
-      await userEvent.click(screen.getByRole('radio', { name: 'Passthrough' }));
+      await userEvent.click(screen.getByText('Passthrough APIs'));
       expect(screen.getByText('Provider')).toBeInTheDocument();
       expect(screen.getByRole('radio', { name: /OpenAI/ })).toBeInTheDocument();
       expect(getRequestBodyTextarea().value).toContain('model');
     });
 
-    test('switching API type from passthrough back to unified resets request body to unified format', async () => {
+    test('switching from Passthrough APIs back to Unified APIs resets request body to unified format', async () => {
       const userEvent = (await import('@testing-library/user-event')).default;
 
       renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-      await userEvent.click(screen.getByRole('radio', { name: 'Passthrough' }));
+      await userEvent.click(screen.getByText('Passthrough APIs'));
       expect(getRequestBodyTextarea().value).toContain('model');
 
-      await userEvent.click(screen.getByRole('radio', { name: 'Unified' }));
+      await userEvent.click(screen.getByText('Unified APIs'));
       expect(getRequestBodyTextarea().value).toContain('messages');
     });
 
@@ -311,7 +303,7 @@ describe('EndpointUsageModal', () => {
       const userEvent = (await import('@testing-library/user-event')).default;
 
       renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-      await userEvent.click(screen.getByRole('radio', { name: 'Passthrough' }));
+      await userEvent.click(screen.getByText('Passthrough APIs'));
 
       await userEvent.click(screen.getByRole('radio', { name: 'Anthropic' }));
       expect(getRequestBodyTextarea().value).toContain('max_tokens');
@@ -332,7 +324,7 @@ describe('EndpointUsageModal', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
       expect(screen.getByText(/"result": "old"/)).toBeInTheDocument();
 
-      await userEvent.click(screen.getByRole('radio', { name: 'Passthrough' }));
+      await userEvent.click(screen.getByText('Passthrough APIs'));
       expect(screen.queryByText(/"result": "old"/)).not.toBeInTheDocument();
       expect(screen.queryByText('Invalid JSON')).not.toBeInTheDocument();
     });
@@ -342,7 +334,7 @@ describe('EndpointUsageModal', () => {
       fetchSpy.mockRejectedValueOnce(new Error('First error'));
 
       renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-      await userEvent.click(screen.getByRole('radio', { name: 'Passthrough' }));
+      await userEvent.click(screen.getByText('Passthrough APIs'));
       await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
       expect(screen.getByText('First error')).toBeInTheDocument();
 
