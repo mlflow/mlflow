@@ -1,3 +1,5 @@
+import json
+
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from mlflow.types.responses import ResponsesAgentStreamEvent, output_to_responses_items_stream
@@ -145,7 +147,7 @@ def test_output_to_responses_items_stream_langchain():
             custom_outputs=None,
             item={
                 "id": "e0eafab0-f008-49d4-ac0d-f17a70096fe1",
-                "content": [{"text": "test text0", "type": "output_text"}],
+                "content": [{"text": "test text0", "type": "output_text", "annotations": []}],
                 "role": "assistant",
                 "type": "message",
             },
@@ -155,7 +157,13 @@ def test_output_to_responses_items_stream_langchain():
             custom_outputs=None,
             item={
                 "id": "5e88662b-29e7-4659-a521-f8175e7642ee",
-                "content": [{"text": "Transferring back to supervisor", "type": "output_text"}],
+                "content": [
+                    {
+                        "text": "Transferring back to supervisor",
+                        "type": "output_text",
+                        "annotations": [],
+                    }
+                ],
                 "role": "assistant",
                 "type": "message",
             },
@@ -185,7 +193,7 @@ def test_output_to_responses_items_stream_langchain():
             custom_outputs=None,
             item={
                 "id": "run--e112332b-ed6d-4e10-b17c-adf637fb67eb-0",
-                "content": [{"text": "I'll help you", "type": "output_text"}],
+                "content": [{"text": "I'll help you", "type": "output_text", "annotations": []}],
                 "role": "assistant",
                 "type": "message",
             },
@@ -215,7 +223,7 @@ def test_output_to_responses_items_stream_langchain():
             custom_outputs=None,
             item={
                 "id": "e0eafab0-f008-49d4-ac0d-f17a70096fe1",
-                "content": [{"text": "test text1", "type": "output_text"}],
+                "content": [{"text": "test text1", "type": "output_text", "annotations": []}],
                 "role": "assistant",
                 "type": "message",
             },
@@ -225,7 +233,13 @@ def test_output_to_responses_items_stream_langchain():
             custom_outputs=None,
             item={
                 "id": "5e88662b-29e7-4659-a521-f8175e7642ee",
-                "content": [{"text": "Transferring back to supervisor", "type": "output_text"}],
+                "content": [
+                    {
+                        "text": "Transferring back to supervisor",
+                        "type": "output_text",
+                        "annotations": [],
+                    }
+                ],
                 "role": "assistant",
                 "type": "message",
             },
@@ -255,7 +269,7 @@ def test_output_to_responses_items_stream_langchain():
             custom_outputs=None,
             item={
                 "id": "run--2622edf9-37b6-4e25-9e97-6351d145b198-0",
-                "content": [{"text": "test text2", "type": "output_text"}],
+                "content": [{"text": "test text2", "type": "output_text", "annotations": []}],
                 "role": "assistant",
                 "type": "message",
             },
@@ -313,6 +327,7 @@ def test_output_to_responses_items_stream_langchain_multiple_tool_calls_unique_i
                         "text": "I'll look up both the current and historical "
                         "stock prices for Apple.",
                         "type": "output_text",
+                        "annotations": [],
                     }
                 ],
                 "role": "assistant",
@@ -363,3 +378,29 @@ def test_output_to_responses_items_stream_langchain_multiple_tool_calls_unique_i
     ]
     result = list(output_to_responses_items_stream(messages))
     assert result == expected
+
+
+def test_output_to_responses_items_stream_langchain_non_string_tool_content():
+    mcp_content_blocks = [{"type": "text", "text": "result from mcp tool"}]
+
+    messages = [
+        AIMessage(
+            content="Calling tools",
+            id="ai-1",
+            tool_calls=[
+                {"name": "mcp_tool", "args": {}, "id": "call-1", "type": "tool_call"},
+            ],
+        ),
+        ToolMessage(
+            content=mcp_content_blocks,
+            name="mcp_tool",
+            id="tool-1",
+            tool_call_id="call-1",
+        ),
+    ]
+
+    result = list(output_to_responses_items_stream(messages))
+
+    tool_outputs = [r for r in result if r.item.get("type") == "function_call_output"]
+    assert len(tool_outputs) == 1
+    assert tool_outputs[0].item["output"] == json.dumps(mcp_content_blocks)

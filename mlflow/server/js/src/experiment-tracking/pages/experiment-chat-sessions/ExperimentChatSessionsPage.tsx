@@ -22,7 +22,7 @@ import {
 import type { GetTraceFunction, TracesTableColumn } from '@databricks/web-shared/genai-traces-table';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { useMonitoringFiltersTimeRange } from '../../hooks/useMonitoringFilters';
-import { SESSION_ID_METADATA_KEY, shouldUseTracesV4API } from '@databricks/web-shared/model-trace-explorer';
+import { shouldUseTracesV4API, isV3ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { getChatSessionsFilter } from './utils';
 import { ExperimentChatSessionsPageWrapper } from './ExperimentChatSessionsPageWrapper';
@@ -46,7 +46,6 @@ const ExperimentChatSessionsPageImpl = () => {
   useRegisterSelectedIds('selectedSessionIds', rowSelection);
   invariant(experimentId, 'Experiment ID must be defined');
 
-  const monitoringConfig = useMonitoringConfig();
   const { loading: isLoadingExperiment } = useGetExperimentQuery({
     experimentId,
   });
@@ -102,7 +101,7 @@ const ExperimentChatSessionsPageImpl = () => {
       />
       {shouldEnableSessionGrouping() ? (
         <TracesV3Logs
-          experimentId={experimentId}
+          experimentIds={[experimentId]}
           additionalFilters={filters}
           endpointName=""
           timeRange={timeRange}

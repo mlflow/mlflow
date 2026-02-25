@@ -1148,6 +1148,7 @@ class SqlLoggedModel(Base):
     Status message: `String` (limit 1000 characters).
     """
 
+    experiment = relationship("SqlExperiment", backref=backref("logged_models", cascade="all"))
     tags = relationship("SqlLoggedModelTag", backref="logged_model", cascade="all")
     params = relationship("SqlLoggedModelParam", backref="logged_model", cascade="all")
     metrics = relationship("SqlLoggedModelMetric", backref="logged_model", cascade="all")

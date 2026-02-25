@@ -7,6 +7,7 @@ from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers import get_all_scorers
 from mlflow.genai.scorers import list_scorers as list_scorers_api
+from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.utils.string_utils import _create_table
 
 
@@ -19,6 +20,7 @@ def commands():
 
 
 @commands.command("list")
+@mlflow_mcp(tool_name="list_scorers")
 @click.option(
     "--experiment-id",
     "-x",
@@ -99,6 +101,7 @@ def list_scorers(
 
 
 @commands.command("register-llm-judge")
+@mlflow_mcp(tool_name="register_llm_judge_scorer")
 @click.option(
     "--name",
     "-n",

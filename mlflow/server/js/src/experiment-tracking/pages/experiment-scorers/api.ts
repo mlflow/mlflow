@@ -39,12 +39,12 @@ export interface ListScorersResponse {
 /**
  * Get scheduled scorers for an experiment
  */
-export async function listScheduledScorers(experimentId: string): Promise<ListScorersResponse> {
+export async function listScheduledScorers(experimentId: string) {
   const params = new URLSearchParams();
   params.append('experiment_id', experimentId);
   return fetchOrFail(getAjaxUrl(`ajax-api/3.0/mlflow/scorers/list?${params.toString()}`))
     .then((res) => res.json())
-    .catch(catchNetworkErrorIfExists);
+    .catch(catchNetworkErrorIfExists) as Promise<ListScorersResponse>;
 }
 
 /**
@@ -117,9 +117,9 @@ export async function deleteScheduledScorers(experimentId: string, scorerNames?:
   };
 
   // Add scorer name if provided to delete a specific scorer
-  if (scorerNames && scorerNames.length > 0) {
+  if (scorerNames && (scorerNames?.length ?? 0) > 0) {
     // Backend expects 'name' parameter for the scorer name
-    body.name = scorerNames[0];
+    body.name = scorerNames?.[0];
   }
 
   return fetchOrFail(getAjaxUrl('ajax-api/3.0/mlflow/scorers/delete'), {

@@ -84,8 +84,6 @@ jobs:
             ALIAS="pr-$PR_NUMBER"
           fi
           echo "value=$ALIAS" >> $GITHUB_OUTPUT
-          echo "$ALIAS" > /tmp/alias.txt
-          cat /tmp/alias.txt
       - name: Build docs
         env:
           GTM_ID: "GTM-TEST"
@@ -118,15 +116,6 @@ jobs:
         with:
           name: docs-build-${{ github.run_id }}
           path: /tmp/docs-build
-          retention-days: 1
-          if-no-files-found: error
-
-      # `github.event.workflow_run.pull_requests` is empty when a PR is created from a fork:
-      # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: alias
-          path: /tmp/alias.txt
           retention-days: 1
           if-no-files-found: error
 

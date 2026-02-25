@@ -3,7 +3,7 @@
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
 
-import { getWorkspacesEnabledSync } from './ServerFeaturesContext';
+import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
 
 // Returns the current workspaces enabled state from the cached server features.
 // This is synchronous and returns the cached value (false if not yet loaded).
@@ -155,9 +155,6 @@ export const shouldEnableExperimentPageSideTabs = () => {
   return true;
 };
 
-/**
- * Determines if the Overview tab is enabled on the experiment page
- */
 export const shouldEnableExperimentOverviewTab = () => {
   return true;
 };
@@ -176,4 +173,8 @@ export const shouldEnableWorkflowBasedNavigation = () => {
  */
 export const shouldEnableImprovedEvalRunsComparison = () => {
   return false;
+};
+
+export const isScorerModelSelectionEnabled = () => {
+  return true;
 };

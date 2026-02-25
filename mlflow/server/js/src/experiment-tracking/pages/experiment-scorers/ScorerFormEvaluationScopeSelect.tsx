@@ -1,9 +1,10 @@
 import { FormUI, Radio } from '@databricks/design-system';
 import type { RadioChangeEvent } from 'antd';
 import { Controller, useFormContext } from 'react-hook-form';
-import { ScorerFormData } from './utils/scorerTransformUtils';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { FormattedMessage } from 'react-intl';
-import { SCORER_FORM_MODE, ScorerEvaluationScope, ScorerFormMode } from './constants';
+import type { ScorerFormMode } from './constants';
+import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
 
 interface ScorerFormEvaluationScopeSelectProps {

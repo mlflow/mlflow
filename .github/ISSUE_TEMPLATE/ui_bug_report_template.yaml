@@ -30,7 +30,6 @@ body:
       value: |
         - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
         - **Python version**:
-        - **yarn version, if running the dev UI**:
 
   - type: textarea
     validations:

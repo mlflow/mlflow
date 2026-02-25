@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useQuery } from '@databricks/web-shared/query-client';
+import { useQuery } from '../../query-client/queryClient';
 
 import { shouldUseTracesV4API } from '../FeatureUtils';
 import type { ModelTrace } from '../ModelTrace.types';
