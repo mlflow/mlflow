@@ -34,7 +34,7 @@ jest.mock('../../common/utils/ArtifactUtils', () => ({
   getArtifactContent: jest.fn().mockResolvedValue(),
   // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
   getArtifactBytesContent: jest.fn().mockResolvedValue(),
-  getArtifactBlob: jest.fn().mockResolvedValue(new Blob(['dummy content'], { type: 'text/plain' })),
+  getArtifactBlob: jest.fn<() => Promise<Blob>>().mockResolvedValue(new Blob(['dummy content'], { type: 'text/plain' })),
 }));
 
 describe('ArtifactView', () => {
