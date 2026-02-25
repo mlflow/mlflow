@@ -44,6 +44,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationType,
     BudgetOnExceeded,
     BudgetTargetType,
+    BudgetType,
 )
 from mlflow.entities import (
     RoutingStrategy as RoutingStrategyEntity,
@@ -5080,15 +5081,14 @@ def _create_budget_policy():
     request_message = _get_request_message(
         CreateGatewayBudgetPolicy(),
         schema={
-            "name": [_assert_required, _assert_string],
-            "limit_usd": [_assert_required],
+            "budget_amount": [_assert_required],
             "duration_value": [_assert_required],
             "created_by": [_assert_string],
         },
     )
     policy = _get_tracking_store().create_budget_policy(
-        name=request_message.name,
-        limit_usd=request_message.limit_usd,
+        budget_type=BudgetType.from_proto(request_message.budget_type),
+        budget_amount=request_message.budget_amount,
         duration_type=BudgetDurationType.from_proto(request_message.duration_type),
         duration_value=request_message.duration_value,
         target_type=BudgetTargetType.from_proto(request_message.target_type),
@@ -5106,13 +5106,11 @@ def _get_budget_policy():
     request_message = _get_request_message(
         GetGatewayBudgetPolicy(),
         schema={
-            "budget_policy_id": [_assert_string],
-            "name": [_assert_string],
+            "budget_policy_id": [_assert_required, _assert_string],
         },
     )
     policy = _get_tracking_store().get_budget_policy(
-        budget_policy_id=request_message.budget_policy_id or None,
-        name=request_message.name or None,
+        budget_policy_id=request_message.budget_policy_id,
     )
     response_message = GetGatewayBudgetPolicy.Response()
     response_message.budget_policy.CopyFrom(policy.to_proto())
@@ -5126,15 +5124,16 @@ def _update_budget_policy():
         UpdateGatewayBudgetPolicy(),
         schema={
             "budget_policy_id": [_assert_required, _assert_string],
-            "name": [_assert_string],
             "updated_by": [_assert_string],
         },
     )
     policy = _get_tracking_store().update_budget_policy(
         budget_policy_id=request_message.budget_policy_id,
-        name=request_message.name or None,
-        limit_usd=request_message.limit_usd
-        if request_message.HasField("limit_usd")
+        budget_type=BudgetType.from_proto(request_message.budget_type)
+        if request_message.HasField("budget_type")
+        else None,
+        budget_amount=request_message.budget_amount
+        if request_message.HasField("budget_amount")
         else None,
         duration_type=BudgetDurationType.from_proto(request_message.duration_type)
         if request_message.HasField("duration_type")

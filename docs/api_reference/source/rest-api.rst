@@ -2998,9 +2998,9 @@ Request Structure
 +----------------+---------------------------------+-------------+
 |   Field Name   |              Type               | Description |
 +================+=================================+=============+
-| name           | ``STRING``                      |             |
+| budget_type    | :ref:`mlflowbudgettype`         |             |
 +----------------+---------------------------------+-------------+
-| limit_usd      | ``DOUBLE``                      |             |
+| budget_amount  | ``DOUBLE``                      |             |
 +----------------+---------------------------------+-------------+
 | duration_type  | :ref:`mlflowbudgetdurationtype` |             |
 +----------------+---------------------------------+-------------+
@@ -3045,7 +3045,7 @@ Get Budget Policy
 | ``3.0/mlflow/gateway/budgets/get`` | ``GET``     |
 +------------------------------------+-------------+
 
-Get a budget policy by ID or name
+Get a budget policy by ID
 
 
 
@@ -3064,8 +3064,6 @@ Request Structure
 |    Field Name    |    Type    | Description |
 +==================+============+=============+
 | budget_policy_id | ``STRING`` |             |
-+------------------+------------+-------------+
-| name             | ``STRING`` |             |
 +------------------+------------+-------------+
 
 .. _mlflowGetGatewayBudgetPolicyResponse:
@@ -3120,9 +3118,9 @@ Request Structure
 +==================+=================================+=============+
 | budget_policy_id | ``STRING``                      |             |
 +------------------+---------------------------------+-------------+
-| name             | ``STRING``                      |             |
+| budget_type      | :ref:`mlflowbudgettype`         |             |
 +------------------+---------------------------------+-------------+
-| limit_usd        | ``DOUBLE``                      |             |
+| budget_amount    | ``DOUBLE``                      |             |
 +------------------+---------------------------------+-------------+
 | duration_type    | :ref:`mlflowbudgetdurationtype` |             |
 +------------------+---------------------------------+-------------+
@@ -5857,31 +5855,31 @@ GatewayBudgetPolicy
 Represents a budget policy for the AI Gateway
 
 
-+------------------+---------------------------------+------------------------------------------------+
-|    Field Name    |              Type               |                  Description                   |
-+==================+=================================+================================================+
-| budget_policy_id | ``STRING``                      | Unique identifier for this budget policy       |
-+------------------+---------------------------------+------------------------------------------------+
-| name             | ``STRING``                      | User-friendly name for the budget policy       |
-+------------------+---------------------------------+------------------------------------------------+
-| limit_usd        | ``DOUBLE``                      | Budget limit in USD                            |
-+------------------+---------------------------------+------------------------------------------------+
-| duration_type    | :ref:`mlflowbudgetdurationtype` | Type of time window (HOURS, DAYS, MONTHS)      |
-+------------------+---------------------------------+------------------------------------------------+
-| duration_value   | ``INT32``                       | Length of the window in units of duration_type |
-+------------------+---------------------------------+------------------------------------------------+
-| target_type      | :ref:`mlflowbudgettargettype`   | Scope of the budget (GLOBAL or WORKSPACE)      |
-+------------------+---------------------------------+------------------------------------------------+
-| on_exceeded      | :ref:`mlflowbudgetonexceeded`   | Action when budget is exceeded                 |
-+------------------+---------------------------------+------------------------------------------------+
-| created_by       | ``STRING``                      | User ID who created the policy                 |
-+------------------+---------------------------------+------------------------------------------------+
-| created_at       | ``INT64``                       | Creation timestamp in milliseconds             |
-+------------------+---------------------------------+------------------------------------------------+
-| last_updated_by  | ``STRING``                      | User ID who last updated the policy            |
-+------------------+---------------------------------+------------------------------------------------+
-| last_updated_at  | ``INT64``                       | Last update timestamp in milliseconds          |
-+------------------+---------------------------------+------------------------------------------------+
++------------------+---------------------------------+----------------------------------------------------+
+|    Field Name    |              Type               |                    Description                     |
++==================+=================================+====================================================+
+| budget_policy_id | ``STRING``                      | Unique identifier for this budget policy           |
++------------------+---------------------------------+----------------------------------------------------+
+| budget_type      | :ref:`mlflowbudgettype`         | Type of budget measurement (e.g. USD)              |
++------------------+---------------------------------+----------------------------------------------------+
+| budget_amount    | ``DOUBLE``                      | Budget limit amount                                |
++------------------+---------------------------------+----------------------------------------------------+
+| duration_type    | :ref:`mlflowbudgetdurationtype` | Type of time window (MINUTES, HOURS, DAYS, MONTHS) |
++------------------+---------------------------------+----------------------------------------------------+
+| duration_value   | ``INT32``                       | Length of the window in units of duration_type     |
++------------------+---------------------------------+----------------------------------------------------+
+| target_type      | :ref:`mlflowbudgettargettype`   | Scope of the budget (GLOBAL or WORKSPACE)          |
++------------------+---------------------------------+----------------------------------------------------+
+| on_exceeded      | :ref:`mlflowbudgetonexceeded`   | Action when budget is exceeded                     |
++------------------+---------------------------------+----------------------------------------------------+
+| created_by       | ``STRING``                      | User ID who created the policy                     |
++------------------+---------------------------------+----------------------------------------------------+
+| created_at       | ``INT64``                       | Creation timestamp in milliseconds                 |
++------------------+---------------------------------+----------------------------------------------------+
+| last_updated_by  | ``STRING``                      | User ID who last updated the policy                |
++------------------+---------------------------------+----------------------------------------------------+
+| last_updated_at  | ``INT64``                       | Last update timestamp in milliseconds              |
++------------------+---------------------------------+----------------------------------------------------+
 
 .. _mlflowGatewayEndpoint:
 
@@ -8831,6 +8829,8 @@ Duration type for budget policy fixed windows
 +===========================+=============+
 | DURATION_TYPE_UNSPECIFIED |             |
 +---------------------------+-------------+
+| MINUTES                   |             |
++---------------------------+-------------+
 | HOURS                     |             |
 +---------------------------+-------------+
 | DAYS                      |             |
@@ -8855,8 +8855,6 @@ Action to take when a budget is exceeded
 +-------------------------+-------------+
 | REJECT                  |             |
 +-------------------------+-------------+
-| ALERT_AND_REJECT        |             |
-+-------------------------+-------------+
 
 .. _mlflowBudgetTargetType:
 
@@ -8874,6 +8872,22 @@ Target scope for a budget policy
 | GLOBAL                  |             |
 +-------------------------+-------------+
 | WORKSPACE               |             |
++-------------------------+-------------+
+
+.. _mlflowBudgetType:
+
+BudgetType
+----------
+
+
+Type of budget measurement unit
+
++-------------------------+-------------+
+|          Name           | Description |
++=========================+=============+
+| BUDGET_TYPE_UNSPECIFIED |             |
++-------------------------+-------------+
+| USD                     |             |
 +-------------------------+-------------+
 
 .. _mlflowModelVersionDeploymentJobStateDeploymentJobRunState:
@@ -9260,8 +9274,6 @@ Webhook action types
 +--------------------+-------------+
 | SET                |             |
 +--------------------+-------------+
-| CROSSED            |             |
-+--------------------+-------------+
 
 .. _mlflowWebhookEntity:
 
@@ -9293,8 +9305,6 @@ Webhook entity types
 | PROMPT_VERSION_TAG  |             |
 +---------------------+-------------+
 | PROMPT_ALIAS        |             |
-+---------------------+-------------+
-| BUDGET_POLICY       |             |
 +---------------------+-------------+
 
 .. _mlflowWebhookStatus:

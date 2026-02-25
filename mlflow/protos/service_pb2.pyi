@@ -86,6 +86,7 @@ class GatewayModelLinkageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper)
 class BudgetDurationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     DURATION_TYPE_UNSPECIFIED: _ClassVar[BudgetDurationType]
+    MINUTES: _ClassVar[BudgetDurationType]
     HOURS: _ClassVar[BudgetDurationType]
     DAYS: _ClassVar[BudgetDurationType]
     MONTHS: _ClassVar[BudgetDurationType]
@@ -101,7 +102,11 @@ class BudgetOnExceeded(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ON_EXCEEDED_UNSPECIFIED: _ClassVar[BudgetOnExceeded]
     ALERT: _ClassVar[BudgetOnExceeded]
     REJECT: _ClassVar[BudgetOnExceeded]
-    ALERT_AND_REJECT: _ClassVar[BudgetOnExceeded]
+
+class BudgetType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BUDGET_TYPE_UNSPECIFIED: _ClassVar[BudgetType]
+    USD: _ClassVar[BudgetType]
 ACTIVE_ONLY: ViewType
 DELETED_ONLY: ViewType
 ALL: ViewType
@@ -140,6 +145,7 @@ LINKAGE_TYPE_UNSPECIFIED: GatewayModelLinkageType
 PRIMARY: GatewayModelLinkageType
 FALLBACK: GatewayModelLinkageType
 DURATION_TYPE_UNSPECIFIED: BudgetDurationType
+MINUTES: BudgetDurationType
 HOURS: BudgetDurationType
 DAYS: BudgetDurationType
 MONTHS: BudgetDurationType
@@ -149,7 +155,8 @@ WORKSPACE: BudgetTargetType
 ON_EXCEEDED_UNSPECIFIED: BudgetOnExceeded
 ALERT: BudgetOnExceeded
 REJECT: BudgetOnExceeded
-ALERT_AND_REJECT: BudgetOnExceeded
+BUDGET_TYPE_UNSPECIFIED: BudgetType
+USD: BudgetType
 
 class Metric(_message.Message):
     __slots__ = ("key", "value", "timestamp", "step", "dataset_name", "dataset_digest", "model_id", "run_id")
@@ -2295,10 +2302,10 @@ class DeleteGatewayEndpointTag(_message.Message):
     def __init__(self, endpoint_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
 
 class GatewayBudgetPolicy(_message.Message):
-    __slots__ = ("budget_policy_id", "name", "limit_usd", "duration_type", "duration_value", "target_type", "on_exceeded", "created_by", "created_at", "last_updated_by", "last_updated_at")
+    __slots__ = ("budget_policy_id", "budget_type", "budget_amount", "duration_type", "duration_value", "target_type", "on_exceeded", "created_by", "created_at", "last_updated_by", "last_updated_at")
     BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    LIMIT_USD_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_TYPE_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_AMOUNT_FIELD_NUMBER: _ClassVar[int]
     DURATION_TYPE_FIELD_NUMBER: _ClassVar[int]
     DURATION_VALUE_FIELD_NUMBER: _ClassVar[int]
     TARGET_TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -2308,8 +2315,8 @@ class GatewayBudgetPolicy(_message.Message):
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     budget_policy_id: str
-    name: str
-    limit_usd: float
+    budget_type: BudgetType
+    budget_amount: float
     duration_type: BudgetDurationType
     duration_value: int
     target_type: BudgetTargetType
@@ -2318,68 +2325,66 @@ class GatewayBudgetPolicy(_message.Message):
     created_at: int
     last_updated_by: str
     last_updated_at: int
-    def __init__(self, budget_policy_id: _Optional[str] = ..., name: _Optional[str] = ..., limit_usd: _Optional[float] = ..., duration_type: _Optional[_Union[BudgetDurationType, str]] = ..., duration_value: _Optional[int] = ..., target_type: _Optional[_Union[BudgetTargetType, str]] = ..., on_exceeded: _Optional[_Union[BudgetOnExceeded, str]] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_by: _Optional[str] = ..., last_updated_at: _Optional[int] = ...) -> None: ...
+    def __init__(self, budget_policy_id: _Optional[str] = ..., budget_type: _Optional[_Union[BudgetType, str]] = ..., budget_amount: _Optional[float] = ..., duration_type: _Optional[_Union[BudgetDurationType, str]] = ..., duration_value: _Optional[int] = ..., target_type: _Optional[_Union[BudgetTargetType, str]] = ..., on_exceeded: _Optional[_Union[BudgetOnExceeded, str]] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_by: _Optional[str] = ..., last_updated_at: _Optional[int] = ...) -> None: ...
 
 class CreateGatewayBudgetPolicy(_message.Message):
-    __slots__ = ("name", "limit_usd", "duration_type", "duration_value", "target_type", "on_exceeded", "created_by")
+    __slots__ = ("budget_type", "budget_amount", "duration_type", "duration_value", "target_type", "on_exceeded", "created_by")
     class Response(_message.Message):
         __slots__ = ("budget_policy",)
         BUDGET_POLICY_FIELD_NUMBER: _ClassVar[int]
         budget_policy: GatewayBudgetPolicy
         def __init__(self, budget_policy: _Optional[_Union[GatewayBudgetPolicy, _Mapping]] = ...) -> None: ...
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    LIMIT_USD_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_TYPE_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_AMOUNT_FIELD_NUMBER: _ClassVar[int]
     DURATION_TYPE_FIELD_NUMBER: _ClassVar[int]
     DURATION_VALUE_FIELD_NUMBER: _ClassVar[int]
     TARGET_TYPE_FIELD_NUMBER: _ClassVar[int]
     ON_EXCEEDED_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    limit_usd: float
+    budget_type: BudgetType
+    budget_amount: float
     duration_type: BudgetDurationType
     duration_value: int
     target_type: BudgetTargetType
     on_exceeded: BudgetOnExceeded
     created_by: str
-    def __init__(self, name: _Optional[str] = ..., limit_usd: _Optional[float] = ..., duration_type: _Optional[_Union[BudgetDurationType, str]] = ..., duration_value: _Optional[int] = ..., target_type: _Optional[_Union[BudgetTargetType, str]] = ..., on_exceeded: _Optional[_Union[BudgetOnExceeded, str]] = ..., created_by: _Optional[str] = ...) -> None: ...
+    def __init__(self, budget_type: _Optional[_Union[BudgetType, str]] = ..., budget_amount: _Optional[float] = ..., duration_type: _Optional[_Union[BudgetDurationType, str]] = ..., duration_value: _Optional[int] = ..., target_type: _Optional[_Union[BudgetTargetType, str]] = ..., on_exceeded: _Optional[_Union[BudgetOnExceeded, str]] = ..., created_by: _Optional[str] = ...) -> None: ...
 
 class GetGatewayBudgetPolicy(_message.Message):
-    __slots__ = ("budget_policy_id", "name")
+    __slots__ = ("budget_policy_id",)
     class Response(_message.Message):
         __slots__ = ("budget_policy",)
         BUDGET_POLICY_FIELD_NUMBER: _ClassVar[int]
         budget_policy: GatewayBudgetPolicy
         def __init__(self, budget_policy: _Optional[_Union[GatewayBudgetPolicy, _Mapping]] = ...) -> None: ...
     BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
     budget_policy_id: str
-    name: str
-    def __init__(self, budget_policy_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+    def __init__(self, budget_policy_id: _Optional[str] = ...) -> None: ...
 
 class UpdateGatewayBudgetPolicy(_message.Message):
-    __slots__ = ("budget_policy_id", "name", "limit_usd", "duration_type", "duration_value", "target_type", "on_exceeded", "updated_by")
+    __slots__ = ("budget_policy_id", "budget_type", "budget_amount", "duration_type", "duration_value", "target_type", "on_exceeded", "updated_by")
     class Response(_message.Message):
         __slots__ = ("budget_policy",)
         BUDGET_POLICY_FIELD_NUMBER: _ClassVar[int]
         budget_policy: GatewayBudgetPolicy
         def __init__(self, budget_policy: _Optional[_Union[GatewayBudgetPolicy, _Mapping]] = ...) -> None: ...
     BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    LIMIT_USD_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_TYPE_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_AMOUNT_FIELD_NUMBER: _ClassVar[int]
     DURATION_TYPE_FIELD_NUMBER: _ClassVar[int]
     DURATION_VALUE_FIELD_NUMBER: _ClassVar[int]
     TARGET_TYPE_FIELD_NUMBER: _ClassVar[int]
     ON_EXCEEDED_FIELD_NUMBER: _ClassVar[int]
     UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
     budget_policy_id: str
-    name: str
-    limit_usd: float
+    budget_type: BudgetType
+    budget_amount: float
     duration_type: BudgetDurationType
     duration_value: int
     target_type: BudgetTargetType
     on_exceeded: BudgetOnExceeded
     updated_by: str
-    def __init__(self, budget_policy_id: _Optional[str] = ..., name: _Optional[str] = ..., limit_usd: _Optional[float] = ..., duration_type: _Optional[_Union[BudgetDurationType, str]] = ..., duration_value: _Optional[int] = ..., target_type: _Optional[_Union[BudgetTargetType, str]] = ..., on_exceeded: _Optional[_Union[BudgetOnExceeded, str]] = ..., updated_by: _Optional[str] = ...) -> None: ...
+    def __init__(self, budget_policy_id: _Optional[str] = ..., budget_type: _Optional[_Union[BudgetType, str]] = ..., budget_amount: _Optional[float] = ..., duration_type: _Optional[_Union[BudgetDurationType, str]] = ..., duration_value: _Optional[int] = ..., target_type: _Optional[_Union[BudgetTargetType, str]] = ..., on_exceeded: _Optional[_Union[BudgetOnExceeded, str]] = ..., updated_by: _Optional[str] = ...) -> None: ...
 
 class DeleteGatewayBudgetPolicy(_message.Message):
     __slots__ = ("budget_policy_id",)

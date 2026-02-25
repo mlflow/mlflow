@@ -19,6 +19,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationType,
     BudgetOnExceeded,
     BudgetTargetType,
+    BudgetType,
     GatewayBudgetPolicy,
 )
 from mlflow.protos.service_pb2 import (
@@ -626,8 +627,8 @@ class RestGatewayStoreMixin:
 
     def create_budget_policy(
         self,
-        name: str,
-        limit_usd: float,
+        budget_type: BudgetType,
+        budget_amount: float,
         duration_type: BudgetDurationType,
         duration_value: int,
         target_type: BudgetTargetType,
@@ -636,8 +637,8 @@ class RestGatewayStoreMixin:
     ) -> GatewayBudgetPolicy:
         req_body = message_to_json(
             CreateGatewayBudgetPolicy(
-                name=name,
-                limit_usd=limit_usd,
+                budget_type=budget_type.to_proto(),
+                budget_amount=budget_amount,
                 duration_type=duration_type.to_proto(),
                 duration_value=duration_value,
                 target_type=target_type.to_proto(),
@@ -650,11 +651,10 @@ class RestGatewayStoreMixin:
 
     def get_budget_policy(
         self,
-        budget_policy_id: str | None = None,
-        name: str | None = None,
+        budget_policy_id: str,
     ) -> GatewayBudgetPolicy:
         req_body = message_to_json(
-            GetGatewayBudgetPolicy(budget_policy_id=budget_policy_id, name=name)
+            GetGatewayBudgetPolicy(budget_policy_id=budget_policy_id)
         )
         response_proto = self._call_endpoint(GetGatewayBudgetPolicy, req_body)
         return GatewayBudgetPolicy.from_proto(response_proto.budget_policy)
@@ -662,8 +662,8 @@ class RestGatewayStoreMixin:
     def update_budget_policy(
         self,
         budget_policy_id: str,
-        name: str | None = None,
-        limit_usd: float | None = None,
+        budget_type: BudgetType | None = None,
+        budget_amount: float | None = None,
         duration_type: BudgetDurationType | None = None,
         duration_value: int | None = None,
         target_type: BudgetTargetType | None = None,
@@ -673,8 +673,8 @@ class RestGatewayStoreMixin:
         req_body = message_to_json(
             UpdateGatewayBudgetPolicy(
                 budget_policy_id=budget_policy_id,
-                name=name,
-                limit_usd=limit_usd,
+                budget_type=budget_type.to_proto() if budget_type else None,
+                budget_amount=budget_amount,
                 duration_type=duration_type.to_proto() if duration_type else None,
                 duration_value=duration_value,
                 target_type=target_type.to_proto() if target_type else None,

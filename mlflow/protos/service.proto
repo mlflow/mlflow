@@ -2132,7 +2132,7 @@ service MlflowService {
     };
   }
 
-  // Get a budget policy by ID or name
+  // Get a budget policy by ID
   rpc getBudgetPolicy(GetGatewayBudgetPolicy) returns (GetGatewayBudgetPolicy.Response) {
     option (rpc) = {
       endpoints: [
@@ -4789,9 +4789,10 @@ enum GatewayModelLinkageType {
 // Duration type for budget policy fixed windows
 enum BudgetDurationType {
   DURATION_TYPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
-  HOURS = 1;
-  DAYS = 2;
-  MONTHS = 3;
+  MINUTES = 1;
+  HOURS = 2;
+  DAYS = 3;
+  MONTHS = 4;
 }
 
 // Target scope for a budget policy
@@ -4806,7 +4807,12 @@ enum BudgetOnExceeded {
   ON_EXCEEDED_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
   ALERT = 1;
   REJECT = 2;
-  ALERT_AND_REJECT = 3;
+}
+
+// Type of budget measurement unit
+enum BudgetType {
+  BUDGET_TYPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  USD = 1;
 }
 
 // Configuration for fallback routing
@@ -5003,11 +5009,11 @@ message DeleteGatewayEndpointTag {
 message GatewayBudgetPolicy {
   // Unique identifier for this budget policy
   optional string budget_policy_id = 1;
-  // User-friendly name for the budget policy
-  optional string name = 2;
-  // Budget limit in USD
-  optional double limit_usd = 3;
-  // Type of time window (HOURS, DAYS, MONTHS)
+  // Type of budget measurement (e.g. USD)
+  optional BudgetType budget_type = 2;
+  // Budget limit amount
+  optional double budget_amount = 3;
+  // Type of time window (MINUTES, HOURS, DAYS, MONTHS)
   optional BudgetDurationType duration_type = 4;
   // Length of the window in units of duration_type
   optional int32 duration_value = 5;
@@ -5026,8 +5032,8 @@ message GatewayBudgetPolicy {
 }
 
 message CreateGatewayBudgetPolicy {
-  optional string name = 1;
-  optional double limit_usd = 2;
+  optional BudgetType budget_type = 1;
+  optional double budget_amount = 2;
   optional BudgetDurationType duration_type = 3;
   optional int32 duration_value = 4;
   optional BudgetTargetType target_type = 5;
@@ -5041,7 +5047,6 @@ message CreateGatewayBudgetPolicy {
 
 message GetGatewayBudgetPolicy {
   optional string budget_policy_id = 1;
-  optional string name = 2;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;
@@ -5050,8 +5055,8 @@ message GetGatewayBudgetPolicy {
 
 message UpdateGatewayBudgetPolicy {
   optional string budget_policy_id = 1;
-  optional string name = 2;
-  optional double limit_usd = 3;
+  optional BudgetType budget_type = 2;
+  optional double budget_amount = 3;
   optional BudgetDurationType duration_type = 4;
   optional int32 duration_value = 5;
   optional BudgetTargetType target_type = 6;
