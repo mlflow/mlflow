@@ -284,10 +284,10 @@ def _run_with_existing_server(
         )
 
     if is_databricks_uri(tracking_uri):
-        experiment_url = f"{host_url}/ml/experiments/{experiment.experiment_id}/overview"
+        experiment_url = f"{host_url}/ml/experiments/{experiment.experiment_id}/traces"
     else:
         experiment_url = (
-            f"{tracking_uri.rstrip('/')}/#/experiments/{experiment.experiment_id}/overview"
+            f"{tracking_uri.rstrip('/')}/#/experiments/{experiment.experiment_id}/traces"
         )
 
     click.echo()
@@ -351,7 +351,7 @@ def _run_with_new_server(port: int | None, no_browser: bool, debug: bool, refres
             f"Demo experiment '{demo_name}' not found. "
             "This should not happen after generating demo data."
         )
-    experiment_url = f"http://127.0.0.1:{port}/#/experiments/{experiment.experiment_id}/overview"
+    experiment_url = f"http://127.0.0.1:{port}/#/experiments/{experiment.experiment_id}/traces"
 
     if not no_browser:
 

@@ -5,6 +5,7 @@ invoke the actual CLI command with a mocked server.
 """
 
 import socket
+import sys
 from unittest import mock
 
 import click
@@ -30,7 +31,7 @@ from mlflow.genai.prompts import search_prompts
 @pytest.fixture(autouse=True)
 def disable_quiet_logging(monkeypatch):
     """Prevent CLI from modifying logging state during tests."""
-    monkeypatch.setattr("mlflow.cli.demo._set_quiet_logging", lambda: None)
+    monkeypatch.setattr(sys.modules["mlflow.cli.demo"], "_set_quiet_logging", lambda: None)
     get_demo_experiment_name.cache_clear()
     set_uc_schema(None)
 
@@ -208,12 +209,16 @@ def test_resolve_demo_name(uc_schema, original, expected):
     assert resolve_demo_name(original) == expected
 
 
+def _demo_mod():
+    return sys.modules["mlflow.cli.demo"]
+
+
 def test_check_databricks_connection_success():
     mock_creds = mock.MagicMock()
     mock_creds.host = "https://my-workspace.databricks.com/"
 
-    with mock.patch(
-        "mlflow.cli.demo.get_databricks_host_creds", return_value=mock_creds
+    with mock.patch.object(
+        _demo_mod(), "get_databricks_host_creds", return_value=mock_creds
     ) as mock_get_creds:
         result = _check_databricks_connection("databricks")
 
@@ -222,8 +227,9 @@ def test_check_databricks_connection_success():
 
 
 def test_check_databricks_connection_failure():
-    with mock.patch(
-        "mlflow.cli.demo.get_databricks_host_creds",
+    with mock.patch.object(
+        _demo_mod(),
+        "get_databricks_host_creds",
         side_effect=Exception("No credentials found"),
     ):
         with pytest.raises(click.ClickException, match="Cannot connect to Databricks workspace"):
@@ -237,8 +243,8 @@ def test_cli_databricks_with_uc_schema():
     mock_creds.host = "https://my-workspace.databricks.com/"
 
     with (
-        mock.patch("mlflow.cli.demo.get_databricks_host_creds", return_value=mock_creds),
-        mock.patch("mlflow.cli.demo.is_databricks_uri", return_value=True),
+        mock.patch.object(_demo_mod(), "get_databricks_host_creds", return_value=mock_creds),
+        mock.patch.object(_demo_mod(), "is_databricks_uri", return_value=True),
         mock.patch("mlflow.demo.generate_all_demos", return_value=[]) as mock_gen,
         mock.patch(
             "mlflow.demo.base.get_demo_experiment_name",
@@ -256,7 +262,7 @@ def test_cli_databricks_with_uc_schema():
 
     assert result.exit_code == 0
     assert "Connecting to Databricks workspace" in result.output
-    assert "/ml/experiments/123/overview" in result.output
+    assert "/ml/experiments/123/traces" in result.output
 
     mock_gen.assert_called_once()
 
@@ -264,8 +270,9 @@ def test_cli_databricks_with_uc_schema():
 def test_cli_databricks_tracking_uri_bad_creds():
     runner = CliRunner()
 
-    with mock.patch(
-        "mlflow.cli.demo.get_databricks_host_creds",
+    with mock.patch.object(
+        _demo_mod(),
+        "get_databricks_host_creds",
         side_effect=Exception("No credentials found"),
     ):
         result = runner.invoke(demo, ["--tracking-uri", "databricks", "--no-browser"])
