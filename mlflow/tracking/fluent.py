@@ -886,7 +886,9 @@ def flush_trace_async_logging(terminate=False) -> None:
         terminate: If True, shut down the logging threads after flushing.
     """
     try:
-        _get_trace_exporter()._async_queue.flush(terminate=terminate)
+        exporter = _get_trace_exporter()
+        if exporter is not None and hasattr(exporter, "_async_queue"):
+            exporter._async_queue.flush(terminate=terminate)
     except Exception as e:
         _logger.error(f"Failed to flush trace async logging: {e}")
 
