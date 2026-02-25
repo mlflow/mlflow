@@ -9,9 +9,29 @@ jest.mock('../../../common/utils/FetchUtils', () => {
   const actual = jest.requireActual<typeof import('../../../common/utils/FetchUtils')>(
     '../../../common/utils/FetchUtils',
   );
+  const { matchPredefinedErrorFromResponse } = jest.requireActual<
+    typeof import('../../../shared/web-shared/errors/PredefinedErrors')
+  >('../../../shared/web-shared/errors/PredefinedErrors');
+  const getDefaultHeadersMock = jest.fn((cookieStr: string) => actual.getDefaultHeaders(cookieStr));
   return {
     ...actual,
-    getDefaultHeaders: jest.fn((cookieStr: string) => actual.getDefaultHeaders(cookieStr)),
+    getDefaultHeaders: getDefaultHeadersMock,
+    fetchOrFail: jest.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      const doc = typeof global !== 'undefined' ? (global as { document?: { cookie?: string } }).document : undefined;
+      const cookieString = doc && typeof doc.cookie === 'string' ? doc.cookie : '';
+      const fetchOptions: RequestInit = {
+        ...options,
+        headers: {
+          ...getDefaultHeadersMock(cookieString),
+          ...options?.headers,
+        },
+      };
+      const response = await fetch(input, fetchOptions);
+      if (!response.ok) {
+        throw matchPredefinedErrorFromResponse(response);
+      }
+      return response;
+    }),
   };
 });
 
@@ -103,7 +123,7 @@ describe('Try it tab', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/Request failed \(500\)/)).toBeInTheDocument();
+    expect(screen.getByText('Internal server error')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Server error details')).toBeInTheDocument();
   });
 
