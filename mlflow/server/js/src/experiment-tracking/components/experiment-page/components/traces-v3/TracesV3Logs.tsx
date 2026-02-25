@@ -90,7 +90,7 @@ const ContextProviders = ({
 const TracesV3LogsImpl = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
-    experimentId,
+    experimentIds,
     endpointName = '',
     timeRange,
     isLoadingExperiment,
@@ -102,7 +102,10 @@ const TracesV3LogsImpl = React.memo(
     customDefaultSelectedColumns,
     toolbarAddons,
   }: {
-    experimentId: string;
+    /**
+     * Array of experiment IDs to search traces for.
+     */
+    experimentIds: string[];
     endpointName?: string;
     timeRange?: { startTime: string | undefined; endTime: string | undefined };
     isLoadingExperiment?: boolean;
@@ -118,6 +121,16 @@ const TracesV3LogsImpl = React.memo(
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
   }) => {
+    // When viewing a single experiment, pass its ID to enable experiment-specific
+    // features (run name links, logged model links, session links, filter dropdowns).
+    // When viewing multiple experiments, pass undefined to disable those features.
+    const singleExperimentId = experimentIds.length === 1 ? experimentIds[0] : undefined;
+    // Use a deterministic key for filter/column persistence so state doesn't
+    // shift when the array order changes (e.g. "all endpoints" in the gateway).
+    const persistenceKey = useMemo(
+      () => (experimentIds.length > 1 ? [...experimentIds].sort().join(',') : (experimentIds[0] ?? '')),
+      [experimentIds],
+    );
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
@@ -133,11 +146,11 @@ const TracesV3LogsImpl = React.memo(
 
     const traceSearchLocations = useMemo(
       () => {
-        return [createTraceLocationForExperiment(experimentId)];
+        return experimentIds.map((id) => createTraceLocationForExperiment(id));
       },
       // prettier-ignore
       [
-        experimentId,
+        experimentIds,
       ],
     );
 
@@ -168,7 +181,7 @@ const TracesV3LogsImpl = React.memo(
     const [filters, setFilters] = useFilters({
       persist: shouldEnableTracesTableStatePersistence(),
       loadPersistedValues: shouldEnableTracesTableStatePersistence(),
-      persistKey: experimentId,
+      persistKey: persistenceKey,
     });
     const queryClient = useQueryClient();
 
@@ -205,7 +218,7 @@ const TracesV3LogsImpl = React.memo(
     );
 
     const { selectedColumns, toggleColumns, setSelectedColumns } = useSelectedColumns(
-      experimentId,
+      persistenceKey,
       allColumns,
       defaultSelectedColumns,
       undefined, // runUuid
@@ -348,7 +361,7 @@ const TracesV3LogsImpl = React.memo(
           <>
             <Spacer />
             <TracesV3EmptyState
-              experimentIds={[experimentId]}
+              experimentIds={experimentIds}
               loggedModelId={loggedModelId}
               traceSearchLocations={traceSearchLocations}
               isCallDisabled={isQueryDisabled}
@@ -394,9 +407,9 @@ const TracesV3LogsImpl = React.memo(
                 />
               </div>
             ) : (
-              <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
+              <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={singleExperimentId}>
                 <GenAITracesTableBodyContainer
-                  experimentId={experimentId}
+                  experimentId={singleExperimentId}
                   allColumns={allColumns}
                   currentTraceInfoV3={traceInfos || []}
                   currentRunDisplayName={endpointName}
@@ -424,7 +437,7 @@ const TracesV3LogsImpl = React.memo(
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={AssistantAwareDrawer}
       >
-        <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
+        <GenAITracesTableProvider experimentId={singleExperimentId} isGroupedBySession={isGroupedBySession}>
           <div
             css={{
               overflowY: 'hidden',
@@ -434,7 +447,7 @@ const TracesV3LogsImpl = React.memo(
             }}
           >
             <GenAITracesTableToolbar
-              experimentId={experimentId}
+              experimentId={singleExperimentId}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               filters={filters}

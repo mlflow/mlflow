@@ -101,7 +101,7 @@ const ExperimentChatSessionsPageImpl = () => {
       />
       {shouldEnableSessionGrouping() ? (
         <TracesV3Logs
-          experimentId={experimentId}
+          experimentIds={[experimentId]}
           additionalFilters={filters}
           endpointName=""
           timeRange={timeRange}
