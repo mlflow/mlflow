@@ -10,7 +10,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
-import type { DurationType, TargetType, OnExceededAction } from '../../types';
+import type { DurationUnit, TargetType, BudgetAction } from '../../types';
 
 interface CreateBudgetPolicyModalProps {
   open: boolean;
@@ -20,18 +20,18 @@ interface CreateBudgetPolicyModalProps {
 
 interface FormData {
   budgetAmount: string;
-  durationType: DurationType;
+  durationUnit: DurationUnit;
   durationValue: string;
   targetType: TargetType;
-  onExceeded: OnExceededAction;
+  budgetAction: BudgetAction;
 }
 
 const INITIAL_FORM_DATA: FormData = {
   budgetAmount: '',
-  durationType: 'DAYS',
+  durationUnit: 'DAYS',
   durationValue: '30',
   targetType: 'GLOBAL',
-  onExceeded: 'REJECT',
+  budgetAction: 'REJECT',
 };
 
 export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudgetPolicyModalProps) => {
@@ -67,12 +67,12 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     if (!isFormValid) return;
 
     await createBudgetPolicy({
-      budget_type: 'USD',
+      budget_unit: 'USD',
       budget_amount: parseFloat(formData.budgetAmount),
-      duration_type: formData.durationType,
+      duration_unit: formData.durationUnit,
       duration_value: parseInt(formData.durationValue, 10),
       target_type: formData.targetType,
-      on_exceeded: formData.onExceeded,
+      budget_action: formData.budgetAction,
     }).then(() => {
       handleClose();
       onSuccess?.();
@@ -151,8 +151,8 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
             <SimpleSelect
               id="create-budget-policy-duration-type"
               componentId="mlflow.gateway.create-budget-policy-modal.duration-type"
-              value={formData.durationType}
-              onChange={({ target }) => handleFieldChange('durationType', target.value as DurationType)}
+              value={formData.durationUnit}
+              onChange={({ target }) => handleFieldChange('durationUnit', target.value as DurationUnit)}
             >
               <SimpleSelectOption value="MINUTES">Minutes</SimpleSelectOption>
               <SimpleSelectOption value="HOURS">Hours</SimpleSelectOption>
@@ -198,8 +198,8 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
           <SimpleSelect
             id="create-budget-policy-on-exceeded"
             componentId="mlflow.gateway.create-budget-policy-modal.on-exceeded"
-            value={formData.onExceeded}
-            onChange={({ target }) => handleFieldChange('onExceeded', target.value as OnExceededAction)}
+            value={formData.budgetAction}
+            onChange={({ target }) => handleFieldChange('budgetAction', target.value as BudgetAction)}
           >
             <SimpleSelectOption value="ALERT">Alert only</SimpleSelectOption>
             <SimpleSelectOption value="REJECT">Reject requests</SimpleSelectOption>
