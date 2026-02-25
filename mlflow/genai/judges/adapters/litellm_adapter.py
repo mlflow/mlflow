@@ -204,7 +204,7 @@ def _invoke_litellm_and_handle_tools(
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
-    proxy_url: str | None = None,
+    base_url: str | None = None,
     extra_headers: dict[str, str] | None = None,
 ) -> InvokeLiteLLMOutput:
     """
@@ -247,8 +247,8 @@ def _invoke_litellm_and_handle_tools(
         model = config.model
     else:
         model = f"{provider}/{model_name}"
-        if proxy_url is not None:
-            api_base = proxy_url
+        if base_url is not None:
+            api_base = base_url
             # When using a proxy, provide a dummy API key if none is set,
             # because litellm requires an api_key for most providers.
             api_key = "dummy"
@@ -546,12 +546,12 @@ class LiteLLMAdapter(BaseJudgeAdapter):
 
         is_model_provider_databricks = input_params.model_provider in ("databricks", "endpoints")
 
-        # Reject proxy_url / extra_headers for Databricks providers
+        # Reject base_url / extra_headers for Databricks providers
         if is_model_provider_databricks and (
-            input_params.proxy_url is not None or input_params.extra_headers is not None
+            input_params.base_url is not None or input_params.extra_headers is not None
         ):
             raise MlflowException(
-                "proxy_url and extra_headers are not supported for Databricks endpoints. "
+                "base_url and extra_headers are not supported for Databricks endpoints. "
                 "The endpoint URL is determined by Databricks workspace configuration.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -565,7 +565,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
                 num_retries=input_params.num_retries,
                 response_format=input_params.response_format,
                 inference_params=input_params.inference_params,
-                proxy_url=input_params.proxy_url,
+                base_url=input_params.base_url,
                 extra_headers=input_params.extra_headers,
             )
 

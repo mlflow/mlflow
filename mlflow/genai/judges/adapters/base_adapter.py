@@ -28,7 +28,7 @@ class AdapterInvocationInput:
         use_case: Optional use case for telemetry tracking. Only used by some adapters.
         inference_params: Optional dictionary of inference parameters to pass to the
             model (e.g., temperature, top_p, max_tokens).
-        proxy_url: Optional proxy URL to route requests through. When specified, all
+        base_url: Optional base URL to route requests through. When specified, all
             requests to the LLM provider will be routed through this URL.
         extra_headers: Optional dictionary of additional HTTP headers to include in
             requests to the LLM provider.
@@ -42,7 +42,7 @@ class AdapterInvocationInput:
     response_format: type[pydantic.BaseModel] | None = None
     use_case: str | None = None
     inference_params: dict[str, Any] | None = None
-    proxy_url: str | None = None
+    base_url: str | None = None
     extra_headers: dict[str, str] | None = None
 
     def __post_init__(self):

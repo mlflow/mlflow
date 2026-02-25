@@ -637,7 +637,7 @@ def test_list_scorers_env_var_still_works(runner, experiment, monkeypatch):
     assert result.exit_code == 0
 
 
-def test_create_judge_with_proxy_url(runner: CliRunner, experiment: str):
+def test_create_judge_with_base_url(runner: CliRunner, experiment: str):
     result = runner.invoke(
         commands,
         [
@@ -648,7 +648,7 @@ def test_create_judge_with_proxy_url(runner: CliRunner, experiment: str):
             "Evaluate {{ outputs }}",
             "--model",
             "openai:/gpt-4",
-            "--proxy-url",
+            "--base-url",
             "http://my-proxy:8080/v1",
             "--experiment-id",
             experiment,
@@ -658,7 +658,7 @@ def test_create_judge_with_proxy_url(runner: CliRunner, experiment: str):
     assert result.exit_code == 0
     assert "Successfully created and registered" in result.output
 
-    # proxy_url is not persisted, so the registered judge won't have it
+    # base_url is not persisted, so the registered judge won't have it
     scorers = list_scorers(experiment_id=experiment)
     assert any(s.name == "proxy_judge" for s in scorers)
 
@@ -688,7 +688,7 @@ def test_create_judge_with_extra_headers(runner: CliRunner, experiment: str):
     assert any(s.name == "headers_judge" for s in scorers)
 
 
-def test_create_judge_with_proxy_url_and_extra_headers(runner: CliRunner, experiment: str):
+def test_create_judge_with_base_url_and_extra_headers(runner: CliRunner, experiment: str):
     result = runner.invoke(
         commands,
         [
@@ -699,7 +699,7 @@ def test_create_judge_with_proxy_url_and_extra_headers(runner: CliRunner, experi
             "Evaluate {{ outputs }}",
             "--model",
             "openai:/gpt-4",
-            "--proxy-url",
+            "--base-url",
             "http://proxy:9090",
             "--extra-headers",
             '{"Authorization": "Bearer token"}',

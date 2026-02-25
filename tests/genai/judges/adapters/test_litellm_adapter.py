@@ -506,7 +506,7 @@ def test_invoke_litellm_without_extra_headers_omits_key():
     assert "extra_headers" not in call_kwargs
 
 
-def test_invoke_litellm_and_handle_tools_with_proxy_url():
+def test_invoke_litellm_and_handle_tools_with_base_url():
     mock_response = ModelResponse(
         choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
     )
@@ -520,7 +520,7 @@ def test_invoke_litellm_and_handle_tools_with_proxy_url():
             messages=[ChatMessage(role="user", content="Test")],
             trace=None,
             num_retries=3,
-            proxy_url="http://my-proxy:8080/v1",
+            base_url="http://my-proxy:8080/v1",
         )
 
     mock_litellm.assert_called_once()
@@ -555,7 +555,7 @@ def test_invoke_litellm_and_handle_tools_with_extra_headers():
     assert output.response == '{"result": "yes", "rationale": "OK"}'
 
 
-def test_invoke_litellm_and_handle_tools_with_proxy_url_and_extra_headers():
+def test_invoke_litellm_and_handle_tools_with_base_url_and_extra_headers():
     mock_response = ModelResponse(
         choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
     )
@@ -571,7 +571,7 @@ def test_invoke_litellm_and_handle_tools_with_proxy_url_and_extra_headers():
             messages=[ChatMessage(role="user", content="Test")],
             trace=None,
             num_retries=3,
-            proxy_url="http://proxy:9090",
+            base_url="http://proxy:9090",
             extra_headers=headers,
         )
 
@@ -583,8 +583,8 @@ def test_invoke_litellm_and_handle_tools_with_proxy_url_and_extra_headers():
     assert output.response == '{"result": "yes", "rationale": "OK"}'
 
 
-def test_invoke_litellm_and_handle_tools_proxy_url_ignored_for_gateway():
-    # When provider is 'gateway', proxy_url is ignored because gateway has its own routing
+def test_invoke_litellm_and_handle_tools_base_url_ignored_for_gateway():
+    # When provider is 'gateway', base_url is ignored because gateway has its own routing
     mock_response = ModelResponse(
         choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
     )
@@ -604,18 +604,18 @@ def test_invoke_litellm_and_handle_tools_proxy_url_ignored_for_gateway():
             messages=[ChatMessage(role="user", content="Test")],
             trace=None,
             num_retries=3,
-            proxy_url="http://proxy:9090",
+            base_url="http://proxy:9090",
         )
 
     mock_litellm.assert_called_once()
     call_kwargs = mock_litellm.call_args.kwargs
-    # Gateway uses its own api_base, not the proxy_url
+    # Gateway uses its own api_base, not the base_url
     assert call_kwargs["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
     assert call_kwargs["api_key"] == "mlflow-gateway-auth"
 
 
 @pytest.mark.parametrize("model_provider", ["databricks", "endpoints"])
-def test_litellm_adapter_rejects_proxy_url_for_databricks(model_provider):
+def test_litellm_adapter_rejects_base_url_for_databricks(model_provider):
     from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
 
     adapter = LiteLLMAdapter()
@@ -625,10 +625,10 @@ def test_litellm_adapter_rejects_proxy_url_for_databricks(model_provider):
         model_uri=f"{model_provider}:/test-endpoint",
         trace=None,
         num_retries=3,
-        proxy_url="http://proxy:8080",
+        base_url="http://proxy:8080",
     )
 
-    with pytest.raises(MlflowException, match="proxy_url and extra_headers are not supported"):
+    with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
         adapter.invoke(input_params)
 
 
@@ -646,7 +646,7 @@ def test_litellm_adapter_rejects_extra_headers_for_databricks(model_provider):
         extra_headers={"X-Key": "val"},
     )
 
-    with pytest.raises(MlflowException, match="proxy_url and extra_headers are not supported"):
+    with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
         adapter.invoke(input_params)
 
 

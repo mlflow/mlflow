@@ -29,7 +29,7 @@ def _invoke_via_gateway(
     provider: str,
     prompt: str,
     inference_params: dict[str, Any] | None = None,
-    proxy_url: str | None = None,
+    base_url: str | None = None,
     extra_headers: dict[str, str] | None = None,
 ) -> str:
     """
@@ -41,7 +41,7 @@ def _invoke_via_gateway(
         prompt: The prompt to evaluate.
         inference_params: Optional dictionary of inference parameters to pass to the
             model (e.g., temperature, top_p, max_tokens).
-        proxy_url: Optional proxy URL to route requests through.
+        base_url: Optional base URL to route requests through.
         extra_headers: Optional dictionary of additional HTTP headers to include
             in requests to the LLM provider.
 
@@ -65,7 +65,7 @@ def _invoke_via_gateway(
         payload=prompt,
         eval_parameters=inference_params,
         extra_headers=extra_headers,
-        proxy_url=proxy_url,
+        proxy_url=base_url,
         endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
     )
 
@@ -103,7 +103,7 @@ class GatewayAdapter(BaseJudgeAdapter):
             input_params.model_provider,
             input_params.prompt,
             input_params.inference_params,
-            input_params.proxy_url,
+            input_params.base_url,
             input_params.extra_headers,
         )
 

@@ -146,11 +146,11 @@ def list_scorers(
     help="Description of what the judge evaluates.",
 )
 @click.option(
-    "--proxy-url",
+    "--base-url",
     type=click.STRING,
     required=False,
     help=(
-        "Proxy URL to route requests through. Useful for enterprise environments "
+        "Base URL to route requests through. Useful for enterprise environments "
         "requiring LLM access through internal gateways or security proxies. "
         "Note: This value is not persisted when the judge is registered."
     ),
@@ -171,7 +171,7 @@ def register_llm_judge(
     model: str | None,
     experiment_id: str,
     description: str | None,
-    proxy_url: str | None,
+    base_url: str | None,
     extra_headers: str | None,
 ) -> None:
     """
@@ -227,7 +227,7 @@ def register_llm_judge(
         model=model,
         description=description,
         feedback_value_type=str,
-        proxy_url=proxy_url,
+        base_url=base_url,
         extra_headers=parsed_extra_headers,
     )
     registered_judge = judge.register(experiment_id=experiment_id)

@@ -85,7 +85,7 @@ class InstructionsJudge(Judge):
     _generate_rationale_first: bool = PrivateAttr(default=False)
     _include_tool_calls_in_conversation: bool = PrivateAttr(default=False)
     _inference_params: dict[str, Any] | None = PrivateAttr(default=None)
-    _proxy_url: str | None = PrivateAttr(default=None)
+    _base_url: str | None = PrivateAttr(default=None)
     _extra_headers: dict[str, str] | None = PrivateAttr(default=None)
 
     def __init__(
@@ -98,7 +98,7 @@ class InstructionsJudge(Judge):
         generate_rationale_first: bool = False,
         include_tool_calls_in_conversation: bool = False,
         inference_params: dict[str, Any] | None = None,
-        proxy_url: str | None = None,
+        base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
         **kwargs,
     ):
@@ -120,7 +120,7 @@ class InstructionsJudge(Judge):
             inference_params: Optional dictionary of inference parameters to pass to the
                            model (e.g., temperature, top_p, max_tokens). These parameters
                            allow fine-grained control over the model's behavior.
-            proxy_url: Optional proxy URL to route requests through. When specified, all
+            base_url: Optional base URL to route requests through. When specified, all
                            requests to the LLM provider will be routed through this URL.
                            Useful for enterprise environments requiring LLM access through
                            internal gateways or security proxies.
@@ -148,7 +148,7 @@ class InstructionsJudge(Judge):
         self._generate_rationale_first = generate_rationale_first
         self._include_tool_calls_in_conversation = include_tool_calls_in_conversation
         self._inference_params = inference_params
-        self._proxy_url = proxy_url
+        self._base_url = base_url
         self._extra_headers = extra_headers
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
@@ -567,7 +567,7 @@ class InstructionsJudge(Judge):
             response_format=response_format,
             use_case=USE_CASE_AGENTIC_JUDGE,
             inference_params=self._inference_params,
-            proxy_url=self._proxy_url,
+            base_url=self._base_url,
             extra_headers=self._extra_headers,
         )
 
@@ -630,13 +630,13 @@ class InstructionsJudge(Judge):
         inference_params_str = (
             f", inference_params={self._inference_params}" if self._inference_params else ""
         )
-        proxy_url_str = f", proxy_url='{self._proxy_url}'" if self._proxy_url else ""
+        base_url_str = f", base_url='{self._base_url}'" if self._base_url else ""
         extra_headers_str = f", extra_headers={self._extra_headers}" if self._extra_headers else ""
         return (
             f"InstructionsJudge(name='{self.name}', model='{self._model}', "
             f"instructions='{instructions_preview}', "
             f"template_variables={sorted(self.template_variables)}"
-            f"{inference_params_str}{proxy_url_str}{extra_headers_str})"
+            f"{inference_params_str}{base_url_str}{extra_headers_str})"
         )
 
     @staticmethod
