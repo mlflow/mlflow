@@ -15,6 +15,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { getDefaultHeaders } from '../../../common/utils/FetchUtils';
+import { TryItPanel } from './TryItPanel';
 
 type Provider = 'openai' | 'anthropic' | 'gemini';
 type Language = 'curl' | 'python';
@@ -460,142 +461,35 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
               </SegmentedControlGroup>
 
               {viewMode === 'try-it' && (
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-                  <Typography.Text color="secondary">
+                <TryItPanel
+                  description={
                     <FormattedMessage
                       defaultMessage="Edit the request body below and click Send request to call the endpoint."
                       description="Try it description for unified"
                     />
-                  </Typography.Text>
-                  <div
-                    css={{
-                      display: 'flex',
-                      gap: theme.spacing.md,
-                      minHeight: 0,
-                      flex: 1,
-                    }}
-                  >
-                    <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                      <div
-                        css={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: theme.spacing.xs,
-                          marginBottom: theme.spacing.xs,
-                        }}
-                      >
-                        <Typography.Text bold>
-                          <FormattedMessage defaultMessage="Request" description="Request body label" />
-                        </Typography.Text>
-                        <Tooltip
-                          componentId="mlflow.gateway.usage-modal.try-it.request-tooltip"
-                          content={
-                            tryItUnifiedVariant === 'chat-completions' ? (
-                              <FormattedMessage
-                                defaultMessage='JSON body for the OpenAI-compatible Chat Completions API. Include "model" (endpoint name) and "messages".'
-                                description="Request body tooltip for unified Chat Completions API"
-                              />
-                            ) : (
-                              <FormattedMessage
-                                defaultMessage='JSON body for the MLflow Invocations API. Use "messages" for chat or "input" for embeddings.'
-                                description="Request body tooltip for unified MLflow Invocations API"
-                              />
-                            )
-                          }
-                        >
-                          <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Request help">
-                            ?
-                          </span>
-                        </Tooltip>
-                      </div>
-                      <Input.TextArea
-                        componentId="mlflow.gateway.usage-modal.try-it.request"
-                        value={requestBody}
-                        onChange={(e) => setRequestBody(e.target.value)}
-                        disabled={isSending}
-                        rows={14}
-                        css={{
-                          fontFamily: 'monospace',
-                          fontSize: theme.typography.fontSizeSm,
-                          minHeight: 220,
-                        }}
+                  }
+                  requestTooltipContent={
+                    tryItUnifiedVariant === 'chat-completions' ? (
+                      <FormattedMessage
+                        defaultMessage='JSON body for the OpenAI-compatible Chat Completions API. Include "model" (endpoint name) and "messages".'
+                        description="Request body tooltip for unified Chat Completions API"
                       />
-                    </div>
-                    <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                      <div
-                        css={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: theme.spacing.xs,
-                          marginBottom: theme.spacing.xs,
-                        }}
-                      >
-                        <Typography.Text bold>
-                          <FormattedMessage defaultMessage="Response" description="Response body label" />
-                        </Typography.Text>
-                        <Tooltip
-                          componentId="mlflow.gateway.usage-modal.try-it.response-tooltip"
-                          content={
-                            <FormattedMessage
-                              defaultMessage="Response from the endpoint after clicking Send request."
-                              description="Response body tooltip"
-                            />
-                          }
-                        >
-                          <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Response help">
-                            ?
-                          </span>
-                        </Tooltip>
-                      </div>
-                      <Input.TextArea
-                        componentId="mlflow.gateway.usage-modal.try-it.response"
-                        value={responseBody}
-                        readOnly
-                        rows={14}
-                        placeholder={
-                          sendError
-                            ? undefined
-                            : isSending
-                              ? undefined
-                              : 'Click "Send request" to see the response here.'
-                        }
-                        css={{
-                          fontFamily: 'monospace',
-                          fontSize: theme.typography.fontSizeSm,
-                          backgroundColor: theme.colors.backgroundSecondary,
-                          minHeight: 220,
-                        }}
+                    ) : (
+                      <FormattedMessage
+                        defaultMessage='JSON body for the MLflow Invocations API. Use "messages" for chat or "input" for embeddings.'
+                        description="Request body tooltip for unified MLflow Invocations API"
                       />
-                      {sendError && (
-                        <Typography.Text color="error" css={{ marginTop: theme.spacing.xs }}>
-                          {sendError}
-                        </Typography.Text>
-                      )}
-                    </div>
-                  </div>
-                  <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-                    <Button
-                      componentId="mlflow.gateway.usage-modal.try-it.send"
-                      type="primary"
-                      onClick={handleSendRequest}
-                      disabled={isSending}
-                      loading={isSending}
-                    >
-                      {isSending ? (
-                        <FormattedMessage defaultMessage="Sending..." description="Send request button loading state" />
-                      ) : (
-                        <FormattedMessage defaultMessage="Send request" description="Send request button" />
-                      )}
-                    </Button>
-                    <Button
-                      componentId="mlflow.gateway.usage-modal.try-it.reset"
-                      onClick={handleResetExample}
-                      disabled={isSending}
-                    >
-                      <FormattedMessage defaultMessage="Reset example" description="Reset example button" />
-                    </Button>
-                  </div>
-                </div>
+                    )
+                  }
+                  requestTooltipComponentId="mlflow.gateway.usage-modal.try-it.request-tooltip"
+                  requestBody={requestBody}
+                  onRequestBodyChange={setRequestBody}
+                  responseBody={responseBody}
+                  sendError={sendError}
+                  isSending={isSending}
+                  onSendRequest={handleSendRequest}
+                  onResetExample={handleResetExample}
+                />
               )}
 
               {(viewMode === 'curl' || viewMode === 'python') && (
@@ -698,142 +592,35 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
               </SegmentedControlGroup>
 
               {viewMode === 'try-it' && (
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-                  <Typography.Text color="secondary">
+                <TryItPanel
+                  description={
                     <FormattedMessage
                       defaultMessage="Edit the request body below and click Send request to call the provider API."
                       description="Try it description for passthrough"
                     />
-                  </Typography.Text>
-                  <div
-                    css={{
-                      display: 'flex',
-                      gap: theme.spacing.md,
-                      minHeight: 0,
-                      flex: 1,
-                    }}
-                  >
-                    <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                      <div
-                        css={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: theme.spacing.xs,
-                          marginBottom: theme.spacing.xs,
-                        }}
-                      >
-                        <Typography.Text bold>
-                          <FormattedMessage defaultMessage="Request" description="Request body label" />
-                        </Typography.Text>
-                        <Tooltip
-                          componentId="mlflow.gateway.usage-modal.try-it.request-tooltip-passthrough"
-                          content={
-                            <FormattedMessage
-                              defaultMessage="JSON body for the {providerName} API. This payload is sent directly to the provider in its native format."
-                              description="Request body tooltip for passthrough provider"
-                              values={{
-                                providerName: {
-                                  openai: 'OpenAI',
-                                  anthropic: 'Anthropic',
-                                  gemini: 'Google Gemini',
-                                }[selectedProvider],
-                              }}
-                            />
-                          }
-                        >
-                          <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Request help">
-                            ?
-                          </span>
-                        </Tooltip>
-                      </div>
-                      <Input.TextArea
-                        componentId="mlflow.gateway.usage-modal.try-it.request"
-                        value={requestBody}
-                        onChange={(e) => setRequestBody(e.target.value)}
-                        disabled={isSending}
-                        rows={14}
-                        css={{
-                          fontFamily: 'monospace',
-                          fontSize: theme.typography.fontSizeSm,
-                          minHeight: 220,
-                        }}
-                      />
-                    </div>
-                    <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                      <div
-                        css={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: theme.spacing.xs,
-                          marginBottom: theme.spacing.xs,
-                        }}
-                      >
-                        <Typography.Text bold>
-                          <FormattedMessage defaultMessage="Response" description="Response body label" />
-                        </Typography.Text>
-                        <Tooltip
-                          componentId="mlflow.gateway.usage-modal.try-it.response-tooltip"
-                          content={
-                            <FormattedMessage
-                              defaultMessage="Response from the endpoint after clicking Send request."
-                              description="Response body tooltip"
-                            />
-                          }
-                        >
-                          <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Response help">
-                            ?
-                          </span>
-                        </Tooltip>
-                      </div>
-                      <Input.TextArea
-                        componentId="mlflow.gateway.usage-modal.try-it.response"
-                        value={responseBody}
-                        readOnly
-                        rows={14}
-                        placeholder={
-                          sendError
-                            ? undefined
-                            : isSending
-                              ? undefined
-                              : 'Click "Send request" to see the response here.'
-                        }
-                        css={{
-                          fontFamily: 'monospace',
-                          fontSize: theme.typography.fontSizeSm,
-                          backgroundColor: theme.colors.backgroundSecondary,
-                          minHeight: 220,
-                        }}
-                      />
-                      {sendError && (
-                        <Typography.Text color="error" css={{ marginTop: theme.spacing.xs }}>
-                          {sendError}
-                        </Typography.Text>
-                      )}
-                    </div>
-                  </div>
-                  <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-                    <Button
-                      componentId="mlflow.gateway.usage-modal.try-it.send"
-                      type="primary"
-                      onClick={handleSendRequest}
-                      disabled={isSending}
-                      loading={isSending}
-                    >
-                      {isSending ? (
-                        <FormattedMessage defaultMessage="Sending..." description="Send request button loading state" />
-                      ) : (
-                        <FormattedMessage defaultMessage="Send request" description="Send request button" />
-                      )}
-                    </Button>
-                    <Button
-                      componentId="mlflow.gateway.usage-modal.try-it.reset"
-                      onClick={handleResetExample}
-                      disabled={isSending}
-                    >
-                      <FormattedMessage defaultMessage="Reset example" description="Reset example button" />
-                    </Button>
-                  </div>
-                </div>
+                  }
+                  requestTooltipContent={
+                    <FormattedMessage
+                      defaultMessage="JSON body for the {providerName} API. This payload is sent directly to the provider in its native format."
+                      description="Request body tooltip for passthrough provider"
+                      values={{
+                        providerName: {
+                          openai: 'OpenAI',
+                          anthropic: 'Anthropic',
+                          gemini: 'Google Gemini',
+                        }[selectedProvider],
+                      }}
+                    />
+                  }
+                  requestTooltipComponentId="mlflow.gateway.usage-modal.try-it.request-tooltip-passthrough"
+                  requestBody={requestBody}
+                  onRequestBodyChange={setRequestBody}
+                  responseBody={responseBody}
+                  sendError={sendError}
+                  isSending={isSending}
+                  onSendRequest={handleSendRequest}
+                  onResetExample={handleResetExample}
+                />
               )}
 
               {(viewMode === 'curl' || viewMode === 'python') && (
