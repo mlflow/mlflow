@@ -16,7 +16,9 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.config import (
     AnthropicConfig,
     EndpointConfig,
@@ -42,6 +44,7 @@ from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.server.handlers import _get_model_registry_store
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.gateway.entities import (
@@ -52,9 +55,12 @@ from mlflow.store.tracking.gateway.entities import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationType
 from mlflow.telemetry.track import _record_event
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import CostKey, TokenUsageKey, TraceMetadataKey
+from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.workspace_context import get_request_workspace
+from mlflow.webhooks.delivery import deliver_webhook
+from mlflow.webhooks.types import BudgetPolicyCrossedPayload
 
 _logger = logging.getLogger(__name__)
 
@@ -390,8 +396,6 @@ def _validate_store(store: AbstractStore) -> None:
 
 def _maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
     """Refresh budget policies from the database if stale."""
-    from mlflow.gateway.budget_tracker import get_budget_tracker
-
     tracker = get_budget_tracker()
     if tracker.needs_refresh():
         try:
@@ -416,10 +420,6 @@ def _maybe_record_budget_cost(
 
     This is a best-effort operation; errors are logged but not raised.
     """
-    from mlflow.gateway.budget_tracker import get_budget_tracker
-    from mlflow.tracing.constant import CostKey, TokenUsageKey
-    from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
-
     try:
         # Extract token usage from response
         usage_dict = None
@@ -472,11 +472,6 @@ def _maybe_record_budget_cost(
 
 def _fire_budget_crossed_webhooks(newly_crossed: list, workspace: str | None) -> None:
     """Fire budget_crossed webhooks for newly-crossed budget windows."""
-    from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
-    from mlflow.server.handlers import _get_model_registry_store
-    from mlflow.webhooks.delivery import deliver_webhook
-    from mlflow.webhooks.types import BudgetPolicyCrossedPayload
-
     try:
         registry_store = _get_model_registry_store()
     except Exception:
