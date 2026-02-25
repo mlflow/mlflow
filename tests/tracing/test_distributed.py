@@ -1,3 +1,4 @@
+import logging
 import re
 import subprocess
 import sys
@@ -17,6 +18,8 @@ from mlflow.tracing.distributed import (
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
+logger = logging.getLogger(__name__)
+
 REQUEST_TIMEOUT = 10
 
 
@@ -29,7 +32,12 @@ def flask_server(
     health_endpoint: str = "/health",
 ) -> Iterator[str]:
     """Context manager to run a Flask server in a subprocess."""
-    with subprocess.Popen([sys.executable, str(server_script_path), str(port)]) as proc:
+    t_start = time.perf_counter()
+    with subprocess.Popen(
+        [sys.executable, str(server_script_path), str(port)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ) as proc:
         base_url = f"http://127.0.0.1:{port}"
 
         try:
@@ -44,9 +52,21 @@ def flask_server(
             else:
                 raise RuntimeError(f"Flask server failed to start within {wait_timeout} seconds")
 
+            t_ready = time.perf_counter()
+            logger.info(
+                "Flask server on port %d ready in %.3fs (pid=%d)",
+                port,
+                t_ready - t_start,
+                proc.pid,
+            )
             yield base_url
         finally:
             proc.terminate()
+            stdout, stderr = proc.communicate(timeout=5)
+            if stderr:
+                logger.info(
+                    "Flask server on port %d stderr:\n%s", port, stderr.decode(errors="replace")
+                )
 
 
 def _parse_traceparent(header_value: str) -> tuple[int, int]:
@@ -154,11 +174,18 @@ def test_distributed_tracing_e2e_nested_call(tmp_path):
             with mlflow.start_span("client-root") as client_span:
                 headers = get_tracing_context_headers_for_http_request()
                 # Pass the second server URL as a query parameter
+                t_req = time.perf_counter()
                 resp = requests.post(
                     f"{base_url}/handle1",
                     headers=headers,
                     params={"second_server_url": base_url2},
                     timeout=REQUEST_TIMEOUT,
+                )
+                t_resp = time.perf_counter()
+                logger.info(
+                    "Client request to /handle1 took %.3fs (status=%d)",
+                    t_resp - t_req,
+                    resp.status_code,
                 )
                 assert resp.ok, f"Server returned {resp.status_code}: {resp.text}"
                 payload = resp.json()
