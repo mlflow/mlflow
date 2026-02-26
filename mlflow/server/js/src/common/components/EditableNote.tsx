@@ -273,6 +273,7 @@ function HTMLNoteContent(props: HTMLNoteContentProps) {
       <div className="note-view-text-area">
         <div className="note-view-preview note-editor-preview">
           <div
+            css={{ wordBreak: 'break-word' }}
             className="note-editor-preview-content"
             data-testid="note-editor-preview-content"
             // @ts-expect-error TS(2322): Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
