@@ -50,11 +50,15 @@ class BudgetTracker(ABC):
         """Check whether policies should be re-fetched from the database."""
 
     @abstractmethod
-    def load_policies(self, policies: list[GatewayBudgetPolicy]) -> None:
+    def load_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
         """Load or refresh policies from the database.
 
         Preserves accumulated cost for unchanged windows. Removes windows
         for policies that no longer exist.
+
+        Returns:
+            List of newly created windows (cumulative_spend=0) that may need
+            backfilling from historical trace data.
         """
 
     @abstractmethod
@@ -87,6 +91,18 @@ class BudgetTracker(ABC):
         Returns:
             Tuple of (exceeded, policy). If exceeded is True, policy is the
             first exceeded policy found.
+        """
+
+    @abstractmethod
+    def backfill_spend(self, budget_policy_id: str, spend: float) -> None:
+        """Set cumulative spend on a window from historical data.
+
+        Used to seed a newly created window with spend from trace data
+        so that budget tracking survives server restarts.
+
+        Args:
+            budget_policy_id: The policy ID whose window to update.
+            spend: The historical spend amount to set.
         """
 
     @abstractmethod
@@ -194,14 +210,19 @@ class InMemoryBudgetTracker(BudgetTracker):
         """Check whether policies should be re-fetched from the database."""
         return (time.monotonic() - self._last_refresh_time) >= _REFRESH_INTERVAL_SECONDS
 
-    def load_policies(self, policies: list[GatewayBudgetPolicy]) -> None:
+    def load_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
         """Load or refresh policies from the database.
 
         Preserves accumulated cost for unchanged windows. Removes windows
         for policies that no longer exist.
+
+        Returns:
+            List of newly created windows (cumulative_spend=0) that may need
+            backfilling from historical trace data.
         """
         now = datetime.now(timezone.utc)
         new_windows: dict[str, BudgetWindow] = {}
+        fresh_windows: list[BudgetWindow] = []
 
         with self._lock:
             for policy in policies:
@@ -219,14 +240,18 @@ class InMemoryBudgetTracker(BudgetTracker):
                     existing.window_end = window_end
                     new_windows[pid] = existing
                 else:
-                    new_windows[pid] = BudgetWindow(
+                    window = BudgetWindow(
                         policy=policy,
                         window_start=window_start,
                         window_end=window_end,
                     )
+                    new_windows[pid] = window
+                    fresh_windows.append(window)
 
             self._windows = new_windows
             self._last_refresh_time = time.monotonic()
+
+        return fresh_windows
 
     def record_cost(
         self,
@@ -303,6 +328,16 @@ class InMemoryBudgetTracker(BudgetTracker):
                     return True, window.policy
 
         return False, None
+
+    def backfill_spend(self, budget_policy_id: str, spend: float) -> None:
+        """Set cumulative spend on a window from historical data."""
+        with self._lock:
+            window = self._windows.get(budget_policy_id)
+            if window is None:
+                return
+            window.cumulative_spend = spend
+            if spend >= window.policy.budget_amount:
+                window.crossed = True
 
     def get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
         """Get the current window info for a policy (for payload construction)."""
