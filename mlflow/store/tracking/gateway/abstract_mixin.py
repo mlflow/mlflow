@@ -18,6 +18,8 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 
 class GatewayStoreMixin:
@@ -518,11 +520,13 @@ class GatewayStoreMixin:
 
     def list_budget_policies(
         self,
-    ) -> list[GatewayBudgetPolicy]:
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayBudgetPolicy]:
         """
         List budget policies.
 
         Returns:
-            List of GatewayBudgetPolicy entities.
+            PagedList of GatewayBudgetPolicy entities.
         """
         raise NotImplementedError(self.__class__.__name__)

@@ -5223,9 +5223,21 @@ def _delete_budget_policy():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_budget_policies():
-    policies = _get_tracking_store().list_budget_policies()
+    request_message = _get_request_message(
+        ListGatewayBudgetPolicies(),
+        schema={
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+    budget_policies = _get_tracking_store().list_budget_policies(
+        max_results=request_message.max_results,
+        page_token=request_message.page_token or None,
+    )
     response_message = ListGatewayBudgetPolicies.Response()
-    response_message.budget_policies.extend([p.to_proto() for p in policies])
+    response_message.budget_policies.extend([p.to_proto() for p in budget_policies])
+    if budget_policies.token:
+        response_message.next_page_token = budget_policies.token
     return _wrap_response(response_message)
 
 

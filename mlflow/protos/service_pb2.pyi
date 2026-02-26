@@ -2396,15 +2396,19 @@ class DeleteGatewayBudgetPolicy(_message.Message):
     def __init__(self, budget_policy_id: _Optional[str] = ...) -> None: ...
 
 class ListGatewayBudgetPolicies(_message.Message):
-    __slots__ = ("target_scope",)
+    __slots__ = ("max_results", "page_token")
     class Response(_message.Message):
-        __slots__ = ("budget_policies",)
+        __slots__ = ("budget_policies", "next_page_token")
         BUDGET_POLICIES_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
         budget_policies: _containers.RepeatedCompositeFieldContainer[GatewayBudgetPolicy]
-        def __init__(self, budget_policies: _Optional[_Iterable[_Union[GatewayBudgetPolicy, _Mapping]]] = ...) -> None: ...
-    TARGET_SCOPE_FIELD_NUMBER: _ClassVar[int]
-    target_scope: BudgetTargetScope
-    def __init__(self, target_scope: _Optional[_Union[BudgetTargetScope, str]] = ...) -> None: ...
+        next_page_token: str
+        def __init__(self, budget_policies: _Optional[_Iterable[_Union[GatewayBudgetPolicy, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    max_results: int
+    page_token: str
+    def __init__(self, max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
 
 class GetSecretsConfig(_message.Message):
     __slots__ = ()

@@ -5075,10 +5075,14 @@ message DeleteGatewayBudgetPolicy {
 }
 
 message ListGatewayBudgetPolicies {
-  optional BudgetTargetScope target_scope = 1;
+  optional int64 max_results = 1;
+
+  optional string page_token = 2;
 
   message Response {
     repeated GatewayBudgetPolicy budget_policies = 1;
+
+    optional string next_page_token = 2;
   }
 }
 
