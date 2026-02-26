@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from google.protobuf.timestamp_pb2 import Timestamp
 
 import mlflow
@@ -34,10 +35,12 @@ from mlflow.utils.databricks_tracing_utils import (
     get_trace_id_from_assessment_proto,
     inference_table_location_to_proto,
     mlflow_experiment_location_to_proto,
+    parse_uc_location,
     trace_from_proto,
     trace_location_from_proto,
     trace_location_to_proto,
     trace_to_proto,
+    uc_location_to_str,
     uc_schema_location_from_proto,
     uc_schema_location_to_proto,
 )
@@ -51,6 +54,19 @@ def test_trace_location_to_proto_uc_schema():
     assert proto.type == pb.TraceLocation.TraceLocationType.UC_SCHEMA
     assert proto.uc_schema.catalog_name == "test_catalog"
     assert proto.uc_schema.schema_name == "test_schema"
+
+
+def test_parse_uc_location():
+    assert parse_uc_location("catalog.schema") == ("catalog", "schema", None)
+    assert parse_uc_location("catalog.schema.prefix") == ("catalog", "schema", "prefix")
+
+    with pytest.raises(ValueError, match="Invalid UC location"):
+        parse_uc_location("a.b.c.d")
+
+
+def test_uc_location_to_str():
+    assert uc_location_to_str("catalog", "schema") == "catalog.schema"
+    assert uc_location_to_str("catalog", "schema", "prefix") == "catalog.schema.prefix"
 
 
 def test_trace_location_to_proto_mlflow_experiment():
