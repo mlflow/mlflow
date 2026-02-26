@@ -14,6 +14,7 @@ import {
   ModelTraceExplorerContextProvider,
   ModelTraceExplorerRunJudgesContextProvider,
   isEvaluatingTracesInDetailsViewEnabled,
+  SESSION_ID_METADATA_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
@@ -181,6 +182,9 @@ const TracesV3LogsImpl = React.memo(
         if (customDefaultSelectedColumns) {
           return allColumns.filter(customDefaultSelectedColumns);
         }
+        const hasSessionIds = evaluatedTraces.some((t) =>
+          Boolean(t.traceInfo?.trace_metadata?.[SESSION_ID_METADATA_KEY]),
+        );
         return allColumns.filter(
           (col) =>
             col.type === TracesTableColumnType.ASSESSMENT ||
@@ -192,7 +196,9 @@ const TracesV3LogsImpl = React.memo(
               [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, REQUEST_TIME_COLUMN_ID, STATE_COLUMN_ID].includes(
                 col.id,
               )) ||
-            col.type === TracesTableColumnType.INTERNAL_MONITOR_REQUEST_TIME,
+            col.type === TracesTableColumnType.INTERNAL_MONITOR_REQUEST_TIME ||
+            (hasSessionIds &&
+              [SESSION_COLUMN_ID, SIMULATION_GOAL_COLUMN_ID, SIMULATION_PERSONA_COLUMN_ID].includes(col.id)),
         );
       },
       [evaluatedTraces, customDefaultSelectedColumns],
@@ -209,37 +215,6 @@ const TracesV3LogsImpl = React.memo(
     const onToggleSessionGrouping = useCallback(() => {
       setIsGroupedBySession((prev) => !prev);
     }, []);
-
-    // Auto-select session, goal, and persona columns when session grouping is active
-    const hasAutoSelectedSessionColumns = useRef(false);
-    useEffect(() => {
-      const isEffectivelyGrouped = forceGroupBySession || isGroupedBySession;
-      if (!isEffectivelyGrouped || hasAutoSelectedSessionColumns.current) {
-        if (!isEffectivelyGrouped) {
-          hasAutoSelectedSessionColumns.current = false;
-        }
-        return;
-      }
-
-      const columnsToAdd: TracesTableColumn[] = [];
-
-      const sessionColumn = allColumns.find((col) => col.id === SESSION_COLUMN_ID);
-      if (sessionColumn && !selectedColumns.some((col) => col.id === SESSION_COLUMN_ID)) {
-        columnsToAdd.push(sessionColumn);
-      }
-
-      const traceInfos = evaluatedTraces.map((e) => e.traceInfo).filter((t): t is NonNullable<typeof t> => Boolean(t));
-      const simulationColumns = getSimulationColumnsToAdd(traceInfos, allColumns, selectedColumns);
-      columnsToAdd.push(...simulationColumns);
-
-      if (columnsToAdd.length > 0) {
-        setSelectedColumns([...selectedColumns, ...columnsToAdd]);
-      }
-      // Only mark as done once we've had trace data to check for simulation columns
-      if (traceInfos.length > 0) {
-        hasAutoSelectedSessionColumns.current = true;
-      }
-    }, [forceGroupBySession, isGroupedBySession, allColumns, selectedColumns, setSelectedColumns, evaluatedTraces]);
 
     const [tableSort, setTableSort] = useTableSort(selectedColumns, {
       key: REQUEST_TIME_COLUMN_ID,
