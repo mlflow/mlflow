@@ -12,19 +12,22 @@ class Issue(_MlflowObject):
     """
 
     issue_id: str
-    """Issue ID: Unique identifier for the issue (format: "iss-<uuid>")."""
+    """Unique identifier for the issue."""
+
+    experiment_id: str
+    """Experiment ID."""
 
     name: str
-    """Issue name/title: Short descriptive name for the issue."""
+    """Short descriptive name for the issue."""
 
     description: str
     """Detailed description of the issue."""
 
     frequency: float
-    """Frequency score (0.0 to 1.0) indicating how often this issue occurs."""
+    """Frequency score indicating how often this issue occurs."""
 
     status: str
-    """Issue status: One of "draft", "accepted", or "rejected"."""
+    """Issue status."""
 
     created_timestamp: int
     """Creation timestamp in milliseconds."""
@@ -33,27 +36,31 @@ class Issue(_MlflowObject):
     """Last update timestamp in milliseconds."""
 
     run_id: str | None = None
-    """Optional MLflow run ID that discovered this issue."""
+    """MLflow run ID that discovered this issue."""
 
     root_cause: str | None = None
-    """Optional analysis of the root cause of the issue."""
+    """Analysis of the root cause of the issue."""
 
     confidence: str | None = None
-    """Optional confidence level indicator."""
+    """Confidence level indicator."""
 
     rationale_examples: list[str] | None = None
-    """Optional list of rationale strings providing examples of the issue."""
+    """List of rationale strings providing examples of the issue."""
 
     example_trace_ids: list[str] | None = None
-    """Optional list of example trace IDs that exemplify this issue (small subset for UI display)."""
+    """List of example trace IDs."""
+
+    trace_ids: list[str] | None = None
+    """List of trace IDs associated with this issue."""
 
     created_by: str | None = None
-    """Optional identifier for who/what created this issue."""
+    """Identifier for who created this issue."""
 
     def to_dictionary(self) -> dict:
         """Convert Issue to dictionary representation."""
         return {
             "issue_id": self.issue_id,
+            "experiment_id": self.experiment_id,
             "run_id": self.run_id,
             "name": self.name,
             "description": self.description,
@@ -63,6 +70,7 @@ class Issue(_MlflowObject):
             "confidence": self.confidence,
             "rationale_examples": self.rationale_examples,
             "example_trace_ids": self.example_trace_ids,
+            "trace_ids": self.trace_ids,
             "created_timestamp": self.created_timestamp,
             "last_updated_timestamp": self.last_updated_timestamp,
             "created_by": self.created_by,
@@ -73,6 +81,7 @@ class Issue(_MlflowObject):
         """Create Issue from dictionary representation."""
         return cls(
             issue_id=issue_dict["issue_id"],
+            experiment_id=issue_dict["experiment_id"],
             run_id=issue_dict.get("run_id"),
             name=issue_dict["name"],
             description=issue_dict["description"],
@@ -82,6 +91,7 @@ class Issue(_MlflowObject):
             confidence=issue_dict.get("confidence"),
             rationale_examples=issue_dict.get("rationale_examples"),
             example_trace_ids=issue_dict.get("example_trace_ids"),
+            trace_ids=issue_dict.get("trace_ids"),
             created_timestamp=issue_dict["created_timestamp"],
             last_updated_timestamp=issue_dict["last_updated_timestamp"],
             created_by=issue_dict.get("created_by"),
