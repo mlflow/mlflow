@@ -15,6 +15,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from mlflow.entities.gateway_budget_policy import BudgetTargetScope
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.exceptions import MlflowException
@@ -394,13 +395,48 @@ def _validate_store(store: AbstractStore) -> None:
         )
 
 
+def _backfill_budget_spend(store: SqlAlchemyStore, tracker, new_windows) -> None:
+    """Backfill cumulative spend for newly created budget windows from trace history.
+
+    When a new BudgetWindow is created (server restart or new policy), its
+    cumulative_spend starts at 0. This queries historical trace cost data to
+    seed the spend so budgets aren't effectively reset on restart.
+    """
+    if not new_windows:
+        return
+
+    for window in new_windows:
+        try:
+            start_ms = int(window.window_start.timestamp() * 1000)
+            end_ms = int(window.window_end.timestamp() * 1000)
+            workspace = (
+                window.policy.workspace
+                if window.policy.target_scope == BudgetTargetScope.WORKSPACE
+                else None
+            )
+            spend = store.sum_gateway_trace_cost(
+                start_time_ms=start_ms,
+                end_time_ms=end_ms,
+                workspace=workspace,
+            )
+            if spend > 0:
+                tracker.backfill_spend(window.policy.budget_policy_id, spend)
+        except Exception:
+            _logger.debug(
+                "Failed to backfill budget spend for policy %s",
+                window.policy.budget_policy_id,
+                exc_info=True,
+            )
+
+
 def _maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
     """Refresh budget policies from the database if stale."""
     tracker = get_budget_tracker()
     if tracker.needs_refresh():
         try:
             policies = store.list_budget_policies()
-            tracker.load_policies(policies)
+            new_windows = tracker.load_policies(policies)
+            _backfill_budget_spend(store, tracker, new_windows)
         except Exception:
             _logger.debug("Failed to refresh budget policies", exc_info=True)
 
