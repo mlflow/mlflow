@@ -27,6 +27,7 @@ tests
 !tests/resources/mlflow-test-plugin/
 
 node_modules
+node_modules
 **/node_modules
 coverage
 build
