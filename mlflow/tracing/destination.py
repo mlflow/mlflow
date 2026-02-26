@@ -13,6 +13,7 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocationBase,
     UCSchemaLocation,
+    UnityCatalog,
 )
 from mlflow.environment_variables import MLFLOW_TRACING_DESTINATION
 from mlflow.exceptions import MlflowException
@@ -25,12 +26,20 @@ class UserTraceDestinationRegistry:
     def __init__(self):
         self._global_value = None
         self._context_local_value = ContextVar("mlflow_trace_destination", default=None)
+        self._experiment_derived_value = None
+        self._experiment_derived_experiment_id: str | None = None
 
     def get(self) -> TraceLocationBase | None:
-        """First check the context-local value, then the global value."""
+        # Precedence: context-local -> global -> experiment-derived -> env.
         if local_destination := self._context_local_value.get():
             return local_destination
-        return self._global_value or self._get_trace_location_from_env()
+        if self._global_value:
+            return self._global_value
+        if self._experiment_derived_value:
+            if self._is_experiment_derived_current():
+                return self._experiment_derived_value
+            self.clear_experiment_derived()
+        return self._get_trace_location_from_env()
 
     def set(self, value, context_local: bool = False):
         if context_local:
@@ -38,9 +47,36 @@ class UserTraceDestinationRegistry:
         else:
             self._global_value = value
 
+    def set_experiment_derived(self, value, experiment_id: str | None = None):
+        self._experiment_derived_value = value
+        self._experiment_derived_experiment_id = experiment_id
+
+    def clear_experiment_derived(self):
+        self._experiment_derived_value = None
+        self._experiment_derived_experiment_id = None
+
     def reset(self):
         self._global_value = None
         self._context_local_value.set(None)
+        self._experiment_derived_value = None
+        self._experiment_derived_experiment_id = None
+
+    def _is_experiment_derived_current(self) -> bool:
+        """Check if the cached experiment-derived destination still matches active experiment."""
+        if not self._experiment_derived_experiment_id:
+            return False
+
+        try:
+            # Lazy import to avoid circular dependency.
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            return _get_experiment_id() == self._experiment_derived_experiment_id
+        except Exception:
+            _logger.debug(
+                "Failed to validate cached experiment-derived destination; invalidating cache.",
+                exc_info=True,
+            )
+            return False
 
     def _get_trace_location_from_env(self) -> TraceLocationBase | None:
         """
@@ -59,13 +95,25 @@ class UserTraceDestinationRegistry:
                             "because the tracing destination is set to Databricks."
                         )
                     return UCSchemaLocation(catalog_name, schema_name)
+                case [catalog_name, schema_name, table_prefix]:
+                    if (
+                        mlflow.get_tracking_uri() is None
+                        or not mlflow.get_tracking_uri().startswith("databricks")
+                    ):
+                        mlflow.set_tracking_uri("databricks")
+                        _logger.info(
+                            "Automatically setting the tracking URI to `databricks` "
+                            "because the tracing destination is set to Databricks."
+                        )
+                    return UnityCatalog(catalog_name, schema_name, table_prefix)
                 case [experiment_id]:
                     return MlflowExperimentLocation(experiment_id)
                 case _:
                     raise MlflowException.invalid_parameter_value(
-                        f"Failed to parse trace location {location} rom MLFLOW_TRACING_DESTINATION "
-                        "environment variable. Expected format: <catalog_name>.<schema_name> or "
-                        "<experiment_id>"
+                        f"Failed to parse trace location {location} from "
+                        "MLFLOW_TRACING_DESTINATION environment variable. "
+                        "Expected format: <catalog_name>.<schema_name>"
+                        "[.<table_prefix>] or <experiment_id>"
                     )
         return None
 
