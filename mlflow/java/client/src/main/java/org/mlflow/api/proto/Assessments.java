@@ -5140,32 +5140,32 @@ public final class Assessments {
 
     /**
      * <pre>
-     * The ID of the issue this assessment references
+     * The name of the issue this assessment references
      * </pre>
      *
-     * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the issueId field is set.
+     * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the issueName field is set.
      */
-    boolean hasIssueId();
+    boolean hasIssueName();
     /**
      * <pre>
-     * The ID of the issue this assessment references
+     * The name of the issue this assessment references
      * </pre>
      *
-     * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The issueId.
+     * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The issueName.
      */
-    java.lang.String getIssueId();
+    java.lang.String getIssueName();
     /**
      * <pre>
-     * The ID of the issue this assessment references
+     * The name of the issue this assessment references
      * </pre>
      *
-     * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for issueId.
+     * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for issueName.
      */
     com.google.protobuf.ByteString
-        getIssueIdBytes();
+        getIssueNameBytes();
   }
   /**
    * <pre>
@@ -5184,7 +5184,7 @@ public final class Assessments {
       super(builder);
     }
     private IssueReference() {
-      issueId_ = "";
+      issueName_ = "";
     }
 
     @java.lang.Override
@@ -5221,7 +5221,7 @@ public final class Assessments {
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              issueId_ = bs;
+              issueName_ = bs;
               break;
             }
             default: {
@@ -5257,31 +5257,31 @@ public final class Assessments {
     }
 
     private int bitField0_;
-    public static final int ISSUE_ID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object issueId_;
+    public static final int ISSUE_NAME_FIELD_NUMBER = 1;
+    private volatile java.lang.Object issueName_;
     /**
      * <pre>
-     * The ID of the issue this assessment references
+     * The name of the issue this assessment references
      * </pre>
      *
-     * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the issueId field is set.
+     * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the issueName field is set.
      */
     @java.lang.Override
-    public boolean hasIssueId() {
+    public boolean hasIssueName() {
       return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
-     * The ID of the issue this assessment references
+     * The name of the issue this assessment references
      * </pre>
      *
-     * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The issueId.
+     * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The issueName.
      */
     @java.lang.Override
-    public java.lang.String getIssueId() {
-      java.lang.Object ref = issueId_;
+    public java.lang.String getIssueName() {
+      java.lang.Object ref = issueName_;
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
@@ -5289,28 +5289,28 @@ public final class Assessments {
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         if (bs.isValidUtf8()) {
-          issueId_ = s;
+          issueName_ = s;
         }
         return s;
       }
     }
     /**
      * <pre>
-     * The ID of the issue this assessment references
+     * The name of the issue this assessment references
      * </pre>
      *
-     * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for issueId.
+     * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for issueName.
      */
     @java.lang.Override
     public com.google.protobuf.ByteString
-        getIssueIdBytes() {
-      java.lang.Object ref = issueId_;
+        getIssueNameBytes() {
+      java.lang.Object ref = issueName_;
       if (ref instanceof java.lang.String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        issueId_ = b;
+        issueName_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -5332,7 +5332,7 @@ public final class Assessments {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, issueId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, issueName_);
       }
       unknownFields.writeTo(output);
     }
@@ -5344,7 +5344,7 @@ public final class Assessments {
 
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, issueId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, issueName_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -5361,10 +5361,10 @@ public final class Assessments {
       }
       org.mlflow.api.proto.Assessments.IssueReference other = (org.mlflow.api.proto.Assessments.IssueReference) obj;
 
-      if (hasIssueId() != other.hasIssueId()) return false;
-      if (hasIssueId()) {
-        if (!getIssueId()
-            .equals(other.getIssueId())) return false;
+      if (hasIssueName() != other.hasIssueName()) return false;
+      if (hasIssueName()) {
+        if (!getIssueName()
+            .equals(other.getIssueName())) return false;
       }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
@@ -5377,9 +5377,9 @@ public final class Assessments {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasIssueId()) {
-        hash = (37 * hash) + ISSUE_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getIssueId().hashCode();
+      if (hasIssueName()) {
+        hash = (37 * hash) + ISSUE_NAME_FIELD_NUMBER;
+        hash = (53 * hash) + getIssueName().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -5518,7 +5518,7 @@ public final class Assessments {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        issueId_ = "";
+        issueName_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
         return this;
       }
@@ -5551,7 +5551,7 @@ public final class Assessments {
         if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.issueId_ = issueId_;
+        result.issueName_ = issueName_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -5601,9 +5601,9 @@ public final class Assessments {
 
       public Builder mergeFrom(org.mlflow.api.proto.Assessments.IssueReference other) {
         if (other == org.mlflow.api.proto.Assessments.IssueReference.getDefaultInstance()) return this;
-        if (other.hasIssueId()) {
+        if (other.hasIssueName()) {
           bitField0_ |= 0x00000001;
-          issueId_ = other.issueId_;
+          issueName_ = other.issueName_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -5636,34 +5636,34 @@ public final class Assessments {
       }
       private int bitField0_;
 
-      private java.lang.Object issueId_ = "";
+      private java.lang.Object issueName_ = "";
       /**
        * <pre>
-       * The ID of the issue this assessment references
+       * The name of the issue this assessment references
        * </pre>
        *
-       * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the issueId field is set.
+       * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the issueName field is set.
        */
-      public boolean hasIssueId() {
+      public boolean hasIssueName() {
         return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
-       * The ID of the issue this assessment references
+       * The name of the issue this assessment references
        * </pre>
        *
-       * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return The issueId.
+       * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The issueName.
        */
-      public java.lang.String getIssueId() {
-        java.lang.Object ref = issueId_;
+      public java.lang.String getIssueName() {
+        java.lang.Object ref = issueName_;
         if (!(ref instanceof java.lang.String)) {
           com.google.protobuf.ByteString bs =
               (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           if (bs.isValidUtf8()) {
-            issueId_ = s;
+            issueName_ = s;
           }
           return s;
         } else {
@@ -5672,20 +5672,20 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * The ID of the issue this assessment references
+       * The name of the issue this assessment references
        * </pre>
        *
-       * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for issueId.
+       * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for issueName.
        */
       public com.google.protobuf.ByteString
-          getIssueIdBytes() {
-        java.lang.Object ref = issueId_;
+          getIssueNameBytes() {
+        java.lang.Object ref = issueName_;
         if (ref instanceof String) {
           com.google.protobuf.ByteString b = 
               com.google.protobuf.ByteString.copyFromUtf8(
                   (java.lang.String) ref);
-          issueId_ = b;
+          issueName_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
@@ -5693,53 +5693,53 @@ public final class Assessments {
       }
       /**
        * <pre>
-       * The ID of the issue this assessment references
+       * The name of the issue this assessment references
        * </pre>
        *
-       * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @param value The issueId to set.
+       * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The issueName to set.
        * @return This builder for chaining.
        */
-      public Builder setIssueId(
+      public Builder setIssueName(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000001;
-        issueId_ = value;
+        issueName_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * The ID of the issue this assessment references
+       * The name of the issue this assessment references
        * </pre>
        *
-       * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
        * @return This builder for chaining.
        */
-      public Builder clearIssueId() {
+      public Builder clearIssueName() {
         bitField0_ = (bitField0_ & ~0x00000001);
-        issueId_ = getDefaultInstance().getIssueId();
+        issueName_ = getDefaultInstance().getIssueName();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * The ID of the issue this assessment references
+       * The name of the issue this assessment references
        * </pre>
        *
-       * <code>optional string issue_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for issueId to set.
+       * <code>optional string issue_name = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for issueName to set.
        * @return This builder for chaining.
        */
-      public Builder setIssueIdBytes(
+      public Builder setIssueNameBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000001;
-        issueId_ = value;
+        issueName_ = value;
         onChanged();
         return this;
       }
@@ -10278,25 +10278,25 @@ public final class Assessments {
       "ialization_format\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"e" +
       "\n\010Feedback\022%\n\005value\030\002 \001(\0132\026.google.proto" +
       "buf.Value\0222\n\005error\030\003 \001(\0132#.mlflow.assess" +
-      "ments.AssessmentError\"(\n\016IssueReference\022" +
-      "\026\n\010issue_id\030\001 \001(\tB\004\370\206\031\001\"\216\005\n\nAssessment\022\025" +
-      "\n\rassessment_id\030\001 \001(\t\022\035\n\017assessment_name" +
-      "\030\002 \001(\tB\004\370\206\031\001\022\020\n\010trace_id\030\003 \001(\t\022\017\n\007span_i" +
-      "d\030\004 \001(\t\0224\n\006source\030\005 \001(\0132$.mlflow.assessm" +
-      "ents.AssessmentSource\022/\n\013create_time\030\006 \001" +
-      "(\0132\032.google.protobuf.Timestamp\0224\n\020last_u" +
-      "pdate_time\030\007 \001(\0132\032.google.protobuf.Times" +
-      "tamp\0220\n\010feedback\030\t \001(\0132\034.mlflow.assessme" +
-      "nts.FeedbackH\000\0226\n\013expectation\030\n \001(\0132\037.ml" +
-      "flow.assessments.ExpectationH\000\0223\n\005issue\030" +
-      "\020 \001(\0132\".mlflow.assessments.IssueReferenc" +
-      "eH\000\022\021\n\trationale\030\013 \001(\t\0226\n\005error\030\014 \001(\0132#." +
-      "mlflow.assessments.AssessmentErrorB\002\030\001\022>" +
-      "\n\010metadata\030\r \003(\0132,.mlflow.assessments.As" +
-      "sessment.MetadataEntry\022\021\n\toverrides\030\016 \001(" +
-      "\t\022\023\n\005valid\030\017 \001(\010:\004true\032/\n\rMetadataEntry\022" +
-      "\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001B\007\n\005value" +
-      "B\031\n\024org.mlflow.api.proto\220\001\001"
+      "ments.AssessmentError\"*\n\016IssueReference\022" +
+      "\030\n\nissue_name\030\001 \001(\tB\004\370\206\031\001\"\216\005\n\nAssessment" +
+      "\022\025\n\rassessment_id\030\001 \001(\t\022\035\n\017assessment_na" +
+      "me\030\002 \001(\tB\004\370\206\031\001\022\020\n\010trace_id\030\003 \001(\t\022\017\n\007span" +
+      "_id\030\004 \001(\t\0224\n\006source\030\005 \001(\0132$.mlflow.asses" +
+      "sments.AssessmentSource\022/\n\013create_time\030\006" +
+      " \001(\0132\032.google.protobuf.Timestamp\0224\n\020last" +
+      "_update_time\030\007 \001(\0132\032.google.protobuf.Tim" +
+      "estamp\0220\n\010feedback\030\t \001(\0132\034.mlflow.assess" +
+      "ments.FeedbackH\000\0226\n\013expectation\030\n \001(\0132\037." +
+      "mlflow.assessments.ExpectationH\000\0223\n\005issu" +
+      "e\030\020 \001(\0132\".mlflow.assessments.IssueRefere" +
+      "nceH\000\022\021\n\trationale\030\013 \001(\t\0226\n\005error\030\014 \001(\0132" +
+      "#.mlflow.assessments.AssessmentErrorB\002\030\001" +
+      "\022>\n\010metadata\030\r \003(\0132,.mlflow.assessments." +
+      "Assessment.MetadataEntry\022\021\n\toverrides\030\016 " +
+      "\001(\t\022\023\n\005valid\030\017 \001(\010:\004true\032/\n\rMetadataEntr" +
+      "y\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001B\007\n\005val" +
+      "ueB\031\n\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -10340,7 +10340,7 @@ public final class Assessments {
     internal_static_mlflow_assessments_IssueReference_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_assessments_IssueReference_descriptor,
-        new java.lang.String[] { "IssueId", });
+        new java.lang.String[] { "IssueName", });
     internal_static_mlflow_assessments_Assessment_descriptor =
       getDescriptor().getMessageTypes().get(5);
     internal_static_mlflow_assessments_Assessment_fieldAccessorTable = new

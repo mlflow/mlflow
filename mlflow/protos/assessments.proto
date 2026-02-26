@@ -89,8 +89,8 @@ message Feedback {
 
 // Reference to an issue associated with this trace
 message IssueReference {
-  // The ID of the issue this assessment references
-  optional string issue_id = 1 [(validate_required) = true];
+  // The name of the issue this assessment references
+  optional string issue_name = 1 [(validate_required) = true];
 }
 
 // Data and metadata for an assessment of a trace.
