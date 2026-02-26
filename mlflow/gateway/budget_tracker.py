@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDurationUnit,
-    BudgetTargetType,
+    BudgetTargetScope,
     GatewayBudgetPolicy,
 )
 
@@ -170,7 +170,7 @@ def _policy_applies(policy: GatewayBudgetPolicy, workspace: str | None) -> bool:
     GLOBAL policies apply to all workspaces. WORKSPACE policies only apply
     when the request workspace matches the policy's workspace.
     """
-    if policy.target_type == BudgetTargetType.GLOBAL:
+    if policy.target_scope == BudgetTargetScope.GLOBAL:
         return True
     if workspace and policy.workspace:
         return policy.workspace == workspace
