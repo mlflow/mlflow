@@ -69,6 +69,11 @@ def test_sync_observe_autolog():
     assert len(traces[0].data.spans) == 1
     span = traces[0].data.spans[0]
     assert span.name == "add"
+    assert span.inputs == {"args": [2, 3], "kwargs": {}}
+    # The OTLP proto round-trip double-serializes the integer return value
+    # into a JSON string (Span.from_otel_proto applies dump_span_attribute_value
+    # on an already-serialized value).
+    assert span.outputs == "5"
 
 
 def test_sync_observe_with_custom_name():
