@@ -21,49 +21,26 @@ export const TryItPanel = ({
 }: TryItPanelProps) => {
   const { theme } = useDesignSystemTheme();
   const [requestBody, setRequestBody] = useState(tryItDefaultBody);
-  const [responseBody, setResponseBody] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
 
-  const onSuccess = useCallback((formattedResponse: string) => {
-    setResponseBody(formattedResponse);
-    setSendError(null);
-  }, []);
+  const { data, isLoading, error, sendRequest, reset: resetTryIt } = useTryIt({ tryItRequestUrl });
 
-  const onError = useCallback((error: Error, responseText?: string) => {
-    setSendError(error.message);
-    setResponseBody(responseText ?? '');
-  }, []);
+  const responseBody = error ? (error.responseBody ?? '') : (data ?? '');
+  const sendError = error?.message ?? null;
 
-  const onSendingChange = useCallback((sending: boolean) => {
-    setIsSending(sending);
-    if (sending) {
-      setSendError(null);
-      setResponseBody('');
-    }
-  }, []);
+  const handleSendRequest = useCallback(() => {
+    sendRequest(requestBody);
+  }, [sendRequest, requestBody]);
 
-  const onReset = useCallback(() => {
+  const handleResetExample = useCallback(() => {
+    resetTryIt();
     setRequestBody(tryItDefaultBody);
-    setResponseBody('');
-    setSendError(null);
-  }, [tryItDefaultBody]);
-
-  const { handleSendRequest, handleResetExample } = useTryIt({
-    requestBody,
-    tryItRequestUrl,
-    onSuccess,
-    onError,
-    onSendingChange,
-    onReset,
-  });
+  }, [resetTryIt, tryItDefaultBody]);
 
   // When default body changes (e.g. variant or provider changed), reset to the new default
   useEffect(() => {
     setRequestBody(tryItDefaultBody);
-    setResponseBody('');
-    setSendError(null);
-  }, [tryItDefaultBody]);
+    resetTryIt();
+  }, [tryItDefaultBody, resetTryIt]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -98,7 +75,7 @@ export const TryItPanel = ({
             componentId="mlflow.gateway.usage-modal.try-it.request"
             value={requestBody}
             onChange={(e) => setRequestBody(e.target.value)}
-            disabled={isSending}
+            disabled={isLoading}
             rows={14}
             css={{
               fontFamily: 'monospace',
@@ -139,7 +116,7 @@ export const TryItPanel = ({
             readOnly
             rows={14}
             placeholder={
-              sendError ? undefined : isSending ? undefined : 'Click "Send request" to see the response here.'
+              sendError ? undefined : isLoading ? undefined : 'Click "Send request" to see the response here.'
             }
             css={{
               fontFamily: 'monospace',
@@ -160,16 +137,16 @@ export const TryItPanel = ({
           componentId="mlflow.gateway.usage-modal.try-it.send"
           type="primary"
           onClick={handleSendRequest}
-          disabled={isSending}
-          loading={isSending}
+          disabled={isLoading}
+          loading={isLoading}
         >
-          {isSending ? (
+          {isLoading ? (
             <FormattedMessage defaultMessage="Sending..." description="Send request button loading state" />
           ) : (
             <FormattedMessage defaultMessage="Send request" description="Send request button" />
           )}
         </Button>
-        <Button componentId="mlflow.gateway.usage-modal.try-it.reset" onClick={handleResetExample} disabled={isSending}>
+        <Button componentId="mlflow.gateway.usage-modal.try-it.reset" onClick={handleResetExample} disabled={isLoading}>
           <FormattedMessage defaultMessage="Reset example" description="Reset example button" />
         </Button>
       </div>

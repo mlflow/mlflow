@@ -1,9 +1,18 @@
 import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import React from 'react';
 import { fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { getDefaultHeaders } from '../../../common/utils/FetchUtils';
 import { EndpointUsageModal } from './EndpointUsageModal';
+
+const renderModal = (props: React.ComponentProps<typeof EndpointUsageModal>) =>
+  renderWithDesignSystem(
+    <QueryClientProvider client={new QueryClient()}>
+      <EndpointUsageModal {...props} />
+    </QueryClientProvider>,
+  );
 
 jest.mock('../../../common/utils/FetchUtils', () => {
   const actual = jest.requireActual<typeof import('../../../common/utils/FetchUtils')>(
@@ -65,7 +74,7 @@ describe('Try it tab', () => {
       text: () => Promise.resolve(JSON.stringify(mockResponse)),
     });
 
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -89,7 +98,7 @@ describe('Try it tab', () => {
       text: () => Promise.resolve(JSON.stringify({ result: 'ok' })),
     });
 
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -101,7 +110,7 @@ describe('Try it tab', () => {
   });
 
   test('shows error when request body is invalid JSON', async () => {
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     const requestBody = getRequestBodyTextarea();
     await userEvent.clear(requestBody);
     await userEvent.type(requestBody, 'not valid json');
@@ -119,7 +128,7 @@ describe('Try it tab', () => {
       text: () => Promise.resolve('Server error details'),
     });
 
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -130,7 +139,7 @@ describe('Try it tab', () => {
   test('shows error when network request fails', async () => {
     fetchSpy.mockRejectedValueOnce(new Error('Network failure'));
 
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -138,7 +147,7 @@ describe('Try it tab', () => {
   });
 
   test('switching to Passthrough APIs tab shows provider selector and updates request body', async () => {
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     expect(getRequestBodyTextarea().value).toContain('messages');
 
     await userEvent.click(screen.getByText('Passthrough APIs'));
@@ -148,7 +157,7 @@ describe('Try it tab', () => {
   });
 
   test('switching from Passthrough APIs back to Unified APIs resets request body to unified format', async () => {
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     await userEvent.click(screen.getByText('Passthrough APIs'));
     expect(getRequestBodyTextarea().value).toContain('model');
 
@@ -162,7 +171,7 @@ describe('Try it tab', () => {
       text: () => Promise.resolve(JSON.stringify({ choices: [{ message: { content: 'Hi' } }] })),
     });
 
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     await userEvent.click(screen.getByRole('radio', { name: 'OpenAI Chat Completions' }));
 
     expect(getRequestBodyTextarea().value).toContain('model');
@@ -183,7 +192,7 @@ describe('Try it tab', () => {
   });
 
   test('provider selection in Try it passthrough updates request body', async () => {
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     await userEvent.click(screen.getByText('Passthrough APIs'));
 
     await userEvent.click(screen.getByRole('radio', { name: 'Anthropic' }));
@@ -200,7 +209,7 @@ describe('Try it tab', () => {
       text: () => Promise.resolve(JSON.stringify({ result: 'old' })),
     });
 
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
     expect(screen.getByText(/"result": "old"/)).toBeInTheDocument();
 
@@ -212,7 +221,7 @@ describe('Try it tab', () => {
   test('state reset when switching provider clears response and error', async () => {
     fetchSpy.mockRejectedValueOnce(new Error('First error'));
 
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     await userEvent.click(screen.getByText('Passthrough APIs'));
     await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
     expect(screen.getByText('First error')).toBeInTheDocument();
@@ -227,12 +236,25 @@ describe('Try it tab', () => {
       text: () => Promise.resolve(JSON.stringify({ data: 'previous' })),
     });
 
-    const { rerender } = renderWithDesignSystem(<EndpointUsageModal {...defaultProps} open />);
+    const queryClient = new QueryClient();
+    const { rerender } = renderWithDesignSystem(
+      <QueryClientProvider client={queryClient}>
+        <EndpointUsageModal {...defaultProps} open />
+      </QueryClientProvider>,
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
     expect(screen.getByText(/"data": "previous"/)).toBeInTheDocument();
 
-    rerender(<EndpointUsageModal {...defaultProps} open={false} />);
-    rerender(<EndpointUsageModal {...defaultProps} open />);
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <EndpointUsageModal {...defaultProps} open={false} />
+      </QueryClientProvider>,
+    );
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <EndpointUsageModal {...defaultProps} open />
+      </QueryClientProvider>,
+    );
 
     expect(screen.queryByText(/"data": "previous"/)).not.toBeInTheDocument();
     expect(screen.getByText('Send request')).toBeInTheDocument();
@@ -244,7 +266,7 @@ describe('Try it tab', () => {
       text: () => Promise.resolve(JSON.stringify({ out: 1 })),
     });
 
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
     const requestBody = getRequestBodyTextarea();
     await userEvent.clear(requestBody);
     fireEvent.change(requestBody, { target: { value: '{"custom": true}' } });
