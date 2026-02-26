@@ -1294,10 +1294,7 @@ class SqlAlchemyGatewayStoreMixin:
 
     def list_budget_policies(
         self,
-        target_type: BudgetTargetType | None = None,
     ) -> list[GatewayBudgetPolicy]:
         with self.ManagedSessionMaker() as session:
             query = self._get_query(session, SqlGatewayBudgetPolicy)
-            if target_type is not None:
-                query = query.filter(SqlGatewayBudgetPolicy.target_type == target_type.value)
             return [bp.to_mlflow_entity() for bp in query.all()]

@@ -5171,10 +5171,6 @@ def _delete_budget_policy():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_budget_policies():
-    request_message = _get_request_message(
-        ListGatewayBudgetPolicies(),
-        schema={},
-    )
     policies = _get_tracking_store().list_budget_policies()
     response_message = ListGatewayBudgetPolicies.Response()
     response_message.budget_policies.extend([p.to_proto() for p in policies])
