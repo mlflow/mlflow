@@ -4978,38 +4978,42 @@ Assessment
 Data and metadata for an assessment of a trace.
 
 
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-|           Field Name            |                                  Type                                   |                                       Description                                        |
-+=================================+=========================================================================+==========================================================================================+
-| assessment_id                   | ``STRING``                                                              | Unique ID of the assessment. NB: This is not marked as required field via                |
-|                                 |                                                                         | "validate_required", because the message is used in the context of creating a new        |
-|                                 |                                                                         | assessment, where the ID is not known.                                                   |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| assessment_name                 | ``STRING``                                                              | Name of the assessment. The name must not contain ".". This field is required.           |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| trace_id                        | ``STRING``                                                              | ID of the trace this assessment is associated with.                                      |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| span_id                         | ``STRING``                                                              | ID of the span if the assessment is for a particular span (optional).                    |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| source                          | :ref:`mlflowassessmentsassessmentsource`                                | The source this assessment came from.                                                    |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| create_time                     | ``google.protobuf.Timestamp``                                           | The creation time of this assessment.                                                    |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| last_update_time                | ``google.protobuf.Timestamp``                                           | The last update time of this assessment.                                                 |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| rationale                       | ``STRING``                                                              | Justification for the assessment.                                                        |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| metadata                        | An array of :ref:`mlflowassessmentsassessmentmetadataentry`             | Additional metadata describing the assessment and store additional information, such as  |
-|                                 |                                                                         | the chunk relevance chunk_index. This metadata is required to be JSON-serializable.      |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| overrides                       | ``STRING``                                                              | The ID of the assessment which this assessment overrides.                                |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| valid                           | ``BOOL``                                                                | Whether this assessment is valid (i.e. has not been superseded) defaults to true, and is |
-|                                 |                                                                         | set to false if a new superseding assessment is created.                                 |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| ``feedback`` OR ``expectation`` | :ref:`mlflowassessmentsfeedback` OR :ref:`mlflowassessmentsexpectation` | If ``feedback``, the feedback on the trace from this assessment. If ``expectation``, a   |
-|                                 |                                                                         | representation of the guidelines and/or expected response from the agent.                |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+|                  Field Name                  |                                   Type                                    |                                Description                                |
++==============================================+===========================================================================+===========================================================================+
+| assessment_id                                | ``STRING``                                                                | Unique ID of the assessment. NB: This is not marked as required field via |
+|                                              |                                                                           | "validate_required", because the message is used in the context of        |
+|                                              |                                                                           | creating a new assessment, where the ID is not known.                     |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| assessment_name                              | ``STRING``                                                                | Name of the assessment. The name must not contain ".". This field is      |
+|                                              |                                                                           | required.                                                                 |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| trace_id                                     | ``STRING``                                                                | ID of the trace this assessment is associated with.                       |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| span_id                                      | ``STRING``                                                                | ID of the span if the assessment is for a particular span (optional).     |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| source                                       | :ref:`mlflowassessmentsassessmentsource`                                  | The source this assessment came from.                                     |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| create_time                                  | ``google.protobuf.Timestamp``                                             | The creation time of this assessment.                                     |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| last_update_time                             | ``google.protobuf.Timestamp``                                             | The last update time of this assessment.                                  |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| rationale                                    | ``STRING``                                                                | Justification for the assessment.                                         |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| metadata                                     | An array of :ref:`mlflowassessmentsassessmentmetadataentry`               | Additional metadata describing the assessment and store additional        |
+|                                              |                                                                           | information, such as the chunk relevance chunk_index. This metadata is    |
+|                                              |                                                                           | required to be JSON-serializable.                                         |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| overrides                                    | ``STRING``                                                                | The ID of the assessment which this assessment overrides.                 |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| valid                                        | ``BOOL``                                                                  | Whether this assessment is valid (i.e. has not been superseded) defaults  |
+|                                              |                                                                           | to true, and is set to false if a new superseding assessment is created.  |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| ``feedback`` OR ``expectation`` OR ``issue`` | :ref:`mlflowassessmentsfeedback` OR :ref:`mlflowassessmentsexpectation`   | If ``feedback``, the feedback on the trace from this assessment. If       |
+|                                              | OR :ref:`mlflowassessmentsissuereference`                                 | ``expectation``, a representation of the guidelines and/or expected       |
+|                                              |                                                                           | response from the agent. If ``issue``, a reference to an issue associated |
+|                                              |                                                                           | with this trace.                                                          |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
 
 .. _mlflowassessmentsAssessmentError:
 
@@ -6382,6 +6386,22 @@ Tag for an input.
 +------------+------------+----------------------------------------+
 | value      | ``STRING`` | The tag value. This field is required. |
 +------------+------------+----------------------------------------+
+
+.. _mlflowassessmentsIssueReference:
+
+IssueReference
+--------------
+
+
+
+Reference to an issue associated with this trace
+
+
++------------+------------+------------------------------------------------------------------------+
+| Field Name |    Type    |                              Description                               |
++============+============+========================================================================+
+| issue_id   | ``STRING`` | The ID of the issue this assessment references This field is required. |
++------------+------------+------------------------------------------------------------------------+
 
 .. _mlflowJobState:
 
