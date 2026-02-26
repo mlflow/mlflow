@@ -73,6 +73,16 @@ def _use_repl_context_if_available(
             try:
                 from dbruntime.databricks_repl_context import get_context
 
+                # Clear PySpark gateway env vars before calling get_context().
+                # TorchDistributor worker processes inherit PYSPARK_GATEWAY_PORT and
+                # PYSPARK_GATEWAY_SECRET from the parent Spark session. get_context()
+                # uses py4j and will try to establish a new JVM connection using those
+                # vars, hanging indefinitely if the parent's gateway is unreachable.
+                # Clearing them is safe in the driver process too: the JVM gateway is
+                # already established in-memory and does not depend on these env vars
+                # after the initial connection.
+                os.environ.pop("PYSPARK_GATEWAY_PORT", None)
+                os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
                 context = get_context()
                 if context is not None and hasattr(context, name):
                     attr = getattr(context, name)

@@ -2925,6 +2925,12 @@ def autolog(
     DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING = ["sklearn", "tensorflow", "pytorch"]
 
     def train(original, *args, **kwargs):
+        # Clear PySpark gateway env vars inherited from a parent Spark session.
+        # When TorchDistributor spawns GPU worker processes, they inherit these vars and
+        # any code touching PySpark or databricks-sdk will attempt to connect to the
+        # parent's py4j gateway, causing the notebook to hang.
+        os.environ.pop("PYSPARK_GATEWAY_PORT", None)
+        os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
         with disable_discrete_autologging(DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING):
             return original(*args, **kwargs)
 

@@ -1,3 +1,4 @@
+import os
 import random
 
 import numpy as np
@@ -15,6 +16,7 @@ from setfit import SetFitModel, sample_dataset
 from setfit import Trainer as SetFitTrainer
 from setfit import TrainingArguments as SetFitTrainingArguments
 from transformers import (
+    DistilBertConfig,
     DistilBertForSequenceClassification,
     DistilBertTokenizerFast,
     Trainer,
@@ -548,6 +550,39 @@ def test_trainer_hyperparameter_tuning_does_not_log_sklearn_model(
     runs = client.search_runs([exp.experiment_id])
 
     assert len(runs) == 1
+
+
+def test_trainer_clears_pyspark_gateway_env_vars_for_torch_distributor(monkeypatch, tmp_path):
+    monkeypatch.setenv("PYSPARK_GATEWAY_PORT", "12345")
+    monkeypatch.setenv("PYSPARK_GATEWAY_SECRET", "secret123")
+
+    mlflow.transformers.autolog()
+
+    tiny_config = DistilBertConfig(
+        vocab_size=100, dim=32, n_heads=2, hidden_dim=64, n_layers=1, num_labels=2
+    )
+    model = DistilBertForSequenceClassification(tiny_config)
+
+    class TinyDataset(torch.utils.data.Dataset):
+        def __len__(self):
+            return 2
+
+        def __getitem__(self, idx):
+            return {
+                "input_ids": torch.tensor([0, 1]),
+                "attention_mask": torch.tensor([1, 1]),
+                "labels": torch.tensor(0),
+            }
+
+    trainer = Trainer(
+        model=model,
+        args=TrainingArguments(output_dir=str(tmp_path), max_steps=1, report_to="none"),
+        train_dataset=TinyDataset(),
+    )
+    trainer.train()
+
+    assert "PYSPARK_GATEWAY_PORT" not in os.environ
+    assert "PYSPARK_GATEWAY_SECRET" not in os.environ
 
 
 def test_trainer_hyperparameter_tuning_functional_does_not_log_sklearn_model(
