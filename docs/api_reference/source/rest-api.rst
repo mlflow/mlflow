@@ -3006,7 +3006,7 @@ Request Structure
 +----------------+---------------------------------+-------------+
 | duration_value | ``INT32``                       |             |
 +----------------+---------------------------------+-------------+
-| target_type    | :ref:`mlflowbudgettargettype`   |             |
+| target_scope   | :ref:`mlflowbudgettargetscope`   |             |
 +----------------+---------------------------------+-------------+
 | budget_action  | :ref:`mlflowbudgetaction`   |             |
 +----------------+---------------------------------+-------------+
@@ -3126,7 +3126,7 @@ Request Structure
 +------------------+---------------------------------+-------------+
 | duration_value   | ``INT32``                       |             |
 +------------------+---------------------------------+-------------+
-| target_type      | :ref:`mlflowbudgettargettype`   |             |
+| target_scope     | :ref:`mlflowbudgettargetscope`   |             |
 +------------------+---------------------------------+-------------+
 | budget_action    | :ref:`mlflowbudgetaction`   |             |
 +------------------+---------------------------------+-------------+
@@ -3220,7 +3220,7 @@ Request Structure
 +-------------+-------------------------------+-------------+
 | Field Name  |             Type              | Description |
 +=============+===============================+=============+
-| target_type | :ref:`mlflowbudgettargettype` |             |
+| target_scope | :ref:`mlflowbudgettargetscope` |             |
 +-------------+-------------------------------+-------------+
 
 .. _mlflowListGatewayBudgetPoliciesResponse:
@@ -5868,7 +5868,7 @@ Represents a budget policy for the AI Gateway
 +------------------+---------------------------------+----------------------------------------------------+
 | duration_value   | ``INT32``                       | Length of the window in units of duration_unit     |
 +------------------+---------------------------------+----------------------------------------------------+
-| target_type      | :ref:`mlflowbudgettargettype`   | Scope of the budget (GLOBAL or WORKSPACE)          |
+| target_scope     | :ref:`mlflowbudgettargetscope`   | Scope of the budget (GLOBAL or WORKSPACE)          |
 +------------------+---------------------------------+----------------------------------------------------+
 | budget_action    | :ref:`mlflowbudgetaction`   | Action when budget is exceeded                     |
 +------------------+---------------------------------+----------------------------------------------------+
@@ -8856,10 +8856,10 @@ Action to take when a budget is exceeded
 | REJECT                      |             |
 +-----------------------------+-------------+
 
-.. _mlflowBudgetTargetType:
+.. _mlflowBudgetTargetScope:
 
-BudgetTargetType
-----------------
+BudgetTargetScope
+-----------------
 
 
 Target scope for a budget policy
@@ -8867,7 +8867,7 @@ Target scope for a budget policy
 +-------------------------+-------------+
 |          Name           | Description |
 +=========================+=============+
-| TARGET_TYPE_UNSPECIFIED |             |
+| TARGET_SCOPE_UNSPECIFIED |             |
 +-------------------------+-------------+
 | GLOBAL                  |             |
 +-------------------------+-------------+

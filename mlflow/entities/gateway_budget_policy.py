@@ -6,7 +6,7 @@ from enum import Enum
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import BudgetAction as ProtoBudgetAction
 from mlflow.protos.service_pb2 import BudgetDurationUnit as ProtoBudgetDurationUnit
-from mlflow.protos.service_pb2 import BudgetTargetType as ProtoBudgetTargetType
+from mlflow.protos.service_pb2 import BudgetTargetScope as ProtoBudgetTargetScope
 from mlflow.protos.service_pb2 import BudgetUnit as ProtoBudgetUnit
 from mlflow.protos.service_pb2 import GatewayBudgetPolicy as ProtoGatewayBudgetPolicy
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
@@ -38,14 +38,14 @@ class BudgetTargetScope(str, Enum):
     WORKSPACE = "WORKSPACE"
 
     @classmethod
-    def from_proto(cls, proto: ProtoBudgetTargetType) -> BudgetTargetType | None:
+    def from_proto(cls, proto: ProtoBudgetTargetScope) -> BudgetTargetScope | None:
         try:
-            return cls(ProtoBudgetTargetType.Name(proto))
+            return cls(ProtoBudgetTargetScope.Name(proto))
         except ValueError:
             return None
 
-    def to_proto(self) -> ProtoBudgetTargetType:
-        return ProtoBudgetTargetType.Value(self.value)
+    def to_proto(self) -> ProtoBudgetTargetScope:
+        return ProtoBudgetTargetScope.Value(self.value)
 
 
 class BudgetAction(str, Enum):
@@ -135,7 +135,7 @@ class GatewayBudgetPolicy(_MlflowObject):
         proto.budget_amount = self.budget_amount
         proto.duration_unit = self.duration_unit.to_proto()
         proto.duration_value = self.duration_value
-        proto.target_type = self.target_type.to_proto()
+        proto.target_scope = self.target_scope.to_proto()
         proto.budget_action = self.budget_action.to_proto()
         proto.created_by = self.created_by or ""
         proto.created_at = self.created_at
@@ -151,7 +151,7 @@ class GatewayBudgetPolicy(_MlflowObject):
             budget_amount=proto.budget_amount,
             duration_unit=BudgetDurationUnit.from_proto(proto.duration_unit),
             duration_value=proto.duration_value,
-            target_type=BudgetTargetType.from_proto(proto.target_type),
+            target_scope=BudgetTargetScope.from_proto(proto.target_scope),
             budget_action=BudgetAction.from_proto(proto.budget_action),
             created_by=proto.created_by or None,
             created_at=proto.created_at,

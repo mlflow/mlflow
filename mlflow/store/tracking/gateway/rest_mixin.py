@@ -18,7 +18,7 @@ from mlflow.entities import (
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDurationUnit,
-    BudgetTargetType,
+    BudgetTargetScope,
     BudgetUnit,
     GatewayBudgetPolicy,
 )
@@ -631,7 +631,7 @@ class RestGatewayStoreMixin:
         budget_amount: float,
         duration_unit: BudgetDurationUnit,
         duration_value: int,
-        target_type: BudgetTargetType,
+        target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
     ) -> GatewayBudgetPolicy:
@@ -641,7 +641,7 @@ class RestGatewayStoreMixin:
                 budget_amount=budget_amount,
                 duration_unit=duration_unit.to_proto(),
                 duration_value=duration_value,
-                target_type=target_type.to_proto(),
+                target_scope=target_scope.to_proto(),
                 budget_action=budget_action.to_proto(),
                 created_by=created_by,
             )
@@ -664,7 +664,7 @@ class RestGatewayStoreMixin:
         budget_amount: float | None = None,
         duration_unit: BudgetDurationUnit | None = None,
         duration_value: int | None = None,
-        target_type: BudgetTargetType | None = None,
+        target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
     ) -> GatewayBudgetPolicy:
@@ -675,7 +675,7 @@ class RestGatewayStoreMixin:
                 budget_amount=budget_amount,
                 duration_unit=duration_unit.to_proto() if duration_unit else None,
                 duration_value=duration_value,
-                target_type=target_type.to_proto() if target_type else None,
+                target_scope=target_scope.to_proto() if target_scope else None,
                 budget_action=budget_action.to_proto() if budget_action else None,
                 updated_by=updated_by,
             )

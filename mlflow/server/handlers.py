@@ -46,7 +46,7 @@ from mlflow.entities import (
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDurationUnit,
-    BudgetTargetType,
+    BudgetTargetScope,
     BudgetUnit,
 )
 from mlflow.entities.logged_model import LoggedModel
@@ -5091,7 +5091,7 @@ def _create_budget_policy():
         budget_amount=request_message.budget_amount,
         duration_unit=BudgetDurationUnit.from_proto(request_message.duration_unit),
         duration_value=request_message.duration_value,
-        target_type=BudgetTargetType.from_proto(request_message.target_type),
+        target_scope=BudgetTargetScope.from_proto(request_message.target_scope),
         budget_action=BudgetAction.from_proto(request_message.budget_action),
         created_by=request_message.created_by or None,
     )
@@ -5141,8 +5141,8 @@ def _update_budget_policy():
         duration_value=request_message.duration_value
         if request_message.HasField("duration_value")
         else None,
-        target_type=BudgetTargetType.from_proto(request_message.target_type)
-        if request_message.HasField("target_type")
+        target_scope=BudgetTargetScope.from_proto(request_message.target_scope)
+        if request_message.HasField("target_scope")
         else None,
         budget_action=BudgetAction.from_proto(request_message.budget_action)
         if request_message.HasField("budget_action")
