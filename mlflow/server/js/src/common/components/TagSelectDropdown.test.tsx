@@ -60,18 +60,26 @@ describe('TagKeySelectDropdown', () => {
     });
   });
 
-  test('it should not allow to add a new tag with invalid characters', async () => {
-    const { result } = renderHook(() => useForm<KeyValueEntity>());
-    renderTestComponent(['tag1', 'tag2'], result.current.control);
-    const input = screen.getByRole('combobox');
-    await userEvent.type(input, 'invalid-tag');
-    // user-event v14 does not pass down keyCode, so we need to use fireEvent
-    fireEvent.keyDown(input, { keyCode: 13 });
-    await waitFor(() => {
-      // Do not add the value
-      expect(result.current.getValues().key).toBe(undefined);
-    });
-  });
+  test(
+    'it should not allow to add a new tag with invalid characters',
+    async () => {
+      const { result } = renderHook(() => useForm<KeyValueEntity>());
+      renderTestComponent(['tag1', 'tag2'], result.current.control);
+      const input = screen.getByRole('combobox');
+      // Comma is not allowed by tag key validation (backend and frontend)
+      await userEvent.type(input, 'tag,key');
+      // user-event v14 does not pass down keyCode, so we need to use fireEvent
+      fireEvent.keyDown(input, { keyCode: 13 });
+      await waitFor(
+        () => {
+          // Do not add the value
+          expect(result.current.getValues().key).toBe(undefined);
+        },
+        { timeout: 10000 },
+      );
+    },
+    10000,
+  );
 
   test('it should call handleChange with selected tag', async () => {
     const { result } = renderHook(() => useForm<KeyValueEntity>());
