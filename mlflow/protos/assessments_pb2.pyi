@@ -61,10 +61,10 @@ class Feedback(_message.Message):
     def __init__(self, value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ..., error: _Optional[_Union[AssessmentError, _Mapping]] = ...) -> None: ...
 
 class IssueReference(_message.Message):
-    __slots__ = ("issue_id",)
-    ISSUE_ID_FIELD_NUMBER: _ClassVar[int]
-    issue_id: str
-    def __init__(self, issue_id: _Optional[str] = ...) -> None: ...
+    __slots__ = ("issue_name",)
+    ISSUE_NAME_FIELD_NUMBER: _ClassVar[int]
+    issue_name: str
+    def __init__(self, issue_name: _Optional[str] = ...) -> None: ...
 
 class Assessment(_message.Message):
     __slots__ = ("assessment_id", "assessment_name", "trace_id", "span_id", "source", "create_time", "last_update_time", "feedback", "expectation", "issue", "rationale", "error", "metadata", "overrides", "valid")
