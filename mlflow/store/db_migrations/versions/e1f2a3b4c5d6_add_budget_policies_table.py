@@ -22,7 +22,7 @@ def upgrade():
         sa.Column("budget_amount", sa.Float(), nullable=False),
         sa.Column("duration_unit", sa.String(length=32), nullable=False),
         sa.Column("duration_value", sa.Integer(), nullable=False),
-        sa.Column("target_type", sa.String(length=32), nullable=False),
+        sa.Column("target_scope", sa.String(length=32), nullable=False),
         sa.Column("budget_action", sa.String(length=32), nullable=False),
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("created_at", sa.BigInteger(), nullable=False),

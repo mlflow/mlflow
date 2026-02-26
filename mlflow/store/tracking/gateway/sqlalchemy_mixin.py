@@ -23,7 +23,7 @@ from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDurationUnit,
-    BudgetTargetType,
+    BudgetTargetScope,
     BudgetUnit,
     GatewayBudgetPolicy,
 )
@@ -1178,7 +1178,7 @@ class SqlAlchemyGatewayStoreMixin:
         budget_amount: float,
         duration_unit: BudgetDurationUnit,
         duration_value: int,
-        target_type: BudgetTargetType,
+        target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
     ) -> GatewayBudgetPolicy:
@@ -1197,9 +1197,9 @@ class SqlAlchemyGatewayStoreMixin:
                     if isinstance(duration_unit, BudgetDurationUnit)
                     else duration_unit,
                     duration_value=duration_value,
-                    target_type=target_type.value
-                    if isinstance(target_type, BudgetTargetType)
-                    else target_type,
+                    target_scope=target_scope.value
+                    if isinstance(target_scope, BudgetTargetScope)
+                    else target_scope,
                     budget_action=budget_action.value
                     if isinstance(budget_action, BudgetAction)
                     else budget_action,
@@ -1235,7 +1235,7 @@ class SqlAlchemyGatewayStoreMixin:
         budget_amount: float | None = None,
         duration_unit: BudgetDurationUnit | None = None,
         duration_value: int | None = None,
-        target_type: BudgetTargetType | None = None,
+        target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
     ) -> GatewayBudgetPolicy:
@@ -1261,9 +1261,9 @@ class SqlAlchemyGatewayStoreMixin:
                 )
             if duration_value is not None:
                 sql_budget_policy.duration_value = duration_value
-            if target_type is not None:
-                sql_budget_policy.target_type = (
-                    target_type.value if isinstance(target_type, BudgetTargetType) else target_type
+            if target_scope is not None:
+                sql_budget_policy.target_scope = (
+                    target_scope.value if isinstance(target_scope, BudgetTargetScope) else target_scope
                 )
             if budget_action is not None:
                 sql_budget_policy.budget_action = (

@@ -11,7 +11,7 @@ CREATE TABLE budget_policies (
 	budget_amount FLOAT NOT NULL,
 	duration_unit VARCHAR(32) NOT NULL,
 	duration_value INTEGER NOT NULL,
-	target_type VARCHAR(32) NOT NULL,
+	target_scope VARCHAR(32) NOT NULL,
 	budget_action VARCHAR(32) NOT NULL,
 	created_by VARCHAR(255),
 	created_at BIGINT NOT NULL,

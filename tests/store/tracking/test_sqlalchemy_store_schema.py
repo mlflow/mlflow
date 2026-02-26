@@ -314,7 +314,7 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "budget_amount": 100.0,
             "duration_unit": "DAYS",
             "duration_value": 30,
-            "target_type": "GLOBAL",
+            "target_scope": "GLOBAL",
             "budget_action": "ALERT",
             "created_at": seed,
             "last_updated_at": seed,

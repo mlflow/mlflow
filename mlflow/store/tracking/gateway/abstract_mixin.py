@@ -14,7 +14,7 @@ from mlflow.entities import (
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDurationUnit,
-    BudgetTargetType,
+    BudgetTargetScope,
     BudgetUnit,
     GatewayBudgetPolicy,
 )
@@ -442,7 +442,7 @@ class GatewayStoreMixin:
         budget_amount: float,
         duration_unit: BudgetDurationUnit,
         duration_value: int,
-        target_type: BudgetTargetType,
+        target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
     ) -> GatewayBudgetPolicy:
@@ -454,7 +454,7 @@ class GatewayStoreMixin:
             budget_amount: Budget limit amount.
             duration_unit: Unit of time window (MINUTES, HOURS, DAYS, MONTHS).
             duration_value: Length of the window in units of duration_unit.
-            target_type: Scope of the budget (GLOBAL or WORKSPACE).
+            target_scope: Scope of the budget (GLOBAL or WORKSPACE).
             budget_action: Action when budget is exceeded.
             created_by: Username of the creator.
 
@@ -485,7 +485,7 @@ class GatewayStoreMixin:
         budget_amount: float | None = None,
         duration_unit: BudgetDurationUnit | None = None,
         duration_value: int | None = None,
-        target_type: BudgetTargetType | None = None,
+        target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
     ) -> GatewayBudgetPolicy:
@@ -498,7 +498,7 @@ class GatewayStoreMixin:
             budget_amount: Optional new budget amount.
             duration_unit: Optional new duration unit.
             duration_value: Optional new duration value.
-            target_type: Optional new target type.
+            target_scope: Optional new target type.
             budget_action: Optional new budget action.
             updated_by: Username of the updater.
 

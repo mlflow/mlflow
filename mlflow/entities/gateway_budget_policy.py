@@ -16,7 +16,7 @@ class BudgetDurationUnit(str, Enum):
     MONTHS = "MONTHS"
 
 
-class BudgetTargetType(str, Enum):
+class BudgetTargetScope(str, Enum):
     """Target scope for a budget policy."""
 
     GLOBAL = "GLOBAL"
@@ -50,7 +50,7 @@ class GatewayBudgetPolicy(_MlflowObject):
         budget_amount: Budget limit amount.
         duration_unit: Unit of time window (MINUTES, HOURS, DAYS, MONTHS).
         duration_value: Length of the window in units of duration_unit.
-        target_type: Scope of the budget (GLOBAL or WORKSPACE).
+        target_scope: Scope of the budget (GLOBAL or WORKSPACE).
         budget_action: Action when budget is exceeded (ALERT, REJECT).
         created_at: Timestamp (milliseconds) when the policy was created.
         last_updated_at: Timestamp (milliseconds) when the policy was last updated.
@@ -64,7 +64,7 @@ class GatewayBudgetPolicy(_MlflowObject):
     budget_amount: float
     duration_unit: BudgetDurationUnit
     duration_value: int
-    target_type: BudgetTargetType
+    target_scope: BudgetTargetScope
     budget_action: BudgetAction
     created_at: int
     last_updated_at: int
@@ -78,7 +78,7 @@ class GatewayBudgetPolicy(_MlflowObject):
             self.budget_unit = BudgetUnit(self.budget_unit)
         if isinstance(self.duration_unit, str):
             self.duration_unit = BudgetDurationUnit(self.duration_unit)
-        if isinstance(self.target_type, str):
-            self.target_type = BudgetTargetType(self.target_type)
+        if isinstance(self.target_scope, str):
+            self.target_scope = BudgetTargetScope(self.target_scope)
         if isinstance(self.budget_action, str):
             self.budget_action = BudgetAction(self.budget_action)

@@ -24,7 +24,7 @@ from mlflow.entities.file_info import FileInfo
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDurationUnit,
-    BudgetTargetType,
+    BudgetTargetScope,
     BudgetUnit,
     GatewayBudgetPolicy,
 )
@@ -147,7 +147,7 @@ __all__ = [
     "EntityAssociationType",
     "BudgetAction",
     "BudgetDurationUnit",
-    "BudgetTargetType",
+    "BudgetTargetScope",
     "BudgetUnit",
     "FallbackConfig",
     "FallbackStrategy",

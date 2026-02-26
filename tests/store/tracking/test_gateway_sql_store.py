@@ -7,7 +7,7 @@ import pytest
 from mlflow.entities import (
     BudgetAction,
     BudgetDurationUnit,
-    BudgetTargetType,
+    BudgetTargetScope,
     BudgetUnit,
     FallbackConfig,
     FallbackStrategy,
@@ -2019,7 +2019,7 @@ def test_create_budget_policy(store: SqlAlchemyStore):
         budget_amount=100.0,
         duration_unit=BudgetDurationUnit.MONTHS,
         duration_value=1,
-        target_type=BudgetTargetType.GLOBAL,
+        target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
         created_by="admin",
     )
@@ -2029,7 +2029,7 @@ def test_create_budget_policy(store: SqlAlchemyStore):
     assert policy.budget_amount == 100.0
     assert policy.duration_unit == BudgetDurationUnit.MONTHS
     assert policy.duration_value == 1
-    assert policy.target_type == BudgetTargetType.GLOBAL
+    assert policy.target_scope == BudgetTargetScope.GLOBAL
     assert policy.budget_action == BudgetAction.ALERT
     assert policy.created_by == "admin"
     assert policy.created_at > 0
@@ -2042,7 +2042,7 @@ def test_get_budget_policy_by_id(store: SqlAlchemyStore):
         budget_amount=75.0,
         duration_unit=BudgetDurationUnit.HOURS,
         duration_value=24,
-        target_type=BudgetTargetType.WORKSPACE,
+        target_scope=BudgetTargetScope.WORKSPACE,
         budget_action=BudgetAction.REJECT,
     )
     fetched = store.get_budget_policy(budget_policy_id=created.budget_policy_id)
@@ -2051,7 +2051,7 @@ def test_get_budget_policy_by_id(store: SqlAlchemyStore):
     assert fetched.budget_amount == 75.0
     assert fetched.duration_unit == BudgetDurationUnit.HOURS
     assert fetched.duration_value == 24
-    assert fetched.target_type == BudgetTargetType.WORKSPACE
+    assert fetched.target_scope == BudgetTargetScope.WORKSPACE
     assert fetched.budget_action == BudgetAction.REJECT
 
 
@@ -2066,7 +2066,7 @@ def test_update_budget_policy(store: SqlAlchemyStore):
         budget_amount=100.0,
         duration_unit=BudgetDurationUnit.MONTHS,
         duration_value=1,
-        target_type=BudgetTargetType.GLOBAL,
+        target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
     )
     updated = store.update_budget_policy(
@@ -2082,7 +2082,7 @@ def test_update_budget_policy(store: SqlAlchemyStore):
     # Unchanged fields should remain
     assert updated.duration_unit == BudgetDurationUnit.MONTHS
     assert updated.duration_value == 1
-    assert updated.target_type == BudgetTargetType.GLOBAL
+    assert updated.target_scope == BudgetTargetScope.GLOBAL
 
 
 def test_update_budget_policy_not_found_raises(store: SqlAlchemyStore):
@@ -2099,7 +2099,7 @@ def test_delete_budget_policy(store: SqlAlchemyStore):
         budget_amount=10.0,
         duration_unit=BudgetDurationUnit.DAYS,
         duration_value=1,
-        target_type=BudgetTargetType.GLOBAL,
+        target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
     )
     store.delete_budget_policy(created.budget_policy_id)
@@ -2119,7 +2119,7 @@ def test_list_budget_policies(store: SqlAlchemyStore):
         budget_amount=100.0,
         duration_unit=BudgetDurationUnit.MONTHS,
         duration_value=1,
-        target_type=BudgetTargetType.GLOBAL,
+        target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
     )
     store.create_budget_policy(
@@ -2127,7 +2127,7 @@ def test_list_budget_policies(store: SqlAlchemyStore):
         budget_amount=50.0,
         duration_unit=BudgetDurationUnit.DAYS,
         duration_value=7,
-        target_type=BudgetTargetType.WORKSPACE,
+        target_scope=BudgetTargetScope.WORKSPACE,
         budget_action=BudgetAction.REJECT,
     )
 
@@ -2147,7 +2147,7 @@ def test_create_budget_policy_all_duration_units(store: SqlAlchemyStore):
             budget_amount=100.0,
             duration_unit=du,
             duration_value=1,
-            target_type=BudgetTargetType.GLOBAL,
+            target_scope=BudgetTargetScope.GLOBAL,
             budget_action=BudgetAction.ALERT,
         )
         assert policy.duration_unit == du
@@ -2160,7 +2160,7 @@ def test_create_budget_policy_all_budget_actions(store: SqlAlchemyStore):
             budget_amount=100.0,
             duration_unit=BudgetDurationUnit.MONTHS,
             duration_value=1,
-            target_type=BudgetTargetType.GLOBAL,
+            target_scope=BudgetTargetScope.GLOBAL,
             budget_action=action,
         )
         assert policy.budget_action == action
