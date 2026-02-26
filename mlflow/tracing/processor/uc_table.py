@@ -5,7 +5,7 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation, UnityCatalog
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, TraceMetadataKey
@@ -37,14 +37,34 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
 
         This method is called in the on_start method of the base class.
         """
-        if uc_spans_table_name := get_active_spans_table_name():
+        from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+        destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+
+        if isinstance(destination, UnityCatalog):
+            trace_location = TraceLocation.from_databricks_uc_table_prefix(
+                destination.catalog_name, destination.schema_name, destination.table_prefix
+            )
+            trace_location.uc_table_prefix._otel_spans_table_name = (
+                destination._otel_spans_table_name
+            )
+            trace_id = generate_trace_id_v4(root_span, destination.full_table_prefix)
+        elif isinstance(destination, UCSchemaLocation):
+            trace_location = TraceLocation.from_databricks_uc_schema(
+                destination.catalog_name, destination.schema_name
+            )
+            trace_location.uc_schema._otel_spans_table_name = destination._otel_spans_table_name
+            trace_id = generate_trace_id_v4(root_span, destination.schema_location)
+        elif uc_spans_table_name := get_active_spans_table_name():
+            # Fallback for env-var-derived destinations where the registry may
+            # return a type we don't recognise yet.
             catalog_name, schema_name, spans_table_name = uc_spans_table_name.split(".")
             trace_location = TraceLocation.from_databricks_uc_schema(catalog_name, schema_name)
             trace_location.uc_schema._otel_spans_table_name = spans_table_name
             trace_id = generate_trace_id_v4(root_span, trace_location.uc_schema.schema_location)
         else:
             raise MlflowException(
-                "Unity Catalog spans table name is not set for trace. It can not be exported to "
+                "Unity Catalog destination is not set for trace. It cannot be exported to "
                 "Databricks Unity Catalog table."
             )
 
