@@ -328,3 +328,80 @@ def test_all_duration_units_window_consistency(duration_unit):
     end = _compute_window_end(duration_unit, 1, start)
     assert start < end
     assert start <= now < end
+
+
+# --- load_policies return value tests ---
+
+
+def test_load_policies_returns_new_windows():
+    tracker = InMemoryBudgetTracker()
+    policy1 = _make_policy(budget_policy_id="bp-1")
+    policy2 = _make_policy(budget_policy_id="bp-2")
+
+    new_windows = tracker.load_policies([policy1, policy2])
+    assert len(new_windows) == 2
+    ids = {w.policy.budget_policy_id for w in new_windows}
+    assert ids == {"bp-1", "bp-2"}
+
+
+def test_load_policies_returns_empty_on_reload():
+    tracker = InMemoryBudgetTracker()
+    policy = _make_policy()
+
+    new_windows = tracker.load_policies([policy])
+    assert len(new_windows) == 1
+
+    # Reload same policy within same window — no new windows
+    new_windows = tracker.load_policies([policy])
+    assert new_windows == []
+
+
+def test_load_policies_returns_only_new_on_mixed():
+    tracker = InMemoryBudgetTracker()
+    policy1 = _make_policy(budget_policy_id="bp-1")
+    tracker.load_policies([policy1])
+
+    policy2 = _make_policy(budget_policy_id="bp-2")
+    new_windows = tracker.load_policies([policy1, policy2])
+    assert len(new_windows) == 1
+    assert new_windows[0].policy.budget_policy_id == "bp-2"
+
+
+# --- backfill_spend tests ---
+
+
+def test_backfill_spend_sets_cumulative():
+    tracker = InMemoryBudgetTracker()
+    tracker.load_policies([_make_policy(budget_amount=100.0)])
+
+    tracker.backfill_spend("bp-test", 42.5)
+    window = tracker.get_window_info("bp-test")
+    assert window.cumulative_spend == 42.5
+    assert window.crossed is False
+
+
+def test_backfill_spend_sets_crossed_when_exceeds():
+    tracker = InMemoryBudgetTracker()
+    tracker.load_policies([_make_policy(budget_amount=100.0)])
+
+    tracker.backfill_spend("bp-test", 150.0)
+    window = tracker.get_window_info("bp-test")
+    assert window.cumulative_spend == 150.0
+    assert window.crossed is True
+
+
+def test_backfill_spend_sets_crossed_at_exact_limit():
+    tracker = InMemoryBudgetTracker()
+    tracker.load_policies([_make_policy(budget_amount=100.0)])
+
+    tracker.backfill_spend("bp-test", 100.0)
+    window = tracker.get_window_info("bp-test")
+    assert window.cumulative_spend == 100.0
+    assert window.crossed is True
+
+
+def test_backfill_spend_nonexistent_is_noop():
+    tracker = InMemoryBudgetTracker()
+    tracker.load_policies([_make_policy()])
+    # Should not raise
+    tracker.backfill_spend("nonexistent-policy", 50.0)
