@@ -5,6 +5,23 @@ CREATE TABLE alembic_version (
 )
 
 
+CREATE TABLE budget_policies (
+	budget_policy_id VARCHAR(36) NOT NULL,
+	budget_unit VARCHAR(32) NOT NULL,
+	budget_amount FLOAT NOT NULL,
+	duration_unit VARCHAR(32) NOT NULL,
+	duration_value INTEGER NOT NULL,
+	target_scope VARCHAR(32) NOT NULL,
+	budget_action VARCHAR(32) NOT NULL,
+	created_by VARCHAR(255),
+	created_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	CONSTRAINT budget_policies_pk PRIMARY KEY (budget_policy_id)
+)
+
+
 CREATE TABLE entity_associations (
 	association_id VARCHAR(36) NOT NULL,
 	source_type VARCHAR(36) NOT NULL,

@@ -323,6 +323,10 @@ mlflow.entities.AssessmentSource.to_dictionary
 mlflow.entities.AssessmentSource.to_proto
 mlflow.entities.AssessmentSourceType
 mlflow.entities.AssessmentSourceType.from_proto
+mlflow.entities.BudgetAction
+mlflow.entities.BudgetDurationUnit
+mlflow.entities.BudgetTargetScope
+mlflow.entities.BudgetUnit
 mlflow.entities.Dataset
 mlflow.entities.Dataset.from_proto
 mlflow.entities.Dataset.to_dictionary
@@ -369,6 +373,7 @@ mlflow.entities.Feedback.from_proto
 mlflow.entities.FileInfo
 mlflow.entities.FileInfo.from_proto
 mlflow.entities.FileInfo.to_proto
+mlflow.entities.GatewayBudgetPolicy
 mlflow.entities.GatewayEndpoint
 mlflow.entities.GatewayEndpoint.from_proto
 mlflow.entities.GatewayEndpoint.to_proto
@@ -595,6 +600,11 @@ mlflow.entities.entity_type.EntityAssociationType
 mlflow.entities.experiment.Experiment
 mlflow.entities.experiment_tag.ExperimentTag
 mlflow.entities.file_info.FileInfo
+mlflow.entities.gateway_budget_policy.BudgetAction
+mlflow.entities.gateway_budget_policy.BudgetDurationUnit
+mlflow.entities.gateway_budget_policy.BudgetTargetScope
+mlflow.entities.gateway_budget_policy.BudgetUnit
+mlflow.entities.gateway_budget_policy.GatewayBudgetPolicy
 mlflow.entities.gateway_endpoint.FallbackConfig
 mlflow.entities.gateway_endpoint.FallbackStrategy
 mlflow.entities.gateway_endpoint.GatewayEndpoint
