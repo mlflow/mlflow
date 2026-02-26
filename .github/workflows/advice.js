@@ -76,7 +76,7 @@ For Databricks, use the following command:
         "The DCO check failed. " +
         `Please sign off your commit(s) by following the instructions [here](${dcoCheck.html_url}). ` +
         "See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#sign-your-work for more " +
-        "details.",
+        "details."
     );
   }
 
@@ -85,7 +85,7 @@ For Databricks, use the following command:
       "#### &#x274C; PR branch check\n\n" +
         "This PR was filed from the master branch in your fork, which is not recommended " +
         "and may cause our CI checks to fail. Please close this PR and file a new PR from " +
-        "a non-master branch.",
+        "a non-master branch."
     );
   }
 
@@ -93,7 +93,7 @@ For Databricks, use the following command:
     messages.push(
       "#### &#x274C; Invalid PR template\n\n" +
         "The PR description is missing required sections. " +
-        "Please use the [PR template](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md).",
+        "Please use the [PR template](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md)."
     );
   }
 
