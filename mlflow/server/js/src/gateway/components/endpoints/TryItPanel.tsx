@@ -125,11 +125,9 @@ export const TryItPanel = ({
               minHeight: 220,
             }}
           />
-          {sendError && (
-            <Typography.Text color="error" css={{ marginTop: theme.spacing.xs }}>
-              {sendError}
-            </Typography.Text>
-          )}
+          <div css={{ minHeight: '1.5em', marginTop: theme.spacing.xs }}>
+            {sendError && <Typography.Text color="error">{sendError}</Typography.Text>}
+          </div>
         </div>
       </div>
       <div css={{ display: 'flex', gap: theme.spacing.sm }}>
