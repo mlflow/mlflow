@@ -36,7 +36,7 @@ export const ModelDefinitionConfigSection = ({
           <FormattedMessage defaultMessage="Model configuration" description="Label for model configuration section" />
         </FormUI.Label>
         <Radio.Group
-          componentId={`${componentIdPrefix}.mode`}
+          componentId="codegen_mlflow_app_src_oss_gateway_components_model-definitions_ModelDefinitionConfigSection.tsx_39"
           name="modelDefinitionMode"
           value={mode}
           onChange={(e) => onModeChange(e.target.value as ModelDefinitionMode)}

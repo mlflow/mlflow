@@ -155,7 +155,7 @@ print(response.candidates[0].content.parts[0].text)`;
       >
         <Typography.Text bold>{label}</Typography.Text>
         <CopyButton
-          componentId={`mlflow.gateway.usage-modal.copy-${label.toLowerCase().replace(/\s+/g, '-')}`}
+          componentId="codegen_mlflow_app_src_oss_gateway_components_endpoints_EndpointUsageModal.tsx_147"
           copyText={code}
           icon={<CopyIcon />}
           showLabel={false}

@@ -17,6 +17,7 @@ class DemoFeature(str, Enum):
     TRACES = "traces"
     EVALUATION = "evaluation"
     PROMPTS = "prompts"
+    JUDGES = "judges"
 
 
 @dataclass

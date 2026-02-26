@@ -14,14 +14,13 @@ import { useDispatch, useSelector } from 'react-redux';
 import { getExperimentTags } from '../../../reducers/Reducers';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
 import type { ThunkDispatch } from '../../../../redux-types';
-import React from 'react';
-import 'react-mde/lib/styles/css/react-mde-all.css';
-import ReactMde, { SvgIcon } from 'react-mde';
+import { SvgIcon } from 'react-mde';
 import {
   forceAnchorTagNewTab,
   getMarkdownConverter,
   sanitizeConvertedHtml,
 } from '../../../../common/utils/MarkdownUtils';
+import { ThemeAwareReactMde } from '../../../../common/components/EditableNote';
 import { FormattedMessage } from 'react-intl';
 import { setExperimentTagApi } from '../../../actions';
 import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
@@ -68,7 +67,7 @@ export const ExperimentViewDescriptionNotes = ({
 
   const effectiveNote = storedNote || defaultValue;
   const [tmpNote, setTmpNote] = useState(effectiveNote);
-  const [selectedTab, setSelectedTab] = useState<'write' | 'preview' | undefined>('write');
+  const [selectedTab, setSelectedTab] = useState<'write' | 'preview'>('write');
   const [isExpanded, setIsExpanded] = useState(false);
 
   const { theme } = useDesignSystemTheme();
@@ -176,26 +175,24 @@ export const ExperimentViewDescriptionNotes = ({
           setEditing(false);
         }}
       >
-        <React.Fragment>
-          <ReactMde
-            value={tmpNote}
-            minEditorHeight={MIN_EDITOR_HEIGHT}
-            maxEditorHeight={MAX_EDITOR_HEIGHT}
-            minPreviewHeight={MIN_PREVIEW_HEIGHT}
-            toolbarCommands={toolbarCommands}
-            onChange={(value) => setTmpNote(value)}
-            selectedTab={selectedTab}
-            onTabChange={(newTab) => setSelectedTab(newTab)}
-            generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
-            getIcon={(name) => (
-              <Tooltip componentId="mlflow.experiment-tracking.experiment-description.edit" content={name}>
-                <span css={{ color: theme.colors.textPrimary }}>
-                  <SvgIcon icon={name} />
-                </span>
-              </Tooltip>
-            )}
-          />
-        </React.Fragment>
+        <ThemeAwareReactMde
+          value={tmpNote || ''}
+          minEditorHeight={MIN_EDITOR_HEIGHT}
+          maxEditorHeight={MAX_EDITOR_HEIGHT}
+          minPreviewHeight={MIN_PREVIEW_HEIGHT}
+          toolbarCommands={toolbarCommands}
+          onChange={(value) => setTmpNote(value)}
+          selectedTab={selectedTab}
+          onTabChange={(newTab) => setSelectedTab(newTab)}
+          generateMarkdownPreview={() => Promise.resolve(getSanitizedHtmlContent(tmpNote))}
+          getIcon={(name) => (
+            <Tooltip componentId="mlflow.experiment-tracking.experiment-description.edit" content={name}>
+              <span css={{ color: theme.colors.textPrimary }}>
+                <SvgIcon icon={name} />
+              </span>
+            </Tooltip>
+          )}
+        />
       </Modal>
     </div>
   );

@@ -13,6 +13,7 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create a cost breakdown data point
 const createCostDataPoint = (modelName: string, totalCost: number) => ({
@@ -68,7 +69,7 @@ describe('TraceCostBreakdownChart', () => {
 
   const setupTraceMetricsHandler = (dataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (_req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (_req, res, ctx) => {
         return res(ctx.json({ data_points: dataPoints }));
       }),
     );
