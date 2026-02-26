@@ -474,7 +474,7 @@ class BudgetPolicyCrossedPayload(TypedDict):
             "current_spend": 105.50,
             "duration_unit": "MONTHS",
             "duration_value": 1,
-            "target_type": "WORKSPACE",
+            "target_scope": "WORKSPACE",
             "workspace": "default",
             "window_start": 1704067200000,
         }
@@ -493,8 +493,8 @@ class BudgetPolicyCrossedPayload(TypedDict):
     """The duration unit (MINUTES, HOURS, DAYS, MONTHS)."""
     duration_value: int
     """The duration value."""
-    target_type: str
-    """The target type (GLOBAL or WORKSPACE)."""
+    target_scope: str
+    """The target scope (GLOBAL or WORKSPACE)."""
     workspace: str
     """The workspace this budget applies to."""
     window_start: int
@@ -509,7 +509,7 @@ class BudgetPolicyCrossedPayload(TypedDict):
             current_spend=105.50,
             duration_unit="MONTHS",
             duration_value=1,
-            target_type="WORKSPACE",
+            target_scope="WORKSPACE",
             workspace="default",
             window_start=1704067200000,
         )
