@@ -39,7 +39,7 @@ import {
 } from './types';
 import { getAssessmentAggregates } from './utils/AggregationUtils';
 import { escapeCssSpecialCharacters } from './utils/DisplayUtils';
-import { getRowIdFromEvaluation } from './utils/TraceUtils';
+import { getExperimentIdFromTraceLocation, getRowIdFromEvaluation } from './utils/TraceUtils';
 
 export const GenAiTracesTableBody = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
@@ -73,7 +73,7 @@ export const GenAiTracesTableBody = React.memo(
     isGroupedBySession,
     searchQuery,
   }: {
-    experimentId: string;
+    experimentId?: string;
     selectedColumns: TracesTableColumn[];
     evaluations: EvalTraceComparisonEntry[];
     selectedEvaluationId: string | undefined;
@@ -427,32 +427,46 @@ export const GenAiTracesTableBody = React.memo(
       return result;
     }, [selectedAssessmentInfos, evaluations, assessmentFilters]);
 
+    const evalEntryMatchesEvaluationId = useCallback((evaluationId: string, entry?: RunEvaluationTracesDataEntry) => {
+      if (isV4TraceId(evaluationId) && entry?.fullTraceId === evaluationId) {
+        return true;
+      }
+      return entry?.evaluationId === evaluationId;
+    }, []);
+
+    // Find the selected evaluation entry to derive experimentId and comparison trace IDs.
+    const selectedEvaluation = useMemo(() => {
+      if (!selectedEvaluationId) {
+        return undefined;
+      }
+      return evaluations.find(
+        (entry) =>
+          evalEntryMatchesEvaluationId(selectedEvaluationId, entry.currentRunValue) ||
+          evalEntryMatchesEvaluationId(selectedEvaluationId, entry.otherRunValue),
+      );
+    }, [selectedEvaluationId, evaluations, evalEntryMatchesEvaluationId]);
+
+    // Derive experimentId from the selected evaluation's trace_location, falling back to the prop
+    const selectedEvaluationExperimentId = useMemo(
+      () =>
+        getExperimentIdFromTraceLocation(selectedEvaluation?.currentRunValue?.traceInfo?.trace_location) ??
+        getExperimentIdFromTraceLocation(selectedEvaluation?.otherRunValue?.traceInfo?.trace_location) ??
+        experimentId,
+      [selectedEvaluation, experimentId],
+    );
+
     // Get the trace IDs for the comparison modal.
     // TODO: after the new comparison modal is rolled out, we can remove the comparison capabilities from <GenAiEvaluationTracesReviewModal>
     const comparedTraceIds = useMemo(() => {
       if (!shouldUseUnifiedModelTraceComparisonUI()) {
         return null;
       }
-      const evalEntryMatchesEvaluationId = (evaluationId: string, entry?: RunEvaluationTracesDataEntry) => {
-        if (isV4TraceId(evaluationId) && entry?.fullTraceId === evaluationId) {
-          return true;
-        }
-        return entry?.evaluationId === evaluationId;
-      };
 
-      if (selectedEvaluationId) {
-        const evaluation = evaluations.find(
-          (entry) =>
-            evalEntryMatchesEvaluationId(selectedEvaluationId, entry.currentRunValue) ||
-            evalEntryMatchesEvaluationId(selectedEvaluationId, entry.otherRunValue),
-        );
-
-        if (evaluation?.otherRunValue?.fullTraceId && evaluation?.currentRunValue?.fullTraceId) {
-          return [evaluation.currentRunValue.fullTraceId, evaluation.otherRunValue.fullTraceId];
-        }
+      if (selectedEvaluation?.otherRunValue?.fullTraceId && selectedEvaluation?.currentRunValue?.fullTraceId) {
+        return [selectedEvaluation.currentRunValue.fullTraceId, selectedEvaluation.otherRunValue.fullTraceId];
       }
       return null;
-    }, [selectedEvaluationId, evaluations]);
+    }, [selectedEvaluation]);
 
     return (
       <>
@@ -540,9 +554,10 @@ export const GenAiTracesTableBody = React.memo(
             // prettier-ignore
           />
         ) : (
-          selectedEvaluationId && (
+          selectedEvaluationId &&
+          selectedEvaluationExperimentId && (
             <GenAiEvaluationTracesReviewModal
-              experimentId={experimentId}
+              experimentId={selectedEvaluationExperimentId}
               runUuid={runUuid}
               runDisplayName={runDisplayName}
               otherRunDisplayName={compareToRunDisplayName}

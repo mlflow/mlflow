@@ -5,8 +5,13 @@ from pathlib import Path
 import pytest
 
 from mlflow.entities import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
     FallbackConfig,
     FallbackStrategy,
+    GatewayBudgetPolicy,
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelConfig,
@@ -29,6 +34,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.tracking.dbmodels.models import (
     SqlExperiment,
     SqlExperimentTag,
+    SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
@@ -63,6 +69,7 @@ def _cleanup_database(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:
         # Delete all rows in gateway tables in dependency order
         for model in (
+            SqlGatewayBudgetPolicy,
             SqlGatewayEndpointTag,
             SqlGatewayEndpointBinding,
             SqlGatewayEndpointModelMapping,
@@ -568,6 +575,7 @@ def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore)
     assert experiment.name == "gateway/auto-exp-endpoint"
     assert experiment.tags.get("mlflow.experiment.sourceType") == "GATEWAY"
     assert experiment.tags.get("mlflow.experiment.sourceId") == endpoint.endpoint_id
+    assert experiment.tags.get("mlflow.experiment.isGateway") == "true"
 
 
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):
@@ -1999,3 +2007,161 @@ def test_create_gateway_endpoint_with_traffic_split(store: SqlAlchemyStore):
     # All should be PRIMARY linkages for traffic split
     for mapping in endpoint.model_mappings:
         assert mapping.linkage_type == GatewayModelLinkageType.PRIMARY
+
+
+# =============================================================================
+# Budget Policy Operations
+# =============================================================================
+
+
+def test_create_budget_policy(store: SqlAlchemyStore):
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration_unit=BudgetDurationUnit.MONTHS,
+        duration_value=1,
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+        created_by="admin",
+    )
+    assert isinstance(policy, GatewayBudgetPolicy)
+    assert policy.budget_policy_id.startswith("bp-")
+    assert policy.budget_unit == BudgetUnit.USD
+    assert policy.budget_amount == 100.0
+    assert policy.duration_unit == BudgetDurationUnit.MONTHS
+    assert policy.duration_value == 1
+    assert policy.target_scope == BudgetTargetScope.GLOBAL
+    assert policy.budget_action == BudgetAction.ALERT
+    assert policy.created_by == "admin"
+    assert policy.created_at > 0
+    assert policy.last_updated_at > 0
+
+
+def test_get_budget_policy_by_id(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=75.0,
+        duration_unit=BudgetDurationUnit.HOURS,
+        duration_value=24,
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.REJECT,
+    )
+    fetched = store.get_budget_policy(budget_policy_id=created.budget_policy_id)
+    assert fetched.budget_policy_id == created.budget_policy_id
+    assert fetched.budget_unit == BudgetUnit.USD
+    assert fetched.budget_amount == 75.0
+    assert fetched.duration_unit == BudgetDurationUnit.HOURS
+    assert fetched.duration_value == 24
+    assert fetched.target_scope == BudgetTargetScope.WORKSPACE
+    assert fetched.budget_action == BudgetAction.REJECT
+
+
+def test_get_budget_policy_not_found_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="BudgetPolicy"):
+        store.get_budget_policy(budget_policy_id="bp-nonexistent")
+
+
+def test_update_budget_policy(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration_unit=BudgetDurationUnit.MONTHS,
+        duration_value=1,
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        budget_amount=200.0,
+        budget_action=BudgetAction.REJECT,
+        updated_by="editor",
+    )
+    assert updated.budget_amount == 200.0
+    assert updated.budget_action == BudgetAction.REJECT
+    assert updated.last_updated_by == "editor"
+    assert updated.last_updated_at >= created.last_updated_at
+    # Unchanged fields should remain
+    assert updated.duration_unit == BudgetDurationUnit.MONTHS
+    assert updated.duration_value == 1
+    assert updated.target_scope == BudgetTargetScope.GLOBAL
+
+
+def test_update_budget_policy_not_found_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="BudgetPolicy"):
+        store.update_budget_policy(
+            budget_policy_id="bp-nonexistent",
+            budget_amount=999.0,
+        )
+
+
+def test_delete_budget_policy(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=10.0,
+        duration_unit=BudgetDurationUnit.DAYS,
+        duration_value=1,
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    store.delete_budget_policy(created.budget_policy_id)
+
+    with pytest.raises(MlflowException, match="BudgetPolicy"):
+        store.get_budget_policy(budget_policy_id=created.budget_policy_id)
+
+
+def test_delete_budget_policy_not_found_raises(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="BudgetPolicy"):
+        store.delete_budget_policy("bp-nonexistent")
+
+
+def test_list_budget_policies(store: SqlAlchemyStore):
+    store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration_unit=BudgetDurationUnit.MONTHS,
+        duration_value=1,
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=50.0,
+        duration_unit=BudgetDurationUnit.DAYS,
+        duration_value=7,
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.REJECT,
+    )
+
+    all_policies = store.list_budget_policies()
+    assert len(all_policies) == 2
+
+
+def test_list_budget_policies_empty(store: SqlAlchemyStore):
+    policies = store.list_budget_policies()
+    assert policies == []
+
+
+def test_create_budget_policy_all_duration_units(store: SqlAlchemyStore):
+    for du in BudgetDurationUnit:
+        policy = store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=100.0,
+            duration_unit=du,
+            duration_value=1,
+            target_scope=BudgetTargetScope.GLOBAL,
+            budget_action=BudgetAction.ALERT,
+        )
+        assert policy.duration_unit == du
+
+
+def test_create_budget_policy_all_budget_actions(store: SqlAlchemyStore):
+    for action in BudgetAction:
+        policy = store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=100.0,
+            duration_unit=BudgetDurationUnit.MONTHS,
+            duration_value=1,
+            target_scope=BudgetTargetScope.GLOBAL,
+            budget_action=action,
+        )
+        assert policy.budget_action == action

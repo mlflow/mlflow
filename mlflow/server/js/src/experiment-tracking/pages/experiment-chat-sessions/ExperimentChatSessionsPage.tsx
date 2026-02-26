@@ -13,6 +13,8 @@ import {
   INPUTS_COLUMN_ID,
   RESPONSE_COLUMN_ID,
   SESSION_COLUMN_ID,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
   TracesTableColumnType,
   createTraceLocationForExperiment,
   createTraceLocationForUCSchema,
@@ -35,7 +37,13 @@ const defaultCustomDefaultSelectedColumns = (column: TracesTableColumn) => {
   if (column.type === TracesTableColumnType.ASSESSMENT || column.type === TracesTableColumnType.EXPECTATION) {
     return true;
   }
-  return [SESSION_COLUMN_ID, INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID].includes(column.id);
+  return [
+    SESSION_COLUMN_ID,
+    SIMULATION_GOAL_COLUMN_ID,
+    SIMULATION_PERSONA_COLUMN_ID,
+    INPUTS_COLUMN_ID,
+    RESPONSE_COLUMN_ID,
+  ].includes(column.id);
 };
 
 const ExperimentChatSessionsPageImpl = () => {
@@ -101,7 +109,7 @@ const ExperimentChatSessionsPageImpl = () => {
       />
       {shouldEnableSessionGrouping() ? (
         <TracesV3Logs
-          experimentId={experimentId}
+          experimentIds={[experimentId]}
           additionalFilters={filters}
           endpointName=""
           timeRange={timeRange}

@@ -57,7 +57,7 @@ const LogsTabContent = ({ experimentId }: { experimentId: string }) => {
           />
         </Link>
       </div>
-      <TracesV3Logs experimentId={experimentId} disableActions timeRange={timeRange} />
+      <TracesV3Logs experimentIds={[experimentId]} disableActions timeRange={timeRange} />
     </>
   );
 };

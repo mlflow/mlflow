@@ -3,7 +3,11 @@ from unittest.mock import patch
 
 import pytest
 
-from mlflow.tracing.utils.truncation import _get_truncated_preview
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
+from mlflow.tracing.utils.truncation import _get_truncated_preview, set_request_response_preview
 
 
 @pytest.fixture(autouse=True)
@@ -19,7 +23,7 @@ def patch_max_length():
         ("short string", "short string"),
         ("{'a': 'b'}", "{'a': 'b'}"),
         ("start" + "a" * 50, "start" + "a" * 42 + "..."),
-        (None, ""),
+        (None, None),
     ],
     ids=["short string", "short json", "long string", "none"],
 )
@@ -222,3 +226,17 @@ def test_truncate_invalid_content_falls_back_to_json(content_value, expected_in_
     input_str = json.dumps(request_data)
     result = _get_truncated_preview(input_str, role="user")
     assert expected_in_result in result or result.endswith("...")
+
+
+def test_set_request_response_preview_skips_none_data():
+    trace_info = TraceInfo(
+        trace_id="tr-test",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1000,
+        state=TraceState.OK,
+    )
+    trace_data = TraceData(spans=[], request=None, response=None)
+    set_request_response_preview(trace_info, trace_data)
+
+    assert trace_info.request_preview is None
+    assert trace_info.response_preview is None
