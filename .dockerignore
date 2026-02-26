@@ -2,6 +2,10 @@
 # to exclude unnecessary files when copying the MLflow source tree for Docker builds.
 # Without this file, Docker images built during testing would be extremely large and
 # could cause disk space issues.
+#
+# NOTE: This file is also parsed by mlflow/utils/file_utils.py:_docker_ignore() using
+# fnmatch, which does NOT support Docker's ** recursive glob syntax.
+# Both root-level and recursive patterns are needed for full compatibility.
 
 .git
 mlruns
@@ -18,17 +22,21 @@ dev
 !requirements/extra-ml-requirements.txt
 
 tests
+**/tests
 # required for Docker build
 !tests/resources/mlflow-test-plugin/
 
 node_modules
+**/node_modules
 coverage
 build
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 __pycache__
+**/__pycache__
 .*
+**/.*
 ~*
 *.swp
 *.pyc
