@@ -493,6 +493,17 @@ class SearchUtils:
     def _validate_comparison(cls, tokens):
         base_error_string = "Invalid comparison clause"
         if len(tokens) != 3:
+            # Provide a clear error for IS NULL / IS NOT NULL which are only
+            # supported in experiment and trace search
+            if (
+                len(tokens) == 2
+                and tokens[1].ttype == TokenType.Keyword
+                and tokens[1].value.upper() in ("IS NULL", "IS NOT NULL")
+            ):
+                raise MlflowException(
+                    f"Invalid clause(s) in filter string: '{tokens[0]} {tokens[1]}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             raise MlflowException(
                 f"{base_error_string}. Expected 3 tokens found {len(tokens)}",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -519,17 +530,6 @@ class SearchUtils:
     @classmethod
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
-        # IS NULL / IS NOT NULL are not supported for run search
-        if (
-            len(stripped_comparison) == 2
-            and stripped_comparison[1].ttype == TokenType.Keyword
-            and stripped_comparison[1].value.upper() in ("IS NULL", "IS NOT NULL")
-        ):
-            raise MlflowException(
-                "Invalid clause(s) in filter string: "
-                f"'{stripped_comparison[0]} {stripped_comparison[1]}'",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
         cls._validate_comparison(stripped_comparison)
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
@@ -2134,43 +2134,24 @@ class SearchTraceUtils(SearchUtils):
 
     @classmethod
     def _validate_comparison(cls, tokens):
-        base_error_string = "Invalid comparison clause"
         # Allow 2-token IS NULL / IS NOT NULL comparisons
         if len(tokens) == 2:
             comparator = tokens[1].value.upper()
             if comparator in ("IS NULL", "IS NOT NULL"):
                 if not isinstance(tokens[0], Identifier):
                     raise MlflowException(
-                        f"{base_error_string}. Expected 'Identifier' found '{tokens[0]}'",
+                        f"Invalid comparison clause. Expected 'Identifier' found '{tokens[0]}'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 return
-        if len(tokens) != 3:
-            raise MlflowException(
-                f"{base_error_string}. Expected 3 tokens found {len(tokens)}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        if not isinstance(tokens[0], Identifier):
-            if not tokens[0].match(
-                ttype=TokenType.Name.Builtin, values=["timestamp", "timestamp_ms"]
-            ):
-                raise MlflowException(
-                    f"{base_error_string}. Expected 'TokenType.Name.Builtin' found '{tokens[0]}'",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        if not isinstance(tokens[1], Token) and tokens[1].ttype != TokenType.Operator.Comparison:
-            raise MlflowException(
-                f"{base_error_string}. Expected comparison found '{tokens[1]}'",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        if not isinstance(tokens[2], Token) and (
-            tokens[2].ttype not in cls.STRING_VALUE_TYPES.union(cls.NUMERIC_VALUE_TYPES)
-            or isinstance(tokens[2], Identifier)
+        # Allow timestamp/timestamp_ms as the first token for trace search
+        if (
+            len(tokens) == 3
+            and not isinstance(tokens[0], Identifier)
+            and tokens[0].match(ttype=TokenType.Name.Builtin, values=["timestamp", "timestamp_ms"])
         ):
-            raise MlflowException(
-                f"{base_error_string}. Expected value token found '{tokens[2]}'",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+            return
+        super()._validate_comparison(tokens)
 
     @classmethod
     def _get_comparison(cls, comparison):
