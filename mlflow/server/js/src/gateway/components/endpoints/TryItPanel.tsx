@@ -110,22 +110,29 @@ export const TryItPanel = ({
               </span>
             </Tooltip>
           </div>
-          <Input.TextArea
-            componentId="mlflow.gateway.usage-modal.try-it.response"
-            value={responseBody}
-            readOnly
-            rows={14}
-            placeholder={
-              sendError ? undefined : isLoading ? undefined : 'Click "Send request" to see the response here.'
-            }
-            css={{
-              fontFamily: 'monospace',
-              fontSize: theme.typography.fontSizeSm,
-              backgroundColor: theme.colors.backgroundSecondary,
-              minHeight: 220,
-            }}
-          />
-          <div css={{ minHeight: '1.5em', marginTop: theme.spacing.xs }}>
+          <div aria-live="polite" aria-atomic="true" role="status">
+            <Input.TextArea
+              componentId="mlflow.gateway.usage-modal.try-it.response"
+              value={responseBody}
+              readOnly
+              rows={14}
+              placeholder={
+                sendError ? undefined : isLoading ? undefined : 'Click "Send request" to see the response here.'
+              }
+              css={{
+                fontFamily: 'monospace',
+                fontSize: theme.typography.fontSizeSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                minHeight: 220,
+              }}
+            />
+          </div>
+          <div
+            css={{ minHeight: '1.5em', marginTop: theme.spacing.xs }}
+            aria-live="polite"
+            aria-atomic="true"
+            role="status"
+          >
             {sendError && <Typography.Text color="error">{sendError}</Typography.Text>}
           </div>
         </div>
