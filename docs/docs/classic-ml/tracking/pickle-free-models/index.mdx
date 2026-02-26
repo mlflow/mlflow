@@ -7,11 +7,11 @@ import { APILink } from "@site/src/components/APILink";
 
 # Pickle-Free Model format
 
-Saving models with Python's `pickle` or `cloudpickle` rely on Python's object serialization mechanism, which can execute arbitrary code during deserialization. MLflow supports safer **pickle-free** saving formats for several model flavors. Prefer these formats when possible.
+Saving models with Python's `pickle` or `cloudpickle` relies on Python's object serialization mechanism, which can execute arbitrary code during deserialization. MLflow supports safer **pickle-free** saving formats for several model flavors. Prefer these formats when possible.
 
 ## Pickle-free format for Scikit-learn model
 
-When saving a scikit-learn model, set param `serialization_format="skops"` to use the **skops** format for safe deserialization of scikit-learn models. The `skops` format does not rely on Python's pickle and avoids arbitrary code execution when loading.
+When saving a scikit-learn model, set the parameter `serialization_format="skops"` to use the **skops** format for safe deserialization of scikit-learn models. The `skops` format does not rely on Python's pickle and avoids arbitrary code execution when loading.
 
 ```python
 import mlflow
@@ -29,7 +29,7 @@ with mlflow.start_run():
     )
 ```
 
-For some scikit-learn model that contains custom or third-party types, you need to set `skops_trusted_types` to a list of fully qualified type names so skops can load them. For example, a pipeline with a custom transformer must list that transformer's type as trusted:
+For some scikit-learn models that contain custom or third-party types, you need to set `skops_trusted_types` to a list of fully qualified type names so skops can load them. For example, a pipeline with a custom transformer must list that transformer's type as trusted:
 
 ```python
 from numpy.random import randint
@@ -99,7 +99,7 @@ See <APILink fn="mlflow.pytorch.log_model" /> and <APILink fn="mlflow.pytorch.sa
 
 ## Pickle-free format for DSPy model
 
-Right now DSPy models don't support pickle-free format, but a new saving option `use_dspy_model_save` is introduced to delegate the model saving implementation to DSPy library.
+Currently, DSPy models do not support a pickle-free format, but a new saving option `use_dspy_model_save` is introduced to delegate the model saving implementation to the DSPy library.
 Set param `use_dspy_model_save=True` to use the DSPy built-in `dspy.Module.save` method. This option requires **dspy > 3.1.0**.
 
 ```python
@@ -120,7 +120,7 @@ See <APILink fn="mlflow.dspy.log_model" /> and <APILink fn="mlflow.dspy.save_mod
 
 ## Pickle-free format for LightGBM model
 
-For LightGBM models that are the scikit-learn model types (e.g., `LGBMClassifier`, `LGBMRegressor`), you can use the **skops** format. This does not apply to `lightgbm.Booster` instances, which use a native format.
+For LightGBM models that are scikit-learn model types (e.g., `LGBMClassifier`, `LGBMRegressor`), you can use the **skops** format. This does not apply to `lightgbm.Booster` instances, which use a native format.
 
 ```python
 import mlflow
@@ -170,6 +170,6 @@ When set to `false`, loading a model that was saved with `pickle` or `cloudpickl
 | Scikit-learn        | `serialization_format="skops"` | Use `skops_trusted_types` when needed.                        |
 | PyTorch             | `serialization_format="pt2"`   | Requires `input_example`, torch >= 2.4; not for ScriptModule. |
 | DSPy                | `use_dspy_model_save=True`     | Requires dspy > 3.1.0.                                        |
-| LightGBM            | `serialization_format="skops"` | Only for lightGBM model of sklearn type.                      |
+| LightGBM            | `serialization_format="skops"` | Only for lightGBM models of sklearn type.                     |
 | LangChain           | Models From Code               | Pickle saving emits warnings.                                 |
 | Custom Python model | Models From Code               | Pickle saving emits warnings.                                 |
