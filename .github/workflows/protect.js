@@ -65,7 +65,9 @@ module.exports = async ({ github, context }) => {
     const checks = Object.values(latestCheckRuns).map(({ name, status, conclusion }) => ({
       name,
       status:
-        status !== "completed"
+        conclusion === "cancelled"
+          ? STATE.failure
+          : status !== "completed"
           ? STATE.pending
           : conclusion === "success" || conclusion === "skipped"
           ? STATE.success
@@ -79,10 +81,7 @@ module.exports = async ({ github, context }) => {
         repo,
         head_sha: ref,
       })
-    ).filter(
-      ({ path, conclusion }) =>
-        path !== ".github/workflows/protect.yml" && conclusion !== "cancelled"
-    );
+    ).filter(({ path }) => path !== ".github/workflows/protect.yml");
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
     const latestRuns = {};
@@ -110,7 +109,9 @@ module.exports = async ({ github, context }) => {
         runs.push({
           name: `${job.name} (${runName}, attempt ${run.run_attempt})`,
           status:
-            job.status !== "completed"
+            job.conclusion === "cancelled"
+              ? STATE.failure
+              : job.status !== "completed"
               ? STATE.pending
               : job.conclusion === "success" || job.conclusion === "skipped"
               ? STATE.success

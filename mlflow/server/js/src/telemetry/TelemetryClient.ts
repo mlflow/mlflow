@@ -78,9 +78,7 @@ class TelemetryClient {
     });
   }
 
-  /**
-   * Log a telemetry event
-   */
+  // Log a telemetry event
   public async logEvent(record: any): Promise<void> {
     const isReady = await this.ready;
     if (!isReady || !this.port) {

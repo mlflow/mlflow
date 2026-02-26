@@ -3189,6 +3189,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                 )
                             )
 
+                    # Preserve request/response previews computed by log_spans()
+                    # translation if the incoming trace doesn't have them set.
+                    if (
+                        sql_trace_info.request_preview is None
+                        and db_sql_trace_info.request_preview is not None
+                    ):
+                        sql_trace_info.request_preview = db_sql_trace_info.request_preview
+                    if (
+                        sql_trace_info.response_preview is None
+                        and db_sql_trace_info.response_preview is not None
+                    ):
+                        sql_trace_info.response_preview = db_sql_trace_info.response_preview
+
                 session.merge(sql_trace_info)
                 session.flush()
 
@@ -6071,19 +6084,29 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
             attribute_filters.append(attr_filter)
         elif type_ == "tag":
-            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+            if comparator in ("IS NULL", "IS NOT NULL"):
+                tag_exists_subquery = select(SqlExperimentTag.experiment_id).where(
+                    SqlExperimentTag.experiment_id == SqlExperiment.experiment_id,
+                    SqlExperimentTag.key == key,
+                )
+                if comparator == "IS NULL":
+                    attribute_filters.append(~tag_exists_subquery.exists())
+                else:
+                    attribute_filters.append(tag_exists_subquery.exists())
+            elif comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for tag: {comparator}"
                 )
-            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
-                SqlExperimentTag.value, value
-            )
-            key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
-                SqlExperimentTag.key, key
-            )
-            non_attribute_filters.append(
-                select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
-            )
+            else:
+                val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    SqlExperimentTag.value, value
+                )
+                key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
+                    SqlExperimentTag.key, key
+                )
+                non_attribute_filters.append(
+                    select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
+                )
         else:
             raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
 

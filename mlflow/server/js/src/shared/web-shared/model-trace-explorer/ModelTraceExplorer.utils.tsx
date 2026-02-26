@@ -43,49 +43,42 @@ import type {
 import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import { parseJSONSafe } from './TagUtils';
+import { normalizeAnthropicChatInput, normalizeAnthropicChatOutput } from './chat-utils/anthropic';
+import { normalizeAutogenChatInput, normalizeAutogenChatOutput } from './chat-utils/autogen';
+import { normalizeBedrockChatInput, normalizeBedrockChatOutput } from './chat-utils/bedrock';
+import { normalizeGeminiChatInput, normalizeGeminiChatOutput } from './chat-utils/gemini';
 import {
-  normalizeAnthropicChatInput,
-  normalizeAnthropicChatOutput,
-  normalizeAutogenChatInput,
-  normalizeAutogenChatOutput,
-  normalizeBedrockChatInput,
-  normalizeBedrockChatOutput,
-  normalizeGeminiChatInput,
-  normalizeGeminiChatOutput,
-  normalizeMistralChatInput,
-  normalizeMistralChatOutput,
   normalizeOpenAIChatInput,
   normalizeOpenAIChatResponse,
   normalizeOpenAIResponsesInput,
   normalizeOpenAIResponsesOutput,
   normalizeOpenAIAgentInput,
   normalizeOpenAIAgentOutput,
-  normalizeLangchainChatInput,
-  normalizeLangchainChatResult,
-  normalizeLlamaIndexChatInput,
-  normalizeLlamaIndexChatResponse,
-  normalizeDspyChatInput,
-  normalizeDspyChatOutput,
-  normalizeVercelAIChatInput,
-  normalizeVercelAIChatOutput,
-  isOtelGenAIChatMessage,
-  normalizeOtelGenAIChatMessage,
-  normalizePydanticAIChatInput,
-  normalizePydanticAIChatOutput,
+  normalizeOpenAIResponsesStreamingOutput,
+} from './chat-utils/openai';
+import { normalizeLangchainChatInput, normalizeLangchainChatResult } from './chat-utils/langchain';
+import { normalizeLlamaIndexChatInput, normalizeLlamaIndexChatResponse } from './chat-utils/llamaindex';
+import { normalizeDspyChatInput, normalizeDspyChatOutput } from './chat-utils/dspy';
+import { normalizeVercelAIChatInput, normalizeVercelAIChatOutput } from './chat-utils/vercelai';
+import { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from './chat-utils/otel';
+import { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from './chat-utils/pydanticai';
+import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
+import { getSpanAttribute } from '../genai-traces-table/utils/TraceUtils';
+import { normalizeMistralChatInput, normalizeMistralChatOutput } from './chat-utils/mistral';
+import {
   normalizeVoltAgentChatInput,
   normalizeVoltAgentChatOutput,
   synthesizeVoltAgentChatMessages,
-} from './chat-utils';
-import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
+} from './chat-utils/voltagent';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
+  CHUNK_INDEX_KEY,
   COST_METADATA_KEY,
+  MLFLOW_SPAN_OUTPUT_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
-import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
-import { getSpanAttribute } from '../genai-traces-table/utils/TraceUtils';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
@@ -1050,6 +1043,12 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
  *  21. PydanticAI inputs
  *  22. PydanticAI outputs
  */
+const normalizeOpenAIFormats = (input: any): ModelTraceChatMessage[] | null =>
+  normalizeOpenAIChatInput(input) ??
+  normalizeOpenAIChatResponse(input) ??
+  normalizeOpenAIResponsesOutput(input) ??
+  normalizeOpenAIResponsesStreamingOutput(input);
+
 export const normalizeConversation = (input: any, messageFormat?: string): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
   // and formatting, and it's possible that we miss some edge cases. in case of an error,
@@ -1070,12 +1069,7 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (llamaIndexMessages) return llamaIndexMessages;
         break;
       case 'openai':
-        const openAIMessages =
-          normalizeOpenAIChatInput(input) ??
-          normalizeOpenAIChatResponse(input) ??
-          normalizeOpenAIResponsesOutput(input) ??
-          normalizeOpenAIResponsesInput(input) ??
-          normalizeOpenAIResponsesStreamingOutput(input);
+        const openAIMessages = normalizeOpenAIFormats(input) ?? normalizeOpenAIResponsesInput(input);
         if (openAIMessages) return openAIMessages;
         break;
       case 'dspy':
@@ -1119,8 +1113,7 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (voltAgentMessages) return voltAgentMessages;
         break;
       default:
-        // Fallback to OpenAI chat format
-        const chatMessages = normalizeOpenAIChatInput(input) ?? normalizeOpenAIChatResponse(input);
+        const chatMessages = normalizeOpenAIFormats(input);
         if (chatMessages) return chatMessages;
         break;
     }
@@ -1422,4 +1415,26 @@ export const isValidException = (
     typeof event.attributes['exception.message'] === 'string' &&
     (stackTraceExists ? stackTraceIsString : true),
   );
+};
+
+const CHUNK_RELEVANCE_ASSESSMENT_NAMES = ['chunk_relevance', 'retrieval_relevance'];
+
+export const isChunkRelevanceAssessment = (assessment: Assessment): boolean =>
+  CHUNK_RELEVANCE_ASSESSMENT_NAMES.includes(assessment.assessment_name);
+
+export const getAssessmentDocumentIndex = (assessment: Assessment): number | undefined => {
+  const spanOutputKey = assessment.metadata?.[MLFLOW_SPAN_OUTPUT_KEY] ?? assessment.metadata?.[CHUNK_INDEX_KEY];
+  if (isNil(spanOutputKey)) return undefined;
+  const index = Number(spanOutputKey);
+  return Number.isNaN(index) ? undefined : index;
+};
+
+export const buildDocumentRelevanceAssessmentMap = (assessments: Assessment[]): Map<number, Assessment> => {
+  const map = new Map<number, Assessment>();
+  for (const assessment of assessments) {
+    if (!isChunkRelevanceAssessment(assessment)) continue;
+    const index = getAssessmentDocumentIndex(assessment);
+    if (index !== undefined) map.set(index, assessment);
+  }
+  return map;
 };

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isEmpty as isEmptyFn } from 'lodash';
-import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
+import { Empty, ParagraphSkeleton, DangerIcon, Spacer, Drawer } from '@databricks/design-system';
 import type {
   TracesTableColumn,
   TraceActions,
@@ -14,6 +14,8 @@ import {
   ModelTraceExplorerContextProvider,
   ModelTraceExplorerRunJudgesContextProvider,
   isEvaluatingTracesInDetailsViewEnabled,
+  shouldEnableTracesTableStatePersistence,
+  SESSION_ID_METADATA_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
@@ -38,7 +40,7 @@ import {
   invalidateMlflowSearchTracesCache,
   createTraceLocationForExperiment,
   doesTraceSupportV4API,
-  getSimulationColumnsToAdd,
+  GenAITracesTableBodySkeleton,
   SIMULATION_GOAL_COLUMN_ID,
   SIMULATION_PERSONA_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
@@ -90,34 +92,47 @@ const ContextProviders = ({
 const TracesV3LogsImpl = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   ({
-    experimentId,
+    experimentIds,
     endpointName = '',
     timeRange,
     isLoadingExperiment,
     loggedModelId,
+    forceGroupBySession = false,
+    columnStorageKeyPrefix,
     additionalFilters,
     disableActions = false,
     customDefaultSelectedColumns,
     toolbarAddons,
-    forceGroupBySession = false,
-    columnStorageKeyPrefix,
   }: {
-    experimentId: string;
+    /**
+     * Array of experiment IDs to search traces for.
+     */
+    experimentIds: string[];
     endpointName?: string;
     timeRange?: { startTime: string | undefined; endTime: string | undefined };
     isLoadingExperiment?: boolean;
     loggedModelId?: string;
-    additionalFilters?: TableFilter[];
-    disableActions?: boolean;
-    customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
-    toolbarAddons?: React.ReactNode;
     forceGroupBySession?: boolean;
     /**
      * Optional prefix for the localStorage key used to persist column selection.
      * Use this to separate column selection state between different views.
      */
     columnStorageKeyPrefix?: string;
+    additionalFilters?: TableFilter[];
+    disableActions?: boolean;
+    customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
+    toolbarAddons?: React.ReactNode;
   }) => {
+    // When viewing a single experiment, pass its ID to enable experiment-specific
+    // features (run name links, logged model links, session links, filter dropdowns).
+    // When viewing multiple experiments, pass undefined to disable those features.
+    const singleExperimentId = experimentIds.length === 1 ? experimentIds[0] : undefined;
+    // Use a deterministic key for filter/column persistence so state doesn't
+    // shift when the array order changes (e.g. "all endpoints" in the gateway).
+    const persistenceKey = useMemo(
+      () => (experimentIds.length > 1 ? [...experimentIds].sort().join(',') : (experimentIds[0] ?? '')),
+      [experimentIds],
+    );
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
@@ -133,11 +148,11 @@ const TracesV3LogsImpl = React.memo(
 
     const traceSearchLocations = useMemo(
       () => {
-        return [createTraceLocationForExperiment(experimentId)];
+        return experimentIds.map((id) => createTraceLocationForExperiment(id));
       },
       // prettier-ignore
       [
-        experimentId,
+        experimentIds,
       ],
     );
 
@@ -165,7 +180,11 @@ const TracesV3LogsImpl = React.memo(
 
     // Setup table states
     const [searchQuery, setSearchQuery] = useState<string>('');
-    const [filters, setFilters] = useFilters();
+    const [filters, setFilters] = useFilters({
+      persist: shouldEnableTracesTableStatePersistence(),
+      loadPersistedValues: shouldEnableTracesTableStatePersistence(),
+      persistKey: persistenceKey,
+    });
     const queryClient = useQueryClient();
 
     const combinedFilters = useMemo(() => {
@@ -178,9 +197,13 @@ const TracesV3LogsImpl = React.memo(
     const defaultSelectedColumns = useCallback(
       (allColumns: TracesTableColumn[]) => {
         const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(evaluatedTraces);
+
         if (customDefaultSelectedColumns) {
           return allColumns.filter(customDefaultSelectedColumns);
         }
+        const hasSessionIds = evaluatedTraces.some((t) =>
+          Boolean(t.traceInfo?.trace_metadata?.[SESSION_ID_METADATA_KEY]),
+        );
         return allColumns.filter(
           (col) =>
             col.type === TracesTableColumnType.ASSESSMENT ||
@@ -192,14 +215,16 @@ const TracesV3LogsImpl = React.memo(
               [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, REQUEST_TIME_COLUMN_ID, STATE_COLUMN_ID].includes(
                 col.id,
               )) ||
-            col.type === TracesTableColumnType.INTERNAL_MONITOR_REQUEST_TIME,
+            col.type === TracesTableColumnType.INTERNAL_MONITOR_REQUEST_TIME ||
+            (hasSessionIds &&
+              [SESSION_COLUMN_ID, SIMULATION_GOAL_COLUMN_ID, SIMULATION_PERSONA_COLUMN_ID].includes(col.id)),
         );
       },
       [evaluatedTraces, customDefaultSelectedColumns],
     );
 
     const { selectedColumns, toggleColumns, setSelectedColumns } = useSelectedColumns(
-      experimentId,
+      persistenceKey,
       allColumns,
       defaultSelectedColumns,
       undefined, // runUuid
@@ -209,37 +234,6 @@ const TracesV3LogsImpl = React.memo(
     const onToggleSessionGrouping = useCallback(() => {
       setIsGroupedBySession((prev) => !prev);
     }, []);
-
-    // Auto-select session, goal, and persona columns when session grouping is active
-    const hasAutoSelectedSessionColumns = useRef(false);
-    useEffect(() => {
-      const isEffectivelyGrouped = forceGroupBySession || isGroupedBySession;
-      if (!isEffectivelyGrouped || hasAutoSelectedSessionColumns.current) {
-        if (!isEffectivelyGrouped) {
-          hasAutoSelectedSessionColumns.current = false;
-        }
-        return;
-      }
-
-      const columnsToAdd: TracesTableColumn[] = [];
-
-      const sessionColumn = allColumns.find((col) => col.id === SESSION_COLUMN_ID);
-      if (sessionColumn && !selectedColumns.some((col) => col.id === SESSION_COLUMN_ID)) {
-        columnsToAdd.push(sessionColumn);
-      }
-
-      const traceInfos = evaluatedTraces.map((e) => e.traceInfo).filter((t): t is NonNullable<typeof t> => Boolean(t));
-      const simulationColumns = getSimulationColumnsToAdd(traceInfos, allColumns, selectedColumns);
-      columnsToAdd.push(...simulationColumns);
-
-      if (columnsToAdd.length > 0) {
-        setSelectedColumns([...selectedColumns, ...columnsToAdd]);
-      }
-      // Only mark as done once we've had trace data to check for simulation columns
-      if (traceInfos.length > 0) {
-        hasAutoSelectedSessionColumns.current = true;
-      }
-    }, [forceGroupBySession, isGroupedBySession, allColumns, selectedColumns, setSelectedColumns, evaluatedTraces]);
 
     const [tableSort, setTableSort] = useTableSort(selectedColumns, {
       key: REQUEST_TIME_COLUMN_ID,
@@ -292,13 +286,6 @@ const TracesV3LogsImpl = React.memo(
     const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
 
     const traceActions: TraceActions = useMemo(() => {
-      if (disableActions) {
-        return {
-          deleteTracesAction: undefined,
-          exportToEvals: undefined,
-          editTags: undefined,
-        };
-      }
       return {
         deleteTracesAction,
         exportToEvals: true,
@@ -319,7 +306,6 @@ const TracesV3LogsImpl = React.memo(
       EditTagsModalUnified,
       showEditTagsModalForTrace,
       EditTagsModal,
-      disableActions,
     ]);
 
     const countInfo = useMemo(() => {
@@ -331,23 +317,31 @@ const TracesV3LogsImpl = React.memo(
       };
     }, [traceInfos, totalCount, traceInfosLoading]);
 
-    const isTableLoading = traceInfosLoading || isInitialTimeFilterLoading || isMetadataLoading;
-    const displayLoadingOverlay = false;
+    // Loading state:
+    // - Show skeleton only during initial metadata loading (or initial time filter loading for empty check)
+    // - Once metadata is loaded, keep the table mounted and use loading overlay for subsequent fetches
+    const showInitialSkeleton = isMetadataLoading || isInitialTimeFilterLoading;
+
+    // Show loading overlay when fetching new data (but not during initial load)
 
     const tableError = traceInfosError || metadataError;
-    const isTableEmpty = isEmpty && !isTableLoading && !tableError;
+    const isTableEmpty = isEmpty && !showInitialSkeleton && !traceInfosLoading && !traceInfosFetching && !tableError;
+    const isTableLoading = !showInitialSkeleton && (traceInfosLoading || traceInfosFetching);
 
     // Helper function to render the main content based on current state
     const renderMainContent = () => {
       // If isEmpty and not enableTraceInsights, show empty state without navigation
       if (!enableTraceInsights && isTableEmpty) {
         return (
-          <TracesV3EmptyState
-            experimentIds={[experimentId]}
-            loggedModelId={loggedModelId}
-            traceSearchLocations={traceSearchLocations}
-            isCallDisabled={isQueryDisabled}
-          />
+          <>
+            <Spacer />
+            <TracesV3EmptyState
+              experimentIds={experimentIds}
+              loggedModelId={loggedModelId}
+              traceSearchLocations={traceSearchLocations}
+              isCallDisabled={isQueryDisabled}
+            />
+          </>
         );
       }
       // Default traces view with optional navigation
@@ -366,20 +360,8 @@ const TracesV3LogsImpl = React.memo(
               overflow: 'hidden',
             }}
           >
-            {isTableLoading ? (
-              <div
-                css={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  width: '100%',
-                  gap: '8px',
-                  padding: '16px',
-                }}
-              >
-                {[...Array(10).keys()].map((i) => (
-                  <ParagraphSkeleton label="Loading..." key={i} seed={`s-${i}`} />
-                ))}
-              </div>
+            {showInitialSkeleton ? (
+              <GenAITracesTableBodySkeleton />
             ) : tableError ? (
               <div
                 css={{
@@ -400,9 +382,9 @@ const TracesV3LogsImpl = React.memo(
                 />
               </div>
             ) : (
-              <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
+              <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={singleExperimentId}>
                 <GenAITracesTableBodyContainer
-                  experimentId={experimentId}
+                  experimentId={singleExperimentId}
                   allColumns={allColumns}
                   currentTraceInfoV3={traceInfos || []}
                   currentRunDisplayName={endpointName}
@@ -413,7 +395,7 @@ const TracesV3LogsImpl = React.memo(
                   selectedColumns={selectedColumns}
                   tableSort={tableSort}
                   onTraceTagsEdit={showEditTagsModalForTrace}
-                  displayLoadingOverlay={displayLoadingOverlay}
+                  isTableLoading={isTableLoading}
                   isGroupedBySession={forceGroupBySession || isGroupedBySession}
                   searchQuery={searchQuery}
                 />
@@ -430,7 +412,7 @@ const TracesV3LogsImpl = React.memo(
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={AssistantAwareDrawer}
       >
-        <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
+        <GenAITracesTableProvider experimentId={singleExperimentId} isGroupedBySession={isGroupedBySession}>
           <div
             css={{
               overflowY: 'hidden',
@@ -440,7 +422,7 @@ const TracesV3LogsImpl = React.memo(
             }}
           >
             <GenAITracesTableToolbar
-              experimentId={experimentId}
+              experimentId={singleExperimentId}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               filters={filters}

@@ -351,6 +351,10 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "0QTEQi": {
+    "defaultMessage": "Usage",
+    "description": "Tab label for usage charts"
+  },
   "0Qu0bD": {
     "defaultMessage": "Endpoints",
     "description": "Endpoints using this key column header"
@@ -4568,6 +4572,10 @@
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
   },
+  "VHuRTt": {
+    "defaultMessage": "Doc",
+    "description": "Label for the document preview in a chunk relevance assessment"
+  },
   "VMTV4I": {
     "defaultMessage": "Getting Started",
     "description": "Home page features section title"
@@ -5078,6 +5086,10 @@
   "YqW83+": {
     "defaultMessage": "Choose experiment type",
     "description": "A title for the modal displayed when the experiment type could not be inferred"
+  },
+  "YrYgo5": {
+    "defaultMessage": "Select an endpoint to view logs",
+    "description": "No endpoint selected message for logs tab"
   },
   "YuYnxd": {
     "defaultMessage": "Delete",
@@ -6459,10 +6471,6 @@
     "defaultMessage": "Params",
     "description": "Experiment page > group by runs control > params section label"
   },
-  "iBIflN": {
-    "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
-    "description": "Tooltip showing error count"
-  },
   "iC2Owx": {
     "defaultMessage": "Stop sequences: {stopSequences}",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > stop sequences parameter"
@@ -7098,6 +7106,10 @@
   "mYcueV": {
     "defaultMessage": "The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported.",
     "description": "Warning banner shown on the Overview tab when using FileStore backend"
+  },
+  "mZtok7": {
+    "defaultMessage": "Linked prompts",
+    "description": "Label for the linked prompts view tab in the model trace explorer"
   },
   "md81Lo": {
     "defaultMessage": "Error",
@@ -8698,6 +8710,10 @@
   "xqc4yl": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling a judge run"
+  },
+  "xvd8So": {
+    "defaultMessage": "Logs",
+    "description": "Tab label for trace logs"
   },
   "xwe7WH": {
     "defaultMessage": "Default rendering",

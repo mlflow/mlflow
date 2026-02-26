@@ -7,7 +7,7 @@ import type { SearchMatch } from './ModelTrace.types';
 import { ModelTraceExplorerHighlightedCodeSnippet } from './ModelTraceExplorerHighlightedCodeSnippet';
 import { ModelTraceExplorerHighlightedSnippetTitle } from './ModelTraceExplorerHighlightedSnippetTitle';
 // eslint-disable-next-line import/no-deprecated
-import { CodeSnippet } from '../snippet';
+import { CodeSnippet } from '../snippet/CodeSnippet';
 
 export function ModelTraceExplorerAttributeRow({
   title,

@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { OverviewChartLoadingState } from './OverviewChartComponents';
 import type { ToolErrorRateChartProps } from './ToolErrorRateChart';
 
@@ -7,7 +7,7 @@ const ToolErrorRateChart = React.lazy(() =>
 );
 
 export const LazyToolErrorRateChart: React.FC<ToolErrorRateChartProps> = (props) => (
-  <Suspense fallback={<OverviewChartLoadingState />}>
+  <React.Suspense fallback={<OverviewChartLoadingState />}>
     <ToolErrorRateChart {...props} />
-  </Suspense>
+  </React.Suspense>
 );
