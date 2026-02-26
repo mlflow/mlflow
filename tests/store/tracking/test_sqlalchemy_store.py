@@ -839,6 +839,37 @@ def test_search_experiments_filter_by_tag(store: SqlAlchemyStore):
     assert len(experiments) == 0
 
 
+def test_search_experiments_filter_by_tag_is_null(store: SqlAlchemyStore):
+    experiments = [
+        ("exp1", [ExperimentTag("key1", "value"), ExperimentTag("key2", "value")]),
+        ("exp2", [ExperimentTag("key1", "value")]),
+        ("exp3", []),
+    ]
+    for name, tags in experiments:
+        time.sleep(0.001)
+        store.create_experiment(name, tags=tags)
+
+    # IS NOT NULL: experiments that have key1
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL")
+    assert [e.name for e in results] == ["exp2", "exp1"]
+
+    # IS NULL: experiments that don't have key2 (includes Default)
+    results = store.search_experiments(filter_string="tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp3", "exp2", "Default"]
+
+    # Combined IS NOT NULL and IS NULL
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Combined with value filter
+    results = store.search_experiments(filter_string="tag.key1 = 'value' AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Error: IS NULL on attribute
+    with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported for tags"):
+        store.search_experiments(filter_string="name IS NULL")
+
+
 def test_search_experiments_filter_by_attribute_and_tag(store: SqlAlchemyStore):
     store.create_experiment("exp1", tags=[ExperimentTag("a", "1"), ExperimentTag("b", "2")])
     store.create_experiment("exp2", tags=[ExperimentTag("a", "3"), ExperimentTag("b", "4")])
