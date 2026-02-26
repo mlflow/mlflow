@@ -33,6 +33,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.trace_location import UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
     _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
@@ -51,7 +52,12 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.tracing.provider import _get_trace_exporter
+from mlflow.tracing.client import TracingClient
+from mlflow.tracing.provider import (
+    _clear_experiment_derived_destination,
+    _get_trace_exporter,
+    _set_experiment_derived_destination,
+)
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.utils import get_results_from_paginated_fn
@@ -84,6 +90,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.thread_utils import ThreadLocalVariable
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.uri import is_databricks_uri
 from mlflow.utils.validation import (
     _validate_experiment_id_type,
     _validate_logged_model_name,
@@ -132,10 +139,13 @@ def _reset_last_logged_model_id() -> None:
 
 
 _experiment_lock = threading.Lock()
+_TELEMETRY_PROFILE_ID_TAG = "mlflow.experiment.databricksTelemetryDestinationId"
 
 
 def set_experiment(
-    experiment_name: str | None = None, experiment_id: str | None = None
+    experiment_name: str | None = None,
+    experiment_id: str | None = None,
+    trace_location: UnityCatalog | None = None,
 ) -> Experiment:
     """
     Set the given experiment as the active experiment. The experiment must either be specified by
@@ -152,6 +162,10 @@ def set_experiment(
         experiment_name: Case sensitive name of the experiment to be activated.
         experiment_id: ID of the experiment to be activated. If an experiment with this ID
             does not exist, an exception is thrown.
+        trace_location: Optional UC trace location used to configure the experiment-derived
+            tracing destination. Must be an instance of
+            ``mlflow.entities.UnityCatalog(...)``. When provided, this takes precedence over
+            experiment tag-based auto-resolution.
 
     Returns:
         An instance of :py:class:`mlflow.entities.Experiment` representing the new active
@@ -234,7 +248,93 @@ def set_experiment(
     # so that subprocess can inherit it.
     MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
 
+    _configure_experiment_trace_destination(
+        experiment=experiment,
+        trace_location=trace_location,
+        client=client,
+    )
+
     return experiment
+
+
+def _extract_telemetry_profile_id(experiment: Experiment) -> str | None:
+    tags = experiment.tags or {}
+    return tags.get(_TELEMETRY_PROFILE_ID_TAG) or None
+
+
+def _locations_match(a: UnityCatalog, b: UnityCatalog) -> bool:
+    return (
+        a.catalog_name == b.catalog_name
+        and a.schema_name == b.schema_name
+        and a.table_prefix == b.table_prefix
+    )
+
+
+def _configure_experiment_trace_destination(
+    experiment: Experiment,
+    trace_location: UnityCatalog | None,
+    client: TrackingServiceClient,
+) -> None:
+    """Handle the write-path for explicit trace_location in set_experiment.
+
+    When trace_location is provided: precheck the experiment's existing link,
+    error if it conflicts, otherwise create/link on the backend and set the
+    experiment-derived destination slot.
+
+    When trace_location is None: clear the experiment-derived slot and reset
+    the provider so it lazily auto-resolves from experiment tags on the next
+    trace (see _resolve_experiment_uc_location in provider.py).
+    """
+    if trace_location is not None and not isinstance(trace_location, UnityCatalog):
+        raise MlflowException.invalid_parameter_value(
+            "`trace_location` must be an instance of `mlflow.entities.UnityCatalog`."
+        )
+
+    if trace_location is None:
+        # No explicit location — clear any prior destination and let the provider
+        # lazily resolve from experiment tags when the next trace starts.
+        _clear_experiment_derived_destination()
+        return
+
+    # Non-Databricks backends: set the destination directly without backend calls.
+    if not is_databricks_uri(_resolve_tracking_uri()):
+        _set_experiment_derived_destination(trace_location)
+        return
+
+    tracing_client = TracingClient()
+
+    # Check if the experiment is already linked to a UC location via the backend.
+    existing_location = None
+    if telemetry_profile_id := _extract_telemetry_profile_id(experiment):
+        try:
+            existing_location = tracing_client._get_trace_location(telemetry_profile_id)
+        except Exception:
+            _logger.debug(
+                "Failed to resolve tracing location for "
+                f"telemetry_profile_id={telemetry_profile_id}",
+                exc_info=True,
+            )
+
+    # User explicitly requested a location. If the experiment already has one,
+    # verify it matches — we don't allow re-linking to a different location.
+    if existing_location is not None:
+        if _locations_match(trace_location, existing_location):
+            _set_experiment_derived_destination(existing_location)
+            return
+        raise MlflowException.invalid_parameter_value(
+            f"Experiment '{experiment.name}' is already linked to a different "
+            f"trace location. Existing: {existing_location.full_table_prefix}, "
+            f"requested: {trace_location}."
+        )
+
+    # Experiment has no existing link — register the location in the backend
+    # and link it to this experiment.
+    resolved = tracing_client._create_or_get_trace_location(trace_location)
+    tracing_client._link_trace_location(
+        experiment_id=experiment.experiment_id,
+        location=resolved,
+    )
+    _set_experiment_derived_destination(resolved)
 
 
 def _set_experiment_primary_metric(

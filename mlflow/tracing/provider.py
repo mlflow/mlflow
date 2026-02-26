@@ -396,6 +396,33 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
     _initialize_tracer_provider()
 
 
+def _set_experiment_derived_destination(destination: TraceLocationBase | None):
+    experiment_id = None
+    if destination is not None:
+        try:
+            # Lazy import to avoid circular dependency (tracking.fluent -> tracing.provider).
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            experiment_id = _get_experiment_id()
+        except Exception:
+            _logger.debug(
+                "Failed to determine active experiment ID for experiment-derived destination.",
+                exc_info=True,
+            )
+    _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
+        destination,
+        experiment_id=experiment_id,
+    )
+    _initialize_tracer_provider()
+
+
+def _clear_experiment_derived_destination():
+    _MLFLOW_TRACE_USER_DESTINATION.clear_experiment_derived()
+    # Reset the provider so it re-initializes lazily on the next trace,
+    # allowing _resolve_experiment_uc_location to run with the new experiment.
+    provider.reset()
+
+
 def _get_tracer(module_name: str) -> trace.Tracer:
     """
     Get a tracer instance for the given module name.
@@ -535,6 +562,55 @@ def _get_trace_sampler() -> _MlflowSampler | None:
     return None
 
 
+def _resolve_experiment_uc_location() -> UnityCatalog | None:
+    """Lazily resolve the active experiment's UC location from its backend tags.
+
+    Called during provider initialization when no explicit destination has been
+    set. If the active experiment is linked to a UC table-prefix location (via
+    the databricksTelemetryDestinationId tag), resolve it and populate the
+    experiment-derived destination slot so that traces route to UC.
+    """
+    # Lazy imports to avoid circular dependency (tracking.fluent -> tracing.provider).
+    from mlflow.tracking.fluent import _get_experiment_id
+    from mlflow.utils.uri import is_databricks_uri
+
+    tracking_uri = mlflow.get_tracking_uri()
+    if not tracking_uri or not is_databricks_uri(tracking_uri):
+        return None
+
+    experiment_id = _get_experiment_id()
+    if not experiment_id:
+        return None
+
+    try:
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        store = _get_store(tracking_uri)
+        experiment = store.get_experiment(experiment_id)
+        if not experiment:
+            return None
+
+        tags = experiment.tags or {}
+        telemetry_profile_id = tags.get("mlflow.experiment.databricksTelemetryDestinationId")
+        if not telemetry_profile_id:
+            return None
+
+        from mlflow.tracing.client import TracingClient
+
+        location = TracingClient(tracking_uri)._get_trace_location(telemetry_profile_id)
+        _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
+            location,
+            experiment_id=experiment_id,
+        )
+        return location
+    except Exception:
+        _logger.debug(
+            "Failed to auto-resolve UC location for active experiment",
+            exc_info=True,
+        )
+        return None
+
+
 def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     """
     Get the list of span processors based on configuration.
@@ -555,6 +631,11 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
     trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+
+    # If no explicit destination is set, check whether the active experiment is
+    # linked to a UC table-prefix location and auto-resolve it.
+    if trace_destination is None:
+        trace_destination = _resolve_experiment_uc_location()
 
     if trace_destination:
         # In PrPr, users must set the destination to a Unity Catalog location to export traces.

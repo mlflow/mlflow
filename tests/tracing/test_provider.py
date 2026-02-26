@@ -200,6 +200,64 @@ def test_set_destination_from_env_var_databricks_uc(monkeypatch):
     assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
 
 
+def test_set_destination_from_env_var_databricks_uc_with_table_prefix(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.prefix")
+
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    assert isinstance(destination, UnityCatalog)
+    assert destination.catalog_name == "catalog"
+    assert destination.schema_name == "schema"
+    assert destination.table_prefix == "prefix"
+
+
+def test_destination_resolution_precedence_with_experiment_derived(monkeypatch):
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.env")
+    monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: "exp-1")
+
+    experiment_derived = UnityCatalog("catalog", "schema", table_prefix="exp")
+    global_destination = UnityCatalog("catalog", "schema", table_prefix="global")
+    local_destination = UnityCatalog("catalog", "schema", table_prefix="local")
+
+    _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
+        experiment_derived,
+        experiment_id="exp-1",
+    )
+    assert _MLFLOW_TRACE_USER_DESTINATION.get().table_prefix == "exp"
+
+    _MLFLOW_TRACE_USER_DESTINATION.set(global_destination)
+    assert _MLFLOW_TRACE_USER_DESTINATION.get().table_prefix == "global"
+
+    _MLFLOW_TRACE_USER_DESTINATION.set(local_destination, context_local=True)
+    assert _MLFLOW_TRACE_USER_DESTINATION.get().table_prefix == "local"
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+
+
+def test_experiment_derived_destination_invalidates_when_experiment_changes(monkeypatch):
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.env")
+    monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: "exp-2")
+
+    experiment_derived = UnityCatalog("catalog", "schema", table_prefix="exp")
+    _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
+        experiment_derived,
+        experiment_id="exp-1",
+    )
+
+    # Cached experiment-derived value no longer matches active experiment.
+    # Registry should invalidate it and fall through to env resolution.
+    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    assert isinstance(destination, UnityCatalog)
+    assert destination.table_prefix == "env"
+    assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived_value is None
+
+
 def test_set_destination_in_model_serving(mock_databricks_serving_with_tracing_env, monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
     monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
@@ -593,59 +651,104 @@ def test_otel_resource_attributes(monkeypatch):
     }
 
 
-def test_set_destination_from_env_var_databricks_uc_with_table_prefix(monkeypatch):
-    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.prefix")
-
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
-
-    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
-    assert isinstance(destination, UnityCatalog)
-    assert destination.catalog_name == "catalog"
-    assert destination.schema_name == "schema"
-    assert destination.table_prefix == "prefix"
+_RESOLVE_UC_DEST_TAG = "mlflow.experiment.databricksTelemetryDestinationId"
 
 
-def test_destination_resolution_precedence_with_experiment_derived(monkeypatch):
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+def _make_experiment(tags=None):
+    from mlflow.entities import Experiment
+    from mlflow.entities.experiment_tag import ExperimentTag
 
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.env")
-    monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: "exp-1")
-
-    experiment_derived = UnityCatalog("catalog", "schema", table_prefix="exp")
-    global_destination = UnityCatalog("catalog", "schema", table_prefix="global")
-    local_destination = UnityCatalog("catalog", "schema", table_prefix="local")
-
-    _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
-        experiment_derived,
-        experiment_id="exp-1",
-    )
-    assert _MLFLOW_TRACE_USER_DESTINATION.get().table_prefix == "exp"
-
-    _MLFLOW_TRACE_USER_DESTINATION.set(global_destination)
-    assert _MLFLOW_TRACE_USER_DESTINATION.get().table_prefix == "global"
-
-    _MLFLOW_TRACE_USER_DESTINATION.set(local_destination, context_local=True)
-    assert _MLFLOW_TRACE_USER_DESTINATION.get().table_prefix == "local"
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-
-
-def test_experiment_derived_destination_invalidates_when_experiment_changes(monkeypatch):
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
-
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.env")
-    monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: "exp-2")
-
-    experiment_derived = UnityCatalog("catalog", "schema", table_prefix="exp")
-    _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
-        experiment_derived,
-        experiment_id="exp-1",
+    tag_entities = [ExperimentTag(k, v) for k, v in (tags or {}).items()] if tags else []
+    return Experiment(
+        experiment_id="123",
+        name="test",
+        artifact_location="file:/tmp",
+        lifecycle_stage="active",
+        tags=tag_entities,
     )
 
-    # Cached experiment-derived value no longer matches active experiment.
-    # Registry should invalidate it and fall through to env resolution.
-    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
-    assert isinstance(destination, UnityCatalog)
-    assert destination.table_prefix == "env"
-    assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived_value is None
+
+def test_resolve_uc_location_from_experiment_tag():
+    from mlflow.tracing.provider import _resolve_experiment_uc_location
+
+    mlflow.tracing.reset()
+    resolved = UnityCatalog("cat", "sch", table_prefix="pfx")
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="databricks",
+        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+        mock.patch("mlflow.tracing.client.TracingClient") as tc_cls,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _make_experiment(
+            tags={_RESOLVE_UC_DEST_TAG: "some-uuid"}
+        )
+        tc_cls.return_value._get_trace_location.return_value = resolved
+
+        result = _resolve_experiment_uc_location()
+
+        assert result == resolved
+        tc_cls.return_value._get_trace_location.assert_called_once_with("some-uuid")
+
+    mlflow.tracing.reset()
+
+
+def test_resolve_uc_location_returns_none_when_no_tag():
+    from mlflow.tracing.provider import _resolve_experiment_uc_location
+
+    mlflow.tracing.reset()
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="databricks",
+        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _make_experiment()
+
+        assert _resolve_experiment_uc_location() is None
+
+    mlflow.tracing.reset()
+
+
+def test_resolve_uc_location_returns_none_for_non_databricks():
+    from mlflow.tracing.provider import _resolve_experiment_uc_location
+
+    mlflow.tracing.reset()
+
+    with mock.patch(
+        "mlflow.tracing.provider.mlflow.get_tracking_uri",
+        return_value="http://local",
+    ):
+        assert _resolve_experiment_uc_location() is None
+
+    mlflow.tracing.reset()
+
+
+def test_resolve_uc_location_returns_none_when_lookup_fails():
+    from mlflow.tracing.provider import _resolve_experiment_uc_location
+
+    mlflow.tracing.reset()
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="databricks",
+        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+        mock.patch("mlflow.tracing.client.TracingClient") as tc_cls,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _make_experiment(
+            tags={_RESOLVE_UC_DEST_TAG: "some-uuid"}
+        )
+        tc_cls.return_value._get_trace_location.side_effect = RuntimeError("boom")
+
+        assert _resolve_experiment_uc_location() is None
+
+    mlflow.tracing.reset()
