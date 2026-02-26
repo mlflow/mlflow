@@ -492,7 +492,7 @@ def _fire_budget_crossed_webhooks(newly_crossed: list, workspace: str | None) ->
             current_spend=window.cumulative_spend,
             duration_unit=policy.duration_unit.value,
             duration_value=policy.duration_value,
-            target_type=policy.target_type.value,
+            target_scope=policy.target_scope.value,
             workspace=workspace or (policy.workspace or "default"),
             window_start=int(window.window_start.timestamp() * 1000),
         )

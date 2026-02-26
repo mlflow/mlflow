@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDurationUnit,
-    BudgetTargetType,
+    BudgetTargetScope,
     BudgetUnit,
     GatewayBudgetPolicy,
 )
@@ -36,7 +36,7 @@ def _make_policy(
         budget_amount=budget_amount,
         duration_unit=BudgetDurationUnit.DAYS,
         duration_value=1,
-        target_type=BudgetTargetType.GLOBAL,
+        target_scope=BudgetTargetScope.GLOBAL,
         budget_action=on_exceeded,
         created_at=0,
         last_updated_at=0,
