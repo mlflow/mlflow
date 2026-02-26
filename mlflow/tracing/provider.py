@@ -26,6 +26,7 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocationBase,
     UCSchemaLocation,
+    UnityCatalog,
 )
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
@@ -318,8 +319,9 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
 
             - :py:class:`~mlflow.entities.trace_location.MlflowExperimentLocation`: Logs traces to
                 an MLflow experiment.
-            - :py:class:`~mlflow.entities.trace_location.UCSchemaLocation`: Logs traces to a
-                Databricks Unity Catalog schema. Only available in Databricks.
+            - :py:func:`~mlflow.entities.trace_location.UnityCatalog`: Logs traces to a
+                Databricks Unity Catalog schema or table-prefix location. Only available in
+                Databricks.
 
         context_local: If False (default), the destination is set globally. If True, the destination
             is isolated per async task or thread, providing isolation in concurrent applications.
@@ -342,10 +344,10 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
 
         .. code-block:: python
 
-            from mlflow.entities.trace_location import UCSchemaLocation
+            from mlflow.entities.trace_location import UnityCatalog
 
             mlflow.tracing.set_destination(
-                UCSchemaLocation(catalog_name="catalog", schema_name="schema")
+                UnityCatalog(catalog_name="catalog", schema_name="schema")
             )
 
         **Isolate the destination between async tasks or threads:**
@@ -381,7 +383,7 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
             "The destination must be an instance of TraceLocation."
         )
 
-    if isinstance(destination, UCSchemaLocation) and (
+    if isinstance(destination, (UCSchemaLocation, UnityCatalog)) and (
         mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
     ):
         mlflow.set_tracking_uri("databricks")
@@ -552,9 +554,11 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     #  1. Partners can implement span processor/exporter and destination class.
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
-    if trace_destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        # In PrPr, users must set the destination to UCSchemaLocation to export traces to UC
-        if isinstance(trace_destination, UCSchemaLocation):
+    trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+
+    if trace_destination:
+        # In PrPr, users must set the destination to a Unity Catalog location to export traces.
+        if isinstance(trace_destination, (UCSchemaLocation, UnityCatalog)):
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
             from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 
