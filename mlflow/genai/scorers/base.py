@@ -19,7 +19,7 @@ from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import is_databricks_uri, is_in_databricks_runtime
+from mlflow.utils.databricks_utils import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -430,10 +430,10 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
         # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
-        # execution risk. Allow loading in Databricks runtime environments and when connected
-        # to a Databricks workspace (e.g. registering a locally-defined scorer). Block loading
-        # in pure OSS environments where the source may be untrusted.
-        if not is_in_databricks_runtime() and not is_databricks_uri(get_tracking_uri()):
+        # execution risk. Only allow loading when connected to a Databricks workspace, where
+        # registration is gated behind authentication. OSS backends don't have this guarantee,
+        # so block loading to prevent executing untrusted code.
+        if not is_databricks_uri(get_tracking_uri()):
             code_snippet = (
                 "\n\nfrom mlflow.genai import scorer\n\n"
                 f"@scorer\ndef {serialized.original_func_name}{serialized.call_signature}:\n"

@@ -382,10 +382,7 @@ def test_custom_scorer_loading_allowed_for_databricks_remote_access():
         original_func_name="test_scorer",
     )
 
-    with (
-        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=False),
-        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
-    ):
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
         result = Scorer._reconstruct_decorator_scorer(serialized)
         assert result.name == "test_scorer"
 
