@@ -64,6 +64,10 @@ def _ilike(string, pattern):
     return _convert_like_pattern_to_regex(pattern, flags=re.IGNORECASE).match(string) is not None
 
 
+def _rlike(string, pattern):
+    return re.search(pattern, string) is not None
+
+
 def _join_in_comparison_tokens(tokens, search_traces=False):
     """
     Find a sequence of tokens that matches the pattern of an IN comparison or a NOT IN comparison,
@@ -172,15 +176,18 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
 class SearchUtils:
     LIKE_OPERATOR = "LIKE"
     ILIKE_OPERATOR = "ILIKE"
+    RLIKE_OPERATOR = "RLIKE"
     ASC_OPERATOR = "asc"
     DESC_OPERATOR = "desc"
     VALID_ORDER_BY_TAGS = [ASC_OPERATOR, DESC_OPERATOR]
     VALID_METRIC_COMPARATORS = {">", ">=", "!=", "=", "<", "<="}
-    VALID_PARAM_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
-    VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
-    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
+    VALID_PARAM_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, RLIKE_OPERATOR}
+    VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, RLIKE_OPERATOR}
+    VALID_STRING_ATTRIBUTE_COMPARATORS = {
+        "!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, RLIKE_OPERATOR, "IN", "NOT IN",
+    }
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
-    VALID_DATASET_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
+    VALID_DATASET_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, RLIKE_OPERATOR, "IN", "NOT IN"}
     _BUILTIN_NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
     _ALTERNATE_NUMERIC_ATTRIBUTES = {"created", "Created"}
     _ALTERNATE_STRING_ATTRIBUTES = {"run name", "Run name", "Run Name"}
@@ -249,6 +256,7 @@ class SearchUtils:
             "<": operator.lt,
             "LIKE": _like,
             "ILIKE": _ilike,
+            "RLIKE": _rlike,
             "IN": lambda x, y: x in y,
             "NOT IN": lambda x, y: x not in y,
         }[comparator]
