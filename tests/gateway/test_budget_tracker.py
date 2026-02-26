@@ -190,32 +190,32 @@ def test_record_cost_incremental_crossing():
     assert tracker.get_window_info("bp-test").cumulative_spend == 110.0
 
 
-def test_is_budget_exceeded_reject():
+def test_should_reject_request_reject():
     tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)])
 
     tracker.record_cost(150.0)
-    exceeded, policy = tracker.is_budget_exceeded()
+    exceeded, policy = tracker.should_reject_request()
     assert exceeded is True
     assert policy.budget_policy_id == "bp-test"
 
 
-def test_is_budget_exceeded_alert_only():
+def test_should_reject_request_alert_only():
     tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)])
 
     tracker.record_cost(150.0)
-    exceeded, policy = tracker.is_budget_exceeded()
+    exceeded, policy = tracker.should_reject_request()
     assert exceeded is False
     assert policy is None
 
 
-def test_is_budget_exceeded_not_yet():
+def test_should_reject_request_not_yet():
     tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)])
 
     tracker.record_cost(50.0)
-    exceeded, policy = tracker.is_budget_exceeded()
+    exceeded, policy = tracker.should_reject_request()
     assert exceeded is False
     assert policy is None
 
@@ -292,12 +292,12 @@ def test_multiple_policies_independent():
     assert crossed[0].policy.budget_policy_id == "bp-alert"
 
     # Reject policy should be at 75, not exceeded yet
-    exceeded, _ = tracker.is_budget_exceeded()
+    exceeded, _ = tracker.should_reject_request()
     assert exceeded is False
 
     # Push reject over threshold
     tracker.record_cost(30.0)
-    exceeded, policy = tracker.is_budget_exceeded()
+    exceeded, policy = tracker.should_reject_request()
     assert exceeded is True
     assert policy.budget_policy_id == "bp-reject"
 
