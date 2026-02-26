@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useTryIt } from '../../hooks/useTryIt';
 
+const TEXTAREA_ROWS = 14;
+const TEXTAREA_MIN_HEIGHT_PX = 220;
+const ERROR_LINE_MIN_HEIGHT = '1.5em';
+
 export interface TryItPanelProps {
   description: ReactNode;
   requestTooltipContent: ReactNode;
@@ -76,11 +80,11 @@ export const TryItPanel = ({
             value={requestBody}
             onChange={(e) => setRequestBody(e.target.value)}
             disabled={isLoading}
-            rows={14}
+            rows={TEXTAREA_ROWS}
             css={{
               fontFamily: 'monospace',
               fontSize: theme.typography.fontSizeSm,
-              minHeight: 220,
+              minHeight: TEXTAREA_MIN_HEIGHT_PX,
             }}
           />
         </div>
@@ -115,7 +119,7 @@ export const TryItPanel = ({
               componentId="mlflow.gateway.usage-modal.try-it.response"
               value={responseBody}
               readOnly
-              rows={14}
+              rows={TEXTAREA_ROWS}
               placeholder={
                 sendError ? undefined : isLoading ? undefined : 'Click "Send request" to see the response here.'
               }
@@ -123,12 +127,12 @@ export const TryItPanel = ({
                 fontFamily: 'monospace',
                 fontSize: theme.typography.fontSizeSm,
                 backgroundColor: theme.colors.backgroundSecondary,
-                minHeight: 220,
+                minHeight: TEXTAREA_MIN_HEIGHT_PX,
               }}
             />
           </div>
           <div
-            css={{ minHeight: '1.5em', marginTop: theme.spacing.xs }}
+            css={{ minHeight: ERROR_LINE_MIN_HEIGHT, marginTop: theme.spacing.xs }}
             aria-live="polite"
             aria-atomic="true"
             role="status"
