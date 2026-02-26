@@ -25,7 +25,6 @@ from mlflow.genai.judges.utils.invocation_utils import (
     get_chat_completions_with_structured_output,
 )
 from mlflow.genai.scorers.base import Scorer
-from mlflow.types.llm import ChatMessage
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.entities import EvaluationResult
@@ -520,6 +519,8 @@ def _summarize_cluster(
             entry += f"\n  execution_path: {a.execution_path}"
         parts.append(entry)
     analyses_text = "\n\n".join(parts)
+
+    from mlflow.types.llm import ChatMessage
 
     result = get_chat_completions_with_structured_output(
         model_uri=analysis_model,
