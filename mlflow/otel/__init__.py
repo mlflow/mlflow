@@ -9,8 +9,8 @@ to the MLflow backend via the OTLP endpoint.
 
     import mlflow.otel
 
-    mlflow.otel.autolog()  # enable (synchronous export)
-    mlflow.otel.autolog(batch=True)  # enable (batched export)
+    mlflow.otel.autolog()  # enable (batched by default)
+    mlflow.otel.autolog(batch=False)  # enable (synchronous export)
     mlflow.otel.autolog(disable=True)  # disable
 """
 
@@ -26,6 +26,7 @@ from opentelemetry.sdk.trace import TracerProvider as SdkTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import autologging_integration
@@ -75,17 +76,17 @@ class _ToggleableSpanProcessor(SpanProcessor):
         self._enabled = False
 
 
-def setup_otel_processor(flavor_name: str, batch: bool = False) -> None:
+def setup_otel_processor(batch: bool | None = None) -> None:
     """Register an MLflow span processor on the global OTEL TracerProvider.
 
     Spans are exported to the MLflow backend via the OTLP endpoint. The
     server handles trace creation and attribute translation automatically.
 
     Args:
-        flavor_name: Integration name used for cleanup callback registration
-            (e.g. ``"langfuse"``, ``"otel"``).
         batch: If ``True``, use ``BatchSpanProcessor`` for buffered export.
-            If ``False`` (default), use ``SimpleSpanProcessor`` for synchronous export.
+            If ``False``, use ``SimpleSpanProcessor`` for synchronous export.
+            If ``None`` (default), follows the ``MLFLOW_ENABLE_ASYNC_TRACE_LOGGING``
+            environment variable (defaults to ``True``).
     """
     global _active_processor
 
@@ -112,6 +113,9 @@ def setup_otel_processor(flavor_name: str, batch: bool = False) -> None:
         )
         return
 
+    if batch is None:
+        batch = MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+
     tracking_uri = mlflow.get_tracking_uri().rstrip("/")
     endpoint = f"{tracking_uri}{OTLP_TRACES_PATH}"
     experiment_id = _get_experiment_id()
@@ -131,7 +135,7 @@ def setup_otel_processor(flavor_name: str, batch: bool = False) -> None:
     # the ``@autologging_integration`` decorator on ``autolog(disable=True)``
     # — disables the processor.  The decorator short-circuits before our
     # function body runs, so we cannot rely on the body itself.
-    _AUTOLOGGING_CLEANUP_CALLBACKS.setdefault(flavor_name, []).append(teardown_otel_processor)
+    _AUTOLOGGING_CLEANUP_CALLBACKS.setdefault(FLAVOR_NAME, []).append(teardown_otel_processor)
 
     _logger.debug(
         "Registered MLflow span processor on global TracerProvider "
@@ -156,7 +160,7 @@ def autolog(
     log_traces: bool = True,
     disable: bool = False,
     silent: bool = False,
-    batch: bool = False,
+    batch: bool | None = None,
 ):
     """
     Enables (or disables) generic OTEL-to-MLflow span forwarding.
@@ -170,7 +174,10 @@ def autolog(
         silent: If ``True``, suppress all event logs and warnings from
             MLflow during OTEL autologging. Default ``False``.
         batch: If ``True``, use ``BatchSpanProcessor`` for buffered,
-            asynchronous export.  If ``False`` (default), use
+            asynchronous export.  If ``False``, use
             ``SimpleSpanProcessor`` for synchronous, immediate export.
+            If ``None`` (default), follows the
+            ``MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`` environment variable
+            (defaults to ``True``).
     """
-    setup_otel_processor(flavor_name=FLAVOR_NAME, batch=batch)
+    setup_otel_processor(batch=batch)

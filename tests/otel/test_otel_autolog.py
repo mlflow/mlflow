@@ -31,6 +31,9 @@ def otel_env(monkeypatch, tmp_path):
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test-dummy")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test-dummy")
     monkeypatch.setenv("LANGFUSE_HOST", "http://localhost:9999")
+    # Default to synchronous export so tests don't need force_flush().
+    # test_batch_export explicitly passes batch=True.
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
 
     # Set up a local MLflow server backed by SQLite.
     backend_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"

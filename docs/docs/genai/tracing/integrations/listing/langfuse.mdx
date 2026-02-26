@@ -101,15 +101,21 @@ MLflow maps Langfuse's `as_type` parameter to MLflow span types:
 |    `guardrail`     |   `GUARDRAIL`    |
 |       `span`       |    `UNKNOWN`     |
 
-## Batched Export
+## Export Mode
 
-By default, `mlflow.otel.autolog()` exports each trace synchronously as it completes. For high-throughput applications, you can enable batched export to buffer spans and send them in the background:
+By default, `mlflow.otel.autolog()` uses batched export (`BatchSpanProcessor`), which buffers spans and flushes them in the background. This follows the `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING` environment variable (default `True`).
+
+For debugging or low-throughput use cases, you can switch to synchronous export so that each trace is sent immediately:
+
+```python
+mlflow.otel.autolog(batch=False)
+```
+
+Or explicitly enable batched export:
 
 ```python
 mlflow.otel.autolog(batch=True)
 ```
-
-Batched export uses OpenTelemetry's `BatchSpanProcessor`, which accumulates spans and flushes them periodically. This reduces per-request latency at the cost of a short delay before traces appear in the MLflow UI.
 
 ## Disable auto-tracing
 
