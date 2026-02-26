@@ -969,9 +969,19 @@ def batch_link_traces_to_run(
         try:
             MlflowClient().link_traces_to_run(run_id=run_id, trace_ids=batch)
         except Exception as e:
-            # FileStore doesn't support trace linking, so we skip it
-            if "Linking traces to runs is not supported in FileStore." in str(e):
+            error_str = str(e)
+            # FileStore doesn't support trace linking — skip silently.
+            if "Linking traces to runs is not supported in FileStore." in error_str:
                 return
+            # A concurrent evaluate() call already linked the same traces.
+            # The desired association already exists — no action required.
+            from mlflow.exceptions import MlflowException
+
+            if isinstance(e, MlflowException):
+                from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS
+
+                if e.error_code in (ALREADY_EXISTS, RESOURCE_ALREADY_EXISTS):
+                    continue
 
             _logger.warning(f"Failed to link batch of traces to run: {e}")
 

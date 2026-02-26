@@ -3744,6 +3744,8 @@ def _link_traces_to_run():
     """
     A request handler for `POST /mlflow/traces/link-to-run` to link traces to a run.
     """
+    from sqlalchemy.exc import IntegrityError as SqlAlchemyIntegrityError
+
     request_message = _get_request_message(
         LinkTracesToRun(),
         schema={
@@ -3751,10 +3753,15 @@ def _link_traces_to_run():
             "run_id": [_assert_string, _assert_required],
         },
     )
-    _get_tracking_store().link_traces_to_run(
-        trace_ids=request_message.trace_ids,
-        run_id=request_message.run_id,
-    )
+    try:
+        _get_tracking_store().link_traces_to_run(
+            trace_ids=request_message.trace_ids,
+            run_id=request_message.run_id,
+        )
+    except SqlAlchemyIntegrityError:
+        # A concurrent request already created the same association(s).
+        # The desired state already exists — return success.
+        pass
     return _wrap_response(LinkTracesToRun.Response())
 
 
@@ -3765,6 +3772,7 @@ def _link_prompts_to_trace():
     A request handler for `POST /mlflow/traces/link-prompts` to link prompt versions to a trace.
     """
     from mlflow.entities.model_registry import PromptVersion
+    from sqlalchemy.exc import IntegrityError as SqlAlchemyIntegrityError
 
     request_message = _get_request_message(
         LinkPromptsToTrace(),
@@ -3781,10 +3789,15 @@ def _link_prompts_to_trace():
         for pv in request_message.prompt_versions
     ]
 
-    _get_tracking_store().link_prompts_to_trace(
-        trace_id=request_message.trace_id,
-        prompt_versions=prompt_versions,
-    )
+    try:
+        _get_tracking_store().link_prompts_to_trace(
+            trace_id=request_message.trace_id,
+            prompt_versions=prompt_versions,
+        )
+    except SqlAlchemyIntegrityError:
+        # A concurrent request already created the same association(s).
+        # The desired state already exists — return success.
+        pass
     return _wrap_response(LinkPromptsToTrace.Response())
 
 
