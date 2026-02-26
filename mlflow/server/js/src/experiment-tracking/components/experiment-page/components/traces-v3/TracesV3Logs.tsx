@@ -342,21 +342,9 @@ const TracesV3LogsImpl = React.memo(
 
     // Helper function to render the main content based on current state
     const renderMainContent = () => {
-      // If isEmpty and not enableTraceInsights, show empty state without navigation
-      if (!enableTraceInsights && isTableEmpty) {
-        return (
-          <>
-            <Spacer />
-            <TracesV3EmptyState
-              experimentIds={[experimentId]}
-              loggedModelId={loggedModelId}
-              traceSearchLocations={traceSearchLocations}
-              isCallDisabled={isQueryDisabled}
-            />
-          </>
-        );
-      }
       // Default traces view with optional navigation
+      // Always render GenAITracesTableBodyContainer so the trace drawer can open even when table is empty
+      // (e.g., when navigating directly to a trace via URL parameter)
       return (
         <div
           css={{
@@ -393,6 +381,38 @@ const TracesV3LogsImpl = React.memo(
                   description={tableError.message}
                 />
               </div>
+            ) : !enableTraceInsights && isTableEmpty ? (
+              // Show special empty state for getting started when there are no traces
+              // but still render the container so the drawer can work with direct trace links
+              <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
+                <>
+                  <TracesV3EmptyState
+                    experimentIds={[experimentId]}
+                    loggedModelId={loggedModelId}
+                    traceSearchLocations={traceSearchLocations}
+                    isCallDisabled={isQueryDisabled}
+                  />
+                  {/* Hidden container to mount the drawer for direct trace links */}
+                  <div css={{ display: 'none' }}>
+                    <GenAITracesTableBodyContainer
+                      experimentId={experimentId}
+                      allColumns={allColumns}
+                      currentTraceInfoV3={[]}
+                      currentRunDisplayName={endpointName}
+                      getTrace={getTrace}
+                      assessmentInfos={assessmentInfos}
+                      setFilters={setFilters}
+                      filters={filters}
+                      selectedColumns={selectedColumns}
+                      tableSort={tableSort}
+                      onTraceTagsEdit={showEditTagsModalForTrace}
+                      isTableLoading={false}
+                      isGroupedBySession={forceGroupBySession || isGroupedBySession}
+                      searchQuery={searchQuery}
+                    />
+                  </div>
+                </>
+              </ContextProviders>
             ) : (
               <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
                 <GenAITracesTableBodyContainer
