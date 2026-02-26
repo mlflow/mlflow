@@ -335,6 +335,75 @@ def test_conversation_simulator_validation(test_cases, expected_error):
 
 
 @pytest.mark.parametrize(
+    ("test_cases", "expected_error"),
+    [
+        (
+            [{"goal": "test", "context": {"input": "foo"}}],
+            r"indices \[0\].*reserved",
+        ),
+        (
+            [{"goal": "test", "context": {"messages": []}}],
+            r"indices \[0\].*reserved",
+        ),
+        (
+            [{"goal": "test", "context": {"mlflow_session_id": "abc"}}],
+            r"indices \[0\].*reserved",
+        ),
+        (
+            [{"goal": "ok"}, {"goal": "test", "context": {"input": "bar"}}],
+            r"indices \[1\].*reserved",
+        ),
+    ],
+    ids=[
+        "context_has_input",
+        "context_has_messages",
+        "context_has_mlflow_session_id",
+        "second_case_has_reserved_key",
+    ],
+)
+def test_conversation_simulator_rejects_reserved_context_keys(test_cases, expected_error):
+    with pytest.raises(ValueError, match=expected_error):
+        ConversationSimulator(
+            test_cases=test_cases,
+            max_turns=2,
+        )
+
+
+@pytest.mark.parametrize(
+    ("test_cases", "expected_error"),
+    [
+        ([{"goal": "test", "context": "foo"}], r"indices \[0\].*'context' as a dict"),
+        ([{"goal": "test", "context": ["foo"]}], r"indices \[0\].*'context' as a dict"),
+        ([{"goal": "ok"}, {"goal": "test", "context": 1}], r"indices \[1\].*'context' as a dict"),
+    ],
+    ids=["context_string", "context_list", "second_case_context_int"],
+)
+def test_conversation_simulator_rejects_invalid_context_types(test_cases, expected_error):
+    with pytest.raises(ValueError, match=expected_error):
+        ConversationSimulator(
+            test_cases=test_cases,
+            max_turns=2,
+        )
+
+
+def test_conversation_simulator_accepts_dataframe_with_missing_context_values():
+    test_cases_df = pd.DataFrame(
+        [
+            {"goal": "Debug an error", "context": {"user_id": "U001"}},
+            {"goal": "Learn about MLflow"},
+        ]
+    )
+
+    simulator = ConversationSimulator(
+        test_cases=test_cases_df,
+        max_turns=2,
+    )
+
+    assert len(simulator.test_cases) == 2
+    assert simulator.test_cases[0]["context"] == {"user_id": "U001"}
+
+
+@pytest.mark.parametrize(
     "inputs",
     [
         [{"goal": "Learn about MLflow"}],
@@ -737,7 +806,9 @@ def test_conversation_simulator_get_dataset_name_from_evaluation_dataset():
     assert simulator._get_dataset_name() == "my_custom_dataset"
 
 
-def test_simulate_creates_run_when_no_parent_run(tmp_path, simple_test_case, simulation_mocks):
+def test_simulate_creates_run_when_no_parent_run(
+    tmp_path, simple_test_case, mock_predict_fn, simulation_mocks
+):
     simulation_mocks["invoke"].side_effect = [
         "Test message",
         '{"rationale": "Goal achieved!", "result": "yes"}',
@@ -747,7 +818,7 @@ def test_simulate_creates_run_when_no_parent_run(tmp_path, simple_test_case, sim
     mlflow.set_experiment("test-experiment")
 
     simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
-    simulator.simulate(simulation_mocks["trace"])
+    simulator.simulate(mock_predict_fn)
 
     runs = mlflow.search_runs()
     assert len(runs) == 1
@@ -755,7 +826,9 @@ def test_simulate_creates_run_when_no_parent_run(tmp_path, simple_test_case, sim
     assert re.match(r"^simulation-[0-9a-f]{8}$", run_name)
 
 
-def test_simulate_uses_parent_run_when_exists(tmp_path, simple_test_case, simulation_mocks):
+def test_simulate_uses_parent_run_when_exists(
+    tmp_path, simple_test_case, mock_predict_fn, simulation_mocks
+):
     simulation_mocks["invoke"].side_effect = [
         "Test message",
         '{"rationale": "Goal achieved!", "result": "yes"}',
@@ -768,7 +841,7 @@ def test_simulate_uses_parent_run_when_exists(tmp_path, simple_test_case, simula
         parent_run_id = parent_run.info.run_id
 
         simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
-        simulator.simulate(simulation_mocks["trace"])
+        simulator.simulate(mock_predict_fn)
 
         assert mlflow.active_run().info.run_id == parent_run_id
 
@@ -777,7 +850,7 @@ def test_simulate_uses_parent_run_when_exists(tmp_path, simple_test_case, simula
     assert runs.iloc[0]["tags.mlflow.runName"] == "parent-run"
 
 
-def test_simulate_run_name_format(tmp_path, simple_test_case, simulation_mocks):
+def test_simulate_run_name_format(tmp_path, simple_test_case, mock_predict_fn, simulation_mocks):
     simulation_mocks["invoke"].side_effect = [
         "Test message",
         '{"rationale": "Goal achieved!", "result": "yes"}',
@@ -787,7 +860,7 @@ def test_simulate_run_name_format(tmp_path, simple_test_case, simulation_mocks):
     mlflow.set_experiment("test-experiment")
 
     simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
-    simulator.simulate(simulation_mocks["trace"])
+    simulator.simulate(mock_predict_fn)
 
     runs = mlflow.search_runs()
     run_name = runs.iloc[0]["tags.mlflow.runName"]
@@ -840,6 +913,20 @@ def test_conversation_simulator_rejects_both_input_and_messages(simple_test_case
     simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
 
     with pytest.raises(Exception, match="cannot have both 'messages' and 'input' parameters"):
+        simulator.simulate(invalid_predict_fn)
+
+
+def test_conversation_simulator_rejects_neither_input_nor_messages(
+    simple_test_case, simulation_mocks
+):
+    simulation_mocks["invoke"].return_value = "Test message"
+
+    def invalid_predict_fn(**kwargs):
+        return None
+
+    simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
+
+    with pytest.raises(Exception, match="must accept either 'messages' or 'input'"):
         simulator.simulate(invalid_predict_fn)
 
 

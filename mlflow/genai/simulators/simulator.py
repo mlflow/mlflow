@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import math
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -50,6 +51,7 @@ _logger = logging.getLogger(__name__)
 _MAX_METADATA_LENGTH = 250
 _EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context", "expectations", "simulation_guidelines"}
 _REQUIRED_TEST_CASE_KEYS = {"goal"}
+_RESERVED_CONTEXT_KEYS = {"input", "messages", "mlflow_session_id"}
 
 PGBAR_FORMAT = (
     "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
@@ -343,6 +345,28 @@ class SimulatedUserAgent(BaseSimulatedUserAgent):
         return self.invoke_llm(prompt)
 
 
+def _is_missing_context_value(value: Any) -> bool:
+    return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def _validate_simulator_predict_fn_signature(
+    predict_fn: Callable[..., dict[str, Any]],
+) -> None:
+    parameters = inspect.signature(predict_fn).parameters
+    if "messages" in parameters and "input" in parameters:
+        raise MlflowException(
+            "predict_fn cannot have both 'messages' and 'input' parameters. "
+            "Use 'messages' for Chat Completions API format or 'input' for Responses "
+            "API format."
+        )
+    if "messages" not in parameters and "input" not in parameters:
+        raise MlflowException(
+            "predict_fn must accept either 'messages' or 'input' parameter for the "
+            "conversation history. Use 'messages' for Chat Completions API format or "
+            "'input' for Responses API format."
+        )
+
+
 @format_docstring(_MODEL_API_DOC)
 @experimental(version="3.9.0")
 class ConversationSimulator:
@@ -378,6 +402,8 @@ class ConversationSimulator:
             - "goal": Describing what the simulated user wants to achieve.
             - "persona" (optional): Custom persona for the simulated user.
             - "context" (optional): Dict of additional kwargs to pass to predict_fn.
+              Keys ``"input"``, ``"messages"``, and ``"mlflow_session_id"`` are reserved
+              by the simulator and cannot be used.
             - "expectations" (optional): Dict of expected values (ground truth) for
               session-level evaluation. These are logged to the first trace of the
               session with the session ID in metadata, allowing session-level scorers
@@ -507,6 +533,35 @@ class ConversationSimulator:
         if missing_goal_indices:
             raise ValueError(f"Test cases at indices {missing_goal_indices} must have 'goal' field")
 
+        indices_with_invalid_context = [
+            i
+            for i, test_case in enumerate(test_cases)
+            if not (
+                isinstance(test_case.get("context"), dict)
+                or _is_missing_context_value(test_case.get("context"))
+            )
+        ]
+        if indices_with_invalid_context:
+            raise ValueError(
+                f"Test cases at indices {indices_with_invalid_context} must have 'context' as "
+                "a dict when provided."
+            )
+
+        indices_with_reserved_context_keys = [
+            i
+            for i, test_case in enumerate(test_cases)
+            if isinstance(test_case.get("context"), dict)
+            and set(test_case["context"]) & _RESERVED_CONTEXT_KEYS
+        ]
+        if indices_with_reserved_context_keys:
+            raise ValueError(
+                f"Test cases at indices {indices_with_reserved_context_keys} have context keys "
+                f"that conflict with keys reserved by ConversationSimulator "
+                f"({_RESERVED_CONTEXT_KEYS}). These keys are used to inject conversation "
+                "history ('input', 'messages') or session ID ('mlflow_session_id'). "
+                "Rename the conflicting keys in the test case context."
+            )
+
         indices_with_extra_keys = [
             i
             for i, test_case in enumerate(test_cases)
@@ -562,13 +617,7 @@ class ConversationSimulator:
             A list of lists containing Trace objects. Each inner list corresponds to
             a test case and contains the traces for each turn in that conversation.
         """
-        sig = inspect.signature(predict_fn)
-        if "messages" in sig.parameters and "input" in sig.parameters:
-            raise MlflowException(
-                "predict_fn cannot have both 'messages' and 'input' parameters. "
-                "Use 'messages' for Chat Completions API format or 'input' for Responses "
-                "API format."
-            )
+        _validate_simulator_predict_fn_signature(predict_fn)
 
         run_context = (
             contextmanager(lambda: (yield))()
@@ -635,7 +684,8 @@ class ConversationSimulator:
         goal = test_case["goal"]
         persona = test_case.get("persona") or DEFAULT_PERSONA
         simulation_guidelines = test_case.get("simulation_guidelines")
-        context = test_case.get("context", {})
+        context = test_case.get("context")
+        context = context if isinstance(context, dict) else {}
         expectations = test_case.get("expectations", {})
         trace_session_id = f"sim-{uuid.uuid4().hex[:16]}"
 
