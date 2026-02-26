@@ -28,6 +28,7 @@ import type {
   TableFilterOptions,
 } from './types';
 import { shouldEnableSessionGrouping, shouldEnableTagGrouping } from './utils/FeatureUtils';
+import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 interface CountInfo {
@@ -86,6 +87,9 @@ interface GenAITracesTableToolbarProps {
   forceGroupBySession?: boolean;
   onToggleSessionGrouping?: () => void;
 
+  // Issue detection
+  onDetectIssues?: () => void;
+
   // Additional elements to render in the toolbar
   addons?: React.ReactNode;
 }
@@ -118,6 +122,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       isGroupedBySession,
       forceGroupBySession,
       onToggleSessionGrouping,
+      onDetectIssues,
       addons,
     } = props;
     const { theme } = useDesignSystemTheme();
@@ -209,6 +214,29 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
                   description="Label for the group by session button in the traces table toolbar"
                 />
               </ToggleButton>
+            </Tooltip>
+          )}
+          {shouldEnableIssueDetection() && onDetectIssues && (
+            <Tooltip
+              componentId="mlflow.traces-table.detect-issues-button.tooltip"
+              content={intl.formatMessage({
+                defaultMessage: 'Detect issues in traces',
+                description: 'Tooltip for the detect issues button in the traces table toolbar',
+              })}
+            >
+              <Button
+                componentId="mlflow.traces-table.detect-issues-button"
+                onClick={onDetectIssues}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Detect issues in traces',
+                  description: 'Aria label for the detect issues button in the traces table toolbar',
+                })}
+              >
+                <FormattedMessage
+                  defaultMessage="Detect Issues"
+                  description="Label for the detect issues button in the traces table toolbar"
+                />
+              </Button>
             </Tooltip>
           )}
           {onRefresh && (
