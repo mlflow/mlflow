@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import logging
 import random
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import TYPE_CHECKING
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -18,13 +20,15 @@ from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
     _IdentifiedIssue,
 )
-from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.judges.utils.invocation_utils import (
     get_chat_completions_with_structured_output,
 )
 from mlflow.genai.scorers.base import Scorer
 from mlflow.types.llm import ChatMessage
+
+if TYPE_CHECKING:
+    from mlflow.genai.evaluation.entities import EvaluationResult
 
 _logger = logging.getLogger(__name__)
 
@@ -152,7 +156,7 @@ def _extract_execution_path(trace: Trace) -> str:
         return "(no spans)"
 
     # Build parent-child map
-    children: dict[str | None, list] = defaultdict(list)
+    children: dict[str | None, list[object]] = defaultdict(list)
     for s in spans:
         children[s.parent_id].append(s)
 
@@ -201,8 +205,7 @@ def _extract_execution_path(trace: Trace) -> str:
     parts = []
     for t in top_level:
         base_name = t.replace(" [ERROR]", "")
-        subs = sub_items.get(base_name, [])
-        if subs:
+        if subs := sub_items.get(base_name, []):
             # Deduplicate while preserving order
             seen = set()
             unique_subs = []
@@ -349,7 +352,7 @@ def _extract_failure_labels(
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(analyses))
     labels: list[str | None] = [None] * len(analyses)
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="label") as executor:
         future_to_idx = {executor.submit(_label_one, a): i for i, a in enumerate(analyses)}
         for future in as_completed(future_to_idx):
             labels[future_to_idx[future]] = future.result()
@@ -396,8 +399,6 @@ def _cluster_by_llm(
     groups labels that share similar execution paths AND similar failure
     symptoms into coherent issue categories.
     """
-    import json
-
     import litellm
 
     from mlflow.genai.discovery.constants import _DEFAULT_JUDGE_MODEL
@@ -460,15 +461,12 @@ def _cluster_by_llm(
     cluster_groups: list[list[int]] = []
     for g in groups:
         indices = [i for i in g["indices"] if 0 <= i < len(labels)]
-        indices = [i for i in indices if i not in all_indices]
-        if indices:
+        if indices := [i for i in indices if i not in all_indices]:
             cluster_groups.append(indices)
             all_indices.update(indices)
 
     # Add any missing indices as singletons
-    for i in range(len(labels)):
-        if i not in all_indices:
-            cluster_groups.append([i])
+    cluster_groups.extend([i] for i in range(len(labels)) if i not in all_indices)
 
     # Cap at max_issues
     if len(cluster_groups) > max_issues:

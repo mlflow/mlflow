@@ -34,7 +34,7 @@ class AdapterInvocationInput:
     prompt: str | list["ChatMessage"]
     assessment_name: str
     trace_id: str | None = None
-    tools: list[dict] | None = None
+    tools: list[dict[str, Any]] | None = None
     num_retries: int = 10
     response_format: type[pydantic.BaseModel] | None = None
     use_case: str | None = None

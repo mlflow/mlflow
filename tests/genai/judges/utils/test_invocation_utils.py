@@ -8,10 +8,6 @@ from litellm.types.utils import ModelResponse
 from pydantic import BaseModel, Field
 
 from mlflow.entities.assessment import AssessmentSourceType
-from mlflow.entities.trace import Trace
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import TraceLocation
-from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.litellm_adapter import _MODEL_RESPONSE_FORMAT_CAPABILITIES
 from mlflow.genai.judges.utils import CategoricalRating
@@ -43,17 +39,6 @@ def mock_tool_response():
     response = ModelResponse(choices=[{"message": {"tool_calls": tool_calls, "content": None}}])
     response._hidden_params = {"response_cost": 0.05}
     return response
-
-
-@pytest.fixture
-def mock_trace():
-    trace_info = TraceInfo(
-        trace_id="test-trace",
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=1234567890,
-        state=TraceState.OK,
-    )
-    return Trace(info=trace_info, data=None)
 
 
 @pytest.mark.parametrize("num_retries", [None, 3])
@@ -184,8 +169,8 @@ def test_invoke_judge_model_with_unsupported_provider():
             )
 
 
-def test_invoke_judge_model_with_trace_requires_litellm(mock_trace):
-    with pytest.raises(MlflowException, match=r"LiteLLM is required for using traces with judges"):
+def test_invoke_judge_model_with_tools_requires_litellm():
+    with pytest.raises(MlflowException, match=r"LiteLLM is required for using tools with judges"):
         with mock.patch(
             "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ):
@@ -193,7 +178,7 @@ def test_invoke_judge_model_with_trace_requires_litellm(mock_trace):
                 model_uri="openai:/gpt-4",
                 prompt="Test prompt",
                 assessment_name="test",
-                trace=mock_trace,
+                tools=[{"name": "get_trace_info", "description": "Get trace info"}],
             )
 
 
@@ -208,36 +193,21 @@ def test_invoke_judge_model_invalid_json_response():
             )
 
 
-def test_invoke_judge_model_with_trace_passes_tools(mock_trace, mock_response):
-    with (
-        mock.patch("litellm.completion", return_value=mock_response) as mock_litellm,
-        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
-    ):
-        # Mock some tools being available
-        mock_tool1 = mock.Mock()
-        mock_tool1.name = "get_trace_info"
-        mock_tool1.get_definition.return_value.to_dict.return_value = {
-            "name": "get_trace_info",
-            "description": "Get trace info",
-        }
+def test_invoke_judge_model_with_tools_passes_tools(mock_response):
+    tool_defs = [
+        {"name": "get_trace_info", "description": "Get trace info"},
+        {"name": "list_spans", "description": "List spans"},
+    ]
 
-        mock_tool2 = mock.Mock()
-        mock_tool2.name = "list_spans"
-        mock_tool2.get_definition.return_value.to_dict.return_value = {
-            "name": "list_spans",
-            "description": "List spans",
-        }
-
-        mock_list_tools.return_value = [mock_tool1, mock_tool2]
-
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         feedback = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Evaluate this response",
             assessment_name="quality_check",
-            trace=mock_trace,
+            trace_id="test-trace",
+            tools=tool_defs,
         )
 
-    # Verify tools were passed to litellm completion
     mock_litellm.assert_called_once()
     call_kwargs = mock_litellm.call_args.kwargs
     assert call_kwargs["tools"] == [
@@ -248,8 +218,7 @@ def test_invoke_judge_model_with_trace_passes_tools(mock_trace, mock_response):
     assert feedback.trace_id == "test-trace"
 
 
-def test_invoke_judge_model_tool_calling_loop(mock_trace):
-    # First call: model requests tool call
+def test_invoke_judge_model_tool_calling_loop():
     mock_tool_call_response = ModelResponse(
         choices=[
             {
@@ -267,7 +236,6 @@ def test_invoke_judge_model_tool_calling_loop(mock_trace):
     )
     mock_tool_call_response._hidden_params = {"response_cost": 0.05}
 
-    # Second call: model provides final answer
     mock_final_response = ModelResponse(
         choices=[
             {
@@ -283,23 +251,18 @@ def test_invoke_judge_model_tool_calling_loop(mock_trace):
         mock.patch(
             "litellm.completion", side_effect=[mock_tool_call_response, mock_final_response]
         ) as mock_litellm,
-        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
         mock.patch(
             "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
         ) as mock_invoke_tool,
     ):
-        mock_tool = mock.Mock()
-        mock_tool.name = "get_trace_info"
-        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
-        mock_list_tools.return_value = [mock_tool]
-
         mock_invoke_tool.return_value = {"trace_id": "test-trace", "state": "OK"}
 
         feedback = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Evaluate this response",
             assessment_name="quality_check",
-            trace=mock_trace,
+            trace_id="test-trace",
+            tools=[{"name": "get_trace_info"}],
         )
 
     # Verify litellm.completion was called twice (tool call + final response)
@@ -321,7 +284,7 @@ def test_invoke_judge_model_tool_calling_loop(mock_trace):
 
 
 @pytest.mark.parametrize("env_var_value", ["3", None])
-def test_invoke_judge_model_completion_iteration_limit(mock_trace, monkeypatch, env_var_value):
+def test_invoke_judge_model_completion_iteration_limit(monkeypatch, env_var_value):
     if env_var_value is not None:
         monkeypatch.setenv("MLFLOW_JUDGE_MAX_ITERATIONS", env_var_value)
         expected_limit = int(env_var_value)
@@ -346,15 +309,10 @@ def test_invoke_judge_model_completion_iteration_limit(mock_trace, monkeypatch, 
 
     with (
         mock.patch("litellm.completion", return_value=mock_tool_call_response) as mock_litellm,
-        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
         mock.patch(
             "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
         ) as mock_invoke_tool,
     ):
-        mock_tool = mock.Mock()
-        mock_tool.name = "get_trace_info"
-        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
-        mock_list_tools.return_value = [mock_tool]
         mock_invoke_tool.return_value = {"trace_id": "test-trace", "state": "OK"}
 
         with pytest.raises(
@@ -364,7 +322,8 @@ def test_invoke_judge_model_completion_iteration_limit(mock_trace, monkeypatch, 
                 model_uri="openai:/gpt-4",
                 prompt="Evaluate this response",
                 assessment_name="quality_check",
-                trace=mock_trace,
+                trace_id="test-trace",
+                tools=[{"name": "get_trace_info"}],
             )
 
         error_msg = str(exc_info.value)
@@ -559,19 +518,16 @@ def test_invoke_judge_model_stops_trying_response_format_after_failure():
                 success_response,
             ],
         ) as mock_litellm,
-        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
         mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
     ):
-        mock_tool = mock.Mock()
-        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "test_tool"}
-        mock_list_tools.return_value = [mock_tool]
         mock_invoke.return_value = {"result": "tool executed"}
 
         feedback = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Test prompt",
             assessment_name="test",
-            trace=mock.Mock(),
+            trace_id="some-trace-id",
+            tools=[{"name": "test_tool"}],
         )
 
         # Should have been called 3 times total
@@ -674,7 +630,7 @@ def test_get_chat_completions_with_structured_output():
     assert call_kwargs["response_format"] == FieldExtraction
 
 
-def test_get_chat_completions_with_structured_output_with_trace(mock_trace):
+def test_get_chat_completions_with_structured_output_with_tools():
     class FieldExtraction(BaseModel):
         inputs: str = Field(description="The user's original request")
         outputs: str = Field(description="The system's final response")
@@ -715,12 +671,8 @@ def test_get_chat_completions_with_structured_output_with_trace(mock_trace):
         mock.patch(
             "litellm.completion", side_effect=[tool_call_response, final_response]
         ) as mock_completion,
-        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
         mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
     ):
-        mock_tool = mock.Mock()
-        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
-        mock_list_tools.return_value = [mock_tool]
         mock_invoke.return_value = {"trace_id": "test-trace", "state": "OK"}
 
         result = get_chat_completions_with_structured_output(
@@ -730,7 +682,7 @@ def test_get_chat_completions_with_structured_output_with_trace(mock_trace):
                 ChatMessage(role="user", content="Find inputs and outputs"),
             ],
             output_schema=FieldExtraction,
-            trace=mock_trace,
+            tools=[{"name": "get_trace_info"}],
         )
 
     assert isinstance(result, FieldExtraction)
@@ -790,7 +742,7 @@ def test_get_chat_completions_with_inference_params():
     assert call_kwargs["temperature"] == 0.1
 
 
-def test_inference_params_in_tool_calling_loop(mock_trace):
+def test_inference_params_in_tool_calling_loop():
     inference_params = {"temperature": 0.2}
 
     tool_call_response = ModelResponse(
@@ -817,19 +769,16 @@ def test_inference_params_in_tool_calling_loop(mock_trace):
         mock.patch(
             "litellm.completion", side_effect=[tool_call_response, final_response]
         ) as mock_litellm,
-        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
         mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
     ):
-        mock_tool = mock.Mock()
-        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
-        mock_list_tools.return_value = [mock_tool]
         mock_invoke.return_value = {"result": "info"}
 
         invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Evaluate",
             assessment_name="test",
-            trace=mock_trace,
+            trace_id="test-trace",
+            tools=[{"name": "get_trace_info"}],
             inference_params=inference_params,
         )
 
@@ -872,7 +821,7 @@ def test_structured_output_schema_injection(
 
     captured_messages = []
 
-    def mock_loop(messages, trace, on_final_answer):
+    def mock_loop(messages, tools, on_final_answer, use_case=None):
         captured_messages.extend(messages)
         return on_final_answer(mock_response)
 
@@ -883,7 +832,6 @@ def test_structured_output_schema_injection(
         result = _invoke_databricks_structured_output(
             messages=input_messages,
             output_schema=TestSchema,
-            trace=None,
         )
 
     # Verify schema injection result
@@ -917,7 +865,7 @@ def test_structured_output_schema_injection(
 )
 @pytest.mark.parametrize("with_trace", [False, True])
 def test_invoke_judge_model_databricks_via_litellm(
-    model_uri: str, expected_model_name: str, with_trace: bool, mock_response, mock_trace
+    model_uri: str, expected_model_name: str, with_trace: bool, mock_response
 ):
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
         kwargs = {
@@ -926,7 +874,7 @@ def test_invoke_judge_model_databricks_via_litellm(
             "assessment_name": "test_assessment",
         }
         if with_trace:
-            kwargs["trace"] = mock_trace
+            kwargs["trace_id"] = "test-trace"
 
         feedback = invoke_judge_model(**kwargs)
 

@@ -40,6 +40,7 @@ from mlflow.genai.discovery.utils import (
     _test_scorer,
 )
 from mlflow.genai.scorers.base import Scorer
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 
@@ -131,8 +132,7 @@ def _recluster_singletons(
         if _confidence_gte(merged_issue.confidence, _MIN_CONFIDENCE):
             result.append(merged_issue)
         else:
-            for g in group:
-                result.append(singletons[g])
+            result.extend(singletons[g] for g in group)
 
     return result
 
@@ -142,17 +142,13 @@ def _format_trace_content(trace: Trace) -> str:
     from mlflow.genai.discovery.utils import _extract_execution_path, _extract_span_errors
 
     parts = []
-    request = trace.data.request
-    if request:
+    if request := trace.data.request:
         parts.append(f"Input: {str(request)[:1000]}")
-    response = trace.data.response
-    if response:
+    if response := trace.data.response:
         parts.append(f"Output: {str(response)[:1000]}")
-    exec_path = _extract_execution_path(trace)
-    if exec_path and exec_path != "(no routing)":
+    if (exec_path := _extract_execution_path(trace)) and exec_path != "(no routing)":
         parts.append(f"Execution path: {exec_path}")
-    errors = _extract_span_errors(trace)
-    if errors:
+    if errors := _extract_span_errors(trace):
         parts.append(f"Errors: {errors}")
     return "\n".join(parts) if parts else "(trace content not available)"
 
@@ -162,13 +158,14 @@ def _annotate_issue_traces(
     rationale_map: dict[str, str],
     trace_lookup: dict[str, Trace],
     model: str,
+    trace_to_session: dict[str, str] | None = None,
+    session_first_trace: dict[str, str] | None = None,
 ) -> None:
-    """Log a Feedback assessment on each trace affected by a discovered issue.
+    """Log a Feedback assessment for each issue on affected traces.
 
-    For each (issue, trace_id) pair, calls an LLM with the issue context,
-    the trace's actual content (inputs/outputs/execution path), and the
-    triage judge's rationale to produce a specific annotation explaining
-    how this trace exhibits the issue. Logs it via ``mlflow.log_feedback``.
+    When session information is provided, logs one annotation per (issue,
+    session) on the session's first trace. Otherwise annotates each trace
+    individually.
     """
     import litellm
 
@@ -187,17 +184,32 @@ def _annotate_issue_traces(
         source_id=model,
     )
 
-    # Build work items: (issue, trace_id) pairs
-    work_items: list[tuple[Issue, str]] = []
+    # Build work items: (issue, target_trace_id, triage_rationale, session_id)
+    # When sessions are available, log one annotation per (issue, session)
+    # on the session's first trace with session metadata.
+    work_items: list[tuple[Issue, str, str, str | None]] = []
     for issue in issues:
-        for trace_id in issue.example_trace_ids:
-            work_items.append((issue, trace_id))
+        if trace_to_session and session_first_trace:
+            session_traces: dict[str, list[str]] = {}
+            for tid in issue.example_trace_ids:
+                sid = trace_to_session.get(tid, tid)
+                session_traces.setdefault(sid, []).append(tid)
+            for sid, tids in session_traces.items():
+                target = session_first_trace.get(sid, tids[0])
+                rationale = next((rationale_map[t] for t in tids if t in rationale_map), "")
+                work_items.append((issue, target, rationale, sid))
+        else:
+            work_items.extend(
+                (issue, trace_id, rationale_map.get(trace_id, ""), None)
+                for trace_id in issue.example_trace_ids
+            )
 
     if not work_items:
         return
 
-    def _annotate_one(issue: Issue, trace_id: str) -> str | None:
-        triage_rationale = rationale_map.get(trace_id, "")
+    def _annotate_one(
+        issue: Issue, trace_id: str, triage_rationale: str, session_id: str | None
+    ) -> str | None:
         trace = trace_lookup.get(trace_id)
         trace_content = _format_trace_content(trace) if trace else "(trace not available)"
 
@@ -228,13 +240,16 @@ def _annotate_issue_traces(
                 f"Triage rationale: {triage_rationale or '(not available)'}"
             )
 
+        feedback_name = f"issue: {issue.name}"
+        metadata = {TraceMetadataKey.TRACE_SESSION: session_id} if session_id else None
         try:
             mlflow.log_feedback(
                 trace_id=trace_id,
-                name=issue.name,
+                name=feedback_name,
                 value=False,
                 source=source,
                 rationale=annotation,
+                metadata=metadata,
             )
         except Exception:
             _logger.debug("Failed to log feedback for trace %s", trace_id, exc_info=True)
@@ -243,15 +258,14 @@ def _annotate_issue_traces(
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(work_items))
     annotations: dict[str, list[str]] = {}
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="annotate") as executor:
         future_to_item = {
-            executor.submit(_annotate_one, issue, trace_id): (issue, trace_id)
-            for issue, trace_id in work_items
+            executor.submit(_annotate_one, issue, trace_id, rationale, sid): (issue, trace_id)
+            for issue, trace_id, rationale, sid in work_items
         }
         for future in as_completed(future_to_item):
             issue, trace_id = future_to_item[future]
-            result = future.result()
-            if result:
+            if result := future.result():
                 annotations.setdefault(issue.name, []).append(result)
 
     # Populate rationale_examples on each issue (up to 3 per issue)
@@ -262,7 +276,7 @@ def _annotate_issue_traces(
 @experimental(version="3.11.0")
 def discover_issues(
     experiment_id: str | None = None,
-    traces: list | None = None,
+    traces: list[Trace] | None = None,
     satisfaction_scorer: Scorer | None = None,
     additional_scorers: list[Scorer] | None = None,
     judge_model: str | None = None,
@@ -270,7 +284,7 @@ def discover_issues(
     embedding_model: str = "openai:/text-embedding-3-small",
     triage_sample_size: int = _DEFAULT_TRIAGE_SAMPLE_SIZE,
     validation_sample_size: int | None = None,
-    max_issues: int = 25,
+    max_issues: int = 20,
     filter_string: str | None = None,
 ) -> DiscoverIssuesResult:
     """
@@ -354,6 +368,10 @@ def discover_issues(
         }
         _logger.info("Phase 1: Sampling %d traces...", triage_sample_size)
         triage_traces = _sample_traces(triage_sample_size, search_kwargs)
+
+    # Ensure all evaluation runs are logged to the source experiment
+    if exp_id is not None:
+        mlflow.set_experiment(experiment_id=exp_id)
 
     if not triage_traces:
         return DiscoverIssuesResult(
@@ -490,7 +508,7 @@ def discover_issues(
         return issue
 
     summaries: list[_IdentifiedIssue] = [None] * len(cluster_groups)
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="summarize") as executor:
         future_to_idx = {
             executor.submit(_summarize_one, gi, group): gi
             for gi, group in enumerate(cluster_groups)
@@ -511,12 +529,11 @@ def discover_issues(
                 issue.confidence,
                 len(group),
             )
-            for idx in group:
-                resplit_groups.append([idx])
+            resplit_groups.extend([idx] for idx in group)
 
     if resplit_groups:
         resplit_summaries: list[_IdentifiedIssue] = [None] * len(resplit_groups)
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="resplit") as executor:
             future_to_idx = {
                 executor.submit(_summarize_one, len(cluster_groups) + ri, group): ri
                 for ri, group in enumerate(resplit_groups)
@@ -642,7 +659,17 @@ def discover_issues(
         "Phase 4: Annotating %d traces across %d issues...", len(rationale_map), len(issues)
     )
     t0 = time.time()
-    _annotate_issue_traces(issues, rationale_map, trace_lookup, judge_model)
+    session_first_trace: dict[str, str] = {}
+    for sid, traces_in_session in session_groups.items():
+        session_first_trace[sid] = traces_in_session[0].info.trace_id
+    _annotate_issue_traces(
+        issues,
+        rationale_map,
+        trace_lookup,
+        judge_model,
+        trace_to_session=trace_to_session,
+        session_first_trace=session_first_trace,
+    )
     _logger.info("Phase 4: Annotation took %.1fs", time.time() - t0)
 
     summary = _build_summary(issues, num_total)

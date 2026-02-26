@@ -40,7 +40,7 @@ def invoke_judge_model(
     prompt: str | list["ChatMessage"],
     assessment_name: str,
     trace_id: str | None = None,
-    tools: list[dict] | None = None,
+    tools: list[dict[str, Any]] | None = None,
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
     use_case: str | None = None,
@@ -159,7 +159,7 @@ def get_chat_completions_with_structured_output(
     model_uri: str,
     messages: list["ChatMessage"],
     output_schema: type[pydantic.BaseModel],
-    tools: list[dict] | None = None,
+    tools: list[dict[str, Any]] | None = None,
     num_retries: int = 10,
     inference_params: dict[str, Any] | None = None,
 ) -> pydantic.BaseModel:

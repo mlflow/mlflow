@@ -8,6 +8,12 @@ from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.genai.evaluation.entities import EvaluationResult
 
 
+@pytest.fixture(autouse=True)
+def _mock_set_experiment():
+    with patch("mlflow.genai.discovery.pipeline.mlflow.set_experiment"):
+        yield
+
+
 def _mock_start_run(**kwargs):
     mock_run = MagicMock()
     mock_run.info.run_id = "run-id"
@@ -474,202 +480,269 @@ def _make_litellm_response(content: str):
     return mock_response
 
 
-class TestAnnotateIssueTraces:
-    def test_annotates_each_trace_with_feedback(self):
-        from mlflow.genai.discovery.entities import Issue
-        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+def test_annotate_traces_annotates_each_trace_with_feedback():
+    from mlflow.genai.discovery.entities import Issue
+    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
-        issues = [
-            Issue(
-                name="Slow responses [api]",
-                description="Responses take too long",
-                root_cause="Complex queries",
-                example_trace_ids=["trace-1", "trace-2"],
-                scorer=None,
-                frequency=0.5,
-                confidence="definitely_yes",
-                rationale_examples=[],
-            ),
-        ]
-        rationale_map = {
-            "trace-1": "Response was slow and incomplete",
-            "trace-2": "Timed out on user request",
-        }
+    issues = [
+        Issue(
+            name="Slow responses [api]",
+            description="Responses take too long",
+            root_cause="Complex queries",
+            example_trace_ids=["trace-1", "trace-2"],
+            scorer=None,
+            frequency=0.5,
+            confidence="definitely_yes",
+            rationale_examples=[],
+        ),
+    ]
+    rationale_map = {
+        "trace-1": "Response was slow and incomplete",
+        "trace-2": "Timed out on user request",
+    }
 
-        with (
-            patch(
-                "litellm.completion",
-                return_value=_make_litellm_response("This trace shows slow response behavior."),
-            ) as mock_completion,
-            patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
-        ):
-            _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
+    with (
+        patch(
+            "litellm.completion",
+            return_value=_make_litellm_response("This trace shows slow response behavior."),
+        ) as mock_completion,
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
+    ):
+        _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
 
-        assert mock_completion.call_count == 2
-        assert mock_feedback.call_count == 2
-        for c in mock_feedback.call_args_list:
-            assert c.kwargs["name"] == "Slow responses [api]"
-            assert c.kwargs["value"] is False
-            assert "slow response" in c.kwargs["rationale"]
+    assert mock_completion.call_count == 2
+    assert mock_feedback.call_count == 2
+    for c in mock_feedback.call_args_list:
+        assert c.kwargs["name"] == "issue: Slow responses [api]"
+        assert c.kwargs["value"] is False
+        assert "slow response" in c.kwargs["rationale"]
 
-    def test_populates_rationale_examples(self):
-        from mlflow.genai.discovery.entities import Issue
-        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
-        issues = [
-            Issue(
-                name="Bad data [db]",
-                description="Wrong data returned",
-                root_cause="Schema mismatch",
-                example_trace_ids=["t1", "t2", "t3", "t4"],
-                scorer=None,
-                frequency=0.4,
-                confidence="definitely_yes",
-                rationale_examples=[],
-            ),
-        ]
-        rationale_map = {"t1": "r1", "t2": "r2", "t3": "r3", "t4": "r4"}
+def test_annotate_traces_populates_rationale_examples():
+    from mlflow.genai.discovery.entities import Issue
+    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
-        with (
-            patch(
-                "litellm.completion",
-                return_value=_make_litellm_response("Annotation text."),
-            ),
-            patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback"),
-        ):
-            _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
+    issues = [
+        Issue(
+            name="Bad data [db]",
+            description="Wrong data returned",
+            root_cause="Schema mismatch",
+            example_trace_ids=["t1", "t2", "t3", "t4"],
+            scorer=None,
+            frequency=0.4,
+            confidence="definitely_yes",
+            rationale_examples=[],
+        ),
+    ]
+    rationale_map = {"t1": "r1", "t2": "r2", "t3": "r3", "t4": "r4"}
 
-        assert len(issues[0].rationale_examples) == 3
-        assert all(ex == "Annotation text." for ex in issues[0].rationale_examples)
+    with (
+        patch(
+            "litellm.completion",
+            return_value=_make_litellm_response("Annotation text."),
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback"),
+    ):
+        _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
 
-    def test_no_work_items_returns_early(self):
-        from mlflow.genai.discovery.entities import Issue
-        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+    assert len(issues[0].rationale_examples) == 3
+    assert all(ex == "Annotation text." for ex in issues[0].rationale_examples)
 
-        issues = [
-            Issue(
-                name="Empty issue",
-                description="No traces",
-                root_cause="N/A",
-                example_trace_ids=[],
-                scorer=None,
-                frequency=0.0,
-                confidence="definitely_yes",
-                rationale_examples=[],
-            ),
-        ]
 
-        with patch("litellm.completion") as mock_completion:
-            _annotate_issue_traces(issues, {}, {}, "openai:/gpt-5-mini")
+def test_annotate_traces_no_work_items_returns_early():
+    from mlflow.genai.discovery.entities import Issue
+    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
-        mock_completion.assert_not_called()
+    issues = [
+        Issue(
+            name="Empty issue",
+            description="No traces",
+            root_cause="N/A",
+            example_trace_ids=[],
+            scorer=None,
+            frequency=0.0,
+            confidence="definitely_yes",
+            rationale_examples=[],
+        ),
+    ]
 
-    def test_llm_failure_falls_back_to_triage_rationale(self):
-        from mlflow.genai.discovery.entities import Issue
-        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+    with patch("litellm.completion") as mock_completion:
+        _annotate_issue_traces(issues, {}, {}, "openai:/gpt-5-mini")
 
-        issues = [
-            Issue(
-                name="Timeout [api]",
-                description="Request timed out",
-                root_cause="Upstream latency",
-                example_trace_ids=["t1"],
-                scorer=None,
-                frequency=0.1,
-                confidence="weak_yes",
-                rationale_examples=[],
-            ),
-        ]
-        rationale_map = {"t1": "Original triage rationale"}
+    mock_completion.assert_not_called()
 
-        with (
-            patch(
-                "litellm.completion",
-                side_effect=Exception("LLM unavailable"),
-            ),
-            patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
-        ):
-            _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
 
-        mock_feedback.assert_called_once()
-        rationale = mock_feedback.call_args.kwargs["rationale"]
-        assert "Original triage rationale" in rationale
-        assert "Timeout [api]" in rationale
+def test_annotate_traces_llm_failure_falls_back_to_triage_rationale():
+    from mlflow.genai.discovery.entities import Issue
+    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
-    def test_log_feedback_failure_handled_gracefully(self):
-        from mlflow.genai.discovery.entities import Issue
-        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+    issues = [
+        Issue(
+            name="Timeout [api]",
+            description="Request timed out",
+            root_cause="Upstream latency",
+            example_trace_ids=["t1"],
+            scorer=None,
+            frequency=0.1,
+            confidence="weak_yes",
+            rationale_examples=[],
+        ),
+    ]
+    rationale_map = {"t1": "Original triage rationale"}
 
-        issues = [
-            Issue(
-                name="Error [db]",
-                description="DB error",
-                root_cause="Connection pool",
-                example_trace_ids=["t1"],
-                scorer=None,
-                frequency=0.1,
-                confidence="weak_yes",
-                rationale_examples=[],
-            ),
-        ]
+    with (
+        patch(
+            "litellm.completion",
+            side_effect=Exception("LLM unavailable"),
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
+    ):
+        _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
 
-        with (
-            patch(
-                "litellm.completion",
-                return_value=_make_litellm_response("Annotation."),
-            ),
-            patch(
-                "mlflow.genai.discovery.pipeline.mlflow.log_feedback",
-                side_effect=Exception("Tracking server down"),
-            ),
-        ):
-            _annotate_issue_traces(issues, {"t1": "rationale"}, {}, "openai:/gpt-5-mini")
+    mock_feedback.assert_called_once()
+    rationale = mock_feedback.call_args.kwargs["rationale"]
+    assert "Original triage rationale" in rationale
+    assert "Timeout [api]" in rationale
 
-        assert issues[0].rationale_examples == []
 
-    def test_multiple_issues_annotated_independently(self):
-        from mlflow.genai.discovery.entities import Issue
-        from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+def test_annotate_traces_log_feedback_failure_handled_gracefully():
+    from mlflow.genai.discovery.entities import Issue
+    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
-        issues = [
-            Issue(
-                name="Issue A",
-                description="Desc A",
-                root_cause="Cause A",
-                example_trace_ids=["t1"],
-                scorer=None,
-                frequency=0.2,
-                confidence="definitely_yes",
-                rationale_examples=[],
-            ),
-            Issue(
-                name="Issue B",
-                description="Desc B",
-                root_cause="Cause B",
-                example_trace_ids=["t2", "t3"],
-                scorer=None,
-                frequency=0.3,
-                confidence="definitely_yes",
-                rationale_examples=[],
-            ),
-        ]
-        rationale_map = {"t1": "r1", "t2": "r2", "t3": "r3"}
+    issues = [
+        Issue(
+            name="Error [db]",
+            description="DB error",
+            root_cause="Connection pool",
+            example_trace_ids=["t1"],
+            scorer=None,
+            frequency=0.1,
+            confidence="weak_yes",
+            rationale_examples=[],
+        ),
+    ]
 
-        with (
-            patch(
-                "litellm.completion",
-                return_value=_make_litellm_response("Annotated."),
-            ),
-            patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
-        ):
-            _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
+    with (
+        patch(
+            "litellm.completion",
+            return_value=_make_litellm_response("Annotation."),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.log_feedback",
+            side_effect=Exception("Tracking server down"),
+        ),
+    ):
+        _annotate_issue_traces(issues, {"t1": "rationale"}, {}, "openai:/gpt-5-mini")
 
-        assert mock_feedback.call_count == 3
-        feedback_names = [c.kwargs["name"] for c in mock_feedback.call_args_list]
-        assert feedback_names.count("Issue A") == 1
-        assert feedback_names.count("Issue B") == 2
-        assert len(issues[0].rationale_examples) == 1
-        assert len(issues[1].rationale_examples) == 2
+    assert issues[0].rationale_examples == []
+
+
+def test_annotate_traces_multiple_issues_annotated_independently():
+    from mlflow.genai.discovery.entities import Issue
+    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+
+    issues = [
+        Issue(
+            name="Issue A",
+            description="Desc A",
+            root_cause="Cause A",
+            example_trace_ids=["t1"],
+            scorer=None,
+            frequency=0.2,
+            confidence="definitely_yes",
+            rationale_examples=[],
+        ),
+        Issue(
+            name="Issue B",
+            description="Desc B",
+            root_cause="Cause B",
+            example_trace_ids=["t2", "t3"],
+            scorer=None,
+            frequency=0.3,
+            confidence="definitely_yes",
+            rationale_examples=[],
+        ),
+    ]
+    rationale_map = {"t1": "r1", "t2": "r2", "t3": "r3"}
+
+    with (
+        patch(
+            "litellm.completion",
+            return_value=_make_litellm_response("Annotated."),
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
+    ):
+        _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
+
+    assert mock_feedback.call_count == 3
+    feedback_names = [c.kwargs["name"] for c in mock_feedback.call_args_list]
+    assert feedback_names.count("issue: Issue A") == 1
+    assert feedback_names.count("issue: Issue B") == 2
+    assert len(issues[0].rationale_examples) == 1
+    assert len(issues[1].rationale_examples) == 2
+
+
+def test_annotate_traces_session_level_logs_on_first_trace():
+    from mlflow.genai.discovery.entities import Issue
+    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
+
+    issues = [
+        Issue(
+            name="Slow responses [api]",
+            description="Responses take too long",
+            root_cause="Complex queries",
+            example_trace_ids=["trace-1", "trace-2", "trace-3"],
+            scorer=None,
+            frequency=0.5,
+            confidence="definitely_yes",
+            rationale_examples=[],
+        ),
+    ]
+    rationale_map = {
+        "trace-1": "Response was slow",
+        "trace-2": "Timed out",
+        "trace-3": "Also slow",
+    }
+    # trace-1 and trace-2 are in session-A, trace-3 in session-B
+    trace_to_session = {
+        "trace-1": "session-A",
+        "trace-2": "session-A",
+        "trace-3": "session-B",
+    }
+    # first trace per session
+    session_first_trace = {
+        "session-A": "trace-0",
+        "session-B": "trace-3",
+    }
+
+    with (
+        patch(
+            "litellm.completion",
+            return_value=_make_litellm_response("Session-level annotation."),
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
+    ):
+        _annotate_issue_traces(
+            issues,
+            rationale_map,
+            {},
+            "openai:/gpt-5-mini",
+            trace_to_session=trace_to_session,
+            session_first_trace=session_first_trace,
+        )
+
+    # 2 sessions -> 2 feedback calls (not 3 per-trace)
+    assert mock_feedback.call_count == 2
+    logged_trace_ids = {c.kwargs["trace_id"] for c in mock_feedback.call_args_list}
+    assert logged_trace_ids == {"trace-0", "trace-3"}
+    for c in mock_feedback.call_args_list:
+        assert c.kwargs["name"] == "issue: Slow responses [api]"
+        metadata = c.kwargs["metadata"]
+        assert "mlflow.trace.session" in metadata
+    session_ids = {
+        c.kwargs["metadata"]["mlflow.trace.session"] for c in mock_feedback.call_args_list
+    }
+    assert session_ids == {"session-A", "session-B"}
 
 
 def test_format_trace_content_includes_errors(make_trace):
@@ -689,203 +762,205 @@ def test_format_trace_content_no_errors(make_trace):
     assert "Errors:" not in content
 
 
-class TestReclusterSingletons:
-    def test_merges_similar_singletons(self):
-        from mlflow.genai.discovery.pipeline import _recluster_singletons
+def test_recluster_merges_similar_singletons():
+    from mlflow.genai.discovery.pipeline import _recluster_singletons
 
-        analyses = [
-            _ConversationAnalysis(
-                surface="tool error A",
-                root_cause="API failure",
-                symptoms="timeout",
-                domain="",
-                affected_trace_ids=["t1"],
-                severity=3,
-            ),
-            _ConversationAnalysis(
-                surface="tool error B",
-                root_cause="API failure",
-                symptoms="timeout",
-                domain="",
-                affected_trace_ids=["t2"],
-                severity=3,
-            ),
-        ]
-        singletons = [
-            _IdentifiedIssue(
-                name="Issue A",
-                description="Error A",
-                root_cause="API failure",
-                example_indices=[0],
-                confidence="definitely_yes",
-            ),
-            _IdentifiedIssue(
-                name="Issue B",
-                description="Error B",
-                root_cause="API failure",
-                example_indices=[1],
-                confidence="definitely_yes",
-            ),
-        ]
-        labels = ["[tool_call] API timeout", "[tool_call] API timeout"]
-
-        merged_issue = _IdentifiedIssue(
-            name="Issue: API timeouts",
-            description="Merged",
+    analyses = [
+        _ConversationAnalysis(
+            surface="tool error A",
             root_cause="API failure",
-            example_indices=[0, 1],
+            symptoms="timeout",
+            domain="",
+            affected_trace_ids=["t1"],
+            severity=3,
+        ),
+        _ConversationAnalysis(
+            surface="tool error B",
+            root_cause="API failure",
+            symptoms="timeout",
+            domain="",
+            affected_trace_ids=["t2"],
+            severity=3,
+        ),
+    ]
+    singletons = [
+        _IdentifiedIssue(
+            name="Issue A",
+            description="Error A",
+            root_cause="API failure",
+            example_indices=[0],
             confidence="definitely_yes",
-        )
+        ),
+        _IdentifiedIssue(
+            name="Issue B",
+            description="Error B",
+            root_cause="API failure",
+            example_indices=[1],
+            confidence="definitely_yes",
+        ),
+    ]
+    labels = ["[tool_call] API timeout", "[tool_call] API timeout"]
 
-        with (
-            patch(
-                "mlflow.genai.discovery.utils._cluster_by_llm",
-                return_value=[[0, 1]],
-            ) as mock_cluster,
-            patch(
-                "mlflow.genai.discovery.pipeline._summarize_cluster",
-                return_value=merged_issue,
-            ) as mock_summarize,
-        ):
-            result = _recluster_singletons(
-                singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
-            )
+    merged_issue = _IdentifiedIssue(
+        name="Issue: API timeouts",
+        description="Merged",
+        root_cause="API failure",
+        example_indices=[0, 1],
+        confidence="definitely_yes",
+    )
 
-        mock_cluster.assert_called_once()
-        mock_summarize.assert_called_once()
-        assert len(result) == 1
-        assert result[0].example_indices == [0, 1]
-
-    def test_keeps_unmerged_singletons(self):
-        from mlflow.genai.discovery.pipeline import _recluster_singletons
-
-        analyses = [
-            _ConversationAnalysis(
-                surface="error A",
-                root_cause="A",
-                symptoms="A",
-                domain="",
-                affected_trace_ids=["t1"],
-                severity=3,
-            ),
-            _ConversationAnalysis(
-                surface="error B",
-                root_cause="B",
-                symptoms="B",
-                domain="",
-                affected_trace_ids=["t2"],
-                severity=3,
-            ),
-        ]
-        singletons = [
-            _IdentifiedIssue(
-                name="Issue A",
-                description="A",
-                root_cause="A",
-                example_indices=[0],
-                confidence="definitely_yes",
-            ),
-            _IdentifiedIssue(
-                name="Issue B",
-                description="B",
-                root_cause="B",
-                example_indices=[1],
-                confidence="definitely_yes",
-            ),
-        ]
-        labels = ["[path_a] symptom a", "[path_b] symptom b"]
-
-        with patch(
+    with (
+        patch(
             "mlflow.genai.discovery.utils._cluster_by_llm",
-            return_value=[[0], [1]],
-        ) as mock_cluster:
-            result = _recluster_singletons(
-                singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
-            )
-
-        mock_cluster.assert_called_once()
-        assert len(result) == 2
-
-    def test_single_singleton_returns_as_is(self):
-        from mlflow.genai.discovery.pipeline import _recluster_singletons
-
-        singletons = [
-            _IdentifiedIssue(
-                name="Solo",
-                description="Only one",
-                root_cause="N/A",
-                example_indices=[0],
-                confidence="definitely_yes",
-            ),
-        ]
-        result = _recluster_singletons(singletons, ["label"], [], "m", "m", 25)
-        assert len(result) == 1
-        assert result[0].name == "Solo"
-
-    def test_low_confidence_merge_keeps_originals(self):
-        from mlflow.genai.discovery.pipeline import _recluster_singletons
-
-        analyses = [
-            _ConversationAnalysis(
-                surface="A",
-                root_cause="A",
-                symptoms="A",
-                domain="",
-                affected_trace_ids=["t1"],
-                severity=3,
-            ),
-            _ConversationAnalysis(
-                surface="B",
-                root_cause="B",
-                symptoms="B",
-                domain="",
-                affected_trace_ids=["t2"],
-                severity=3,
-            ),
-        ]
-        singletons = [
-            _IdentifiedIssue(
-                name="A",
-                description="A",
-                root_cause="A",
-                example_indices=[0],
-                confidence="weak_yes",
-            ),
-            _IdentifiedIssue(
-                name="B",
-                description="B",
-                root_cause="B",
-                example_indices=[1],
-                confidence="weak_yes",
-            ),
-        ]
-        labels = ["label a", "label b"]
-
-        low_conf_merged = _IdentifiedIssue(
-            name="Merged",
-            description="M",
-            root_cause="M",
-            example_indices=[0, 1],
-            confidence="maybe",
+            return_value=[[0, 1]],
+        ) as mock_cluster,
+        patch(
+            "mlflow.genai.discovery.pipeline._summarize_cluster",
+            return_value=merged_issue,
+        ) as mock_summarize,
+    ):
+        result = _recluster_singletons(
+            singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
         )
 
-        with (
-            patch(
-                "mlflow.genai.discovery.utils._cluster_by_llm",
-                return_value=[[0, 1]],
-            ),
-            patch(
-                "mlflow.genai.discovery.pipeline._summarize_cluster",
-                return_value=low_conf_merged,
-            ),
-        ):
-            result = _recluster_singletons(
-                singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
-            )
+    mock_cluster.assert_called_once()
+    mock_summarize.assert_called_once()
+    assert len(result) == 1
+    assert result[0].example_indices == [0, 1]
 
-        assert len(result) == 2
-        assert result[0].name == "A"
-        assert result[1].name == "B"
+
+def test_recluster_keeps_unmerged_singletons():
+    from mlflow.genai.discovery.pipeline import _recluster_singletons
+
+    analyses = [
+        _ConversationAnalysis(
+            surface="error A",
+            root_cause="A",
+            symptoms="A",
+            domain="",
+            affected_trace_ids=["t1"],
+            severity=3,
+        ),
+        _ConversationAnalysis(
+            surface="error B",
+            root_cause="B",
+            symptoms="B",
+            domain="",
+            affected_trace_ids=["t2"],
+            severity=3,
+        ),
+    ]
+    singletons = [
+        _IdentifiedIssue(
+            name="Issue A",
+            description="A",
+            root_cause="A",
+            example_indices=[0],
+            confidence="definitely_yes",
+        ),
+        _IdentifiedIssue(
+            name="Issue B",
+            description="B",
+            root_cause="B",
+            example_indices=[1],
+            confidence="definitely_yes",
+        ),
+    ]
+    labels = ["[path_a] symptom a", "[path_b] symptom b"]
+
+    with patch(
+        "mlflow.genai.discovery.utils._cluster_by_llm",
+        return_value=[[0], [1]],
+    ) as mock_cluster:
+        result = _recluster_singletons(
+            singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
+        )
+
+    mock_cluster.assert_called_once()
+    assert len(result) == 2
+
+
+def test_recluster_single_singleton_returns_as_is():
+    from mlflow.genai.discovery.pipeline import _recluster_singletons
+
+    singletons = [
+        _IdentifiedIssue(
+            name="Solo",
+            description="Only one",
+            root_cause="N/A",
+            example_indices=[0],
+            confidence="definitely_yes",
+        ),
+    ]
+    result = _recluster_singletons(singletons, ["label"], [], "m", "m", 25)
+    assert len(result) == 1
+    assert result[0].name == "Solo"
+
+
+def test_recluster_low_confidence_merge_keeps_originals():
+    from mlflow.genai.discovery.pipeline import _recluster_singletons
+
+    analyses = [
+        _ConversationAnalysis(
+            surface="A",
+            root_cause="A",
+            symptoms="A",
+            domain="",
+            affected_trace_ids=["t1"],
+            severity=3,
+        ),
+        _ConversationAnalysis(
+            surface="B",
+            root_cause="B",
+            symptoms="B",
+            domain="",
+            affected_trace_ids=["t2"],
+            severity=3,
+        ),
+    ]
+    singletons = [
+        _IdentifiedIssue(
+            name="A",
+            description="A",
+            root_cause="A",
+            example_indices=[0],
+            confidence="weak_yes",
+        ),
+        _IdentifiedIssue(
+            name="B",
+            description="B",
+            root_cause="B",
+            example_indices=[1],
+            confidence="weak_yes",
+        ),
+    ]
+    labels = ["label a", "label b"]
+
+    low_conf_merged = _IdentifiedIssue(
+        name="Merged",
+        description="M",
+        root_cause="M",
+        example_indices=[0, 1],
+        confidence="maybe",
+    )
+
+    with (
+        patch(
+            "mlflow.genai.discovery.utils._cluster_by_llm",
+            return_value=[[0, 1]],
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._summarize_cluster",
+            return_value=low_conf_merged,
+        ),
+    ):
+        result = _recluster_singletons(
+            singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
+        )
+
+    assert len(result) == 2
+    assert result[0].name == "A"
+    assert result[1].name == "B"
 
 
 def test_confidence_helpers():

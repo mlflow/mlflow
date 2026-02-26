@@ -87,9 +87,7 @@ class GetSpanPerformanceAndTimingReportTool(JudgeTool):
                     properties={
                         "trace_id": {
                             "type": "string",
-                            "description": (
-                                "The ID of the MLflow trace to analyze"
-                            ),
+                            "description": ("The ID of the MLflow trace to analyze"),
                         },
                     },
                     required=["trace_id"],

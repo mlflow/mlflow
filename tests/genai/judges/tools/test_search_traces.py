@@ -190,9 +190,7 @@ def test_get_experiment_id_not_mlflow_experiment() -> None:
     trace = Trace(info=trace_info, data=None)
 
     with mock.patch("mlflow.get_trace", return_value=trace):
-        with pytest.raises(
-            MlflowException, match="Current trace is not from an MLflow experiment"
-        ):
+        with pytest.raises(MlflowException, match="Current trace is not from an MLflow experiment"):
             _get_experiment_id("trace-1")
 
 

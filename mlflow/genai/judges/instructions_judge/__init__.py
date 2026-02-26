@@ -548,11 +548,18 @@ class InstructionsJudge(Judge):
 
         trace_id = trace.info.trace_id if trace is not None else None
 
+        tools = None
+        if is_trace_based and trace is not None:
+            from mlflow.genai.judges.tools.registry import list_judge_tools
+
+            tools = [t.get_definition().to_dict() for t in list_judge_tools()]
+
         return invoke_judge_model(
             model_uri=self._model,
             prompt=messages,
             assessment_name=self.name,
             trace_id=trace_id,
+            tools=tools,
             response_format=response_format,
             use_case=USE_CASE_AGENTIC_JUDGE,
             inference_params=self._inference_params,

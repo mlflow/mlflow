@@ -6,11 +6,10 @@ timing, location, state, and other high-level information.
 """
 
 import mlflow
-from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.types.llm import (
     FunctionToolDefinition,
     ToolDefinition,
@@ -47,9 +46,7 @@ class GetTraceInfoTool(JudgeTool):
                     properties={
                         "trace_id": {
                             "type": "string",
-                            "description": (
-                                "The ID of the MLflow trace to analyze"
-                            ),
+                            "description": ("The ID of the MLflow trace to analyze"),
                         },
                     },
                     required=["trace_id"],
@@ -58,7 +55,7 @@ class GetTraceInfoTool(JudgeTool):
             type="function",
         )
 
-    def invoke(self, trace_id: str) -> dict:
+    def invoke(self, trace_id: str) -> dict[str, object]:
         """
         Get metadata about the trace.
 

@@ -68,10 +68,12 @@ the assistant should have exhibited.
 - Verify factual correctness UNLESS the user's messages indicate a potential issue
 - Consider lack of acknowledgement at the end as an indication of failure
 - Consider the user ending the {context_noun} as an indication of failure
-- Infer goals from unintelligible, nonsensical, single-word foreign-language, or clearly \
-- Consider unintelligible, nonsensical, or ambiguous user messages as an indication of failure (it's okay if the assistant asks for clarification)
-for clarification) \
-- Consider the user's change in subject as an indication of failure — users may change their mind or pursue multiple lines of inquiry
+- Infer goals from unintelligible, nonsensical, single-word foreign-language, \
+or clearly ambiguous user messages
+- Consider unintelligible, nonsensical, or ambiguous user messages as an indication \
+of failure (it's okay if the assistant asks for clarification)
+- Consider the user's change in subject as an indication of failure — users may \
+change their mind or pursue multiple lines of inquiry
 - Treat casual, off-hand remarks (e.g., emotional asides, small talk) as concrete goals \
 that require specific fulfillment
 - Mark the assistant as failing for things outside its defined scope or capabilities — \
@@ -151,8 +153,9 @@ def _build_satisfaction_instructions(*, use_conversation: bool) -> str:
                 "\nIMPORTANT: to prove that a goal was not achieved or was achieved poorly, "
                 "you must either:\n"
                 " - (1) cite concrete evidence based on the *user's* subsequent messages!\n"
-                " - (2) be extremely certain that the assistant's behavior is *blatantly* problematic\n"
-                "       and be prepared to explain why. If the issue is subtle or open to interpretation,\n"
+                " - (2) be extremely certain that the assistant's behavior is\n"
+                "       *blatantly* problematic and be prepared to explain why.\n"
+                "       If the issue is subtle or open to interpretation,\n"
                 "       then you should conclude that goals were achieved efficiently.\n"
             ),
         )
