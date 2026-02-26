@@ -831,6 +831,11 @@ MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
     "MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE", str, "auto"
 )
 
+#: Specifies an IAM role ARN for explicit cross-account role assumption when using
+#: Amazon Bedrock as a judge in ``mlflow.evaluate()``. When unset, boto3's default
+#: credential chain is used (env vars, IRSA, instance profiles, ``~/.aws/credentials``).
+MLFLOW_BEDROCK_ROLE_ARN = _EnvironmentVariable("MLFLOW_BEDROCK_ROLE_ARN", str, None)
+
 #: Specify the timeout in seconds for Databricks endpoint HTTP request retries.
 MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT", int, 500

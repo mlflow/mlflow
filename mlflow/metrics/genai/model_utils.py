@@ -222,21 +222,23 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         return AnthropicProvider(_get_route_config(config))
 
     elif provider in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
-        from mlflow.gateway.config import AWSIdAndKey, AWSRole
+        from mlflow.environment_variables import MLFLOW_BEDROCK_ROLE_ARN
+        from mlflow.gateway.config import AWSBaseConfig, AWSRole
         from mlflow.gateway.providers.bedrock import AmazonBedrockConfig, AmazonBedrockProvider
 
-        if aws_role_arn := os.environ.get("AWS_ROLE_ARN"):
+        if aws_role_arn := MLFLOW_BEDROCK_ROLE_ARN.get():
             aws_config = AWSRole(
                 aws_region=os.environ.get("AWS_REGION"),
                 aws_role_arn=aws_role_arn,
             )
         else:
-            aws_config = AWSIdAndKey(
-                aws_region=os.environ.get("AWS_REGION"),
-                aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
-                aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
-                aws_session_token=os.environ.get("AWS_SESSION_TOKEN"),
-            )
+            if os.environ.get("AWS_ROLE_ARN") and not os.environ.get("AWS_WEB_IDENTITY_TOKEN_FILE"):
+                _logger.warning(
+                    "AWS_ROLE_ARN is set but is no longer used by MLflow for Bedrock role "
+                    "assumption. Set MLFLOW_BEDROCK_ROLE_ARN instead. Falling back to boto3's "
+                    "default credential chain."
+                )
+            aws_config = AWSBaseConfig(aws_region=os.environ.get("AWS_REGION"))
         config = AmazonBedrockConfig(aws_config=aws_config)
         return AmazonBedrockProvider(_get_route_config(config))
 
