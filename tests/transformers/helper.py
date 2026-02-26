@@ -112,6 +112,9 @@ def load_fill_mask_pipeline():
 @prefetch
 @flaky()
 def load_text2text_generation_pipeline():
+    if transformers_version.major >= 5:
+        _logger.info("Skipping text2text-generation pipeline prefetch: removed in transformers 5.x")
+        return None
     task = "text2text-generation"
     architecture = "mrm8488/t5-small-finetuned-common_gen"
     model = transformers.T5ForConditionalGeneration.from_pretrained(architecture)

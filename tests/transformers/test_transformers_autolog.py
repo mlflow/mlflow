@@ -9,7 +9,6 @@ import torch
 import transformers
 from datasets import load_dataset
 from packaging.version import Version
-from sentence_transformers.losses import CosineSimilarityLoss
 from transformers import (
     DistilBertForSequenceClassification,
     DistilBertTokenizerFast,
@@ -30,6 +29,7 @@ def iris_data():
 @pytest.fixture
 def setfit_trainer():
     import setfit
+    from sentence_transformers.losses import CosineSimilarityLoss
     from setfit import SetFitModel, sample_dataset
     from setfit import Trainer as SetFitTrainer
     from setfit import TrainingArguments as SetFitTrainingArguments
