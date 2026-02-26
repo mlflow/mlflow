@@ -23,6 +23,7 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     Expectation,
+    Experiment,
     ExperimentTag,
     FallbackConfig,
     FallbackStrategy,
@@ -1150,6 +1151,21 @@ def _create_workspace_handler():
         )
     except NotImplementedError:
         raise _workspace_not_supported("Workspace creation is not supported by this provider")
+
+    tracking_store = _get_tracking_store()
+    prev_workspace = workspace_context.get_request_workspace()
+    workspace_context.set_server_request_workspace(workspace.name)
+    try:
+        tracking_store.create_experiment(Experiment.DEFAULT_EXPERIMENT_NAME)
+    except Exception:
+        _logger.warning(
+            "Failed to create default experiment in workspace '%s'. "
+            "It will be created automatically when needed.",
+            workspace.name,
+            exc_info=True,
+        )
+    finally:
+        workspace_context.set_server_request_workspace(prev_workspace)
 
     response_message = CreateWorkspace.Response()
     response_message.workspace.MergeFrom(workspace.to_proto())
