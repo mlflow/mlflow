@@ -3266,6 +3266,106 @@ class MlflowClient:
             # Log tag indicating that the run includes logged image
             self.set_tag(run_id, MLFLOW_LOGGED_IMAGES, True, synchronous)
 
+    def log_histogram(
+        self,
+        run_id: str,
+        histogram: "mlflow.utils.histogram_utils.HistogramData",
+    ) -> None:
+        """
+        Logs a histogram to artifact storage for the specified run.
+
+        Each histogram step is stored as a separate JSON file under
+        ``histograms/{name}/step_{step}.json``. This avoids the need to
+        download and re-upload existing data on each call, following the
+        same per-file pattern used by :meth:`log_image`.
+
+        Args:
+            run_id: String ID of the run.
+            histogram: HistogramData instance containing histogram information.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            import numpy as np
+            from mlflow.utils.histogram_utils import HistogramData
+
+            with mlflow.start_run() as run:
+                # Create histogram data
+                values = np.random.randn(1000)
+                bin_edges = np.histogram_bin_edges(values, bins=30)
+                counts, _ = np.histogram(values, bins=bin_edges)
+
+                histogram = HistogramData(
+                    name="weights", step=0, timestamp=1000, bin_edges=bin_edges, counts=counts
+                )
+
+                # Log histogram
+                client = mlflow.MlflowClient()
+                client.log_histogram(run.info.run_id, histogram)
+        """
+        from mlflow.utils.histogram_utils import save_histogram_to_json
+
+        # Sanitize histogram name for filename (replace / with _ to avoid path issues)
+        sanitized_name = re.sub(r"/", "_", histogram.name)
+        artifact_file = f"histograms/{sanitized_name}/step_{histogram.step}.json"
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            save_histogram_to_json(histogram, tmp_path)
+
+    def get_histogram(
+        self, run_id: str, key: str
+    ) -> list["mlflow.utils.histogram_utils.HistogramData"]:
+        """
+        Get histogram data for a given run and histogram name.
+
+        Args:
+            run_id: String ID of the run.
+            key: Histogram name/key.
+
+        Returns:
+            List of HistogramData instances containing histogram data for all steps,
+            sorted by step number.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            histograms = client.get_histogram(run_id="...", key="weights/layer1")
+
+            for hist in histograms:
+                print(f"Step {hist.step}: {len(hist.counts)} bins")
+        """
+        import tempfile
+
+        from mlflow.utils.histogram_utils import load_histogram_from_json
+
+        # Sanitize histogram name for filename (replace / with _ to match log_histogram)
+        sanitized_name = re.sub(r"/", "_", key)
+        artifact_dir = f"histograms/{sanitized_name}"
+
+        try:
+            step_files = self.list_artifacts(run_id, path=artifact_dir)
+            if not step_files:
+                return []
+
+            histograms = []
+            with tempfile.TemporaryDirectory() as tmpdir:
+                for artifact in step_files:
+                    if artifact.path.endswith(".json"):
+                        downloaded_path = self.download_artifacts(
+                            run_id=run_id, path=artifact.path, dst_path=tmpdir
+                        )
+                        histograms.append(load_histogram_from_json(downloaded_path))
+
+            return sorted(histograms, key=lambda h: h.step)
+        except Exception as e:
+            _logger.warning(f"Failed to load histogram '{key}' for run {run_id}: {e}")
+            return []
+
     def _check_artifact_file_string(self, artifact_file: str):
         """Check if the artifact_file contains any forbidden characters.
 

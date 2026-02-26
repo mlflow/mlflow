@@ -71,6 +71,10 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
 )
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.histogram_utils import (
+    HistogramData,
+    compute_histogram_from_values,
+)
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX,
@@ -1857,6 +1861,76 @@ def log_image(
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_image(run_id, image, artifact_file, key, step, timestamp, synchronous)
+
+
+def log_histogram(
+    values: Union["numpy.ndarray", list],
+    *,
+    key: str,
+    step: int | None = None,
+    timestamp: int | None = None,
+    num_bins: int = 30,
+) -> None:
+    """
+    Logs a histogram in MLflow for tracking distributions over time (e.g., weights,
+    gradients, activations during model training).
+
+    Pass raw values and MLflow will compute the histogram automatically.
+
+    Args:
+        values: Raw data values to compute histogram from. Can be a numpy array or list
+            of numbers.
+        key: Histogram name. This string may only contain alphanumerics, underscores (_),
+            dashes (-), periods (.), spaces ( ), and slashes (/).
+        step: Integer training step (iteration) at which the histogram was recorded.
+            Defaults to 0.
+        timestamp: Time when this histogram was recorded. Defaults to the current system time.
+        num_bins: Number of bins to use when computing histogram from raw values.
+            Defaults to 30.
+
+    .. code-block:: python
+        :caption: Log histogram from raw values (e.g., model weights)
+
+        import mlflow
+        import numpy as np
+        import torch
+
+        model = torch.nn.Linear(10, 5)
+
+        with mlflow.start_run():
+            for epoch in range(10):
+                # ... training code ...
+
+                # Log weight distributions
+                weights = model.weight.detach().cpu().numpy().flatten()
+                mlflow.log_histogram(weights, key="weights/layer1", step=epoch)
+    """
+    import numpy as np
+
+    run_id = _get_or_start_run().info.run_id
+    step = step if step is not None else 0
+    timestamp = timestamp if timestamp is not None else get_current_time_millis()
+
+    # Validate and convert values to numpy array
+    if not isinstance(values, (np.ndarray, list)):
+        raise TypeError(f"'values' must be a numpy array or list, got {type(values).__name__}")
+    values_array = np.asarray(values, dtype=np.float64)
+
+    bin_edges, hist_counts, min_val, max_val = compute_histogram_from_values(values_array, num_bins)
+
+    # Create histogram data
+    histogram = HistogramData(
+        name=key,
+        step=step,
+        timestamp=timestamp,
+        bin_edges=bin_edges,
+        counts=hist_counts,
+        min_value=min_val,
+        max_value=max_val,
+    )
+
+    # Save as artifact using MlflowClient
+    MlflowClient().log_histogram(run_id, histogram)
 
 
 def log_table(

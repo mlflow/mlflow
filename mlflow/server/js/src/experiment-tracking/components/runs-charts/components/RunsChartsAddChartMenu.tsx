@@ -1,4 +1,4 @@
-import { Button, DropdownMenu, PlusIcon } from '@databricks/design-system';
+import { BarStackedIcon, Button, DropdownMenu, PlusIcon } from '@databricks/design-system';
 import type { Theme } from '@emotion/react';
 
 import { ReactComponent as ChartBarIcon } from '../../../../common/static/chart-bar.svg';
@@ -136,6 +136,21 @@ export const RunsChartsAddChartMenu = ({ onAddChart, supportedChartTypes }: Runs
             <FormattedMessage
               defaultMessage="Image grid"
               description="Experiment tracking > runs charts > add chart menu > image grid"
+            />
+          </DropdownMenu.Item>
+        )}
+        {isChartTypeSupported(RunsChartType.HISTOGRAM) && (
+          <DropdownMenu.Item
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_runschartsaddchartmenu.tsx_142"
+            onClick={() => onAddChart(RunsChartType.HISTOGRAM)}
+            data-testid="experiment-view-compare-runs-chart-type-histogram"
+          >
+            <DropdownMenu.IconWrapper css={styles.iconWrapper}>
+              <BarStackedIcon />
+            </DropdownMenu.IconWrapper>
+            <FormattedMessage
+              defaultMessage="3D Histogram"
+              description="Experiment tracking > runs charts > add chart menu > 3D histogram"
             />
           </DropdownMenu.Item>
         )}
