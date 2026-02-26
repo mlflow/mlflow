@@ -518,16 +518,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 *attribute_filters,
                 SqlExperiment.lifecycle_stage.in_(lifecycle_stages),
                 *self._experiment_where_clauses(),
+                *[where for _, where in tag_filters],
             ]
             base = reduce(
                 lambda s, f: s.outerjoin(f),
                 [sq for sq, _ in tag_filters],
                 select(SqlExperiment),
             )
-            tag_where_clauses = [where for _, where in tag_filters]
             stmt = (
                 base.options(*self._get_eager_experiment_query_options())
-                .filter(*experiment_filters, *tag_where_clauses)
+                .filter(*experiment_filters)
                 .order_by(*order_by_clauses)
                 .offset(offset)
                 .limit(max_results + 1)
