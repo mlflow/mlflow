@@ -25,7 +25,7 @@ For distributed tracing to work, **both services must log traces to the same MLf
 
 ```bash
 export MLFLOW_TRACKING_URI="http://localhost:5000"
-export MLFLOW_EXPERIMENT_ID="distributed-tracing-demo"
+export MLFLOW_EXPERIMENT_NAME="distributed-tracing-demo"
 ```
 
 or
@@ -47,7 +47,7 @@ Below is a runnable two-service example using FastAPI. The **client** creates th
 
 Create a `server.py` file with the following content:
 
-```python server.py
+```python title="server.py"
 import mlflow
 import uvicorn
 from fastapi import FastAPI, Request
@@ -81,7 +81,7 @@ if __name__ == "__main__":
 
 Create a `client.py` file with the following content:
 
-```python client.py
+```python title="client.py"
 import requests
 import mlflow
 from mlflow.tracing import get_tracing_context_headers_for_http_request
@@ -116,7 +116,7 @@ Open the MLflow UI at `http://localhost:5000` and navigate to the **distributed-
 
 When an agent calls an [MLflow AI Gateway](/genai/governance/ai-gateway/) endpoint with usage tracking enabled, the gateway automatically creates a trace for each request. If the agent also sends a `traceparent` header, the gateway will create a lightweight span under the agent's trace that links to the full gateway trace and includes token usage.
 
-An important note for AI Gateway integration is that the gateway trace and the agent trace are stored in **different** experiments, while they are linked together through a span attribute. The gateway trace is a full trace with request/response payloads and token usage, while the agent trace includes is a lightweight span `gateway/<endpoint_name>` that contains a link to the gateway trace and token usage in span attributes. This design allows aggregating gateway usage across experiments while avoiding storing duplicated payloads.
+An important note for AI Gateway integration is that the gateway trace and the agent trace are stored in **different** experiments, while they are linked together through a span attribute. The gateway trace is a full trace with request/response payloads and token usage, while the agent trace includes a lightweight span `gateway/<endpoint_name>` that contains a link to the gateway trace and token usage in span attributes. This design allows aggregating gateway usage across experiments while avoiding storing duplicated payloads.
 
 - **Gateway experiment** — full trace with request/response payloads and token usage
 - **Agent experiment** — agent trace with a child `gateway/<endpoint_name>` span containing a link to the gateway trace and token usage (no duplicated payloads)
