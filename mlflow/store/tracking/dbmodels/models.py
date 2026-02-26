@@ -1117,6 +1117,10 @@ class SqlIssue(Base):
     Issue ID: `String` (limit 36 characters). *Primary Key* for ``issues`` table.
     Format: "iss-<uuid>".
     """
+    experiment_id = Column(String(32), nullable=False)
+    """
+    Experiment ID: `String` (limit 32 characters). Required.
+    """
     run_id = Column(String(32), ForeignKey("runs.run_uuid", ondelete="CASCADE"), nullable=True)
     """
     Run ID that discovered this issue: `String` (limit 32 characters).
@@ -1175,6 +1179,7 @@ class SqlIssue(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("issue_id", name="issues_pk"),
+        Index(f"index_{__tablename__}_experiment_id", "experiment_id"),
         Index(f"index_{__tablename__}_run_id", "run_id"),
         Index(f"index_{__tablename__}_status", "status"),
     )

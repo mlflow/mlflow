@@ -20,6 +20,7 @@ def upgrade():
     op.create_table(
         SqlIssue.__tablename__,
         sa.Column("issue_id", sa.String(length=36), nullable=False),
+        sa.Column("experiment_id", sa.String(length=32), nullable=False),
         sa.Column("run_id", sa.String(length=32), nullable=True),
         sa.Column("name", sa.String(length=250), nullable=False),
         sa.Column("description", sa.Text(), nullable=False),
@@ -42,6 +43,11 @@ def upgrade():
     )
 
     with op.batch_alter_table(SqlIssue.__tablename__, schema=None) as batch_op:
+        batch_op.create_index(
+            f"index_{SqlIssue.__tablename__}_experiment_id",
+            ["experiment_id"],
+            unique=False,
+        )
         batch_op.create_index(
             f"index_{SqlIssue.__tablename__}_run_id",
             ["run_id"],
