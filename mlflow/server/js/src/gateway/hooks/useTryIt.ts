@@ -57,13 +57,13 @@ export function useTryIt({
     } finally {
       setIsSending(false);
     }
-  }, [requestBody, tryItRequestUrl]);
+  }, [requestBody, tryItRequestUrl, setSendError, setResponseBody, setIsSending]);
 
   const handleResetExample = useCallback(() => {
     setRequestBody(tryItDefaultBody);
     setResponseBody('');
     setSendError(null);
-  }, [tryItDefaultBody]);
+  }, [tryItDefaultBody, setRequestBody, setResponseBody, setSendError]);
 
   return { handleSendRequest, handleResetExample };
 }
