@@ -1130,9 +1130,9 @@ class SqlIssue(Base):
     """
     Detailed description of the issue: `Text`.
     """
-    root_cause = Column(Text, nullable=False)
+    root_cause = Column(Text, nullable=True)
     """
-    Root cause analysis of the issue: `Text`.
+    Root cause analysis of the issue: `Text`. Nullable if root cause is not yet determined.
     """
     status = Column(String(50), nullable=False)
     """
@@ -1146,13 +1146,13 @@ class SqlIssue(Base):
     """
     Confidence level: `String` (limit 50 characters). Optional indicator of detection confidence.
     """
-    rationale_examples = Column(Text, nullable=False)
+    rationale_examples = Column(Text, nullable=True)
     """
-    Rationale examples stored as JSON array: `Text`.
+    Rationale examples stored as JSON array: `Text`. Nullable if no examples provided.
     """
-    example_trace_ids = Column(Text, nullable=False)
+    example_trace_ids = Column(Text, nullable=True)
     """
-    Example trace IDs stored as JSON array: `Text`. Subset of traces exemplifying this issue.
+    Example trace IDs stored as JSON array: `Text`. Nullable if no example traces selected.
     """
     created_timestamp = Column(BigInteger, nullable=False)
     """
