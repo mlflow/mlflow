@@ -140,10 +140,14 @@ export const SecretSelector = ({ provider, value, onChange, disabled, error }: S
                 </Typography.Text>
               </>
             )}
-            <Typography.Text color="secondary">
-              <FormattedMessage defaultMessage="Masked Key:" description="Masked API key label" />
-            </Typography.Text>
-            <MaskedValueDisplay maskedValue={selectedSecret.masked_values} />
+            {selectedSecret.masked_values && Object.keys(selectedSecret.masked_values).length > 0 && (
+              <>
+                <Typography.Text color="secondary">
+                  <FormattedMessage defaultMessage="Masked Key:" description="Masked API key label" />
+                </Typography.Text>
+                <MaskedValueDisplay maskedValue={selectedSecret.masked_values} />
+              </>
+            )}
             <AuthConfigDisplay secret={selectedSecret} />
             <Typography.Text color="secondary">
               <FormattedMessage defaultMessage="Last Updated:" description="Label for last updated" />

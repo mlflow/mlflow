@@ -749,8 +749,8 @@ def _assert_item_type_string(x):
 
 
 def _assert_secret_value(x):
-    """Validate secret_value is a non-empty dict without ever printing the values in errors."""
-    if not x:
+    """Validate secret_value is present. Does not print values in errors."""
+    if x is None:
         raise MlflowException(
             message="Missing value for required parameter 'secret_value'.",
             error_code=INVALID_PARAMETER_VALUE,
@@ -4542,10 +4542,22 @@ def _create_gateway_secret():
     )
     # Empty map means no auth_config was provided
     auth_config = dict(request_message.auth_config) or None
+    secret_value = dict(request_message.secret_value)
+
+    if not secret_value:
+        from mlflow.utils.providers import auth_mode_requires_secret_fields
+
+        provider = request_message.provider or None
+        auth_mode = auth_config.get("auth_mode") if auth_config else None
+        if auth_mode_requires_secret_fields(provider, auth_mode):
+            raise MlflowException(
+                message="Missing value for required parameter 'secret_value'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
-        secret_value=dict(request_message.secret_value),
+        secret_value=secret_value,
         provider=request_message.provider or None,
         auth_config=auth_config,
         created_by=request_message.created_by or None,
