@@ -146,7 +146,7 @@ describe('useExperimentListQuery', () => {
         const filterParam = params.find((p: any) => p?.[0] === 'filter')?.[1];
         const pageToken = params.find((p: any) => p?.[0] === 'page_token')?.[1];
 
-        if (filterParam?.includes('tags')) {
+        if (filterParam?.includes('env')) {
           // After tags filter change
           return createMockResponse(['7'], undefined);
         } else if (pageToken === 'page_2_token') {
@@ -390,50 +390,20 @@ describe('useExperimentListQuery', () => {
   });
 
   describe('gateway experiment filtering', () => {
-    it('filters out experiments tagged as GATEWAY source type', async () => {
-      mockSearchExperiments.mockResolvedValueOnce({
-        experiments: [
-          {
-            experimentId: '1',
-            name: 'Regular Experiment',
-            artifactLocation: '/artifacts/1',
-            lifecycleStage: 'active',
-            lastUpdateTime: Date.now(),
-            creationTime: Date.now(),
-            tags: [],
-            allowedActions: [],
-          },
-          {
-            experimentId: '2',
-            name: 'Gateway Experiment',
-            artifactLocation: '/artifacts/2',
-            lifecycleStage: 'active',
-            lastUpdateTime: Date.now(),
-            creationTime: Date.now(),
-            tags: [{ key: 'mlflow.experiment.sourceType', value: 'GATEWAY' }],
-            allowedActions: [],
-          },
-          {
-            experimentId: '3',
-            name: 'Another Regular Experiment',
-            artifactLocation: '/artifacts/3',
-            lifecycleStage: 'active',
-            lastUpdateTime: Date.now(),
-            creationTime: Date.now(),
-            tags: [],
-            allowedActions: [],
-          },
-        ],
-      });
+    it('includes gateway exclusion filter in API call', async () => {
+      mockSearchExperiments.mockResolvedValueOnce(createMockResponse(['1', '2'], undefined));
 
-      const { result } = renderHook(() => useExperimentListQuery(), {
+      renderHook(() => useExperimentListQuery(), {
         wrapper: createWrapper(),
       });
 
-      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      await waitFor(() => expect(mockSearchExperiments).toHaveBeenCalled());
 
-      expect(result.current.data).toHaveLength(2);
-      expect(result.current.data?.map((e) => e.experimentId)).toEqual(['1', '3']);
+      const apiCallData = mockSearchExperiments.mock.calls[0][0];
+      const filterParam = apiCallData.find((param: [string, string]) => param?.[0] === 'filter');
+
+      expect(filterParam).toBeDefined();
+      expect(filterParam?.[1]).toContain('tags.`mlflow.experiment.isGateway` IS NULL');
     });
   });
 });
