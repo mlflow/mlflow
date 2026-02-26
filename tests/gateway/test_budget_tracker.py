@@ -6,7 +6,7 @@ import pytest
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDurationUnit,
-    BudgetTargetType,
+    BudgetTargetScope,
     BudgetUnit,
     GatewayBudgetPolicy,
 )
@@ -24,7 +24,7 @@ def _make_policy(
     budget_amount=100.0,
     duration_unit=BudgetDurationUnit.DAYS,
     duration_value=1,
-    target_type=BudgetTargetType.GLOBAL,
+    target_scope=BudgetTargetScope.GLOBAL,
     budget_action=BudgetAction.ALERT,
     workspace=None,
 ):
@@ -34,7 +34,7 @@ def _make_policy(
         budget_amount=budget_amount,
         duration_unit=duration_unit,
         duration_value=duration_value,
-        target_type=target_type,
+        target_scope=target_type,
         budget_action=on_exceeded,
         created_at=0,
         last_updated_at=0,
@@ -113,23 +113,23 @@ def test_compute_window_end_months_crosses_year():
 
 
 def test_policy_applies_global():
-    policy = _make_policy(target_type=BudgetTargetType.GLOBAL)
+    policy = _make_policy(target_scope=BudgetTargetScope.GLOBAL)
     assert _policy_applies(policy, None) is True
     assert _policy_applies(policy, "ws1") is True
 
 
 def test_policy_applies_workspace_match():
-    policy = _make_policy(target_type=BudgetTargetType.WORKSPACE, workspace="ws1")
+    policy = _make_policy(target_scope=BudgetTargetScope.WORKSPACE, workspace="ws1")
     assert _policy_applies(policy, "ws1") is True
 
 
 def test_policy_applies_workspace_no_match():
-    policy = _make_policy(target_type=BudgetTargetType.WORKSPACE, workspace="ws1")
+    policy = _make_policy(target_scope=BudgetTargetScope.WORKSPACE, workspace="ws1")
     assert _policy_applies(policy, "ws2") is False
 
 
 def test_policy_applies_workspace_none():
-    policy = _make_policy(target_type=BudgetTargetType.WORKSPACE, workspace="ws1")
+    policy = _make_policy(target_scope=BudgetTargetScope.WORKSPACE, workspace="ws1")
     assert _policy_applies(policy, None) is False
 
 
@@ -305,7 +305,7 @@ def test_multiple_policies_independent():
 def test_workspace_scoped_cost_recording():
     tracker = InMemoryBudgetTracker()
     policy = _make_policy(
-        target_type=BudgetTargetType.WORKSPACE,
+        target_scope=BudgetTargetScope.WORKSPACE,
         workspace="ws1",
         budget_amount=100.0,
     )
