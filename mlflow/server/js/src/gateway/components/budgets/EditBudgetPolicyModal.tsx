@@ -10,7 +10,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useUpdateBudgetPolicy } from '../../hooks/useUpdateBudgetPolicy';
-import type { BudgetPolicy, DurationUnit, TargetType, BudgetAction } from '../../types';
+import type { BudgetPolicy, DurationUnit, TargetScope, BudgetAction } from '../../types';
 
 interface EditBudgetPolicyModalProps {
   open: boolean;
@@ -23,7 +23,7 @@ interface FormData {
   budgetAmount: string;
   durationUnit: DurationUnit;
   durationValue: string;
-  targetType: TargetType;
+  targetScope: TargetScope;
   budgetAction: BudgetAction;
 }
 
@@ -34,7 +34,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
     budgetAmount: '',
     durationUnit: 'DAYS',
     durationValue: '30',
-    targetType: 'GLOBAL',
+    targetScope: 'GLOBAL',
     budgetAction: 'REJECT',
   });
   const { mutateAsync: updateBudgetPolicy, isLoading, error: mutationError, reset: resetMutation } =
@@ -46,7 +46,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
         budgetAmount: String(policy.budget_amount),
         durationUnit: policy.duration_unit,
         durationValue: String(policy.duration_value),
-        targetType: policy.target_type,
+        targetScope: policy.target_scope,
         budgetAction: policy.budget_action,
       });
       resetMutation();
@@ -83,7 +83,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
       budget_amount: parseFloat(formData.budgetAmount),
       duration_unit: formData.durationUnit,
       duration_value: parseInt(formData.durationValue, 10),
-      target_type: formData.targetType,
+      target_scope: formData.targetScope,
       budget_action: formData.budgetAction,
     }).then(() => {
       handleClose();
@@ -193,8 +193,8 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
           <SimpleSelect
             id="edit-budget-policy-target-type"
             componentId="mlflow.gateway.edit-budget-policy-modal.target-type"
-            value={formData.targetType}
-            onChange={({ target }) => handleFieldChange('targetType', target.value as TargetType)}
+            value={formData.targetScope}
+            onChange={({ target }) => handleFieldChange('targetScope', target.value as TargetScope)}
           >
             <SimpleSelectOption value="GLOBAL">Global</SimpleSelectOption>
             <SimpleSelectOption value="WORKSPACE">Workspace</SimpleSelectOption>

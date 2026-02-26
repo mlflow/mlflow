@@ -19,7 +19,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
 import { BudgetsFilterButton, type BudgetsFilter } from './BudgetsFilterButton';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
-import type { BudgetPolicy, BudgetUnit, DurationUnit, BudgetAction, TargetType } from '../../types';
+import type { BudgetPolicy, BudgetUnit, DurationUnit, BudgetAction, TargetScope } from '../../types';
 
 interface BudgetsListProps {
   onEditClick?: (policy: BudgetPolicy) => void;
@@ -51,7 +51,7 @@ function formatOnExceeded(action: BudgetAction): string {
   return labels[action];
 }
 
-function formatTargetType(type: TargetType): string {
+function formatTargetScope(type: TargetScope): string {
   return type === 'GLOBAL' ? 'Global' : 'Workspace';
 }
 
@@ -65,7 +65,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
 
   const availableScopes = useMemo(() => {
     if (!budgetPolicies) return [];
-    return Array.from(new Set(budgetPolicies.map((p) => p.target_type)));
+    return Array.from(new Set(budgetPolicies.map((p) => p.target_scope)));
   }, [budgetPolicies]);
 
   const filteredPolicies = useMemo(() => {
@@ -78,7 +78,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
     }
 
     if (filter.scopes.length > 0) {
-      filtered = filtered.filter((policy) => filter.scopes.includes(policy.target_type));
+      filtered = filtered.filter((policy) => filter.scopes.includes(policy.target_scope));
     }
 
     return filtered;
@@ -205,7 +205,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
               <Typography.Text>{formatDuration(policy.duration_value, policy.duration_unit)}</Typography.Text>
             </TableCell>
             <TableCell css={{ flex: 1 }}>
-              <Typography.Text>{formatTargetType(policy.target_type)}</Typography.Text>
+              <Typography.Text>{formatTargetScope(policy.target_scope)}</Typography.Text>
             </TableCell>
             <TableCell css={{ flex: 1 }}>
               <Typography.Text>{formatOnExceeded(policy.budget_action)}</Typography.Text>
