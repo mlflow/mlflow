@@ -2,8 +2,9 @@
 
 ### Related Issues/PRs
 
-<!-- Uncomment 'Resolve' if this PR can close the linked items. -->
-<!-- Resolve --> #xxx
+<!-- Replace with either "Closes #xxx" (auto-close on merge) or "Relates to #xxx" (reference only). -->
+
+Closes | Relates to #xxx
 
 ### What changes are proposed in this pull request?
 
