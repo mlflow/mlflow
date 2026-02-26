@@ -2,7 +2,7 @@
 
 ### Related Issues/PRs
 
-<!-- Replace with either "Closes #issue_number" (auto-close on merge) or "Relates to #issue_number" (reference only). -->
+<!-- 🚨 Replace with either "Closes" (auto-close on merge) or "Relates to" (reference only). 🚨 -->
 
 Closes | Relates to #issue_number
 
