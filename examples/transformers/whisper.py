@@ -29,10 +29,6 @@ audio_transcription_pipeline = transformers.pipeline(
 # one created here. For other supported types (i.e., numpy array of float32 with the
 # correct bitrate extraction), a signature is required to override the default of "binary" input
 # type.
-signature = mlflow.models.infer_signature(
-    audio,
-    mlflow.transformers.generate_signature_output(audio_transcription_pipeline, audio),
-)
 
 inference_config = {
     "return_timestamps": False,
@@ -41,13 +37,13 @@ inference_config = {
 }
 
 # Log the pipeline
+# The signature will be inferred from the input_example (audio, inference_config)
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=audio_transcription_pipeline,
         name="whisper_transcriber",
-        signature=signature,
-        input_example=audio,
-        inference_config=inference_config,
+        input_example=(audio, inference_config),
+        inference_config=inference_config,  # Used for setting model's default inference params
     )
 
 # Load the pipeline in its native format
