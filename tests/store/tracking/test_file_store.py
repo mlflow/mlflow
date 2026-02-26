@@ -327,6 +327,12 @@ def test_search_experiments_filter_by_tag_is_null(store):
     results = store.search_experiments(filter_string="tag.key1 IS NOT NULL AND tag.key2 IS NULL")
     assert [e.name for e in results] == ["exp2"]
 
+    # Combined with value filter
+    results = store.search_experiments(
+        filter_string="tag.key1 = 'value' AND tag.key2 IS NULL"
+    )
+    assert [e.name for e in results] == ["exp2"]
+
     # Error: IS NULL on attribute
     with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported for tags"):
         store.search_experiments(filter_string="name IS NULL")

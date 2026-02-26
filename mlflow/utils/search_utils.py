@@ -1080,31 +1080,39 @@ class SearchExperimentsUtils(SearchUtils):
         return {"type": identifier, "key": key}
 
     @classmethod
+    def _validate_comparison(cls, tokens, search_traces=False):
+        # Allow 2-token IS NULL / IS NOT NULL comparisons for tags
+        if len(tokens) == 2:
+            comparator = tokens[1].value.upper()
+            if comparator in ("IS NULL", "IS NOT NULL"):
+                if not isinstance(tokens[0], Identifier):
+                    raise MlflowException(
+                        f"Invalid comparison clause. Expected 'Identifier' found '{tokens[0]}'",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                return
+        super()._validate_comparison(tokens, search_traces=search_traces)
+
+    @classmethod
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        cls._validate_comparison(stripped_comparison)
 
         # Handle IS NULL / IS NOT NULL (2 tokens: identifier + comparator, no value)
         if len(stripped_comparison) == 2:
             comparator = stripped_comparison[1].value.upper()
-            if comparator in ("IS NULL", "IS NOT NULL"):
-                comp = cls._get_identifier(
-                    stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS
-                )
-                if comp["type"] != cls._TAG_IDENTIFIER:
-                    raise MlflowException.invalid_parameter_value(
-                        f"IS NULL / IS NOT NULL is only supported for tags, "
-                        f"not for attribute '{comp['key']}'"
-                    )
-                comp["comparator"] = comparator
-                comp["value"] = None
-                return comp
-            raise MlflowException(
-                f"Invalid comparison clause. Expected 3 tokens, found 2 with "
-                f"comparator '{comparator}'",
-                error_code=INVALID_PARAMETER_VALUE,
+            comp = cls._get_identifier(
+                stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS
             )
+            if comp["type"] != cls._TAG_IDENTIFIER:
+                raise MlflowException.invalid_parameter_value(
+                    f"IS NULL / IS NOT NULL is only supported for tags, "
+                    f"not for attribute '{comp['key']}'"
+                )
+            comp["comparator"] = comparator
+            comp["value"] = None
+            return comp
 
-        cls._validate_comparison(stripped_comparison)
         left, comparator, right = stripped_comparison
         comp = cls._get_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value
