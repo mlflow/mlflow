@@ -15,6 +15,7 @@ from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.os import is_windows
 from mlflow.utils.requirements_utils import (
     _capture_imported_modules,
+    _check_requirement_satisfied,
     _get_installed_version,
     _get_pinned_requirement,
     _infer_requirements,
@@ -551,6 +552,16 @@ model's environment and install dependencies using the resulting environment fil
         # Test case: ignore file path
         warn_dependency_requirement_mismatches(model_requirements=["/path/to/my.whl"])
         mock_warning.assert_not_called()
+
+
+def test_check_requirement_satisfied_skips_non_matching_marker():
+    result = _check_requirement_satisfied("numpy==999.0.0 ; python_full_version < '3.0'")
+    assert result is None
+
+
+def test_check_requirement_satisfied_checks_matching_marker():
+    result = _check_requirement_satisfied("numpy==999.0.0 ; python_full_version >= '3.0'")
+    assert result is not None
 
 
 @pytest.mark.parametrize(

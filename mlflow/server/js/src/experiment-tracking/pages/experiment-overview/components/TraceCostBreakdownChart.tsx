@@ -1,9 +1,12 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useDesignSystemTheme, PieChartIcon, type DesignSystemThemeInterface } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+// eslint-disable-next-line import/no-deprecated
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Sector } from 'recharts';
 import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceCostBreakdownChartData } from '../hooks/useTraceCostBreakdownChartData';
+import { useTraceCostDimension } from '../hooks/useTraceCostDimension';
+import { CostDimensionToggle } from './CostDimensionToggle';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -95,7 +98,8 @@ const createActiveShapeRenderer = (theme: DesignSystemThemeInterface['theme']) =
 
 export const TraceCostBreakdownChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
-  const { chartData, totalCost, isLoading, error, hasData } = useTraceCostBreakdownChartData();
+  const { dimension, setDimension } = useTraceCostDimension();
+  const { chartData, totalCost, isLoading, error, hasData } = useTraceCostBreakdownChartData(dimension);
   const { getChartColor } = useChartColors();
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
@@ -112,7 +116,7 @@ export const TraceCostBreakdownChart: React.FC = () => {
 
   // Custom legend handlers that also update activeIndex to show tooltip
   const onLegendMouseEnter = useCallback(
-    (data: { value: string }) => {
+    (data: { value: string | undefined }) => {
       handleLegendMouseEnter(data);
       const index = chartData.findIndex((entry) => entry.name === data.value);
       if (index !== -1) {
@@ -157,14 +161,23 @@ export const TraceCostBreakdownChart: React.FC = () => {
 
   return (
     <OverviewChartContainer componentId="mlflow.charts.trace_cost_breakdown">
-      <OverviewChartHeader
-        icon={<PieChartIcon />}
-        title={<FormattedMessage defaultMessage="Cost Breakdown" description="Title for the cost breakdown chart" />}
-        value={formatCostUSD(totalCost)}
-        subtitle={
-          <FormattedMessage defaultMessage="Total Cost" description="Subtitle for the cost breakdown chart total" />
-        }
-      />
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <OverviewChartHeader
+          icon={<PieChartIcon />}
+          title={<FormattedMessage defaultMessage="Cost Breakdown" description="Title for the cost breakdown chart" />}
+          value={formatCostUSD(totalCost)}
+          subtitle={
+            <FormattedMessage defaultMessage="Total Cost" description="Subtitle for the cost breakdown chart total" />
+          }
+        />
+        <div css={{ flexShrink: 0 }}>
+          <CostDimensionToggle
+            componentId="mlflow.charts.trace_cost_breakdown.dimension"
+            value={dimension}
+            onChange={setDimension}
+          />
+        </div>
+      </div>
 
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         {hasData ? (
@@ -179,7 +192,6 @@ export const TraceCostBreakdownChart: React.FC = () => {
                 paddingAngle={PIE_PADDING_ANGLE}
                 dataKey="value"
                 nameKey="name"
-                activeIndex={activeIndex}
                 activeShape={renderActiveShape}
                 onMouseEnter={onPieEnter}
                 onMouseLeave={onPieLeave}

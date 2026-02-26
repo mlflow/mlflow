@@ -15,9 +15,9 @@ import {
   usePageTitle,
   useSearchParams,
 } from './common/utils/RoutingUtils';
-import { WorkflowTypeProvider } from './common/contexts/WorkflowTypeContext';
+import { useWorkflowType, WorkflowType, WorkflowTypeProvider } from './common/contexts/WorkflowTypeContext';
 import { shouldEnableWorkflowBasedNavigation } from './common/utils/FeatureUtils';
-import { useWorkspacesEnabled } from './common/utils/ServerFeaturesContext';
+import { useWorkspacesEnabled } from './experiment-tracking/hooks/useServerInfo';
 
 // Route definition imports:
 import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/route-defs';
@@ -33,6 +33,7 @@ import {
   getActiveWorkspace,
   isGlobalRoute,
   setActiveWorkspace,
+  setLastUsedWorkspace,
 } from './workspaces/utils/WorkspaceUtils';
 import { useWorkspaces } from './workspaces/hooks/useWorkspaces';
 
@@ -45,6 +46,57 @@ type MlflowRouteDef = {
 };
 
 /**
+ * Inner layout component that has access to WorkflowType context
+ */
+const MlflowRootLayout = ({
+  showSidebar,
+  setShowSidebar,
+}: {
+  showSidebar: boolean;
+  setShowSidebar: (showSidebar: boolean) => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const { workflowType } = useWorkflowType();
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <ErrorModal />
+      <AppErrorBoundary>
+        <RootAssistantLayout>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'row',
+              width: '100%',
+              background:
+                workflowType === WorkflowType.GENAI
+                  ? `linear-gradient(163deg, rgba(66, 153, 224, 0.06) 20%, rgba(202, 66, 224, 0.06) 35%, rgba(255, 95, 70, 0.06) 50%, transparent 80%), ${theme.colors.backgroundSecondary}`
+                  : theme.colors.backgroundSecondary,
+            }}
+          >
+            <MlflowSidebar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
+            <main
+              css={{
+                width: '100%',
+                backgroundColor: theme.colors.backgroundPrimary,
+                margin: theme.spacing.sm,
+                borderRadius: theme.borders.borderRadiusMd,
+                boxShadow: theme.shadows.md,
+                overflowX: 'auto',
+              }}
+            >
+              <React.Suspense fallback={<LegacySkeleton />}>
+                <Outlet />
+              </React.Suspense>
+            </main>
+          </div>
+        </RootAssistantLayout>
+      </AppErrorBoundary>
+    </div>
+  );
+};
+
+/**
  * This is root element for MLflow routes, containing app header.
  */
 const MlflowRootRoute = () => {
@@ -54,14 +106,16 @@ const MlflowRootRoute = () => {
   useDocumentTitle({ title: routeTitle });
 
   const [showSidebar, setShowSidebar] = useState(true);
-  const { theme } = useDesignSystemTheme();
   const { experimentId } = useParams();
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 
   // Hide sidebar if we are in a single experiment page (only when feature flag is disabled)
-  // When feature flag is enabled, sidebar should always be visible
   const isSingleExperimentPage = Boolean(experimentId);
   useEffect(() => {
+    // When feature flag is enabled, sidebar should always retain its current state
+    if (enableWorkflowBasedNavigation) {
+      return;
+    }
     setShowSidebar(enableWorkflowBasedNavigation || !isSingleExperimentPage);
   }, [isSingleExperimentPage, enableWorkflowBasedNavigation]);
 
@@ -69,37 +123,7 @@ const MlflowRootRoute = () => {
     <AssistantProvider>
       <AssistantRouteContextProvider />
       <WorkflowTypeProvider>
-        <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <ErrorModal />
-          <AppErrorBoundary>
-            <RootAssistantLayout>
-              <div
-                css={{
-                  backgroundColor: theme.colors.backgroundSecondary,
-                  display: 'flex',
-                  flexDirection: 'row',
-                  width: '100%',
-                }}
-              >
-                <MlflowSidebar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
-                <main
-                  css={{
-                    width: '100%',
-                    backgroundColor: theme.colors.backgroundPrimary,
-                    margin: theme.spacing.sm,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    boxShadow: theme.shadows.md,
-                    overflowX: 'auto',
-                  }}
-                >
-                  <React.Suspense fallback={<LegacySkeleton />}>
-                    <Outlet />
-                  </React.Suspense>
-                </main>
-              </div>
-            </RootAssistantLayout>
-          </AppErrorBoundary>
-        </div>
+        <MlflowRootLayout showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
       </WorkflowTypeProvider>
     </AssistantProvider>
   );
@@ -114,6 +138,10 @@ const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean
   useEffect(() => {
     if (!workspacesEnabled) {
       setActiveWorkspace(null);
+      // Clear localStorage so stale workspace values don't leak into
+      // requests (e.g. X-MLFLOW-WORKSPACE header) when the server
+      // no longer supports workspaces.
+      setLastUsedWorkspace(null);
       return;
     }
 

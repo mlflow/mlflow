@@ -3338,6 +3338,51 @@ def test_log_batch_same_metrics_repeated_multiple_reqs(store: SqlAlchemyStore):
     _verify_logged(store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
 
 
+def test_log_batch_duplicate_metrics_across_key_batches(store: SqlAlchemyStore):
+    """Test that duplicate metric detection works correctly when metric keys span multiple
+    batches (batches of 100 keys). Previously, _insert_metrics was called inside the
+    per-batch loop, causing metrics from unqueried batches to be inserted prematurely,
+    which could raise an unhandled IntegrityError.
+    See https://github.com/mlflow/mlflow/issues/19144
+    """
+    run = _run_factory(store)
+    # Create >100 unique metric keys so they span multiple key batches
+    num_keys = 150
+    metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    # Log the metrics once
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    _verify_logged(store, run.info.run_id, params=[], metrics=metrics, tags=[])
+    # Log the same metrics again (all duplicates) — this should not raise
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    _verify_logged(store, run.info.run_id, params=[], metrics=metrics, tags=[])
+
+
+def test_log_batch_duplicate_metrics_mixed_with_new_across_key_batches(store: SqlAlchemyStore):
+    # Test logging a mix of duplicate and new metrics when keys span multiple batches.
+    run = _run_factory(store)
+    num_keys = 150
+    # Log initial metrics
+    initial_metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    store.log_batch(run.info.run_id, params=[], metrics=initial_metrics, tags=[])
+    # Log a mix: some duplicates from the initial batch + some new metrics
+    duplicate_metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    new_metrics = [
+        Metric(key=f"metric-{i}", value=float(i + num_keys), timestamp=2, step=1)
+        for i in range(num_keys)
+    ]
+    mixed_metrics = duplicate_metrics + new_metrics
+    store.log_batch(run.info.run_id, params=[], metrics=mixed_metrics, tags=[])
+    _verify_logged(
+        store, run.info.run_id, params=[], metrics=initial_metrics + new_metrics, tags=[]
+    )
+
+
 def test_log_batch_null_metrics(store: SqlAlchemyStore):
     run = _run_factory(store)
 
@@ -7459,15 +7504,11 @@ def test_search_traces_with_span_attributute_backticks(store: SqlAlchemyStore):
     store.log_spans(exp_id, [span1])
     store.log_spans(exp_id, [span2])
 
-    traces, _ = store.search_traces(
-        [exp_id], filter_string='span.attributes.`mlflow.spanInputs` ILIKE "%test1%"'
-    )
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%test1%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace_info_1.trace_id
 
-    traces, _ = store.search_traces(
-        [exp_id], filter_string='span.attributes.`mlflow.spanInputs` ILIKE "%test2%"'
-    )
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%test2%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace_info_2.trace_id
 
@@ -12388,6 +12429,112 @@ def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> N
     assert trace.info.token_usage["input_tokens"] == 300
     assert trace.info.token_usage["output_tokens"] == 125
     assert trace.info.token_usage["total_tokens"] == 425
+
+
+def test_log_spans_cost(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_cost")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps(
+            {
+                "input_cost": 0.01,
+                "output_cost": 0.02,
+                "total_cost": 0.03,
+            }
+        ),
+    }
+
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    # verify cost is stored in the trace info
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.cost == {
+        "input_cost": 0.01,
+        "output_cost": 0.02,
+        "total_cost": 0.03,
+    }
+
+    # verify loaded trace has same cost
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.cost is not None
+    assert trace.info.cost["input_cost"] == 0.01
+    assert trace.info.cost["output_cost"] == 0.02
+    assert trace.info.cost["total_cost"] == 0.03
+
+
+def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_update_cost")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id,
+        name="first_llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps(
+            {
+                "input_cost": 0.01,
+                "output_cost": 0.02,
+                "total_cost": 0.03,
+            }
+        ),
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
+    store.log_spans(experiment_id, [span1])
+
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.cost["input_cost"] == 0.01
+    assert trace.info.cost["output_cost"] == 0.02
+    assert trace.info.cost["total_cost"] == 0.03
+
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id,
+        name="second_llm_call",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps(
+            {
+                "input_cost": 0.005,
+                "output_cost": 0.01,
+                "total_cost": 0.015,
+            }
+        ),
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
+    store.log_spans(experiment_id, [span2])
+
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.cost["input_cost"] == 0.015
+    assert trace.info.cost["output_cost"] == 0.03
+    assert trace.info.cost["total_cost"] == 0.045
 
 
 def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:

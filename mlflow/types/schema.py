@@ -759,7 +759,7 @@ class ColSpec:
         return self._name
 
     @name.setter
-    def name(self, value: bool) -> None:
+    def name(self, value: str | None) -> None:
         self._name = value
 
     @property

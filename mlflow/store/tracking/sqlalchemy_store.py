@@ -159,6 +159,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.otel.translation import (
     translate_loaded_span,
     translate_span_when_storing,
+    update_cost,
     update_token_usage,
 )
 from mlflow.tracing.utils import (
@@ -1058,10 +1059,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session.rollback()
                 # Divide metric keys into batches of 100 to avoid loading too much metric
                 # history data into memory at once
-                metric_keys = [m.key for m in metric_instances]
+                metric_keys = list({m.key for m in metric_instances})
                 metric_key_batches = [
                     metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
                 ]
+                # Iteratively filter out metric_instances per batch to avoid
+                # loading all metric history into memory at once
+                # (see https://github.com/mlflow/mlflow/issues/19144)
                 for metric_key_batch in metric_key_batches:
                     # obtain the metric history corresponding to the given metrics
                     metric_history = (
@@ -1072,15 +1076,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         )
                         .all()
                     )
-                    # convert to a set of Metric instance to take advantage of its hashable
-                    # and then obtain the metrics that were not logged earlier within this
-                    # run_id
                     metric_history = {m.to_mlflow_entity() for m in metric_history}
-                    non_existing_metrics = [
+                    metric_instances = [
                         m for m in metric_instances if m.to_mlflow_entity() not in metric_history
                     ]
-                    # if there exist metrics that were tried to be logged & rolled back even
-                    # though they were not violating the PK, log them
+                # if there exist metrics that were tried to be logged & rolled back even
+                # though they were not violating the PK, log them
+                if non_existing_metrics := metric_instances:
                     _insert_metrics(non_existing_metrics)
 
     def _log_model_metrics(
@@ -3128,10 +3130,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
             sql_trace_info.tags = tags
 
-            sql_trace_info.request_metadata = [
+            request_metadata = [
                 SqlTraceMetadata(request_id=trace_id, key=k, value=v)
                 for k, v in trace_info.trace_metadata.items()
             ]
+            sql_trace_info.request_metadata = request_metadata
             sql_trace_info.assessments = [
                 SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
             ]
@@ -3176,6 +3179,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                 SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
                             )
                             break
+
+                    new_metadata_keys = {m.key for m in request_metadata}
+                    for metadata in db_sql_trace_info.request_metadata:
+                        if metadata.key not in new_metadata_keys:
+                            sql_trace_info.request_metadata.append(
+                                SqlTraceMetadata(
+                                    request_id=trace_id, key=metadata.key, value=metadata.value
+                                )
+                            )
+
                 session.merge(sql_trace_info)
                 session.flush()
 
@@ -4383,6 +4396,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     update_dict[SqlTraceInfo.status] = root_span_status
 
             aggregated_token_usage = {}
+            aggregated_cost = {}
             session_id = None
             for span in spans:
                 span_dict = translate_span_when_storing(span)
@@ -4392,6 +4406,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         aggregated_token_usage = update_token_usage(
                             aggregated_token_usage, span_token_usage
                         )
+                    if span_cost := span_attributes.get(SpanAttributeKey.LLM_COST):
+                        aggregated_cost = update_cost(aggregated_cost, span_cost)
                     # session id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
                     if session_id is None and (
                         span_session_id := span_attributes.get("session.id")
@@ -4442,17 +4458,18 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         self._update_trace_info_attributes(sql_trace_info, span_dict)
                     )
 
-            trace_token_usage = (
-                session.query(SqlTraceMetadata)
-                .filter(
-                    SqlTraceMetadata.request_id == trace_id,
-                    SqlTraceMetadata.key == TraceMetadataKey.TOKEN_USAGE,
-                )
-                .one_or_none()
-            )
             if aggregated_token_usage:
+                trace_token_usage_record = (
+                    session.query(SqlTraceMetadata)
+                    .filter(
+                        SqlTraceMetadata.request_id == trace_id,
+                        SqlTraceMetadata.key == TraceMetadataKey.TOKEN_USAGE,
+                    )
+                    .one_or_none()
+                )
                 trace_token_usage = update_token_usage(
-                    trace_token_usage.value if trace_token_usage else {}, aggregated_token_usage
+                    trace_token_usage_record.value if trace_token_usage_record else {},
+                    aggregated_token_usage,
                 )
 
                 session.merge(
@@ -4469,6 +4486,28 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         session.merge(
                             SqlTraceMetrics(request_id=trace_id, key=key, value=float(value))
                         )
+
+            # Handle cost aggregation
+            if aggregated_cost:
+                trace_cost_record = (
+                    session.query(SqlTraceMetadata)
+                    .filter(
+                        SqlTraceMetadata.request_id == trace_id,
+                        SqlTraceMetadata.key == TraceMetadataKey.COST,
+                    )
+                    .one_or_none()
+                )
+                recorded_cost = update_cost(
+                    trace_cost_record.value if trace_cost_record else {}, aggregated_cost
+                )
+
+                session.merge(
+                    SqlTraceMetadata(
+                        request_id=trace_id,
+                        key=TraceMetadataKey.COST,
+                        value=json.dumps(recorded_cost),
+                    )
+                )
 
             if session_id:
                 existing_session_id = (

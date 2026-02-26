@@ -34,6 +34,7 @@ from mlflow.llama_index.tracer import (
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
@@ -105,12 +106,13 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
         TokenUsageKey.TOTAL_TOKENS: 12,
     }
 
-    # Verify cost is calculated
-    assert spans[0].llm_cost == {
-        "input_cost": 5.0,
-        "output_cost": 14.0,
-        "total_cost": 19.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated
+        assert spans[0].llm_cost == {
+            "input_cost": 5.0,
+            "output_cost": 14.0,
+            "total_cost": 19.0,
+        }
 
 
 def test_trace_llm_complete_stream():
@@ -242,11 +244,12 @@ def test_trace_llm_chat(is_async, mock_litellm_cost):
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
     assert spans[0].model_name == llm.metadata.model_name
-    assert spans[0].llm_cost == {
-        "input_cost": 9.0,
-        "output_cost": 24.0,
-        "total_cost": 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert spans[0].llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -760,8 +763,15 @@ async def test_tracer_parallel_workflow():
         assert s.status.status_code == SpanStatusCode.OK
 
     root_span = traces[0].data.spans[0]
-    assert root_span.inputs == {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
-    assert root_span.outputs == "apple, banana, grape, orange"
+    expected_inputs = {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
+    # assert that the inputs are a superset of the expected inputs.
+    # this is to make the test resilient to framework changes which may add additional inputs.
+    assert all(root_span.inputs.get(k) == v for k, v in expected_inputs.items())
+    # in llama-index < 0.14, outputs are a string
+    if isinstance(root_span.outputs, str):
+        assert root_span.outputs == "apple, banana, grape, orange"
+    else:
+        assert root_span.outputs["result"] == "apple, banana, grape, orange"
 
 
 @pytest.mark.skipif(
@@ -828,8 +838,11 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     assert all(s.status.status_code == SpanStatusCode.OK for s in spans)
 
     workflow_span = spans[0]
-    assert workflow_span.inputs == {"kwargs": {"inputs": inputs}}
-    assert workflow_span.outputs == result
+    assert all(workflow_span.inputs.get(k) == v for k, v in {"kwargs": {"inputs": inputs}}.items())
+    if isinstance(workflow_span.outputs, str):
+        assert workflow_span.outputs == result
+    else:
+        assert workflow_span.outputs["result"] == result
 
     inner_worker_spans = [s for s in spans if s.name.startswith("custom_inner_span_worker")]
     assert len(inner_worker_spans) == len(inputs)

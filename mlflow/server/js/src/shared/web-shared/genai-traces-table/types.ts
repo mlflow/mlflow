@@ -1,5 +1,5 @@
 import type { GetTraceFunction } from './hooks/useGetTrace';
-import type { ModelTraceInfoV3, ModelTraceSpan } from '../model-trace-explorer';
+import type { ModelTraceInfoV3, ModelTraceSpan } from '../model-trace-explorer/ModelTrace.types';
 
 export type AssessmentDType = 'string' | 'numeric' | 'boolean' | 'pass-fail' | 'unknown';
 export type AssessmentType = 'AI_JUDGE' | 'HUMAN' | 'CODE';
@@ -349,3 +349,8 @@ export type NumericAggregate = {
   maxCount: number;
   counts: NumericAggregateCount[];
 };
+
+/**
+ * Required input fields that identify a dataset as multi-turn.
+ */
+export const REQUIRED_MULTITURN_INPUT_FIELDS = new Set(['goal']);

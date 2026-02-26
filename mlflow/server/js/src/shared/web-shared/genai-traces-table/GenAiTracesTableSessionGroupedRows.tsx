@@ -3,7 +3,7 @@ import type { VirtualItem } from '@tanstack/react-virtual';
 import React, { useCallback, useMemo } from 'react';
 
 import { Button, ChevronDownIcon, ChevronRightIcon, TableRow } from '@databricks/design-system';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 import { SessionHeaderCell } from './cellRenderers/SessionHeaderCellRenderers';
 import { GenAiTracesTableBodyRow } from './GenAiTracesTableBodyRows';
@@ -15,6 +15,7 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   groupedRows: GroupedTraceTableRowData[];
   isComparing: boolean;
   enableRowSelection?: boolean;
+  // eslint-disable-next-line react/no-unused-prop-types
   rowSelectionState: RowSelectionState | undefined;
   virtualItems: VirtualItem<Element>[];
   virtualizerTotalSize: number;
@@ -22,29 +23,33 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   selectedColumns: TracesTableColumn[];
   expandedSessions: Set<string>;
   toggleSessionExpanded: (sessionId: string) => void;
-  experimentId: string;
+  experimentId?: string;
   getRunColor?: (runUuid: string) => string;
   runUuid?: string;
   compareToRunUuid?: string;
   rowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>, event: unknown) => void;
+  /** When set, matching text in the Request column is highlighted. */
+  searchQuery?: string;
 }
 
 interface SessionHeaderRowProps {
   sessionId: string;
   otherSessionId?: string;
+  // eslint-disable-next-line react/no-unused-prop-types
   traceCount: number;
   traces: ModelTraceInfoV3[];
   otherTraces?: ModelTraceInfoV3[];
   goal?: string;
   persona?: string;
   selectedColumns: TracesTableColumn[];
-  experimentId: string;
+  experimentId?: string;
   isExpanded: boolean;
   isComparing: boolean;
   toggleSessionExpanded: (sessionId: string) => void;
   getRunColor?: (runUuid: string) => string;
   runUuid?: string;
   compareToRunUuid?: string;
+  searchQuery?: string;
 }
 
 export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTracesTableSessionGroupedRows({
@@ -56,13 +61,14 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
   virtualizerTotalSize,
   virtualizerMeasureElement,
   selectedColumns,
-  experimentId,
   expandedSessions,
   toggleSessionExpanded,
+  experimentId,
   getRunColor,
   runUuid,
   compareToRunUuid,
   rowSelectionChangeHandler,
+  searchQuery,
 }: GenAiTracesTableSessionGroupedRowsProps) {
   // Create a map from eval data (contained in `groupedRows`) to the
   // actual table row from the tanstack data model. When grouping by
@@ -118,6 +124,7 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
                 isExpanded={expandedSessions.has(groupedRow.sessionId)}
                 isComparing={isComparing}
                 toggleSessionExpanded={toggleSessionExpanded}
+                searchQuery={searchQuery}
                 getRunColor={getRunColor}
                 runUuid={runUuid}
                 compareToRunUuid={compareToRunUuid}
@@ -128,9 +135,18 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
 
         // Render trace row using the existing renderer, providing it
         // with a reference to the actual tanstack table row.
-        const row = evaluationToRowMap.get(groupedRow.data);
+        let row = evaluationToRowMap.get(groupedRow.data);
         if (!row) {
-          return null;
+          // Bug in React 18: for some reason, `evaluationToRowMap` loses the row reference when the table is re-rendered.
+          // This is a workaround to find the row by matching the trace IDs.
+          row = rows.find(
+            ({ original }) =>
+              original.currentRunValue?.traceInfo?.trace_id === groupedRow.data.currentRunValue?.traceInfo?.trace_id &&
+              original.otherRunValue?.traceInfo?.trace_id === groupedRow.data.otherRunValue?.traceInfo?.trace_id,
+          );
+          if (!row) {
+            return null;
+          }
         }
 
         const exportableTrace = row.original.currentRunValue && !isComparing;
@@ -179,6 +195,7 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
   getRunColor,
   runUuid,
   compareToRunUuid,
+  searchQuery,
 }: SessionHeaderRowProps) {
   // Handle toggle all rows in this session
   const handleToggleExpanded = useCallback(() => {
@@ -215,6 +232,7 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
           runUuid={runUuid}
           compareToRunUuid={compareToRunUuid}
           onExpandSession={!isComparing ? handleToggleExpanded : undefined}
+          searchQuery={searchQuery}
         />
       ))}
     </TableRow>

@@ -118,7 +118,7 @@ export const TableFilterItem = ({
   onChange: (filter: TableFilter, index: number) => void;
   onDelete: () => void;
   assessmentInfos: AssessmentInfo[];
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
   usesV4APIs?: boolean;

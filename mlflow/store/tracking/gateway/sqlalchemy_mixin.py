@@ -19,6 +19,14 @@ from mlflow.entities import (
     GatewaySecretInfo,
     RoutingStrategy,
 )
+from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+    GatewayBudgetPolicy,
+)
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -36,6 +44,7 @@ from mlflow.store.tracking._secret_cache import (
     SecretCache,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
@@ -59,6 +68,11 @@ from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
     _mask_secret_value,
+)
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_IS_GATEWAY,
+    MLFLOW_EXPERIMENT_SOURCE_ID,
+    MLFLOW_EXPERIMENT_SOURCE_TYPE,
 )
 from mlflow.utils.time import get_current_time_millis
 
@@ -97,18 +111,19 @@ class SqlAlchemyGatewayStoreMixin:
             self._secret_cache = SecretCache(ttl_seconds=ttl, max_size=max_size)
         return self._secret_cache
 
-    def _get_or_create_experiment_id(self, experiment_name: str) -> str:
+    def _get_or_create_experiment_id(self, experiment_name: str, tags=None) -> str:
         """Get an existing experiment ID or create a new experiment if it doesn't exist.
 
         Args:
             experiment_name: Name of the experiment to get or create.
+            tags: Optional list of ExperimentTag instances to set on the experiment.
 
         Returns:
             The experiment ID.
         """
         try:
             # The class that inherits from this mixin must implement the create_experiment method
-            return self.create_experiment(experiment_name)
+            return self.create_experiment(experiment_name, tags=tags)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 experiment = self.get_experiment_by_name(experiment_name)
@@ -607,7 +622,14 @@ class SqlAlchemyGatewayStoreMixin:
 
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None:
-                experiment_id = self._get_or_create_experiment_id(f"gateway/{name}")
+                experiment_id = self._get_or_create_experiment_id(
+                    f"gateway/{name}",
+                    tags=[
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                        ExperimentTag(MLFLOW_EXPERIMENT_IS_GATEWAY, "true"),
+                    ],
+                )
 
             # Build fallback_config_json if fallback_config provided or fallback models exist
             fallback_model_def_ids = [
@@ -739,7 +761,14 @@ class SqlAlchemyGatewayStoreMixin:
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None and sql_endpoint.experiment_id is None:
                 endpoint_name = name if name is not None else sql_endpoint.name
-                experiment_id = self._get_or_create_experiment_id(f"gateway/{endpoint_name}")
+                experiment_id = self._get_or_create_experiment_id(
+                    f"gateway/{endpoint_name}",
+                    tags=[
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                        ExperimentTag(MLFLOW_EXPERIMENT_IS_GATEWAY, "true"),
+                    ],
+                )
 
             if experiment_id is not None:
                 sql_endpoint.experiment_id = int(experiment_id)
@@ -1146,3 +1175,130 @@ class SqlAlchemyGatewayStoreMixin:
                 SqlGatewayEndpointTag.endpoint_id == endpoint_id,
                 SqlGatewayEndpointTag.key == key,
             ).delete()
+
+    # Budget Policy APIs
+
+    def create_budget_policy(
+        self,
+        budget_unit: BudgetUnit,
+        budget_amount: float,
+        duration_unit: BudgetDurationUnit,
+        duration_value: int,
+        target_scope: BudgetTargetScope,
+        budget_action: BudgetAction,
+        created_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        with self.ManagedSessionMaker() as session:
+            budget_policy_id = f"bp-{uuid.uuid4().hex}"
+            current_time = get_current_time_millis()
+
+            sql_budget_policy = self._with_workspace_field(
+                SqlGatewayBudgetPolicy(
+                    budget_policy_id=budget_policy_id,
+                    budget_unit=budget_unit.value
+                    if isinstance(budget_unit, BudgetUnit)
+                    else budget_unit,
+                    budget_amount=budget_amount,
+                    duration_unit=duration_unit.value
+                    if isinstance(duration_unit, BudgetDurationUnit)
+                    else duration_unit,
+                    duration_value=duration_value,
+                    target_scope=target_scope.value
+                    if isinstance(target_scope, BudgetTargetScope)
+                    else target_scope,
+                    budget_action=budget_action.value
+                    if isinstance(budget_action, BudgetAction)
+                    else budget_action,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
+            )
+
+            session.add(sql_budget_policy)
+            session.flush()
+
+            return sql_budget_policy.to_mlflow_entity()
+
+    def get_budget_policy(
+        self,
+        budget_policy_id: str,
+    ) -> GatewayBudgetPolicy:
+        with self.ManagedSessionMaker() as session:
+            sql_budget_policy = self._get_entity_or_raise(
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
+            )
+            return sql_budget_policy.to_mlflow_entity()
+
+    def update_budget_policy(
+        self,
+        budget_policy_id: str,
+        budget_unit: BudgetUnit | None = None,
+        budget_amount: float | None = None,
+        duration_unit: BudgetDurationUnit | None = None,
+        duration_value: int | None = None,
+        target_scope: BudgetTargetScope | None = None,
+        budget_action: BudgetAction | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        with self.ManagedSessionMaker() as session:
+            sql_budget_policy = self._get_entity_or_raise(
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
+            )
+
+            if budget_unit is not None:
+                sql_budget_policy.budget_unit = (
+                    budget_unit.value if isinstance(budget_unit, BudgetUnit) else budget_unit
+                )
+            if budget_amount is not None:
+                sql_budget_policy.budget_amount = budget_amount
+            if duration_unit is not None:
+                sql_budget_policy.duration_unit = (
+                    duration_unit.value
+                    if isinstance(duration_unit, BudgetDurationUnit)
+                    else duration_unit
+                )
+            if duration_value is not None:
+                sql_budget_policy.duration_value = duration_value
+            if target_scope is not None:
+                sql_budget_policy.target_scope = (
+                    target_scope.value
+                    if isinstance(target_scope, BudgetTargetScope)
+                    else target_scope
+                )
+            if budget_action is not None:
+                sql_budget_policy.budget_action = (
+                    budget_action.value
+                    if isinstance(budget_action, BudgetAction)
+                    else budget_action
+                )
+
+            sql_budget_policy.last_updated_at = get_current_time_millis()
+            if updated_by is not None:
+                sql_budget_policy.last_updated_by = updated_by
+
+            session.flush()
+
+            return sql_budget_policy.to_mlflow_entity()
+
+    def delete_budget_policy(self, budget_policy_id: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            sql_budget_policy = self._get_entity_or_raise(
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
+            )
+            session.delete(sql_budget_policy)
+
+    def list_budget_policies(self) -> list[GatewayBudgetPolicy]:
+        with self.ManagedSessionMaker() as session:
+            query = self._get_query(session, SqlGatewayBudgetPolicy)
+            return [bp.to_mlflow_entity() for bp in query.all()]

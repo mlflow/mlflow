@@ -13,6 +13,7 @@ import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   isRunningScorersEnabled: () => true,
   isEvaluatingSessionsInScorersEnabled: () => true,
+  isScorerModelSelectionEnabled: () => true,
 }));
 
 // Mock the endpoint selector to avoid API calls (forbidden in unit tests)

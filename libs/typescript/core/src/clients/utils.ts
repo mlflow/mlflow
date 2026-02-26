@@ -28,7 +28,22 @@ export async function makeRequest<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const responseBody = await response.text();
+        if (responseBody) {
+          // Limit response body to 1000 characters to prevent memory issues
+          const maxBodyLength = 1000;
+          if (responseBody.length > maxBodyLength) {
+            errorMessage += ` - ${responseBody.substring(0, maxBodyLength)}... (truncated)`;
+          } else {
+            errorMessage += ` - ${responseBody}`;
+          }
+        }
+      } catch {
+        // If we can't read the body, just use the status message
+      }
+      throw new Error(errorMessage);
     }
 
     // Handle empty responses (like DELETE operations)

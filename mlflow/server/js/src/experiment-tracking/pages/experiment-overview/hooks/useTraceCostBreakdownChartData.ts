@@ -7,6 +7,7 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { useOverviewChartContext } from '../OverviewChartContext';
+import type { CostDimension } from './useTraceCostDimension';
 
 export interface CostBreakdownDataPoint {
   name: string;
@@ -22,10 +23,14 @@ export interface UseTraceCostBreakdownChartDataResult {
   hasData: boolean;
 }
 
-export function useTraceCostBreakdownChartData(): UseTraceCostBreakdownChartDataResult {
-  const { experimentIds, startTimeMs, endTimeMs } = useOverviewChartContext();
+export function useTraceCostBreakdownChartData(
+  dimension: CostDimension = 'model',
+): UseTraceCostBreakdownChartDataResult {
+  const { experimentIds, startTimeMs, endTimeMs, filters } = useOverviewChartContext();
 
-  // Fetch total cost grouped by model name
+  const dimensionKey = dimension === 'model' ? SpanDimensionKey.MODEL_NAME : SpanDimensionKey.MODEL_PROVIDER;
+
+  // Fetch total cost grouped by dimension
   const { data, isLoading, error } = useTraceMetricsQuery({
     experimentIds,
     startTimeMs,
@@ -33,7 +38,8 @@ export function useTraceCostBreakdownChartData(): UseTraceCostBreakdownChartData
     viewType: MetricViewType.SPANS,
     metricName: SpanMetricKey.TOTAL_COST,
     aggregations: [{ aggregation_type: AggregationType.SUM }],
-    dimensions: [SpanDimensionKey.MODEL_NAME],
+    dimensions: [dimensionKey],
+    filters,
   });
 
   const dataPoints = useMemo(() => data?.data_points || [], [data?.data_points]);
@@ -45,9 +51,9 @@ export function useTraceCostBreakdownChartData(): UseTraceCostBreakdownChartData
     const items: CostBreakdownDataPoint[] = dataPoints
       .map((dp) => {
         const value = dp.values?.[AggregationType.SUM] || 0;
-        const modelName = dp.dimensions?.[SpanDimensionKey.MODEL_NAME] || 'Unknown';
+        const name = dp.dimensions?.[dimensionKey] || 'Unknown';
         return {
-          name: modelName,
+          name,
           value,
           percentage: total > 0 ? (value / total) * 100 : 0,
         };
@@ -56,7 +62,7 @@ export function useTraceCostBreakdownChartData(): UseTraceCostBreakdownChartData
       .sort((a, b) => b.value - a.value);
 
     return { chartData: items, totalCost: total };
-  }, [dataPoints]);
+  }, [dataPoints, dimensionKey]);
 
   return {
     chartData,

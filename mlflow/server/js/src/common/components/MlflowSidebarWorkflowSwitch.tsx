@@ -1,73 +1,15 @@
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { WorkflowType } from '../contexts/WorkflowTypeContext';
 import { FormattedMessage } from '@databricks/i18n';
-
-const Pill = ({
-  isActive,
-  workflowType,
-  setWorkflowType,
-}: {
-  isActive: boolean;
-  workflowType: WorkflowType;
-  setWorkflowType: (workflowType: WorkflowType) => void;
-}) => {
-  const { theme } = useDesignSystemTheme();
-  const borderColor =
-    workflowType === WorkflowType.GENAI ? theme.gradients.aiBorderGradient : theme.colors.actionDefaultBorderDefault;
-  const label =
-    workflowType === WorkflowType.GENAI ? (
-      <FormattedMessage defaultMessage="GenAI" description="Label for GenAI workflow type option" />
-    ) : (
-      <FormattedMessage defaultMessage="Model training" description="Label for model training workflow type option" />
-    );
-
-  if (isActive) {
-    return (
-      <div
-        css={{
-          position: 'relative',
-          background: borderColor,
-          margin: -1,
-          borderRadius: theme.borders.borderRadiusFull,
-          padding: 1,
-          cursor: 'pointer',
-        }}
-        onClick={() => setWorkflowType(workflowType)}
-      >
-        <div
-          css={{
-            background: theme.colors.backgroundPrimary,
-            borderRadius: theme.borders.borderRadiusFull,
-            padding: theme.spacing.xs,
-            paddingRight: theme.spacing.md,
-            paddingLeft: theme.spacing.md,
-          }}
-        >
-          <Typography.Text>{label}</Typography.Text>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      css={{
-        display: 'flex',
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        // magic number to prevent the text from jumping around
-        // when switching between workflow types
-        paddingRight: workflowType === WorkflowType.GENAI ? 0 : 7,
-        paddingLeft: workflowType === WorkflowType.GENAI ? 7 : 0,
-      }}
-      onClick={() => setWorkflowType(workflowType)}
-    >
-      <Typography.Text>{label}</Typography.Text>
-    </div>
-  );
-};
+import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
+import { useCallback, useMemo } from 'react';
 
 export const MlflowSidebarWorkflowSwitch = ({
   workflowType,
@@ -77,28 +19,132 @@ export const MlflowSidebarWorkflowSwitch = ({
   setWorkflowType: (workflowType: WorkflowType) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const viewId = useMemo(() => uuidv4(), []);
+
+  const isGenAi = workflowType === WorkflowType.GENAI;
+  const borderColor = isGenAi ? theme.gradients.aiBorderGradient : theme.colors.actionDefaultBorderDefault;
+
+  const logTelemetryEvent = useLogTelemetryEvent();
+  const handleChangeWorkflowType = useCallback(
+    (workflowType: WorkflowType) => {
+      setWorkflowType(workflowType);
+      logTelemetryEvent({
+        componentId: 'mlflow.sidebar.workflow_switch',
+        componentViewId: viewId,
+        componentType: DesignSystemEventProviderComponentTypes.ToggleButton,
+        componentSubType: null,
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+        value: workflowType,
+      });
+    },
+    [setWorkflowType, logTelemetryEvent, viewId],
+  );
 
   return (
-    <div
-      css={{
-        display: 'flex',
-        position: 'relative',
-        alignItems: 'center',
-        background: theme.colors.backgroundSecondary,
-        borderRadius: theme.borders.borderRadiusFull,
-        border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
-      }}
+    <Tooltip
+      componentId="mlflow.sidebar.workflow_switch.tooltip"
+      content={
+        <FormattedMessage
+          defaultMessage="Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems."
+          description="Tooltip for workflow switch"
+        />
+      }
+      side="right"
     >
-      <Pill
-        isActive={workflowType === WorkflowType.GENAI}
-        workflowType={WorkflowType.GENAI}
-        setWorkflowType={setWorkflowType}
-      />
-      <Pill
-        isActive={workflowType === WorkflowType.MACHINE_LEARNING}
-        workflowType={WorkflowType.MACHINE_LEARNING}
-        setWorkflowType={setWorkflowType}
-      />
-    </div>
+      <div
+        css={{
+          display: 'flex',
+          width: 'min-content',
+          position: 'relative',
+          alignItems: 'center',
+          background: theme.colors.backgroundSecondary,
+          borderRadius: theme.borders.borderRadiusFull,
+          border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+        }}
+      >
+        {/* Sliding thumb indicator */}
+        <div
+          css={{
+            position: 'absolute',
+            top: -1,
+            bottom: -1,
+            left: -1,
+            width: `${isGenAi ? 39 : 67}%`,
+            background: borderColor,
+            borderRadius: theme.borders.borderRadiusFull,
+            padding: 1,
+            transition: 'transform 200ms ease-out, width 200ms ease-out, background 200ms ease-out',
+            transform: isGenAi ? 'translateX(0)' : `translateX(calc(51%))`,
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            css={{
+              width: '100%',
+              height: '100%',
+              background: theme.colors.backgroundPrimary,
+              borderRadius: theme.borders.borderRadiusFull,
+            }}
+          />
+        </div>
+
+        {/* GenAI option */}
+        <div
+          css={{
+            zIndex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            padding: theme.spacing.xs,
+            paddingRight: theme.spacing.md,
+            paddingLeft: theme.spacing.md,
+            whiteSpace: 'nowrap' as const,
+          }}
+          role="button"
+          tabIndex={0}
+          onClick={() => handleChangeWorkflowType(WorkflowType.GENAI)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              handleChangeWorkflowType(WorkflowType.GENAI);
+            }
+          }}
+        >
+          <Typography.Text color={isGenAi ? undefined : 'secondary'}>
+            <FormattedMessage defaultMessage="GenAI" description="Label for GenAI workflow type option" />
+          </Typography.Text>
+        </div>
+
+        {/* Model training option */}
+        <div
+          css={{
+            zIndex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            padding: theme.spacing.xs,
+            paddingRight: theme.spacing.md,
+            paddingLeft: theme.spacing.sm,
+            whiteSpace: 'nowrap' as const,
+          }}
+          role="button"
+          tabIndex={0}
+          onClick={() => handleChangeWorkflowType(WorkflowType.MACHINE_LEARNING)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              handleChangeWorkflowType(WorkflowType.MACHINE_LEARNING);
+            }
+          }}
+        >
+          <Typography.Text color={isGenAi ? 'secondary' : undefined}>
+            <FormattedMessage
+              defaultMessage="Model training"
+              description="Label for model training workflow type option"
+            />
+          </Typography.Text>
+        </div>
+      </div>
+    </Tooltip>
   );
 };

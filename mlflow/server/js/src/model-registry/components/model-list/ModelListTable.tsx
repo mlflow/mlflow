@@ -1,5 +1,6 @@
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
+  ModelsIcon,
   SearchIcon,
   Table,
   TableCell,
@@ -9,6 +10,7 @@ import {
   Empty,
   PlusIcon,
   TableSkeletonRows,
+  Typography,
   WarningIcon,
 } from '@databricks/design-system';
 import type { Interpolation, Theme } from '@emotion/react';
@@ -18,7 +20,7 @@ import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
-import { RegisteringModelDocUrl } from '../../../common/constants';
+import { RegisteringModelDocUrl, ModelRegistryDocUrl } from '../../../common/constants';
 import Utils from '../../../common/utils/Utils';
 import type { ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
 import type { KeyValueEntity } from '../../../common/types';
@@ -234,45 +236,55 @@ export const ModelListTable = ({
     );
   })();
   const emptyComponent = error ? (
-    <Empty
-      image={<WarningIcon />}
-      description={error instanceof ErrorWrapper ? error.getMessageField() : error.message}
-      title={
-        <FormattedMessage
-          defaultMessage="Error fetching models"
-          description="Workspace models page > Error empty state title"
-        />
-      }
-    />
+    <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+      <Empty
+        image={<WarningIcon />}
+        description={error instanceof ErrorWrapper ? error.getMessageField() : error.message}
+        title={
+          <FormattedMessage
+            defaultMessage="Error fetching models"
+            description="Workspace models page > Error empty state title"
+          />
+        }
+      />
+    </div>
   ) : isFiltered ? (
     // Displayed when there is no results, but any filters have been applied
-    <Empty description={noResultsDescription} image={<SearchIcon />} data-testid="model-list-no-results" />
+    <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+      <Empty description={noResultsDescription} image={<SearchIcon />} data-testid="model-list-no-results" />
+    </div>
   ) : (
     // Displayed when there is no results with no filters applied
-    <Empty
-      description={
-        <FormattedMessage
-          defaultMessage="No models registered yet. <link>Learn more about registering models</link>."
-          description="Models table > no models present yet"
-          values={{
-            link: (content: any) => (
-              <a target="_blank" rel="noopener noreferrer" href={registerModelDocUrl}>
-                {content}
-              </a>
-            ),
-          }}
-        />
-      }
-      image={<PlusIcon />}
-      button={
-        <CreateModelButton
-          buttonType="primary"
-          buttonText={
-            <FormattedMessage defaultMessage="Create a model" description="Create button to register a new model" />
-          }
-        />
-      }
-    />
+    <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+      <Empty
+        description={
+          <FormattedMessage
+            defaultMessage="Share and manage machine learning models. <link>Learn more</link>"
+            description="Models table > no models present yet"
+            values={{
+              link: (content: any) => (
+                <Typography.Link
+                  componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellisttable.tsx_learn_more"
+                  href={ModelRegistryDocUrl}
+                  openInNewTab
+                >
+                  {content}
+                </Typography.Link>
+              ),
+            }}
+          />
+        }
+        image={<ModelsIcon />}
+        button={
+          <CreateModelButton
+            buttonType="primary"
+            buttonText={
+              <FormattedMessage defaultMessage="Create model" description="Create button to register a new model" />
+            }
+          />
+        }
+      />
+    </div>
   );
 
   const isEmpty = () => (!isLoading && table.getRowModel().rows.length === 0) || error;
