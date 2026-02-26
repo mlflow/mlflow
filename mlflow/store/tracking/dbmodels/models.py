@@ -1116,6 +1116,80 @@ class SqlAssessments(Base):
         return f"<SqlAssessments({self.assessment_id}, {self.name}, {self.assessment_type})>"
 
 
+class SqlIssue(Base):
+    __tablename__ = "issues"
+
+    issue_id = Column(String(36), nullable=False)
+    """
+    Issue ID: `String` (limit 36 characters). *Primary Key* for ``issues`` table.
+    Format: "iss-<uuid>".
+    """
+    run_id = Column(String(32), ForeignKey("runs.run_uuid", ondelete="CASCADE"), nullable=True)
+    """
+    Run ID that discovered this issue: `String` (limit 32 characters).
+    *Foreign Key* into ``runs`` table. Nullable for manually created issues.
+    """
+    name = Column(String(250), nullable=False)
+    """
+    Issue name/title: `String` (limit 250 characters).
+    """
+    description = Column(Text, nullable=False)
+    """
+    Detailed description of the issue: `Text`.
+    """
+    root_cause = Column(Text, nullable=False)
+    """
+    Root cause analysis of the issue: `Text`.
+    """
+    status = Column(String(50), nullable=False)
+    """
+    Issue status: `String` (limit 50 characters).
+    """
+    frequency = Column(Float, nullable=False)
+    """
+    Frequency score: `Float` between 0.0 and 1.0 indicating how often this issue occurs.
+    """
+    confidence = Column(String(50), nullable=True)
+    """
+    Confidence level: `String` (limit 50 characters). Optional indicator of detection confidence.
+    """
+    rationale_examples = Column(Text, nullable=False)
+    """
+    Rationale examples stored as JSON array: `Text`.
+    """
+    example_trace_ids = Column(Text, nullable=False)
+    """
+    Example trace IDs stored as JSON array: `Text`. Subset of traces exemplifying this issue.
+    """
+    created_timestamp = Column(BigInteger, nullable=False)
+    """
+    Creation timestamp: `BigInteger` in milliseconds.
+    """
+    last_updated_timestamp = Column(BigInteger, nullable=False)
+    """
+    Last update timestamp: `BigInteger` in milliseconds.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator identifier: `String` (limit 255 characters). Optional.
+    """
+
+    run = relationship("SqlRun", backref=backref("issues", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlRun`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("issue_id", name="issues_pk"),
+        Index(f"index_{__tablename__}_run_id", "run_id"),
+        Index(f"index_{__tablename__}_status", "status"),
+    )
+
+    def __repr__(self):
+        return f"<SqlIssue({self.issue_id}, {self.name}, {self.status})>"
+
+
 class SqlLoggedModel(Base):
     __tablename__ = "logged_models"
 
