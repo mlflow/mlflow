@@ -1043,8 +1043,8 @@ class SqlAssessments(Base):
             assessment.valid = self.valid
         elif assessment_type_value == "issue":
             assessment = IssueReference(
-                name=self.name,
-                issue_id=parsed_value.get("issue_id"),
+                issue_id=self.name,
+                issue_name=parsed_value.get("issue_name"),
                 source=source,
                 trace_id=self.trace_id,
                 run_id=self.run_id,

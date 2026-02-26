@@ -497,8 +497,8 @@ class IssueReference(Assessment):
     is used internally to link traces to discovered issues.
 
     Args:
-        name: The name of the assessment (typically the issue name).
-        issue_id: The ID of the issue this assessment references.
+        issue_id: The ID of the issue this assessment references (stored in assessment name).
+        issue_name: The name of the issue (stored in the issue value).
         source: The source of the assessment. If not provided, the default source is CODE.
         trace_id: The ID of the trace associated with the assessment.
         run_id: The ID of the run that discovered the issue.
@@ -509,8 +509,8 @@ class IssueReference(Assessment):
 
     def __init__(
         self,
-        name: str,
         issue_id: str,
+        issue_name: str,
         source: AssessmentSource | None = None,
         trace_id: str | None = None,
         run_id: str | None = None,
@@ -524,9 +524,11 @@ class IssueReference(Assessment):
 
         if issue_id is None:
             raise MlflowException.invalid_parameter_value("The `issue_id` field must be specified.")
+        if issue_name is None:
+            raise MlflowException.invalid_parameter_value("The `issue_name` field must be specified.")
 
         super().__init__(
-            name=name,
+            name=issue_id,
             source=source,
             trace_id=trace_id,
             run_id=run_id,
@@ -534,16 +536,24 @@ class IssueReference(Assessment):
             span_id=span_id,
             create_time_ms=create_time_ms,
             last_update_time_ms=last_update_time_ms,
-            issue=IssueReferenceValue(issue_id=issue_id),
+            issue=IssueReferenceValue(issue_name=issue_name),
         )
 
     @property
     def issue_id(self) -> str:
-        return self.issue.issue_id
+        return self.name
 
     @issue_id.setter
     def issue_id(self, issue_id: str):
-        self.issue.issue_id = issue_id
+        self.name = issue_id
+
+    @property
+    def issue_name(self) -> str:
+        return self.issue.issue_name
+
+    @issue_name.setter
+    def issue_name(self, issue_name: str):
+        self.issue.issue_name = issue_name
 
     @classmethod
     def from_proto(cls, proto) -> "IssueReference":
@@ -552,11 +562,11 @@ class IssueReference(Assessment):
         metadata = dict(proto.metadata) if proto.metadata else None
         issue_ref = cls(
             trace_id=get_trace_id_from_assessment_proto(proto),
-            name=proto.assessment_name,
+            issue_id=proto.assessment_name,
+            issue_name=proto.issue.issue_name,
             source=AssessmentSource.from_proto(proto.source),
             create_time_ms=proto.create_time.ToMilliseconds(),
             last_update_time_ms=proto.last_update_time.ToMilliseconds(),
-            issue_id=proto.issue.issue_id,
             metadata=metadata,
             span_id=proto.span_id or None,
         )
@@ -572,11 +582,11 @@ class IssueReference(Assessment):
 
         issue_ref = cls(
             trace_id=d.get("trace_id"),
-            name=d["assessment_name"],
+            issue_id=d["assessment_name"],
+            issue_name=issue_value["issue_name"],
             source=AssessmentSource.from_dictionary(d["source"]),
             create_time_ms=proto_timestamp_to_milliseconds(d["create_time"]),
             last_update_time_ms=proto_timestamp_to_milliseconds(d["last_update_time"]),
-            issue_id=issue_value["issue_id"],
             metadata=d.get("metadata"),
             span_id=d.get("span_id"),
         )
@@ -591,21 +601,21 @@ class IssueReference(Assessment):
 class IssueReferenceValue(_MlflowObject):
     """Represents an issue reference value."""
 
-    issue_id: str
+    issue_name: str
 
     def to_proto(self):
-        return ProtoIssueReference(issue_id=self.issue_id)
+        return ProtoIssueReference(issue_name=self.issue_name)
 
     @classmethod
     def from_proto(cls, proto) -> "IssueReferenceValue":
-        return cls(issue_id=proto.issue_id)
+        return cls(issue_name=proto.issue_name)
 
     def to_dictionary(self):
-        return {"issue_id": self.issue_id}
+        return {"issue_name": self.issue_name}
 
     @classmethod
     def from_dictionary(cls, d):
-        return cls(issue_id=d["issue_id"])
+        return cls(issue_name=d["issue_name"])
 
 
 @dataclass

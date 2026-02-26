@@ -645,8 +645,8 @@ def test_log_feedback_ai_judge_deprecation_warning(trace_id, source_type):
 
 def test_log_issue_reference(trace_id):
     issue_ref = IssueReference(
-        name="timeout_error",
         issue_id="iss-12345",
+        issue_name="timeout_error",
         source=_CODE_ASSESSMENT_SOURCE,
         metadata={"severity": "high", "affected_count": "150"},
     )
@@ -657,13 +657,14 @@ def test_log_issue_reference(trace_id):
     assessment = trace.info.assessments[0]
     assert isinstance(assessment, IssueReference)
     assert assessment.trace_id == trace_id
-    assert assessment.name == "timeout_error"
+    assert assessment.name == "iss-12345"
     assert assessment.issue_id == "iss-12345"
+    assert assessment.issue_name == "timeout_error"
     assert assessment.span_id is None
     assert assessment.source == _CODE_ASSESSMENT_SOURCE
     assert assessment.create_time_ms is not None
     assert assessment.last_update_time_ms is not None
-    assert assessment.issue.issue_id == "iss-12345"
+    assert assessment.issue.issue_name == "timeout_error"
     assert assessment.expectation is None
     assert assessment.feedback is None
     assert assessment.metadata == {"severity": "high", "affected_count": "150"}
@@ -672,23 +673,24 @@ def test_log_issue_reference(trace_id):
 def test_log_issue_reference_invalid_parameters():
     with pytest.raises(MlflowException, match=r"The `issue_id` field must be specified"):
         IssueReference(
-            name="test_issue",
             issue_id=None,
+            issue_name="test_issue",
             source=_CODE_ASSESSMENT_SOURCE,
         )
 
 
 def test_log_issue_reference_default_source(trace_id):
     issue_ref = IssueReference(
-        name="connection_issue",
         issue_id="iss-67890",
+        issue_name="connection_issue",
     )
     mlflow.log_assessment(trace_id=trace_id, assessment=issue_ref)
 
     trace = mlflow.get_trace(trace_id)
     assert len(trace.info.assessments) == 1
     assessment = trace.info.assessments[0]
-    assert assessment.name == "connection_issue"
+    assert assessment.name == "iss-67890"
+    assert assessment.issue_name == "connection_issue"
     assert assessment.trace_id == trace_id
     assert assessment.issue_id == "iss-67890"
     assert assessment.source.source_type == AssessmentSourceType.CODE
@@ -697,8 +699,8 @@ def test_log_issue_reference_default_source(trace_id):
 
 def test_get_issue_reference_assessment(trace_id):
     issue_ref = IssueReference(
-        name="performance_issue",
         issue_id="iss-55555",
+        issue_name="performance_issue",
         metadata={"category": "latency"},
     )
     assessment_id = mlflow.log_assessment(trace_id=trace_id, assessment=issue_ref).assessment_id
@@ -706,7 +708,8 @@ def test_get_issue_reference_assessment(trace_id):
     result = mlflow.get_assessment(trace_id, assessment_id)
 
     assert isinstance(result, IssueReference)
-    assert result.name == "performance_issue"
+    assert result.name == "iss-55555"
+    assert result.issue_name == "performance_issue"
     assert result.trace_id == trace_id
     assert result.issue_id == "iss-55555"
     assert result.source.source_type == AssessmentSourceType.CODE
@@ -732,8 +735,8 @@ def test_log_multiple_assessment_types(trace_id):
     mlflow.log_assessment(trace_id=trace_id, assessment=expectation)
 
     issue_ref = IssueReference(
-        name="data_quality_issue",
         issue_id="iss-11111",
+        issue_name="data_quality_issue",
         source=_CODE_ASSESSMENT_SOURCE,
     )
     mlflow.log_assessment(trace_id=trace_id, assessment=issue_ref)
@@ -756,5 +759,6 @@ def test_log_multiple_assessment_types(trace_id):
     assert assessments_by_type["expectation"].name == "expected_output"
     assert assessments_by_type["expectation"].value == "MLflow"
 
-    assert assessments_by_type["issue"].name == "data_quality_issue"
+    assert assessments_by_type["issue"].name == "iss-11111"
+    assert assessments_by_type["issue"].issue_name == "data_quality_issue"
     assert assessments_by_type["issue"].issue_id == "iss-11111"
