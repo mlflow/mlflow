@@ -10,6 +10,7 @@ from mlflow.entities.gateway_budget_policy import (
 )
 from mlflow.gateway.budget_tracker import InMemoryBudgetTracker
 from mlflow.server.gateway_api import (
+    _backfill_budget_spend,
     _fire_budget_crossed_webhooks,
     _get_model_info,
     _make_cost_recording_reducer,
@@ -37,7 +38,7 @@ def _make_policy(
         duration_unit=BudgetDurationUnit.DAYS,
         duration_value=1,
         target_scope=BudgetTargetScope.GLOBAL,
-        budget_action=on_exceeded,
+        budget_action=budget_action,
         created_at=0,
         last_updated_at=0,
     )
@@ -401,3 +402,74 @@ def test_record_cost_no_webhook_for_reject(
     # Crossed but REJECT → no webhook fired
     mock_deliver.assert_not_called()
     assert tracker.get_window_info("bp-test").crossed is True
+
+
+# --- _backfill_budget_spend tests ---
+
+
+def test_backfill_on_new_windows():
+    tracker = InMemoryBudgetTracker()
+    new_windows = tracker.load_policies([_make_policy(budget_amount=100.0)])
+
+    store = MagicMock()
+    store.sum_gateway_trace_cost.return_value = 42.0
+
+    _backfill_budget_spend(store, tracker, new_windows)
+
+    store.sum_gateway_trace_cost.assert_called_once()
+    window = tracker.get_window_info("bp-test")
+    assert window.cumulative_spend == 42.0
+
+
+def test_backfill_skipped_when_no_new_windows():
+    tracker = InMemoryBudgetTracker()
+    store = MagicMock()
+
+    _backfill_budget_spend(store, tracker, [])
+
+    store.sum_gateway_trace_cost.assert_not_called()
+
+
+def test_backfill_handles_store_error():
+    tracker = InMemoryBudgetTracker()
+    new_windows = tracker.load_policies([_make_policy(budget_amount=100.0)])
+
+    store = MagicMock()
+    store.sum_gateway_trace_cost.side_effect = Exception("DB error")
+
+    # Should not raise
+    _backfill_budget_spend(store, tracker, new_windows)
+
+    # Window should remain at 0 since backfill failed
+    window = tracker.get_window_info("bp-test")
+    assert window.cumulative_spend == 0.0
+
+
+def test_backfill_zero_spend_skips_backfill():
+    tracker = InMemoryBudgetTracker()
+    new_windows = tracker.load_policies([_make_policy(budget_amount=100.0)])
+
+    store = MagicMock()
+    store.sum_gateway_trace_cost.return_value = 0.0
+
+    _backfill_budget_spend(store, tracker, new_windows)
+
+    # backfill_spend should not be called when spend is 0
+    window = tracker.get_window_info("bp-test")
+    assert window.cumulative_spend == 0.0
+
+
+def test_refresh_triggers_backfill():
+    tracker = InMemoryBudgetTracker()
+
+    store = MagicMock()
+    policy = _make_policy(budget_amount=100.0)
+    store.list_budget_policies.return_value = [policy]
+    store.sum_gateway_trace_cost.return_value = 25.0
+
+    with patch(_TRACKER_FUNC, return_value=tracker):
+        _maybe_refresh_budget_policies(store)
+
+    store.sum_gateway_trace_cost.assert_called_once()
+    window = tracker.get_window_info("bp-test")
+    assert window.cumulative_spend == 25.0
