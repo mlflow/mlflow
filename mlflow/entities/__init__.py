@@ -10,6 +10,7 @@ from mlflow.entities.assessment import (
     AssessmentSourceType,
     Expectation,
     Feedback,
+    IssueReference,
 )
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
@@ -140,6 +141,7 @@ __all__ = [
     "AssessmentSourceType",
     "Expectation",
     "Feedback",
+    "IssueReference",
     # Note: EvaluationDataset is intentionally excluded from __all__ to prevent
     # circular import issues during plugin registration. It can still be imported
     # explicitly via: from mlflow.entities import EvaluationDataset
