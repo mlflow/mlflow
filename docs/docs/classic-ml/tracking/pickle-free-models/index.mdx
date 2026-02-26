@@ -85,10 +85,12 @@ When saving a PyTorch model, saving with `serialization_format="pt2"` uses `torc
 import mlflow
 import torch
 from torch import nn
+from sklearn.datasets import load_diabetes
 
-sequential_model = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1))
-input_example = torch.rand(5, 4).numpy()
-
+# Load a real dataset and use a sample as the input example
+X, _ = load_diabetes(return_X_y=True)
+input_example = torch.tensor(X[:5], dtype=torch.float32).numpy()
+sequential_model = nn.Sequential(nn.Linear(10, 3), nn.ReLU(), nn.Linear(3, 1))
 with mlflow.start_run():
     mlflow.pytorch.log_model(
         sequential_model,
