@@ -89,8 +89,11 @@ message CreateIssue {
   // List of example trace IDs.
   optional string example_trace_ids = 10;
 
+  // List of trace IDs associated with this issue.
+  repeated string trace_ids = 11;
+
   // Identifier for who created this issue.
-  optional string created_by = 11;
+  optional string created_by = 12;
 
   message Response {
     // The created issue.

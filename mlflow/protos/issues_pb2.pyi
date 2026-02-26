@@ -41,7 +41,7 @@ class Issue(_message.Message):
     def __init__(self, issue_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., run_id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., root_cause: _Optional[str] = ..., status: _Optional[str] = ..., frequency: _Optional[float] = ..., confidence: _Optional[str] = ..., rationale_examples: _Optional[str] = ..., example_trace_ids: _Optional[str] = ..., trace_ids: _Optional[_Iterable[str]] = ..., created_timestamp: _Optional[int] = ..., last_updated_timestamp: _Optional[int] = ..., created_by: _Optional[str] = ...) -> None: ...
 
 class CreateIssue(_message.Message):
-    __slots__ = ("name", "description", "frequency", "experiment_id", "status", "run_id", "root_cause", "confidence", "rationale_examples", "example_trace_ids", "created_by")
+    __slots__ = ("name", "description", "frequency", "experiment_id", "status", "run_id", "root_cause", "confidence", "rationale_examples", "example_trace_ids", "trace_ids", "created_by")
     class Response(_message.Message):
         __slots__ = ("issue",)
         ISSUE_FIELD_NUMBER: _ClassVar[int]
@@ -57,6 +57,7 @@ class CreateIssue(_message.Message):
     CONFIDENCE_FIELD_NUMBER: _ClassVar[int]
     RATIONALE_EXAMPLES_FIELD_NUMBER: _ClassVar[int]
     EXAMPLE_TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     name: str
     description: str
@@ -68,8 +69,9 @@ class CreateIssue(_message.Message):
     confidence: str
     rationale_examples: str
     example_trace_ids: str
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
     created_by: str
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., frequency: _Optional[float] = ..., experiment_id: _Optional[str] = ..., status: _Optional[str] = ..., run_id: _Optional[str] = ..., root_cause: _Optional[str] = ..., confidence: _Optional[str] = ..., rationale_examples: _Optional[str] = ..., example_trace_ids: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., frequency: _Optional[float] = ..., experiment_id: _Optional[str] = ..., status: _Optional[str] = ..., run_id: _Optional[str] = ..., root_cause: _Optional[str] = ..., confidence: _Optional[str] = ..., rationale_examples: _Optional[str] = ..., example_trace_ids: _Optional[str] = ..., trace_ids: _Optional[_Iterable[str]] = ..., created_by: _Optional[str] = ...) -> None: ...
 
 class UpdateIssue(_message.Message):
     __slots__ = ("issue_id", "status", "name", "description")
