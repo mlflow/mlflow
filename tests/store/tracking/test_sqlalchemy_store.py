@@ -821,10 +821,11 @@ def test_search_experiments_filter_by_tag(store: SqlAlchemyStore):
     assert [e.name for e in experiments] == ["exp3"]
     experiments = store.search_experiments(filter_string="tag.\"k e y 1\" = 'value'")
     assert [e.name for e in experiments] == ["exp3"]
+    # != includes experiments that don't have the tag at all
     experiments = store.search_experiments(filter_string="tag.key1 != 'value'")
-    assert [e.name for e in experiments] == ["exp2"]
+    assert [e.name for e in experiments] == ["exp3", "exp2", "Default"]
     experiments = store.search_experiments(filter_string="tag.key1 != 'VALUE'")
-    assert [e.name for e in experiments] == ["exp2", "exp1"]
+    assert [e.name for e in experiments] == ["exp3", "exp2", "exp1", "Default"]
     experiments = store.search_experiments(filter_string="tag.key1 LIKE 'val%'")
     assert [e.name for e in experiments] == ["exp1"]
     experiments = store.search_experiments(filter_string="tag.key1 LIKE '%Lue'")

@@ -506,7 +506,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         self._validate_max_results_param(max_results)
         with self.ManagedSessionMaker() as session:
             parsed_filters = SearchExperimentsUtils.parse_search_filter(filter_string)
-            attribute_filters, non_attribute_filters = _get_search_experiments_filter_clauses(
+            attribute_filters, tag_filters = _get_search_experiments_filter_clauses(
                 parsed_filters, self._get_dialect()
             )
 
@@ -519,10 +519,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 SqlExperiment.lifecycle_stage.in_(lifecycle_stages),
                 *self._experiment_where_clauses(),
             ]
+            base = reduce(
+                lambda s, f: s.outerjoin(f),
+                [sq for sq, _ in tag_filters],
+                select(SqlExperiment),
+            )
+            tag_where_clauses = [where for _, where in tag_filters]
             stmt = (
-                reduce(lambda s, f: s.join(f), non_attribute_filters, select(SqlExperiment))
-                .options(*self._get_eager_experiment_query_options())
-                .filter(*experiment_filters)
+                base.options(*self._get_eager_experiment_query_options())
+                .filter(*experiment_filters, *tag_where_clauses)
                 .order_by(*order_by_clauses)
                 .offset(offset)
                 .limit(max_results + 1)
@@ -6048,7 +6053,9 @@ def _get_orderby_clauses(order_by_list, session):
 
 def _get_search_experiments_filter_clauses(parsed_filters, dialect):
     attribute_filters = []
-    non_attribute_filters = []
+    # Each tag filter is a (subquery, where_clause) tuple. Subqueries match on key only
+    # and are outer-joined; value comparisons go into WHERE clauses.
+    tag_filters = []
     for f in parsed_filters:
         type_ = f["type"]
         key = f["key"]
@@ -6075,19 +6082,24 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for tag: {comparator}"
                 )
-            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
-                SqlExperimentTag.value, value
-            )
             key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(
                 SqlExperimentTag.key, key
             )
-            non_attribute_filters.append(
-                select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
+            subquery = select(SqlExperimentTag).filter(key_filter).subquery()
+            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                subquery.c.value, value
             )
+            if comparator == "!=":
+                # Include experiments that don't have the tag at all
+                where_clause = or_(subquery.c.value.is_(None), val_filter)
+            else:
+                # NULL comparisons naturally exclude experiments without the tag
+                where_clause = val_filter
+            tag_filters.append((subquery, where_clause))
         else:
             raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
 
-    return attribute_filters, non_attribute_filters
+    return attribute_filters, tag_filters
 
 
 def _get_search_experiments_order_by_clauses(order_by):
