@@ -8,19 +8,19 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { TargetType } from '../../types';
+import type { TargetScope } from '../../types';
 
 export interface BudgetsFilter {
-  scopes: TargetType[];
+  scopes: TargetScope[];
 }
 
 interface BudgetsFilterButtonProps {
-  availableScopes: TargetType[];
+  availableScopes: TargetScope[];
   filter: BudgetsFilter;
   onFilterChange: (filter: BudgetsFilter) => void;
 }
 
-const SCOPE_LABELS: Record<TargetType, string> = {
+const SCOPE_LABELS: Record<TargetScope, string> = {
   GLOBAL: 'Global',
   WORKSPACE: 'Workspace',
 };
@@ -33,7 +33,7 @@ export const BudgetsFilterButton = ({ availableScopes, filter, onFilterChange }:
   const activeCount = filter.scopes.length;
 
   const handleScopeToggle = useCallback(
-    (scope: TargetType) => {
+    (scope: TargetScope) => {
       const newScopes = filter.scopes.includes(scope)
         ? filter.scopes.filter((s) => s !== scope)
         : [...filter.scopes, scope];

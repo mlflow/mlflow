@@ -10,7 +10,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
-import type { DurationUnit, TargetType, BudgetAction } from '../../types';
+import type { DurationUnit, TargetScope, BudgetAction } from '../../types';
 
 interface CreateBudgetPolicyModalProps {
   open: boolean;
@@ -22,7 +22,7 @@ interface FormData {
   budgetAmount: string;
   durationUnit: DurationUnit;
   durationValue: string;
-  targetType: TargetType;
+  targetScope: TargetScope;
   budgetAction: BudgetAction;
 }
 
@@ -30,7 +30,7 @@ const INITIAL_FORM_DATA: FormData = {
   budgetAmount: '',
   durationUnit: 'DAYS',
   durationValue: '30',
-  targetType: 'GLOBAL',
+  targetScope: 'GLOBAL',
   budgetAction: 'REJECT',
 };
 
@@ -71,7 +71,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
       budget_amount: parseFloat(formData.budgetAmount),
       duration_unit: formData.durationUnit,
       duration_value: parseInt(formData.durationValue, 10),
-      target_type: formData.targetType,
+      target_scope: formData.targetScope,
       budget_action: formData.budgetAction,
     }).then(() => {
       handleClose();
@@ -183,8 +183,8 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
           <SimpleSelect
             id="create-budget-policy-target-type"
             componentId="mlflow.gateway.create-budget-policy-modal.target-type"
-            value={formData.targetType}
-            onChange={({ target }) => handleFieldChange('targetType', target.value as TargetType)}
+            value={formData.targetScope}
+            onChange={({ target }) => handleFieldChange('targetScope', target.value as TargetScope)}
           >
             <SimpleSelectOption value="GLOBAL">Global</SimpleSelectOption>
             <SimpleSelectOption value="WORKSPACE">Workspace</SimpleSelectOption>
