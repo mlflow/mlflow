@@ -1,0 +1,159 @@
+// Proto definition for MLflow issue detection support.
+// Issues represent quality or operational problems discovered in traces.
+syntax = "proto2";
+
+package mlflow.issues;
+
+import "databricks.proto";
+
+option java_package = "org.mlflow.api.proto";
+option py_generic_services = true;
+
+// Represents a quality or operational problem discovered in traces.
+message Issue {
+  // Unique identifier for the issue.
+  optional string issue_id = 1;
+
+  // Experiment ID.
+  optional string experiment_id = 2 [(validate_required) = true];
+
+  // MLflow run ID that discovered this issue.
+  optional string run_id = 3;
+
+  // Short descriptive name for the issue.
+  optional string name = 4 [(validate_required) = true];
+
+  // Detailed description of the issue.
+  optional string description = 5 [(validate_required) = true];
+
+  // Analysis of the root cause of the issue.
+  optional string root_cause = 6;
+
+  // Issue status.
+  optional string status = 7 [(validate_required) = true];
+
+  // Frequency score indicating how often this issue occurs.
+  optional double frequency = 8 [(validate_required) = true];
+
+  // Confidence level indicator.
+  optional string confidence = 9;
+
+  // List of rationale strings providing examples of the issue.
+  optional string rationale_examples = 10;
+
+  // List of example trace IDs.
+  optional string example_trace_ids = 11;
+
+  // List of trace IDs associated with this issue.
+  repeated string trace_ids = 12;
+
+  // Creation timestamp in milliseconds.
+  optional int64 created_timestamp = 13 [(validate_required) = true];
+
+  // Last update timestamp in milliseconds.
+  optional int64 last_updated_timestamp = 14 [(validate_required) = true];
+
+  // Identifier for who created this issue.
+  optional string created_by = 15;
+}
+
+// Request to create a new issue.
+message CreateIssue {
+  // Short descriptive name for the issue.
+  optional string name = 1 [(validate_required) = true];
+
+  // Detailed description of the issue.
+  optional string description = 2 [(validate_required) = true];
+
+  // Frequency score (0.0 to 1.0) indicating how often this issue occurs.
+  optional double frequency = 3 [(validate_required) = true];
+
+  // Experiment ID.
+  optional string experiment_id = 4 [(validate_required) = true];
+
+  // Issue status, e.g. "draft".
+  optional string status = 5;
+
+  // MLflow run ID that discovered this issue.
+  optional string run_id = 6;
+
+  // Analysis of the root cause of the issue.
+  optional string root_cause = 7;
+
+  // Confidence level indicator.
+  optional string confidence = 8;
+
+  // List of rationale strings providing examples of the issue.
+  optional string rationale_examples = 9;
+
+  // List of example trace IDs.
+  optional string example_trace_ids = 10;
+
+  // Identifier for who created this issue.
+  optional string created_by = 11;
+
+  message Response {
+    // The created issue.
+    optional Issue issue = 1;
+  }
+}
+
+// Request to update an existing issue.
+message UpdateIssue {
+  // Issue ID to update.
+  optional string issue_id = 1 [(validate_required) = true];
+
+  // Issue status to update.
+  optional string status = 2;
+
+  // Short descriptive name for the issue.
+  optional string name = 3;
+
+  // Detailed description of the issue.
+  optional string description = 4;
+
+  message Response {
+    // The updated issue.
+    optional Issue issue = 1;
+  }
+}
+
+// Request to get an issue by ID.
+message GetIssue {
+  // Issue ID to fetch.
+  optional string issue_id = 1 [(validate_required) = true];
+
+  message Response {
+    // The issue.
+    optional Issue issue = 1;
+  }
+}
+
+// Request to search issues.
+message SearchIssues {
+  // Filter by experiment ID.
+  optional string experiment_id = 1;
+
+  // Filter by run ID.
+  optional string run_id = 2;
+
+  // Filter by status.
+  optional string status = 3;
+
+  // Filter string for advanced filtering.
+  optional string filter_string = 4;
+
+  // Maximum number of results to return.
+  optional int32 max_results = 5;
+
+  // Page token for pagination.
+  optional string page_token = 6;
+
+  message Response {
+    // List of issues.
+    repeated Issue issues = 1;
+
+    // Token for next page.
+    optional string next_page_token = 2;
+  }
+}
