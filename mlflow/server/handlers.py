@@ -5081,18 +5081,46 @@ def _create_budget_policy():
     request_message = _get_request_message(
         CreateGatewayBudgetPolicy(),
         schema={
+            "budget_unit": [_assert_required],
             "budget_amount": [_assert_required],
+            "duration_unit": [_assert_required],
             "duration_value": [_assert_required],
+            "target_scope": [_assert_required],
+            "budget_action": [_assert_required],
             "created_by": [_assert_string],
         },
     )
+    budget_unit = BudgetUnit.from_proto(request_message.budget_unit)
+    if budget_unit is None:
+        raise MlflowException(
+            message=f"Invalid budget_unit: {request_message.budget_unit}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    duration_unit = BudgetDurationUnit.from_proto(request_message.duration_unit)
+    if duration_unit is None:
+        raise MlflowException(
+            message=f"Invalid duration_unit: {request_message.duration_unit}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
+    if target_scope is None:
+        raise MlflowException(
+            message=f"Invalid target_scope: {request_message.target_scope}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    budget_action = BudgetAction.from_proto(request_message.budget_action)
+    if budget_action is None:
+        raise MlflowException(
+            message=f"Invalid budget_action: {request_message.budget_action}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     policy = _get_tracking_store().create_budget_policy(
-        budget_unit=BudgetUnit.from_proto(request_message.budget_unit),
+        budget_unit=budget_unit,
         budget_amount=request_message.budget_amount,
-        duration_unit=BudgetDurationUnit.from_proto(request_message.duration_unit),
+        duration_unit=duration_unit,
         duration_value=request_message.duration_value,
-        target_scope=BudgetTargetScope.from_proto(request_message.target_scope),
-        budget_action=BudgetAction.from_proto(request_message.budget_action),
+        target_scope=target_scope,
+        budget_action=budget_action,
         created_by=request_message.created_by or None,
     )
     response_message = CreateGatewayBudgetPolicy.Response()
@@ -5127,26 +5155,50 @@ def _update_budget_policy():
             "updated_by": [_assert_string],
         },
     )
+    budget_unit = None
+    if request_message.HasField("budget_unit"):
+        budget_unit = BudgetUnit.from_proto(request_message.budget_unit)
+        if budget_unit is None:
+            raise MlflowException(
+                message=f"Invalid budget_unit: {request_message.budget_unit}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    duration_unit = None
+    if request_message.HasField("duration_unit"):
+        duration_unit = BudgetDurationUnit.from_proto(request_message.duration_unit)
+        if duration_unit is None:
+            raise MlflowException(
+                message=f"Invalid duration_unit: {request_message.duration_unit}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    target_scope = None
+    if request_message.HasField("target_scope"):
+        target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
+        if target_scope is None:
+            raise MlflowException(
+                message=f"Invalid target_scope: {request_message.target_scope}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    budget_action = None
+    if request_message.HasField("budget_action"):
+        budget_action = BudgetAction.from_proto(request_message.budget_action)
+        if budget_action is None:
+            raise MlflowException(
+                message=f"Invalid budget_action: {request_message.budget_action}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
     policy = _get_tracking_store().update_budget_policy(
         budget_policy_id=request_message.budget_policy_id,
-        budget_unit=BudgetUnit.from_proto(request_message.budget_unit)
-        if request_message.HasField("budget_unit")
-        else None,
+        budget_unit=budget_unit,
         budget_amount=request_message.budget_amount
         if request_message.HasField("budget_amount")
         else None,
-        duration_unit=BudgetDurationUnit.from_proto(request_message.duration_unit)
-        if request_message.HasField("duration_unit")
-        else None,
+        duration_unit=duration_unit,
         duration_value=request_message.duration_value
         if request_message.HasField("duration_value")
         else None,
-        target_scope=BudgetTargetScope.from_proto(request_message.target_scope)
-        if request_message.HasField("target_scope")
-        else None,
-        budget_action=BudgetAction.from_proto(request_message.budget_action)
-        if request_message.HasField("budget_action")
-        else None,
+        target_scope=target_scope,
+        budget_action=budget_action,
         updated_by=request_message.updated_by or None,
     )
     response_message = UpdateGatewayBudgetPolicy.Response()
