@@ -568,6 +568,7 @@ def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore)
     assert experiment.name == "gateway/auto-exp-endpoint"
     assert experiment.tags.get("mlflow.experiment.sourceType") == "GATEWAY"
     assert experiment.tags.get("mlflow.experiment.sourceId") == endpoint.endpoint_id
+    assert experiment.tags.get("mlflow.experiment.isGateway") == "true"
 
 
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):
