@@ -170,11 +170,11 @@ When set to `false`, loading a model that was saved with `pickle` or `cloudpickl
 
 ## Summary
 
-| Flavor              | Pickle-free option             | Notes                                                         | Impact when becoming default                                                  |
-| ------------------- | ------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Scikit-learn        | `serialization_format="skops"` | Use `skops_trusted_types` when needed.                        | No impact — transparent upgrade for most models.                              |
+| Flavor              | Pickle-free option             | Notes                                                         | Impact when becoming default                                                                       |
+| ------------------- | ------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Scikit-learn        | `serialization_format="skops"` | Use `skops_trusted_types` when needed.                        | No impact — transparent upgrade for most models.                                                   |
 | PyTorch             | `serialization_format="pt2"`   | Requires `input_example`, torch >= 2.4; not for ScriptModule. | **Breaking change** — `input_example` will be required; `torch.jit.ScriptModule` is not supported. |
-| DSPy                | `use_dspy_model_save=True`     | Requires dspy > 3.1.0.                                        | Requires upgrading to dspy > 3.1.0.                                           |
-| LightGBM            | `serialization_format="skops"` | Only for lightGBM models of sklearn type.                     | No impact — transparent upgrade for sklearn-type LightGBM models.             |
-| LangChain           | Models From Code               | Pickle saving emits warnings.                                 | No impact.                                                                    |
-| Custom Python model | Models From Code               | Pickle saving emits warnings.                                 | No impact.                                                                    |
+| DSPy                | `use_dspy_model_save=True`     | Requires dspy > 3.1.0.                                        | Requires upgrading to dspy > 3.1.0.                                                                |
+| LightGBM            | `serialization_format="skops"` | Only for lightGBM models of sklearn type.                     | No impact — transparent upgrade for sklearn-type LightGBM models.                                  |
+| LangChain           | Models From Code               | Pickle saving emits warnings.                                 | No impact.                                                                                         |
+| Custom Python model | Models From Code               | Pickle saving emits warnings.                                 | No impact.                                                                                         |
