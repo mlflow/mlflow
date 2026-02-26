@@ -1101,10 +1101,11 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     currentUIState.compareRunCharts = undefined;
     currentUIState.compareRunSections = undefined;
 
-    // Render a component with a group and a run:
+    // Render a component with a group, a remaining runs group header, and its member run:
     // - a group contains aggregated "metric_1" data indicating history
     // - a group contains aggregated "metric_2" data not indicating any history
-    // - a run contains "metric_3" data indicating history
+    // - a remaining runs group header contains aggregated "metric_3" data indicating history
+    // - a run (belonging to the remaining group) contains "metric_3" data indicating history
     createComponentMock({
       groupBy: 'metric_1',
       comparedRuns: [
@@ -1123,6 +1124,23 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
                 key: 'metric_2',
                 value: 123,
                 maxStep: 0,
+              },
+            },
+          },
+        },
+        {
+          runUuid: '',
+          rowUuid: 'remaining_group',
+          groupParentInfo: {
+            groupId: 'remaining_group',
+            groupingValues: [],
+            isRemainingRunsGroup: true,
+            runUuids: ['run_1'],
+            aggregatedMetricData: {
+              metric_3: {
+                key: 'metric_3',
+                value: 1,
+                maxStep: 3,
               },
             },
           },
