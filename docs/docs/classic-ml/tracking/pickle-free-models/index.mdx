@@ -9,6 +9,10 @@ import { APILink } from "@site/src/components/APILink";
 
 Saving models with Python's `pickle` or `cloudpickle` relies on Python's object serialization mechanism, which can execute arbitrary code during deserialization. MLflow supports safer **pickle-free** saving formats for several model flavors. Prefer these formats when possible.
 
+:::warning Upcoming Default Behavior Change
+Pickle-free saving formats will become the **default** in an upcoming MLflow release. We strongly recommend adopting these formats now to ensure a smooth transition.
+:::
+
 ## Pickle-free format for Scikit-learn model
 
 When saving a scikit-learn model, set the parameter `serialization_format="skops"` to use the **skops** format for safe deserialization of scikit-learn models. The `skops` format does not rely on Python's pickle and avoids arbitrary code execution when loading.
