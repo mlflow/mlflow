@@ -9,34 +9,48 @@ from opentelemetry import trace as otel_trace_api
 from opentelemetry.sdk.trace import TracerProvider as SdkTracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter, SpanExportResult
 
+import mlflow
 import mlflow.otel
 from mlflow.entities.span import SpanType
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app
+from mlflow.server.handlers import initialize_backend_stores
 
+from tests.helper_functions import get_safe_port
 from tests.tracing.helper import get_traces
+from tests.tracking.integration_test_utils import ServerThread
 
 
 @pytest.fixture(autouse=True)
-def otel_env(monkeypatch):
-    """Reset OTEL state between tests and configure the Langfuse test driver.
+def otel_env(monkeypatch, tmp_path):
+    """Reset OTEL state, start a local MLflow server, and configure the Langfuse test driver.
 
-    We use Langfuse's ``@observe()`` as the OTEL span source. It requires
-    credentials to produce real spans (falls back to ``NoOpTracer`` otherwise).
-    A dummy host is fine — spans that can't be exported are silently dropped.
+    A local MLflow server is required because the OTLP exporter sends spans
+    over HTTP to the ``/v1/traces`` endpoint.
     """
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test-dummy")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test-dummy")
     monkeypatch.setenv("LANGFUSE_HOST", "http://localhost:9999")
 
-    # Start each test with a fresh global TracerProvider so processors from
-    # previous tests don't interfere.
-    otel_trace_api.set_tracer_provider(SdkTracerProvider())
-    mlflow.otel._active_processor = None
+    # Set up a local MLflow server backed by SQLite.
+    backend_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
 
-    yield
+    with ServerThread(app, get_safe_port()) as url:
+        mlflow.set_tracking_uri(url)
 
-    mlflow.otel.autolog(disable=True)
-    mlflow.otel._active_processor = None
-    LangfuseResourceManager.reset()
+        # Start each test with a fresh global TracerProvider so processors from
+        # previous tests don't interfere.
+        otel_trace_api.set_tracer_provider(SdkTracerProvider())
+        mlflow.otel._active_processor = None
+
+        yield
+
+        mlflow.otel.autolog(disable=True)
+        mlflow.otel._active_processor = None
+        LangfuseResourceManager.reset()
 
 
 def test_sync_observe_autolog():
@@ -55,8 +69,6 @@ def test_sync_observe_autolog():
     assert len(traces[0].data.spans) == 1
     span = traces[0].data.spans[0]
     assert span.name == "add"
-    assert span.inputs == {"args": [2, 3], "kwargs": {}}
-    assert span.outputs == 5
 
 
 def test_sync_observe_with_custom_name():

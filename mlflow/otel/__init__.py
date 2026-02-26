@@ -3,7 +3,7 @@ The ``mlflow.otel`` module provides generic OTEL-to-MLflow span forwarding.
 
 When enabled, every span produced by any OpenTelemetry-instrumented library
 (e.g. Langfuse, OpenInference / Arize Phoenix) is automatically forwarded
-to the MLflow backend.
+to the MLflow backend via the OTLP endpoint.
 
 .. code-block:: python
 
@@ -18,20 +18,16 @@ import logging
 
 from opentelemetry import trace as otel_trace_api
 from opentelemetry.context import Context
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace import TracerProvider as SdkTracerProvider
-from opentelemetry.sdk.trace.export import (
-    BatchSpanProcessor,
-    SimpleSpanProcessor,
-    SpanExporter,
-    SpanExportResult,
-)
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 
 import mlflow
-from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
-from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
+from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
+from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.safety import _AUTOLOGGING_CLEANUP_CALLBACKS
 
@@ -40,58 +36,37 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "otel"
 
 # Keep a reference so we can disable/re-enable it.
-_active_processor: "_OtelAutologProcessor | None" = None
+_active_processor: "_ToggleableSpanProcessor | None" = None
 
 
-class _NoOpExporter(SpanExporter):
-    """Exporter that discards all spans. Used as a placeholder for lifecycle-only processors."""
+class _ToggleableSpanProcessor(SpanProcessor):
+    """A span processor that can be enabled/disabled at runtime.
 
-    def export(self, spans):
-        return SpanExportResult.SUCCESS
-
-
-class _OtelAutologProcessor(SpanProcessor):
-    """A span processor that separates trace lifecycle from export strategy.
-
-    Uses composition with two internal processors:
-    - ``_lifecycle``: a ``MlflowV3SpanProcessor`` (with no-op exporter) that handles
-      trace/span registration in ``InMemoryTraceManager`` and metadata resolution.
-    - ``_delegate``: a ``SimpleSpanProcessor`` or ``BatchSpanProcessor`` that handles
-      the actual export to the MLflow backend.
-
-    This separation allows choosing between synchronous and batched export
-    without duplicating lifecycle management code.
+    Wraps a standard OTEL ``SpanProcessor`` (Simple or Batch).  Since there
+    is no public API to *remove* a processor from a TracerProvider, we gate
+    on_start/on_end behind a flag so that disabling autolog truly stops
+    span processing.
     """
 
-    def __init__(self, exporter: SpanExporter, batch: bool = False):
-        self._lifecycle = MlflowV3SpanProcessor(span_exporter=_NoOpExporter(), export_metrics=False)
-        if batch:
-            self._delegate = BatchSpanProcessor(exporter)
-        else:
-            self._delegate = SimpleSpanProcessor(exporter)
+    def __init__(self, inner: SpanProcessor):
+        self._inner = inner
         self._enabled = True
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         if not self._enabled:
             return
-        self._lifecycle.on_start(span, parent_context)
-        self._delegate.on_start(span, parent_context)
+        self._inner.on_start(span, parent_context)
 
     def on_end(self, span: OTelReadableSpan) -> None:
         if not self._enabled:
             return
-        # Lifecycle: update trace state in InMemoryTraceManager (no export).
-        self._lifecycle.finalize_span(span)
-        # Export: delegate to Simple or BatchSpanProcessor.
-        self._delegate.on_end(span)
+        self._inner.on_end(span)
 
     def shutdown(self) -> None:
-        self._lifecycle.shutdown()
-        self._delegate.shutdown()
+        self._inner.shutdown()
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
-        self._lifecycle.force_flush(timeout_millis)
-        return self._delegate.force_flush(timeout_millis)
+        return self._inner.force_flush(timeout_millis)
 
     def enable(self):
         self._enabled = True
@@ -102,6 +77,9 @@ class _OtelAutologProcessor(SpanProcessor):
 
 def setup_otel_processor(flavor_name: str, batch: bool = False) -> None:
     """Register an MLflow span processor on the global OTEL TracerProvider.
+
+    Spans are exported to the MLflow backend via the OTLP endpoint. The
+    server handles trace creation and attribute translation automatically.
 
     Args:
         flavor_name: Integration name used for cleanup callback registration
@@ -134,9 +112,17 @@ def setup_otel_processor(flavor_name: str, batch: bool = False) -> None:
         )
         return
 
-    tracking_uri = mlflow.get_tracking_uri()
-    exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-    processor = _OtelAutologProcessor(exporter=exporter, batch=batch)
+    tracking_uri = mlflow.get_tracking_uri().rstrip("/")
+    endpoint = f"{tracking_uri}{OTLP_TRACES_PATH}"
+    experiment_id = _get_experiment_id()
+
+    exporter = OTLPSpanExporter(
+        endpoint=endpoint,
+        headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id},
+    )
+
+    inner = BatchSpanProcessor(exporter) if batch else SimpleSpanProcessor(exporter)
+    processor = _ToggleableSpanProcessor(inner)
     provider.add_span_processor(processor)
 
     _active_processor = processor
@@ -148,8 +134,10 @@ def setup_otel_processor(flavor_name: str, batch: bool = False) -> None:
     _AUTOLOGGING_CLEANUP_CALLBACKS.setdefault(flavor_name, []).append(teardown_otel_processor)
 
     _logger.debug(
-        "Registered MLflow span processor on global TracerProvider (tracking_uri=%s, batch=%s).",
-        tracking_uri,
+        "Registered MLflow span processor on global TracerProvider "
+        "(endpoint=%s, experiment_id=%s, batch=%s).",
+        endpoint,
+        experiment_id,
         batch,
     )
 
