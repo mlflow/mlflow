@@ -283,7 +283,7 @@ export interface ListUsersResponse {
 // Budget Policy types
 export type BudgetUnit = 'USD';
 export type DurationUnit = 'MINUTES' | 'HOURS' | 'DAYS' | 'MONTHS';
-export type TargetType = 'GLOBAL' | 'WORKSPACE';
+export type TargetScope = 'GLOBAL' | 'WORKSPACE';
 export type BudgetAction = 'ALERT' | 'REJECT';
 
 export interface BudgetPolicy {
@@ -292,7 +292,7 @@ export interface BudgetPolicy {
   budget_amount: number;
   duration_unit: DurationUnit;
   duration_value: number;
-  target_type: TargetType;
+  target_scope: TargetScope;
   budget_action: BudgetAction;
   created_at: number;
   last_updated_at: number;
@@ -306,7 +306,7 @@ export interface CreateBudgetPolicyRequest {
   budget_amount: number;
   duration_unit: DurationUnit;
   duration_value: number;
-  target_type: TargetType;
+  target_scope: TargetScope;
   budget_action: BudgetAction;
 }
 
@@ -324,7 +324,7 @@ export interface UpdateBudgetPolicyRequest {
   budget_amount?: number;
   duration_unit?: DurationUnit;
   duration_value?: number;
-  target_type?: TargetType;
+  target_scope?: TargetScope;
   budget_action?: BudgetAction;
 }
 
