@@ -1,5 +1,8 @@
 import warnings
 
+from mlflow.tracking.request_auth.kubernetes_request_auth_provider import (
+    KubernetesRequestAuthProvider,
+)
 from mlflow.utils.plugins import get_entry_points
 
 REQUEST_AUTH_PROVIDER_ENTRYPOINT = "mlflow.request_auth_provider"
@@ -29,6 +32,7 @@ class RequestAuthProviderRegistry:
 
 
 _request_auth_provider_registry = RequestAuthProviderRegistry()
+_request_auth_provider_registry.register(KubernetesRequestAuthProvider)
 _request_auth_provider_registry.register_entrypoints()
 
 

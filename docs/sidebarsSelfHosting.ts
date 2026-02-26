@@ -89,6 +89,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
           id: 'security/custom',
           label: 'Custom Authentication',
         },
+        {
+          type: 'doc',
+          id: 'security/kubernetes',
+          label: 'Kubernetes Authentication',
+        },
       ],
     },
     {
