@@ -71,7 +71,11 @@ from mlflow.utils.crypto import (
     _encrypt_secret,
     _mask_secret_value,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID, MLFLOW_EXPERIMENT_SOURCE_TYPE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_IS_GATEWAY,
+    MLFLOW_EXPERIMENT_SOURCE_ID,
+    MLFLOW_EXPERIMENT_SOURCE_TYPE,
+)
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.time import get_current_time_millis
 
@@ -626,6 +630,7 @@ class SqlAlchemyGatewayStoreMixin:
                     tags=[
                         ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
                         ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                        ExperimentTag(MLFLOW_EXPERIMENT_IS_GATEWAY, "true"),
                     ],
                 )
 
@@ -764,6 +769,7 @@ class SqlAlchemyGatewayStoreMixin:
                     tags=[
                         ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
                         ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                        ExperimentTag(MLFLOW_EXPERIMENT_IS_GATEWAY, "true"),
                     ],
                 )
 
