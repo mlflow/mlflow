@@ -75,7 +75,7 @@ class BudgetTracker(ABC):
         """
 
     @abstractmethod
-    def is_budget_exceeded(
+    def should_reject_request(
         self,
         workspace: str | None = None,
     ) -> tuple[bool, GatewayBudgetPolicy | None]:
@@ -267,16 +267,13 @@ class InMemoryBudgetTracker(BudgetTracker):
 
                 window.cumulative_spend += cost_usd
 
-                if (
-                    not window.crossed
-                    and window.cumulative_spend >= window.policy.budget_amount
-                ):
+                if not window.crossed and window.cumulative_spend >= window.policy.budget_amount:
                     window.crossed = True
                     newly_crossed.append(window)
 
         return newly_crossed
 
-    def is_budget_exceeded(
+    def should_reject_request(
         self,
         workspace: str | None = None,
     ) -> tuple[bool, GatewayBudgetPolicy | None]:
