@@ -18,6 +18,7 @@ const MLFLOW_EXPERIMENT_TYPE = 'MLFLOW_EXPERIMENT';
 const EXPERIMENT_TYPE_TAG = 'mlflow.experimentType';
 export const EXPERIMENT_SOURCE_TYPE_TAG = 'mlflow.experiment.sourceType';
 const EXPERIMENT_SOURCE_ID_TAG = 'mlflow.experiment.sourceId';
+export const EXPERIMENT_IS_GATEWAY_TAG = 'mlflow.experiment.isGateway';
 
 export enum ExperimentSourceType {
   REPO_NOTEBOOK = 'REPO_NOTEBOOK',

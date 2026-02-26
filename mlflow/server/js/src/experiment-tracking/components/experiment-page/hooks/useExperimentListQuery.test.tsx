@@ -403,7 +403,7 @@ describe('useExperimentListQuery', () => {
       const filterParam = apiCallData.find((param: [string, string]) => param?.[0] === 'filter');
 
       expect(filterParam).toBeDefined();
-      expect(filterParam?.[1]).toContain("tags.`mlflow.experiment.sourceType` != 'GATEWAY'");
+      expect(filterParam?.[1]).toContain('tags.`mlflow.experiment.isGateway` IS NULL');
     });
   });
 });

@@ -8,7 +8,7 @@ import type { CursorPaginationProps } from '@databricks/design-system';
 import type { SortingState } from '@tanstack/react-table';
 import type { TagFilter } from './useTagsFilter';
 import { isDemoExperiment } from '../../../utils/isDemoExperiment';
-import { EXPERIMENT_SOURCE_TYPE_TAG, ExperimentSourceType } from '../utils/experimentPage.common-utils';
+import { EXPERIMENT_IS_GATEWAY_TAG } from '../utils/experimentPage.common-utils';
 
 const STORE_KEY = {
   PAGE_SIZE: 'experiments_page.page_size',
@@ -53,7 +53,7 @@ function getFilters({ searchFilter, tagsFilter }: Pick<ExperimentListQueryKey['1
   }
 
   // Exclude gateway experiments server-side to ensure consistent page sizes
-  filters.push(`tags.\`${EXPERIMENT_SOURCE_TYPE_TAG}\` != '${ExperimentSourceType.GATEWAY}'`);
+  filters.push(`tags.\`${EXPERIMENT_IS_GATEWAY_TAG}\` IS NULL`);
 
   return ['filter', filters.join(' AND ')];
 }
