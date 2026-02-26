@@ -18,7 +18,7 @@ from mlflow.entities.assessment import (
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
+from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation, UnityCatalog
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -30,14 +30,20 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND
 from mlflow.protos.databricks_tracing_pb2 import (
     BatchGetTraces,
+    CreateLocation,
     CreateTraceUCStorageLocation,
     DeleteTraceTag,
+    GetLocation,
     GetTraceInfo,
     LinkExperimentToUCTraceLocation,
+    LinkTraceLocation,
     SetTraceTag,
     UnLinkExperimentToUCTraceLocation,
 )
 from mlflow.protos.databricks_tracing_pb2 import UCSchemaLocation as ProtoUCSchemaLocation
+from mlflow.protos.databricks_tracing_pb2 import (
+    UcTablePrefixLocation as ProtoUcTablePrefixLocation,
+)
 from mlflow.protos.service_pb2 import DeleteTraceTag as DeleteTraceTagV3
 from mlflow.protos.service_pb2 import GetTraceInfoV3, StartTraceV3
 from mlflow.protos.service_pb2 import SetTraceTag as SetTraceTagV3
@@ -749,7 +755,79 @@ def test_search_traces_with_invalid_location():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     with pytest.raises(MlflowException, match="Invalid location type:"):
-        store.search_traces(locations=["catalog.schema.table_name"])
+        store.search_traces(locations=["catalog.schema.prefix.extra"])
+
+
+def test_get_trace_location_v5():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response_proto = GetLocation.Response(
+        uc_table_prefix=ProtoUcTablePrefixLocation(
+            catalog_name="catalog",
+            schema_name="schema",
+            table_prefix="prefix",
+        ),
+    )
+    with mock.patch.object(store, "_call_endpoint", return_value=response_proto) as mock_call:
+        location = store.get_trace_location("loc-123")
+
+    call_args = mock_call.call_args
+    assert call_args[0][0] == GetLocation
+    assert call_args[1]["endpoint"] == "/api/5.0/mlflow/tracing/locations/loc-123"
+    assert location.catalog_name == "catalog"
+    assert location.schema_name == "schema"
+    assert location.table_prefix == "prefix"
+
+
+def test_create_or_get_trace_location_v5_with_table_prefix(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "warehouse-1")
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response_proto = CreateLocation.Response(
+        uc_table_prefix=ProtoUcTablePrefixLocation(
+            catalog_name="catalog",
+            schema_name="schema",
+            table_prefix="prefix",
+        ),
+    )
+    with mock.patch.object(store, "_call_endpoint", return_value=response_proto) as mock_call:
+        location = store.create_or_get_trace_location(
+            UnityCatalog(catalog_name="catalog", schema_name="schema", table_prefix="prefix")
+        )
+
+    call_args = mock_call.call_args
+    assert call_args[0][0] == CreateLocation
+    assert call_args[1]["endpoint"] == "/api/5.0/mlflow/tracing/locations"
+    request_payload = json.loads(call_args[0][1])
+    assert request_payload["sql_warehouse_id"] == "warehouse-1"
+    assert request_payload["uc_table_prefix"]["catalog_name"] == "catalog"
+    assert request_payload["uc_table_prefix"]["schema_name"] == "schema"
+    assert request_payload["uc_table_prefix"]["table_prefix"] == "prefix"
+    assert location.catalog_name == "catalog"
+    assert location.schema_name == "schema"
+    assert location.table_prefix == "prefix"
+
+
+def test_link_trace_location_v5_with_table_prefix():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response_proto = LinkTraceLocation.Response()
+    with mock.patch.object(store, "_call_endpoint", return_value=response_proto) as mock_call:
+        store.link_trace_location(
+            experiment_id="exp-123",
+            location=UnityCatalog(
+                catalog_name="catalog", schema_name="schema", table_prefix="prefix"
+            ),
+        )
+
+    call_args = mock_call.call_args
+    assert call_args[0][0] == LinkTraceLocation
+    assert call_args[1]["endpoint"] == "/api/5.0/mlflow/experiments/exp-123/trace-location:link"
+    request_payload = json.loads(call_args[0][1])
+    assert request_payload["experiment_id"] == "exp-123"
+    assert request_payload["uc_table_prefix"]["catalog_name"] == "catalog"
+    assert request_payload["uc_table_prefix"]["schema_name"] == "schema"
+    assert request_payload["uc_table_prefix"]["table_prefix"] == "prefix"
 
 
 def test_search_unified_traces(monkeypatch):

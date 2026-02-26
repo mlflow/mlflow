@@ -10,7 +10,12 @@ from pydantic import BaseModel
 
 from mlflow.entities import Assessment, Span, Trace, TraceInfo, TraceLocation
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
-from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
+from mlflow.entities.trace_location import (
+    UCSchemaLocation as UCSchemaLocationEntity,
+)
+from mlflow.entities.trace_location import (
+    UnityCatalog as UnityCatalogEntity,
+)
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
@@ -30,14 +35,17 @@ from mlflow.protos.databricks_tracing_pb2 import (
     BatchLinkTraceToRun,
     BatchUnlinkTraceFromRun,
     CreateAssessment,
+    CreateLocation,
     CreateTraceInfo,
     CreateTraceUCStorageLocation,
     DatabricksTrackingService,
     DeleteAssessment,
     DeleteTraceTag,
     GetAssessment,
+    GetLocation,
     GetTraceInfo,
     LinkExperimentToUCTraceLocation,
+    LinkTraceLocation,
     SearchTraces,
     SetTraceTag,
     UnLinkExperimentToUCTraceLocation,
@@ -52,10 +60,13 @@ from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, resource_to_otel_proto
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
+    parse_uc_location,
     trace_from_proto,
     trace_location_to_proto,
     uc_schema_location_from_proto,
     uc_schema_location_to_proto,
+    uc_table_prefix_location_from_proto,
+    uc_table_prefix_location_to_proto,
 )
 from mlflow.utils.databricks_utils import get_databricks_workspace_client_config
 from mlflow.utils.proto_json_utils import message_to_json
@@ -71,6 +82,7 @@ from mlflow.utils.rest_utils import (
 )
 
 DATABRICKS_UC_TABLE_HEADER = "X-Databricks-UC-Table-Name"
+_V5_TRACE_LOCATION_ENDPOINT = "/api/5.0/mlflow/tracing/locations"
 
 _logger = logging.getLogger(__name__)
 
@@ -177,6 +189,56 @@ class DatabricksTracingRestStore(RestStore):
                 ) from e
             raise
 
+    def get_trace_location(self, telemetry_profile_id: str) -> UnityCatalogEntity:
+        req_body = message_to_json(GetLocation(location_id=telemetry_profile_id))
+        response_proto = self._call_endpoint(
+            GetLocation,
+            req_body,
+            endpoint=f"{_V5_TRACE_LOCATION_ENDPOINT}/{telemetry_profile_id}",
+            response_proto=GetLocation.Response(),
+        )
+        if response_proto.HasField("uc_table_prefix"):
+            return uc_table_prefix_location_from_proto(response_proto.uc_table_prefix)
+        raise MlflowException("GetLocation response did not include uc_table_prefix.")
+
+    def create_or_get_trace_location(
+        self,
+        location: UnityCatalogEntity,
+        sql_warehouse_id: str | None = None,
+    ) -> UnityCatalogEntity:
+        request_proto = CreateLocation(
+            uc_table_prefix=uc_table_prefix_location_to_proto(location),
+            sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+        )
+        req_body = message_to_json(request_proto)
+        response_proto = self._call_endpoint(
+            CreateLocation,
+            req_body,
+            endpoint=_V5_TRACE_LOCATION_ENDPOINT,
+            response_proto=CreateLocation.Response(),
+        )
+        if response_proto.HasField("uc_table_prefix"):
+            return uc_table_prefix_location_from_proto(response_proto.uc_table_prefix)
+        raise MlflowException("CreateLocation response did not include uc_table_prefix.")
+
+    def link_trace_location(
+        self,
+        experiment_id: str,
+        location: UnityCatalogEntity,
+    ) -> None:
+        request_proto = LinkTraceLocation(
+            experiment_id=experiment_id,
+            uc_table_prefix=uc_table_prefix_location_to_proto(location),
+        )
+        req_body = message_to_json(request_proto)
+        self._call_endpoint(
+            LinkTraceLocation,
+            req_body,
+            endpoint=f"/api/5.0/mlflow/experiments/{experiment_id}/trace-location:link",
+            response_proto=LinkTraceLocation.Response(),
+        )
+        _logger.debug(f"Linked experiment {experiment_id} to trace location: {location}")
+
     def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
         Create a new trace using the V4 API format.
@@ -223,7 +285,8 @@ class DatabricksTracingRestStore(RestStore):
 
         Args:
             trace_ids: List of trace IDs to fetch.
-            location: Location of the trace. For example, "catalog.schema" for UC schema.
+            location: Location of the trace. For example, "catalog.schema" or
+                "catalog.schema.table_prefix" for UC schema destinations.
 
         Returns:
             List of Trace objects.
@@ -367,10 +430,19 @@ class DatabricksTracingRestStore(RestStore):
                         )
                     )
                     contain_uc_schemas = True
+                case [catalog, schema, table_prefix]:
+                    trace_locations.append(
+                        trace_location_to_proto(
+                            TraceLocation.from_databricks_uc_table_prefix(
+                                catalog, schema, table_prefix
+                            )
+                        )
+                    )
+                    contain_uc_schemas = True
                 case _:
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid location type: {location}. Expected type: "
-                        "`<catalog_name>.<schema_name>` or `<experiment_id>`."
+                        "`<catalog_name>.<schema_name>[.<table_prefix>]` or `<experiment_id>`."
                     )
 
         request = SearchTraces(
@@ -628,10 +700,14 @@ class DatabricksTracingRestStore(RestStore):
         if location is not None:
             assessment = UpdateAssessment().assessment
             assessment.assessment_id = assessment_id
-            catalog, schema = location.split(".")
-            assessment.trace_location.CopyFrom(
-                trace_location_to_proto(TraceLocation.from_databricks_uc_schema(catalog, schema)),
-            )
+            catalog, schema, table_prefix = parse_uc_location(location)
+            if table_prefix:
+                trace_loc = TraceLocation.from_databricks_uc_table_prefix(
+                    catalog, schema, table_prefix
+                )
+            else:
+                trace_loc = TraceLocation.from_databricks_uc_schema(catalog, schema)
+            assessment.trace_location.CopyFrom(trace_location_to_proto(trace_loc))
             assessment.trace_id = parsed_trace_id
             # Field mask specifies which fields to update.
             mask = UpdateAssessment().update_mask
@@ -715,7 +791,8 @@ class DatabricksTracingRestStore(RestStore):
         Returns:
             Dict mapping location to list of trace IDs where:
             - None key: List of V3 trace IDs (without location prefix)
-            - str keys: Location IDs (e.g., "catalog.schema") mapping to OTEL trace IDs
+            - str keys: Location IDs (e.g., "catalog.schema" or
+              "catalog.schema.table_prefix") mapping to OTEL trace IDs
         """
         traces_by_location: dict[str | None, list[str]] = defaultdict(list)
 
@@ -732,7 +809,8 @@ class DatabricksTracingRestStore(RestStore):
         Link multiple traces to a run by creating internal trace-to-run relationships.
 
         Args:
-            location_id: The location ID (e.g., "catalog.schema") for the traces.
+            location_id: The location ID (e.g., "catalog.schema" or
+                "catalog.schema.table_prefix") for the traces.
             otel_trace_ids: List of OTEL trace IDs to link to the run.
             run_id: ID of the run to link traces to.
         """
@@ -756,7 +834,8 @@ class DatabricksTracingRestStore(RestStore):
         Unlink multiple traces from a run by removing the internal trace-to-run relationships.
 
         Args:
-            location_id: The location ID (e.g., "catalog.schema") for the traces.
+            location_id: The location ID (e.g., "catalog.schema" or
+                "catalog.schema.table_prefix") for the traces.
             otel_trace_ids: List of OTEL trace IDs to unlink from the run.
             run_id: ID of the run to unlink traces from.
         """
