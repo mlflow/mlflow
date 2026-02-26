@@ -64,7 +64,7 @@ def _ilike(string, pattern):
     return _convert_like_pattern_to_regex(pattern, flags=re.IGNORECASE).match(string) is not None
 
 
-def _join_in_comparison_tokens(tokens, search_traces=False):
+def _join_in_comparison_tokens(tokens, search_traces=False, search_null_operators=False):
     """
     Find a sequence of tokens that matches the pattern of an IN comparison or a NOT IN comparison,
     join the tokens into a single Comparison token. Otherwise, return the original list of tokens.
@@ -124,9 +124,9 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
             joined_tokens.append(Comparison(TokenList([first, second, third])))
             continue
 
-        # IS NULL (for trace metadata)
+        # IS NULL (for trace metadata / experiment tags)
         if (
-            search_traces
+            (search_traces or search_null_operators)
             and isinstance(first, Identifier)
             and second.match(ttype=TokenType.Keyword, values=["IS"])
             and third.match(ttype=TokenType.Keyword, values=["NULL"])
@@ -136,9 +136,9 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
             )
             continue
 
-        # IS NOT NULL (for trace metadata)
+        # IS NOT NULL (for trace metadata / experiment tags)
         if (
-            search_traces
+            (search_traces or search_null_operators)
             and isinstance(first, Identifier)
             and second.match(ttype=TokenType.Keyword, values=["IS"])
             and third.ttype == TokenType.Keyword
@@ -1035,6 +1035,7 @@ class SearchExperimentsUtils(SearchUtils):
     VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "creation_time", "last_update_time"}
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "experiment_id", "creation_time", "last_update_time"}
     NUMERIC_ATTRIBUTES = {"creation_time", "last_update_time"}
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL"}
 
     @classmethod
     def _invalid_statement_token_search_experiments(cls, token):
@@ -1048,7 +1049,7 @@ class SearchExperimentsUtils(SearchUtils):
 
     @classmethod
     def _process_statement(cls, statement):
-        tokens = _join_in_comparison_tokens(statement.tokens)
+        tokens = _join_in_comparison_tokens(statement.tokens, search_null_operators=True)
         invalids = list(filter(cls._invalid_statement_token_search_experiments, tokens))
         if len(invalids) > 0:
             invalid_clauses = ", ".join(map(str, invalids))
@@ -1083,6 +1084,28 @@ class SearchExperimentsUtils(SearchUtils):
     @classmethod
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+
+        # Handle IS NULL / IS NOT NULL (2 tokens: identifier + comparator, no value)
+        if len(stripped_comparison) == 2:
+            comparator = stripped_comparison[1].value.upper()
+            if comparator in ("IS NULL", "IS NOT NULL"):
+                comp = cls._get_identifier(
+                    stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS
+                )
+                if comp["type"] != cls._TAG_IDENTIFIER:
+                    raise MlflowException.invalid_parameter_value(
+                        f"IS NULL / IS NOT NULL is only supported for tags, "
+                        f"not for attribute '{comp['key']}'"
+                    )
+                comp["comparator"] = comparator
+                comp["value"] = None
+                return comp
+            raise MlflowException(
+                f"Invalid comparison clause. Expected 3 tokens, found 2 with "
+                f"comparator '{comparator}'",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         cls._validate_comparison(stripped_comparison)
         left, comparator, right = stripped_comparison
         comp = cls._get_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
@@ -1120,6 +1143,10 @@ class SearchExperimentsUtils(SearchUtils):
             lhs = getattr(experiment, key)
             value = float(value)
         elif cls.is_tag(key_type, comparator):
+            if comparator == "IS NULL":
+                return key not in experiment.tags
+            elif comparator == "IS NOT NULL":
+                return key in experiment.tags
             if key not in experiment.tags:
                 return False
             lhs = experiment.tags.get(key, None)
