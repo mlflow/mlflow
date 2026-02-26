@@ -8,6 +8,8 @@ from cachetools import TTLCache
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
+import mlflow.store.model_registry.dbmodels.models  # noqa: F401 — register ORM models
+import mlflow.store.tracking.dbmodels.models  # noqa: F401 — register ORM models
 from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.environment_variables import (
     MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY,
@@ -19,16 +21,8 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlWebhook
-from mlflow.store.tracking.dbmodels.models import (
-    SqlEvaluationDataset,
-    SqlExperiment,
-    SqlGatewayBudgetPolicy,
-    SqlGatewayEndpoint,
-    SqlGatewayModelDefinition,
-    SqlGatewaySecret,
-    SqlJob,
-)
+from mlflow.store.db.base_sql_model import Base
+from mlflow.store.db.workspace_isolated_model import WorkspaceIsolatedModel
 from mlflow.store.workspace.abstract_store import AbstractStore, WorkspaceNameValidator
 from mlflow.store.workspace.dbmodels import SqlWorkspace
 from mlflow.utils.uri import extract_db_type_from_uri
@@ -38,21 +32,21 @@ _logger = logging.getLogger(__name__)
 
 _CACHE_MISS = object()
 
-# Root workspace-aware ORM models whose workspace column must be handled before deleting a
-# workspace. SqlRegisteredModel is first because its onupdate="CASCADE" foreign keys
-# automatically propagate the change to model_versions, registered_model_tags,
-# model_version_tags, and registered_model_aliases.
-_WORKSPACE_ROOT_MODELS = [
-    SqlRegisteredModel,
-    SqlExperiment,
-    SqlEvaluationDataset,
-    SqlWebhook,
-    SqlGatewaySecret,
-    SqlGatewayEndpoint,
-    SqlGatewayModelDefinition,
-    SqlGatewayBudgetPolicy,
-    SqlJob,
-]
+
+def _get_workspace_root_models() -> list[type]:
+    """Dynamically discover models with a direct ``workspace`` column.
+
+    Only models that inherit from ``WorkspaceIsolatedModel`` **and** have a
+    ``workspace`` column directly on their table qualify.  Child models (e.g.
+    ``SqlRun``) that rely on a join to their parent's workspace column are
+    excluded because workspace deletion should cascade through the parent.
+    """
+    return [
+        mapper.class_
+        for mapper in Base.registry.mappers
+        if issubclass(mapper.class_, WorkspaceIsolatedModel)
+        and "workspace" in {col.key for col in mapper.columns}
+    ]
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -143,7 +137,7 @@ class SqlAlchemyStore(AbstractStore):
             entity = self._get_workspace(session, workspace_name)
             try:
                 if mode == WorkspaceDeletionMode.RESTRICT:
-                    for model in _WORKSPACE_ROOT_MODELS:
+                    for model in _get_workspace_root_models():
                         count = (
                             session.query(model).filter(model.workspace == workspace_name).count()
                         )
@@ -155,7 +149,7 @@ class SqlAlchemyStore(AbstractStore):
                                 INVALID_STATE,
                             )
                 elif mode == WorkspaceDeletionMode.CASCADE:
-                    for model in _WORKSPACE_ROOT_MODELS:
+                    for model in _get_workspace_root_models():
                         instances = (
                             session.query(model).filter(model.workspace == workspace_name).all()
                         )
@@ -163,7 +157,7 @@ class SqlAlchemyStore(AbstractStore):
                             session.delete(obj)
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
                     self._check_set_default_conflicts(session, workspace_name)
-                    for model in _WORKSPACE_ROOT_MODELS:
+                    for model in _get_workspace_root_models():
                         session.query(model).filter(model.workspace == workspace_name).update(
                             {model.workspace: DEFAULT_WORKSPACE_NAME},
                             synchronize_session=False,
@@ -228,7 +222,7 @@ class SqlAlchemyStore(AbstractStore):
         resources in *workspace_name* to the default workspace.
         """
         conflicts: list[str] = []
-        for model in _WORKSPACE_ROOT_MODELS:
+        for model in _get_workspace_root_models():
             if not hasattr(model, "name"):
                 continue
             overlapping = (

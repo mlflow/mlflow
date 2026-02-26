@@ -1,6 +1,6 @@
 import sqlalchemy as sa
 
-from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
+from mlflow.store.workspace.sqlalchemy_store import _get_workspace_root_models
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 # Derive table names from the shared ORM model list and add child/tags tables that also carry
@@ -14,7 +14,7 @@ _WORKSPACE_CHILD_TABLES = [
 ]
 
 _WORKSPACE_TABLES = [
-    model.__tablename__ for model in _WORKSPACE_ROOT_MODELS
+    model.__tablename__ for model in _get_workspace_root_models()
 ] + _WORKSPACE_CHILD_TABLES
 
 _CONFLICT_SPECS = [

@@ -18,18 +18,13 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.db.workspace_isolated_model import WorkspaceIsolatedModel
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
     SqlEvaluationDataset,
     SqlExperiment,
-    SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
-    SqlGatewayEndpointModelMapping,
-    SqlGatewayModelDefinition,
-    SqlGatewaySecret,
-    SqlLoggedModel,
-    SqlOnlineScoringConfig,
     SqlRun,
     SqlTraceInfo,
 )
@@ -61,53 +56,9 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
     def _get_query(self, session, model):
         query = super()._get_query(session, model)
-        workspace = self._get_active_workspace()
-
-        if model is SqlExperiment:
-            return query.filter(SqlExperiment.workspace == workspace)
-
-        if model is SqlRun:
-            return query.join(
-                SqlExperiment, SqlExperiment.experiment_id == SqlRun.experiment_id
-            ).filter(SqlExperiment.workspace == workspace)
-
-        if model is SqlTraceInfo:
-            return query.join(
-                SqlExperiment, SqlTraceInfo.experiment_id == SqlExperiment.experiment_id
-            ).filter(SqlExperiment.workspace == workspace)
-
-        if model is SqlLoggedModel:
-            workspace_experiment_ids = (
-                session.query(SqlExperiment.experiment_id)
-                .filter(SqlExperiment.workspace == workspace)
-                .subquery()
-            )
-            return query.filter(
-                SqlLoggedModel.experiment_id.in_(select(workspace_experiment_ids.c.experiment_id))
-            )
-
-        if model is SqlOnlineScoringConfig:
-            return query.join(
-                SqlExperiment, SqlOnlineScoringConfig.experiment_id == SqlExperiment.experiment_id
-            ).filter(SqlExperiment.workspace == workspace)
-
-        if model is SqlEvaluationDataset:
-            return query.filter(SqlEvaluationDataset.workspace == workspace)
-
-        if model in (
-            SqlGatewaySecret,
-            SqlGatewayEndpoint,
-            SqlGatewayModelDefinition,
-            SqlGatewayBudgetPolicy,
-        ):
-            return query.filter(model.workspace == workspace)
-
-        if model is SqlGatewayEndpointBinding:
-            return self._filter_endpoint_binding_query(session, query)
-
-        if model is SqlGatewayEndpointModelMapping:
-            return query.join(SqlGatewayEndpoint).filter(SqlGatewayEndpoint.workspace == workspace)
-
+        if issubclass(model, WorkspaceIsolatedModel):
+            workspace = self._get_active_workspace()
+            return model.workspace_query_filter(query, session, workspace)
         return query
 
     def _initialize_store_state(self):

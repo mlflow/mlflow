@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import sqlalchemy as sa
 from cryptography.fernet import Fernet
 from sqlalchemy import (
@@ -13,6 +17,9 @@ from sqlalchemy import (
     TypeDecorator,
 )
 from sqlalchemy.orm import backref, relationship
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Query, Session
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -32,11 +39,12 @@ from mlflow.entities.webhook import (
 )
 from mlflow.environment_variables import MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY
 from mlflow.store.db.base_sql_model import Base
+from mlflow.store.db.workspace_isolated_model import WorkspaceIsolatedModel
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
-class SqlRegisteredModel(Base):
+class SqlRegisteredModel(WorkspaceIsolatedModel, Base):
     __tablename__ = "registered_models"
 
     workspace = Column(
@@ -55,6 +63,10 @@ class SqlRegisteredModel(Base):
     description = Column(String(5000), nullable=True)
 
     __table_args__ = (PrimaryKeyConstraint("workspace", "name", name="registered_model_pk"),)
+
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
 
     def __repr__(self):
         return (
@@ -94,7 +106,7 @@ class SqlRegisteredModel(Base):
         )
 
 
-class SqlModelVersion(Base):
+class SqlModelVersion(WorkspaceIsolatedModel, Base):
     __tablename__ = "model_versions"
 
     workspace = Column(
@@ -144,6 +156,10 @@ class SqlModelVersion(Base):
         PrimaryKeyConstraint("workspace", "name", "version", name="model_version_pk"),
     )
 
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
+
     # entity mappers
     def to_mlflow_entity(self):
         return ModelVersion(
@@ -165,7 +181,7 @@ class SqlModelVersion(Base):
         )
 
 
-class SqlRegisteredModelTag(Base):
+class SqlRegisteredModelTag(WorkspaceIsolatedModel, Base):
     __tablename__ = "registered_model_tags"
 
     workspace = Column(
@@ -195,6 +211,10 @@ class SqlRegisteredModelTag(Base):
         PrimaryKeyConstraint("workspace", "key", "name", name="registered_model_tag_pk"),
     )
 
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
+
     def __repr__(self):
         return f"<SqlRegisteredModelTag ({self.name}, {self.key}, {self.value})>"
 
@@ -203,7 +223,7 @@ class SqlRegisteredModelTag(Base):
         return RegisteredModelTag(self.key, self.value)
 
 
-class SqlModelVersionTag(Base):
+class SqlModelVersionTag(WorkspaceIsolatedModel, Base):
     __tablename__ = "model_version_tags"
 
     workspace = Column(
@@ -238,6 +258,10 @@ class SqlModelVersionTag(Base):
         "SqlModelVersion", backref=backref("model_version_tags", cascade="all")
     )
 
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
+
     def __repr__(self):
         return f"<SqlModelVersionTag ({self.name}, {self.version}, {self.key}, {self.value})>"
 
@@ -246,7 +270,7 @@ class SqlModelVersionTag(Base):
         return ModelVersionTag(self.key, self.value)
 
 
-class SqlRegisteredModelAlias(Base):
+class SqlRegisteredModelAlias(WorkspaceIsolatedModel, Base):
     __tablename__ = "registered_model_aliases"
 
     workspace = Column(
@@ -275,6 +299,10 @@ class SqlRegisteredModelAlias(Base):
         ),
         PrimaryKeyConstraint("workspace", "name", "alias", name="registered_model_alias_pk"),
     )
+
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
 
     def __repr__(self):
         return f"<SqlRegisteredModelAlias ({self.name}, {self.alias}, {self.version})>"
@@ -311,7 +339,7 @@ class EncryptedString(TypeDecorator):
         return value
 
 
-class SqlWebhook(Base):
+class SqlWebhook(WorkspaceIsolatedModel, Base):
     __tablename__ = "webhooks"
 
     workspace = Column(
@@ -336,6 +364,10 @@ class SqlWebhook(Base):
         Index("idx_webhooks_name", "name"),
         Index("idx_webhooks_workspace", "workspace"),
     )
+
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
 
     def __repr__(self):
         return (

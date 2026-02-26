@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 import json
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Query, Session
 
 import sqlalchemy as sa
 from sqlalchemy import (
@@ -23,6 +28,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.future import select
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import backref, relationship
 
@@ -78,6 +84,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.store.db.base_sql_model import Base
+from mlflow.store.db.workspace_isolated_model import WorkspaceIsolatedModel
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
@@ -104,7 +111,7 @@ RunStatusTypes = [
 MutableJSON = MutableDict.as_mutable(JSON)
 
 
-class SqlExperiment(Base):
+class SqlExperiment(WorkspaceIsolatedModel, Base):
     """
     DB model for :py:class:`mlflow.entities.Experiment`. These are recorded in ``experiment`` table.
     """
@@ -158,6 +165,10 @@ class SqlExperiment(Base):
         UniqueConstraint("workspace", "name", name="uq_experiments_workspace_name"),
     )
 
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
+
     def __repr__(self):
         return f"<SqlExperiment ({self.experiment_id}, {self.name})>"
 
@@ -180,7 +191,7 @@ class SqlExperiment(Base):
         )
 
 
-class SqlRun(Base):
+class SqlRun(WorkspaceIsolatedModel, Base):
     """
     DB model for :py:class:`mlflow.entities.Run`. These are recorded in ``runs`` table.
     """
@@ -260,6 +271,12 @@ class SqlRun(Base):
         ),
         PrimaryKeyConstraint("run_uuid", name="run_pk"),
     )
+
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.join(SqlExperiment, SqlExperiment.experiment_id == cls.experiment_id).filter(
+            SqlExperiment.workspace == workspace
+        )
 
     @staticmethod
     def get_attribute_name(mlflow_attribute_name):
@@ -704,7 +721,7 @@ class SqlInputTag(Base):
 #######################################################################################
 
 
-class SqlTraceInfo(Base):
+class SqlTraceInfo(WorkspaceIsolatedModel, Base):
     __tablename__ = "trace_info"
 
     request_id = Column(String(50), nullable=False)
@@ -751,6 +768,12 @@ class SqlTraceInfo(Base):
         # in the where clause.
         Index(f"index_{__tablename__}_experiment_id_timestamp_ms", "experiment_id", "timestamp_ms"),
     )
+
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.join(SqlExperiment, SqlExperiment.experiment_id == cls.experiment_id).filter(
+            SqlExperiment.workspace == workspace
+        )
 
     def to_mlflow_entity(self):
         """
@@ -1097,7 +1120,7 @@ class SqlAssessments(Base):
         return f"<SqlAssessments({self.assessment_id}, {self.name}, {self.assessment_type})>"
 
 
-class SqlLoggedModel(Base):
+class SqlLoggedModel(WorkspaceIsolatedModel, Base):
     __tablename__ = "logged_models"
 
     model_id = Column(String(36), nullable=False)
@@ -1173,6 +1196,15 @@ class SqlLoggedModel(Base):
             name="fk_logged_models_experiment_id",
         ),
     )
+
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        workspace_experiment_ids = (
+            session.query(SqlExperiment.experiment_id)
+            .filter(SqlExperiment.workspace == workspace)
+            .subquery()
+        )
+        return query.filter(cls.experiment_id.in_(select(workspace_experiment_ids.c.experiment_id)))
 
     def to_mlflow_entity(self) -> LoggedModel:
         return LoggedModel(
@@ -1392,7 +1424,7 @@ class SqlLoggedModelTag(Base):
         return LoggedModelTag(key=self.tag_key, value=self.tag_value)
 
 
-class SqlEvaluationDataset(Base):
+class SqlEvaluationDataset(WorkspaceIsolatedModel, Base):
     """
     DB model for evaluation datasets.
     """
@@ -1471,6 +1503,10 @@ class SqlEvaluationDataset(Base):
         Index("index_evaluation_datasets_created_time", "created_time"),
         Index("idx_evaluation_datasets_workspace", "workspace"),
     )
+
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
 
     def to_mlflow_entity(self):
         """
@@ -2064,7 +2100,7 @@ class SqlScorerVersion(Base):
         )
 
 
-class SqlOnlineScoringConfig(Base):
+class SqlOnlineScoringConfig(WorkspaceIsolatedModel, Base):
     """
     DB model for storing online scoring configuration. These are recorded in
     ``online_scoring_configs`` table.
@@ -2107,6 +2143,12 @@ class SqlOnlineScoringConfig(Base):
         PrimaryKeyConstraint("online_scoring_config_id", name="online_scoring_config_pk"),
     )
 
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.join(SqlExperiment, SqlExperiment.experiment_id == cls.experiment_id).filter(
+            SqlExperiment.workspace == workspace
+        )
+
     def __repr__(self):
         return (
             f"<SqlOnlineScoringConfig ({self.online_scoring_config_id}, {self.scorer_id}, "
@@ -2129,7 +2171,7 @@ class SqlOnlineScoringConfig(Base):
         )
 
 
-class SqlJob(Base):
+class SqlJob(WorkspaceIsolatedModel, Base):
     """
     DB model for Job entities. These are recorded in the ``jobs`` table.
     """
@@ -2202,6 +2244,10 @@ class SqlJob(Base):
         ),
     )
 
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
+
     def __repr__(self):
         return f"<SqlJob ({self.id}, {self.job_name}, {self.status})>"
 
@@ -2229,7 +2275,7 @@ class SqlJob(Base):
         )
 
 
-class SqlGatewaySecret(Base):
+class SqlGatewaySecret(WorkspaceIsolatedModel, Base):
     """
     DB model for secrets. These are recorded in the ``secrets`` table.
     Stores encrypted credentials used by MLflow resources (e.g., LLM provider API keys).
@@ -2327,6 +2373,10 @@ class SqlGatewaySecret(Base):
         Index("idx_secrets_workspace", "workspace"),
     )
 
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
+
     def __repr__(self):
         return f"<SqlGatewaySecret ({self.secret_id}, {self.secret_name})>"
 
@@ -2350,7 +2400,7 @@ class SqlGatewaySecret(Base):
         )
 
 
-class SqlGatewayEndpoint(Base):
+class SqlGatewayEndpoint(WorkspaceIsolatedModel, Base):
     """
     DB model for endpoints. These are recorded in ``endpoints`` table.
     Represents LLM gateway endpoints that route requests to configured models.
@@ -2421,6 +2471,10 @@ class SqlGatewayEndpoint(Base):
         Index("idx_endpoints_workspace", "workspace"),
     )
 
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
+
     def __repr__(self):
         return f"<SqlGatewayEndpoint ({self.endpoint_id}, {self.name})>"
 
@@ -2459,7 +2513,7 @@ class SqlGatewayEndpoint(Base):
         )
 
 
-class SqlGatewayModelDefinition(Base):
+class SqlGatewayModelDefinition(WorkspaceIsolatedModel, Base):
     """
     DB model for model definitions. These are recorded in ``model_definitions`` table.
     Represents reusable LLM model configurations that can be shared across multiple endpoints.
@@ -2535,6 +2589,10 @@ class SqlGatewayModelDefinition(Base):
         Index("idx_model_definitions_workspace", "workspace"),
     )
 
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
+
     def __repr__(self):
         return f"<SqlGatewayModelDefinition ({self.model_definition_id}, {self.name})>"
 
@@ -2554,7 +2612,7 @@ class SqlGatewayModelDefinition(Base):
         )
 
 
-class SqlGatewayEndpointModelMapping(Base):
+class SqlGatewayEndpointModelMapping(WorkspaceIsolatedModel, Base):
     """
     DB model for endpoint-model mappings. These are recorded in ``endpoint_model_mappings`` table.
     Junction table linking endpoints to model definitions (supports multi-model routing).
@@ -2631,6 +2689,12 @@ class SqlGatewayEndpointModelMapping(Base):
         ),
     )
 
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.join(
+            SqlGatewayEndpoint, SqlGatewayEndpoint.endpoint_id == cls.endpoint_id
+        ).filter(SqlGatewayEndpoint.workspace == workspace)
+
     def __repr__(self):
         return (
             f"<SqlGatewayEndpointModelMapping ({self.mapping_id}, "
@@ -2656,7 +2720,7 @@ class SqlGatewayEndpointModelMapping(Base):
         )
 
 
-class SqlGatewayEndpointBinding(Base):
+class SqlGatewayEndpointBinding(WorkspaceIsolatedModel, Base):
     """
     DB model for endpoint bindings. These are recorded in ``endpoint_bindings`` table.
     Tracks which resources are bound to which endpoints (e.g., model configurations, experiments).
@@ -2714,6 +2778,15 @@ class SqlGatewayEndpointBinding(Base):
             "endpoint_id", "resource_type", "resource_id", name="endpoint_bindings_pk"
         ),
     )
+
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        endpoint_ids_subquery = (
+            session.query(SqlGatewayEndpoint.endpoint_id)
+            .filter(SqlGatewayEndpoint.workspace == workspace)
+            .subquery()
+        )
+        return query.filter(cls.endpoint_id.in_(select(endpoint_ids_subquery.c.endpoint_id)))
 
     def __repr__(self):
         return (
@@ -2775,7 +2848,7 @@ class SqlGatewayEndpointTag(Base):
         return GatewayEndpointTag(key=self.key, value=self.value)
 
 
-class SqlGatewayBudgetPolicy(Base):
+class SqlGatewayBudgetPolicy(WorkspaceIsolatedModel, Base):
     """
     DB model for budget policies. These are recorded in ``budget_policies`` table.
     Represents cost-based budget limits for the AI Gateway with fixed time windows.
@@ -2841,6 +2914,10 @@ class SqlGatewayBudgetPolicy(Base):
         PrimaryKeyConstraint("budget_policy_id", name="budget_policies_pk"),
         Index("idx_budget_policies_workspace", "workspace"),
     )
+
+    @classmethod
+    def workspace_query_filter(cls, query: Query, session: Session, workspace: str) -> Query:
+        return query.filter(cls.workspace == workspace)
 
     def __repr__(self):
         return f"<SqlGatewayBudgetPolicy ({self.budget_policy_id})>"

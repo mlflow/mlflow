@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import logging
 
+from mlflow.store.db.workspace_isolated_model import WorkspaceIsolatedModel
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
-from mlflow.store.tracking.dbmodels.models import SqlJob
 from mlflow.store.workspace_aware_mixin import WorkspaceAwareMixin
 
 _logger = logging.getLogger(__name__)
@@ -25,13 +25,8 @@ class WorkspaceAwareSqlAlchemyJobStore(WorkspaceAwareMixin, SqlAlchemyJobStore):
         super().__init__(db_uri)
 
     def _get_query(self, session, model):
-        """
-        Return a query for ``model`` filtered by the active workspace.
-        """
         query = super()._get_query(session, model)
-        workspace = self._get_active_workspace()
-
-        if model is SqlJob:
-            return query.filter(SqlJob.workspace == workspace)
-
+        if issubclass(model, WorkspaceIsolatedModel):
+            workspace = self._get_active_workspace()
+            return model.workspace_query_filter(query, session, workspace)
         return query
