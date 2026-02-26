@@ -30,7 +30,7 @@ curl -X POST http://localhost:5000/api/3.0/mlflow/gateway/budgets/create \
     "budget_amount": 500.0,
     "duration_unit": "MONTHS",
     "duration_value": 1,
-    "target_type": "GLOBAL",
+    "target_scope": "GLOBAL",
     "budget_action": "ALERT"
   }'
 ```
@@ -43,7 +43,7 @@ curl -X POST http://localhost:5000/api/3.0/mlflow/gateway/budgets/create \
 | `budget_amount` | double | Yes | Spending limit in the specified currency |
 | `duration_unit` | string | Yes | Window unit: `MINUTES`, `HOURS`, `DAYS`, or `MONTHS` |
 | `duration_value` | int | Yes | Window length in units of `duration_unit` |
-| `target_type` | string | Yes | `GLOBAL` or `WORKSPACE` |
+| `target_scope` | string | Yes | `GLOBAL` or `WORKSPACE` |
 | `budget_action` | string | Yes | `ALERT` (webhook only) or `REJECT` (block requests) |
 
 ## Managing Policies
@@ -95,7 +95,7 @@ The webhook payload includes:
   "current_spend": 523.40,
   "duration_unit": "MONTHS",
   "duration_value": 1,
-  "target_type": "GLOBAL",
+  "target_scope": "GLOBAL",
   "workspace": "default",
   "window_start": 1704067200000
 }
