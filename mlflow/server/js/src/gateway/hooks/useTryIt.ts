@@ -14,6 +14,13 @@ export interface TryItError extends Error {
   responseBody?: string;
 }
 
+/** Creates a TryItError with an optional response body for the UI to display. */
+function createTryItError(message: string, responseBody?: string): TryItError {
+  const err = new Error(message) as TryItError;
+  err.responseBody = responseBody;
+  return err;
+}
+
 export interface UseTryItParams {
   tryItRequestUrl: string;
 }
@@ -32,7 +39,7 @@ export function useTryIt({ tryItRequestUrl }: UseTryItParams) {
       try {
         parsed = JSON.parse(requestBody);
       } catch {
-        throw Object.assign(new Error('Invalid JSON in request body'), { responseBody: undefined });
+        throw createTryItError('Invalid JSON in request body');
       }
 
       try {
@@ -44,10 +51,10 @@ export function useTryIt({ tryItRequestUrl }: UseTryItParams) {
         const text = await response.text();
         return formatResponseText(text);
       } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
+        const message = err instanceof Error ? err.message : String(err);
         const rawText = err instanceof NetworkRequestError ? (await err.response?.text()) || '' : undefined;
         const responseBody = rawText !== undefined ? formatResponseText(rawText) : undefined;
-        throw Object.assign(error, { responseBody });
+        throw createTryItError(message, responseBody);
       }
     },
   });
