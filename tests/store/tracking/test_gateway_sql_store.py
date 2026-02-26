@@ -49,13 +49,13 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceInfo,
     SqlTraceMetadata,
 )
-from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
 from mlflow.store.tracking.gateway.config_resolver import (
     get_endpoint_config,
     get_resource_endpoint_configs,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -2280,9 +2280,7 @@ def test_sum_gateway_trace_cost_excludes_non_gateway(store: SqlAlchemyStore):
 
     with store.ManagedSessionMaker() as session:
         _insert_trace_with_cost(session, exp_id, "gw1", 1000, [("s1", 0.10)], is_gateway=True)
-        _insert_trace_with_cost(
-            session, exp_id, "nongw1", 1000, [("s1", 0.50)], is_gateway=False
-        )
+        _insert_trace_with_cost(session, exp_id, "nongw1", 1000, [("s1", 0.50)], is_gateway=False)
 
     total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
     assert abs(total - 0.10) < 1e-9
