@@ -1263,7 +1263,9 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_budget_policy.duration_value = duration_value
             if target_scope is not None:
                 sql_budget_policy.target_scope = (
-                    target_scope.value if isinstance(target_scope, BudgetTargetScope) else target_scope
+                    target_scope.value
+                    if isinstance(target_scope, BudgetTargetScope)
+                    else target_scope
                 )
             if budget_action is not None:
                 sql_budget_policy.budget_action = (
