@@ -72,7 +72,7 @@ For Databricks, use the following command:
   const dcoCheck = await getDcoCheck(github, owner, repo, sha);
   if (dcoCheck && dcoCheck.conclusion !== "success") {
     messages.push(
-      "#### &#x26a0; DCO check\n\n" +
+      "#### &#x274C; DCO check\n\n" +
         "The DCO check failed. " +
         `Please sign off your commit(s) by following the instructions [here](${dcoCheck.html_url}). ` +
         "See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#sign-your-work for more " +
@@ -82,7 +82,7 @@ For Databricks, use the following command:
 
   if (label.endsWith(":master")) {
     messages.push(
-      "#### &#x26a0; PR branch check\n\n" +
+      "#### &#x274C; PR branch check\n\n" +
         "This PR was filed from the master branch in your fork, which is not recommended " +
         "and may cause our CI checks to fail. Please close this PR and file a new PR from " +
         "a non-master branch."
@@ -91,7 +91,7 @@ For Databricks, use the following command:
 
   if (!(body || "").includes("How should the PR be classified in the release notes?")) {
     messages.push(
-      "#### &#x26a0; Invalid PR template\n\n" +
+      "#### &#x274C; Invalid PR template\n\n" +
         "The PR description is missing required sections. " +
         "Please use the [PR template](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md)."
     );
