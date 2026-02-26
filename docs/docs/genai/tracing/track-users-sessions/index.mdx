@@ -52,7 +52,7 @@ To record user and session information in your application, use the <APILink fn=
   </TabItem>
   <TabItem value="typescript" label="TypeScript">
     ```typescript
-    import * as mlflow from "mlflow-tracing";
+    import * as mlflow from "@mlflow/core";
 
     const chatCompletion = mlflow.trace(
         (message: Array<Record<string, any>>, userId: string, sessionId: string) => {
@@ -143,8 +143,8 @@ To record user and session information in your application, use the <APILink fn=
     ```typescript
     import express, { Request, Response } from 'express';
     import bodyParser from 'body-parser';
-    import * as mlflow from 'mlflow-tracing';
-    import { tracedOpenAI } from "mlflow-openai";
+    import * as mlflow from '@mlflow/core';
+    import { tracedOpenAI } from "@mlflow/openai";
     import OpenAI from 'openai';
 
     const app = express();

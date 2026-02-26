@@ -27,7 +27,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
         if (!map.has(secretId)) {
           map.set(secretId, []);
         }
-        map.get(secretId)!.push(modelDef);
+        map.get(secretId)?.push(modelDef);
       }
     });
 
@@ -45,7 +45,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
           if (!map.has(secretId)) {
             map.set(secretId, new Set());
           }
-          map.get(secretId)!.add(endpoint.endpoint_id);
+          map.get(secretId)?.add(endpoint.endpoint_id);
         }
       });
     });
@@ -60,7 +60,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
         if (!map.has(endpointId)) {
           map.set(endpointId, new Set());
         }
-        map.get(endpointId)!.add(secretId);
+        map.get(endpointId)?.add(secretId);
       });
     });
     return map;

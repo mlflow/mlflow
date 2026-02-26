@@ -74,7 +74,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
           render={({ field }) => (
             <Input
               {...field}
-              componentId={`${COMPONENT_ID_PREFIX}.model-input`}
+              componentId="mlflow.experiment-scorers.model-input"
               id="mlflow-experiment-scorers-model"
               disabled={isReadOnly}
               placeholder="openai:/gpt-4.1-mini"
@@ -86,7 +86,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
         {!isReadOnly && (
           <div css={{ marginTop: theme.spacing.sm }}>
             <Typography.Link
-              componentId={`${COMPONENT_ID_PREFIX}.switch-to-endpoint-link`}
+              componentId="mlflow.experiment-scorers.switch-to-endpoint-link"
               onClick={() => handleSwitchProvider(ModelProvider.GATEWAY)}
               css={{ cursor: 'pointer' }}
             >
@@ -140,7 +140,7 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
               values={{
                 enterManually: (
                   <Typography.Link
-                    componentId={`${COMPONENT_ID_PREFIX}.switch-to-manual-link`}
+                    componentId="mlflow.experiment-scorers.switch-to-manual-link"
                     onClick={() => handleSwitchProvider(ModelProvider.OTHER)}
                     css={{ cursor: 'pointer' }}
                   >

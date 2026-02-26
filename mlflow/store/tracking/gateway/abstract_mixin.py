@@ -11,6 +11,13 @@ from mlflow.entities import (
     GatewaySecretInfo,
     RoutingStrategy,
 )
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+    GatewayBudgetPolicy,
+)
 
 
 class GatewayStoreMixin:
@@ -424,5 +431,96 @@ class GatewayStoreMixin:
         Args:
             endpoint_id: ID of the endpoint.
             key: Tag key to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # Budget Policy APIs
+
+    def create_budget_policy(
+        self,
+        budget_unit: BudgetUnit,
+        budget_amount: float,
+        duration_unit: BudgetDurationUnit,
+        duration_value: int,
+        target_scope: BudgetTargetScope,
+        budget_action: BudgetAction,
+        created_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        """
+        Create a new budget policy.
+
+        Args:
+            budget_unit: Budget measurement unit (e.g. USD).
+            budget_amount: Budget limit amount.
+            duration_unit: Unit of time window (MINUTES, HOURS, DAYS, MONTHS).
+            duration_value: Length of the window in units of duration_unit.
+            target_scope: Scope of the budget (GLOBAL or WORKSPACE).
+            budget_action: Action when budget is exceeded.
+            created_by: Username of the creator.
+
+        Returns:
+            GatewayBudgetPolicy entity.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_budget_policy(
+        self,
+        budget_policy_id: str,
+    ) -> GatewayBudgetPolicy:
+        """
+        Retrieve a budget policy by ID.
+
+        Args:
+            budget_policy_id: ID of the budget policy.
+
+        Returns:
+            GatewayBudgetPolicy entity.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def update_budget_policy(
+        self,
+        budget_policy_id: str,
+        budget_unit: BudgetUnit | None = None,
+        budget_amount: float | None = None,
+        duration_unit: BudgetDurationUnit | None = None,
+        duration_value: int | None = None,
+        target_scope: BudgetTargetScope | None = None,
+        budget_action: BudgetAction | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        """
+        Update a budget policy.
+
+        Args:
+            budget_policy_id: ID of the budget policy to update.
+            budget_unit: Optional new budget unit.
+            budget_amount: Optional new budget amount.
+            duration_unit: Optional new duration unit.
+            duration_value: Optional new duration value.
+            target_scope: Optional new target type.
+            budget_action: Optional new budget action.
+            updated_by: Username of the updater.
+
+        Returns:
+            Updated GatewayBudgetPolicy entity.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_budget_policy(self, budget_policy_id: str) -> None:
+        """
+        Delete a budget policy.
+
+        Args:
+            budget_policy_id: ID of the budget policy to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_budget_policies(self) -> list[GatewayBudgetPolicy]:
+        """
+        List all budget policies.
+
+        Returns:
+            List of GatewayBudgetPolicy entities.
         """
         raise NotImplementedError(self.__class__.__name__)
