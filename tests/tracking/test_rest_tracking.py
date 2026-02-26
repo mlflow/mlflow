@@ -982,7 +982,7 @@ def test_search_experiments(mlflow_client):
     experiments = mlflow_client.search_experiments(filter_string="tag.key = 'value'")
     assert [e.name for e in experiments] == ["a"]
     experiments = mlflow_client.search_experiments(filter_string="tag.key != 'value'")
-    assert [e.name for e in experiments] == ["ab"]
+    assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
     experiments = mlflow_client.search_experiments(filter_string="tag.key ILIKE '%alu%'")
     assert [e.name for e in experiments] == ["ab", "a"]
 
