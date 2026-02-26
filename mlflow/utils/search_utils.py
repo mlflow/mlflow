@@ -64,7 +64,7 @@ def _ilike(string, pattern):
     return _convert_like_pattern_to_regex(pattern, flags=re.IGNORECASE).match(string) is not None
 
 
-def _join_in_comparison_tokens(tokens, search_traces=False, search_null_operators=False):
+def _join_in_comparison_tokens(tokens, search_traces=False):
     """
     Find a sequence of tokens that matches the pattern of an IN comparison or a NOT IN comparison,
     join the tokens into a single Comparison token. Otherwise, return the original list of tokens.
@@ -124,10 +124,9 @@ def _join_in_comparison_tokens(tokens, search_traces=False, search_null_operator
             joined_tokens.append(Comparison(TokenList([first, second, third])))
             continue
 
-        # IS NULL (for trace metadata / experiment tags)
+        # IS NULL
         if (
-            (search_traces or search_null_operators)
-            and isinstance(first, Identifier)
+            isinstance(first, Identifier)
             and second.match(ttype=TokenType.Keyword, values=["IS"])
             and third.match(ttype=TokenType.Keyword, values=["NULL"])
         ):
@@ -136,10 +135,9 @@ def _join_in_comparison_tokens(tokens, search_traces=False, search_null_operator
             )
             continue
 
-        # IS NOT NULL (for trace metadata / experiment tags)
+        # IS NOT NULL
         if (
-            (search_traces or search_null_operators)
-            and isinstance(first, Identifier)
+            isinstance(first, Identifier)
             and second.match(ttype=TokenType.Keyword, values=["IS"])
             and third.ttype == TokenType.Keyword
             and third.value.upper() == "NOT NULL"
@@ -1049,7 +1047,7 @@ class SearchExperimentsUtils(SearchUtils):
 
     @classmethod
     def _process_statement(cls, statement):
-        tokens = _join_in_comparison_tokens(statement.tokens, search_null_operators=True)
+        tokens = _join_in_comparison_tokens(statement.tokens)
         invalids = list(filter(cls._invalid_statement_token_search_experiments, tokens))
         if len(invalids) > 0:
             invalid_clauses = ", ".join(map(str, invalids))
