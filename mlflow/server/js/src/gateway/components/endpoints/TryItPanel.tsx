@@ -1,6 +1,6 @@
 import { Button, Tooltip, Typography, useDesignSystemTheme, Input } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useTryIt } from '../../hooks/useTryIt';
 
@@ -25,14 +25,37 @@ export const TryItPanel = ({
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
+  const onSuccess = useCallback((formattedResponse: string) => {
+    setResponseBody(formattedResponse);
+    setSendError(null);
+  }, []);
+
+  const onError = useCallback((error: Error, responseText?: string) => {
+    setSendError(error.message);
+    setResponseBody(responseText ?? '');
+  }, []);
+
+  const onSendingChange = useCallback((sending: boolean) => {
+    setIsSending(sending);
+    if (sending) {
+      setSendError(null);
+      setResponseBody('');
+    }
+  }, []);
+
+  const onReset = useCallback(() => {
+    setRequestBody(tryItDefaultBody);
+    setResponseBody('');
+    setSendError(null);
+  }, [tryItDefaultBody]);
+
   const { handleSendRequest, handleResetExample } = useTryIt({
     requestBody,
     tryItRequestUrl,
-    tryItDefaultBody,
-    setRequestBody,
-    setResponseBody,
-    setSendError,
-    setIsSending,
+    onSuccess,
+    onError,
+    onSendingChange,
+    onReset,
   });
 
   // When default body changes (e.g. variant or provider changed), reset to the new default

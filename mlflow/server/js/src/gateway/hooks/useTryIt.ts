@@ -2,45 +2,41 @@ import { useCallback } from 'react';
 import { fetchOrFail } from '../../common/utils/FetchUtils';
 import { NetworkRequestError } from '../../shared/web-shared/errors/PredefinedErrors';
 
+function formatResponseText(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
 export interface UseTryItParams {
   requestBody: string;
   tryItRequestUrl: string;
-  tryItDefaultBody: string;
-  setRequestBody: (value: string) => void;
-  setResponseBody: (value: string) => void;
-  setSendError: (value: string | null) => void;
-  setIsSending: (value: boolean) => void;
+  onSuccess?: (formattedResponse: string) => void;
+  onError?: (error: Error, responseText?: string) => void;
+  onSendingChange?: (sending: boolean) => void;
+  onReset?: () => void;
 }
 
 export function useTryIt({
   requestBody,
   tryItRequestUrl,
-  tryItDefaultBody,
-  setRequestBody,
-  setResponseBody,
-  setSendError,
-  setIsSending,
+  onSuccess,
+  onError,
+  onSendingChange,
+  onReset,
 }: UseTryItParams) {
   const handleSendRequest = useCallback(async () => {
-    const setResponseFromText = (text: string) => {
-      try {
-        setResponseBody(JSON.stringify(JSON.parse(text), null, 2));
-      } catch {
-        setResponseBody(text);
-      }
-    };
-
-    setSendError(null);
     let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(requestBody);
     } catch {
-      setSendError('Invalid JSON in request body');
-      setResponseBody('');
+      onError?.(new Error('Invalid JSON in request body'));
       return;
     }
-    setIsSending(true);
-    setResponseBody('');
+
+    onSendingChange?.(true);
     try {
       const response = await fetchOrFail(tryItRequestUrl, {
         method: 'POST',
@@ -48,22 +44,20 @@ export function useTryIt({
         body: JSON.stringify(parsed),
       });
       const text = await response.text();
-      setResponseFromText(text);
+      onSuccess?.(formatResponseText(text));
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      const text = err instanceof NetworkRequestError ? (await err.response?.text()) || '' : '';
-      setSendError(message);
-      setResponseFromText(text);
+      const error = err instanceof Error ? err : new Error(String(err));
+      const rawText = err instanceof NetworkRequestError ? (await err.response?.text()) || '' : undefined;
+      const responseText = rawText !== undefined ? formatResponseText(rawText) : undefined;
+      onError?.(error, responseText);
     } finally {
-      setIsSending(false);
+      onSendingChange?.(false);
     }
-  }, [requestBody, tryItRequestUrl, setSendError, setResponseBody, setIsSending]);
+  }, [requestBody, tryItRequestUrl, onSuccess, onError, onSendingChange]);
 
   const handleResetExample = useCallback(() => {
-    setRequestBody(tryItDefaultBody);
-    setResponseBody('');
-    setSendError(null);
-  }, [tryItDefaultBody, setRequestBody, setResponseBody, setSendError]);
+    onReset?.();
+  }, [onReset]);
 
   return { handleSendRequest, handleResetExample };
 }
