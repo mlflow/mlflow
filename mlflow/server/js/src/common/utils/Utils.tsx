@@ -351,6 +351,23 @@ class Utils {
   };
 
   /**
+   * Validates that a URL uses a safe protocol (http or https) to prevent
+   * DOM-based XSS via javascript: or other dangerous URI schemes.
+   * Returns an empty string for unsafe or unparseable URLs.
+   */
+  static sanitizeUrl(url: string): string {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return url;
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  }
+
+  /**
    * Makes sure that the URL begins with correct scheme according
    * to RFC3986 [https://datatracker.ietf.org/doc/html/rfc3986#section-3.1]
    * It does not support slash-less schemes (e.g. news:abc, urn:anc).
@@ -507,14 +524,16 @@ class Utils {
 
     if (notebookId) {
       const url = Utils.getNotebookSourceUrl(queryParams, notebookId, revisionId, runUuid, workspaceUrl);
+      if (!url) {
+        return name;
+      }
       return (
         <a title={sourceName || Utils.getDefaultNotebookRevisionName(notebookId, revisionId)} href={url} target="_top">
           {name}
         </a>
       );
-    } else {
-      return name;
     }
+    return name;
   }
 
   /**
@@ -529,7 +548,7 @@ class Utils {
         url += `/mlflow/run/${runUuid}`;
       }
     }
-    return url;
+    return Utils.sanitizeUrl(url);
   }
 
   /**
@@ -551,14 +570,16 @@ class Utils {
 
     if (jobId) {
       const url = Utils.getJobSourceUrl(queryParams, jobId, jobRunId, workspaceUrl);
+      if (!url) {
+        return name;
+      }
       return (
         <a title={reformatJobName} href={url} target="_top">
           {name}
         </a>
       );
-    } else {
-      return name;
     }
+    return name;
   }
 
   /**
@@ -570,7 +591,7 @@ class Utils {
     if (jobRunId) {
       url += `/run/${jobRunId}`;
     }
-    return url;
+    return Utils.sanitizeUrl(url);
   }
 
   /**
