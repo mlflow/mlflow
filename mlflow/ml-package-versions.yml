@@ -522,6 +522,8 @@ transformers:
       # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
       "< 4.42": ["sentence-transformers<5.1.2"]
       "< 4.52.0.dev0": ["accelerate<1"]
+      # transformers 5.x requires accelerate>=1.1.0 for Trainer
+      ">= 5.0": ["accelerate>=1.1.0"]
       # setfit is incompatible with transformers 5.x (imports removed `default_logdir` from training_args)
       "< 5.0": ["setfit"]
     run: |

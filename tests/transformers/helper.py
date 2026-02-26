@@ -137,6 +137,9 @@ def load_text_generation_pipeline():
 @prefetch
 @flaky()
 def load_translation_pipeline():
+    if transformers_version.major >= 5:
+        _logger.info("Skipping translation pipeline prefetch: removed in transformers 5.x")
+        return None
     return transformers.pipeline(
         task="translation_en_to_de",
         model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
