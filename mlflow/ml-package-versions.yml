@@ -508,7 +508,6 @@ transformers:
           "torch",
           "torchvision",
           "tensorflow",
-          "setfit",
           "optuna",
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
@@ -523,6 +522,8 @@ transformers:
       # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
       "< 4.42": ["sentence-transformers<5.1.2"]
       "< 4.52.0.dev0": ["accelerate<1"]
+      # setfit is incompatible with transformers 5.x (imports removed `default_logdir` from training_args)
+      "< 5.0": ["setfit"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 

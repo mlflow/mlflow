@@ -3,7 +3,6 @@ import random
 import numpy as np
 import optuna
 import pytest
-import setfit
 import sklearn.cluster
 import sklearn.datasets
 import torch
@@ -11,9 +10,6 @@ import transformers
 from datasets import load_dataset
 from packaging.version import Version
 from sentence_transformers.losses import CosineSimilarityLoss
-from setfit import SetFitModel, sample_dataset
-from setfit import Trainer as SetFitTrainer
-from setfit import TrainingArguments as SetFitTrainingArguments
 from transformers import (
     DistilBertForSequenceClassification,
     DistilBertTokenizerFast,
@@ -33,6 +29,11 @@ def iris_data():
 
 @pytest.fixture
 def setfit_trainer():
+    import setfit
+    from setfit import SetFitModel, sample_dataset
+    from setfit import Trainer as SetFitTrainer
+    from setfit import TrainingArguments as SetFitTrainingArguments
+
     dataset = load_dataset("stanfordnlp/sst2")
 
     train_dataset = sample_dataset(dataset["train"], label_column="label", num_samples=8)

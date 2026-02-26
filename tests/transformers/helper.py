@@ -144,6 +144,9 @@ def load_translation_pipeline():
 @prefetch
 @flaky()
 def load_summarizer_pipeline():
+    if transformers_version.major >= 5:
+        _logger.info("Skipping summarizer pipeline prefetch: removed in transformers 5.x")
+        return None
     task = "summarization"
     architecture = "sshleifer/distilbart-cnn-6-6"
     model = transformers.BartForConditionalGeneration.from_pretrained(architecture)
