@@ -15,7 +15,6 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { TryItPanel } from './TryItPanel';
-import { useTryIt } from '../../hooks/useTryIt';
 
 type Provider = 'openai' | 'anthropic' | 'gemini';
 type Language = 'curl' | 'python';
@@ -240,10 +239,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
   const [tryItUnifiedVariant, setTryItUnifiedVariant] = useState<'mlflow-invocations' | 'chat-completions'>(
     'mlflow-invocations',
   );
-  const [requestBody, setRequestBody] = useState(MLFLOW_INVOCATIONS_DEFAULT_BODY);
-  const [responseBody, setResponseBody] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
+  const [tryItResetKey, setTryItResetKey] = useState(0);
   const base = getBaseUrl(baseUrl);
 
   // Reset modal state when opened so users get a fresh Try-it experience each time
@@ -253,9 +249,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
       setViewMode('try-it');
       setTryItUnifiedVariant('mlflow-invocations');
       setSelectedProvider('openai');
-      setRequestBody(MLFLOW_INVOCATIONS_DEFAULT_BODY);
-      setResponseBody('');
-      setSendError(null);
+      setTryItResetKey((k) => k + 1);
     }
   }, [open]);
 
@@ -268,28 +262,6 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
     () => getDefaultRequestBody(endpointName, activeTab === 'unified' ? tryItUnifiedVariant : selectedProvider),
     [activeTab, tryItUnifiedVariant, selectedProvider, endpointName],
   );
-
-  // When switching top-level tab (Unified ↔ Passthrough) while in Try it view, reset request body to the default for the new tab
-  useEffect(() => {
-    if (!open || viewMode !== 'try-it') return;
-    setRequestBody(
-      getDefaultRequestBody(endpointName, activeTab === 'unified' ? tryItUnifiedVariant : selectedProvider),
-    );
-    setResponseBody('');
-    setSendError(null);
-    // Only run when activeTab changes; other deps are read for the new tab's default
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
-
-  const { handleSendRequest, handleResetExample } = useTryIt({
-    requestBody,
-    tryItRequestUrl,
-    tryItDefaultBody,
-    setRequestBody,
-    setResponseBody,
-    setSendError,
-    setIsSending,
-  });
 
   const renderCodeExample = (label: string, code: string, language: 'text' | 'python' = 'text') => (
     <div css={{ marginBottom: theme.spacing.md }}>
@@ -367,14 +339,9 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
                   name="try-it-unified-variant"
                   componentId="mlflow.gateway.usage-modal.try-it.unified-variant"
                   value={tryItUnifiedVariant}
-                  onChange={({ target: { value } }) => {
-                    setTryItUnifiedVariant(value as 'mlflow-invocations' | 'chat-completions');
-                    setRequestBody(
-                      getDefaultRequestBody(endpointName, value as 'mlflow-invocations' | 'chat-completions'),
-                    );
-                    setResponseBody('');
-                    setSendError(null);
-                  }}
+                  onChange={({ target: { value } }) =>
+                    setTryItUnifiedVariant(value as 'mlflow-invocations' | 'chat-completions')
+                  }
                   css={{ marginBottom: theme.spacing.sm }}
                 >
                   <SegmentedControlButton value="mlflow-invocations">
@@ -425,6 +392,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
 
               {viewMode === 'try-it' && (
                 <TryItPanel
+                  key={`try-it-unified-${tryItResetKey}`}
                   description={
                     <FormattedMessage
                       defaultMessage="Edit the request body below and click Send request to call the endpoint."
@@ -445,13 +413,8 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
                     )
                   }
                   requestTooltipComponentId="mlflow.gateway.usage-modal.try-it.request-tooltip"
-                  requestBody={requestBody}
-                  onRequestBodyChange={setRequestBody}
-                  responseBody={responseBody}
-                  sendError={sendError}
-                  isSending={isSending}
-                  onSendRequest={handleSendRequest}
-                  onResetExample={handleResetExample}
+                  tryItRequestUrl={tryItRequestUrl}
+                  tryItDefaultBody={tryItDefaultBody}
                 />
               )}
 
@@ -500,13 +463,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
                   name="try-it-provider"
                   componentId="mlflow.gateway.usage-modal.try-it.provider"
                   value={selectedProvider}
-                  onChange={({ target: { value } }) => {
-                    const provider = value as Provider;
-                    setSelectedProvider(provider);
-                    setRequestBody(getDefaultRequestBody(endpointName, provider));
-                    setResponseBody('');
-                    setSendError(null);
-                  }}
+                  onChange={({ target: { value } }) => setSelectedProvider(value as Provider)}
                   css={{ marginBottom: theme.spacing.sm }}
                 >
                   <SegmentedControlButton value="openai">OpenAI</SegmentedControlButton>
@@ -556,6 +513,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
 
               {viewMode === 'try-it' && (
                 <TryItPanel
+                  key={`try-it-passthrough-${tryItResetKey}`}
                   description={
                     <FormattedMessage
                       defaultMessage="Edit the request body below and click Send request to call the provider API."
@@ -576,13 +534,8 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
                     />
                   }
                   requestTooltipComponentId="mlflow.gateway.usage-modal.try-it.request-tooltip-passthrough"
-                  requestBody={requestBody}
-                  onRequestBodyChange={setRequestBody}
-                  responseBody={responseBody}
-                  sendError={sendError}
-                  isSending={isSending}
-                  onSendRequest={handleSendRequest}
-                  onResetExample={handleResetExample}
+                  tryItRequestUrl={tryItRequestUrl}
+                  tryItDefaultBody={tryItDefaultBody}
                 />
               )}
 

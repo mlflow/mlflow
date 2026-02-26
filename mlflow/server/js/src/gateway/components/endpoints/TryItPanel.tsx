@@ -1,33 +1,46 @@
 import { Button, Tooltip, Typography, useDesignSystemTheme, Input } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { useTryIt } from '../../hooks/useTryIt';
 
 export interface TryItPanelProps {
   description: ReactNode;
   requestTooltipContent: ReactNode;
   requestTooltipComponentId: string;
-  requestBody: string;
-  onRequestBodyChange: (value: string) => void;
-  responseBody: string;
-  sendError: string | null;
-  isSending: boolean;
-  onSendRequest: () => void;
-  onResetExample: () => void;
+  tryItRequestUrl: string;
+  tryItDefaultBody: string;
 }
 
 export const TryItPanel = ({
   description,
   requestTooltipContent,
   requestTooltipComponentId,
-  requestBody,
-  onRequestBodyChange,
-  responseBody,
-  sendError,
-  isSending,
-  onSendRequest,
-  onResetExample,
+  tryItRequestUrl,
+  tryItDefaultBody,
 }: TryItPanelProps) => {
   const { theme } = useDesignSystemTheme();
+  const [requestBody, setRequestBody] = useState(tryItDefaultBody);
+  const [responseBody, setResponseBody] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  const { handleSendRequest, handleResetExample } = useTryIt({
+    requestBody,
+    tryItRequestUrl,
+    tryItDefaultBody,
+    setRequestBody,
+    setResponseBody,
+    setSendError,
+    setIsSending,
+  });
+
+  // When default body changes (e.g. variant or provider changed), reset to the new default
+  useEffect(() => {
+    setRequestBody(tryItDefaultBody);
+    setResponseBody('');
+    setSendError(null);
+  }, [tryItDefaultBody]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -61,7 +74,7 @@ export const TryItPanel = ({
           <Input.TextArea
             componentId="mlflow.gateway.usage-modal.try-it.request"
             value={requestBody}
-            onChange={(e) => onRequestBodyChange(e.target.value)}
+            onChange={(e) => setRequestBody(e.target.value)}
             disabled={isSending}
             rows={14}
             css={{
@@ -123,7 +136,7 @@ export const TryItPanel = ({
         <Button
           componentId="mlflow.gateway.usage-modal.try-it.send"
           type="primary"
-          onClick={onSendRequest}
+          onClick={handleSendRequest}
           disabled={isSending}
           loading={isSending}
         >
@@ -133,7 +146,7 @@ export const TryItPanel = ({
             <FormattedMessage defaultMessage="Send request" description="Send request button" />
           )}
         </Button>
-        <Button componentId="mlflow.gateway.usage-modal.try-it.reset" onClick={onResetExample} disabled={isSending}>
+        <Button componentId="mlflow.gateway.usage-modal.try-it.reset" onClick={handleResetExample} disabled={isSending}>
           <FormattedMessage defaultMessage="Reset example" description="Reset example button" />
         </Button>
       </div>
