@@ -650,6 +650,190 @@ def test_delete_artifacts_with_bucket_owner(s3_artifact_root, tmp_path, monkeypa
     assert delete_call_kwargs["ExpectedBucketOwner"] == "123456789012"
 
 
+def test_create_presigned_upload_url(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    # Generate a presigned upload URL
+    presigned_response = repo.create_presigned_upload_url("model.pkl")
+
+    # Verify response structure
+    assert presigned_response.presigned_url is not None
+    assert isinstance(presigned_response.presigned_url, str)
+    assert "X-Amz-Algorithm" in presigned_response.presigned_url
+    assert "X-Amz-Credential" in presigned_response.presigned_url
+    assert "X-Amz-Signature" in presigned_response.presigned_url
+    # Verify the key contains the artifact path
+    assert "model.pkl" in presigned_response.presigned_url
+
+    # Verify headers include Content-Type
+    assert "Content-Type" in presigned_response.headers
+    # .pkl has no standard MIME type, so it should fallback to application/octet-stream
+    assert presigned_response.headers["Content-Type"] == "application/octet-stream"
+
+
+def test_create_presigned_upload_url_with_known_content_type(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    presigned_response = repo.create_presigned_upload_url("data.json")
+
+    assert presigned_response.presigned_url is not None
+    assert presigned_response.headers["Content-Type"] == "application/json"
+
+
+def test_create_presigned_upload_url_nested_path(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    presigned_response = repo.create_presigned_upload_url("models/subdir/model.pkl")
+
+    assert presigned_response.presigned_url is not None
+    # Verify the presigned URL references the full nested path
+    assert "models" in presigned_response.presigned_url
+
+
+def test_create_presigned_upload_url_custom_expiration(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    presigned_response = repo.create_presigned_upload_url("model.pkl", expiration=60)
+
+    assert presigned_response.presigned_url is not None
+    assert "X-Amz-Expires=60" in presigned_response.presigned_url
+
+
+def test_create_presigned_upload_url_default_expiration(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    presigned_response = repo.create_presigned_upload_url("model.pkl")
+
+    assert presigned_response.presigned_url is not None
+    assert "X-Amz-Expires=900" in presigned_response.presigned_url
+
+
+def test_create_presigned_upload_url_upload_works(s3_artifact_root, tmp_path):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    # Create a test file
+    file_name = "test_upload.txt"
+    file_content = "Hello, presigned upload!"
+    file_path = tmp_path / file_name
+    file_path.write_text(file_content)
+
+    # Get presigned upload URL
+    presigned_response = repo.create_presigned_upload_url(file_name)
+
+    # Upload using the presigned URL
+    with open(file_path, "rb") as f:
+        resp = requests.put(
+            presigned_response.presigned_url,
+            data=f,
+            headers=presigned_response.headers,
+        )
+    assert resp.status_code == 200
+
+    # Verify the file was uploaded correctly by downloading it
+    with open(repo.download_artifacts(file_name)) as f:
+        assert f.read() == file_content
+
+
+def test_create_presigned_upload_url_with_extra_args(s3_artifact_root, monkeypatch):
+    monkeypatch.setenv(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        '{"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "my-key-id"}',
+    )
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    presigned_response = repo.create_presigned_upload_url("model.pkl")
+
+    assert presigned_response.presigned_url is not None
+    # Verify headers include the extra args mapped to HTTP headers
+    assert presigned_response.headers.get("x-amz-server-side-encryption") == "aws:kms"
+    assert presigned_response.headers.get("x-amz-server-side-encryption-aws-kms-key-id") == "my-key-id"
+    # Content-Type should still be present
+    assert "Content-Type" in presigned_response.headers
+
+
+def test_create_presigned_upload_url_without_extra_args(s3_artifact_root, monkeypatch):
+    monkeypatch.delenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", raising=False)
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    presigned_response = repo.create_presigned_upload_url("model.pkl")
+
+    # Only Content-Type should be in headers
+    assert presigned_response.headers == {"Content-Type": "application/octet-stream"}
+
+
+def test_create_presigned_upload_url_with_bucket_owner(s3_artifact_root, monkeypatch):
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    mock_s3 = mock.Mock()
+    mock_s3.generate_presigned_url.return_value = "https://example.com/presigned"
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=mock_s3):
+        repo.create_presigned_upload_url("model.pkl")
+
+    mock_s3.generate_presigned_url.assert_called_once()
+    call_kwargs = mock_s3.generate_presigned_url.call_args
+    params = call_kwargs[1]["Params"]
+    assert "ExpectedBucketOwner" in params
+    assert params["ExpectedBucketOwner"] == "123456789012"
+
+
+def test_create_presigned_upload_url_to_dict(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    presigned_response = repo.create_presigned_upload_url("model.pkl")
+    response_dict = presigned_response.to_dict()
+
+    assert "presigned_url" in response_dict
+    assert "headers" in response_dict
+    assert response_dict["presigned_url"] == presigned_response.presigned_url
+    assert response_dict["headers"] == presigned_response.headers
+
+
+def test_create_presigned_upload_url_to_proto(s3_artifact_root):
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+
+    presigned_response = repo.create_presigned_upload_url("model.pkl")
+    proto = presigned_response.to_proto()
+
+    assert proto.presigned_url == presigned_response.presigned_url
+    assert dict(proto.headers) == presigned_response.headers
+
+
+def test_create_presigned_upload_url_from_dict():
+    from mlflow.entities.presigned_upload import CreatePresignedUploadResponse
+
+    d = {
+        "presigned_url": "https://example.com/presigned",
+        "headers": {"Content-Type": "application/octet-stream"},
+    }
+    response = CreatePresignedUploadResponse.from_dict(d)
+    assert response.presigned_url == "https://example.com/presigned"
+    assert response.headers == {"Content-Type": "application/octet-stream"}
+
+
+def test_create_presigned_upload_url_from_dict_no_headers():
+    from mlflow.entities.presigned_upload import CreatePresignedUploadResponse
+
+    d = {"presigned_url": "https://example.com/presigned"}
+    response = CreatePresignedUploadResponse.from_dict(d)
+    assert response.presigned_url == "https://example.com/presigned"
+    assert response.headers == {}
+
+
+def test_create_presigned_upload_url_from_proto():
+    from mlflow.entities.presigned_upload import CreatePresignedUploadResponse
+    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
+
+    proto = CreatePresignedUploadUrl.Response()
+    proto.presigned_url = "https://example.com/presigned"
+    proto.headers["Content-Type"] = "application/octet-stream"
+
+    response = CreatePresignedUploadResponse.from_proto(proto)
+    assert response.presigned_url == "https://example.com/presigned"
+    assert response.headers == {"Content-Type": "application/octet-stream"}
+
+
 def test_get_download_presigned_url(s3_artifact_root, tmp_path):
     repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
 
