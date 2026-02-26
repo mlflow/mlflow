@@ -1,6 +1,11 @@
-import { describe, it, expect } from '@jest/globals';
-import { isRootSpan, getRootSpan, extractInputs, extractOutputs, extractRetrievalContext } from './TraceUtils';
-import type { ModelTrace, ModelTraceSpanV2, ModelTraceSpanV3 } from '@databricks/web-shared/model-trace-explorer';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { isRootSpan, getRootSpan, extractInputs, extractOutputs, extractRetrievalContext, getTrace } from './TraceUtils';
+import type { ModelTrace, ModelTraceInfoV3, ModelTraceSpanV2, ModelTraceSpanV3 } from '@databricks/web-shared/model-trace-explorer';
+
+// Mock the API module so tests don't make real HTTP calls
+jest.mock('../../shared/web-shared/model-trace-explorer/api', () => ({
+  getExperimentTraceV3: jest.fn(),
+}));
 
 describe('isRootSpan', () => {
   describe('Golden Path - Successful Operations', () => {
@@ -1073,5 +1078,104 @@ describe('extractRetrievalContext', () => {
         ],
       });
     });
+  });
+});
+
+describe('getTrace', () => {
+  // Import the mocked function for use in tests
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const apiModule = require('../../shared/web-shared/model-trace-explorer/api');
+
+  const trackingStoreTraceInfo: ModelTraceInfoV3 = {
+    trace_id: 'tr-abc123',
+    trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+    request_time: '2024-01-01T00:00:00Z',
+    state: 'OK',
+    trace_metadata: {},
+    tags: {
+      // Tag that marks spans as stored in the tracking store (must match TRACKING_STORE_SPANS_LOCATION = 'TRACKING_STORE')
+      'mlflow.trace.spansLocation': 'TRACKING_STORE',
+    },
+  };
+
+  const mockSpan: ModelTraceSpanV3 = {
+    trace_id: 'tr-abc123',
+    span_id: 'span-1',
+    trace_state: '',
+    parent_span_id: null,
+    name: 'root-span',
+    start_time_unix_nano: '1000000000',
+    end_time_unix_nano: '2000000000',
+    status: { code: 'STATUS_CODE_OK' },
+    attributes: {},
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return undefined when traceId is falsy', async () => {
+    const result = await getTrace(undefined, trackingStoreTraceInfo);
+    expect(result).toBeUndefined();
+    expect(apiModule.getExperimentTraceV3).not.toHaveBeenCalled();
+  });
+
+  it('should parse spans from traceResp.trace.spans (not .data)', async () => {
+    // Verify the fix for the bug where traceResp.trace.data was always undefined.
+    // The actual API response has spans at traceResp.trace.spans, not traceResp.trace.data.
+    apiModule.getExperimentTraceV3.mockResolvedValue({
+      trace: {
+        trace_info: trackingStoreTraceInfo,
+        spans: [mockSpan],
+      },
+      spans_complete: true,
+    });
+
+    const result = await getTrace('tr-abc123', trackingStoreTraceInfo);
+
+    expect(result).toBeDefined();
+    expect(result?.data.spans).toHaveLength(1);
+    expect(result?.data.spans[0]).toEqual(mockSpan);
+    expect(result?.info).toEqual(trackingStoreTraceInfo);
+  });
+
+  it('should pass spans_complete from API response to ModelTrace', async () => {
+    apiModule.getExperimentTraceV3.mockResolvedValue({
+      trace: { trace_info: trackingStoreTraceInfo, spans: [mockSpan] },
+      spans_complete: false,
+    });
+
+    const result = await getTrace('tr-abc123', trackingStoreTraceInfo);
+
+    expect(result?.spans_complete).toBe(false);
+  });
+
+  it('should set spans_complete to undefined when not present in response', async () => {
+    // Simulates an older backend that does not return the spans_complete flag
+    apiModule.getExperimentTraceV3.mockResolvedValue({
+      trace: { trace_info: trackingStoreTraceInfo, spans: [mockSpan] },
+      // spans_complete is absent
+    });
+
+    const result = await getTrace('tr-abc123', trackingStoreTraceInfo);
+
+    expect(result?.spans_complete).toBeUndefined();
+  });
+
+  it('should handle empty spans array without falling through to other code paths', async () => {
+    // An empty spans array is a valid response (e.g. trace just started).
+    // The old buggy code used `traceResp.trace.data` as the condition, which was always
+    // falsy, causing fallthrough. The fix uses `traceResp.trace != null` instead.
+    apiModule.getExperimentTraceV3.mockResolvedValue({
+      trace: { trace_info: trackingStoreTraceInfo, spans: [] },
+      spans_complete: false,
+    });
+
+    const result = await getTrace('tr-abc123', trackingStoreTraceInfo);
+
+    expect(result).toBeDefined();
+    expect(result?.data.spans).toHaveLength(0);
+    // Should NOT have fallen through to other paths — the mock was only called once
+    expect(apiModule.getExperimentTraceV3).toHaveBeenCalledTimes(1);
   });
 });

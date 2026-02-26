@@ -69,6 +69,23 @@ export function useGetTrace(
 
     if (!traceInfo || traceInfo.state === 'IN_PROGRESS') return 1000;
 
+    // Use the backend's authoritative spans_complete flag when available (V3 OSS backend).
+    // This avoids duplicating the span-count comparison logic on the frontend.
+    if (data?.spans_complete !== undefined) {
+      if (data.spans_complete) {
+        okStatePollCountRef.current = 0;
+        return false;
+      }
+      // spans_complete=false: spans are still in transit, keep polling
+      okStatePollCountRef.current += 1;
+      if (okStatePollCountRef.current >= MAX_OK_STATE_POLL_COUNT) {
+        okStatePollCountRef.current = 0;
+        return false;
+      }
+      return 1000;
+    }
+
+    // Fallback: manual span-count comparison for backends that do not return spans_complete.
     const traceStats = traceInfo.trace_metadata?.['mlflow.trace.sizeStats'];
 
     // If the stats metadata is not available, stop polling.

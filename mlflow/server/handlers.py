@@ -264,6 +264,7 @@ from mlflow.telemetry.utils import (
     fetch_ui_telemetry_config,
     is_telemetry_disabled,
 )
+from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -3559,7 +3560,18 @@ def _get_trace() -> Response:
     trace_id = request_message.trace_id
     allow_partial = request_message.allow_partial
     trace = _get_tracking_store().get_trace(trace_id, allow_partial=allow_partial)
-    response_message = GetTrace.Response(trace=trace.to_proto())
+
+    # Compute spans_complete: True if all expected spans are present.
+    # When allow_partial=True, spans may still be in transit; this flag lets the
+    # frontend avoid manual span-count comparison against trace metadata.
+    trace_stats_str = trace.info.trace_metadata.get(TraceMetadataKey.SIZE_STATS)
+    if trace_stats_str:
+        num_spans = json.loads(trace_stats_str).get(TraceSizeStatsKey.NUM_SPANS, 0)
+        spans_complete = len(trace.data.spans) >= num_spans
+    else:
+        spans_complete = True  # No size metadata → assume all spans are present
+
+    response_message = GetTrace.Response(trace=trace.to_proto(), spans_complete=spans_complete)
     return _wrap_response(response_message)
 
 

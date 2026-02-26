@@ -225,4 +225,110 @@ describe('useGetTrace', () => {
       expect(mockGetTrace).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('polling with spans_complete flag (V3 OSS backend)', () => {
+    const okTraceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace-id-123',
+      trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+      request_time: '1625247600000',
+      state: 'OK',
+      trace_metadata: {},
+      tags: {},
+    };
+
+    test('should stop polling immediately when spans_complete is true', async () => {
+      const completeTrace: ModelTrace = {
+        data: { spans: [{ name: 'span1' }] as any },
+        info: okTraceInfo,
+        spans_complete: true,
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(completeTrace);
+      const { result } = renderHook(() => useGetTrace(mockGetTrace, okTraceInfo, true), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      // Advance timers — should NOT trigger additional fetches
+      jest.advanceTimersByTime(3000);
+
+      // Only the initial fetch; polling should have stopped immediately
+      expect(mockGetTrace).toHaveBeenCalledTimes(1);
+    });
+
+    test('should continue polling when spans_complete is false', async () => {
+      const incompleteTrace: ModelTrace = {
+        data: { spans: [{ name: 'span1' }] as any },
+        info: okTraceInfo,
+        spans_complete: false,
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(incompleteTrace);
+      const { result } = renderHook(() => useGetTrace(mockGetTrace, okTraceInfo, true), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      jest.advanceTimersByTime(3000);
+
+      await waitFor(() => {
+        expect(mockGetTrace.mock.calls.length).toBeGreaterThan(1);
+      });
+    });
+
+    test('should stop after max retries when spans_complete stays false', async () => {
+      const incompleteTrace: ModelTrace = {
+        data: { spans: [{ name: 'span1' }] as any },
+        info: okTraceInfo,
+        spans_complete: false,
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(incompleteTrace);
+      const { result } = renderHook(() => useGetTrace(mockGetTrace, okTraceInfo, true), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      jest.advanceTimersByTime(65000);
+
+      await waitFor(() => {
+        const callCount = mockGetTrace.mock.calls.length;
+        expect(callCount).toBeGreaterThan(1);
+        expect(callCount).toBeLessThanOrEqual(61); // 1 initial + max 60 retries
+      });
+    });
+
+    test('should use manual span-count fallback when spans_complete is undefined', async () => {
+      // Simulates an older backend that does not return spans_complete.
+      // The hook should fall back to manual num_spans comparison.
+      const traceWithMatchingSpans: ModelTrace = {
+        data: { spans: [{ name: 'span1' }] as any },
+        info: {
+          ...okTraceInfo,
+          trace_metadata: {
+            'mlflow.trace.sizeStats': JSON.stringify({ num_spans: 1 }),
+          },
+        } as ModelTraceInfoV3,
+        // spans_complete is absent (undefined)
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(traceWithMatchingSpans);
+      const { result } = renderHook(
+        () => useGetTrace(mockGetTrace, traceWithMatchingSpans.info, true),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      jest.advanceTimersByTime(3000);
+
+      // span count matches num_spans → polling stops after initial fetch
+      expect(mockGetTrace).toHaveBeenCalledTimes(1);
+    });
+  });
 });

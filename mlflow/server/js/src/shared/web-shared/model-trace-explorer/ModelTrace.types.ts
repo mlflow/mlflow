@@ -143,6 +143,12 @@ export type ModelTrace = {
   trace_info?: ModelTraceInfo;
   data: ModelTraceData;
   info: ModelTraceInfoV3 | ModelTraceInfo | NotebookModelTraceInfo;
+  /**
+   * Whether all expected spans have been received from the backend.
+   * Only present for responses from OSS SQLAlchemyStore (V3 API).
+   * When absent, the frontend falls back to manual span-count comparison.
+   */
+  spans_complete?: boolean;
 };
 
 /**
