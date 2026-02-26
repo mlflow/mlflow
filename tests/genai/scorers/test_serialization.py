@@ -11,7 +11,7 @@ from mlflow.genai.scorers.builtin_scorers import Guidelines
 
 @pytest.fixture(autouse=True)
 def mock_databricks_runtime():
-    with patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True):
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
         yield
 
 
