@@ -3189,6 +3189,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                 )
                             )
 
+                    # Preserve request/response previews computed by log_spans()
+                    # translation if the incoming trace doesn't have them set.
+                    if (
+                        sql_trace_info.request_preview is None
+                        and db_sql_trace_info.request_preview is not None
+                    ):
+                        sql_trace_info.request_preview = db_sql_trace_info.request_preview
+                    if (
+                        sql_trace_info.response_preview is None
+                        and db_sql_trace_info.response_preview is not None
+                    ):
+                        sql_trace_info.response_preview = db_sql_trace_info.response_preview
+
                 session.merge(sql_trace_info)
                 session.flush()
 
