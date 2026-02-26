@@ -177,7 +177,6 @@ service DatabricksTrackingService {
     };
   }
 
-  // Resolve a trace storage location by location ID.
   rpc getLocation(GetLocation) returns (GetLocation.Response) {
     option (rpc) = {
       endpoints: [
@@ -195,7 +194,6 @@ service DatabricksTrackingService {
     };
   }
 
-  // Create a trace storage location. This endpoint has create-or-get semantics.
   rpc createLocation(CreateLocation) returns (CreateLocation.Response) {
     option (rpc) = {
       endpoints: [
@@ -213,7 +211,6 @@ service DatabricksTrackingService {
     };
   }
 
-  // Link an experiment to a trace location.
   rpc linkTraceLocation(LinkTraceLocation) returns (LinkTraceLocation.Response) {
     option (rpc) = {
       endpoints: [
@@ -363,14 +360,11 @@ message UcTablePrefixLocation {
   optional string catalog_name = 1;
   optional string schema_name = 2;
   optional string table_prefix = 3;
-  // spans table name, only for output
   optional string spans_table_name = 4;
-  // logs table name, only for output
   optional string logs_table_name = 5;
-  // metrics table name, only for output
   optional string metrics_table_name = 6;
-  // The location ID (telemetry profile UUID), only for output
   optional string location_id = 7;
+  optional string annotations_table_name = 8;
 }
 
 message MlflowExperimentLocation {
@@ -639,11 +633,9 @@ message UnLinkExperimentToUCTraceLocation {
 message GetLocation {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Trace location identifier.
   optional string location_id = 1 [(validate_required) = true];
 
   message Response {
-    // Resolved UC table-prefix location.
     optional UcTablePrefixLocation uc_table_prefix = 1;
   }
 }
@@ -651,17 +643,14 @@ message GetLocation {
 message CreateLocation {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Location to create/get.
   oneof location {
     UCSchemaLocation uc_schema = 1;
     UcTablePrefixLocation uc_table_prefix = 2;
   }
 
-  // SQL warehouse ID for location creation and lookup.
   optional string sql_warehouse_id = 3;
 
   message Response {
-    // Resolved location.
     oneof location {
       UCSchemaLocation uc_schema = 1;
       UcTablePrefixLocation uc_table_prefix = 2;

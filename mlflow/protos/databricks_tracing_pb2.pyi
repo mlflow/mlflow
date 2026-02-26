@@ -27,7 +27,7 @@ class UCSchemaLocation(_message.Message):
     def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., otel_spans_table_name: _Optional[str] = ..., otel_logs_table_name: _Optional[str] = ...) -> None: ...
 
 class UcTablePrefixLocation(_message.Message):
-    __slots__ = ("catalog_name", "schema_name", "table_prefix", "spans_table_name", "logs_table_name", "metrics_table_name", "location_id")
+    __slots__ = ("catalog_name", "schema_name", "table_prefix", "spans_table_name", "logs_table_name", "metrics_table_name", "location_id", "annotations_table_name")
     CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
     SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
     TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
@@ -35,6 +35,7 @@ class UcTablePrefixLocation(_message.Message):
     LOGS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
     METRICS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
     LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
+    ANNOTATIONS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
     catalog_name: str
     schema_name: str
     table_prefix: str
@@ -42,7 +43,8 @@ class UcTablePrefixLocation(_message.Message):
     logs_table_name: str
     metrics_table_name: str
     location_id: str
-    def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., table_prefix: _Optional[str] = ..., spans_table_name: _Optional[str] = ..., logs_table_name: _Optional[str] = ..., metrics_table_name: _Optional[str] = ..., location_id: _Optional[str] = ...) -> None: ...
+    annotations_table_name: str
+    def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., table_prefix: _Optional[str] = ..., spans_table_name: _Optional[str] = ..., logs_table_name: _Optional[str] = ..., metrics_table_name: _Optional[str] = ..., location_id: _Optional[str] = ..., annotations_table_name: _Optional[str] = ...) -> None: ...
 
 class MlflowExperimentLocation(_message.Message):
     __slots__ = ("experiment_id",)
