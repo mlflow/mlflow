@@ -117,7 +117,7 @@ describe('IssueDetectionModal', () => {
     expect(submitButton).toBeDisabled();
   });
 
-  test('submit button is enabled when form is complete with existing key', async () => {
+  test('submit button is enabled when form is complete with existing key and traces', async () => {
     const userEvent = (await import('@testing-library/user-event')).default;
 
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
@@ -130,7 +130,7 @@ describe('IssueDetectionModal', () => {
     expect(submitButton).not.toBeDisabled();
   });
 
-  test('submit button is enabled when form is complete with new key', async () => {
+  test('submit button is enabled when form is complete with new key and traces', async () => {
     const userEvent = (await import('@testing-library/user-event')).default;
 
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
@@ -143,8 +143,19 @@ describe('IssueDetectionModal', () => {
     expect(submitButton).not.toBeDisabled();
   });
 
-  test('shows save key checkbox when using new key mode', async () => {
+  test('does not show save key checkbox without provider selected', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    expect(screen.queryByText('Save this key for reuse')).not.toBeInTheDocument();
+  });
+
+  test('shows save key checkbox when provider selected and using new key mode', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
+    await userEvent.click(screen.getByTestId('set-new-key'));
 
     expect(screen.getByText('Save this key for reuse')).toBeInTheDocument();
   });
@@ -154,6 +165,7 @@ describe('IssueDetectionModal', () => {
 
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-new-key'));
     expect(screen.getByText('Save this key for reuse')).toBeInTheDocument();
 
@@ -203,6 +215,7 @@ describe('IssueDetectionModal', () => {
     expect(screen.queryByText('Save this key for reuse')).not.toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'anthropic');
+    await userEvent.click(screen.getByTestId('set-new-key'));
 
     expect(screen.getByText('Save this key for reuse')).toBeInTheDocument();
   });
