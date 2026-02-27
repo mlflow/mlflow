@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTelemetry';
@@ -290,7 +290,13 @@ interface TooltipLinkConfig {
 
 interface ScrollableTooltipProps {
   active?: boolean;
-  payload?: Array<{ payload?: { timestampMs?: number }; name: string; value: number; color: string }>;
+  payload?: Array<{
+    payload?: { timestampMs?: number };
+    name?: string | number;
+    value?: string | number | Array<string | number>;
+    color?: string;
+    dataKey?: string | number;
+  }>;
   label?: string;
   /** Formatter function to display the value - returns [formattedValue, label] */
   formatter: (value: number, name: string) => [string | number, string];
@@ -301,25 +307,6 @@ interface ScrollableTooltipProps {
 /**
  * Custom scrollable tooltip component for Recharts.
  * Optionally shows a "View traces for this period" link when linkConfig is provided.
- *
- * @example
- * // Basic usage without link
- * <Tooltip content={<ScrollableTooltip formatter={...} />} />
- *
- * @example
- * // With "View traces" link
- * <Tooltip
- *   content={
- *     <ScrollableTooltip
- *       formatter={(value) => [`${value}`, 'Requests']}
- *       linkConfig={{
- *         experimentId,
- *         timeIntervalSeconds,
- *         componentId: 'mlflow.overview.usage.traces.view_traces_link',
- *       }}
- *     />
- *   }
- * />
  */
 export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
@@ -364,10 +351,6 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
         fontSize: theme.typography.fontSizeSm,
         padding: theme.spacing.sm,
         pointerEvents: 'auto',
-        // This is to ensure the tooltip renders on the cursor position, so users can hover
-        // over the tooltip and scroll if applicable.
-        marginLeft: -20,
-        marginRight: -20,
       }}
     >
       {label && <div css={{ fontWeight: 500, marginBottom: theme.spacing.xs }}>{label}</div>}
@@ -379,7 +362,10 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
         }}
       >
         {payload.map((entry, index) => {
-          const [formattedValue, formattedName] = formatter(entry.value, entry.name);
+          const rawValue = entry.value;
+          const value = typeof rawValue === 'number' ? rawValue : 0;
+          const name = String(entry.name ?? entry.dataKey ?? '');
+          const [formattedValue, formattedName] = formatter(value, name);
           return (
             <div
               key={index}
@@ -396,7 +382,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
                   width: theme.spacing.sm,
                   height: theme.spacing.sm,
                   borderRadius: '50%',
-                  backgroundColor: entry.color,
+                  backgroundColor: entry.color ?? '#888',
                   flexShrink: 0,
                 }}
               />
@@ -434,6 +420,122 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
           </Typography.Link>
         </div>
       )}
+    </div>
+  );
+}
+
+export interface LockedTooltipData {
+  payload: ScrollableTooltipProps['payload'];
+  label: string;
+  x: number;
+  y: number;
+}
+
+interface UseClickableTooltipReturn {
+  lockedTooltip: LockedTooltipData | null;
+  isLocked: boolean;
+  containerRef: React.RefObject<HTMLDivElement>;
+  tooltipRef: React.RefObject<HTMLDivElement>;
+  handleChartClick: (
+    data: {
+      activePayload?: ScrollableTooltipProps['payload'];
+      activeLabel?: string;
+    } | null,
+    event: React.MouseEvent | null,
+  ) => void;
+}
+
+/**
+ * Hook to manage click-to-freeze tooltip behavior with overlay.
+ */
+export function useClickableTooltip(): UseClickableTooltipReturn {
+  const [lockedTooltip, setLockedTooltip] = useState<LockedTooltipData | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!lockedTooltip) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
+        setLockedTooltip(null);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setLockedTooltip(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [lockedTooltip]);
+
+  const handleChartClick = useCallback(
+    (
+      data: {
+        activePayload?: ScrollableTooltipProps['payload'];
+        activeLabel?: string;
+      } | null,
+      event: React.MouseEvent | null,
+    ) => {
+      if (!data?.activePayload?.length || !containerRef.current || !event) return;
+
+      const containerRect = containerRef.current.getBoundingClientRect();
+
+      setLockedTooltip({
+        payload: data.activePayload,
+        label: data.activeLabel ?? '',
+        x: event.clientX - containerRect.left,
+        y: event.clientY - containerRect.top,
+      });
+    },
+    [],
+  );
+
+  return {
+    lockedTooltip,
+    isLocked: lockedTooltip !== null,
+    containerRef,
+    tooltipRef,
+    handleChartClick,
+  };
+}
+
+interface LockedTooltipOverlayProps {
+  data: LockedTooltipData;
+  tooltipRef: React.RefObject<HTMLDivElement>;
+  formatter: ScrollableTooltipProps['formatter'];
+  linkConfig?: ScrollableTooltipProps['linkConfig'];
+}
+
+/**
+ * Locked tooltip overlay that renders ScrollableTooltip at a fixed position.
+ */
+export function LockedTooltipOverlay({ data, tooltipRef, formatter, linkConfig }: LockedTooltipOverlayProps) {
+  return (
+    <div
+      ref={tooltipRef}
+      css={{
+        position: 'absolute',
+        left: data.x,
+        top: data.y,
+        transform: 'translate(-50%, -100%)',
+        zIndex: 1000,
+      }}
+    >
+      <ScrollableTooltip
+        active
+        payload={data.payload}
+        label={data.label}
+        formatter={formatter}
+        linkConfig={linkConfig}
+      />
     </div>
   );
 }
