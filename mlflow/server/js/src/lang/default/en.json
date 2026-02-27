@@ -543,6 +543,10 @@
     "defaultMessage": "User frustration",
     "description": "LLM template option"
   },
+  "1oamMA": {
+    "defaultMessage": "Detect Issues",
+    "description": "Label for the detect issues button in the traces table toolbar"
+  },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
     "description": "Label for the custom column group in the logged model column selector"
@@ -3469,6 +3473,10 @@
   "NGsTf/": {
     "defaultMessage": "Synchronizing artifacts for {runsBeingSynchronizedCount} runs...",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > loading state"
+  },
+  "NHgLd1": {
+    "defaultMessage": "Detect issues in traces",
+    "description": "Aria label for the detect issues button in the traces table toolbar"
   },
   "NJ1bYP": {
     "defaultMessage": "{fieldName} are identical",
@@ -6802,6 +6810,10 @@
   "kBXHTA": {
     "defaultMessage": "Edit chart",
     "description": "Title of the modal when editing a runs comparison chart"
+  },
+  "kBl4Ov": {
+    "defaultMessage": "Detect issues in traces",
+    "description": "Tooltip for the detect issues button in the traces table toolbar"
   },
   "kCsAho": {
     "defaultMessage": "Correctness",
