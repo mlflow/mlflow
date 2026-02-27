@@ -37,6 +37,7 @@ def upgrade():
             ["experiment_id"],
             ["experiments.experiment_id"],
             name="fk_issues_experiment_id",
+            ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
             ["run_id"],
