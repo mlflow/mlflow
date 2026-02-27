@@ -58,29 +58,42 @@ def _read_file_if_exists(path: Path) -> str | None:
     return None
 
 
-def _get_credentials_from_service_account() -> tuple[str, str] | None:
-    """Get namespace and token from mounted service account files.
-
-    Returns:
-        Tuple of (namespace, token) if both are available, None otherwise.
-    """
-    namespace = _read_file_if_exists(_SERVICE_ACCOUNT_NAMESPACE_PATH)
-    token = _read_file_if_exists(_SERVICE_ACCOUNT_TOKEN_PATH)
-
-    if namespace and token:
-        return namespace, f"Bearer {token}"
-    return None
+def _get_namespace() -> str | None:
+    """Get workspace namespace. Tries service account file then kubeconfig context."""
+    if namespace := _read_file_if_exists(_SERVICE_ACCOUNT_NAMESPACE_PATH):
+        return namespace
+    return _get_namespace_from_kubeconfig()
 
 
-def _get_credentials_from_kubeconfig() -> tuple[str, str] | None:
-    """Get namespace and token from kubeconfig.
+def _get_namespace_from_kubeconfig() -> str | None:
+    from kubernetes import config
+    from kubernetes.config.config_exception import ConfigException
 
-    Uses ApiClient so kubeconfig exec auth is resolved when possible
-    (EKS, GKE, AKS, OpenShift, OIDC).
+    try:
+        config.load_kube_config()
+    except (OSError, ConfigException) as e:
+        _logger.warning("Could not load kubeconfig: %s", e)
+        return None
 
-    Returns:
-        Tuple of (namespace, token) if both are available, None otherwise.
-    """
+    try:
+        _, active_context = config.list_kube_config_contexts()
+    except (OSError, ConfigException) as e:
+        _logger.warning("Could not list kubeconfig contexts: %s", e)
+        return None
+    if not active_context:
+        return None
+
+    return active_context.get("context", {}).get("namespace", "").strip() or None
+
+
+def _get_token() -> str | None:
+    """Get authorization token. Tries service account file then kubeconfig."""
+    if token := _read_file_if_exists(_SERVICE_ACCOUNT_TOKEN_PATH):
+        return f"Bearer {token}"
+    return _get_token_from_kubeconfig()
+
+
+def _get_token_from_kubeconfig() -> str | None:
     from kubernetes import client, config
     from kubernetes.config.config_exception import ConfigException
 
@@ -90,20 +103,6 @@ def _get_credentials_from_kubeconfig() -> tuple[str, str] | None:
         _logger.warning("Could not load kubeconfig: %s", e)
         return None
 
-    # Get namespace from context
-    try:
-        _, active_context = config.list_kube_config_contexts()
-    except (OSError, ConfigException) as e:
-        _logger.warning("Could not list kubeconfig contexts: %s", e)
-        return None
-    if not active_context:
-        return None
-
-    namespace = active_context.get("context", {}).get("namespace", "").strip() or None
-    if not namespace:
-        return None
-
-    # Get token from ApiClient
     api_client = client.ApiClient()
     token = None
 
@@ -125,24 +124,7 @@ def _get_credentials_from_kubeconfig() -> tuple[str, str] | None:
     if not token:
         return None
 
-    return namespace, f"Bearer {token}"
-
-
-def _get_credentials() -> tuple[str, str] | None:
-    """Get workspace and authorization credentials.
-
-    Tries service account files first, then falls back to kubeconfig.
-    Both values must come from the same source for consistency.
-
-    Returns:
-        Tuple of (namespace, authorization) if available, None otherwise.
-    """
-    # Try service account files first (running in a pod)
-    if creds := _get_credentials_from_service_account():
-        return creds
-
-    # Fallback to kubeconfig
-    return _get_credentials_from_kubeconfig()
+    return f"Bearer {token}"
 
 
 class KubernetesAuth:
@@ -164,31 +146,28 @@ class KubernetesAuth:
         Raises:
             MlflowException: If workspace or authorization cannot be determined.
         """
-        # Skip if both headers are already set
-        if (
-            WORKSPACE_HEADER_NAME in request.headers
-            and AUTHORIZATION_HEADER_NAME in request.headers
-        ):
-            return request
-
-        credentials = _get_credentials()
-        if not credentials:
-            raise MlflowException(
-                "Could not determine Kubernetes credentials. "
-                "Ensure you are running in a Kubernetes pod with a service account "
-                "or have a valid kubeconfig with a namespace and credentials set."
-            )
-
-        namespace, authorization = credentials
-
         if WORKSPACE_HEADER_NAME not in request.headers:
+            namespace = _get_namespace()
+            if not namespace:
+                raise MlflowException(
+                    "Could not determine Kubernetes namespace. "
+                    "Ensure you are running in a Kubernetes pod with a service account "
+                    "or have a valid kubeconfig with a namespace set in the active context."
+                )
             request.headers[WORKSPACE_HEADER_NAME] = namespace
 
         if AUTHORIZATION_HEADER_NAME not in request.headers:
-            request.headers[AUTHORIZATION_HEADER_NAME] = authorization
+            token = _get_token()
+            if not token:
+                raise MlflowException(
+                    "Could not determine Kubernetes credentials. "
+                    "Ensure you are running in a Kubernetes pod with a service account "
+                    "or have a valid kubeconfig with credentials set."
+                )
+            request.headers[AUTHORIZATION_HEADER_NAME] = token
 
         if not get_request_workspace():
-            set_workspace(request.headers.get(WORKSPACE_HEADER_NAME, namespace))
+            set_workspace(request.headers.get(WORKSPACE_HEADER_NAME))
 
         return request
 
@@ -200,8 +179,8 @@ class KubernetesRequestAuthProvider(RequestAuthProvider):
     - X-MLFLOW-WORKSPACE: Set from service account namespace file or kubeconfig context
     - Authorization: Set from service account token file or kubeconfig credentials
 
-    Credentials are sourced consistently - either both from mounted service account
-    files (when running in a pod) or both from kubeconfig (when running locally).
+    Each header is resolved independently — the namespace and token may come from
+    different sources. Either header can also be pre-set by the caller.
 
     To enable this provider, set:
         MLFLOW_TRACKING_AUTH=kubernetes

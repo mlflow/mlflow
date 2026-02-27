@@ -11,9 +11,10 @@ from mlflow.tracking.request_auth.kubernetes_request_auth_provider import (
     WORKSPACE_HEADER_NAME,
     KubernetesAuth,
     KubernetesRequestAuthProvider,
-    _get_credentials,
-    _get_credentials_from_kubeconfig,
-    _get_credentials_from_service_account,
+    _get_namespace,
+    _get_namespace_from_kubeconfig,
+    _get_token,
+    _get_token_from_kubeconfig,
     _read_file_if_exists,
 )
 from mlflow.utils.workspace_context import get_request_workspace, set_workspace
@@ -55,34 +56,23 @@ def test_read_file_caches_result(tmp_path):
         mock_read.assert_called_once()
 
 
-# Tests for _get_credentials_from_service_account
+# Tests for _get_namespace
 
 
-def test_service_account_returns_credentials_when_both_files_exist(tmp_path):
+def test_get_namespace_returns_service_account_namespace(tmp_path):
     namespace_file = tmp_path / "namespace"
-    namespace_file.write_text("test-namespace")
-    token_file = tmp_path / "token"
-    token_file.write_text("test-token")
+    namespace_file.write_text("sa-namespace")
 
-    with (
-        mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_NAMESPACE_PATH",
-            namespace_file,
-        ),
-        mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_TOKEN_PATH",
-            token_file,
-        ),
+    with mock.patch(
+        "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
+        "_SERVICE_ACCOUNT_NAMESPACE_PATH",
+        namespace_file,
     ):
-        result = _get_credentials_from_service_account()
-        assert result == ("test-namespace", "Bearer test-token")
+        assert _get_namespace() == "sa-namespace"
 
 
-def test_service_account_returns_none_when_namespace_missing(tmp_path):
-    token_file = tmp_path / "token"
-    token_file.write_text("test-token")
+def test_get_namespace_falls_back_to_kubeconfig(tmp_path):
+    active_context = {"name": "my-context", "context": {"namespace": "kubeconfig-namespace"}}
 
     with (
         mock.patch(
@@ -90,108 +80,72 @@ def test_service_account_returns_none_when_namespace_missing(tmp_path):
             "_SERVICE_ACCOUNT_NAMESPACE_PATH",
             tmp_path / "nonexistent",
         ),
+        mock.patch("kubernetes.config.load_kube_config"),
         mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_TOKEN_PATH",
-            token_file,
+            "kubernetes.config.list_kube_config_contexts", return_value=([], active_context)
         ),
     ):
-        result = _get_credentials_from_service_account()
-        assert result is None
+        assert _get_namespace() == "kubeconfig-namespace"
 
 
-def test_service_account_returns_none_when_token_missing(tmp_path):
-    namespace_file = tmp_path / "namespace"
-    namespace_file.write_text("test-namespace")
-
+def test_get_namespace_returns_none_when_nothing_available(tmp_path):
     with (
         mock.patch(
             "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
             "_SERVICE_ACCOUNT_NAMESPACE_PATH",
-            namespace_file,
-        ),
-        mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_TOKEN_PATH",
             tmp_path / "nonexistent",
         ),
+        mock.patch("kubernetes.config.load_kube_config"),
+        mock.patch("kubernetes.config.list_kube_config_contexts", return_value=([], None)),
     ):
-        result = _get_credentials_from_service_account()
-        assert result is None
+        assert _get_namespace() is None
 
 
-# Tests for _get_credentials_from_kubeconfig
+# Tests for _get_namespace_from_kubeconfig
 
 
-def test_kubeconfig_returns_credentials_when_both_available():
+def test_namespace_from_kubeconfig_returns_namespace():
     active_context = {"name": "my-context", "context": {"namespace": "my-namespace"}}
-    mock_api_client = mock.MagicMock()
-    mock_api_client.default_headers = {"Authorization": "Bearer test-token"}
 
     with (
         mock.patch("kubernetes.config.load_kube_config"),
         mock.patch(
             "kubernetes.config.list_kube_config_contexts", return_value=([], active_context)
         ),
-        mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
     ):
-        result = _get_credentials_from_kubeconfig()
-        assert result == ("my-namespace", "Bearer test-token")
+        assert _get_namespace_from_kubeconfig() == "my-namespace"
 
 
-def test_kubeconfig_returns_none_when_no_namespace():
+def test_namespace_from_kubeconfig_returns_none_when_no_namespace():
     active_context = {"name": "my-context", "context": {}}
-    mock_api_client = mock.MagicMock()
-    mock_api_client.default_headers = {"Authorization": "Bearer test-token"}
 
     with (
         mock.patch("kubernetes.config.load_kube_config"),
         mock.patch(
             "kubernetes.config.list_kube_config_contexts", return_value=([], active_context)
         ),
-        mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
     ):
-        result = _get_credentials_from_kubeconfig()
-        assert result is None
+        assert _get_namespace_from_kubeconfig() is None
 
 
-def test_kubeconfig_returns_none_when_no_token():
-    active_context = {"name": "my-context", "context": {"namespace": "my-namespace"}}
-    mock_api_client = mock.MagicMock()
-    mock_api_client.default_headers = {}
-    mock_api_client.configuration.api_key = {}
-
-    with (
-        mock.patch("kubernetes.config.load_kube_config"),
-        mock.patch(
-            "kubernetes.config.list_kube_config_contexts", return_value=([], active_context)
-        ),
-        mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
-    ):
-        result = _get_credentials_from_kubeconfig()
-        assert result is None
-
-
-def test_kubeconfig_returns_none_when_no_active_context():
+def test_namespace_from_kubeconfig_returns_none_when_no_active_context():
     with (
         mock.patch("kubernetes.config.load_kube_config"),
         mock.patch("kubernetes.config.list_kube_config_contexts", return_value=([], None)),
     ):
-        result = _get_credentials_from_kubeconfig()
-        assert result is None
+        assert _get_namespace_from_kubeconfig() is None
 
 
-def test_kubeconfig_returns_none_when_load_fails():
+def test_namespace_from_kubeconfig_returns_none_when_load_fails():
     from kubernetes.config.config_exception import ConfigException
 
     with mock.patch(
         "kubernetes.config.load_kube_config", side_effect=ConfigException("no kubeconfig")
     ):
-        result = _get_credentials_from_kubeconfig()
-        assert result is None
+        assert _get_namespace_from_kubeconfig() is None
 
 
-def test_kubeconfig_returns_none_when_list_contexts_fails():
+def test_namespace_from_kubeconfig_returns_none_when_list_contexts_fails():
     from kubernetes.config.config_exception import ConfigException
 
     with (
@@ -201,137 +155,132 @@ def test_kubeconfig_returns_none_when_list_contexts_fails():
             side_effect=ConfigException("invalid context"),
         ),
     ):
-        result = _get_credentials_from_kubeconfig()
-        assert result is None
+        assert _get_namespace_from_kubeconfig() is None
 
 
-def test_kubeconfig_uses_lowercase_authorization_header():
-    active_context = {"name": "my-context", "context": {"namespace": "my-namespace"}}
+# Tests for _get_token_from_kubeconfig
+
+
+def test_token_from_kubeconfig_returns_bearer_token():
+    mock_api_client = mock.MagicMock()
+    mock_api_client.default_headers = {"Authorization": "Bearer test-token"}
+
+    with (
+        mock.patch("kubernetes.config.load_kube_config"),
+        mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
+    ):
+        assert _get_token_from_kubeconfig() == "Bearer test-token"
+
+
+def test_token_from_kubeconfig_returns_none_when_no_token():
+    mock_api_client = mock.MagicMock()
+    mock_api_client.default_headers = {}
+    mock_api_client.configuration.api_key = {}
+
+    with (
+        mock.patch("kubernetes.config.load_kube_config"),
+        mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
+    ):
+        assert _get_token_from_kubeconfig() is None
+
+
+def test_token_from_kubeconfig_returns_none_when_load_fails():
+    from kubernetes.config.config_exception import ConfigException
+
+    with mock.patch(
+        "kubernetes.config.load_kube_config", side_effect=ConfigException("no kubeconfig")
+    ):
+        assert _get_token_from_kubeconfig() is None
+
+
+def test_token_from_kubeconfig_uses_lowercase_authorization_header():
     mock_api_client = mock.MagicMock()
     mock_api_client.default_headers = {"authorization": "Bearer lowercase-token"}
 
     with (
         mock.patch("kubernetes.config.load_kube_config"),
-        mock.patch(
-            "kubernetes.config.list_kube_config_contexts", return_value=([], active_context)
-        ),
         mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
     ):
-        result = _get_credentials_from_kubeconfig()
-        assert result == ("my-namespace", "Bearer lowercase-token")
+        assert _get_token_from_kubeconfig() == "Bearer lowercase-token"
 
 
-def test_kubeconfig_falls_back_to_api_key():
-    active_context = {"name": "my-context", "context": {"namespace": "my-namespace"}}
+def test_token_from_kubeconfig_falls_back_to_api_key():
     mock_api_client = mock.MagicMock()
     mock_api_client.default_headers = {}
     mock_api_client.configuration.api_key = {"authorization": "fallback-token"}
 
     with (
         mock.patch("kubernetes.config.load_kube_config"),
-        mock.patch(
-            "kubernetes.config.list_kube_config_contexts", return_value=([], active_context)
-        ),
         mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
     ):
-        result = _get_credentials_from_kubeconfig()
-        assert result == ("my-namespace", "Bearer fallback-token")
+        assert _get_token_from_kubeconfig() == "Bearer fallback-token"
 
 
-def test_kubeconfig_strips_bearer_prefix_from_api_key():
-    active_context = {"name": "my-context", "context": {"namespace": "my-namespace"}}
+def test_token_from_kubeconfig_strips_bearer_prefix_from_api_key():
     mock_api_client = mock.MagicMock()
     mock_api_client.default_headers = {}
     mock_api_client.configuration.api_key = {"authorization": "Bearer prefixed-token"}
 
     with (
         mock.patch("kubernetes.config.load_kube_config"),
-        mock.patch(
-            "kubernetes.config.list_kube_config_contexts", return_value=([], active_context)
-        ),
         mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
     ):
-        result = _get_credentials_from_kubeconfig()
-        assert result == ("my-namespace", "Bearer prefixed-token")
+        assert _get_token_from_kubeconfig() == "Bearer prefixed-token"
 
 
-# Tests for _get_credentials
+# Tests for _get_token
 
 
-def test_get_credentials_prefers_service_account(tmp_path):
-    namespace_file = tmp_path / "namespace"
-    namespace_file.write_text("sa-namespace")
+def test_get_token_prefers_service_account(tmp_path):
     token_file = tmp_path / "token"
     token_file.write_text("sa-token")
 
-    active_context = {"name": "my-context", "context": {"namespace": "kubeconfig-namespace"}}
     mock_api_client = mock.MagicMock()
     mock_api_client.default_headers = {"Authorization": "Bearer kubeconfig-token"}
 
     with (
-        mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_NAMESPACE_PATH",
-            namespace_file,
-        ),
         mock.patch(
             "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
             "_SERVICE_ACCOUNT_TOKEN_PATH",
             token_file,
         ),
-        mock.patch("kubernetes.config.load_kube_config"),
-        mock.patch(
-            "kubernetes.config.list_kube_config_contexts", return_value=([], active_context)
-        ),
+        mock.patch("kubernetes.config.load_kube_config") as mock_load,
         mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
     ):
-        result = _get_credentials()
-        assert result == ("sa-namespace", "Bearer sa-token")
+        assert _get_token() == "Bearer sa-token"
+        mock_load.assert_not_called()
 
 
-def test_get_credentials_falls_back_to_kubeconfig(tmp_path):
-    active_context = {"name": "my-context", "context": {"namespace": "kubeconfig-namespace"}}
+def test_get_token_falls_back_to_kubeconfig(tmp_path):
     mock_api_client = mock.MagicMock()
     mock_api_client.default_headers = {"Authorization": "Bearer kubeconfig-token"}
 
     with (
         mock.patch(
             "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_NAMESPACE_PATH",
-            tmp_path / "nonexistent",
-        ),
-        mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
             "_SERVICE_ACCOUNT_TOKEN_PATH",
             tmp_path / "nonexistent",
         ),
         mock.patch("kubernetes.config.load_kube_config"),
-        mock.patch(
-            "kubernetes.config.list_kube_config_contexts", return_value=([], active_context)
-        ),
         mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
     ):
-        result = _get_credentials()
-        assert result == ("kubeconfig-namespace", "Bearer kubeconfig-token")
+        assert _get_token() == "Bearer kubeconfig-token"
 
 
-def test_get_credentials_returns_none_when_nothing_available(tmp_path):
+def test_get_token_returns_none_when_nothing_available(tmp_path):
+    from kubernetes.config.config_exception import ConfigException
+
     with (
         mock.patch(
             "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_NAMESPACE_PATH",
-            tmp_path / "nonexistent",
-        ),
-        mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
             "_SERVICE_ACCOUNT_TOKEN_PATH",
             tmp_path / "nonexistent",
         ),
-        mock.patch("kubernetes.config.load_kube_config"),
-        mock.patch("kubernetes.config.list_kube_config_contexts", return_value=([], None)),
+        mock.patch(
+            "kubernetes.config.load_kube_config", side_effect=ConfigException("no kubeconfig")
+        ),
     ):
-        result = _get_credentials()
-        assert result is None
+        assert _get_token() is None
 
 
 # Tests for KubernetesAuth
@@ -382,8 +331,6 @@ def test_auth_skips_when_both_headers_already_set():
 
 
 def test_auth_does_not_override_existing_workspace_header(tmp_path):
-    namespace_file = tmp_path / "namespace"
-    namespace_file.write_text("test-namespace")
     token_file = tmp_path / "token"
     token_file.write_text("test-token")
 
@@ -392,17 +339,9 @@ def test_auth_does_not_override_existing_workspace_header(tmp_path):
         WORKSPACE_HEADER_NAME: "existing-workspace",
     }
 
-    with (
-        mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_NAMESPACE_PATH",
-            namespace_file,
-        ),
-        mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_TOKEN_PATH",
-            token_file,
-        ),
+    with mock.patch(
+        "mlflow.tracking.request_auth.kubernetes_request_auth_provider._SERVICE_ACCOUNT_TOKEN_PATH",
+        token_file,
     ):
         auth = KubernetesAuth()
         result = auth(mock_request)
@@ -416,25 +355,16 @@ def test_auth_does_not_override_existing_workspace_header(tmp_path):
 def test_auth_does_not_override_existing_authorization_header(tmp_path):
     namespace_file = tmp_path / "namespace"
     namespace_file.write_text("test-namespace")
-    token_file = tmp_path / "token"
-    token_file.write_text("test-token")
 
     mock_request = mock.MagicMock()
     mock_request.headers = {
         AUTHORIZATION_HEADER_NAME: "existing-auth",
     }
 
-    with (
-        mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_NAMESPACE_PATH",
-            namespace_file,
-        ),
-        mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_TOKEN_PATH",
-            token_file,
-        ),
+    with mock.patch(
+        "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
+        "_SERVICE_ACCOUNT_NAMESPACE_PATH",
+        namespace_file,
     ):
         auth = KubernetesAuth()
         result = auth(mock_request)
@@ -444,7 +374,77 @@ def test_auth_does_not_override_existing_authorization_header(tmp_path):
         assert mock_request.headers[AUTHORIZATION_HEADER_NAME] == "existing-auth"
 
 
-def test_auth_raises_when_no_credentials(tmp_path):
+def test_auth_workspace_preset_kubeconfig_token_only():
+    mock_api_client = mock.MagicMock()
+    mock_api_client.default_headers = {"Authorization": "Bearer kubeconfig-token"}
+
+    mock_request = mock.MagicMock()
+    mock_request.headers = {
+        WORKSPACE_HEADER_NAME: "existing-workspace",
+    }
+
+    with (
+        mock.patch(
+            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
+            "_SERVICE_ACCOUNT_TOKEN_PATH",
+            Path("/nonexistent/token"),
+        ),
+        mock.patch("kubernetes.config.load_kube_config"),
+        mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
+    ):
+        auth = KubernetesAuth()
+        result = auth(mock_request)
+
+        assert result is mock_request
+        assert mock_request.headers[WORKSPACE_HEADER_NAME] == "existing-workspace"
+        assert mock_request.headers[AUTHORIZATION_HEADER_NAME] == "Bearer kubeconfig-token"
+
+
+def test_auth_workspace_preset_service_account_token_only(tmp_path):
+    token_file = tmp_path / "token"
+    token_file.write_text("sa-token")
+
+    mock_request = mock.MagicMock()
+    mock_request.headers = {
+        WORKSPACE_HEADER_NAME: "existing-workspace",
+    }
+
+    with mock.patch(
+        "mlflow.tracking.request_auth.kubernetes_request_auth_provider._SERVICE_ACCOUNT_TOKEN_PATH",
+        token_file,
+    ):
+        auth = KubernetesAuth()
+        result = auth(mock_request)
+
+        assert result is mock_request
+        assert mock_request.headers[WORKSPACE_HEADER_NAME] == "existing-workspace"
+        assert mock_request.headers[AUTHORIZATION_HEADER_NAME] == "Bearer sa-token"
+
+
+def test_auth_workspace_preset_raises_when_no_token(tmp_path):
+    from kubernetes.config.config_exception import ConfigException
+
+    mock_request = mock.MagicMock()
+    mock_request.headers = {
+        WORKSPACE_HEADER_NAME: "existing-workspace",
+    }
+
+    with (
+        mock.patch(
+            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
+            "_SERVICE_ACCOUNT_TOKEN_PATH",
+            tmp_path / "nonexistent",
+        ),
+        mock.patch(
+            "kubernetes.config.load_kube_config", side_effect=ConfigException("no kubeconfig")
+        ),
+    ):
+        auth = KubernetesAuth()
+        with pytest.raises(MlflowException, match="Could not determine Kubernetes credentials"):
+            auth(mock_request)
+
+
+def test_auth_raises_when_no_namespace(tmp_path):
     mock_request = mock.MagicMock()
     mock_request.headers = {}
 
@@ -454,16 +454,11 @@ def test_auth_raises_when_no_credentials(tmp_path):
             "_SERVICE_ACCOUNT_NAMESPACE_PATH",
             tmp_path / "nonexistent",
         ),
-        mock.patch(
-            "mlflow.tracking.request_auth.kubernetes_request_auth_provider."
-            "_SERVICE_ACCOUNT_TOKEN_PATH",
-            tmp_path / "nonexistent",
-        ),
         mock.patch("kubernetes.config.load_kube_config"),
         mock.patch("kubernetes.config.list_kube_config_contexts", return_value=([], None)),
     ):
         auth = KubernetesAuth()
-        with pytest.raises(MlflowException, match="Could not determine Kubernetes credentials"):
+        with pytest.raises(MlflowException, match="Could not determine Kubernetes namespace"):
             auth(mock_request)
 
 
@@ -547,7 +542,7 @@ def test_auth_does_not_override_existing_workspace_context(tmp_path):
     assert get_request_workspace() == "pre-existing-workspace"
 
 
-def test_auth_early_return_does_not_set_workspace_context():
+def test_auth_both_preset_sets_workspace_context():
     mock_request = mock.MagicMock()
     mock_request.headers = {
         WORKSPACE_HEADER_NAME: "existing-workspace",
@@ -557,4 +552,4 @@ def test_auth_early_return_does_not_set_workspace_context():
     auth = KubernetesAuth()
     auth(mock_request)
 
-    assert get_request_workspace() is None
+    assert get_request_workspace() == "existing-workspace"
