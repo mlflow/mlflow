@@ -34,7 +34,7 @@ class BudgetWindow:
     window_start: datetime
     window_end: datetime
     cumulative_spend: float = 0.0
-    crossed: bool = False
+    exceeded: bool = False
 
 
 class BudgetTracker(ABC):
@@ -74,7 +74,7 @@ class BudgetTracker(ABC):
             workspace: The workspace the request was made from (None for default).
 
         Returns:
-            List of windows that were newly crossed (limit exceeded for the first
+            List of windows that were newly exceeded (limit exceeded for the first
             time in this window). Used to trigger webhook alerts.
         """
 
@@ -265,10 +265,10 @@ class InMemoryBudgetTracker(BudgetTracker):
             workspace: The workspace the request was made from (None for default).
 
         Returns:
-            List of windows that were newly crossed (limit exceeded for the first
+            List of windows that were newly exceeded (limit exceeded for the first
             time in this window). Used to trigger webhook alerts.
         """
-        newly_crossed: list[BudgetWindow] = []
+        newly_exceeded: list[BudgetWindow] = []
         now = datetime.now(timezone.utc)
 
         with self._lock:
@@ -285,18 +285,18 @@ class InMemoryBudgetTracker(BudgetTracker):
                         window.window_start,
                     )
                     window.cumulative_spend = 0.0
-                    window.crossed = False
+                    window.exceeded = False
 
                 if not _policy_applies(window.policy, workspace):
                     continue
 
                 window.cumulative_spend += cost_usd
 
-                if not window.crossed and window.cumulative_spend >= window.policy.budget_amount:
-                    window.crossed = True
-                    newly_crossed.append(window)
+                if not window.exceeded and window.cumulative_spend >= window.policy.budget_amount:
+                    window.exceeded = True
+                    newly_exceeded.append(window)
 
-        return newly_crossed
+        return newly_exceeded
 
     def should_reject_request(
         self,
@@ -337,7 +337,7 @@ class InMemoryBudgetTracker(BudgetTracker):
                 return
             window.cumulative_spend = spend
             if spend >= window.policy.budget_amount:
-                window.crossed = True
+                window.exceeded = True
 
     def get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
         """Get the current window info for a policy (for payload construction)."""

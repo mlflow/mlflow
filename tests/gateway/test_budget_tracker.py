@@ -145,48 +145,48 @@ def test_record_cost_below_limit():
     tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
-    newly_crossed = tracker.record_cost(50.0)
-    assert newly_crossed == []
+    newly_exceeded = tracker.record_cost(50.0)
+    assert newly_exceeded == []
 
     window = tracker.get_window_info("bp-test")
     assert window.cumulative_spend == 50.0
-    assert window.crossed is False
+    assert window.exceeded is False
 
 
-def test_record_cost_crosses_threshold():
+def test_record_cost_exceeds_threshold():
     tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
-    newly_crossed = tracker.record_cost(150.0)
-    assert len(newly_crossed) == 1
-    assert newly_crossed[0].policy.budget_policy_id == "bp-test"
+    newly_exceeded = tracker.record_cost(150.0)
+    assert len(newly_exceeded) == 1
+    assert newly_exceeded[0].policy.budget_policy_id == "bp-test"
 
     window = tracker.get_window_info("bp-test")
     assert window.cumulative_spend == 150.0
-    assert window.crossed is True
+    assert window.exceeded is True
 
 
-def test_record_cost_crosses_only_once():
+def test_record_cost_exceeds_only_once():
     tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
-    crossed1 = tracker.record_cost(150.0)
-    assert len(crossed1) == 1
+    exceeded1 = tracker.record_cost(150.0)
+    assert len(exceeded1) == 1
 
-    crossed2 = tracker.record_cost(50.0)
-    assert crossed2 == []
+    exceeded2 = tracker.record_cost(50.0)
+    assert exceeded2 == []
 
     window = tracker.get_window_info("bp-test")
     assert window.cumulative_spend == 200.0
 
 
-def test_record_cost_incremental_crossing():
+def test_record_cost_incremental_exceeding():
     tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
     assert tracker.record_cost(60.0) == []
-    crossed = tracker.record_cost(50.0)
-    assert len(crossed) == 1
+    exceeded = tracker.record_cost(50.0)
+    assert len(exceeded) == 1
     assert tracker.get_window_info("bp-test").cumulative_spend == 110.0
 
 
@@ -239,12 +239,12 @@ def test_window_resets_on_expiry():
     ) as mock_dt:
         mock_dt.now.return_value = window.window_end + timedelta(seconds=1)
         mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
-        newly_crossed = tracker.record_cost(10.0)
+        newly_exceeded = tracker.record_cost(10.0)
 
     window = tracker.get_window_info("bp-test")
     assert window.cumulative_spend == 10.0
-    assert window.crossed is False
-    assert newly_crossed == []
+    assert window.exceeded is False
+    assert newly_exceeded == []
 
 
 def test_load_policies_preserves_spend_in_same_window():
@@ -286,10 +286,10 @@ def test_multiple_policies_independent():
     )
     tracker.load_policies([policy_alert, policy_reject])
 
-    crossed = tracker.record_cost(75.0)
-    # Only the alert policy should be crossed (50 < 75)
-    assert len(crossed) == 1
-    assert crossed[0].policy.budget_policy_id == "bp-alert"
+    exceeded = tracker.record_cost(75.0)
+    # Only the alert policy should be exceeded (50 < 75)
+    assert len(exceeded) == 1
+    assert exceeded[0].policy.budget_policy_id == "bp-alert"
 
     # Reject policy should be at 75, not exceeded yet
     exceeded, _ = tracker.should_reject_request()
@@ -377,27 +377,27 @@ def test_backfill_spend_sets_cumulative():
     tracker.backfill_spend("bp-test", 42.5)
     window = tracker.get_window_info("bp-test")
     assert window.cumulative_spend == 42.5
-    assert window.crossed is False
+    assert window.exceeded is False
 
 
-def test_backfill_spend_sets_crossed_when_exceeds():
+def test_backfill_spend_sets_exceeded_when_exceeds():
     tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
     tracker.backfill_spend("bp-test", 150.0)
     window = tracker.get_window_info("bp-test")
     assert window.cumulative_spend == 150.0
-    assert window.crossed is True
+    assert window.exceeded is True
 
 
-def test_backfill_spend_sets_crossed_at_exact_limit():
+def test_backfill_spend_sets_exceeded_at_exact_limit():
     tracker = InMemoryBudgetTracker()
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
     tracker.backfill_spend("bp-test", 100.0)
     window = tracker.get_window_info("bp-test")
     assert window.cumulative_spend == 100.0
-    assert window.crossed is True
+    assert window.exceeded is True
 
 
 def test_backfill_spend_nonexistent_is_noop():
