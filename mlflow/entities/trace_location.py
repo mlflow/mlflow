@@ -137,7 +137,7 @@ class UnityCatalog(TraceLocationBase):
     """
     Represents a Databricks Unity Catalog location with a table prefix.
 
-    Note: Arclight catalogs are not supported (Zerobus does not support arclight yet).
+    Note: Arclight catalogs are not supported.
 
     Args:
         catalog_name: The name of the Unity Catalog catalog.

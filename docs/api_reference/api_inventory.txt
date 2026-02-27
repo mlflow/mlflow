@@ -543,6 +543,7 @@ mlflow.entities.TraceInfo.to_dict
 mlflow.entities.TraceInfo.to_proto
 mlflow.entities.TraceLocation
 mlflow.entities.TraceLocation.from_databricks_uc_schema
+mlflow.entities.TraceLocation.from_databricks_uc_table_prefix
 mlflow.entities.TraceLocation.from_dict
 mlflow.entities.TraceLocation.from_experiment_id
 mlflow.entities.TraceLocation.from_proto
@@ -699,6 +700,7 @@ mlflow.entities.trace_location.MlflowExperimentLocation
 mlflow.entities.trace_location.TraceLocation
 mlflow.entities.trace_location.TraceLocationType
 mlflow.entities.trace_location.UCSchemaLocation
+mlflow.entities.trace_location.UnityCatalog
 mlflow.entities.trace_state.TraceState
 mlflow.entities.view_type.ViewType
 mlflow.entities.webhook.Webhook
