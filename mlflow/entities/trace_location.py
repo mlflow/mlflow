@@ -10,7 +10,6 @@ from mlflow.utils.annotations import deprecated
 
 _UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME = "mlflow_experiment_trace_otel_spans"
 _UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME = "mlflow_experiment_trace_otel_logs"
-_UC_TABLE_PREFIX_DEFAULT = "mlflow_traces"
 
 
 @dataclass
@@ -138,6 +137,8 @@ class UnityCatalog(TraceLocationBase):
     """
     Represents a Databricks Unity Catalog location with a table prefix.
 
+    Note: Arclight catalogs are not supported (Zerobus does not support arclight yet).
+
     Args:
         catalog_name: The name of the Unity Catalog catalog.
         schema_name: The name of the Unity Catalog schema.
@@ -146,7 +147,7 @@ class UnityCatalog(TraceLocationBase):
 
     catalog_name: str
     schema_name: str
-    table_prefix: str = _UC_TABLE_PREFIX_DEFAULT
+    table_prefix: str
 
     # These are fully qualified table names (catalog.schema.table) set by the backend.
     _otel_spans_table_name: str | None = None
@@ -192,7 +193,7 @@ class UnityCatalog(TraceLocationBase):
         location = cls(
             catalog_name=d["catalog_name"],
             schema_name=d["schema_name"],
-            table_prefix=d.get("table_prefix", _UC_TABLE_PREFIX_DEFAULT),
+            table_prefix=d["table_prefix"],
         )
         if otel_spans_table_name := d.get("otel_spans_table_name"):
             location._otel_spans_table_name = otel_spans_table_name

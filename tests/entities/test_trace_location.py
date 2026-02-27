@@ -119,10 +119,9 @@ def test_uc_schema_location_round_trip():
     assert UCSchemaLocation.from_dict(uc_schema.to_dict()) == uc_schema
 
 
-def test_unity_catalog_factory_for_default_table_prefix():
-    location = UnityCatalog(catalog_name="catalog", schema_name="schema")
-    assert isinstance(location, UnityCatalog)
-    assert location.full_table_prefix == "catalog.schema.mlflow_traces"
+def test_unity_catalog_requires_table_prefix():
+    with pytest.raises(TypeError, match="table_prefix"):
+        UnityCatalog(catalog_name="catalog", schema_name="schema")
 
 
 def test_unity_catalog_factory_for_table_prefix():
