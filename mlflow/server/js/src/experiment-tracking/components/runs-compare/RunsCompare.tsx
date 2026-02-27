@@ -322,7 +322,8 @@ const RunsCompareImpl = ({
   const toggleRunVisibility = useToggleRowVisibilityCallback(comparedRuns);
 
   const onHideRun = useCallback(
-    (runUuid: string) => toggleRunVisibility(RUNS_VISIBILITY_MODE.CUSTOM, runUuid),
+    (runUuid: string, isCurrentlyVisible: boolean) =>
+      toggleRunVisibility(RUNS_VISIBILITY_MODE.CUSTOM, runUuid, isCurrentlyVisible),
     [toggleRunVisibility],
   );
 
