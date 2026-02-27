@@ -197,12 +197,18 @@ def build_flavor_config_from_local_checkpoint(
     flavor_conf = {
         FlavorKey.TASK: task,
         FlavorKey.INSTANCE_TYPE: pipeline_class,
-        FlavorKey.FRAMEWORK: "pt" if is_torch_available() else "tf",
         FlavorKey.TORCH_DTYPE: str(torch_dtype) if torch_dtype else None,
         FlavorKey.MODEL_TYPE: config["architectures"][0],
         FlavorKey.MODEL_NAME: local_checkpoint_dir,
         FlavorKey.MODEL_BINARY: _MODEL_BINARY_FILE_NAME,
     }
+
+    # pipeline.framework was removed in transformers 5.x
+    import transformers
+    from packaging.version import Version
+
+    if Version(transformers.__version__).major < 5:
+        flavor_conf[FlavorKey.FRAMEWORK] = "pt" if is_torch_available() else "tf"
 
     components = {FlavorKey.TOKENIZER}
     try:

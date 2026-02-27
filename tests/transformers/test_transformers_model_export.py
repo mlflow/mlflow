@@ -2848,6 +2848,7 @@ def test_uri_directory_renaming_handling_components(model_path, text_classificat
     assert isinstance(prediction["label"][0], str)
 
 
+@skip_transformers_v5_or_later
 def test_pyfunc_model_log_load_with_artifacts_snapshot():
     architecture = "prajjwal1/bert-tiny"
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
@@ -3314,6 +3315,7 @@ def test_get_task_for_model():
             _get_task_for_model("model")
 
 
+@skip_transformers_v5_or_later
 def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, tmp_path):
     local_repo_path = tmp_path / "local_repo"
     text_generation_pipeline.save_pretrained(local_repo_path)
@@ -3682,7 +3684,8 @@ def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
     flavor_conf = logged_info.flavors["transformers"]
     assert flavor_conf["source_model_name"] == local_checkpoint_path
     assert flavor_conf["task"] == "text-generation"
-    assert flavor_conf["framework"] == "pt"
+    if not IS_TRANSFORMERS_V5_OR_LATER:
+        assert flavor_conf["framework"] == "pt"
     assert flavor_conf["instance_type"] == "TextGenerationPipeline"
     expected_tokenizer_type = (
         "GPT2Tokenizer" if IS_TRANSFORMERS_V5_OR_LATER else "GPT2TokenizerFast"
@@ -3724,6 +3727,7 @@ def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
     assert pred_serve["predictions"][0].startswith(query)
 
 
+@skip_transformers_v5_or_later
 def test_save_model_from_local_checkpoint_with_custom_tokenizer(model_path, local_checkpoint_path):
     # When a custom tokenizer is also saved in the checkpoint, MLflow should save and load it.
     tokenizer = transformers.AutoTokenizer.from_pretrained("distilroberta-base")

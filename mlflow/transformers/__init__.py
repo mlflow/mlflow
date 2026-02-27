@@ -1263,8 +1263,11 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
     conf = {
         "task": flavor_config[FlavorKey.TASK],
     }
-    if framework := flavor_config.get(FlavorKey.FRAMEWORK):
-        conf["framework"] = framework
+    # pipeline.framework was removed in transformers 5.x; passing it would cause
+    # "model_kwargs are not used by the model" errors during inference.
+    if Version(transformers.__version__).major < 5:
+        if framework := flavor_config.get(FlavorKey.FRAMEWORK):
+            conf["framework"] = framework
 
     # Note that we don't set the device in the conf yet because device is
     # incompatible with device_map.
@@ -1859,6 +1862,18 @@ class _TransformersWrapper:
         try:
             if isinstance(data, dict):
                 return self.pipeline(**data, **model_config)
+            # In transformers 5.x, QuestionAnsweringPipeline changed to keyword-only
+            # arguments. Transpose list-of-dicts to dict-of-lists so that the data
+            # can be passed as keyword arguments.
+            if (
+                isinstance(self.pipeline, transformers.QuestionAnsweringPipeline)
+                and isinstance(data, list)
+                and data
+                and isinstance(data[0], dict)
+            ):
+                keys = data[0].keys()
+                transposed = {k: [d[k] for d in data] for k in keys}
+                return self.pipeline(**transposed, **model_config)
             return self.pipeline(data, **model_config)
         except ValueError as e:
             if "The following `model_kwargs` are not used by the model" in str(e):
