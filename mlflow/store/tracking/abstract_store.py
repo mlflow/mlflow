@@ -7,6 +7,7 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     DatasetRecord,
+    Issue,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -38,6 +39,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
+    SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
@@ -598,6 +600,101 @@ class AbstractStore(GatewayStoreMixin):
             assessment_id: The ID of the assessment to be deleted.
         """
         raise NotImplementedError
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: str,
+        frequency: float | None = None,
+        run_id: str | None = None,
+        root_cause: str | None = None,
+        confidence: str | None = None,
+        rationale_examples: list[str] | None = None,
+        example_trace_ids: list[str] | None = None,
+        trace_ids: list[str] | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status.
+            frequency: Optional frequency score (0.0 to 1.0) indicating how often this issue occurs.
+            run_id: Optional MLflow run ID that discovered this issue.
+            root_cause: Optional analysis of the root cause.
+            confidence: Optional confidence level indicator.
+            rationale_examples: Optional list of rationale examples.
+            example_trace_ids: Optional list of example trace IDs.
+            trace_ids: Optional list of trace IDs associated with this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+
+        Returns:
+            The updated Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        run_id: str | None = None,
+        status: str | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
+        page_token: str | None = None,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            run_id: Optional run ID to filter by.
+            status: Optional status to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        raise MlflowNotImplementedException()
 
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """

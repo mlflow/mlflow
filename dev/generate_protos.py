@@ -104,6 +104,7 @@ basic_proto_files = to_paths(
     "scalapb/scalapb.proto",
     "assessments.proto",
     "datasets.proto",
+    "issues.proto",
     "webhooks.proto",
     "jobs.proto",
     "prompt_optimization.proto",
@@ -163,6 +164,10 @@ python_gencode_replacements = [
     (
         "import datasets_pb2 as datasets__pb2",
         "from . import datasets_pb2 as datasets__pb2",
+    ),
+    (
+        "import issues_pb2 as issues__pb2",
+        "from . import issues_pb2 as issues__pb2",
     ),
     (
         "import webhooks_pb2 as webhooks__pb2",
