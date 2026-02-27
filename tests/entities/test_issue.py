@@ -8,7 +8,6 @@ def test_issue_creation_required_fields():
         experiment_id="exp-123",
         name="High latency",
         description="API calls are taking too long",
-        frequency=0.75,
         status="draft",
         created_timestamp=1234567890,
         last_updated_timestamp=1234567890,
@@ -18,7 +17,7 @@ def test_issue_creation_required_fields():
     assert issue.experiment_id == "exp-123"
     assert issue.name == "High latency"
     assert issue.description == "API calls are taking too long"
-    assert issue.frequency == 0.75
+    assert issue.frequency is None
     assert issue.status == "draft"
     assert issue.created_timestamp == 1234567890
     assert issue.last_updated_timestamp == 1234567890
