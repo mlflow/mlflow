@@ -40,7 +40,7 @@ except ValueError:
 # Good - bare except
 try:
     pass
-except:
+except Exception:
     pass
 """
     config = Config(select={ExceptBoolOp.name})
