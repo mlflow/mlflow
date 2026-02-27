@@ -277,7 +277,7 @@ class InMemoryBudgetTracker(BudgetTracker):
 
         Args:
             cost_usd: The cost in USD to record.
-            workspace: The workspace the request was made from (None for default).
+            workspace: The workspace the request was made from.
 
         Returns:
             List of windows that were newly exceeded (limit exceeded for the first
