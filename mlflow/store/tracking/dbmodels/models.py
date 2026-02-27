@@ -1210,7 +1210,7 @@ class SqlIssue(Base):
 
         return Issue(
             issue_id=self.issue_id,
-            experiment_id=self.experiment_id,
+            experiment_id=str(self.experiment_id),
             run_id=self.run_id,
             name=self.name,
             description=self.description,

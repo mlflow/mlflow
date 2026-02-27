@@ -5778,8 +5778,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         run_id: str | None = None,
         root_cause: str | None = None,
         confidence: str | None = None,
-        rationale_examples: str | None = None,
-        example_trace_ids: str | None = None,
+        rationale_examples: list[str] | None = None,
+        example_trace_ids: list[str] | None = None,
         trace_ids: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
@@ -5795,8 +5795,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             run_id: Optional run ID that discovered this issue.
             root_cause: Optional analysis of the root cause.
             confidence: Optional confidence level indicator.
-            rationale_examples: Optional JSON string of rationale examples.
-            example_trace_ids: Optional JSON string of example trace IDs.
+            rationale_examples: Optional list of rationale examples.
+            example_trace_ids: Optional list of example trace IDs.
             trace_ids: Optional list of trace IDs associated with this issue.
             created_by: Optional identifier for who created this issue.
 
@@ -5817,6 +5817,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Get current timestamp
             current_time = get_current_time_millis()
 
+            # Serialize list fields to JSON
+            rationale_examples_json = json.dumps(rationale_examples) if rationale_examples else None
+            example_trace_ids_json = json.dumps(example_trace_ids) if example_trace_ids else None
+
             # Create SqlIssue record
             sql_issue = SqlIssue(
                 issue_id=issue_id,
@@ -5828,8 +5832,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 status=status,
                 frequency=frequency,
                 confidence=confidence,
-                rationale_examples=rationale_examples,
-                example_trace_ids=example_trace_ids,
+                rationale_examples=rationale_examples_json,
+                example_trace_ids=example_trace_ids_json,
                 created_timestamp=current_time,
                 last_updated_timestamp=current_time,
                 created_by=created_by,

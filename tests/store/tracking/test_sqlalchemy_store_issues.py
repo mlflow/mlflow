@@ -54,8 +54,8 @@ def test_create_issue_with_all_fields(store):
         status="accepted",
         root_cause="Input prompts are too long",
         confidence="high",
-        rationale_examples='["Example 1", "Example 2"]',
-        example_trace_ids='["trace-1", "trace-2"]',
+        rationale_examples=["Example 1", "Example 2"],
+        example_trace_ids=["trace-1", "trace-2"],
         created_by="user@example.com",
     )
 

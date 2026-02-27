@@ -610,8 +610,8 @@ class AbstractStore(GatewayStoreMixin):
         run_id: str | None = None,
         root_cause: str | None = None,
         confidence: str | None = None,
-        rationale_examples: str | None = None,
-        example_trace_ids: str | None = None,
+        rationale_examples: list[str] | None = None,
+        example_trace_ids: list[str] | None = None,
         trace_ids: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
@@ -627,8 +627,8 @@ class AbstractStore(GatewayStoreMixin):
             run_id: Optional MLflow run ID that discovered this issue.
             root_cause: Optional analysis of the root cause.
             confidence: Optional confidence level indicator.
-            rationale_examples: Optional JSON string of rationale examples.
-            example_trace_ids: Optional JSON string of example trace IDs.
+            rationale_examples: Optional list of rationale examples.
+            example_trace_ids: Optional list of example trace IDs.
             trace_ids: Optional list of trace IDs associated with this issue.
             created_by: Optional identifier for who created this issue.
 
