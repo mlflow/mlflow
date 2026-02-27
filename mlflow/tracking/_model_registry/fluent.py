@@ -87,7 +87,7 @@ def register_model(
                 model version. The source run lineage is preserved when the
                 referenced model version has an associated source run.
               - ``models:/<model_id>`` to create a new registered model version from a logged
-                model (for example, one returned by ``mlflow.log_model``). The source
+                model (for example, one returned by ``log_model``). The source
                 run lineage is preserved.
 
             - Local filesystem paths for registering locally-persisted MLflow models that were
