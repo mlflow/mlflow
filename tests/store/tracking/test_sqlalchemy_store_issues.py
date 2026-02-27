@@ -212,8 +212,8 @@ def test_get_issue(store):
         status="draft",
         root_cause="Insufficient training data",
         confidence="medium",
-        rationale_examples='["Example 1", "Example 2", "Example 3"]',
-        example_trace_ids='["trace-a", "trace-b"]',
+        rationale_examples=["Example 1", "Example 2", "Example 3"],
+        example_trace_ids=["trace-a", "trace-b"],
         created_by="alice@example.com",
     )
 
