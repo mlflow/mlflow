@@ -4,7 +4,7 @@
 import moment from 'moment';
 
 import type { IntlShape } from '@databricks/i18n';
-import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class MlflowUtils {
@@ -307,12 +307,10 @@ class MlflowUtils {
    * Returns the URL for the job source.
    */
   static getJobSourceUrl(queryParams: any, jobId: any, jobRunId: any, workspaceUrl = null) {
-    let url = MlflowUtils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
-    url += `#job/${jobId}`;
-    if (jobRunId) {
-      url += `/run/${jobRunId}`;
-    }
-    return url;
+    const baseUrl = workspaceUrl || window.location.origin;
+    // eslint-disable-next-line prefer-const -- reassigned in EDGE block
+    let jobPath = jobRunId ? `/jobs/${jobId}/runs/${jobRunId}` : `/jobs/${jobId}`;
+    return MlflowUtils.setQueryParams(baseUrl + jobPath, queryParams);
   }
 
   /**

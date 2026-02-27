@@ -11,11 +11,12 @@ import json
 import logging
 from typing import Any
 
-from mlflow.entities.span import Span
+from mlflow.entities.span import Span, SpanType
 from mlflow.tracing.constant import CostKey, SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
+from mlflow.tracing.otel.translation.langfuse import LangfuseTranslator
 from mlflow.tracing.otel.translation.livekit import LiveKitTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.spring_ai import SpringAiTranslator
@@ -35,6 +36,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     VercelAITranslator(),
     VoltAgentTranslator(),
     LiveKitTranslator(),
+    LangfuseTranslator(),
 ]
 
 # Event-based translators (for frameworks that use events for input/output)
@@ -66,6 +68,16 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     attributes = sanitize_attributes(span_dict.get("attributes", {}))
     events = span_dict.get("events", [])
 
+    # Override UNKNOWN (the LiveSpan default) with the translator-determined type.
+    if mlflow_type := translate_span_type_from_otel(attributes):
+        current_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
+        try:
+            current_type = json.loads(current_raw) if current_raw else None
+        except (json.JSONDecodeError, TypeError):
+            current_type = None
+        if current_type in (None, SpanType.UNKNOWN):
+            attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
+
     # Translate inputs and outputs (check both attributes and events)
     if SpanAttributeKey.INPUTS not in attributes and (
         input_value := _get_input_value(attributes, events)
@@ -91,12 +103,12 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
 
     # Extract and normalize model name from various sources
     if SpanAttributeKey.MODEL not in attributes and (model_name := _get_model_name(attributes)):
-        attributes[SpanAttributeKey.MODEL] = model_name
+        attributes[SpanAttributeKey.MODEL] = dump_span_attribute_value(model_name)
 
     if SpanAttributeKey.MODEL_PROVIDER not in attributes and (
         model_provider := _get_model_provider(attributes)
     ):
-        attributes[SpanAttributeKey.MODEL_PROVIDER] = model_provider
+        attributes[SpanAttributeKey.MODEL_PROVIDER] = dump_span_attribute_value(model_provider)
 
     # Calculate cost if both token usage and model are available
     if (
@@ -253,7 +265,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
         attributes: Dictionary of span attributes
 
     Returns:
-        JSON-encoded string of model name or None if not found
+        Model name or None if not found
     """
     for translator in _TRANSLATORS:
         if model_name := translator.get_model_name(attributes):
@@ -265,7 +277,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
             if isinstance(inputs, str):
                 inputs = json.loads(inputs)
             if isinstance(inputs, dict) and (model := inputs.get("model")):
-                return dump_span_attribute_value(model) if isinstance(model, str) else None
+                return model if isinstance(model, str) else None
         except Exception:
             _logger.debug("Failed to parse inputs for model name", exc_info=True)
 
@@ -275,7 +287,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
             if isinstance(outputs, str):
                 outputs = json.loads(outputs)
             if isinstance(outputs, dict) and (model := outputs.get("model")):
-                return dump_span_attribute_value(model) if isinstance(model, str) else None
+                return model if isinstance(model, str) else None
         except Exception:
             _logger.debug("Failed to parse outputs for model name", exc_info=True)
 
@@ -290,7 +302,7 @@ def _get_model_provider(attributes: dict[str, Any]) -> str | None:
         attributes: Dictionary of span attributes
 
     Returns:
-        JSON-encoded string of model provider or None if not found
+        model provider or None if not found
     """
     for translator in _TRANSLATORS:
         if model_provider := translator.get_model_provider(attributes):
@@ -362,14 +374,11 @@ def update_token_usage(
         if isinstance(new_token_usage, str):
             new_token_usage = json.loads(new_token_usage) or {}
         if new_token_usage:
-            for key in [
-                TokenUsageKey.INPUT_TOKENS,
-                TokenUsageKey.OUTPUT_TOKENS,
-                TokenUsageKey.TOTAL_TOKENS,
-            ]:
-                current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage.get(
-                    key, 0
-                )
+            for key in TokenUsageKey.all_keys():
+                if key in new_token_usage or key in current_token_usage:
+                    current_token_usage[key] = current_token_usage.get(
+                        key, 0
+                    ) + new_token_usage.get(key, 0)
     except Exception:
         _logger.debug(
             f"Failed to update token usage with current_token_usage: {current_token_usage}, "

@@ -11,7 +11,8 @@ import { GenAiDeleteTraceModal } from './components/GenAiDeleteTraceModal';
 import type { RunEvaluationTracesDataEntry, TraceActions } from './types';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, getRowIdFromTrace } from './utils/TraceUtils';
-import { shouldUseUnifiedModelTraceComparisonUI, type ModelTraceInfoV3 } from '../model-trace-explorer';
+import { shouldUseUnifiedModelTraceComparisonUI } from '../model-trace-explorer/FeatureUtils';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 interface GenAITracesTableActionsProps {
   experimentId: string;
@@ -169,7 +170,9 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
             })}
           >
             <div>
-              <DropdownMenu.Trigger asChild>{ActionButton}</DropdownMenu.Trigger>
+              <DropdownMenu.Trigger disabled asChild>
+                {ActionButton}
+              </DropdownMenu.Trigger>
             </div>
           </Tooltip>
         ) : (

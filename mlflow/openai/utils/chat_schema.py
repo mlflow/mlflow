@@ -141,11 +141,15 @@ def _parse_usage(output: Any) -> dict[str, Any] | None:
         from openai.types.chat import ChatCompletion
 
         if isinstance(output, ChatCompletion) and (usage := output.usage):
-            return {
+            usage_dict = {
                 TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
                 TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
             }
+            if details := getattr(usage, "prompt_tokens_details", None):
+                if (cached := getattr(details, "cached_tokens", None)) is not None:
+                    usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+            return usage_dict
     except ImportError:
         pass
 
@@ -154,11 +158,15 @@ def _parse_usage(output: Any) -> dict[str, Any] | None:
         from openai.types.responses import Response
 
         if isinstance(output, Response) and (usage := output.usage):
-            return {
+            usage_dict = {
                 TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,
                 TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
             }
+            if details := getattr(usage, "input_tokens_details", None):
+                if (cached := getattr(details, "cached_tokens", None)) is not None:
+                    usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+            return usage_dict
     except ImportError:
         pass
 

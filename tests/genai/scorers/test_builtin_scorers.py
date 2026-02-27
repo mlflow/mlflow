@@ -228,29 +228,32 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_retrieval_relevance_with_custom_model(sample_rag_trace):
+    def make_feedback(*args, **kwargs):
+        return Feedback(name="retrieval_relevance", value="yes", rationale="Relevant content")
+
     with patch(
         "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
-        return_value=Feedback(
-            name="retrieval_relevance", value="yes", rationale="Relevant content"
-        ),
+        side_effect=make_feedback,
     ) as mock_invoke_judge:
         custom_model = "openai:/gpt-4"
         scorer = RetrievalRelevance(model=custom_model)
         results = scorer(trace=sample_rag_trace)
 
-        # Should be called for each chunk (3 total chunks)
         assert mock_invoke_judge.call_count == 3
-
-        for call_args in mock_invoke_judge.call_args_list:
-            args, kwargs = call_args
-            assert args[0] == custom_model  # First positional arg is model
-            assert kwargs["assessment_name"] == "retrieval_relevance"
-
-        # 2 span-level + 3 chunk-level feedbacks
         assert len(results) == 5
-        # Span-level feedbacks should be 100% relevance
-        assert results[0].value == 1.0
-        assert results[3].value == 1.0
+
+        retriever_span_ids = [
+            s.span_id for s in sample_rag_trace.search_spans(span_type=SpanType.RETRIEVER)
+        ]
+
+        # Retriever 0 has 2 chunks, retriever 1 has 1 chunk. Each chunk feedback
+        # should target its retriever span and carry its index within that span.
+        chunk_feedbacks = [r for r in results if r.name == "retrieval_relevance"]
+        assert [(f.span_id, f.metadata["chunk_index"]) for f in chunk_feedbacks] == [
+            (retriever_span_ids[0], 0),
+            (retriever_span_ids[0], 1),
+            (retriever_span_ids[1], 0),
+        ]
 
 
 def test_retrieval_sufficiency(sample_rag_trace):

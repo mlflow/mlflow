@@ -8,6 +8,7 @@ from strands.tools.tools import PythonAgentTool
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import trace_disabled
 
@@ -302,3 +303,20 @@ def test_autolog_does_not_raise_npe_when_tracing_disabled():
 
     run()
     assert len(get_traces()) == 0
+
+
+def test_strands_autolog_shared_provider_no_recursion(monkeypatch):
+    # Verify strands.autolog() works with shared tracer provider (no RecursionError)
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+
+    mlflow.strands.autolog()
+
+    agent = Agent(model=DummyModel("hi"), name="agent")
+    agent("hello")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    agent_span = next(span for span in spans if span.span_type == SpanType.AGENT)
+    assert agent_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
+    assert agent_span.outputs.strip() == "hi"

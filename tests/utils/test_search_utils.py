@@ -676,3 +676,19 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
 def test_invalid_page_tokens(page_token, error_message):
     with pytest.raises(MlflowException, match=error_message):
         SearchUtils.paginate([], page_token, 1)
+
+
+def test_like_pattern_with_plus_character(tmp_path):
+    import mlflow
+
+    tracking_dir = tmp_path / "mlruns"
+    mlflow.set_tracking_uri(tracking_dir.as_uri())
+
+    name = "jamie-foo C+W bar"
+    mlflow.create_experiment(name)
+
+    exps = mlflow.search_experiments(filter_string=f'name LIKE "{name}"')
+    assert len(exps) == 1
+
+    exps = mlflow.search_experiments(filter_string='name LIKE "jamie-foo C+%"')
+    assert len(exps) == 1

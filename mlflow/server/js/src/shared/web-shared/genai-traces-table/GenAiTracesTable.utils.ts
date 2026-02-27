@@ -17,15 +17,15 @@ import {
   USER_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   TOKENS_COLUMN_ID,
-  LINKED_PROMPTS_COLUMN_ID,
   SIMULATION_GOAL_COLUMN_ID,
   SIMULATION_PERSONA_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
 } from './hooks/useTableColumns';
 import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { TracesTableColumnGroup, TracesTableColumnType } from './types';
 import { getTraceInfoInputs, shouldUseTraceInfoV3 } from './utils/TraceUtils';
 import { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from './utils/SessionGroupingUtils';
-import type { ModelTraceInfoV3 } from '../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 const GROUP_PRIORITY = [
   TracesTableColumnGroup.INFO,
@@ -71,8 +71,8 @@ export function sortGroupedColumns(
       if (colB.id === SESSION_COLUMN_ID) return 1;
     }
 
-    // If grouped by session AND comparing, put goal and persona columns near the front (after session)
-    if (isGroupedBySession && isComparing) {
+    // If grouped by session, put goal and persona columns near the front (after session)
+    if (isGroupedBySession) {
       const isGoalOrPersonaA = colA.id === SIMULATION_GOAL_COLUMN_ID || colA.id === SIMULATION_PERSONA_COLUMN_ID;
       const isGoalOrPersonaB = colB.id === SIMULATION_GOAL_COLUMN_ID || colB.id === SIMULATION_PERSONA_COLUMN_ID;
       if (isGoalOrPersonaA && !isGoalOrPersonaB) return -1;
@@ -180,12 +180,12 @@ export const getTraceInfoValueWithColId = (traceInfo: ModelTraceInfoV3, colId: s
       return traceInfo.trace_id;
     case SESSION_COLUMN_ID:
       return traceInfo.tags?.['mlflow.trace.session'];
-    case LINKED_PROMPTS_COLUMN_ID:
-      return traceInfo.tags?.['mlflow.linkedPrompts'];
     case SIMULATION_GOAL_COLUMN_ID:
       return traceInfo.trace_metadata?.['mlflow.simulation.goal'];
     case SIMULATION_PERSONA_COLUMN_ID:
       return traceInfo.trace_metadata?.['mlflow.simulation.persona'];
+    case LINKED_PROMPTS_COLUMN_ID:
+      return traceInfo.tags?.['mlflow.linkedPrompts'];
     default:
       // Return null for unknown column IDs to avoid breaking the UI
       return null;

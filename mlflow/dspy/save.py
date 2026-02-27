@@ -232,8 +232,9 @@ def save_model(
     if use_dspy_model_save:
         wrapped_dspy_model.model.save(model_path, save_program=True)
 
-        with open(os.path.join(data_path, _MODEL_CONFIG_FILE_NAME), "w") as f:
-            json.dump(model_config, f)
+        if model_config:
+            with open(os.path.join(data_path, _MODEL_CONFIG_FILE_NAME), "w") as f:
+                json.dump(model_config, f)
 
         dspy.settings.save(
             os.path.join(data_path, _DSPY_SETTINGS_FILE_NAME), exclude_keys=["trace"]

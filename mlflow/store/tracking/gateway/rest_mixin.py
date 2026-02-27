@@ -15,12 +15,21 @@ from mlflow.entities import (
     GatewaySecretInfo,
     RoutingStrategy,
 )
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+    GatewayBudgetPolicy,
+)
 from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
+    CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
     CreateGatewaySecret,
+    DeleteGatewayBudgetPolicy,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayEndpointTag,
@@ -28,18 +37,23 @@ from mlflow.protos.service_pb2 import (
     DeleteGatewaySecret,
     DetachModelFromGatewayEndpoint,
     FallbackConfig,
+    GetGatewayBudgetPolicy,
     GetGatewayEndpoint,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
+    ListGatewayBudgetPolicies,
     ListGatewayEndpointBindings,
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
     SetGatewayEndpointTag,
+    UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
 )
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils.proto_json_utils import message_to_json
 
 
@@ -78,6 +92,11 @@ class RestGatewayStoreMixin:
         ListGatewayEndpointBindings,
         SetGatewayEndpointTag,
         DeleteGatewayEndpointTag,
+        CreateGatewayBudgetPolicy,
+        GetGatewayBudgetPolicy,
+        UpdateGatewayBudgetPolicy,
+        DeleteGatewayBudgetPolicy,
+        ListGatewayBudgetPolicies,
     }
 
     # ========== Secrets Management APIs ==========
@@ -605,3 +624,79 @@ class RestGatewayStoreMixin:
             )
         )
         self._call_endpoint(DeleteGatewayEndpointTag, req_body)
+
+    # ========== Budget Policy Management APIs ==========
+
+    def create_budget_policy(
+        self,
+        budget_unit: BudgetUnit,
+        budget_amount: float,
+        duration_unit: BudgetDurationUnit,
+        duration_value: int,
+        target_scope: BudgetTargetScope,
+        budget_action: BudgetAction,
+        created_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        req_body = message_to_json(
+            CreateGatewayBudgetPolicy(
+                budget_unit=budget_unit.to_proto(),
+                budget_amount=budget_amount,
+                duration_unit=duration_unit.to_proto(),
+                duration_value=duration_value,
+                target_scope=target_scope.to_proto(),
+                budget_action=budget_action.to_proto(),
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(CreateGatewayBudgetPolicy, req_body)
+        return GatewayBudgetPolicy.from_proto(response_proto.budget_policy)
+
+    def get_budget_policy(
+        self,
+        budget_policy_id: str,
+    ) -> GatewayBudgetPolicy:
+        req_body = message_to_json(GetGatewayBudgetPolicy(budget_policy_id=budget_policy_id))
+        response_proto = self._call_endpoint(GetGatewayBudgetPolicy, req_body)
+        return GatewayBudgetPolicy.from_proto(response_proto.budget_policy)
+
+    def update_budget_policy(
+        self,
+        budget_policy_id: str,
+        budget_unit: BudgetUnit | None = None,
+        budget_amount: float | None = None,
+        duration_unit: BudgetDurationUnit | None = None,
+        duration_value: int | None = None,
+        target_scope: BudgetTargetScope | None = None,
+        budget_action: BudgetAction | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        req_body = message_to_json(
+            UpdateGatewayBudgetPolicy(
+                budget_policy_id=budget_policy_id,
+                budget_unit=budget_unit.to_proto() if budget_unit else None,
+                budget_amount=budget_amount,
+                duration_unit=duration_unit.to_proto() if duration_unit else None,
+                duration_value=duration_value,
+                target_scope=target_scope.to_proto() if target_scope else None,
+                budget_action=budget_action.to_proto() if budget_action else None,
+                updated_by=updated_by,
+            )
+        )
+        response_proto = self._call_endpoint(UpdateGatewayBudgetPolicy, req_body)
+        return GatewayBudgetPolicy.from_proto(response_proto.budget_policy)
+
+    def delete_budget_policy(self, budget_policy_id: str) -> None:
+        req_body = message_to_json(DeleteGatewayBudgetPolicy(budget_policy_id=budget_policy_id))
+        self._call_endpoint(DeleteGatewayBudgetPolicy, req_body)
+
+    def list_budget_policies(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayBudgetPolicy]:
+        req_body = message_to_json(
+            ListGatewayBudgetPolicies(max_results=max_results, page_token=page_token)
+        )
+        response_proto = self._call_endpoint(ListGatewayBudgetPolicies, req_body)
+        policies = [GatewayBudgetPolicy.from_proto(p) for p in response_proto.budget_policies]
+        return PagedList(policies, response_proto.next_page_token or None)

@@ -26,7 +26,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, '\n') }}
         run: |
           size_label=$(node -e '
           const { GH_REPO: repo, PR_NUMBER: pr, PR_HEAD_SHA: sha, GH_TOKEN: token } = process.env;
@@ -93,15 +92,19 @@ jobs:
           ')
           echo "Label: ${size_label}"
 
-          # Update labels using gh CLI (existing labels from event payload)
+          # Fetch current labels via gh CLI (one per line, no delimiter issues)
+          current_labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
+
+          # Remove stale size labels
           while read -r label; do
             if [[ "$label" == size/* && "$label" != "$size_label" ]]; then
+              echo "Removing stale label: ${label}"
               gh pr edit "$PR_NUMBER" --remove-label "$label" || true
             fi
-          done <<< "$PR_LABELS"
+          done <<< "$current_labels"
 
-          # Ensure the label exists before adding it
-          if ! grep -qx "$size_label" <<< "$PR_LABELS"; then
+          # Add the correct label if not already present
+          if ! grep -qx "$size_label" <<< "$current_labels"; then
             if ! gh label list --search "$size_label" --limit 1 | grep -q "^${size_label}"; then
               echo "Creating label: ${size_label}"
               gh label create "$size_label" --color ededed --description "Pull request size: ${size_label#size/}"

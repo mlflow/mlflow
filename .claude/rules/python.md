@@ -146,26 +146,15 @@ for item in items:
 result = next((item for item in items if item.name == "target"), None)
 ```
 
-## Use Pattern Matching for String Splitting
+## Use Pattern Matching When Dispatching on Structure
 
-When splitting strings into a fixed number of parts, use pattern matching instead of direct unpacking or verbose length checks. Pattern matching provides concise, safe extraction that clearly handles both expected and unexpected cases.
+Pattern matching is preferred for string splitting (replaces unsafe unpacking), nested dict access (replaces chained `.get()` calls), and list length dispatch (replaces verbose length checks).
+
+### String Splitting
 
 ```python
-# Bad: unsafe
+# Bad
 a, b = some_str.split(".")
-
-# Bad: safe but verbose
-if some_str.count(".") == 1:
-    a, b = some_str.split(".")
-else:
-    raise ValueError(f"Invalid format: {some_str!r}")
-
-# Bad: safe but verbose
-splits = some_str.split(".")
-if len(splits) == 2:
-    a, b = splits
-else:
-    raise ValueError(f"Invalid format: {some_str!r}")
 
 # Good
 match some_str.split("."):
@@ -173,6 +162,52 @@ match some_str.split("."):
         ...
     case _:
         raise ValueError(f"Invalid format: {some_str!r}")
+```
+
+### Nested Dict Key Extraction
+
+```python
+# Bad
+def f(data):
+    return (
+        data.get("data", {})
+        .get("repository", {})
+        .get("pullRequest", {})
+        .get("nodes", [])
+    )
+
+
+# Good
+def f(data):
+    match data:
+        case {"data": {"repository": {"pullRequest": {"nodes": nodes}}}}:
+            return nodes
+        case _:
+            return []
+```
+
+### List Length Dispatch
+
+```python
+# Bad
+def f(items):
+    if len(items) == 0:
+        raise ValueError("No results found")
+    elif len(items) == 1:
+        return items[0].id
+    else:
+        raise ValueError("Multiple results found")
+
+
+# Good
+def f(items):
+    match items:
+        case []:
+            raise ValueError("No results found")
+        case [item]:
+            return item.id
+        case _:
+            raise ValueError("Multiple results found")
 ```
 
 ## Always Verify Mock Calls with Assertions
