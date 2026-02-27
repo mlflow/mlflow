@@ -2987,6 +2987,20 @@ def autolog(
         with disable_discrete_autologging(DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING):
             return original(*args, **kwargs)
 
+    def train_with_mlflow_callback(original, self, *args, **kwargs):
+        # In transformers 5.x, TrainingArguments.report_to defaults to "none" instead of
+        # auto-detecting all installed integrations. Ensure MLflowCallback is registered
+        # when autolog is active so that metrics and parameters are logged to MLflow.
+        # Only needed for 5.x+; on 4.x, auto-detection handles callback registration.
+        if Version(transformers.__version__).major >= 5:
+            from transformers.integrations import MLflowCallback
+
+            if not any(isinstance(cb, MLflowCallback) for cb in self.callback_handler.callbacks):
+                self.add_callback(MLflowCallback)
+
+        with disable_discrete_autologging(DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING):
+            return original(self, *args, **kwargs)
+
     with contextlib.suppress(ImportError):
         import setfit
 
@@ -3005,7 +3019,13 @@ def autolog(
         methods = ["train"]
         for clazz in classes:
             for method in methods:
-                safe_patch(FLAVOR_NAME, clazz, method, functools.partial(train), manage_run=False)
+                safe_patch(
+                    FLAVOR_NAME,
+                    clazz,
+                    method,
+                    functools.partial(train_with_mlflow_callback),
+                    manage_run=False,
+                )
 
 
 def _get_prompt_template(model_path):
