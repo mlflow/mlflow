@@ -530,23 +530,3 @@ class GatewayStoreMixin:
             PagedList of GatewayBudgetPolicy entities.
         """
         raise NotImplementedError(self.__class__.__name__)
-
-    def sum_gateway_trace_cost(
-        self,
-        start_time_ms: int,
-        end_time_ms: int,
-        workspace: str | None = None,
-    ) -> float:
-        """
-        Sum total_cost from span metrics for gateway traces within a time range.
-
-        Args:
-            start_time_ms: Window start in epoch milliseconds (inclusive).
-            end_time_ms: Window end in epoch milliseconds (exclusive).
-            workspace: If provided, filter to traces in experiments belonging
-                to this workspace.
-
-        Returns:
-            Total cost in USD.
-        """
-        raise NotImplementedError(self.__class__.__name__)
