@@ -243,7 +243,9 @@ if not IS_TRACING_SDK_ONLY:
     # For backward compatibility, we expose the following functions and classes at the top level in
     # addition to `mlflow.config`.
     from mlflow.config import (
+        disable_process_metrics,
         disable_system_metrics_logging,
+        enable_process_metrics,
         enable_system_metrics_logging,
         get_registry_uri,
         set_registry_uri,
@@ -349,8 +351,10 @@ if not IS_TRACING_SDK_ONLY:
         "delete_workspace",
         "delete_run",
         "delete_tag",
+        "disable_process_metrics",
         "disable_system_metrics_logging",
         "doctor",
+        "enable_process_metrics",
         "enable_system_metrics_logging",
         "end_run",
         "evaluate",
