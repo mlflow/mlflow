@@ -46,10 +46,7 @@ export const ToolCallChartsSection: React.FC = () => {
         <OverviewChartHeader
           icon={<WrenchIcon />}
           title={
-            <FormattedMessage
-              defaultMessage="Tool Error Rates"
-              description="Title for the tool error rates section"
-            />
+            <FormattedMessage defaultMessage="Tool Error Rates" description="Title for the tool error rates section" />
           }
         />
         <ToolSelector

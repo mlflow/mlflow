@@ -28,9 +28,7 @@ export function useToolSelection(allItems: string[]): UseToolSelectionResult {
   const [selectedItems, setSelectedItems] = useState<string[] | null>(null);
 
   const isAllSelected = selectedItems === null;
-  const displayedItems = isAllSelected
-    ? allItems
-    : selectedItems.filter((item) => allItems.includes(item));
+  const displayedItems = isAllSelected ? allItems : selectedItems.filter((item) => allItems.includes(item));
 
   const handleSelectAllToggle = useCallback(() => {
     setSelectedItems((prev) => (prev === null ? [] : null));
