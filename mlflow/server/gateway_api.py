@@ -19,7 +19,7 @@ from mlflow.entities.gateway_budget_policy import BudgetTargetScope
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.budget_tracker import get_budget_tracker
+from mlflow.gateway.budget_tracker import BudgetWindow, get_budget_tracker
 from mlflow.gateway.config import (
     AnthropicConfig,
     EndpointConfig,
@@ -469,8 +469,7 @@ def _maybe_record_budget_cost(
             if hasattr(usage, "total_tokens") and usage.total_tokens is not None:
                 usage_dict[TokenUsageKey.TOTAL_TOKENS] = usage.total_tokens
         elif isinstance(response, dict):
-            raw_usage = response.get("usage")
-            if raw_usage:
+            if raw_usage := response.get("usage"):
                 usage_dict = {
                     TokenUsageKey.INPUT_TOKENS: raw_usage.get(
                         "prompt_tokens", raw_usage.get("input_tokens", 0)
@@ -497,16 +496,14 @@ def _maybe_record_budget_cost(
 
         _maybe_refresh_budget_policies(store)
         tracker = get_budget_tracker()
-        newly_crossed = tracker.record_cost(total_cost, workspace=workspace)
-
         # Fire webhooks for newly-crossed budget windows
-        if newly_crossed:
+        if newly_crossed := tracker.record_cost(total_cost, workspace=workspace):
             _fire_budget_crossed_webhooks(newly_crossed, workspace)
     except Exception:
         _logger.debug("Failed to record budget cost", exc_info=True)
 
 
-def _fire_budget_crossed_webhooks(newly_crossed: list, workspace: str | None) -> None:
+def _fire_budget_crossed_webhooks(newly_crossed: list[BudgetWindow], workspace: str | None) -> None:
     """Fire budget_crossed webhooks for newly-crossed budget windows."""
     try:
         registry_store = _get_model_registry_store()
@@ -557,8 +554,11 @@ def _make_cost_recording_reducer(
         if result:
             model_name, model_provider = _get_model_info(endpoint_config)
             _maybe_record_budget_cost(
-                store, result, model_name=model_name,
-                model_provider=model_provider, workspace=workspace,
+                store,
+                result,
+                model_name=model_name,
+                model_provider=model_provider,
+                workspace=workspace,
             )
         return result
 
