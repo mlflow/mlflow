@@ -533,6 +533,11 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
                   requestTooltipComponentId="mlflow.gateway.usage-modal.try-it.request-tooltip-passthrough"
                   tryItRequestUrl={tryItRequestUrl}
                   tryItDefaultBody={tryItDefaultBody}
+                  tryItOptions={
+                    selectedProvider === 'anthropic'
+                      ? { headers: { 'anthropic-dangerous-direct-browser-access': 'true' } }
+                      : undefined
+                  }
                 />
               )}
 

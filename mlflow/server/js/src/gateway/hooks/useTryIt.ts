@@ -21,8 +21,13 @@ function createTryItError(message: string, responseBody?: string): TryItError {
   return err;
 }
 
-interface UseTryItParams {
+/** Try-it fetch options. Only headers and signal are allowed; method and body are set by the hook. */
+export type TryItFetchOptions = Pick<RequestInit, 'headers' | 'signal'>;
+
+export interface UseTryItParams {
   tryItRequestUrl: string;
+  /** Optional fetch options (headers, signal) passed through to fetchOrFail. Method and body are set by the hook. */
+  options?: TryItFetchOptions;
 }
 
 /**
@@ -32,7 +37,7 @@ interface UseTryItParams {
  * const { data, isLoading, error, sendRequest, reset } = useTryIt({ tryItRequestUrl });
  * // data = last successful response (formatted); error = last error (with error.responseBody if present)
  */
-export function useTryIt({ tryItRequestUrl }: UseTryItParams) {
+export function useTryIt({ tryItRequestUrl, options }: UseTryItParams) {
   const mutation = useMutation<string, TryItError, string>({
     mutationFn: async (requestBody: string) => {
       let parsed: Record<string, unknown>;
@@ -43,9 +48,17 @@ export function useTryIt({ tryItRequestUrl }: UseTryItParams) {
       }
 
       try {
+        const requestHeaders =
+          options?.headers && typeof options.headers === 'object' && !(options.headers instanceof Headers)
+            ? (options.headers as Record<string, string>)
+            : {};
         const response = await fetchOrFail(tryItRequestUrl, {
+          ...options,
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...requestHeaders,
+          },
           body: JSON.stringify(parsed),
         });
         const text = await response.text();

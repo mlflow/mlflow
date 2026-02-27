@@ -2,7 +2,7 @@ import { Button, Tooltip, Typography, useDesignSystemTheme, Input } from '@datab
 import { FormattedMessage } from 'react-intl';
 import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { useTryIt } from '../../hooks/useTryIt';
+import { useTryIt, type TryItFetchOptions } from '../../hooks/useTryIt';
 
 const TEXTAREA_ROWS = 14;
 const TEXTAREA_MIN_HEIGHT_PX = 220;
@@ -14,6 +14,8 @@ export interface TryItPanelProps {
   requestTooltipComponentId: string;
   tryItRequestUrl: string;
   tryItDefaultBody: string;
+  /** Optional fetch options (headers, signal) passed through to Try-it requests. */
+  tryItOptions?: TryItFetchOptions;
 }
 
 export const TryItPanel = ({
@@ -22,11 +24,21 @@ export const TryItPanel = ({
   requestTooltipComponentId,
   tryItRequestUrl,
   tryItDefaultBody,
+  tryItOptions,
 }: TryItPanelProps) => {
   const { theme } = useDesignSystemTheme();
   const [requestBody, setRequestBody] = useState(tryItDefaultBody);
 
-  const { data, isLoading, error, sendRequest, reset: resetTryIt } = useTryIt({ tryItRequestUrl });
+  const {
+    data,
+    isLoading,
+    error,
+    sendRequest,
+    reset: resetTryIt,
+  } = useTryIt({
+    tryItRequestUrl,
+    options: tryItOptions,
+  });
 
   const responseBody = error ? (error.responseBody ?? '') : (data ?? '');
   const sendError = error?.message ?? null;
