@@ -26,7 +26,7 @@ def upgrade():
         sa.Column("description", sa.Text(), nullable=False),
         sa.Column("root_cause", sa.Text(), nullable=True),
         sa.Column("status", sa.String(length=50), nullable=False, server_default="draft"),
-        sa.Column("frequency", sa.Float(), nullable=False),
+        sa.Column("frequency", sa.Float(), nullable=True),
         sa.Column("confidence", sa.String(length=50), nullable=True),
         sa.Column("rationale_examples", sa.Text(), nullable=True),
         sa.Column("example_trace_ids", sa.Text(), nullable=True),
