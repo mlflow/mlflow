@@ -76,6 +76,8 @@ def uc_table_prefix_location_to_proto(
         proto.spans_table_name = location._otel_spans_table_name
     if location._otel_logs_table_name:
         proto.logs_table_name = location._otel_logs_table_name
+    if location._annotations_table_name:
+        proto.annotations_table_name = location._annotations_table_name
     return proto
 
 
@@ -89,6 +91,8 @@ def uc_table_prefix_location_from_proto(proto: pb.UcTablePrefixLocation) -> Unit
         location._otel_spans_table_name = proto.spans_table_name
     if proto.HasField("logs_table_name"):
         location._otel_logs_table_name = proto.logs_table_name
+    if proto.HasField("annotations_table_name"):
+        location._annotations_table_name = proto.annotations_table_name
     return location
 
 

@@ -70,6 +70,14 @@ def test_trace_location_mismatch():
             uc_schema=UCSchemaLocation(catalog_name="a", schema_name="b"),
         )
 
+    with pytest.raises(
+        MlflowException, match="Trace location .+ does not match the provided location"
+    ):
+        TraceLocation(
+            type=TraceLocationType.INFERENCE_TABLE,
+            uc_table_prefix=UnityCatalog(catalog_name="a", schema_name="b", table_prefix="p"),
+        )
+
 
 def test_trace_location_from_v4_proto_mlflow_experiment():
     proto = pb.TraceLocation(
