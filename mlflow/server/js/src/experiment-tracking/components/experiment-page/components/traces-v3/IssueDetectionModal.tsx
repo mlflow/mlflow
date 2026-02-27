@@ -16,6 +16,7 @@ import { IssueDetectionApiKeyConfigurator } from './IssueDetectionApiKeyConfigur
 import { IssueDetectionAdvancedSettings } from './IssueDetectionAdvancedSettings';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import { SelectTracesModal } from '../../../SelectTracesModal';
+import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 
 interface IssueDetectionModalProps {
@@ -76,6 +77,8 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
     }
   }, [provider, existingSecrets.length]);
 
+  const { mutateAsync: createSecret } = useCreateSecret();
+
   const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);
     const defaults = DEFAULT_MODELS_BY_PROVIDER[newProvider];
@@ -100,6 +103,20 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
+      if (saveKey && apiKeyConfig.mode === 'new') {
+        const authConfig = { ...apiKeyConfig.newSecret.configFields } satisfies Record<string, string>;
+        if (apiKeyConfig.newSecret.authMode) {
+          authConfig['auth_mode'] = apiKeyConfig.newSecret.authMode;
+        }
+
+        await createSecret({
+          secret_name: apiKeyConfig.newSecret.name,
+          secret_value: apiKeyConfig.newSecret.secretFields,
+          provider: provider,
+          auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
+        });
+      }
+
       // TODO: Implement backend API call for issue detection
       resetForm();
       onClose();
