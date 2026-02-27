@@ -41,6 +41,7 @@ def multi_modal_pipeline(component_multi_modal):
     return pipeline, task, processor, components
 
 
+@skip_transformers_v5
 def test_flavor_config_pt_save_pretrained_false(small_qa_pipeline):
     expected = {
         "task": "question-answering",
