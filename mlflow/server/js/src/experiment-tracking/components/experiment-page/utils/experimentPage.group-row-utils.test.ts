@@ -3,12 +3,13 @@ import { compact, first, flatMap, get, last } from 'lodash';
 import {
   createAggregatedMetricHistory,
   createRunsGroupByKey,
+  createSearchFilterFromRunGroupInfo,
   createValueAggregatedMetricHistory,
   getGroupedRowRenderMetadata,
   getRunGroupDisplayName,
   normalizeRunsGroupByKey,
 } from './experimentPage.group-row-utils';
-import type { RowGroupRenderMetadata } from './experimentPage.row-types';
+import type { RowGroupRenderMetadata, RunGroupParentInfo } from './experimentPage.row-types';
 import { RunGroupingAggregateFunction, RunGroupingMode } from './experimentPage.row-types';
 import type { SingleRunData } from './experimentPage.row-utils';
 import { MOCK_RUN_UUIDS_TO_HISTORY_MAP } from '../fixtures/experiment-runs.fixtures';
@@ -548,6 +549,182 @@ describe('getGroupedRowRenderMetadata', () => {
       expect(resultingGroups).toHaveLength(50 * 50);
       expect(resultingRuns).toHaveLength(50 * 50);
     });
+  });
+});
+
+describe('createSearchFilterFromRunGroupInfo', () => {
+  const createGroupInfo = (overrides: Partial<RunGroupParentInfo>): RunGroupParentInfo => ({
+    isRemainingRunsGroup: false,
+    groupingValues: [],
+    groupId: 'test-group',
+    runUuids: ['uuid1', 'uuid2'],
+    aggregatedMetricData: {},
+    aggregatedParamData: {},
+    ...overrides,
+  });
+
+  test('creates param filter for param-grouped runs', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [{ mode: RunGroupingMode.Param, groupByData: 'learning_rate', value: '0.01' }],
+      groupId: 'param.learning_rate.0.01',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe("params.learning_rate = '0.01'");
+  });
+
+  test('creates tag filter for tag-grouped runs', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [{ mode: RunGroupingMode.Tag, groupByData: 'version', value: 'v2.0' }],
+      groupId: 'tag.version.v2.0',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe("tags.version = 'v2.0'");
+  });
+
+  test('creates combined filter for multiple grouping criteria', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [
+        { mode: RunGroupingMode.Param, groupByData: 'alpha', value: '0.5' },
+        { mode: RunGroupingMode.Tag, groupByData: 'env', value: 'prod' },
+      ],
+      groupId: 'param.alpha.0.5,tag.env.prod',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe("params.alpha = '0.5' AND tags.env = 'prod'");
+  });
+
+  test('falls back to run IDs for remaining runs group', () => {
+    const groupInfo = createGroupInfo({
+      isRemainingRunsGroup: true,
+      groupingValues: [],
+      groupId: 'param.alpha',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe("attributes.run_id IN ('uuid1', 'uuid2')");
+  });
+
+  test('falls back to run IDs when groupingValues is empty', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [],
+      groupId: 'group-1',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe("attributes.run_id IN ('uuid1', 'uuid2')");
+  });
+
+  test('falls back to run IDs when grouping value is null', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [{ mode: RunGroupingMode.Param, groupByData: 'alpha', value: null }],
+      groupId: 'param.alpha.null',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe("attributes.run_id IN ('uuid1', 'uuid2')");
+  });
+
+  test('escapes special characters in param names (dots)', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [{ mode: RunGroupingMode.Param, groupByData: 'model.version', value: '1.0' }],
+      groupId: 'param.model.version.1.0',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe("params.`model.version` = '1.0'");
+  });
+
+  test('escapes special characters in param names (spaces)', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [{ mode: RunGroupingMode.Param, groupByData: 'model name', value: 'gpt' }],
+      groupId: 'param.model name.gpt',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe("params.`model name` = 'gpt'");
+  });
+
+  test('escapes single quotes in values', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [{ mode: RunGroupingMode.Param, groupByData: 'name', value: "O'Brien" }],
+      groupId: "param.name.O'Brien",
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe("params.name = 'O''Brien'");
+  });
+
+  test('creates dataset filter with name and digest (object format)', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [
+        {
+          mode: RunGroupingMode.Dataset,
+          groupByData: 'dataset',
+          value: { name: 'training_data', digest: 'abc123' },
+        },
+      ],
+      groupId: 'dataset.dataset.training_data.abc123',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe(
+      "dataset.name = 'training_data' AND dataset.digest = 'abc123'",
+    );
+  });
+
+  test('creates dataset filter with name and digest (string hash format)', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [
+        {
+          mode: RunGroupingMode.Dataset,
+          groupByData: 'dataset',
+          value: 'training_data.abc123',
+        },
+      ],
+      groupId: 'dataset.dataset.training_data.abc123',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe(
+      "dataset.name = 'training_data' AND dataset.digest = 'abc123'",
+    );
+  });
+
+  test('handles dataset names with dots correctly', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [
+        {
+          mode: RunGroupingMode.Dataset,
+          groupByData: 'dataset',
+          value: { name: 'my.dataset.v2', digest: 'xyz789' },
+        },
+      ],
+      groupId: 'dataset.dataset.my.dataset.v2.xyz789',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe(
+      "dataset.name = 'my.dataset.v2' AND dataset.digest = 'xyz789'",
+    );
+  });
+
+  test('creates combined filter with multiple params, tags, and datasets', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [
+        { mode: RunGroupingMode.Param, groupByData: 'lr', value: '0.001' },
+        { mode: RunGroupingMode.Tag, groupByData: 'stage', value: 'prod' },
+        { mode: RunGroupingMode.Dataset, groupByData: 'dataset', value: { name: 'train', digest: 'abc' } },
+      ],
+      groupId: 'param.lr.0.001,tag.stage.prod,dataset.dataset.train.abc',
+    });
+
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe(
+      "params.lr = '0.001' AND tags.stage = 'prod' AND dataset.name = 'train' AND dataset.digest = 'abc'",
+    );
+  });
+
+  test('handles mixed valid and null values by falling back to run IDs', () => {
+    const groupInfo = createGroupInfo({
+      groupingValues: [
+        { mode: RunGroupingMode.Param, groupByData: 'alpha', value: '0.5' },
+        { mode: RunGroupingMode.Tag, groupByData: 'version', value: null },
+      ],
+      groupId: 'param.alpha.0.5,tag.version.null',
+    });
+
+    // Should only include the valid filter
+    expect(createSearchFilterFromRunGroupInfo(groupInfo)).toBe("params.alpha = '0.5'");
   });
 });
 
