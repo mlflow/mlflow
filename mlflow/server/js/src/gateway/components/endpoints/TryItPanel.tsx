@@ -42,9 +42,8 @@ export const TryItPanel = ({
 
   // When default body changes (e.g. variant or provider changed), reset to the new default
   useEffect(() => {
-    setRequestBody(tryItDefaultBody);
-    resetTryIt();
-  }, [tryItDefaultBody, resetTryIt]);
+    handleResetExample();
+  }, [handleResetExample]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
