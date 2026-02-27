@@ -25,6 +25,20 @@ _logger = logging.getLogger(__name__)
 # How often (seconds) to re-fetch policies from the database
 _REFRESH_INTERVAL_SECONDS = 60
 
+# Module-level singleton
+_budget_tracker: BudgetTracker | None = None
+_tracker_lock = threading.Lock()
+
+
+def get_budget_tracker() -> BudgetTracker:
+    """Get or create the module-level BudgetTracker singleton."""
+    global _budget_tracker
+    if _budget_tracker is None:
+        with _tracker_lock:
+            if _budget_tracker is None:
+                _budget_tracker = InMemoryBudgetTracker()
+    return _budget_tracker
+
 
 @dataclass
 class BudgetWindow:
@@ -344,18 +358,3 @@ class InMemoryBudgetTracker(BudgetTracker):
         """Get the current window info for a policy (for payload construction)."""
         with self._lock:
             return self._windows.get(budget_policy_id)
-
-
-# Module-level singleton
-_budget_tracker: BudgetTracker | None = None
-_tracker_lock = threading.Lock()
-
-
-def get_budget_tracker() -> BudgetTracker:
-    """Get or create the module-level BudgetTracker singleton."""
-    global _budget_tracker
-    if _budget_tracker is None:
-        with _tracker_lock:
-            if _budget_tracker is None:
-                _budget_tracker = InMemoryBudgetTracker()
-    return _budget_tracker
