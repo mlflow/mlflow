@@ -609,3 +609,54 @@ def test_search_issues_empty_results(store):
 
     assert len(result) == 0
     assert result.token is None
+
+
+def test_search_issues_with_null_frequency(store):
+    exp_id = store.create_experiment("test")
+
+    # Create issues with various frequencies and NULL
+    issue1 = store.create_issue(
+        experiment_id=exp_id,
+        name="High frequency",
+        description="High frequency issue",
+        frequency=0.9,
+        status="draft",
+    )
+
+    issue2 = store.create_issue(
+        experiment_id=exp_id,
+        name="No frequency",
+        description="Issue without frequency",
+        status="draft",
+    )
+
+    issue3 = store.create_issue(
+        experiment_id=exp_id,
+        name="Medium frequency",
+        description="Medium frequency issue",
+        frequency=0.5,
+        status="draft",
+    )
+
+    issue4 = store.create_issue(
+        experiment_id=exp_id,
+        name="Another no frequency",
+        description="Another issue without frequency",
+        status="draft",
+    )
+
+    # Search should return issues sorted by frequency DESC (with NULLs last),
+    # then by created_timestamp DESC
+    result = store.search_issues()
+
+    assert len(result) == 4
+    # Issues with frequency should come first, sorted by frequency DESC
+    assert result[0].issue_id == issue1.issue_id
+    assert result[0].frequency == 0.9
+    assert result[1].issue_id == issue3.issue_id
+    assert result[1].frequency == 0.5
+    # Issues with NULL frequency should come last, sorted by created_timestamp DESC
+    assert result[2].issue_id == issue4.issue_id
+    assert result[2].frequency is None
+    assert result[3].issue_id == issue2.issue_id
+    assert result[3].frequency is None

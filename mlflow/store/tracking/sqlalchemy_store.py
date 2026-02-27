@@ -5995,9 +5995,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if status:
                 query = query.filter(SqlIssue.status == status)
 
-            # Order by frequency DESC, then by created_timestamp DESC
+            # Order by frequency DESC (NULLS LAST), then by created_timestamp DESC
+            # Use nullslast() to ensure NULL frequencies always come after non-NULL values
             query = query.order_by(
-                SqlIssue.frequency.desc(),
+                SqlIssue.frequency.desc().nullslast(),
                 SqlIssue.created_timestamp.desc(),
             )
 
