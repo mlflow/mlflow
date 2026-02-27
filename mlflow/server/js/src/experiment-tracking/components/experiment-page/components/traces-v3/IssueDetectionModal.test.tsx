@@ -2,8 +2,10 @@ import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { renderWithDesignSystem, screen, waitFor } from '../../../../../common/utils/TestUtils.react18';
 import { IssueDetectionModal } from './IssueDetectionModal';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
+import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 
 jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration');
+jest.mock('../../../../../gateway/hooks/useCreateSecret');
 jest.mock('../../../../../gateway/components/create-endpoint/ProviderSelect', () => ({
   ProviderSelect: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <select data-testid="provider-select" value={value} onChange={(e) => onChange(e.target.value)}>
@@ -77,8 +79,11 @@ describe('IssueDetectionModal', () => {
     experimentId: 'exp-123',
   };
 
+  let mockCreateSecret: jest.Mock;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCreateSecret = jest.fn(() => Promise.resolve());
     jest.mocked(useApiKeyConfiguration).mockReturnValue({
       existingSecrets: [],
       isLoadingSecrets: false,
@@ -88,6 +93,9 @@ describe('IssueDetectionModal', () => {
       hasExistingSecrets: false,
       isLoadingProviderConfig: false,
     });
+    jest.mocked(useCreateSecret).mockReturnValue({
+      mutateAsync: mockCreateSecret,
+    } as any);
   });
 
   test('renders modal when visible', () => {
@@ -295,5 +303,73 @@ describe('IssueDetectionModal', () => {
 
     await userEvent.click(screen.getByTestId('select-traces-cancel'));
     expect(screen.queryByTestId('select-traces-modal')).not.toBeInTheDocument();
+  });
+
+  test('saves secret when save key checkbox is checked and form is submitted with new key', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const onClose = jest.fn();
+
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
+    );
+
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
+    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
+    await userEvent.click(screen.getByTestId('set-new-key'));
+    await userEvent.click(screen.getByText('Save this key for reuse'));
+
+    const submitButton = screen.getByText('Run Analysis').closest('button')!;
+    await userEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockCreateSecret).toHaveBeenCalledWith({
+        secret_name: 'my-key',
+        secret_value: { api_key: 'sk-123' },
+        provider: 'openai',
+        auth_config: undefined,
+      });
+    });
+  });
+
+  test('does not save secret when save key checkbox is not checked', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const onClose = jest.fn();
+
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
+    );
+
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
+    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
+    await userEvent.click(screen.getByTestId('set-new-key'));
+
+    const submitButton = screen.getByText('Run Analysis').closest('button')!;
+    await userEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+    expect(mockCreateSecret).not.toHaveBeenCalled();
+  });
+
+  test('does not save secret when using existing key', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const onClose = jest.fn();
+
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
+    );
+
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
+    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
+    await userEvent.click(screen.getByTestId('set-existing-key'));
+
+    const submitButton = screen.getByText('Run Analysis').closest('button')!;
+    await userEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+    expect(mockCreateSecret).not.toHaveBeenCalled();
   });
 });
