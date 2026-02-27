@@ -45,9 +45,15 @@ class BudgetTracker(ABC):
     in memory, Redis, or other backends.
     """
 
-    @abstractmethod
+    _last_refresh_time: float = 0.0
+
     def needs_refresh(self) -> bool:
         """Check whether policies should be re-fetched from the database."""
+        return (time.monotonic() - self._last_refresh_time) >= _REFRESH_INTERVAL_SECONDS
+
+    def mark_refreshed(self) -> None:
+        """Mark the tracker as just refreshed."""
+        self._last_refresh_time = time.monotonic()
 
     @abstractmethod
     def load_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
@@ -204,11 +210,6 @@ class InMemoryBudgetTracker(BudgetTracker):
 
     _windows: dict[str, BudgetWindow] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
-    _last_refresh_time: float = 0.0
-
-    def needs_refresh(self) -> bool:
-        """Check whether policies should be re-fetched from the database."""
-        return (time.monotonic() - self._last_refresh_time) >= _REFRESH_INTERVAL_SECONDS
 
     def load_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
         """Load or refresh policies from the database.
@@ -249,7 +250,7 @@ class InMemoryBudgetTracker(BudgetTracker):
                     fresh_windows.append(window)
 
             self._windows = new_windows
-            self._last_refresh_time = time.monotonic()
+            self.mark_refreshed()
 
         return fresh_windows
 
