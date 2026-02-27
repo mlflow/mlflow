@@ -30,7 +30,6 @@ from tests.server.jobs.helpers import (
     wait_job_finalize,
 )
 
-# TODO: Remove `pytest.mark.xfail` after fixing flakiness
 pytestmark = [
     pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
 ]
