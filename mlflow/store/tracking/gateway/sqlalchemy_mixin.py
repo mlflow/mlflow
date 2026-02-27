@@ -5,7 +5,7 @@ import os
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
@@ -1334,13 +1334,15 @@ class SqlAlchemyGatewayStoreMixin:
         workspace: str | None = None,
     ) -> float:
         with self.ManagedSessionMaker() as session:
-            gateway_traces = (
-                session.query(SqlTraceInfo.request_id)
+            query = (
+                session.query(func.coalesce(func.sum(SqlSpanMetrics.value), 0.0))
+                .join(SqlTraceInfo, SqlTraceInfo.request_id == SqlSpanMetrics.trace_id)
                 .join(
                     SqlTraceMetadata,
                     SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
                 )
                 .filter(
+                    SqlSpanMetrics.key == SpanMetricKey.TOTAL_COST,
                     SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
                     SqlTraceInfo.timestamp_ms >= start_time_ms,
                     SqlTraceInfo.timestamp_ms < end_time_ms,
@@ -1348,20 +1350,9 @@ class SqlAlchemyGatewayStoreMixin:
             )
 
             if workspace is not None:
-                gateway_traces = gateway_traces.join(
+                query = query.join(
                     SqlExperiment,
                     SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
                 ).filter(SqlExperiment.workspace == workspace)
 
-            gateway_trace_ids = gateway_traces.subquery()
-
-            result = (
-                session.query(func.coalesce(func.sum(SqlSpanMetrics.value), 0.0))
-                .filter(
-                    SqlSpanMetrics.trace_id.in_(select(gateway_trace_ids.c.request_id)),
-                    SqlSpanMetrics.key == SpanMetricKey.TOTAL_COST,
-                )
-                .scalar()
-            )
-
-            return float(result)
+            return float(query.scalar())
