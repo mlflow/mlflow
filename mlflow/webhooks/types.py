@@ -4,7 +4,7 @@ This module contains class definitions for all webhook event payloads
 that are sent when various model registry events occur.
 """
 
-from typing import TypeAlias, TypedDict
+from typing import Literal, TypeAlias, TypedDict
 
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 
@@ -483,17 +483,17 @@ class BudgetPolicyExceededPayload(TypedDict):
 
     budget_policy_id: str
     """The unique identifier of the budget policy."""
-    budget_unit: str
+    budget_unit: Literal["USD"]
     """The budget measurement unit (e.g. USD)."""
     budget_amount: float
     """The budget limit amount."""
     current_spend: float
     """The current cumulative spend when the limit was exceeded."""
-    duration_unit: str
+    duration_unit: Literal["MINUTES", "HOURS", "DAYS", "MONTHS"]
     """The duration unit (MINUTES, HOURS, DAYS, MONTHS)."""
     duration_value: int
     """The duration value."""
-    target_scope: str
+    target_scope: Literal["GLOBAL", "WORKSPACE"]
     """The target scope (GLOBAL or WORKSPACE)."""
     workspace: str
     """The workspace this budget applies to."""
