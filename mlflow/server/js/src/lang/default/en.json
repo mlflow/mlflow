@@ -2014,6 +2014,10 @@
     "defaultMessage": "Create new endpoint",
     "description": "Button text to create a new endpoint"
   },
+  "Bqn/5s": {
+    "defaultMessage": "Traces",
+    "description": "Section header for trace selection"
+  },
   "BrQez2": {
     "defaultMessage": "Provider",
     "description": "Label for provider select field"
@@ -2165,6 +2169,10 @@
   "CpLnGS": {
     "defaultMessage": "Metrics",
     "description": "Table title text for metrics table in the model comparison page"
+  },
+  "CpUD2P": {
+    "defaultMessage": "Select traces",
+    "description": "Button to open trace selection modal"
   },
   "CruI7o": {
     "defaultMessage": "Latest version",
@@ -2829,6 +2837,10 @@
   "IMkDgM": {
     "defaultMessage": "Experiments",
     "description": "Link label for the experiments page"
+  },
+  "INrdWe": {
+    "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
+    "description": "Label showing number of traces selected"
   },
   "IUAmWX": {
     "defaultMessage": "No common artifacts to display.",
@@ -5414,6 +5426,10 @@
   "abIH3b": {
     "defaultMessage": "All providers",
     "description": "Label for selector when all providers are selected"
+  },
+  "acbe7K": {
+    "defaultMessage": "Select the traces to analyze for issues",
+    "description": "Description for trace selection section"
   },
   "adVHxN": {
     "defaultMessage": "Outputs",

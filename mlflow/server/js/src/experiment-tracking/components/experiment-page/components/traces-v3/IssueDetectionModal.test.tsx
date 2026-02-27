@@ -57,6 +57,19 @@ jest.mock('../../../../../gateway/components/model-configuration/components/ApiK
   ),
 }));
 
+jest.mock('../../../SelectTracesModal', () => ({
+  SelectTracesModal: ({ onClose, onSuccess }: { onClose: () => void; onSuccess: (traceIds: string[]) => void }) => (
+    <div data-testid="select-traces-modal">
+      <button data-testid="select-traces-cancel" onClick={onClose}>
+        Cancel
+      </button>
+      <button data-testid="select-traces-confirm" onClick={() => onSuccess(['trace-1', 'trace-2'])}>
+        Select
+      </button>
+    </div>
+  ),
+}));
+
 describe('IssueDetectionModal', () => {
   const defaultProps = {
     visible: true,
@@ -117,10 +130,23 @@ describe('IssueDetectionModal', () => {
     expect(submitButton).toBeDisabled();
   });
 
-  test('submit button is enabled when form is complete with existing key and traces', async () => {
+  test('submit button is disabled without traces selected', async () => {
     const userEvent = (await import('@testing-library/user-event')).default;
 
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
+    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
+    await userEvent.click(screen.getByTestId('set-existing-key'));
+
+    const submitButton = screen.getByText('Run Analysis').closest('button');
+    expect(submitButton).toBeDisabled();
+  });
+
+  test('submit button is enabled when form is complete with existing key and traces', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
@@ -133,7 +159,7 @@ describe('IssueDetectionModal', () => {
   test('submit button is enabled when form is complete with new key and traces', async () => {
     const userEvent = (await import('@testing-library/user-event')).default;
 
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
@@ -189,7 +215,9 @@ describe('IssueDetectionModal', () => {
     const userEvent = (await import('@testing-library/user-event')).default;
     const onClose = jest.fn();
 
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} onClose={onClose} />);
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
+    );
 
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
@@ -218,5 +246,54 @@ describe('IssueDetectionModal', () => {
     await userEvent.click(screen.getByTestId('set-new-key'));
 
     expect(screen.getByText('Save this key for reuse')).toBeInTheDocument();
+  });
+
+  test('renders traces selection section', () => {
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    expect(screen.getByText('Traces')).toBeInTheDocument();
+    expect(screen.getByText('Select the traces to analyze for issues')).toBeInTheDocument();
+    expect(screen.getByText('Select traces')).toBeInTheDocument();
+  });
+
+  test('shows trace count when initial traces are provided', () => {
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1', 'trace-2', 'trace-3']} />,
+    );
+
+    expect(screen.getByText('3 traces selected')).toBeInTheDocument();
+  });
+
+  test('opens select traces modal when button is clicked', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    await userEvent.click(screen.getByText('Select traces'));
+
+    expect(screen.getByTestId('select-traces-modal')).toBeInTheDocument();
+  });
+
+  test('updates trace count after selecting traces', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    await userEvent.click(screen.getByText('Select traces'));
+    await userEvent.click(screen.getByTestId('select-traces-confirm'));
+
+    expect(screen.getByText('2 traces selected')).toBeInTheDocument();
+  });
+
+  test('closes select traces modal when cancel is clicked', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    await userEvent.click(screen.getByText('Select traces'));
+    expect(screen.getByTestId('select-traces-modal')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId('select-traces-cancel'));
+    expect(screen.queryByTestId('select-traces-modal')).not.toBeInTheDocument();
   });
 });
