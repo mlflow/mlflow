@@ -166,7 +166,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
               componentIdPrefix="mlflow.traces.issue-detection-modal.api-key"
             />
           </div>
-          {apiKeyConfig.mode === 'new' && (
+          {provider && apiKeyConfig.mode === 'new' && (
             <div css={{ marginTop: theme.spacing.md }}>
               <Tooltip
                 componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
