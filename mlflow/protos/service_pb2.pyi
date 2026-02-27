@@ -89,6 +89,7 @@ class BudgetDurationUnit(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     MINUTES: _ClassVar[BudgetDurationUnit]
     HOURS: _ClassVar[BudgetDurationUnit]
     DAYS: _ClassVar[BudgetDurationUnit]
+    WEEKS: _ClassVar[BudgetDurationUnit]
     MONTHS: _ClassVar[BudgetDurationUnit]
 
 class BudgetTargetScope(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -148,6 +149,7 @@ DURATION_UNIT_UNSPECIFIED: BudgetDurationUnit
 MINUTES: BudgetDurationUnit
 HOURS: BudgetDurationUnit
 DAYS: BudgetDurationUnit
+WEEKS: BudgetDurationUnit
 MONTHS: BudgetDurationUnit
 TARGET_SCOPE_UNSPECIFIED: BudgetTargetScope
 GLOBAL: BudgetTargetScope

@@ -4792,7 +4792,8 @@ enum BudgetDurationUnit {
   MINUTES = 1;
   HOURS = 2;
   DAYS = 3;
-  MONTHS = 4;
+  WEEKS = 4;
+  MONTHS = 5;
 }
 
 // Target scope for a budget policy
@@ -5013,7 +5014,7 @@ message GatewayBudgetPolicy {
   optional BudgetUnit budget_unit = 2;
   // Budget limit amount
   optional double budget_amount = 3;
-  // Unit of time window (MINUTES, HOURS, DAYS, MONTHS)
+  // Unit of time window (MINUTES, HOURS, DAYS, WEEKS, MONTHS)
   optional BudgetDurationUnit duration_unit = 4;
   // Length of the window in units of duration_unit
   optional int32 duration_value = 5;
