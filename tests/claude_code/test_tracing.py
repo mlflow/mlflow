@@ -17,6 +17,7 @@ import mlflow
 import mlflow.claude_code.tracing as tracing_module
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
+    find_last_user_message_index,
     get_hook_response,
     parse_timestamp_to_ns,
     process_sdk_messages,
@@ -504,3 +505,251 @@ def test_process_sdk_messages_cache_tokens():
     # Trace-level aggregation should match
     assert trace.info.token_usage["input_tokens"] == 23590
     assert trace.info.token_usage["output_tokens"] == 3344
+
+
+# ============================================================================
+# FIND LAST USER MESSAGE INDEX TESTS
+# ============================================================================
+
+
+def test_find_last_user_message_skips_skill_injection():
+    transcript = [
+        {"type": "queue-operation"},
+        {"type": "queue-operation"},
+        # Entry 2: actual user prompt
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Enable tracing on the agent."},
+            "timestamp": "2025-01-01T00:00:00Z",
+        },
+        # Entry 3: assistant thinking
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "thinking", "thinking": "Let me use the skill."}],
+            },
+            "timestamp": "2025-01-01T00:00:01Z",
+        },
+        # Entry 4: assistant invokes Skill tool
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_abc123",
+                        "name": "Skill",
+                        "input": {"skill": "instrumenting-with-mlflow-tracing"},
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:02Z",
+        },
+        # Entry 5: tool result with commandName (correctly skipped by toolUseResult check)
+        {
+            "type": "user",
+            "toolUseResult": {
+                "success": True,
+                "commandName": "instrumenting-with-mlflow-tracing",
+            },
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_abc123",
+                        "content": "Launching skill: instrumenting-with-mlflow-tracing",
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:03Z",
+        },
+        # Entry 6: skill content injection (BUG: not flagged as tool result)
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Base directory for this skill: /path/to/skill\n\n"
+                            "# MLflow Tracing Guide\n\n...(full skill content)..."
+                        ),
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:04Z",
+        },
+        # Entry 7: assistant continues
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "thinking", "thinking": "Now let me implement tracing."}],
+            },
+            "timestamp": "2025-01-01T00:00:05Z",
+        },
+        # Entry 8: assistant text response
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "I've enabled tracing on the agent."}],
+            },
+            "timestamp": "2025-01-01T00:00:06Z",
+        },
+    ]
+
+    idx = find_last_user_message_index(transcript)
+
+    # Should return index 2 (actual user prompt), not 6 (skill injection)
+    assert idx == 2
+    assert transcript[idx]["message"]["content"] == "Enable tracing on the agent."
+
+
+def test_find_last_user_message_index_basic():
+    transcript = [
+        {"type": "queue-operation"},
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "First question"},
+            "timestamp": "2025-01-01T00:00:00Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "First answer"}],
+            },
+            "timestamp": "2025-01-01T00:00:01Z",
+        },
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Second question"},
+            "timestamp": "2025-01-01T00:00:02Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Second answer"}],
+            },
+            "timestamp": "2025-01-01T00:00:03Z",
+        },
+    ]
+
+    idx = find_last_user_message_index(transcript)
+
+    assert idx == 3
+    assert transcript[idx]["message"]["content"] == "Second question"
+
+
+def test_find_last_user_message_skips_consecutive_skill_injections():
+    transcript = [
+        # Entry 0: actual user prompt
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Do the thing."},
+            "timestamp": "2025-01-01T00:00:00Z",
+        },
+        # Entry 1: assistant invokes first Skill
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "Skill",
+                        "input": {"skill": "skill-one"},
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:01Z",
+        },
+        # Entry 2: first skill tool result
+        {
+            "type": "user",
+            "toolUseResult": {"success": True, "commandName": "skill-one"},
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_1",
+                        "content": "Launching skill: skill-one",
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:02Z",
+        },
+        # Entry 3: first skill content injection
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [{"type": "text", "text": "Base directory: /skill-one\n# Skill One"}],
+            },
+            "timestamp": "2025-01-01T00:00:03Z",
+        },
+        # Entry 4: assistant invokes second Skill
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_2",
+                        "name": "Skill",
+                        "input": {"skill": "skill-two"},
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:04Z",
+        },
+        # Entry 5: second skill tool result
+        {
+            "type": "user",
+            "toolUseResult": {"success": True, "commandName": "skill-two"},
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_2",
+                        "content": "Launching skill: skill-two",
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:05Z",
+        },
+        # Entry 6: second skill content injection
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [{"type": "text", "text": "Base directory: /skill-two\n# Skill Two"}],
+            },
+            "timestamp": "2025-01-01T00:00:06Z",
+        },
+        # Entry 7: assistant response
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Done."}],
+            },
+            "timestamp": "2025-01-01T00:00:07Z",
+        },
+    ]
+
+    idx = find_last_user_message_index(transcript)
+
+    # Should skip both skill injections (entries 3 and 6) and return entry 0
+    assert idx == 0
+    assert transcript[idx]["message"]["content"] == "Do the thing."
