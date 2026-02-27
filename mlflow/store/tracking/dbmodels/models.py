@@ -48,6 +48,8 @@ from mlflow.entities import (
     GatewayResourceType,
     GatewaySecretInfo,
     InputTag,
+    Issue,
+    IssueReference,
     Metric,
     Param,
     RoutingStrategy,
@@ -925,7 +927,7 @@ class SqlAssessments(Base):
     """
     assessment_type = Column(String(50), nullable=False)
     """
-    Assessment type: `String` (limit 50 characters). Either "feedback" or "expectation".
+    Assessment type: `String` (limit 50 characters). Either "feedback", "expectation", or "issue".
     """
     value = Column(Text, nullable=False)
     """
@@ -1040,6 +1042,20 @@ class SqlAssessments(Base):
             )
             assessment.overrides = self.overrides
             assessment.valid = self.valid
+        elif assessment_type_value == "issue":
+            assessment = IssueReference(
+                issue_id=self.name,
+                issue_name=parsed_value.get("issue_name"),
+                source=source,
+                trace_id=self.trace_id,
+                run_id=self.run_id,
+                metadata=parsed_metadata,
+                span_id=self.span_id,
+                create_time_ms=self.created_timestamp,
+                last_update_time_ms=self.last_updated_timestamp,
+            )
+            assessment.overrides = self.overrides
+            assessment.valid = self.valid
         else:
             raise ValueError(f"Unknown assessment type: {assessment_type_value}")
 
@@ -1067,9 +1083,13 @@ class SqlAssessments(Base):
             assessment_type = "expectation"
             value_json = json.dumps(assessment.expectation.value)
             error_json = None
+        elif assessment.issue is not None:
+            assessment_type = "issue"
+            value_json = json.dumps(assessment.issue.to_dictionary())
+            error_json = None
         else:
             raise MlflowException.invalid_parameter_value(
-                "Assessment must have either feedback or expectation value"
+                "Assessment must have either feedback, expectation, or issue value"
             )
 
         metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
@@ -1095,6 +1115,120 @@ class SqlAssessments(Base):
 
     def __repr__(self):
         return f"<SqlAssessments({self.assessment_id}, {self.name}, {self.assessment_type})>"
+
+
+class SqlIssue(Base):
+    __tablename__ = "issues"
+
+    issue_id = Column(String(36), nullable=False)
+    """
+    Issue ID: `String` (limit 36 characters). *Primary Key* for ``issues`` table.
+    Format: "iss-<uuid>".
+    """
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table. Required.
+    """
+    run_id = Column(String(32), ForeignKey("runs.run_uuid", ondelete="CASCADE"), nullable=True)
+    """
+    Run ID that discovered this issue: `String` (limit 32 characters).
+    *Foreign Key* into ``runs`` table. Nullable for manually created issues.
+    """
+    name = Column(String(250), nullable=False)
+    """
+    Issue name/title: `String` (limit 250 characters).
+    """
+    description = Column(Text, nullable=False)
+    """
+    Detailed description of the issue: `Text`.
+    """
+    root_cause = Column(Text, nullable=True)
+    """
+    Root cause analysis of the issue: `Text`. Nullable if root cause is not yet determined.
+    """
+    status = Column(String(50), nullable=False)
+    """
+    Issue status: `String` (limit 50 characters).
+    """
+    frequency = Column(Float, nullable=True)
+    """
+    Frequency score: `Float` between 0.0 and 1.0 indicating how often this issue occurs. Optional.
+    """
+    confidence = Column(String(50), nullable=True)
+    """
+    Confidence level: `String` (limit 50 characters). Optional indicator of detection confidence.
+    """
+    rationale_examples = Column(Text, nullable=True)
+    """
+    Rationale examples stored as JSON array: `Text`. Nullable if no examples provided.
+    """
+    example_trace_ids = Column(Text, nullable=True)
+    """
+    Example trace IDs stored as JSON array: `Text`. Nullable if no example traces selected.
+    """
+    created_timestamp = Column(BigInteger, nullable=False)
+    """
+    Creation timestamp: `BigInteger` in milliseconds.
+    """
+    last_updated_timestamp = Column(BigInteger, nullable=False)
+    """
+    Last update timestamp: `BigInteger` in milliseconds.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator identifier: `String` (limit 255 characters). Optional.
+    """
+
+    run = relationship("SqlRun", backref=backref("issues", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlRun`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("issue_id", name="issues_pk"),
+        Index(f"index_{__tablename__}_experiment_id", "experiment_id"),
+        Index(f"index_{__tablename__}_run_id", "run_id"),
+        Index(f"index_{__tablename__}_status", "status"),
+    )
+
+    def __repr__(self):
+        return f"<SqlIssue({self.issue_id}, {self.name}, {self.status})>"
+
+    def to_mlflow_entity(self, trace_ids: list[str] | None = None) -> Issue:
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Args:
+            trace_ids: Optional list of trace IDs associated with this issue.
+
+        Returns:
+            :py:class:`mlflow.entities.Issue` object.
+        """
+
+        return Issue(
+            issue_id=self.issue_id,
+            experiment_id=str(self.experiment_id),
+            run_id=self.run_id,
+            name=self.name,
+            description=self.description,
+            root_cause=self.root_cause,
+            status=self.status,
+            frequency=self.frequency,
+            confidence=self.confidence,
+            rationale_examples=(
+                json.loads(self.rationale_examples) if self.rationale_examples else None
+            ),
+            example_trace_ids=(
+                json.loads(self.example_trace_ids) if self.example_trace_ids else None
+            ),
+            trace_ids=trace_ids or None,
+            created_timestamp=self.created_timestamp,
+            last_updated_timestamp=self.last_updated_timestamp,
+            created_by=self.created_by,
+        )
 
 
 class SqlLoggedModel(Base):

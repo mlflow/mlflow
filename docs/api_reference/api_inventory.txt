@@ -417,6 +417,14 @@ mlflow.entities.InferenceTableLocation.to_proto
 mlflow.entities.InputTag
 mlflow.entities.InputTag.from_proto
 mlflow.entities.InputTag.to_proto
+mlflow.entities.Issue
+mlflow.entities.Issue.from_dictionary
+mlflow.entities.Issue.from_proto
+mlflow.entities.Issue.to_dictionary
+mlflow.entities.Issue.to_proto
+mlflow.entities.IssueReference
+mlflow.entities.IssueReference.from_dictionary
+mlflow.entities.IssueReference.from_proto
 mlflow.entities.LifecycleStage
 mlflow.entities.LifecycleStage.is_valid
 mlflow.entities.LifecycleStage.matches_view_type
@@ -597,6 +605,7 @@ mlflow.entities.WorkspaceDeletionMode
 mlflow.entities.assessment.Assessment
 mlflow.entities.assessment.Expectation
 mlflow.entities.assessment.Feedback
+mlflow.entities.assessment.IssueReference
 mlflow.entities.assessment_error.AssessmentError
 mlflow.entities.assessment_source.AssessmentSource
 mlflow.entities.assessment_source.AssessmentSourceType
@@ -628,6 +637,7 @@ mlflow.entities.gateway_endpoint.GatewayResourceType
 mlflow.entities.gateway_endpoint.RoutingStrategy
 mlflow.entities.gateway_secrets.GatewaySecretInfo
 mlflow.entities.input_tag.InputTag
+mlflow.entities.issue.Issue
 mlflow.entities.lifecycle_stage.LifecycleStage
 mlflow.entities.logged_model.LoggedModel
 mlflow.entities.logged_model_input.LoggedModelInput

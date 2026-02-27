@@ -7,6 +7,7 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     DatasetRecord,
+    Issue,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -598,6 +599,55 @@ class AbstractStore(GatewayStoreMixin):
             assessment_id: The ID of the assessment to be deleted.
         """
         raise NotImplementedError
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: str,
+        frequency: float | None = None,
+        run_id: str | None = None,
+        root_cause: str | None = None,
+        confidence: str | None = None,
+        rationale_examples: list[str] | None = None,
+        example_trace_ids: list[str] | None = None,
+        trace_ids: list[str] | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status.
+            frequency: Optional frequency score (0.0 to 1.0) indicating how often this issue occurs.
+            run_id: Optional MLflow run ID that discovered this issue.
+            root_cause: Optional analysis of the root cause.
+            confidence: Optional confidence level indicator.
+            rationale_examples: Optional list of rationale examples.
+            example_trace_ids: Optional list of example trace IDs.
+            trace_ids: Optional list of trace IDs associated with this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        raise MlflowNotImplementedException()
 
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """

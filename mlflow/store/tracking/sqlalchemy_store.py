@@ -36,6 +36,7 @@ from mlflow.entities import (
     Expectation,
     Experiment,
     Feedback,
+    Issue,
     Run,
     RunInputs,
     RunOutputs,
@@ -49,7 +50,12 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
-from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.assessment import (
+    AssessmentSource,
+    ExpectationValue,
+    FeedbackValue,
+    IssueReference,
+)
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.gateway_endpoint import GatewayResourceType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -123,6 +129,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpointBinding,
     SqlInput,
     SqlInputTag,
+    SqlIssue,
     SqlLatestMetric,
     SqlLoggedModel,
     SqlLoggedModelMetric,
@@ -5756,6 +5763,152 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.commit()
 
             return dataset.to_mlflow_entity()
+
+    # ===================================================================================
+    # Issue Methods
+    # ===================================================================================
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: str,
+        frequency: float | None = None,
+        run_id: str | None = None,
+        root_cause: str | None = None,
+        confidence: str | None = None,
+        rationale_examples: list[str] | None = None,
+        example_trace_ids: list[str] | None = None,
+        trace_ids: list[str] | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue in the database.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status.
+            frequency: Optional frequency score indicating how often this issue occurs.
+            run_id: Optional run ID that discovered this issue.
+            root_cause: Optional analysis of the root cause.
+            confidence: Optional confidence level indicator.
+            rationale_examples: Optional list of rationale examples.
+            example_trace_ids: Optional list of example trace IDs.
+            trace_ids: Optional list of trace IDs associated with this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Verify experiment exists
+            self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
+
+            # Verify run exists if provided
+            if run_id:
+                self._get_run(run_uuid=run_id, session=session)
+
+            # Generate issue ID
+            issue_id = f"iss-{uuid.uuid4().hex}"
+
+            # Get current timestamp
+            current_time = get_current_time_millis()
+
+            # Serialize list fields to JSON
+            rationale_examples_json = json.dumps(rationale_examples) if rationale_examples else None
+            example_trace_ids_json = json.dumps(example_trace_ids) if example_trace_ids else None
+
+            # Create SqlIssue record
+            sql_issue = SqlIssue(
+                issue_id=issue_id,
+                experiment_id=experiment_id,
+                run_id=run_id,
+                name=name,
+                description=description,
+                root_cause=root_cause,
+                status=status,
+                frequency=frequency,
+                confidence=confidence,
+                rationale_examples=rationale_examples_json,
+                example_trace_ids=example_trace_ids_json,
+                created_timestamp=current_time,
+                last_updated_timestamp=current_time,
+                created_by=created_by,
+            )
+
+            session.add(sql_issue)
+
+            # Create assessment records for each trace_id
+            if trace_ids:
+                for trace_id in trace_ids:
+                    # Validate trace exists
+                    self._validate_trace_accessible(session, trace_id)
+
+                    # Create IssueReference assessment
+                    issue_ref = IssueReference(
+                        issue_id=issue_id,
+                        issue_name=name,
+                        source=AssessmentSource(source_type="CODE", source_id="issue_discovery"),
+                        trace_id=trace_id,
+                        run_id=run_id,
+                        create_time_ms=current_time,
+                        last_update_time_ms=current_time,
+                    )
+
+                    # Convert to SqlAssessments using from_mlflow_entity
+                    sql_assessment = SqlAssessments.from_mlflow_entity(issue_ref)
+                    session.add(sql_assessment)
+
+            session.commit()
+
+            # Return Issue entity
+            return sql_issue.to_mlflow_entity(trace_ids=trace_ids)
+
+    def _get_trace_ids_for_issue(self, session, issue_id: str) -> list[str]:
+        """
+        Helper function to efficiently query trace IDs associated with an issue.
+
+        Args:
+            session: SQLAlchemy session
+            issue_id: The issue ID to query trace IDs for
+
+        Returns:
+            List of trace IDs associated with the issue
+        """
+        assessments = (
+            session.query(SqlAssessments.trace_id)
+            .filter(
+                SqlAssessments.assessment_type == "issue",
+                SqlAssessments.name == issue_id,
+            )
+            .all()
+        )
+        return [assessment.trace_id for assessment in assessments]
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The issue ID to fetch.
+
+        Returns:
+            The Issue entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_issue = session.query(SqlIssue).filter_by(issue_id=issue_id).first()
+            if not sql_issue:
+                raise MlflowException(
+                    f"Issue with ID '{issue_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            trace_ids = self._get_trace_ids_for_issue(session, issue_id)
+
+            return sql_issue.to_mlflow_entity(trace_ids=trace_ids or None)
 
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints
