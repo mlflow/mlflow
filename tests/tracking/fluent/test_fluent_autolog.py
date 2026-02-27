@@ -104,6 +104,9 @@ def reset_global_states():
         except Exception:
             pass
 
+    # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
+    mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
+
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
@@ -127,6 +130,8 @@ def reset_global_states():
     mlflow.utils.import_hooks._post_import_hooks.pop("agno", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("strands", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("haystack", None)
+    # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
+    mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 

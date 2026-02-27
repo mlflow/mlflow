@@ -11,6 +11,11 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.transformers import _SUPPORTED_PROMPT_TEMPLATING_TASK_TYPES, _validate_prompt_template
 from mlflow.transformers.flavor_config import FlavorKey
 
+skip_transformers_v5 = pytest.mark.skipif(
+    Version(transformers.__version__).major >= 5,
+    reason="Incompatible API changes in transformers 5.x",
+)
+
 # session fixtures to prevent saving and loading a ~400mb model every time
 TEST_PROMPT_TEMPLATE = "Answer the following question like a pirate:\nQ: {prompt}\nA: "
 
@@ -212,6 +217,7 @@ def test_prompt_used_in_predict(task, pipeline_fixture, output_key, request, tmp
         model._model_impl.pipeline.assert_called_once_with([formatted_prompt])
 
 
+@skip_transformers_v5
 def test_prompt_and_llm_inference_task(tmp_path, request):
     pipeline = request.getfixturevalue("text_generation_pipeline")
 

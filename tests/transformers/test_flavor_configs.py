@@ -1,4 +1,6 @@
 import pytest
+import transformers
+from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.transformers import _build_pipeline_from_model_input
@@ -9,6 +11,11 @@ from mlflow.transformers.flavor_config import (
 from mlflow.transformers.hub_utils import is_valid_hf_repo_id
 
 from tests.transformers.helper import IS_NEW_FEATURE_EXTRACTION_API
+
+skip_transformers_v5 = pytest.mark.skipif(
+    Version(transformers.__version__).major >= 5,
+    reason="Incompatible API changes in transformers 5.x",
+)
 
 
 @pytest.fixture
@@ -61,6 +68,7 @@ def test_flavor_config_torch_dtype_overridden_when_specified(small_qa_pipeline):
     assert conf["torch_dtype"] == "torch.float16"
 
 
+@skip_transformers_v5
 def test_flavor_config_component_multi_modal(multi_modal_pipeline):
     pipeline, task, processor, expected_components = multi_modal_pipeline
 
@@ -79,6 +87,7 @@ def test_flavor_config_component_multi_modal(multi_modal_pipeline):
         assert f"{component}_revision" not in conf
 
 
+@skip_transformers_v5
 def test_flavor_config_component_multi_modal_save_pretrained_false(multi_modal_pipeline):
     pipeline, task, processor, expected_components = multi_modal_pipeline
 
