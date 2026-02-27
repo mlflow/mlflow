@@ -44,6 +44,8 @@ MESSAGE_FIELD_CONTENT = "content"
 MESSAGE_FIELD_TYPE = "type"
 MESSAGE_FIELD_MESSAGE = "message"
 MESSAGE_FIELD_TIMESTAMP = "timestamp"
+MESSAGE_FIELD_TOOL_USE_RESULT = "toolUseResult"
+MESSAGE_FIELD_COMMAND_NAME = "commandName"
 
 # Custom logging level for Claude tracing
 CLAUDE_TRACING_LEVEL = logging.WARNING - 5
@@ -221,7 +223,20 @@ def find_last_user_message_index(transcript: list[dict[str, Any]]) -> int | None
     """
     for i in range(len(transcript) - 1, -1, -1):
         entry = transcript[i]
-        if entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_USER and not entry.get("toolUseResult"):
+        if entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_USER and not entry.get(
+            MESSAGE_FIELD_TOOL_USE_RESULT
+        ):
+            # Skip skill content injections: a user message immediately following
+            # a Skill tool result (which has toolUseResult with commandName)
+            if (
+                i > 0
+                and isinstance(
+                    prev_tool_result := transcript[i - 1].get(MESSAGE_FIELD_TOOL_USE_RESULT), dict
+                )
+                and prev_tool_result.get(MESSAGE_FIELD_COMMAND_NAME)
+            ):
+                continue
+
             msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
             content = msg.get(MESSAGE_FIELD_CONTENT, "")
 
