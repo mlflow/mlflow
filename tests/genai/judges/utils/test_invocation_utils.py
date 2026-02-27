@@ -162,6 +162,8 @@ def test_invoke_judge_model_successful_with_native_provider():
         model_uri="openai:/gpt-4",
         payload="Evaluate this response",
         eval_parameters=None,
+        extra_headers=None,
+        proxy_url=None,
         endpoint_type="llm/v1/chat",
     )
 
