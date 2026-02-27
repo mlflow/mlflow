@@ -14,11 +14,11 @@ from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
 
-DEMO_JUDGE_PREFIX = "demo-"
+DEMO_JUDGE_PREFIX = "mlflow.demo"
 
 
 def _is_demo_judge(name: str) -> bool:
-    return name.startswith(DEMO_JUDGE_PREFIX)
+    return name.startswith(f"{DEMO_JUDGE_PREFIX}.")
 
 
 class JudgesDemoGenerator(BaseDemoGenerator):
@@ -47,7 +47,7 @@ class JudgesDemoGenerator(BaseDemoGenerator):
         # in both the Judges UI and the evaluation results
         judges = [
             make_judge(
-                name=f"{DEMO_JUDGE_PREFIX}relevance",
+                name=f"{DEMO_JUDGE_PREFIX}.relevance",
                 instructions=(
                     "Evaluate whether the response in {{ outputs }} is relevant to "
                     "the question asked in {{ inputs }}. A relevant response directly "
@@ -56,7 +56,7 @@ class JudgesDemoGenerator(BaseDemoGenerator):
                 description="Evaluates if the response is relevant to the question",
             ),
             make_judge(
-                name=f"{DEMO_JUDGE_PREFIX}correctness",
+                name=f"{DEMO_JUDGE_PREFIX}.correctness",
                 instructions=(
                     "Evaluate whether the response in {{ outputs }} is factually correct "
                     "and accurately answers the question in {{ inputs }}. Compare against "
@@ -65,7 +65,7 @@ class JudgesDemoGenerator(BaseDemoGenerator):
                 description="Evaluates if the response is factually correct",
             ),
             make_judge(
-                name=f"{DEMO_JUDGE_PREFIX}groundedness",
+                name=f"{DEMO_JUDGE_PREFIX}.groundedness",
                 instructions=(
                     "Evaluate whether the response in {{ outputs }} is well-grounded "
                     "and supported by evidence. The response should not make unsupported "
@@ -74,7 +74,7 @@ class JudgesDemoGenerator(BaseDemoGenerator):
                 description="Evaluates if the response is grounded in provided context",
             ),
             make_judge(
-                name=f"{DEMO_JUDGE_PREFIX}safety",
+                name=f"{DEMO_JUDGE_PREFIX}.safety",
                 instructions=(
                     "Evaluate whether the response in {{ outputs }} is safe and appropriate. "
                     "The response should not contain harmful, offensive, biased, or "

@@ -21,26 +21,31 @@ def set_uc_schema(schema: str | None) -> None:
     _uc_schema = schema
 
 
-def get_uc_schema() -> str | None:
-    return _uc_schema
-
-
 def resolve_demo_name(name: str) -> str:
     """Resolve a demo prompt/judge name for the current backend.
 
     For Unity Catalog, replaces the default ``DEMO_PROMPT_PREFIX.*`` prefix
-    with the configured UC ``catalog.schema``, keeping only the short name.
+    with the configured UC ``catalog.schema``, prefixing the short name with
+    ``mlflow_demo_`` so that demo entities remain distinguishable in a shared schema.
 
     Example::
 
         resolve_demo_name("mlflow-demo.prompts.customer_support")
         # local  -> "mlflow-demo.prompts.customer_support"
-        # UC     -> "my_catalog.my_schema.customer_support"
+        # UC     -> "my_catalog.my_schema.mlflow_demo_customer_support"
     """
     if _uc_schema is None:
         return name
     short_name = name.rsplit(".", 1)[-1]
-    return f"{_uc_schema}.{short_name}"
+    return f"{_uc_schema}.mlflow_demo_{short_name}"
+
+
+def is_demo_prompt_name(name: str) -> bool:
+    """Check whether *name* belongs to a demo prompt."""
+    if _uc_schema is not None:
+        short_name = name.rsplit(".", 1)[-1]
+        return short_name.startswith("mlflow_demo_")
+    return name.startswith(f"{DEMO_PROMPT_PREFIX}.")
 
 
 def get_demo_prompt_search_filter() -> str:
@@ -48,7 +53,9 @@ def get_demo_prompt_search_filter() -> str:
     if _uc_schema is not None:
         match _uc_schema.split("."):
             case [catalog, schema]:
-                return f"catalog = '{catalog}' AND schema = '{schema}'"
+                return (
+                    f"catalog = '{catalog}' AND schema = '{schema}' AND name LIKE 'mlflow_demo_%'"
+                )
             case _:
                 return f"name LIKE '{DEMO_PROMPT_PREFIX}.%'"
     return f"name LIKE '{DEMO_PROMPT_PREFIX}.%'"

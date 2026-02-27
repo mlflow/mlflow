@@ -8,6 +8,7 @@ from mlflow.demo.base import (
     DemoResult,
     get_demo_experiment_name,
     get_demo_prompt_search_filter,
+    is_demo_prompt_name,
     resolve_demo_name,
 )
 from mlflow.demo.data import DEMO_PROMPTS, DemoPromptDef
@@ -104,6 +105,8 @@ class PromptsDemoGenerator(BaseDemoGenerator):
 
             client = MlflowClient()
             for prompt in prompts:
+                if not is_demo_prompt_name(prompt.name):
+                    continue
                 try:
                     for alias in all_aliases:
                         try:
