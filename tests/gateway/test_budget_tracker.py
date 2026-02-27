@@ -148,7 +148,7 @@ def test_record_cost_below_limit():
     newly_exceeded = tracker.record_cost(50.0)
     assert newly_exceeded == []
 
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 50.0
     assert window.exceeded is False
 
@@ -161,7 +161,7 @@ def test_record_cost_exceeds_threshold():
     assert len(newly_exceeded) == 1
     assert newly_exceeded[0].policy.budget_policy_id == "bp-test"
 
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 150.0
     assert window.exceeded is True
 
@@ -176,7 +176,7 @@ def test_record_cost_exceeds_only_once():
     exceeded2 = tracker.record_cost(50.0)
     assert exceeded2 == []
 
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 200.0
 
 
@@ -187,7 +187,7 @@ def test_record_cost_incremental_exceeding():
     assert tracker.record_cost(60.0) == []
     exceeded = tracker.record_cost(50.0)
     assert len(exceeded) == 1
-    assert tracker.get_window_info("bp-test").cumulative_spend == 110.0
+    assert tracker._get_window_info("bp-test").cumulative_spend == 110.0
 
 
 def test_should_reject_request_reject():
@@ -230,7 +230,7 @@ def test_window_resets_on_expiry():
     tracker.load_policies([policy])
     tracker.record_cost(80.0)
 
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 80.0
 
     # Simulate time passing beyond window end
@@ -241,7 +241,7 @@ def test_window_resets_on_expiry():
         mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
         newly_exceeded = tracker.record_cost(10.0)
 
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 10.0
     assert window.exceeded is False
     assert newly_exceeded == []
@@ -255,7 +255,7 @@ def test_load_policies_preserves_spend_in_same_window():
 
     # Reload same policy — spend should be preserved
     tracker.load_policies([policy])
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 60.0
 
 
@@ -268,8 +268,8 @@ def test_load_policies_removes_deleted_policy():
 
     # Reload with only policy1 — policy2 window should be gone
     tracker.load_policies([policy1])
-    assert tracker.get_window_info("bp-1") is not None
-    assert tracker.get_window_info("bp-2") is None
+    assert tracker._get_window_info("bp-1") is not None
+    assert tracker._get_window_info("bp-2") is None
 
 
 def test_multiple_policies_independent():
@@ -313,7 +313,7 @@ def test_workspace_scoped_cost_recording():
 
     # Cost from different workspace — should not apply
     tracker.record_cost(200.0, workspace="ws2")
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 0.0
 
     # Cost from matching workspace — should apply
@@ -375,7 +375,7 @@ def test_backfill_spend_sets_cumulative():
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
     tracker.backfill_spend("bp-test", 42.5)
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 42.5
     assert window.exceeded is False
 
@@ -385,7 +385,7 @@ def test_backfill_spend_sets_exceeded_when_exceeds():
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
     tracker.backfill_spend("bp-test", 150.0)
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 150.0
     assert window.exceeded is True
 
@@ -395,7 +395,7 @@ def test_backfill_spend_sets_exceeded_at_exact_limit():
     tracker.load_policies([_make_policy(budget_amount=100.0)])
 
     tracker.backfill_spend("bp-test", 100.0)
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 100.0
     assert window.exceeded is True
 
