@@ -10,6 +10,7 @@ from mlflow.genai.prompts.utils import format_prompt
 if TYPE_CHECKING:
     from mlflow.genai.utils.type import FunctionCall
     from mlflow.types.chat import ChatTool
+    from mlflow.types.llm import ChatMessage
 
 TOOL_CALL_CORRECTNESS_FEEDBACK_NAME = "tool_call_correctness"
 
@@ -152,6 +153,12 @@ def _format_expected_calls(expected_calls: list["FunctionCall"], include_argumen
     return "\n".join(lines) if lines else "No expected tool calls provided."
 
 
+_SYSTEM_PROMPT = (
+    "You are an expert judge that evaluates whether an AI agent's tool calls are correct"
+    " and appropriate for the given user request."
+)
+
+
 def get_prompt(
     request: str,
     tools_called: list["FunctionCall"],
@@ -159,7 +166,7 @@ def get_prompt(
     expected_calls: list["FunctionCall"] | None = None,
     include_arguments: bool = True,
     check_order: bool = False,
-) -> str:
+) -> list["ChatMessage"]:
     """
     Generate tool call correctness evaluation prompt.
 
@@ -173,6 +180,8 @@ def get_prompt(
             If False, compare only tool names (partial expectations).
         check_order: If True, ask LLM to consider ordering of tool calls.
     """
+    from mlflow.types.llm import ChatMessage
+
     available_tools_str = format_available_tools(available_tools)
     tools_called_str = format_tools_called(tools_called)
     ordering = ORDERING_INSTRUCTION_CHECK if check_order else ORDERING_INSTRUCTION_IGNORE
@@ -196,7 +205,7 @@ def get_prompt(
             f"<expected_tool_calls>\n{expected_calls_str}\n</expected_tool_calls>\n\n"
         )
 
-    return format_prompt(
+    user_content = format_prompt(
         _PROMPT_TEMPLATE + _OUTPUT_FORMAT,
         preamble=preamble,
         evaluation_criteria=criteria,
@@ -205,3 +214,8 @@ def get_prompt(
         available_tools=available_tools_str,
         tools_called=tools_called_str,
     )
+
+    return [
+        ChatMessage(role="system", content=_SYSTEM_PROMPT),
+        ChatMessage(role="user", content=user_content),
+    ]
