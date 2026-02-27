@@ -93,7 +93,6 @@ def register_model(
             - Local filesystem paths for registering locally-persisted MLflow models that were
               previously saved using ``save_model``.
 
-            Use ``runs:/`` URIs if you need a guaranteed recorded ``run_id``.
         name: Name of the registered model under which to create a new model version. If a
             registered model with the given name does not exist, it will be created
             automatically.
