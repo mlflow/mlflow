@@ -25,9 +25,7 @@ function parseArgs() {
     } else if (args[i] === "--dry-run") {
       dryRun = true;
     } else if (args[i] === "--help" || args[i] === "-h") {
-      console.error(
-        `Usage: node dev/typescript-sdk/ts-publish.js --matrix '<JSON>' [--dry-run]`
-      );
+      console.error(`Usage: node dev/typescript-sdk/ts-publish.js --matrix '<JSON>' [--dry-run]`);
       process.exit(0);
     } else {
       console.error(`Error: Unknown argument: ${args[i]}`);
@@ -75,9 +73,7 @@ function npmPublishState(name, version) {
     if (output.includes("E404")) {
       return "missing";
     }
-    console.error(
-      `Error: Unable to query npm registry for ${name}@${version}.\n${output}`
-    );
+    console.error(`Error: Unable to query npm registry for ${name}@${version}.\n${output}`);
     process.exit(1);
   }
 }

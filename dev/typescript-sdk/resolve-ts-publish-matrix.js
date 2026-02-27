@@ -93,9 +93,7 @@ function git(cmd) {
 }
 
 function readVersion(dir) {
-  const pkgJson = JSON.parse(
-    fs.readFileSync(path.join(dir, "package.json"), "utf-8")
-  );
+  const pkgJson = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf-8"));
   return pkgJson.version;
 }
 
@@ -105,9 +103,7 @@ function shouldPublish(npmName, version, dir) {
   try {
     git(`rev-parse "refs/tags/${tag}"`);
   } catch {
-    console.error(
-      `${npmName}: no existing tag '${tag}' found (first release of this version)`
-    );
+    console.error(`${npmName}: no existing tag '${tag}' found (first release of this version)`);
     return true;
   }
 
