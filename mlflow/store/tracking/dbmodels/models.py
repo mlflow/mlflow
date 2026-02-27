@@ -1151,9 +1151,9 @@ class SqlIssue(Base):
     """
     Issue status: `String` (limit 50 characters).
     """
-    frequency = Column(Float, nullable=False)
+    frequency = Column(Float, nullable=True)
     """
-    Frequency score: `Float` between 0.0 and 1.0 indicating how often this issue occurs.
+    Frequency score: `Float` between 0.0 and 1.0 indicating how often this issue occurs. Optional.
     """
     confidence = Column(String(50), nullable=True)
     """
