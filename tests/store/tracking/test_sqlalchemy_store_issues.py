@@ -276,3 +276,84 @@ def test_get_issue_with_trace_ids(store):
     assert retrieved_issue.issue_id == created_issue.issue_id
     assert len(retrieved_issue.trace_ids) == 1
     assert retrieved_issue.trace_ids[0] == trace_info.request_id
+
+
+def test_update_issue(store):
+    exp_id = store.create_experiment("test")
+
+    created_issue = store.create_issue(
+        experiment_id=exp_id,
+        name="Original name",
+        description="Original description",
+        frequency=0.5,
+        status="draft",
+        root_cause="Initial root cause",
+        confidence="low",
+    )
+
+    # Update all supported fields (status, name, description)
+    updated_issue = store.update_issue(
+        issue_id=created_issue.issue_id,
+        status="accepted",
+        name="Updated name",
+        description="Updated description",
+    )
+
+    # Verify updated fields
+    assert updated_issue.issue_id == created_issue.issue_id
+    assert updated_issue.experiment_id == exp_id
+    assert updated_issue.status == "accepted"
+    assert updated_issue.name == "Updated name"
+    assert updated_issue.description == "Updated description"
+
+    # Verify other fields remain unchanged
+    assert updated_issue.frequency == 0.5
+    assert updated_issue.root_cause == "Initial root cause"
+    assert updated_issue.confidence == "low"
+    assert updated_issue.run_id is None
+    assert updated_issue.created_by == created_issue.created_by
+    assert updated_issue.created_timestamp == created_issue.created_timestamp
+    assert updated_issue.last_updated_timestamp > created_issue.last_updated_timestamp
+
+    # Verify the updates are persisted by retrieving the issue again
+    retrieved_issue = store.get_issue(created_issue.issue_id)
+    assert retrieved_issue.status == "accepted"
+    assert retrieved_issue.name == "Updated name"
+    assert retrieved_issue.description == "Updated description"
+    assert retrieved_issue.frequency == 0.5
+    assert retrieved_issue.root_cause == "Initial root cause"
+    assert retrieved_issue.confidence == "low"
+    assert retrieved_issue.last_updated_timestamp == updated_issue.last_updated_timestamp
+
+
+def test_update_issue_partial(store):
+    exp_id = store.create_experiment("test")
+
+    created_issue = store.create_issue(
+        experiment_id=exp_id,
+        name="Test issue",
+        description="Test description",
+        frequency=0.3,
+        status="draft",
+        root_cause="Initial root cause",
+    )
+
+    # Update only status field
+    updated_issue = store.update_issue(
+        issue_id=created_issue.issue_id,
+        status="accepted",
+    )
+
+    # Verify updated field changed
+    assert updated_issue.status == "accepted"
+
+    # Verify other fields unchanged
+    assert updated_issue.name == "Test issue"
+    assert updated_issue.description == "Test description"
+    assert updated_issue.frequency == 0.3
+    assert updated_issue.root_cause == "Initial root cause"
+
+
+def test_update_issue_nonexistent(store):
+    with pytest.raises(MlflowException, match=r"Issue with ID 'nonexistent-id' not found"):
+        store.update_issue(issue_id="nonexistent-id", status="accepted")
