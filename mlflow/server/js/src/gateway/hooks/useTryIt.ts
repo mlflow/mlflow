@@ -10,7 +10,7 @@ function formatResponseText(text: string): string {
   }
 }
 
-export interface TryItError extends Error {
+interface TryItError extends Error {
   responseBody?: string;
 }
 
@@ -21,7 +21,7 @@ function createTryItError(message: string, responseBody?: string): TryItError {
   return err;
 }
 
-export interface UseTryItParams {
+interface UseTryItParams {
   tryItRequestUrl: string;
 }
 
