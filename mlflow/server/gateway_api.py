@@ -43,6 +43,7 @@ from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server.gateway_budget import (
+    check_budget_limit,
     get_model_info,
     make_cost_recording_reducer,
     maybe_record_budget_cost,
@@ -434,6 +435,7 @@ async def invocations(endpoint_name: str, request: Request):
     workspace = get_request_workspace()
 
     _validate_store(store)
+    check_budget_limit(store, workspace=workspace)
 
     # Detect request type based on payload structure
     if "messages" in body:
@@ -533,6 +535,7 @@ async def chat_completions(request: Request):
     workspace = get_request_workspace()
 
     _validate_store(store)
+    check_budget_limit(store, workspace=workspace)
 
     try:
         payload = chat.RequestPayload(**body)
@@ -599,6 +602,7 @@ async def openai_passthrough_chat(request: Request):
     store = _get_store()
     workspace = get_request_workspace()
     _validate_store(store)
+    check_budget_limit(store, workspace=workspace)
 
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
@@ -667,6 +671,7 @@ async def openai_passthrough_embeddings(request: Request):
     store = _get_store()
     workspace = get_request_workspace()
     _validate_store(store)
+    check_budget_limit(store, workspace=workspace)
 
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
@@ -718,6 +723,7 @@ async def openai_passthrough_responses(request: Request):
     store = _get_store()
     workspace = get_request_workspace()
     _validate_store(store)
+    check_budget_limit(store, workspace=workspace)
 
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
@@ -790,6 +796,7 @@ async def anthropic_passthrough_messages(request: Request):
     store = _get_store()
     workspace = get_request_workspace()
     _validate_store(store)
+    check_budget_limit(store, workspace=workspace)
 
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
@@ -862,6 +869,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     store = _get_store()
     workspace = get_request_workspace()
     _validate_store(store)
+    check_budget_limit(store, workspace=workspace)
 
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
@@ -912,7 +920,9 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     user_metadata = _get_user_metadata(request)
 
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
+    check_budget_limit(store, workspace=workspace)
 
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(

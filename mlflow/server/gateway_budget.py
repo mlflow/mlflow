@@ -7,6 +7,8 @@ firing exceeded-budget webhooks, and creating streaming cost-recording reducers.
 import logging
 from typing import Any
 
+from fastapi import HTTPException
+
 from mlflow.entities.gateway_budget_policy import BudgetTargetScope
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.budget_tracker import BudgetWindow, get_budget_tracker
@@ -159,6 +161,26 @@ def fire_budget_exceeded_webhooks(
             window_start=int(window.window_start.timestamp() * 1000),
         )
         deliver_webhook(event=event, payload=payload, store=registry_store)
+
+
+def check_budget_limit(store: SqlAlchemyStore, workspace: str | None = None) -> None:
+    """Check if any REJECT-capable budget policy is exceeded.
+
+    Raises HTTPException(429) if the budget limit is exceeded.
+    """
+    maybe_refresh_budget_policies(store)
+    tracker = get_budget_tracker()
+    exceeded, policy = tracker.should_reject_request(workspace=workspace)
+    if exceeded:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"Budget limit exceeded for policy '{policy.budget_policy_id}'. "
+                f"Limit: ${policy.budget_amount:.2f} USD per "
+                f"{policy.duration_value} {policy.duration_unit.value.lower()}. "
+                "Request rejected."
+            ),
+        )
 
 
 def get_model_info(
