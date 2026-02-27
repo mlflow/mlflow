@@ -14,6 +14,7 @@ _logger = logging.getLogger(__name__)
 
 transformers_version = Version(transformers.__version__)
 IS_NEW_FEATURE_EXTRACTION_API = transformers_version >= Version("4.27.0")
+IS_TRANSFORMERS_V5_OR_LATER = transformers_version.major >= 5
 
 CHAT_TEMPLATE = "{% for message in messages %}{{ message.content }}{{ eos_token }}{% endfor %}"
 

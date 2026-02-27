@@ -288,7 +288,7 @@ skip_setfit = pytest.mark.skipif(
     reason="fails due to issue: https://github.com/huggingface/setfit/issues/564",
 )
 
-skip_transformers_v5 = pytest.mark.skipif(
+skip_transformers_v5_or_later = pytest.mark.skipif(
     Version(transformers.__version__).major >= 5,
     reason="Transformers 5.x changed MLflowCallback behavior, autolog doesn't create runs",
 )
@@ -342,7 +342,7 @@ def test_transformers_autolog_adheres_to_global_behavior_using_setfit(setfit_tra
     assert len(preds) == 1
 
 
-@skip_transformers_v5
+@skip_transformers_v5_or_later
 def test_transformers_autolog_adheres_to_global_behavior_using_trainer(transformers_trainer):
     mlflow.transformers.autolog()
 
@@ -407,7 +407,7 @@ def test_active_autolog_no_setfit_logging_followed_by_successful_sklearn_autolog
     assert runs[0].info == logged_sklearn_data.info
 
 
-@skip_transformers_v5
+@skip_transformers_v5_or_later
 def test_active_autolog_allows_subsequent_sklearn_autolog(iris_data, transformers_trainer):
     mlflow.autolog()
 
@@ -487,7 +487,7 @@ def test_disabled_sklearn_autologging_does_not_revert_to_enabled_with_setfit(
     assert runs[0].info == logged_sklearn_data.info
 
 
-@skip_transformers_v5
+@skip_transformers_v5_or_later
 def test_disable_sklearn_autologging_does_not_revert_with_trainer(iris_data, transformers_trainer):
     mlflow.autolog()
     mlflow.sklearn.autolog(disable=True)
@@ -532,7 +532,7 @@ def test_disable_sklearn_autologging_does_not_revert_with_trainer(iris_data, tra
     assert sklearn_run[0].info == logged_sklearn_data.info
 
 
-@skip_transformers_v5
+@skip_transformers_v5_or_later
 def test_trainer_hyperparameter_tuning_does_not_log_sklearn_model(
     transformers_hyperparameter_trainer,
 ):
@@ -560,7 +560,7 @@ def test_trainer_hyperparameter_tuning_does_not_log_sklearn_model(
     assert len(runs) == 1
 
 
-@skip_transformers_v5
+@skip_transformers_v5_or_later
 def test_trainer_hyperparameter_tuning_functional_does_not_log_sklearn_model(
     transformers_hyperparameter_functional,
 ):

@@ -62,7 +62,11 @@ from tests.helper_functions import (
     pyfunc_scoring_endpoint,
     pyfunc_serve_and_score_model,
 )
-from tests.transformers.helper import CHAT_TEMPLATE, IS_NEW_FEATURE_EXTRACTION_API
+from tests.transformers.helper import (
+    CHAT_TEMPLATE,
+    IS_NEW_FEATURE_EXTRACTION_API,
+    IS_TRANSFORMERS_V5_OR_LATER,
+)
 from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVAILABLE
 
 # NB: Some pipelines under test in this suite come very close or outright exceed the
@@ -73,7 +77,7 @@ from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVA
 RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
 
-skip_transformers_v5 = pytest.mark.skipif(
+skip_transformers_v5_or_later = pytest.mark.skipif(
     Version(transformers.__version__).major >= 5,
     reason="Incompatible API changes in transformers 5.x",
 )
@@ -539,7 +543,6 @@ def test_component_saved_model_with_processor_cannot_be_loaded_as_pipeline(
         mlflow.transformers.load_model(model_uri=model_path, return_type="pipeline")
 
 
-@skip_transformers_v5
 @pytest.mark.parametrize("should_start_run", [True, False])
 def test_log_and_load_transformers_pipeline(small_qa_pipeline, tmp_path, should_start_run):
     try:
@@ -558,7 +561,7 @@ def test_log_and_load_transformers_pipeline(small_qa_pipeline, tmp_path, should_
         )
         assert (
             reloaded_model(
-                {"question": "Who's house?", "context": "The house is owned by a man named Run."}
+                question="Who's house?", context="The house is owned by a man named Run."
             )["answer"]
             == "Run"
         )
@@ -902,7 +905,6 @@ def test_invalid_input_to_pyfunc_signature_output_wrapper_raises(component_multi
         ),
     ],
 )
-@skip_transformers_v5
 def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, inference_payload):
     signature = infer_signature(
         inference_payload,
@@ -1623,7 +1625,6 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
     assert fourth_response == "Sure."
 
 
-@skip_transformers_v5
 def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
     artifact_path = "qa_model"
     with mlflow.start_run():
@@ -2719,7 +2720,6 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     )
 
 
-@skip_transformers_v5
 def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
     artifact_path = "qa_model"
     data = {
@@ -2848,7 +2848,6 @@ def test_uri_directory_renaming_handling_components(model_path, text_classificat
     assert isinstance(prediction["label"][0], str)
 
 
-@skip_transformers_v5
 def test_pyfunc_model_log_load_with_artifacts_snapshot():
     architecture = "prajjwal1/bert-tiny"
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
@@ -2954,7 +2953,7 @@ def test_model_on_single_device():
     assert not _is_model_distributed_in_memory(mock_model)
 
 
-@skip_transformers_v5
+@skip_transformers_v5_or_later
 def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path, model_path):
     task = "translation_en_to_de"
     architecture = "t5-small"
@@ -3061,7 +3060,6 @@ def test_qa_model_model_size_bytes(small_qa_pipeline, tmp_path):
         ),
     ],
 )
-@skip_transformers_v5
 def test_text_generation_save_model_with_inference_task(
     monkeypatch, task, input_example, text_generation_pipeline, model_path
 ):
@@ -3112,7 +3110,6 @@ def test_text_generation_log_model_with_mismatched_task(text_generation_pipeline
             )
 
 
-@skip_transformers_v5
 def test_text_generation_task_completions_predict_with_max_tokens(
     text_generation_pipeline, model_path
 ):
@@ -3147,7 +3144,6 @@ def test_text_generation_task_completions_predict_with_max_tokens(
     assert 6 > inference[0]["usage"]["completion_tokens"] > 0
 
 
-@skip_transformers_v5
 def test_text_generation_task_completions_predict_with_stop(text_generation_pipeline, model_path):
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
@@ -3193,7 +3189,6 @@ def test_text_generation_task_completions_predict_with_stop(text_generation_pipe
         assert not inference[0]["choices"][0]["text"].endswith("Python")
 
 
-@skip_transformers_v5
 def test_text_generation_task_completions_serve(text_generation_pipeline):
     data = {"prompt": "How to learn Python in 3 weeks?"}
 
@@ -3319,7 +3314,6 @@ def test_get_task_for_model():
             _get_task_for_model("model")
 
 
-@skip_transformers_v5
 def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, tmp_path):
     local_repo_path = tmp_path / "local_repo"
     text_generation_pipeline.save_pretrained(local_repo_path)
@@ -3408,7 +3402,6 @@ def test_model_config_is_not_mutated_after_prediction(text2text_generation_pipel
     assert len(prediction_output[0].split(" ")) <= 5
 
 
-@skip_transformers_v5
 def test_text_generation_task_chat_predict(text_generation_pipeline, model_path):
     mlflow.transformers.save_model(
         transformers_model=text_generation_pipeline,
@@ -3438,7 +3431,6 @@ def test_text_generation_task_chat_predict(text_generation_pipeline, model_path)
     )
 
 
-@skip_transformers_v5
 def test_text_generation_task_chat_serve(text_generation_pipeline):
     data = {
         "messages": [
@@ -3677,7 +3669,6 @@ def local_checkpoint_path(tmp_path):
     return str(checkpoint_path)
 
 
-@skip_transformers_v5
 def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
     with mock.patch("mlflow.transformers._logger") as mock_logger:
         mlflow.transformers.save_model(
@@ -3693,7 +3684,10 @@ def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
     assert flavor_conf["task"] == "text-generation"
     assert flavor_conf["framework"] == "pt"
     assert flavor_conf["instance_type"] == "TextGenerationPipeline"
-    assert flavor_conf["tokenizer_type"] == "GPT2TokenizerFast"
+    expected_tokenizer_type = (
+        "GPT2Tokenizer" if IS_TRANSFORMERS_V5_OR_LATER else "GPT2TokenizerFast"
+    )
+    assert flavor_conf["tokenizer_type"] == expected_tokenizer_type
 
     # Default task signature should be used
     assert logged_info.signature.inputs == Schema([ColSpec(DataType.string)])
@@ -3730,7 +3724,6 @@ def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
     assert pred_serve["predictions"][0].startswith(query)
 
 
-@skip_transformers_v5
 def test_save_model_from_local_checkpoint_with_custom_tokenizer(model_path, local_checkpoint_path):
     # When a custom tokenizer is also saved in the checkpoint, MLflow should save and load it.
     tokenizer = transformers.AutoTokenizer.from_pretrained("distilroberta-base")
@@ -3750,7 +3743,6 @@ def test_save_model_from_local_checkpoint_with_custom_tokenizer(model_path, loca
     assert tokenizer.special_tokens_map["additional_special_tokens"] == ["<sushi>"]
 
 
-@skip_transformers_v5
 def test_save_model_from_local_checkpoint_with_llm_inference_task(
     model_path, local_checkpoint_path
 ):
