@@ -1124,9 +1124,9 @@ class SqlIssue(Base):
     Issue ID: `String` (limit 36 characters). *Primary Key* for ``issues`` table.
     Format: "iss-<uuid>".
     """
-    experiment_id = Column(String(32), nullable=False)
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
     """
-    Experiment ID: `String` (limit 32 characters). Required.
+    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table. Required.
     """
     run_id = Column(String(32), ForeignKey("runs.run_uuid", ondelete="CASCADE"), nullable=True)
     """
