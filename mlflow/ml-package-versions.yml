@@ -446,7 +446,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.38.2"
-    maximum: "5.1.0"
+    maximum: "5.2.0"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -492,7 +492,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.38.2"
-    maximum: "5.1.0"
+    maximum: "5.2.0"
     test_every_n_versions: 4
     unsupported: [
         # https://github.com/huggingface/transformers/issues/38269

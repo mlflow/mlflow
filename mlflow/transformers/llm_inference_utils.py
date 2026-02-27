@@ -311,6 +311,8 @@ def _get_completions_text(prompt: str, output_tensor: list[int], pipeline):
 
     # In order to correctly remove the prompt tokens from the decoded tokens,
     # we need to acquire the length of the prompt without special tokens
+    # NB: `pipeline.framework` was removed in transformers 5.x. Fall back to "pt" since
+    # MLflow only supports PyTorch for transformers pipelines.
     prompt_ids_without_special_tokens = pipeline.tokenizer(
         prompt, return_tensors=getattr(pipeline, "framework", "pt"), add_special_tokens=False
     )["input_ids"][0]
