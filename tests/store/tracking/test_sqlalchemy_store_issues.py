@@ -557,16 +557,16 @@ def test_search_issues_pagination(store):
     exp_id = store.create_experiment("test")
 
     # Create 5 issues
-    created_issues = []
-    for i in range(5):
-        issue = store.create_issue(
+    created_issues = [
+        store.create_issue(
             experiment_id=exp_id,
             name=f"Issue {i}",
             description=f"Description {i}",
             frequency=0.9 - (i * 0.1),  # 0.9, 0.8, 0.7, 0.6, 0.5
             status="draft",
         )
-        created_issues.append(issue)
+        for i in range(5)
+    ]
 
     # First page: get 2 results
     page1 = store.search_issues(max_results=2)
