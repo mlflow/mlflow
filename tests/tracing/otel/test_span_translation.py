@@ -361,6 +361,11 @@ def test_translate_inputs_outputs_edge_cases(
             {"key": json.dumps([1, 2, 3])},
             {"key": "[1, 2, 3]"},
         ),
+        # Double-encoded list (e.g., gen_ai.input.messages via OTLP)
+        (
+            {"key": json.dumps(json.dumps([{"role": "user", "content": "hello"}]))},
+            {"key": json.dumps([{"role": "user", "content": "hello"}])},
+        ),
     ],
 )
 def test_sanitize_attributes(attributes: dict[str, Any], expected_attributes: dict[str, Any]):
