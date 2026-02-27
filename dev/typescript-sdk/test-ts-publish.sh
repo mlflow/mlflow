@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TS_ROOT="${REPO_ROOT}/libs/typescript"
 
 VERDACCIO_PID=""
