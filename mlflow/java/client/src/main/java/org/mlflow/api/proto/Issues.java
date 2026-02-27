@@ -226,7 +226,7 @@ public final class Issues {
      * Frequency score indicating how often this issue occurs.
      * </pre>
      *
-     * <code>optional double frequency = 8 [(.mlflow.validate_required) = true];</code>
+     * <code>optional double frequency = 8;</code>
      * @return Whether the frequency field is set.
      */
     boolean hasFrequency();
@@ -235,7 +235,7 @@ public final class Issues {
      * Frequency score indicating how often this issue occurs.
      * </pre>
      *
-     * <code>optional double frequency = 8 [(.mlflow.validate_required) = true];</code>
+     * <code>optional double frequency = 8;</code>
      * @return The frequency.
      */
     double getFrequency();
@@ -1086,7 +1086,7 @@ public final class Issues {
      * Frequency score indicating how often this issue occurs.
      * </pre>
      *
-     * <code>optional double frequency = 8 [(.mlflow.validate_required) = true];</code>
+     * <code>optional double frequency = 8;</code>
      * @return Whether the frequency field is set.
      */
     @java.lang.Override
@@ -1098,7 +1098,7 @@ public final class Issues {
      * Frequency score indicating how often this issue occurs.
      * </pre>
      *
-     * <code>optional double frequency = 8 [(.mlflow.validate_required) = true];</code>
+     * <code>optional double frequency = 8;</code>
      * @return The frequency.
      */
     @java.lang.Override
@@ -2903,7 +2903,7 @@ public final class Issues {
        * Frequency score indicating how often this issue occurs.
        * </pre>
        *
-       * <code>optional double frequency = 8 [(.mlflow.validate_required) = true];</code>
+       * <code>optional double frequency = 8;</code>
        * @return Whether the frequency field is set.
        */
       @java.lang.Override
@@ -2915,7 +2915,7 @@ public final class Issues {
        * Frequency score indicating how often this issue occurs.
        * </pre>
        *
-       * <code>optional double frequency = 8 [(.mlflow.validate_required) = true];</code>
+       * <code>optional double frequency = 8;</code>
        * @return The frequency.
        */
       @java.lang.Override
@@ -2927,7 +2927,7 @@ public final class Issues {
        * Frequency score indicating how often this issue occurs.
        * </pre>
        *
-       * <code>optional double frequency = 8 [(.mlflow.validate_required) = true];</code>
+       * <code>optional double frequency = 8;</code>
        * @param value The frequency to set.
        * @return This builder for chaining.
        */
@@ -2942,7 +2942,7 @@ public final class Issues {
        * Frequency score indicating how often this issue occurs.
        * </pre>
        *
-       * <code>optional double frequency = 8 [(.mlflow.validate_required) = true];</code>
+       * <code>optional double frequency = 8;</code>
        * @return This builder for chaining.
        */
       public Builder clearFrequency() {
@@ -3832,7 +3832,7 @@ public final class Issues {
      * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
      * </pre>
      *
-     * <code>optional double frequency = 3 [(.mlflow.validate_required) = true];</code>
+     * <code>optional double frequency = 3;</code>
      * @return Whether the frequency field is set.
      */
     boolean hasFrequency();
@@ -3841,7 +3841,7 @@ public final class Issues {
      * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
      * </pre>
      *
-     * <code>optional double frequency = 3 [(.mlflow.validate_required) = true];</code>
+     * <code>optional double frequency = 3;</code>
      * @return The frequency.
      */
     double getFrequency();
@@ -5145,7 +5145,7 @@ public final class Issues {
      * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
      * </pre>
      *
-     * <code>optional double frequency = 3 [(.mlflow.validate_required) = true];</code>
+     * <code>optional double frequency = 3;</code>
      * @return Whether the frequency field is set.
      */
     @java.lang.Override
@@ -5157,7 +5157,7 @@ public final class Issues {
      * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
      * </pre>
      *
-     * <code>optional double frequency = 3 [(.mlflow.validate_required) = true];</code>
+     * <code>optional double frequency = 3;</code>
      * @return The frequency.
      */
     @java.lang.Override
@@ -6530,7 +6530,7 @@ public final class Issues {
        * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
        * </pre>
        *
-       * <code>optional double frequency = 3 [(.mlflow.validate_required) = true];</code>
+       * <code>optional double frequency = 3;</code>
        * @return Whether the frequency field is set.
        */
       @java.lang.Override
@@ -6542,7 +6542,7 @@ public final class Issues {
        * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
        * </pre>
        *
-       * <code>optional double frequency = 3 [(.mlflow.validate_required) = true];</code>
+       * <code>optional double frequency = 3;</code>
        * @return The frequency.
        */
       @java.lang.Override
@@ -6554,7 +6554,7 @@ public final class Issues {
        * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
        * </pre>
        *
-       * <code>optional double frequency = 3 [(.mlflow.validate_required) = true];</code>
+       * <code>optional double frequency = 3;</code>
        * @param value The frequency to set.
        * @return This builder for chaining.
        */
@@ -6569,7 +6569,7 @@ public final class Issues {
        * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
        * </pre>
        *
-       * <code>optional double frequency = 3 [(.mlflow.validate_required) = true];</code>
+       * <code>optional double frequency = 3;</code>
        * @return This builder for chaining.
        */
       public Builder clearFrequency() {
@@ -14018,36 +14018,36 @@ public final class Issues {
   static {
     java.lang.String[] descriptorData = {
       "\n\014issues.proto\022\rmlflow.issues\032\020databrick" +
-      "s.proto\"\361\002\n\005Issue\022\020\n\010issue_id\030\001 \001(\t\022\033\n\re" +
+      "s.proto\"\353\002\n\005Issue\022\020\n\010issue_id\030\001 \001(\t\022\033\n\re" +
       "xperiment_id\030\002 \001(\tB\004\370\206\031\001\022\016\n\006run_id\030\003 \001(\t" +
       "\022\022\n\004name\030\004 \001(\tB\004\370\206\031\001\022\031\n\013description\030\005 \001(" +
       "\tB\004\370\206\031\001\022\022\n\nroot_cause\030\006 \001(\t\022\024\n\006status\030\007 " +
-      "\001(\tB\004\370\206\031\001\022\027\n\tfrequency\030\010 \001(\001B\004\370\206\031\001\022\022\n\nco" +
-      "nfidence\030\t \001(\t\022\032\n\022rationale_examples\030\n \003" +
-      "(\t\022\031\n\021example_trace_ids\030\013 \003(\t\022\021\n\ttrace_i" +
-      "ds\030\014 \003(\t\022\037\n\021created_timestamp\030\r \001(\003B\004\370\206\031" +
-      "\001\022$\n\026last_updated_timestamp\030\016 \001(\003B\004\370\206\031\001\022" +
-      "\022\n\ncreated_by\030\017 \001(\t\"\311\002\n\013CreateIssue\022\022\n\004n" +
-      "ame\030\001 \001(\tB\004\370\206\031\001\022\031\n\013description\030\002 \001(\tB\004\370\206" +
-      "\031\001\022\027\n\tfrequency\030\003 \001(\001B\004\370\206\031\001\022\033\n\rexperimen" +
-      "t_id\030\004 \001(\tB\004\370\206\031\001\022\016\n\006status\030\005 \001(\t\022\016\n\006run_" +
-      "id\030\006 \001(\t\022\022\n\nroot_cause\030\007 \001(\t\022\022\n\nconfiden" +
-      "ce\030\010 \001(\t\022\032\n\022rationale_examples\030\t \003(\t\022\031\n\021" +
-      "example_trace_ids\030\n \003(\t\022\021\n\ttrace_ids\030\013 \003" +
-      "(\t\022\022\n\ncreated_by\030\014 \001(\t\032/\n\010Response\022#\n\005is" +
-      "sue\030\001 \001(\0132\024.mlflow.issues.Issue\"\211\001\n\013Upda" +
-      "teIssue\022\026\n\010issue_id\030\001 \001(\tB\004\370\206\031\001\022\016\n\006statu" +
-      "s\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\023\n\013description\030\004 \001" +
-      "(\t\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow.i" +
-      "ssues.Issue\"S\n\010GetIssue\022\026\n\010issue_id\030\001 \001(" +
-      "\tB\004\370\206\031\001\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlf" +
-      "low.issues.Issue\"\320\001\n\014SearchIssues\022\025\n\rexp" +
-      "eriment_id\030\001 \001(\t\022\016\n\006run_id\030\002 \001(\t\022\016\n\006stat" +
-      "us\030\003 \001(\t\022\025\n\rfilter_string\030\004 \001(\t\022\023\n\013max_r" +
-      "esults\030\005 \001(\005\022\022\n\npage_token\030\006 \001(\t\032I\n\010Resp" +
-      "onse\022$\n\006issues\030\001 \003(\0132\024.mlflow.issues.Iss" +
-      "ue\022\027\n\017next_page_token\030\002 \001(\tB\031\n\024org.mlflo" +
-      "w.api.proto\220\001\001"
+      "\001(\tB\004\370\206\031\001\022\021\n\tfrequency\030\010 \001(\001\022\022\n\nconfiden" +
+      "ce\030\t \001(\t\022\032\n\022rationale_examples\030\n \003(\t\022\031\n\021" +
+      "example_trace_ids\030\013 \003(\t\022\021\n\ttrace_ids\030\014 \003" +
+      "(\t\022\037\n\021created_timestamp\030\r \001(\003B\004\370\206\031\001\022$\n\026l" +
+      "ast_updated_timestamp\030\016 \001(\003B\004\370\206\031\001\022\022\n\ncre" +
+      "ated_by\030\017 \001(\t\"\303\002\n\013CreateIssue\022\022\n\004name\030\001 " +
+      "\001(\tB\004\370\206\031\001\022\031\n\013description\030\002 \001(\tB\004\370\206\031\001\022\021\n\t" +
+      "frequency\030\003 \001(\001\022\033\n\rexperiment_id\030\004 \001(\tB\004" +
+      "\370\206\031\001\022\016\n\006status\030\005 \001(\t\022\016\n\006run_id\030\006 \001(\t\022\022\n\n" +
+      "root_cause\030\007 \001(\t\022\022\n\nconfidence\030\010 \001(\t\022\032\n\022" +
+      "rationale_examples\030\t \003(\t\022\031\n\021example_trac" +
+      "e_ids\030\n \003(\t\022\021\n\ttrace_ids\030\013 \003(\t\022\022\n\ncreate" +
+      "d_by\030\014 \001(\t\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024." +
+      "mlflow.issues.Issue\"\211\001\n\013UpdateIssue\022\026\n\010i" +
+      "ssue_id\030\001 \001(\tB\004\370\206\031\001\022\016\n\006status\030\002 \001(\t\022\014\n\004n" +
+      "ame\030\003 \001(\t\022\023\n\013description\030\004 \001(\t\032/\n\010Respon" +
+      "se\022#\n\005issue\030\001 \001(\0132\024.mlflow.issues.Issue\"" +
+      "S\n\010GetIssue\022\026\n\010issue_id\030\001 \001(\tB\004\370\206\031\001\032/\n\010R" +
+      "esponse\022#\n\005issue\030\001 \001(\0132\024.mlflow.issues.I" +
+      "ssue\"\320\001\n\014SearchIssues\022\025\n\rexperiment_id\030\001" +
+      " \001(\t\022\016\n\006run_id\030\002 \001(\t\022\016\n\006status\030\003 \001(\t\022\025\n\r" +
+      "filter_string\030\004 \001(\t\022\023\n\013max_results\030\005 \001(\005" +
+      "\022\022\n\npage_token\030\006 \001(\t\032I\n\010Response\022$\n\006issu" +
+      "es\030\001 \003(\0132\024.mlflow.issues.Issue\022\027\n\017next_p" +
+      "age_token\030\002 \001(\tB\031\n\024org.mlflow.api.proto\220" +
+      "\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
