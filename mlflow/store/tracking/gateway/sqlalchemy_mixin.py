@@ -5,6 +5,7 @@ import os
 import uuid
 from typing import Any
 
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
@@ -46,6 +47,7 @@ from mlflow.store.tracking._secret_cache import (
     SecretCache,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlExperiment,
     SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
@@ -53,6 +55,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpointTag,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
+    SqlSpanMetrics,
+    SqlTraceInfo,
+    SqlTraceMetadata,
 )
 from mlflow.telemetry.events import (
     GatewayCreateEndpointEvent,
@@ -66,6 +71,7 @@ from mlflow.telemetry.events import (
     GatewayUpdateSecretEvent,
 )
 from mlflow.telemetry.track import record_usage_event
+from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
@@ -1320,3 +1326,42 @@ class SqlAlchemyGatewayStoreMixin:
             if len(policies) > max_results:
                 next_token = SearchUtils.create_page_token(offset + max_results)
             return PagedList(policies[:max_results], next_token)
+
+    def sum_gateway_trace_cost(
+        self,
+        start_time_ms: int,
+        end_time_ms: int,
+        workspace: str | None = None,
+    ) -> float:
+        with self.ManagedSessionMaker() as session:
+            gateway_traces = (
+                session.query(SqlTraceInfo.request_id)
+                .join(
+                    SqlTraceMetadata,
+                    SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
+                )
+                .filter(
+                    SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
+                    SqlTraceInfo.timestamp_ms >= start_time_ms,
+                    SqlTraceInfo.timestamp_ms < end_time_ms,
+                )
+            )
+
+            if workspace is not None:
+                gateway_traces = gateway_traces.join(
+                    SqlExperiment,
+                    SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
+                ).filter(SqlExperiment.workspace == workspace)
+
+            gateway_trace_ids = gateway_traces.subquery()
+
+            result = (
+                session.query(func.coalesce(func.sum(SqlSpanMetrics.value), 0.0))
+                .filter(
+                    SqlSpanMetrics.trace_id.in_(select(gateway_trace_ids.c.request_id)),
+                    SqlSpanMetrics.key == SpanMetricKey.TOTAL_COST,
+                )
+                .scalar()
+            )
+
+            return float(result)
