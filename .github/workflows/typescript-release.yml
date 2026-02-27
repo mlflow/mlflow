@@ -52,7 +52,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Package | Version | Publish |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---------|---------|---------|" >> "$GITHUB_STEP_SUMMARY"
-          for pkg in $(echo "$MATRIX" | jq -r 'keys[]' | sort | (grep "^core$" || true; grep -v "^core$")); do
+          for pkg in $(echo "$MATRIX" | jq -r '((keys | map(select(. == "core"))) + (keys | map(select(. != "core")) | sort))[]'); do
             npm_name=$(echo "$MATRIX" | jq -r ".\"${pkg}\".npm_name")
             version=$(echo "$MATRIX" | jq -r ".\"${pkg}\".version")
             publish=$(echo "$MATRIX" | jq -r ".\"${pkg}\".publish")
@@ -181,7 +181,7 @@ jobs:
           fi
           echo "| Package | Version | Publish |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---------|---------|---------|" >> "$GITHUB_STEP_SUMMARY"
-          for pkg in $(echo "$MATRIX" | jq -r 'keys[]' | sort | (grep "^core$" || true; grep -v "^core$")); do
+          for pkg in $(echo "$MATRIX" | jq -r '((keys | map(select(. == "core"))) + (keys | map(select(. != "core")) | sort))[]'); do
             npm_name=$(echo "$MATRIX" | jq -r ".\"${pkg}\".npm_name")
             version=$(echo "$MATRIX" | jq -r ".\"${pkg}\".version")
             publish=$(echo "$MATRIX" | jq -r ".\"${pkg}\".publish")
