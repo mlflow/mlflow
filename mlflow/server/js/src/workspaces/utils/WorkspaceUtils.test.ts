@@ -339,7 +339,20 @@ describe('WorkspaceUtils', () => {
 
     it('returns path without workspace param when no workspace set', () => {
       setActiveWorkspace(null);
+      window.localStorage.clear();
       expect(prefixRouteWithWorkspace('/experiments')).toBe('/experiments');
+    });
+
+    it('falls back to localStorage workspace when active workspace is null', () => {
+      window.localStorage.setItem('mlflow.activeWorkspace', 'stored-workspace');
+      setActiveWorkspace(null);
+      expect(prefixRouteWithWorkspace('/experiments')).toBe('/experiments?workspace=stored-workspace');
+    });
+
+    it('prefers active workspace over localStorage workspace', () => {
+      window.localStorage.setItem('mlflow.activeWorkspace', 'stored-workspace');
+      setActiveWorkspace('active-workspace');
+      expect(prefixRouteWithWorkspace('/experiments')).toBe('/experiments?workspace=active-workspace');
     });
 
     it('adds workspace param to root path when workspace is active (workspace home)', () => {
@@ -349,6 +362,7 @@ describe('WorkspaceUtils', () => {
 
     it('does not add workspace param to root path when no workspace is active', () => {
       setActiveWorkspace(null);
+      window.localStorage.clear();
       expect(prefixRouteWithWorkspace('/')).toBe('/');
     });
 
@@ -403,6 +417,7 @@ describe('WorkspaceUtils', () => {
 
     it('returns root path unchanged when no workspace is active', () => {
       setActiveWorkspace(null);
+      window.localStorage.clear();
       expect(appendWorkspaceSearchParams('/')).toBe('/');
     });
 
@@ -422,7 +437,14 @@ describe('WorkspaceUtils', () => {
 
     it('returns pathname unchanged when no workspace set', () => {
       setActiveWorkspace(null);
+      window.localStorage.clear();
       expect(appendWorkspaceSearchParams('/experiments')).toBe('/experiments');
+    });
+
+    it('falls back to localStorage workspace when active workspace is null', () => {
+      window.localStorage.setItem('mlflow.activeWorkspace', 'stored-workspace');
+      setActiveWorkspace(null);
+      expect(appendWorkspaceSearchParams('/experiments')).toBe('/experiments?workspace=stored-workspace');
     });
   });
 });
