@@ -2578,6 +2578,10 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
   },
+  "GGbdya": {
+    "defaultMessage": "View status",
+    "description": "Link to view issue detection job status"
+  },
   "GJWVBA": {
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
@@ -8826,6 +8830,10 @@
   "xyQFjH": {
     "defaultMessage": "Prompt Caching",
     "description": "Filter option for prompt caching support"
+  },
+  "y2E9ui": {
+    "defaultMessage": "Issue detection job triggered",
+    "description": "Notification message when issue detection job is started"
   },
   "y2oQyU": {
     "defaultMessage": "Model name",

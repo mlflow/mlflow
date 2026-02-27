@@ -23,6 +23,7 @@ interface IssueDetectionModalProps {
   onClose: () => void;
   experimentId?: string;
   initialSelectedTraceIds?: string[];
+  onSubmitSuccess?: () => void;
 }
 
 const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
@@ -41,6 +42,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   onClose,
   experimentId,
   initialSelectedTraceIds = [],
+  onSubmitSuccess,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -107,6 +109,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         experimentId,
         selectedTraceIds,
       });
+      onSubmitSuccess?.();
       resetForm();
       onClose();
     } finally {
