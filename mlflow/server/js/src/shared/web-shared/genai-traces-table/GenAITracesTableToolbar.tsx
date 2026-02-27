@@ -11,6 +11,7 @@ import {
   Button,
   RefreshIcon,
   ToggleButton,
+  SparkleIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
@@ -232,6 +233,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
                   description: 'Aria label for the detect issues button in the traces table toolbar',
                 })}
               >
+                <SparkleIcon color="ai" css={{ marginRight: theme.spacing.xs }} />
                 <FormattedMessage
                   defaultMessage="Detect Issues"
                   description="Label for the detect issues button in the traces table toolbar"
