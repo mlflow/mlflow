@@ -81,11 +81,19 @@ def register_model(
 
             - ``runs:/`` URIs (e.g., ``runs:/<run_id>/<artifact_path>``) to register a model
               from a specific run. The run ID is recorded with the model version.
-            - ``models:/`` URIs (e.g., ``models:/<model_name>/<version_or_stage>`` or
-              ``models:/<model_id>``) to promote an existing model or create a new version
-              from a previously registered model. The source run lineage is preserved.
+            - ``models:/`` URIs, which support two forms:
+
+              - ``models:/<model_name>/<version>`` to promote an existing registered
+                model version. The source run lineage is preserved when the
+                referenced model version has an associated source run.
+              - ``models:/<model_id>`` to create a new registered model version from a logged
+                model (for example, one returned by ``mlflow.log_model``). The source
+                run lineage is preserved.
+
             - Local filesystem paths for registering locally-persisted MLflow models that were
               previously saved using ``save_model``.
+
+            Use ``runs:/`` URIs if you need a guaranteed recorded ``run_id``.
         name: Name of the registered model under which to create a new model version. If a
             registered model with the given name does not exist, it will be created
             automatically.
