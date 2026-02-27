@@ -35,7 +35,7 @@ class WebhookAction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     UPDATED: _ClassVar[WebhookAction]
     DELETED: _ClassVar[WebhookAction]
     SET: _ClassVar[WebhookAction]
-    CROSSED: _ClassVar[WebhookAction]
+    EXCEEDED: _ClassVar[WebhookAction]
 ACTIVE: WebhookStatus
 DISABLED: WebhookStatus
 ENTITY_UNSPECIFIED: WebhookEntity
@@ -54,7 +54,7 @@ CREATED: WebhookAction
 UPDATED: WebhookAction
 DELETED: WebhookAction
 SET: WebhookAction
-CROSSED: WebhookAction
+EXCEEDED: WebhookAction
 
 class WebhookEvent(_message.Message):
     __slots__ = ("entity", "action")

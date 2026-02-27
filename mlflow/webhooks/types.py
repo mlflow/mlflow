@@ -460,8 +460,8 @@ class PromptAliasDeletedPayload(TypedDict):
         )
 
 
-class BudgetPolicyCrossedPayload(TypedDict):
-    """Payload sent when a budget policy limit is crossed.
+class BudgetPolicyExceededPayload(TypedDict):
+    """Payload sent when a budget policy limit is exceeded.
 
     Example payload:
 
@@ -488,7 +488,7 @@ class BudgetPolicyCrossedPayload(TypedDict):
     budget_amount: float
     """The budget limit amount."""
     current_spend: float
-    """The current cumulative spend when the limit was crossed."""
+    """The current cumulative spend when the limit was exceeded."""
     duration_unit: str
     """The duration unit (MINUTES, HOURS, DAYS, MONTHS)."""
     duration_value: int
@@ -501,7 +501,7 @@ class BudgetPolicyCrossedPayload(TypedDict):
     """The start timestamp (milliseconds) of the current budget window."""
 
     @classmethod
-    def example(cls) -> "BudgetPolicyCrossedPayload":
+    def example(cls) -> "BudgetPolicyExceededPayload":
         return cls(
             budget_policy_id="bp-abc123",
             budget_unit="USD",
@@ -530,7 +530,7 @@ WebhookPayload: TypeAlias = (
     | PromptVersionTagDeletedPayload
     | PromptAliasCreatedPayload
     | PromptAliasDeletedPayload
-    | BudgetPolicyCrossedPayload
+    | BudgetPolicyExceededPayload
 )
 
 # Mapping of (entity, action) tuples to their corresponding payload classes
@@ -549,7 +549,7 @@ EVENT_TO_PAYLOAD_CLASS: dict[tuple[WebhookEntity, WebhookAction], type[WebhookPa
     (WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.DELETED): PromptVersionTagDeletedPayload,
     (WebhookEntity.PROMPT_ALIAS, WebhookAction.CREATED): PromptAliasCreatedPayload,
     (WebhookEntity.PROMPT_ALIAS, WebhookAction.DELETED): PromptAliasDeletedPayload,
-    (WebhookEntity.BUDGET_POLICY, WebhookAction.CROSSED): BudgetPolicyCrossedPayload,
+    (WebhookEntity.BUDGET_POLICY, WebhookAction.EXCEEDED): BudgetPolicyExceededPayload,
 }
 
 

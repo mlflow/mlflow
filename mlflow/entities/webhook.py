@@ -66,7 +66,7 @@ class WebhookAction(str, Enum):
     UPDATED = "updated"
     DELETED = "deleted"
     SET = "set"
-    CROSSED = "crossed"
+    EXCEEDED = "exceeded"
 
     def __str__(self) -> str:
         return self.value
@@ -102,7 +102,7 @@ WebhookEventStr: TypeAlias = Literal[
     "prompt_version_tag.deleted",
     "prompt_alias.created",
     "prompt_alias.deleted",
-    "budget_policy.crossed",
+    "budget_policy.exceeded",
 ]
 
 # Valid actions for each entity type
@@ -140,7 +140,7 @@ VALID_ENTITY_ACTIONS: dict[WebhookEntity, set[WebhookAction]] = {
         WebhookAction.DELETED,
     },
     WebhookEntity.BUDGET_POLICY: {
-        WebhookAction.CROSSED,
+        WebhookAction.EXCEEDED,
     },
 }
 

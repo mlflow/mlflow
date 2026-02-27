@@ -143,7 +143,7 @@ enum WebhookAction {
   UPDATED = 2; // Entity was updated
   DELETED = 3; // Entity was deleted
   SET = 4; // Entity was set (e.g., tag set)
-  CROSSED = 5; // Budget limit was crossed
+  EXCEEDED = 5; // Budget limit was exceeded
 }
 
 // Webhook event definition

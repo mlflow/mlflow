@@ -9278,6 +9278,8 @@ Webhook action types
 +--------------------+-------------+
 | SET                |             |
 +--------------------+-------------+
+| EXCEEDED           |             |
++--------------------+-------------+
 
 .. _mlflowWebhookEntity:
 
@@ -9309,6 +9311,8 @@ Webhook entity types
 | PROMPT_VERSION_TAG  |             |
 +---------------------+-------------+
 | PROMPT_ALIAS        |             |
++---------------------+-------------+
+| BUDGET_POLICY       |             |
 +---------------------+-------------+
 
 .. _mlflowWebhookStatus:
