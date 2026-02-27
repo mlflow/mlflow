@@ -20,6 +20,7 @@ import threading
 import urllib
 import uuid
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, Literal, Sequence, Union
 
 import yaml
@@ -3476,6 +3477,7 @@ class MlflowClient:
         artifact_file: str,
         run_ids: list[str] | None = None,
         extra_columns: list[str] | None = None,
+        max_workers: int = 10,
     ) -> "pandas.DataFrame":
         """
         Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
@@ -3604,9 +3606,11 @@ class MlflowClient:
             return existing_predictions
 
         if not runs.empty:
-            return pd.concat(
-                [get_artifact_data(run) for _, run in runs.iterrows()], ignore_index=True
-            )
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = [executor.submit(get_artifact_data, run) for _, run in runs.iterrows()]
+                results = [f.result() for f in futures]
+
+            return pd.concat(results, ignore_index=True)
         else:
             raise MlflowException(
                 "No runs found with the corresponding table artifact.", RESOURCE_DOES_NOT_EXIST
