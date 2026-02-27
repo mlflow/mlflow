@@ -39,6 +39,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
+    SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
@@ -667,6 +668,31 @@ class AbstractStore(GatewayStoreMixin):
 
         Returns:
             The updated Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        run_id: str | None = None,
+        status: str | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
+        page_token: str | None = None,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            run_id: Optional run ID to filter by.
+            status: Optional status to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+
+        Returns:
+            A PagedList of Issue entities.
         """
         raise MlflowNotImplementedException()
 
