@@ -605,8 +605,8 @@ class AbstractStore(GatewayStoreMixin):
         experiment_id: str,
         name: str,
         description: str,
-        frequency: float,
         status: str,
+        frequency: float | None = None,
         run_id: str | None = None,
         root_cause: str | None = None,
         confidence: str | None = None,
@@ -622,8 +622,8 @@ class AbstractStore(GatewayStoreMixin):
             experiment_id: The experiment ID.
             name: Short descriptive name for the issue.
             description: Detailed description of the issue.
-            frequency: Frequency score (0.0 to 1.0) indicating how often this issue occurs.
             status: Issue status.
+            frequency: Optional frequency score (0.0 to 1.0) indicating how often this issue occurs.
             run_id: Optional MLflow run ID that discovered this issue.
             root_cause: Optional analysis of the root cause.
             confidence: Optional confidence level indicator.

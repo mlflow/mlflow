@@ -14,7 +14,6 @@ def test_create_issue_required_fields_only(store):
         experiment_id=exp_id,
         name="High latency",
         description="API calls are taking too long",
-        frequency=0.75,
         status="draft",
     )
 
@@ -22,7 +21,7 @@ def test_create_issue_required_fields_only(store):
     assert issue.experiment_id == exp_id
     assert issue.name == "High latency"
     assert issue.description == "API calls are taking too long"
-    assert issue.frequency == 0.75
+    assert issue.frequency is None
     assert issue.status == "draft"
     assert issue.run_id is None
     assert issue.root_cause is None
