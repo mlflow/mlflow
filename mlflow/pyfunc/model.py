@@ -1262,13 +1262,12 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
             and not is_in_databricks_runtime()
             and not is_in_databricks_model_serving_environment()
         ):
-            mlflow.pyfunc._logger.warning(
-                "Saving the Pyfunc models in the CloudPickle format requires exercising "
-                "caution as Python's object serialization mechanism may execute arbitrary code "
-                "during deserialization. "
-                "The recommended safe alternative is saving it as the model-from-code "
-                "artifacts, see https://mlflow.org/docs/latest/ml/model/models-from-code/ "
-                "for details",
+            raise MlflowException(
+                "Deserializing model using pickle is disallowed, but this model is saved "
+                "in cloudpickle format. To address this issue, you need to set environment "
+                "variable 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true'; or save the model as "
+                "model-from-code artifacts, see "
+                "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details."
             )
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:
