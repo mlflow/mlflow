@@ -19,6 +19,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetTargetScope,
     GatewayBudgetPolicy,
 )
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -208,9 +209,8 @@ def _policy_applies(policy: GatewayBudgetPolicy, workspace: str | None) -> bool:
     """
     if policy.target_scope == BudgetTargetScope.GLOBAL:
         return True
-    if workspace and policy.workspace:
-        return policy.workspace == workspace
-    return False
+    effective_workspace = workspace or DEFAULT_WORKSPACE_NAME
+    return policy.workspace == effective_workspace
 
 
 @dataclass

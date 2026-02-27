@@ -133,6 +133,12 @@ def test_policy_applies_workspace_none():
     assert _policy_applies(policy, None) is False
 
 
+def test_policy_applies_workspace_none_matches_default():
+    policy = _make_policy(target_scope=BudgetTargetScope.WORKSPACE)
+    # policy.workspace resolves to "default" via __post_init__
+    assert _policy_applies(policy, None) is True
+
+
 # --- InMemoryBudgetTracker tests ---
 
 
