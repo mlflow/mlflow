@@ -637,6 +637,18 @@ class AbstractStore(GatewayStoreMixin):
         """
         raise MlflowNotImplementedException()
 
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
