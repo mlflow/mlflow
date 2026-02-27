@@ -37,10 +37,9 @@ describe('isValidTagKey', () => {
     expect(isValidTagKey('../key')).toBe(false);
   });
 
-  it('rejects path traversal segments', () => {
-    expect(isValidTagKey('a/./b')).toBe(false);
-    expect(isValidTagKey('a/../b')).toBe(false);
-    expect(isValidTagKey('a//b')).toBe(false);
+  it('allows path-like keys (e.g. test/.test); backend validates path rules and returns error if invalid', () => {
+    expect(isValidTagKey('test/.test')).toBe(true);
+    expect(isValidTagKey('a/./b')).toBe(true);
   });
 
   it('rejects characters not allowed by backend', () => {
