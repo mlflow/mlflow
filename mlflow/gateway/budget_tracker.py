@@ -112,7 +112,7 @@ class BudgetTracker(ABC):
         """
 
     @abstractmethod
-    def get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
+    def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
         """Get the current window info for a policy (for payload construction)."""
 
 
@@ -340,7 +340,7 @@ class InMemoryBudgetTracker(BudgetTracker):
             if spend >= window.policy.budget_amount:
                 window.exceeded = True
 
-    def get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
+    def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
         """Get the current window info for a policy (for payload construction)."""
         with self._lock:
             return self._windows.get(budget_policy_id)
