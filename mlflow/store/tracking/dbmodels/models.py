@@ -630,9 +630,9 @@ class SqlInput(Base):
         ),
     )
 
-    input_uuid = Column(String(36), nullable=False)
+    input_uuid = Column(String(36), nullable=False, unique=True)
     """
-    Input UUID: `String` (limit 36 characters). Defined as *Non-null* in schema.
+    Input UUID: `String` (limit 36 characters). Defined as *Non-null* and *Unique* in schema.
     """
     source_type = Column(String(36), nullable=False)
     """
