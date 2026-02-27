@@ -4,6 +4,11 @@ from dataclasses import dataclass
 from enum import Enum
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import BudgetAction as ProtoBudgetAction
+from mlflow.protos.service_pb2 import BudgetDurationUnit as ProtoBudgetDurationUnit
+from mlflow.protos.service_pb2 import BudgetTargetScope as ProtoBudgetTargetScope
+from mlflow.protos.service_pb2 import BudgetUnit as ProtoBudgetUnit
+from mlflow.protos.service_pb2 import GatewayBudgetPolicy as ProtoGatewayBudgetPolicy
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
@@ -15,12 +20,32 @@ class BudgetDurationUnit(str, Enum):
     DAYS = "DAYS"
     MONTHS = "MONTHS"
 
+    @classmethod
+    def from_proto(cls, proto: ProtoBudgetDurationUnit) -> BudgetDurationUnit | None:
+        try:
+            return cls(ProtoBudgetDurationUnit.Name(proto))
+        except ValueError:
+            return None
+
+    def to_proto(self) -> ProtoBudgetDurationUnit:
+        return ProtoBudgetDurationUnit.Value(self.value)
+
 
 class BudgetTargetScope(str, Enum):
     """Target scope for a budget policy."""
 
     GLOBAL = "GLOBAL"
     WORKSPACE = "WORKSPACE"
+
+    @classmethod
+    def from_proto(cls, proto: ProtoBudgetTargetScope) -> BudgetTargetScope | None:
+        try:
+            return cls(ProtoBudgetTargetScope.Name(proto))
+        except ValueError:
+            return None
+
+    def to_proto(self) -> ProtoBudgetTargetScope:
+        return ProtoBudgetTargetScope.Value(self.value)
 
 
 class BudgetAction(str, Enum):
@@ -29,11 +54,31 @@ class BudgetAction(str, Enum):
     ALERT = "ALERT"
     REJECT = "REJECT"
 
+    @classmethod
+    def from_proto(cls, proto: ProtoBudgetAction) -> BudgetAction | None:
+        try:
+            return cls(ProtoBudgetAction.Name(proto))
+        except ValueError:
+            return None
+
+    def to_proto(self) -> ProtoBudgetAction:
+        return ProtoBudgetAction.Value(self.value)
+
 
 class BudgetUnit(str, Enum):
     """Budget measurement unit."""
 
     USD = "USD"
+
+    @classmethod
+    def from_proto(cls, proto: ProtoBudgetUnit) -> BudgetUnit | None:
+        try:
+            return cls(ProtoBudgetUnit.Name(proto))
+        except ValueError:
+            return None
+
+    def to_proto(self) -> ProtoBudgetUnit:
+        return ProtoBudgetUnit.Value(self.value)
 
 
 @dataclass
@@ -82,3 +127,34 @@ class GatewayBudgetPolicy(_MlflowObject):
             self.target_scope = BudgetTargetScope(self.target_scope)
         if isinstance(self.budget_action, str):
             self.budget_action = BudgetAction(self.budget_action)
+
+    def to_proto(self):
+        proto = ProtoGatewayBudgetPolicy()
+        proto.budget_policy_id = self.budget_policy_id
+        proto.budget_unit = self.budget_unit.to_proto()
+        proto.budget_amount = self.budget_amount
+        proto.duration_unit = self.duration_unit.to_proto()
+        proto.duration_value = self.duration_value
+        proto.target_scope = self.target_scope.to_proto()
+        proto.budget_action = self.budget_action.to_proto()
+        proto.created_by = self.created_by or ""
+        proto.created_at = self.created_at
+        proto.last_updated_by = self.last_updated_by or ""
+        proto.last_updated_at = self.last_updated_at
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(
+            budget_policy_id=proto.budget_policy_id,
+            budget_unit=BudgetUnit.from_proto(proto.budget_unit),
+            budget_amount=proto.budget_amount,
+            duration_unit=BudgetDurationUnit.from_proto(proto.duration_unit),
+            duration_value=proto.duration_value,
+            target_scope=BudgetTargetScope.from_proto(proto.target_scope),
+            budget_action=BudgetAction.from_proto(proto.budget_action),
+            created_by=proto.created_by or None,
+            created_at=proto.created_at,
+            last_updated_by=proto.last_updated_by or None,
+            last_updated_at=proto.last_updated_at,
+        )
