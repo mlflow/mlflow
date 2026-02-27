@@ -42,6 +42,19 @@ def test_read_file_returns_none_on_permission_error(tmp_path):
         assert _read_file_if_exists(test_file) is None
 
 
+def test_read_file_caches_result(tmp_path):
+    test_file = tmp_path / "cached_file"
+    test_file.write_text("cached-content")
+
+    with mock.patch.object(Path, "read_text", wraps=test_file.read_text) as mock_read:
+        result1 = _read_file_if_exists(test_file)
+        result2 = _read_file_if_exists(test_file)
+
+        assert result1 == "cached-content"
+        assert result2 == "cached-content"
+        mock_read.assert_called_once()
+
+
 # Tests for _get_credentials_from_service_account
 
 
@@ -163,6 +176,30 @@ def test_kubeconfig_returns_none_when_no_active_context():
     with (
         mock.patch("kubernetes.config.load_kube_config"),
         mock.patch("kubernetes.config.list_kube_config_contexts", return_value=([], None)),
+    ):
+        result = _get_credentials_from_kubeconfig()
+        assert result is None
+
+
+def test_kubeconfig_returns_none_when_load_fails():
+    from kubernetes.config.config_exception import ConfigException
+
+    with mock.patch(
+        "kubernetes.config.load_kube_config", side_effect=ConfigException("no kubeconfig")
+    ):
+        result = _get_credentials_from_kubeconfig()
+        assert result is None
+
+
+def test_kubeconfig_returns_none_when_list_contexts_fails():
+    from kubernetes.config.config_exception import ConfigException
+
+    with (
+        mock.patch("kubernetes.config.load_kube_config"),
+        mock.patch(
+            "kubernetes.config.list_kube_config_contexts",
+            side_effect=ConfigException("invalid context"),
+        ),
     ):
         result = _get_credentials_from_kubeconfig()
         assert result is None
@@ -373,6 +410,7 @@ def test_auth_does_not_override_existing_workspace_header(tmp_path):
         assert result is mock_request
         assert mock_request.headers[WORKSPACE_HEADER_NAME] == "existing-workspace"
         assert mock_request.headers[AUTHORIZATION_HEADER_NAME] == "Bearer test-token"
+        assert get_request_workspace() == "existing-workspace"
 
 
 def test_auth_does_not_override_existing_authorization_header(tmp_path):

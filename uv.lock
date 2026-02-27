@@ -4368,6 +4368,9 @@ genai = [
 jfrog = [
     { name = "mlflow-jfrog-plugin" },
 ]
+kubernetes = [
+    { name = "kubernetes" },
+]
 langchain = [
     { name = "langchain" },
 ]
@@ -4535,6 +4538,7 @@ requires-dist = [
     { name = "huey", specifier = ">=2.5.4,<3" },
     { name = "importlib-metadata", specifier = ">=3.7.0,!=4.7.0,<9" },
     { name = "kubernetes", marker = "extra == 'extras'" },
+    { name = "kubernetes", marker = "extra == 'kubernetes'" },
     { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.20,<=1.2.10" },
     { name = "litellm", marker = "extra == 'genai'", specifier = ">=1.0.0,<2" },
     { name = "matplotlib", specifier = "<4" },
@@ -4578,7 +4582,7 @@ requires-dist = [
     { name = "watchfiles", marker = "extra == 'gateway'", specifier = "<2" },
     { name = "watchfiles", marker = "extra == 'genai'", specifier = "<2" },
 ]
-provides-extras = ["extras", "db", "databricks", "mlserver", "gateway", "genai", "mcp", "sqlserver", "aliyun-oss", "jfrog", "langchain", "auth"]
+provides-extras = ["extras", "db", "databricks", "mlserver", "gateway", "genai", "mcp", "sqlserver", "aliyun-oss", "jfrog", "kubernetes", "langchain", "auth"]
 
 [package.metadata.requires-dev]
 build = [

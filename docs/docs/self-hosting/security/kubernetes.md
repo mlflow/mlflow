@@ -15,7 +15,7 @@ If your MLflow deployment does not use a workspace provider that expects Kuberne
 When enabled, the Kubernetes request auth provider attaches two headers to every MLflow tracking request:
 
 | Header               | Value                                                         |
-|----------------------|---------------------------------------------------------------|
+| -------------------- | ------------------------------------------------------------- |
 | `X-MLFLOW-WORKSPACE` | The Kubernetes namespace (from service account or kubeconfig) |
 | `Authorization`      | Bearer token (from service account or kubeconfig)             |
 
@@ -52,22 +52,16 @@ When running inside a Kubernetes pod, the provider reads the mounted service acc
 
 This is the default path for pods with a service account mounted (which is the standard Kubernetes behavior).
 
-### 2. Kubeconfig (local development)
+### 2. Kubeconfig
 
-When service account files are not available (e.g., running locally), the provider falls back to kubeconfig:
+When service account files are not available, the provider falls back to kubeconfig:
 
 - **Namespace**: Extracted from the active context
 - **Token**: Resolved via the Kubernetes Python client's `ApiClient`, which handles exec-based auth flows (EKS, GKE, AKS, OpenShift, OIDC)
 
-This allows developers to test against a remote MLflow instance using their local Kubernetes credentials.
-
-## Caching
-
-File reads for service account credentials are cached with a 1-minute TTL to avoid repeated I/O on every tracking request.
-
 ## Usage
 
-Once configured, no code changes are needed. All MLflow tracking calls automatically include the Kubernetes authentication headers:
+Once configured, no code changes are needed. All MLflow tracking calls will automatically include the authorization headers with values sourced from Kubernetes:
 
 ```python
 import mlflow
@@ -79,12 +73,4 @@ with mlflow.start_run():
     mlflow.log_metric("accuracy", 0.95)
 ```
 
-### Header Behavior
-
-- If both `X-MLFLOW-WORKSPACE` and `Authorization` headers are already present on a request, the provider skips credential lookup entirely.
-- If only one header is present, the provider fills in the missing one from Kubernetes credentials.
-- If credentials cannot be determined from either source, an `MlflowException` is raised.
-
-## Creating a Custom Request Auth Provider
-
-If the built-in Kubernetes provider does not fit your needs, you can create your own request auth provider plugin. See the [Plugins documentation](/classic-ml/plugins#authentication-plugins) for details on implementing and registering a custom `RequestAuthProvider`.
+If a workspace is explicitly set (e.g., via `mlflow.set_workspace()`), it takes priority over the Kubernetes namespace. The namespace from Kubernetes credentials is used as a default when no workspace is specified.

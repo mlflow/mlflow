@@ -11,9 +11,10 @@ Requires the ``kubernetes`` package. Install it with:
 """
 
 import logging
+import threading
 from pathlib import Path
 
-from cachetools import TTLCache
+from cachetools import TTLCache, cached
 
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.request_auth.abstract_request_auth_provider import RequestAuthProvider
@@ -22,6 +23,7 @@ from mlflow.utils.workspace_context import get_request_workspace, set_workspace
 # Cache for file reads (1 minute TTL)
 _FILE_CACHE_TTL = 60
 _file_cache: TTLCache = TTLCache(maxsize=10, ttl=_FILE_CACHE_TTL)
+_file_cache_lock = threading.Lock()
 
 _logger = logging.getLogger(__name__)
 
@@ -45,21 +47,15 @@ def _check_kubernetes_installed():
         )
 
 
+@cached(cache=_file_cache, lock=_file_cache_lock, key=lambda path: str(path))
 def _read_file_if_exists(path: Path) -> str | None:
     """Read a file and return its contents stripped, or None if it doesn't exist."""
-    cache_key = str(path)
-    if cache_key in _file_cache:
-        return _file_cache[cache_key]
-
-    result = None
     try:
         if path.exists():
-            result = path.read_text().strip() or None
-    except (OSError, PermissionError) as e:
+            return path.read_text().strip() or None
+    except OSError as e:
         _logger.debug("Could not read file %s: %s", path, e)
-
-    _file_cache[cache_key] = result
-    return result
+    return None
 
 
 def _get_credentials_from_service_account() -> tuple[str, str] | None:
@@ -86,11 +82,20 @@ def _get_credentials_from_kubeconfig() -> tuple[str, str] | None:
         Tuple of (namespace, token) if both are available, None otherwise.
     """
     from kubernetes import client, config
+    from kubernetes.config.config_exception import ConfigException
 
-    config.load_kube_config()
+    try:
+        config.load_kube_config()
+    except (OSError, ConfigException) as e:
+        _logger.warning("Could not load kubeconfig: %s", e)
+        return None
 
     # Get namespace from context
-    _, active_context = config.list_kube_config_contexts()
+    try:
+        _, active_context = config.list_kube_config_contexts()
+    except (OSError, ConfigException) as e:
+        _logger.warning("Could not list kubeconfig contexts: %s", e)
+        return None
     if not active_context:
         return None
 
@@ -183,7 +188,7 @@ class KubernetesAuth:
             request.headers[AUTHORIZATION_HEADER_NAME] = authorization
 
         if not get_request_workspace():
-            set_workspace(namespace)
+            set_workspace(request.headers.get(WORKSPACE_HEADER_NAME, namespace))
 
         return request
 
