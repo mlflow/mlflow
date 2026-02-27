@@ -25,9 +25,6 @@ class Issue(_MlflowObject):
     description: str
     """Detailed description of the issue."""
 
-    frequency: float
-    """Frequency score indicating how often this issue occurs."""
-
     status: str
     """Issue status."""
 
@@ -36,6 +33,9 @@ class Issue(_MlflowObject):
 
     last_updated_timestamp: int
     """Last update timestamp in milliseconds."""
+
+    frequency: float | None = None
+    """Frequency score indicating how often this issue occurs."""
 
     run_id: str | None = None
     """MLflow run ID that discovered this issue."""
@@ -84,18 +84,18 @@ class Issue(_MlflowObject):
         return cls(
             issue_id=issue_dict["issue_id"],
             experiment_id=issue_dict["experiment_id"],
-            run_id=issue_dict.get("run_id"),
             name=issue_dict["name"],
             description=issue_dict["description"],
-            root_cause=issue_dict.get("root_cause"),
             status=issue_dict["status"],
-            frequency=issue_dict["frequency"],
+            created_timestamp=issue_dict["created_timestamp"],
+            last_updated_timestamp=issue_dict["last_updated_timestamp"],
+            frequency=issue_dict.get("frequency"),
+            run_id=issue_dict.get("run_id"),
+            root_cause=issue_dict.get("root_cause"),
             confidence=issue_dict.get("confidence"),
             rationale_examples=issue_dict.get("rationale_examples"),
             example_trace_ids=issue_dict.get("example_trace_ids"),
             trace_ids=issue_dict.get("trace_ids"),
-            created_timestamp=issue_dict["created_timestamp"],
-            last_updated_timestamp=issue_dict["last_updated_timestamp"],
             created_by=issue_dict.get("created_by"),
         )
 
@@ -107,11 +107,12 @@ class Issue(_MlflowObject):
         proto_issue.experiment_id = self.experiment_id
         proto_issue.name = self.name
         proto_issue.description = self.description
-        proto_issue.frequency = self.frequency
         proto_issue.status = self.status
         proto_issue.created_timestamp = self.created_timestamp
         proto_issue.last_updated_timestamp = self.last_updated_timestamp
 
+        if self.frequency is not None:
+            proto_issue.frequency = self.frequency
         if self.run_id:
             proto_issue.run_id = self.run_id
         if self.root_cause:
@@ -137,10 +138,10 @@ class Issue(_MlflowObject):
             experiment_id=proto.experiment_id,
             name=proto.name,
             description=proto.description,
-            frequency=proto.frequency,
             status=proto.status,
             created_timestamp=proto.created_timestamp,
             last_updated_timestamp=proto.last_updated_timestamp,
+            frequency=proto.frequency if proto.HasField("frequency") else None,
             run_id=proto.run_id or None,
             root_cause=proto.root_cause or None,
             confidence=proto.confidence or None,
