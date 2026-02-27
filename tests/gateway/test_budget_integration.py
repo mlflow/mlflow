@@ -113,7 +113,7 @@ def test_maybe_record_budget_cost_with_usage_object(mock_cost, mock_tracker):
     )
 
     mock_cost.assert_called_once()
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 0.05
 
 
@@ -136,7 +136,7 @@ def test_maybe_record_budget_cost_with_usage_dict(mock_cost, mock_tracker):
     )
 
     mock_cost.assert_called_once()
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 0.03
 
 
@@ -160,7 +160,7 @@ def test_maybe_record_budget_cost_with_anthropic_dict_keys(
     )
 
     mock_cost.assert_called_once()
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 0.01
 
 
@@ -267,7 +267,7 @@ def test_maybe_refresh_budget_policies(mock_get_tracker):
     _maybe_refresh_budget_policies(store)
 
     store.list_budget_policies.assert_called_once()
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window is not None
 
 
@@ -314,7 +314,7 @@ def test_cost_recording_reducer(
 
     mock_aggregate.assert_called_once_with(chunks)
     assert result is not None
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 0.10
 
 
@@ -365,7 +365,7 @@ def test_record_cost_triggers_webhook(
     )
 
     mock_deliver.assert_called_once()
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 200.0
     assert window.crossed is True
 
@@ -401,7 +401,7 @@ def test_record_cost_no_webhook_for_reject(
 
     # Crossed but REJECT → no webhook fired
     mock_deliver.assert_not_called()
-    assert tracker.get_window_info("bp-test").crossed is True
+    assert tracker._get_window_info("bp-test").crossed is True
 
 
 # --- _backfill_budget_spend tests ---
@@ -417,7 +417,7 @@ def test_backfill_on_new_windows():
     _backfill_budget_spend(store, tracker, new_windows)
 
     store.sum_gateway_trace_cost.assert_called_once()
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 42.0
 
 
@@ -441,7 +441,7 @@ def test_backfill_handles_store_error():
     _backfill_budget_spend(store, tracker, new_windows)
 
     # Window should remain at 0 since backfill failed
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 0.0
 
 
@@ -455,7 +455,7 @@ def test_backfill_zero_spend_skips_backfill():
     _backfill_budget_spend(store, tracker, new_windows)
 
     # backfill_spend should not be called when spend is 0
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 0.0
 
 
@@ -471,5 +471,5 @@ def test_refresh_triggers_backfill():
         _maybe_refresh_budget_policies(store)
 
     store.sum_gateway_trace_cost.assert_called_once()
-    window = tracker.get_window_info("bp-test")
+    window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 25.0
