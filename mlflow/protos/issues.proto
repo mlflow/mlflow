@@ -33,7 +33,7 @@ message Issue {
   optional string status = 7 [(validate_required) = true];
 
   // Frequency score indicating how often this issue occurs.
-  optional double frequency = 8 [(validate_required) = true];
+  optional double frequency = 8;
 
   // Confidence level indicator.
   optional string confidence = 9;
@@ -66,7 +66,7 @@ message CreateIssue {
   optional string description = 2 [(validate_required) = true];
 
   // Frequency score (0.0 to 1.0) indicating how often this issue occurs.
-  optional double frequency = 3 [(validate_required) = true];
+  optional double frequency = 3;
 
   // Experiment ID.
   optional string experiment_id = 4 [(validate_required) = true];
