@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 
@@ -56,7 +57,7 @@ class Issue(_MlflowObject):
     created_by: str | None = None
     """Identifier for who created this issue."""
 
-    def to_dictionary(self) -> dict:
+    def to_dictionary(self) -> dict[str, Any]:
         """Convert Issue to dictionary representation."""
         return {
             "issue_id": self.issue_id,
@@ -77,7 +78,7 @@ class Issue(_MlflowObject):
         }
 
     @classmethod
-    def from_dictionary(cls, issue_dict: dict) -> Issue:
+    def from_dictionary(cls, issue_dict: dict[str, Any]) -> Issue:
         """Create Issue from dictionary representation."""
         return cls(
             issue_id=issue_dict["issue_id"],
