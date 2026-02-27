@@ -8,7 +8,7 @@ from mlflow.utils.uri import append_to_uri_path
 
 # Request gzip/deflate only so upstream never sends Brotli; aiohttp fails to decode
 # Content-Encoding: br without the optional brotli package.
-_ACCEPT_ENCODING_NO_BROTLI = "gzip, deflate, identity"
+SUPPORTED_ACCEPT_ENCODING = "gzip, deflate, identity"
 
 
 @asynccontextmanager
@@ -18,7 +18,7 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
     # Drop any client Accept-Encoding (any casing) so we send only one value; otherwise
     # aiohttp may send both and upstream can respond with Brotli, which is not supported.
     request_headers = {k: v for k, v in headers.items() if k.lower() != "accept-encoding"}
-    request_headers["Accept-Encoding"] = _ACCEPT_ENCODING_NO_BROTLI
+    request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
     url = append_to_uri_path(base_url, path)
     async with aiohttp.ClientSession(headers=request_headers) as session:
         timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
