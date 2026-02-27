@@ -39,10 +39,10 @@ message Issue {
   optional string confidence = 9;
 
   // List of rationale strings providing examples of the issue.
-  optional string rationale_examples = 10;
+  repeated string rationale_examples = 10;
 
   // List of example trace IDs.
-  optional string example_trace_ids = 11;
+  repeated string example_trace_ids = 11;
 
   // List of trace IDs associated with this issue.
   repeated string trace_ids = 12;
@@ -84,10 +84,10 @@ message CreateIssue {
   optional string confidence = 8;
 
   // List of rationale strings providing examples of the issue.
-  optional string rationale_examples = 9;
+  repeated string rationale_examples = 9;
 
   // List of example trace IDs.
-  optional string example_trace_ids = 10;
+  repeated string example_trace_ids = 10;
 
   // List of trace IDs associated with this issue.
   repeated string trace_ids = 11;

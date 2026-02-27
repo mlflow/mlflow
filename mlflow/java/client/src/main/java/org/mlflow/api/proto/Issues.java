@@ -274,58 +274,82 @@ public final class Issues {
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 10;</code>
-     * @return Whether the rationaleExamples field is set.
+     * <code>repeated string rationale_examples = 10;</code>
+     * @return A list containing the rationaleExamples.
      */
-    boolean hasRationaleExamples();
+    java.util.List<java.lang.String>
+        getRationaleExamplesList();
     /**
      * <pre>
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 10;</code>
-     * @return The rationaleExamples.
+     * <code>repeated string rationale_examples = 10;</code>
+     * @return The count of rationaleExamples.
      */
-    java.lang.String getRationaleExamples();
+    int getRationaleExamplesCount();
     /**
      * <pre>
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 10;</code>
-     * @return The bytes for rationaleExamples.
+     * <code>repeated string rationale_examples = 10;</code>
+     * @param index The index of the element to return.
+     * @return The rationaleExamples at the given index.
+     */
+    java.lang.String getRationaleExamples(int index);
+    /**
+     * <pre>
+     * List of rationale strings providing examples of the issue.
+     * </pre>
+     *
+     * <code>repeated string rationale_examples = 10;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the rationaleExamples at the given index.
      */
     com.google.protobuf.ByteString
-        getRationaleExamplesBytes();
+        getRationaleExamplesBytes(int index);
 
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 11;</code>
-     * @return Whether the exampleTraceIds field is set.
+     * <code>repeated string example_trace_ids = 11;</code>
+     * @return A list containing the exampleTraceIds.
      */
-    boolean hasExampleTraceIds();
+    java.util.List<java.lang.String>
+        getExampleTraceIdsList();
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 11;</code>
-     * @return The exampleTraceIds.
+     * <code>repeated string example_trace_ids = 11;</code>
+     * @return The count of exampleTraceIds.
      */
-    java.lang.String getExampleTraceIds();
+    int getExampleTraceIdsCount();
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 11;</code>
-     * @return The bytes for exampleTraceIds.
+     * <code>repeated string example_trace_ids = 11;</code>
+     * @param index The index of the element to return.
+     * @return The exampleTraceIds at the given index.
+     */
+    java.lang.String getExampleTraceIds(int index);
+    /**
+     * <pre>
+     * List of example trace IDs.
+     * </pre>
+     *
+     * <code>repeated string example_trace_ids = 11;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the exampleTraceIds at the given index.
      */
     com.google.protobuf.ByteString
-        getExampleTraceIdsBytes();
+        getExampleTraceIdsBytes(int index);
 
     /**
      * <pre>
@@ -460,8 +484,8 @@ public final class Issues {
       rootCause_ = "";
       status_ = "";
       confidence_ = "";
-      rationaleExamples_ = "";
-      exampleTraceIds_ = "";
+      rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       createdBy_ = "";
     }
@@ -552,14 +576,20 @@ public final class Issues {
             }
             case 82: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000200;
-              rationaleExamples_ = bs;
+              if (!((mutable_bitField0_ & 0x00000200) != 0)) {
+                rationaleExamples_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000200;
+              }
+              rationaleExamples_.add(bs);
               break;
             }
             case 90: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000400;
-              exampleTraceIds_ = bs;
+              if (!((mutable_bitField0_ & 0x00000400) != 0)) {
+                exampleTraceIds_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000400;
+              }
+              exampleTraceIds_.add(bs);
               break;
             }
             case 98: {
@@ -572,18 +602,18 @@ public final class Issues {
               break;
             }
             case 104: {
-              bitField0_ |= 0x00000800;
+              bitField0_ |= 0x00000200;
               createdTimestamp_ = input.readInt64();
               break;
             }
             case 112: {
-              bitField0_ |= 0x00001000;
+              bitField0_ |= 0x00000400;
               lastUpdatedTimestamp_ = input.readInt64();
               break;
             }
             case 122: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00002000;
+              bitField0_ |= 0x00000800;
               createdBy_ = bs;
               break;
             }
@@ -602,6 +632,12 @@ public final class Issues {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
+        if (((mutable_bitField0_ & 0x00000200) != 0)) {
+          rationaleExamples_ = rationaleExamples_.getUnmodifiableView();
+        }
+        if (((mutable_bitField0_ & 0x00000400) != 0)) {
+          exampleTraceIds_ = exampleTraceIds_.getUnmodifiableView();
+        }
         if (((mutable_bitField0_ & 0x00000800) != 0)) {
           traceIds_ = traceIds_.getUnmodifiableView();
         }
@@ -1131,123 +1167,105 @@ public final class Issues {
     }
 
     public static final int RATIONALE_EXAMPLES_FIELD_NUMBER = 10;
-    private volatile java.lang.Object rationaleExamples_;
+    private com.google.protobuf.LazyStringList rationaleExamples_;
     /**
      * <pre>
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 10;</code>
-     * @return Whether the rationaleExamples field is set.
+     * <code>repeated string rationale_examples = 10;</code>
+     * @return A list containing the rationaleExamples.
      */
-    @java.lang.Override
-    public boolean hasRationaleExamples() {
-      return ((bitField0_ & 0x00000200) != 0);
+    public com.google.protobuf.ProtocolStringList
+        getRationaleExamplesList() {
+      return rationaleExamples_;
     }
     /**
      * <pre>
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 10;</code>
-     * @return The rationaleExamples.
+     * <code>repeated string rationale_examples = 10;</code>
+     * @return The count of rationaleExamples.
      */
-    @java.lang.Override
-    public java.lang.String getRationaleExamples() {
-      java.lang.Object ref = rationaleExamples_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          rationaleExamples_ = s;
-        }
-        return s;
-      }
+    public int getRationaleExamplesCount() {
+      return rationaleExamples_.size();
     }
     /**
      * <pre>
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 10;</code>
-     * @return The bytes for rationaleExamples.
+     * <code>repeated string rationale_examples = 10;</code>
+     * @param index The index of the element to return.
+     * @return The rationaleExamples at the given index.
      */
-    @java.lang.Override
+    public java.lang.String getRationaleExamples(int index) {
+      return rationaleExamples_.get(index);
+    }
+    /**
+     * <pre>
+     * List of rationale strings providing examples of the issue.
+     * </pre>
+     *
+     * <code>repeated string rationale_examples = 10;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the rationaleExamples at the given index.
+     */
     public com.google.protobuf.ByteString
-        getRationaleExamplesBytes() {
-      java.lang.Object ref = rationaleExamples_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        rationaleExamples_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
+        getRationaleExamplesBytes(int index) {
+      return rationaleExamples_.getByteString(index);
     }
 
     public static final int EXAMPLE_TRACE_IDS_FIELD_NUMBER = 11;
-    private volatile java.lang.Object exampleTraceIds_;
+    private com.google.protobuf.LazyStringList exampleTraceIds_;
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 11;</code>
-     * @return Whether the exampleTraceIds field is set.
+     * <code>repeated string example_trace_ids = 11;</code>
+     * @return A list containing the exampleTraceIds.
      */
-    @java.lang.Override
-    public boolean hasExampleTraceIds() {
-      return ((bitField0_ & 0x00000400) != 0);
+    public com.google.protobuf.ProtocolStringList
+        getExampleTraceIdsList() {
+      return exampleTraceIds_;
     }
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 11;</code>
-     * @return The exampleTraceIds.
+     * <code>repeated string example_trace_ids = 11;</code>
+     * @return The count of exampleTraceIds.
      */
-    @java.lang.Override
-    public java.lang.String getExampleTraceIds() {
-      java.lang.Object ref = exampleTraceIds_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          exampleTraceIds_ = s;
-        }
-        return s;
-      }
+    public int getExampleTraceIdsCount() {
+      return exampleTraceIds_.size();
     }
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 11;</code>
-     * @return The bytes for exampleTraceIds.
+     * <code>repeated string example_trace_ids = 11;</code>
+     * @param index The index of the element to return.
+     * @return The exampleTraceIds at the given index.
      */
-    @java.lang.Override
+    public java.lang.String getExampleTraceIds(int index) {
+      return exampleTraceIds_.get(index);
+    }
+    /**
+     * <pre>
+     * List of example trace IDs.
+     * </pre>
+     *
+     * <code>repeated string example_trace_ids = 11;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the exampleTraceIds at the given index.
+     */
     public com.google.protobuf.ByteString
-        getExampleTraceIdsBytes() {
-      java.lang.Object ref = exampleTraceIds_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        exampleTraceIds_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
+        getExampleTraceIdsBytes(int index) {
+      return exampleTraceIds_.getByteString(index);
     }
 
     public static final int TRACE_IDS_FIELD_NUMBER = 12;
@@ -1313,7 +1331,7 @@ public final class Issues {
      */
     @java.lang.Override
     public boolean hasCreatedTimestamp() {
-      return ((bitField0_ & 0x00000800) != 0);
+      return ((bitField0_ & 0x00000200) != 0);
     }
     /**
      * <pre>
@@ -1340,7 +1358,7 @@ public final class Issues {
      */
     @java.lang.Override
     public boolean hasLastUpdatedTimestamp() {
-      return ((bitField0_ & 0x00001000) != 0);
+      return ((bitField0_ & 0x00000400) != 0);
     }
     /**
      * <pre>
@@ -1367,7 +1385,7 @@ public final class Issues {
      */
     @java.lang.Override
     public boolean hasCreatedBy() {
-      return ((bitField0_ & 0x00002000) != 0);
+      return ((bitField0_ & 0x00000800) != 0);
     }
     /**
      * <pre>
@@ -1456,22 +1474,22 @@ public final class Issues {
       if (((bitField0_ & 0x00000100) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 9, confidence_);
       }
-      if (((bitField0_ & 0x00000200) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, rationaleExamples_);
+      for (int i = 0; i < rationaleExamples_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, rationaleExamples_.getRaw(i));
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 11, exampleTraceIds_);
+      for (int i = 0; i < exampleTraceIds_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 11, exampleTraceIds_.getRaw(i));
       }
       for (int i = 0; i < traceIds_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 12, traceIds_.getRaw(i));
       }
-      if (((bitField0_ & 0x00000800) != 0)) {
+      if (((bitField0_ & 0x00000200) != 0)) {
         output.writeInt64(13, createdTimestamp_);
       }
-      if (((bitField0_ & 0x00001000) != 0)) {
+      if (((bitField0_ & 0x00000400) != 0)) {
         output.writeInt64(14, lastUpdatedTimestamp_);
       }
-      if (((bitField0_ & 0x00002000) != 0)) {
+      if (((bitField0_ & 0x00000800) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 15, createdBy_);
       }
       unknownFields.writeTo(output);
@@ -1511,11 +1529,21 @@ public final class Issues {
       if (((bitField0_ & 0x00000100) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, confidence_);
       }
-      if (((bitField0_ & 0x00000200) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, rationaleExamples_);
+      {
+        int dataSize = 0;
+        for (int i = 0; i < rationaleExamples_.size(); i++) {
+          dataSize += computeStringSizeNoTag(rationaleExamples_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getRationaleExamplesList().size();
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, exampleTraceIds_);
+      {
+        int dataSize = 0;
+        for (int i = 0; i < exampleTraceIds_.size(); i++) {
+          dataSize += computeStringSizeNoTag(exampleTraceIds_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getExampleTraceIdsList().size();
       }
       {
         int dataSize = 0;
@@ -1525,15 +1553,15 @@ public final class Issues {
         size += dataSize;
         size += 1 * getTraceIdsList().size();
       }
-      if (((bitField0_ & 0x00000800) != 0)) {
+      if (((bitField0_ & 0x00000200) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(13, createdTimestamp_);
       }
-      if (((bitField0_ & 0x00001000) != 0)) {
+      if (((bitField0_ & 0x00000400) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(14, lastUpdatedTimestamp_);
       }
-      if (((bitField0_ & 0x00002000) != 0)) {
+      if (((bitField0_ & 0x00000800) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(15, createdBy_);
       }
       size += unknownFields.getSerializedSize();
@@ -1597,16 +1625,10 @@ public final class Issues {
         if (!getConfidence()
             .equals(other.getConfidence())) return false;
       }
-      if (hasRationaleExamples() != other.hasRationaleExamples()) return false;
-      if (hasRationaleExamples()) {
-        if (!getRationaleExamples()
-            .equals(other.getRationaleExamples())) return false;
-      }
-      if (hasExampleTraceIds() != other.hasExampleTraceIds()) return false;
-      if (hasExampleTraceIds()) {
-        if (!getExampleTraceIds()
-            .equals(other.getExampleTraceIds())) return false;
-      }
+      if (!getRationaleExamplesList()
+          .equals(other.getRationaleExamplesList())) return false;
+      if (!getExampleTraceIdsList()
+          .equals(other.getExampleTraceIdsList())) return false;
       if (!getTraceIdsList()
           .equals(other.getTraceIdsList())) return false;
       if (hasCreatedTimestamp() != other.hasCreatedTimestamp()) return false;
@@ -1672,13 +1694,13 @@ public final class Issues {
         hash = (37 * hash) + CONFIDENCE_FIELD_NUMBER;
         hash = (53 * hash) + getConfidence().hashCode();
       }
-      if (hasRationaleExamples()) {
+      if (getRationaleExamplesCount() > 0) {
         hash = (37 * hash) + RATIONALE_EXAMPLES_FIELD_NUMBER;
-        hash = (53 * hash) + getRationaleExamples().hashCode();
+        hash = (53 * hash) + getRationaleExamplesList().hashCode();
       }
-      if (hasExampleTraceIds()) {
+      if (getExampleTraceIdsCount() > 0) {
         hash = (37 * hash) + EXAMPLE_TRACE_IDS_FIELD_NUMBER;
-        hash = (53 * hash) + getExampleTraceIds().hashCode();
+        hash = (53 * hash) + getExampleTraceIdsList().hashCode();
       }
       if (getTraceIdsCount() > 0) {
         hash = (37 * hash) + TRACE_IDS_FIELD_NUMBER;
@@ -1853,9 +1875,9 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000080);
         confidence_ = "";
         bitField0_ = (bitField0_ & ~0x00000100);
-        rationaleExamples_ = "";
+        rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000200);
-        exampleTraceIds_ = "";
+        exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000400);
         traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000800);
@@ -1929,12 +1951,14 @@ public final class Issues {
           to_bitField0_ |= 0x00000100;
         }
         result.confidence_ = confidence_;
-        if (((from_bitField0_ & 0x00000200) != 0)) {
-          to_bitField0_ |= 0x00000200;
+        if (((bitField0_ & 0x00000200) != 0)) {
+          rationaleExamples_ = rationaleExamples_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000200);
         }
         result.rationaleExamples_ = rationaleExamples_;
-        if (((from_bitField0_ & 0x00000400) != 0)) {
-          to_bitField0_ |= 0x00000400;
+        if (((bitField0_ & 0x00000400) != 0)) {
+          exampleTraceIds_ = exampleTraceIds_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000400);
         }
         result.exampleTraceIds_ = exampleTraceIds_;
         if (((bitField0_ & 0x00000800) != 0)) {
@@ -1944,14 +1968,14 @@ public final class Issues {
         result.traceIds_ = traceIds_;
         if (((from_bitField0_ & 0x00001000) != 0)) {
           result.createdTimestamp_ = createdTimestamp_;
-          to_bitField0_ |= 0x00000800;
+          to_bitField0_ |= 0x00000200;
         }
         if (((from_bitField0_ & 0x00002000) != 0)) {
           result.lastUpdatedTimestamp_ = lastUpdatedTimestamp_;
-          to_bitField0_ |= 0x00001000;
+          to_bitField0_ |= 0x00000400;
         }
         if (((from_bitField0_ & 0x00004000) != 0)) {
-          to_bitField0_ |= 0x00002000;
+          to_bitField0_ |= 0x00000800;
         }
         result.createdBy_ = createdBy_;
         result.bitField0_ = to_bitField0_;
@@ -2046,14 +2070,24 @@ public final class Issues {
           confidence_ = other.confidence_;
           onChanged();
         }
-        if (other.hasRationaleExamples()) {
-          bitField0_ |= 0x00000200;
-          rationaleExamples_ = other.rationaleExamples_;
+        if (!other.rationaleExamples_.isEmpty()) {
+          if (rationaleExamples_.isEmpty()) {
+            rationaleExamples_ = other.rationaleExamples_;
+            bitField0_ = (bitField0_ & ~0x00000200);
+          } else {
+            ensureRationaleExamplesIsMutable();
+            rationaleExamples_.addAll(other.rationaleExamples_);
+          }
           onChanged();
         }
-        if (other.hasExampleTraceIds()) {
-          bitField0_ |= 0x00000400;
-          exampleTraceIds_ = other.exampleTraceIds_;
+        if (!other.exampleTraceIds_.isEmpty()) {
+          if (exampleTraceIds_.isEmpty()) {
+            exampleTraceIds_ = other.exampleTraceIds_;
+            bitField0_ = (bitField0_ & ~0x00000400);
+          } else {
+            ensureExampleTraceIdsIsMutable();
+            exampleTraceIds_.addAll(other.exampleTraceIds_);
+          }
           onChanged();
         }
         if (!other.traceIds_.isEmpty()) {
@@ -3026,77 +3060,97 @@ public final class Issues {
         return this;
       }
 
-      private java.lang.Object rationaleExamples_ = "";
-      /**
-       * <pre>
-       * List of rationale strings providing examples of the issue.
-       * </pre>
-       *
-       * <code>optional string rationale_examples = 10;</code>
-       * @return Whether the rationaleExamples field is set.
-       */
-      public boolean hasRationaleExamples() {
-        return ((bitField0_ & 0x00000200) != 0);
+      private com.google.protobuf.LazyStringList rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureRationaleExamplesIsMutable() {
+        if (!((bitField0_ & 0x00000200) != 0)) {
+          rationaleExamples_ = new com.google.protobuf.LazyStringArrayList(rationaleExamples_);
+          bitField0_ |= 0x00000200;
+         }
       }
       /**
        * <pre>
        * List of rationale strings providing examples of the issue.
        * </pre>
        *
-       * <code>optional string rationale_examples = 10;</code>
-       * @return The rationaleExamples.
+       * <code>repeated string rationale_examples = 10;</code>
+       * @return A list containing the rationaleExamples.
        */
-      public java.lang.String getRationaleExamples() {
-        java.lang.Object ref = rationaleExamples_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            rationaleExamples_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
+      public com.google.protobuf.ProtocolStringList
+          getRationaleExamplesList() {
+        return rationaleExamples_.getUnmodifiableView();
       }
       /**
        * <pre>
        * List of rationale strings providing examples of the issue.
        * </pre>
        *
-       * <code>optional string rationale_examples = 10;</code>
-       * @return The bytes for rationaleExamples.
+       * <code>repeated string rationale_examples = 10;</code>
+       * @return The count of rationaleExamples.
+       */
+      public int getRationaleExamplesCount() {
+        return rationaleExamples_.size();
+      }
+      /**
+       * <pre>
+       * List of rationale strings providing examples of the issue.
+       * </pre>
+       *
+       * <code>repeated string rationale_examples = 10;</code>
+       * @param index The index of the element to return.
+       * @return The rationaleExamples at the given index.
+       */
+      public java.lang.String getRationaleExamples(int index) {
+        return rationaleExamples_.get(index);
+      }
+      /**
+       * <pre>
+       * List of rationale strings providing examples of the issue.
+       * </pre>
+       *
+       * <code>repeated string rationale_examples = 10;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the rationaleExamples at the given index.
        */
       public com.google.protobuf.ByteString
-          getRationaleExamplesBytes() {
-        java.lang.Object ref = rationaleExamples_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          rationaleExamples_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
+          getRationaleExamplesBytes(int index) {
+        return rationaleExamples_.getByteString(index);
       }
       /**
        * <pre>
        * List of rationale strings providing examples of the issue.
        * </pre>
        *
-       * <code>optional string rationale_examples = 10;</code>
+       * <code>repeated string rationale_examples = 10;</code>
+       * @param index The index to set the value at.
        * @param value The rationaleExamples to set.
        * @return This builder for chaining.
        */
       public Builder setRationaleExamples(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureRationaleExamplesIsMutable();
+        rationaleExamples_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of rationale strings providing examples of the issue.
+       * </pre>
+       *
+       * <code>repeated string rationale_examples = 10;</code>
+       * @param value The rationaleExamples to add.
+       * @return This builder for chaining.
+       */
+      public Builder addRationaleExamples(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000200;
-        rationaleExamples_ = value;
+  ensureRationaleExamplesIsMutable();
+        rationaleExamples_.add(value);
         onChanged();
         return this;
       }
@@ -3105,12 +3159,29 @@ public final class Issues {
        * List of rationale strings providing examples of the issue.
        * </pre>
        *
-       * <code>optional string rationale_examples = 10;</code>
+       * <code>repeated string rationale_examples = 10;</code>
+       * @param values The rationaleExamples to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllRationaleExamples(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureRationaleExamplesIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, rationaleExamples_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of rationale strings providing examples of the issue.
+       * </pre>
+       *
+       * <code>repeated string rationale_examples = 10;</code>
        * @return This builder for chaining.
        */
       public Builder clearRationaleExamples() {
+        rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000200);
-        rationaleExamples_ = getDefaultInstance().getRationaleExamples();
         onChanged();
         return this;
       }
@@ -3119,92 +3190,112 @@ public final class Issues {
        * List of rationale strings providing examples of the issue.
        * </pre>
        *
-       * <code>optional string rationale_examples = 10;</code>
-       * @param value The bytes for rationaleExamples to set.
+       * <code>repeated string rationale_examples = 10;</code>
+       * @param value The bytes of the rationaleExamples to add.
        * @return This builder for chaining.
        */
-      public Builder setRationaleExamplesBytes(
+      public Builder addRationaleExamplesBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000200;
-        rationaleExamples_ = value;
+  ensureRationaleExamplesIsMutable();
+        rationaleExamples_.add(value);
         onChanged();
         return this;
       }
 
-      private java.lang.Object exampleTraceIds_ = "";
-      /**
-       * <pre>
-       * List of example trace IDs.
-       * </pre>
-       *
-       * <code>optional string example_trace_ids = 11;</code>
-       * @return Whether the exampleTraceIds field is set.
-       */
-      public boolean hasExampleTraceIds() {
-        return ((bitField0_ & 0x00000400) != 0);
+      private com.google.protobuf.LazyStringList exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureExampleTraceIdsIsMutable() {
+        if (!((bitField0_ & 0x00000400) != 0)) {
+          exampleTraceIds_ = new com.google.protobuf.LazyStringArrayList(exampleTraceIds_);
+          bitField0_ |= 0x00000400;
+         }
       }
       /**
        * <pre>
        * List of example trace IDs.
        * </pre>
        *
-       * <code>optional string example_trace_ids = 11;</code>
-       * @return The exampleTraceIds.
+       * <code>repeated string example_trace_ids = 11;</code>
+       * @return A list containing the exampleTraceIds.
        */
-      public java.lang.String getExampleTraceIds() {
-        java.lang.Object ref = exampleTraceIds_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            exampleTraceIds_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
+      public com.google.protobuf.ProtocolStringList
+          getExampleTraceIdsList() {
+        return exampleTraceIds_.getUnmodifiableView();
       }
       /**
        * <pre>
        * List of example trace IDs.
        * </pre>
        *
-       * <code>optional string example_trace_ids = 11;</code>
-       * @return The bytes for exampleTraceIds.
+       * <code>repeated string example_trace_ids = 11;</code>
+       * @return The count of exampleTraceIds.
+       */
+      public int getExampleTraceIdsCount() {
+        return exampleTraceIds_.size();
+      }
+      /**
+       * <pre>
+       * List of example trace IDs.
+       * </pre>
+       *
+       * <code>repeated string example_trace_ids = 11;</code>
+       * @param index The index of the element to return.
+       * @return The exampleTraceIds at the given index.
+       */
+      public java.lang.String getExampleTraceIds(int index) {
+        return exampleTraceIds_.get(index);
+      }
+      /**
+       * <pre>
+       * List of example trace IDs.
+       * </pre>
+       *
+       * <code>repeated string example_trace_ids = 11;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the exampleTraceIds at the given index.
        */
       public com.google.protobuf.ByteString
-          getExampleTraceIdsBytes() {
-        java.lang.Object ref = exampleTraceIds_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          exampleTraceIds_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
+          getExampleTraceIdsBytes(int index) {
+        return exampleTraceIds_.getByteString(index);
       }
       /**
        * <pre>
        * List of example trace IDs.
        * </pre>
        *
-       * <code>optional string example_trace_ids = 11;</code>
+       * <code>repeated string example_trace_ids = 11;</code>
+       * @param index The index to set the value at.
        * @param value The exampleTraceIds to set.
        * @return This builder for chaining.
        */
       public Builder setExampleTraceIds(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExampleTraceIdsIsMutable();
+        exampleTraceIds_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of example trace IDs.
+       * </pre>
+       *
+       * <code>repeated string example_trace_ids = 11;</code>
+       * @param value The exampleTraceIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addExampleTraceIds(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000400;
-        exampleTraceIds_ = value;
+  ensureExampleTraceIdsIsMutable();
+        exampleTraceIds_.add(value);
         onChanged();
         return this;
       }
@@ -3213,12 +3304,29 @@ public final class Issues {
        * List of example trace IDs.
        * </pre>
        *
-       * <code>optional string example_trace_ids = 11;</code>
+       * <code>repeated string example_trace_ids = 11;</code>
+       * @param values The exampleTraceIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllExampleTraceIds(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureExampleTraceIdsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, exampleTraceIds_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of example trace IDs.
+       * </pre>
+       *
+       * <code>repeated string example_trace_ids = 11;</code>
        * @return This builder for chaining.
        */
       public Builder clearExampleTraceIds() {
+        exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000400);
-        exampleTraceIds_ = getDefaultInstance().getExampleTraceIds();
         onChanged();
         return this;
       }
@@ -3227,17 +3335,17 @@ public final class Issues {
        * List of example trace IDs.
        * </pre>
        *
-       * <code>optional string example_trace_ids = 11;</code>
-       * @param value The bytes for exampleTraceIds to set.
+       * <code>repeated string example_trace_ids = 11;</code>
+       * @param value The bytes of the exampleTraceIds to add.
        * @return This builder for chaining.
        */
-      public Builder setExampleTraceIdsBytes(
+      public Builder addExampleTraceIdsBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000400;
-        exampleTraceIds_ = value;
+  ensureExampleTraceIdsIsMutable();
+        exampleTraceIds_.add(value);
         onChanged();
         return this;
       }
@@ -3888,58 +3996,82 @@ public final class Issues {
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 9;</code>
-     * @return Whether the rationaleExamples field is set.
+     * <code>repeated string rationale_examples = 9;</code>
+     * @return A list containing the rationaleExamples.
      */
-    boolean hasRationaleExamples();
+    java.util.List<java.lang.String>
+        getRationaleExamplesList();
     /**
      * <pre>
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 9;</code>
-     * @return The rationaleExamples.
+     * <code>repeated string rationale_examples = 9;</code>
+     * @return The count of rationaleExamples.
      */
-    java.lang.String getRationaleExamples();
+    int getRationaleExamplesCount();
     /**
      * <pre>
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 9;</code>
-     * @return The bytes for rationaleExamples.
+     * <code>repeated string rationale_examples = 9;</code>
+     * @param index The index of the element to return.
+     * @return The rationaleExamples at the given index.
+     */
+    java.lang.String getRationaleExamples(int index);
+    /**
+     * <pre>
+     * List of rationale strings providing examples of the issue.
+     * </pre>
+     *
+     * <code>repeated string rationale_examples = 9;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the rationaleExamples at the given index.
      */
     com.google.protobuf.ByteString
-        getRationaleExamplesBytes();
+        getRationaleExamplesBytes(int index);
 
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 10;</code>
-     * @return Whether the exampleTraceIds field is set.
+     * <code>repeated string example_trace_ids = 10;</code>
+     * @return A list containing the exampleTraceIds.
      */
-    boolean hasExampleTraceIds();
+    java.util.List<java.lang.String>
+        getExampleTraceIdsList();
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 10;</code>
-     * @return The exampleTraceIds.
+     * <code>repeated string example_trace_ids = 10;</code>
+     * @return The count of exampleTraceIds.
      */
-    java.lang.String getExampleTraceIds();
+    int getExampleTraceIdsCount();
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 10;</code>
-     * @return The bytes for exampleTraceIds.
+     * <code>repeated string example_trace_ids = 10;</code>
+     * @param index The index of the element to return.
+     * @return The exampleTraceIds at the given index.
+     */
+    java.lang.String getExampleTraceIds(int index);
+    /**
+     * <pre>
+     * List of example trace IDs.
+     * </pre>
+     *
+     * <code>repeated string example_trace_ids = 10;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the exampleTraceIds at the given index.
      */
     com.google.protobuf.ByteString
-        getExampleTraceIdsBytes();
+        getExampleTraceIdsBytes(int index);
 
     /**
      * <pre>
@@ -4035,8 +4167,8 @@ public final class Issues {
       runId_ = "";
       rootCause_ = "";
       confidence_ = "";
-      rationaleExamples_ = "";
-      exampleTraceIds_ = "";
+      rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       createdBy_ = "";
     }
@@ -4121,14 +4253,20 @@ public final class Issues {
             }
             case 74: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000100;
-              rationaleExamples_ = bs;
+              if (!((mutable_bitField0_ & 0x00000100) != 0)) {
+                rationaleExamples_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000100;
+              }
+              rationaleExamples_.add(bs);
               break;
             }
             case 82: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000200;
-              exampleTraceIds_ = bs;
+              if (!((mutable_bitField0_ & 0x00000200) != 0)) {
+                exampleTraceIds_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000200;
+              }
+              exampleTraceIds_.add(bs);
               break;
             }
             case 90: {
@@ -4142,7 +4280,7 @@ public final class Issues {
             }
             case 98: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000400;
+              bitField0_ |= 0x00000100;
               createdBy_ = bs;
               break;
             }
@@ -4161,6 +4299,12 @@ public final class Issues {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
+        if (((mutable_bitField0_ & 0x00000100) != 0)) {
+          rationaleExamples_ = rationaleExamples_.getUnmodifiableView();
+        }
+        if (((mutable_bitField0_ & 0x00000200) != 0)) {
+          exampleTraceIds_ = exampleTraceIds_.getUnmodifiableView();
+        }
         if (((mutable_bitField0_ & 0x00000400) != 0)) {
           traceIds_ = traceIds_.getUnmodifiableView();
         }
@@ -5322,123 +5466,105 @@ public final class Issues {
     }
 
     public static final int RATIONALE_EXAMPLES_FIELD_NUMBER = 9;
-    private volatile java.lang.Object rationaleExamples_;
+    private com.google.protobuf.LazyStringList rationaleExamples_;
     /**
      * <pre>
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 9;</code>
-     * @return Whether the rationaleExamples field is set.
+     * <code>repeated string rationale_examples = 9;</code>
+     * @return A list containing the rationaleExamples.
      */
-    @java.lang.Override
-    public boolean hasRationaleExamples() {
-      return ((bitField0_ & 0x00000100) != 0);
+    public com.google.protobuf.ProtocolStringList
+        getRationaleExamplesList() {
+      return rationaleExamples_;
     }
     /**
      * <pre>
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 9;</code>
-     * @return The rationaleExamples.
+     * <code>repeated string rationale_examples = 9;</code>
+     * @return The count of rationaleExamples.
      */
-    @java.lang.Override
-    public java.lang.String getRationaleExamples() {
-      java.lang.Object ref = rationaleExamples_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          rationaleExamples_ = s;
-        }
-        return s;
-      }
+    public int getRationaleExamplesCount() {
+      return rationaleExamples_.size();
     }
     /**
      * <pre>
      * List of rationale strings providing examples of the issue.
      * </pre>
      *
-     * <code>optional string rationale_examples = 9;</code>
-     * @return The bytes for rationaleExamples.
+     * <code>repeated string rationale_examples = 9;</code>
+     * @param index The index of the element to return.
+     * @return The rationaleExamples at the given index.
      */
-    @java.lang.Override
+    public java.lang.String getRationaleExamples(int index) {
+      return rationaleExamples_.get(index);
+    }
+    /**
+     * <pre>
+     * List of rationale strings providing examples of the issue.
+     * </pre>
+     *
+     * <code>repeated string rationale_examples = 9;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the rationaleExamples at the given index.
+     */
     public com.google.protobuf.ByteString
-        getRationaleExamplesBytes() {
-      java.lang.Object ref = rationaleExamples_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        rationaleExamples_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
+        getRationaleExamplesBytes(int index) {
+      return rationaleExamples_.getByteString(index);
     }
 
     public static final int EXAMPLE_TRACE_IDS_FIELD_NUMBER = 10;
-    private volatile java.lang.Object exampleTraceIds_;
+    private com.google.protobuf.LazyStringList exampleTraceIds_;
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 10;</code>
-     * @return Whether the exampleTraceIds field is set.
+     * <code>repeated string example_trace_ids = 10;</code>
+     * @return A list containing the exampleTraceIds.
      */
-    @java.lang.Override
-    public boolean hasExampleTraceIds() {
-      return ((bitField0_ & 0x00000200) != 0);
+    public com.google.protobuf.ProtocolStringList
+        getExampleTraceIdsList() {
+      return exampleTraceIds_;
     }
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 10;</code>
-     * @return The exampleTraceIds.
+     * <code>repeated string example_trace_ids = 10;</code>
+     * @return The count of exampleTraceIds.
      */
-    @java.lang.Override
-    public java.lang.String getExampleTraceIds() {
-      java.lang.Object ref = exampleTraceIds_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          exampleTraceIds_ = s;
-        }
-        return s;
-      }
+    public int getExampleTraceIdsCount() {
+      return exampleTraceIds_.size();
     }
     /**
      * <pre>
      * List of example trace IDs.
      * </pre>
      *
-     * <code>optional string example_trace_ids = 10;</code>
-     * @return The bytes for exampleTraceIds.
+     * <code>repeated string example_trace_ids = 10;</code>
+     * @param index The index of the element to return.
+     * @return The exampleTraceIds at the given index.
      */
-    @java.lang.Override
+    public java.lang.String getExampleTraceIds(int index) {
+      return exampleTraceIds_.get(index);
+    }
+    /**
+     * <pre>
+     * List of example trace IDs.
+     * </pre>
+     *
+     * <code>repeated string example_trace_ids = 10;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the exampleTraceIds at the given index.
+     */
     public com.google.protobuf.ByteString
-        getExampleTraceIdsBytes() {
-      java.lang.Object ref = exampleTraceIds_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        exampleTraceIds_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
+        getExampleTraceIdsBytes(int index) {
+      return exampleTraceIds_.getByteString(index);
     }
 
     public static final int TRACE_IDS_FIELD_NUMBER = 11;
@@ -5504,7 +5630,7 @@ public final class Issues {
      */
     @java.lang.Override
     public boolean hasCreatedBy() {
-      return ((bitField0_ & 0x00000400) != 0);
+      return ((bitField0_ & 0x00000100) != 0);
     }
     /**
      * <pre>
@@ -5590,16 +5716,16 @@ public final class Issues {
       if (((bitField0_ & 0x00000080) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 8, confidence_);
       }
-      if (((bitField0_ & 0x00000100) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 9, rationaleExamples_);
+      for (int i = 0; i < rationaleExamples_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 9, rationaleExamples_.getRaw(i));
       }
-      if (((bitField0_ & 0x00000200) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, exampleTraceIds_);
+      for (int i = 0; i < exampleTraceIds_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, exampleTraceIds_.getRaw(i));
       }
       for (int i = 0; i < traceIds_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 11, traceIds_.getRaw(i));
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
+      if (((bitField0_ & 0x00000100) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 12, createdBy_);
       }
       unknownFields.writeTo(output);
@@ -5636,11 +5762,21 @@ public final class Issues {
       if (((bitField0_ & 0x00000080) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, confidence_);
       }
-      if (((bitField0_ & 0x00000100) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, rationaleExamples_);
+      {
+        int dataSize = 0;
+        for (int i = 0; i < rationaleExamples_.size(); i++) {
+          dataSize += computeStringSizeNoTag(rationaleExamples_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getRationaleExamplesList().size();
       }
-      if (((bitField0_ & 0x00000200) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, exampleTraceIds_);
+      {
+        int dataSize = 0;
+        for (int i = 0; i < exampleTraceIds_.size(); i++) {
+          dataSize += computeStringSizeNoTag(exampleTraceIds_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getExampleTraceIdsList().size();
       }
       {
         int dataSize = 0;
@@ -5650,7 +5786,7 @@ public final class Issues {
         size += dataSize;
         size += 1 * getTraceIdsList().size();
       }
-      if (((bitField0_ & 0x00000400) != 0)) {
+      if (((bitField0_ & 0x00000100) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(12, createdBy_);
       }
       size += unknownFields.getSerializedSize();
@@ -5709,16 +5845,10 @@ public final class Issues {
         if (!getConfidence()
             .equals(other.getConfidence())) return false;
       }
-      if (hasRationaleExamples() != other.hasRationaleExamples()) return false;
-      if (hasRationaleExamples()) {
-        if (!getRationaleExamples()
-            .equals(other.getRationaleExamples())) return false;
-      }
-      if (hasExampleTraceIds() != other.hasExampleTraceIds()) return false;
-      if (hasExampleTraceIds()) {
-        if (!getExampleTraceIds()
-            .equals(other.getExampleTraceIds())) return false;
-      }
+      if (!getRationaleExamplesList()
+          .equals(other.getRationaleExamplesList())) return false;
+      if (!getExampleTraceIdsList()
+          .equals(other.getExampleTraceIdsList())) return false;
       if (!getTraceIdsList()
           .equals(other.getTraceIdsList())) return false;
       if (hasCreatedBy() != other.hasCreatedBy()) return false;
@@ -5770,13 +5900,13 @@ public final class Issues {
         hash = (37 * hash) + CONFIDENCE_FIELD_NUMBER;
         hash = (53 * hash) + getConfidence().hashCode();
       }
-      if (hasRationaleExamples()) {
+      if (getRationaleExamplesCount() > 0) {
         hash = (37 * hash) + RATIONALE_EXAMPLES_FIELD_NUMBER;
-        hash = (53 * hash) + getRationaleExamples().hashCode();
+        hash = (53 * hash) + getRationaleExamplesList().hashCode();
       }
-      if (hasExampleTraceIds()) {
+      if (getExampleTraceIdsCount() > 0) {
         hash = (37 * hash) + EXAMPLE_TRACE_IDS_FIELD_NUMBER;
-        hash = (53 * hash) + getExampleTraceIds().hashCode();
+        hash = (53 * hash) + getExampleTraceIdsList().hashCode();
       }
       if (getTraceIdsCount() > 0) {
         hash = (37 * hash) + TRACE_IDS_FIELD_NUMBER;
@@ -5939,9 +6069,9 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000040);
         confidence_ = "";
         bitField0_ = (bitField0_ & ~0x00000080);
-        rationaleExamples_ = "";
+        rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000100);
-        exampleTraceIds_ = "";
+        exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000200);
         traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000400);
@@ -6007,12 +6137,14 @@ public final class Issues {
           to_bitField0_ |= 0x00000080;
         }
         result.confidence_ = confidence_;
-        if (((from_bitField0_ & 0x00000100) != 0)) {
-          to_bitField0_ |= 0x00000100;
+        if (((bitField0_ & 0x00000100) != 0)) {
+          rationaleExamples_ = rationaleExamples_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000100);
         }
         result.rationaleExamples_ = rationaleExamples_;
-        if (((from_bitField0_ & 0x00000200) != 0)) {
-          to_bitField0_ |= 0x00000200;
+        if (((bitField0_ & 0x00000200) != 0)) {
+          exampleTraceIds_ = exampleTraceIds_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000200);
         }
         result.exampleTraceIds_ = exampleTraceIds_;
         if (((bitField0_ & 0x00000400) != 0)) {
@@ -6021,7 +6153,7 @@ public final class Issues {
         }
         result.traceIds_ = traceIds_;
         if (((from_bitField0_ & 0x00000800) != 0)) {
-          to_bitField0_ |= 0x00000400;
+          to_bitField0_ |= 0x00000100;
         }
         result.createdBy_ = createdBy_;
         result.bitField0_ = to_bitField0_;
@@ -6111,14 +6243,24 @@ public final class Issues {
           confidence_ = other.confidence_;
           onChanged();
         }
-        if (other.hasRationaleExamples()) {
-          bitField0_ |= 0x00000100;
-          rationaleExamples_ = other.rationaleExamples_;
+        if (!other.rationaleExamples_.isEmpty()) {
+          if (rationaleExamples_.isEmpty()) {
+            rationaleExamples_ = other.rationaleExamples_;
+            bitField0_ = (bitField0_ & ~0x00000100);
+          } else {
+            ensureRationaleExamplesIsMutable();
+            rationaleExamples_.addAll(other.rationaleExamples_);
+          }
           onChanged();
         }
-        if (other.hasExampleTraceIds()) {
-          bitField0_ |= 0x00000200;
-          exampleTraceIds_ = other.exampleTraceIds_;
+        if (!other.exampleTraceIds_.isEmpty()) {
+          if (exampleTraceIds_.isEmpty()) {
+            exampleTraceIds_ = other.exampleTraceIds_;
+            bitField0_ = (bitField0_ & ~0x00000200);
+          } else {
+            ensureExampleTraceIdsIsMutable();
+            exampleTraceIds_.addAll(other.exampleTraceIds_);
+          }
           onChanged();
         }
         if (!other.traceIds_.isEmpty()) {
@@ -6977,77 +7119,97 @@ public final class Issues {
         return this;
       }
 
-      private java.lang.Object rationaleExamples_ = "";
-      /**
-       * <pre>
-       * List of rationale strings providing examples of the issue.
-       * </pre>
-       *
-       * <code>optional string rationale_examples = 9;</code>
-       * @return Whether the rationaleExamples field is set.
-       */
-      public boolean hasRationaleExamples() {
-        return ((bitField0_ & 0x00000100) != 0);
+      private com.google.protobuf.LazyStringList rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureRationaleExamplesIsMutable() {
+        if (!((bitField0_ & 0x00000100) != 0)) {
+          rationaleExamples_ = new com.google.protobuf.LazyStringArrayList(rationaleExamples_);
+          bitField0_ |= 0x00000100;
+         }
       }
       /**
        * <pre>
        * List of rationale strings providing examples of the issue.
        * </pre>
        *
-       * <code>optional string rationale_examples = 9;</code>
-       * @return The rationaleExamples.
+       * <code>repeated string rationale_examples = 9;</code>
+       * @return A list containing the rationaleExamples.
        */
-      public java.lang.String getRationaleExamples() {
-        java.lang.Object ref = rationaleExamples_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            rationaleExamples_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
+      public com.google.protobuf.ProtocolStringList
+          getRationaleExamplesList() {
+        return rationaleExamples_.getUnmodifiableView();
       }
       /**
        * <pre>
        * List of rationale strings providing examples of the issue.
        * </pre>
        *
-       * <code>optional string rationale_examples = 9;</code>
-       * @return The bytes for rationaleExamples.
+       * <code>repeated string rationale_examples = 9;</code>
+       * @return The count of rationaleExamples.
+       */
+      public int getRationaleExamplesCount() {
+        return rationaleExamples_.size();
+      }
+      /**
+       * <pre>
+       * List of rationale strings providing examples of the issue.
+       * </pre>
+       *
+       * <code>repeated string rationale_examples = 9;</code>
+       * @param index The index of the element to return.
+       * @return The rationaleExamples at the given index.
+       */
+      public java.lang.String getRationaleExamples(int index) {
+        return rationaleExamples_.get(index);
+      }
+      /**
+       * <pre>
+       * List of rationale strings providing examples of the issue.
+       * </pre>
+       *
+       * <code>repeated string rationale_examples = 9;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the rationaleExamples at the given index.
        */
       public com.google.protobuf.ByteString
-          getRationaleExamplesBytes() {
-        java.lang.Object ref = rationaleExamples_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          rationaleExamples_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
+          getRationaleExamplesBytes(int index) {
+        return rationaleExamples_.getByteString(index);
       }
       /**
        * <pre>
        * List of rationale strings providing examples of the issue.
        * </pre>
        *
-       * <code>optional string rationale_examples = 9;</code>
+       * <code>repeated string rationale_examples = 9;</code>
+       * @param index The index to set the value at.
        * @param value The rationaleExamples to set.
        * @return This builder for chaining.
        */
       public Builder setRationaleExamples(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureRationaleExamplesIsMutable();
+        rationaleExamples_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of rationale strings providing examples of the issue.
+       * </pre>
+       *
+       * <code>repeated string rationale_examples = 9;</code>
+       * @param value The rationaleExamples to add.
+       * @return This builder for chaining.
+       */
+      public Builder addRationaleExamples(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000100;
-        rationaleExamples_ = value;
+  ensureRationaleExamplesIsMutable();
+        rationaleExamples_.add(value);
         onChanged();
         return this;
       }
@@ -7056,12 +7218,29 @@ public final class Issues {
        * List of rationale strings providing examples of the issue.
        * </pre>
        *
-       * <code>optional string rationale_examples = 9;</code>
+       * <code>repeated string rationale_examples = 9;</code>
+       * @param values The rationaleExamples to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllRationaleExamples(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureRationaleExamplesIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, rationaleExamples_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of rationale strings providing examples of the issue.
+       * </pre>
+       *
+       * <code>repeated string rationale_examples = 9;</code>
        * @return This builder for chaining.
        */
       public Builder clearRationaleExamples() {
+        rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000100);
-        rationaleExamples_ = getDefaultInstance().getRationaleExamples();
         onChanged();
         return this;
       }
@@ -7070,92 +7249,112 @@ public final class Issues {
        * List of rationale strings providing examples of the issue.
        * </pre>
        *
-       * <code>optional string rationale_examples = 9;</code>
-       * @param value The bytes for rationaleExamples to set.
+       * <code>repeated string rationale_examples = 9;</code>
+       * @param value The bytes of the rationaleExamples to add.
        * @return This builder for chaining.
        */
-      public Builder setRationaleExamplesBytes(
+      public Builder addRationaleExamplesBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000100;
-        rationaleExamples_ = value;
+  ensureRationaleExamplesIsMutable();
+        rationaleExamples_.add(value);
         onChanged();
         return this;
       }
 
-      private java.lang.Object exampleTraceIds_ = "";
-      /**
-       * <pre>
-       * List of example trace IDs.
-       * </pre>
-       *
-       * <code>optional string example_trace_ids = 10;</code>
-       * @return Whether the exampleTraceIds field is set.
-       */
-      public boolean hasExampleTraceIds() {
-        return ((bitField0_ & 0x00000200) != 0);
+      private com.google.protobuf.LazyStringList exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureExampleTraceIdsIsMutable() {
+        if (!((bitField0_ & 0x00000200) != 0)) {
+          exampleTraceIds_ = new com.google.protobuf.LazyStringArrayList(exampleTraceIds_);
+          bitField0_ |= 0x00000200;
+         }
       }
       /**
        * <pre>
        * List of example trace IDs.
        * </pre>
        *
-       * <code>optional string example_trace_ids = 10;</code>
-       * @return The exampleTraceIds.
+       * <code>repeated string example_trace_ids = 10;</code>
+       * @return A list containing the exampleTraceIds.
        */
-      public java.lang.String getExampleTraceIds() {
-        java.lang.Object ref = exampleTraceIds_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            exampleTraceIds_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
+      public com.google.protobuf.ProtocolStringList
+          getExampleTraceIdsList() {
+        return exampleTraceIds_.getUnmodifiableView();
       }
       /**
        * <pre>
        * List of example trace IDs.
        * </pre>
        *
-       * <code>optional string example_trace_ids = 10;</code>
-       * @return The bytes for exampleTraceIds.
+       * <code>repeated string example_trace_ids = 10;</code>
+       * @return The count of exampleTraceIds.
+       */
+      public int getExampleTraceIdsCount() {
+        return exampleTraceIds_.size();
+      }
+      /**
+       * <pre>
+       * List of example trace IDs.
+       * </pre>
+       *
+       * <code>repeated string example_trace_ids = 10;</code>
+       * @param index The index of the element to return.
+       * @return The exampleTraceIds at the given index.
+       */
+      public java.lang.String getExampleTraceIds(int index) {
+        return exampleTraceIds_.get(index);
+      }
+      /**
+       * <pre>
+       * List of example trace IDs.
+       * </pre>
+       *
+       * <code>repeated string example_trace_ids = 10;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the exampleTraceIds at the given index.
        */
       public com.google.protobuf.ByteString
-          getExampleTraceIdsBytes() {
-        java.lang.Object ref = exampleTraceIds_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          exampleTraceIds_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
+          getExampleTraceIdsBytes(int index) {
+        return exampleTraceIds_.getByteString(index);
       }
       /**
        * <pre>
        * List of example trace IDs.
        * </pre>
        *
-       * <code>optional string example_trace_ids = 10;</code>
+       * <code>repeated string example_trace_ids = 10;</code>
+       * @param index The index to set the value at.
        * @param value The exampleTraceIds to set.
        * @return This builder for chaining.
        */
       public Builder setExampleTraceIds(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExampleTraceIdsIsMutable();
+        exampleTraceIds_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of example trace IDs.
+       * </pre>
+       *
+       * <code>repeated string example_trace_ids = 10;</code>
+       * @param value The exampleTraceIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addExampleTraceIds(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000200;
-        exampleTraceIds_ = value;
+  ensureExampleTraceIdsIsMutable();
+        exampleTraceIds_.add(value);
         onChanged();
         return this;
       }
@@ -7164,12 +7363,29 @@ public final class Issues {
        * List of example trace IDs.
        * </pre>
        *
-       * <code>optional string example_trace_ids = 10;</code>
+       * <code>repeated string example_trace_ids = 10;</code>
+       * @param values The exampleTraceIds to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllExampleTraceIds(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureExampleTraceIdsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, exampleTraceIds_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of example trace IDs.
+       * </pre>
+       *
+       * <code>repeated string example_trace_ids = 10;</code>
        * @return This builder for chaining.
        */
       public Builder clearExampleTraceIds() {
+        exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000200);
-        exampleTraceIds_ = getDefaultInstance().getExampleTraceIds();
         onChanged();
         return this;
       }
@@ -7178,17 +7394,17 @@ public final class Issues {
        * List of example trace IDs.
        * </pre>
        *
-       * <code>optional string example_trace_ids = 10;</code>
-       * @param value The bytes for exampleTraceIds to set.
+       * <code>repeated string example_trace_ids = 10;</code>
+       * @param value The bytes of the exampleTraceIds to add.
        * @return This builder for chaining.
        */
-      public Builder setExampleTraceIdsBytes(
+      public Builder addExampleTraceIdsBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000200;
-        exampleTraceIds_ = value;
+  ensureExampleTraceIdsIsMutable();
+        exampleTraceIds_.add(value);
         onChanged();
         return this;
       }
@@ -13807,8 +14023,8 @@ public final class Issues {
       "\022\022\n\004name\030\004 \001(\tB\004\370\206\031\001\022\031\n\013description\030\005 \001(" +
       "\tB\004\370\206\031\001\022\022\n\nroot_cause\030\006 \001(\t\022\024\n\006status\030\007 " +
       "\001(\tB\004\370\206\031\001\022\027\n\tfrequency\030\010 \001(\001B\004\370\206\031\001\022\022\n\nco" +
-      "nfidence\030\t \001(\t\022\032\n\022rationale_examples\030\n \001" +
-      "(\t\022\031\n\021example_trace_ids\030\013 \001(\t\022\021\n\ttrace_i" +
+      "nfidence\030\t \001(\t\022\032\n\022rationale_examples\030\n \003" +
+      "(\t\022\031\n\021example_trace_ids\030\013 \003(\t\022\021\n\ttrace_i" +
       "ds\030\014 \003(\t\022\037\n\021created_timestamp\030\r \001(\003B\004\370\206\031" +
       "\001\022$\n\026last_updated_timestamp\030\016 \001(\003B\004\370\206\031\001\022" +
       "\022\n\ncreated_by\030\017 \001(\t\"\311\002\n\013CreateIssue\022\022\n\004n" +
@@ -13816,8 +14032,8 @@ public final class Issues {
       "\031\001\022\027\n\tfrequency\030\003 \001(\001B\004\370\206\031\001\022\033\n\rexperimen" +
       "t_id\030\004 \001(\tB\004\370\206\031\001\022\016\n\006status\030\005 \001(\t\022\016\n\006run_" +
       "id\030\006 \001(\t\022\022\n\nroot_cause\030\007 \001(\t\022\022\n\nconfiden" +
-      "ce\030\010 \001(\t\022\032\n\022rationale_examples\030\t \001(\t\022\031\n\021" +
-      "example_trace_ids\030\n \001(\t\022\021\n\ttrace_ids\030\013 \003" +
+      "ce\030\010 \001(\t\022\032\n\022rationale_examples\030\t \003(\t\022\031\n\021" +
+      "example_trace_ids\030\n \003(\t\022\021\n\ttrace_ids\030\013 \003" +
       "(\t\022\022\n\ncreated_by\030\014 \001(\t\032/\n\010Response\022#\n\005is" +
       "sue\030\001 \001(\0132\024.mlflow.issues.Issue\"\211\001\n\013Upda" +
       "teIssue\022\026\n\010issue_id\030\001 \001(\tB\004\370\206\031\001\022\016\n\006statu" +
