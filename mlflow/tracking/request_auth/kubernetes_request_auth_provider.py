@@ -25,6 +25,10 @@ _FILE_CACHE_TTL = 60
 _file_cache: TTLCache = TTLCache(maxsize=10, ttl=_FILE_CACHE_TTL)
 _file_cache_lock = threading.Lock()
 
+# Cache for kubeconfig token (1 minute TTL) — avoids repeated exec-based auth (EKS, GKE, AKS)
+_kubeconfig_token_cache: TTLCache = TTLCache(maxsize=1, ttl=_FILE_CACHE_TTL)
+_kubeconfig_token_cache_lock = threading.Lock()
+
 _logger = logging.getLogger(__name__)
 
 # Kubernetes service account paths
@@ -93,6 +97,8 @@ def _get_token() -> str | None:
     return _get_token_from_kubeconfig()
 
 
+# No-arg function: default hashkey produces () as the cache key, giving a single cached entry.
+@cached(cache=_kubeconfig_token_cache, lock=_kubeconfig_token_cache_lock)
 def _get_token_from_kubeconfig() -> str | None:
     from kubernetes import client, config
     from kubernetes.config.config_exception import ConfigException

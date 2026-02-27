@@ -11,13 +11,22 @@ from mlflow.tracking.request_auth.kubernetes_request_auth_provider import (
     WORKSPACE_HEADER_NAME,
     KubernetesAuth,
     KubernetesRequestAuthProvider,
+    _file_cache,
     _get_namespace,
     _get_namespace_from_kubeconfig,
     _get_token,
     _get_token_from_kubeconfig,
+    _kubeconfig_token_cache,
     _read_file_if_exists,
 )
 from mlflow.utils.workspace_context import get_request_workspace, set_workspace
+
+
+@pytest.fixture(autouse=True)
+def _clear_caches():
+    _file_cache.clear()
+    _kubeconfig_token_cache.clear()
+
 
 # Tests for _read_file_if_exists
 
@@ -226,6 +235,22 @@ def test_token_from_kubeconfig_strips_bearer_prefix_from_api_key():
         mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
     ):
         assert _get_token_from_kubeconfig() == "Bearer prefixed-token"
+
+
+def test_token_from_kubeconfig_caches_result():
+    mock_api_client = mock.MagicMock()
+    mock_api_client.default_headers = {"Authorization": "Bearer cached-token"}
+
+    with (
+        mock.patch("kubernetes.config.load_kube_config") as mock_load,
+        mock.patch("kubernetes.client.ApiClient", return_value=mock_api_client),
+    ):
+        result1 = _get_token_from_kubeconfig()
+        result2 = _get_token_from_kubeconfig()
+
+        assert result1 == "Bearer cached-token"
+        assert result2 == "Bearer cached-token"
+        mock_load.assert_called_once()
 
 
 # Tests for _get_token
