@@ -885,8 +885,18 @@ def flush_trace_async_logging(terminate=False) -> None:
     Args:
         terminate: If True, shut down the logging threads after flushing.
     """
+    # _get_trace_exporter() may raise if the tracer provider lacks
+    # _active_span_processor (e.g. NoOpTracerProvider when tracing is disabled).
     try:
-        _get_trace_exporter()._async_queue.flush(terminate=terminate)
+        exporter = _get_trace_exporter()
+    except Exception:
+        return
+    # Only attempt to flush and log an error on failure when there is an
+    # actual async queue to flush.
+    if exporter is None or not hasattr(exporter, "_async_queue"):
+        return
+    try:
+        exporter._async_queue.flush(terminate=terminate)
     except Exception as e:
         _logger.error(f"Failed to flush trace async logging: {e}")
 
