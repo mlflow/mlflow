@@ -700,7 +700,6 @@ mlflow.entities.trace_location.MlflowExperimentLocation
 mlflow.entities.trace_location.TraceLocation
 mlflow.entities.trace_location.TraceLocationType
 mlflow.entities.trace_location.UCSchemaLocation
-mlflow.entities.trace_location.UnityCatalog
 mlflow.entities.trace_state.TraceState
 mlflow.entities.view_type.ViewType
 mlflow.entities.webhook.Webhook
