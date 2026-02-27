@@ -8,6 +8,8 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
 from mlflow.entities import (
+    Issue,
+    IssueStatus,
     RunStatus,
     ScorerVersion,
     Span,
@@ -44,6 +46,11 @@ from mlflow.protos.databricks_pb2 import (
     NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
+)
+from mlflow.protos.issues_pb2 import (
+    CreateIssue,
+    SearchIssues,
+    UpdateIssue,
 )
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
@@ -113,6 +120,7 @@ from mlflow.server.handlers import (
     _convert_path_parameter_to_flask_format,
     _create_dataset_handler,
     _create_experiment,
+    _create_issue,
     _create_model_version,
     _create_prompt_optimization_job,
     _create_registered_model,
@@ -132,6 +140,7 @@ from mlflow.server.handlers import (
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
     _get_dataset_records_handler,
+    _get_issue,
     _get_latest_versions,
     _get_model_version,
     _get_model_version_by_alias,
@@ -154,6 +163,7 @@ from mlflow.server.handlers import (
     _rename_registered_model,
     _search_evaluation_datasets_handler,
     _search_experiments,
+    _search_issues,
     _search_logged_models,
     _search_model_versions,
     _search_registered_models,
@@ -166,6 +176,7 @@ from mlflow.server.handlers import (
     _set_trace_tag,
     _set_trace_tag_v3,
     _transition_stage,
+    _update_issue,
     _update_model_version,
     _update_registered_model,
     _upsert_dataset_records_handler,
@@ -4152,3 +4163,380 @@ def test_list_artifacts_for_proxied_run_artifact_root_applies_workspace_scoping(
         mock_artifact_repo.list_artifacts.assert_called_once()
         listed_path = mock_artifact_repo.list_artifacts.call_args[0][0]
         assert listed_path.startswith("workspaces/team-orange/")
+
+
+def test_create_issue_with_all_fields():
+    request_message = CreateIssue()
+    request_message.experiment_id = "exp-123"
+    request_message.name = "High latency"
+    request_message.description = "API calls are taking too long"
+    request_message.status = "pending"
+    request_message.frequency = 0.75
+    request_message.run_id = "run-123"
+    request_message.root_cause = "Database query inefficiency"
+    request_message.confidence = "high"
+    request_message.rationale_examples.extend(["Example 1", "Example 2"])
+    request_message.example_trace_ids.extend(["trace-1", "trace-2"])
+    request_message.trace_ids.extend(["trace-1", "trace-2", "trace-3"])
+    request_message.created_by = "user@example.com"
+
+    issue = Issue(
+        issue_id="iss-123",
+        experiment_id="exp-123",
+        name="High latency",
+        description="API calls are taking too long",
+        status=IssueStatus.PENDING,
+        frequency=0.75,
+        run_id="run-123",
+        root_cause="Database query inefficiency",
+        confidence="high",
+        rationale_examples=["Example 1", "Example 2"],
+        example_trace_ids=["trace-1", "trace-2"],
+        trace_ids=["trace-1", "trace-2", "trace-3"],
+        created_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        created_by="user@example.com",
+    )
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.create_issue.return_value = issue
+
+        response = _create_issue()
+
+        mock_store.return_value.create_issue.assert_called_once()
+        call_kwargs = mock_store.return_value.create_issue.call_args[1]
+        assert call_kwargs["experiment_id"] == "exp-123"
+        assert call_kwargs["name"] == "High latency"
+        assert call_kwargs["description"] == "API calls are taking too long"
+        assert call_kwargs["frequency"] == 0.75
+        assert call_kwargs["status"] == IssueStatus.PENDING
+        assert call_kwargs["run_id"] == "run-123"
+        assert call_kwargs["root_cause"] == "Database query inefficiency"
+        assert call_kwargs["confidence"] == "high"
+        assert call_kwargs["rationale_examples"] == ["Example 1", "Example 2"]
+        assert call_kwargs["example_trace_ids"] == ["trace-1", "trace-2"]
+        assert call_kwargs["trace_ids"] == ["trace-1", "trace-2", "trace-3"]
+        assert call_kwargs["created_by"] == "user@example.com"
+
+        json_response = json.loads(response.get_data())
+        assert json_response["issue"]["issue_id"] == "iss-123"
+        assert json_response["issue"]["frequency"] == 0.75
+
+
+def test_create_issue_without_frequency():
+    request_message = CreateIssue()
+    request_message.experiment_id = "exp-456"
+    request_message.name = "Error handling issue"
+    request_message.description = "Errors are not being caught properly"
+
+    issue = Issue(
+        issue_id="iss-456",
+        experiment_id="exp-456",
+        name="Error handling issue",
+        description="Errors are not being caught properly",
+        status=IssueStatus.PENDING,
+        frequency=None,
+        created_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+    )
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.create_issue.return_value = issue
+
+        response = _create_issue()
+
+        mock_store.return_value.create_issue.assert_called_once()
+        call_kwargs = mock_store.return_value.create_issue.call_args[1]
+        assert call_kwargs["frequency"] is None
+
+        json_response = json.loads(response.get_data())
+        assert json_response["issue"]["issue_id"] == "iss-456"
+        assert (
+            "frequency" not in json_response["issue"] or json_response["issue"]["frequency"] is None
+        )
+
+
+def test_create_issue_with_default_status():
+    request_message = CreateIssue()
+    request_message.experiment_id = "exp-789"
+    request_message.name = "Test issue"
+    request_message.description = "Test description"
+
+    issue = Issue(
+        issue_id="iss-789",
+        experiment_id="exp-789",
+        name="Test issue",
+        description="Test description",
+        status=IssueStatus.PENDING,
+        created_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+    )
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.create_issue.return_value = issue
+
+        _create_issue()
+
+        call_kwargs = mock_store.return_value.create_issue.call_args[1]
+        # Status should not be in kwargs when not provided (store uses default)
+        assert "status" not in call_kwargs
+
+
+def test_get_issue():
+    issue = Issue(
+        issue_id="iss-get-123",
+        experiment_id="exp-123",
+        name="Test issue",
+        description="Test description",
+        status=IssueStatus.ACCEPTED,
+        frequency=0.8,
+        created_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+    )
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store:
+        mock_store.return_value.get_issue.return_value = issue
+
+        with app.test_request_context():
+            response = _get_issue("iss-get-123")
+
+        mock_store.return_value.get_issue.assert_called_once_with("iss-get-123")
+
+        json_response = json.loads(response.get_data())
+        assert json_response["issue"]["issue_id"] == "iss-get-123"
+        assert json_response["issue"]["name"] == "Test issue"
+        assert json_response["issue"]["frequency"] == 0.8
+
+
+def test_get_issue_not_found():
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store:
+        mock_store.return_value.get_issue.side_effect = MlflowException(
+            "Issue not found", error_code=RESOURCE_DOES_NOT_EXIST
+        )
+
+        with app.test_request_context():
+            response = _get_issue("nonexistent-id")
+
+        # The @catch_mlflow_exception decorator catches and returns error as JSON
+        assert response.status_code == 404
+        json_response = json.loads(response.get_data())
+        assert json_response["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert "Issue not found" in json_response["message"]
+
+
+def test_update_issue():
+    request_message = UpdateIssue()
+    request_message.issue_id = "iss-update-123"
+    request_message.name = "Updated issue name"
+    request_message.description = "Updated description"
+    request_message.status = "accepted"
+
+    updated_issue = Issue(
+        issue_id="iss-update-123",
+        experiment_id="exp-123",
+        name="Updated issue name",
+        description="Updated description",
+        status=IssueStatus.ACCEPTED,
+        frequency=0.75,
+        created_timestamp=1234567890,
+        last_updated_timestamp=1234567900,
+    )
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.update_issue.return_value = updated_issue
+
+        response = _update_issue("iss-update-123")
+
+        mock_store.return_value.update_issue.assert_called_once()
+        call_kwargs = mock_store.return_value.update_issue.call_args[1]
+        assert call_kwargs["issue_id"] == "iss-update-123"
+        assert call_kwargs["name"] == "Updated issue name"
+        assert call_kwargs["description"] == "Updated description"
+        assert call_kwargs["status"] == IssueStatus.ACCEPTED
+
+        json_response = json.loads(response.get_data())
+        assert json_response["issue"]["issue_id"] == "iss-update-123"
+        assert json_response["issue"]["name"] == "Updated issue name"
+
+
+def test_search_issues_all():
+    request_message = SearchIssues()
+
+    issues = [
+        Issue(
+            issue_id="iss-1",
+            experiment_id="exp-1",
+            name="Issue 1",
+            description="Description 1",
+            status=IssueStatus.PENDING,
+            frequency=0.9,
+            created_timestamp=1234567890,
+            last_updated_timestamp=1234567890,
+        ),
+        Issue(
+            issue_id="iss-2",
+            experiment_id="exp-1",
+            name="Issue 2",
+            description="Description 2",
+            status=IssueStatus.ACCEPTED,
+            frequency=0.5,
+            created_timestamp=1234567891,
+            last_updated_timestamp=1234567891,
+        ),
+    ]
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.search_issues.return_value = PagedList(issues, token="next-token")
+
+        response = _search_issues()
+
+        mock_store.return_value.search_issues.assert_called_once()
+        call_kwargs = mock_store.return_value.search_issues.call_args[1]
+        assert call_kwargs["max_results"] == 100
+
+        json_response = json.loads(response.get_data())
+        assert len(json_response["issues"]) == 2
+        assert json_response["issues"][0]["issue_id"] == "iss-1"
+        assert json_response["issues"][1]["issue_id"] == "iss-2"
+        assert json_response["next_page_token"] == "next-token"
+
+
+def test_search_issues_with_filters():
+    request_message = SearchIssues()
+    request_message.experiment_id = "exp-specific"
+    request_message.run_id = "run-specific"
+    request_message.status = "accepted"
+    request_message.max_results = 50
+
+    issues = [
+        Issue(
+            issue_id="iss-filtered",
+            experiment_id="exp-specific",
+            name="Filtered issue",
+            description="Description",
+            status=IssueStatus.ACCEPTED,
+            frequency=0.8,
+            run_id="run-specific",
+            created_timestamp=1234567890,
+            last_updated_timestamp=1234567890,
+        ),
+    ]
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.search_issues.return_value = PagedList(issues, token=None)
+
+        response = _search_issues()
+
+        call_kwargs = mock_store.return_value.search_issues.call_args[1]
+        assert call_kwargs["experiment_id"] == "exp-specific"
+        assert call_kwargs["run_id"] == "run-specific"
+        assert call_kwargs["status"] == IssueStatus.ACCEPTED
+        assert call_kwargs["max_results"] == 50
+
+        json_response = json.loads(response.get_data())
+        assert len(json_response["issues"]) == 1
+        assert json_response["issues"][0]["issue_id"] == "iss-filtered"
+        assert json_response["next_page_token"] == ""
+
+
+def test_search_issues_with_pagination():
+    request_message = SearchIssues()
+    request_message.max_results = 10
+    request_message.page_token = "token-123"
+
+    issues = [
+        Issue(
+            issue_id=f"iss-{i}",
+            experiment_id="exp-1",
+            name=f"Issue {i}",
+            description=f"Description {i}",
+            status=IssueStatus.PENDING,
+            created_timestamp=1234567890 + i,
+            last_updated_timestamp=1234567890 + i,
+        )
+        for i in range(10)
+    ]
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.search_issues.return_value = PagedList(issues, token="token-456")
+
+        response = _search_issues()
+
+        call_kwargs = mock_store.return_value.search_issues.call_args[1]
+        assert call_kwargs["max_results"] == 10
+        assert call_kwargs["page_token"] == "token-123"
+
+        json_response = json.loads(response.get_data())
+        assert len(json_response["issues"]) == 10
+        assert json_response["next_page_token"] == "token-456"
+
+
+def test_search_issues_empty_results():
+    request_message = SearchIssues()
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.search_issues.return_value = PagedList([], token=None)
+
+        response = _search_issues()
+
+        json_response = json.loads(response.get_data())
+        assert len(json_response.get("issues", [])) == 0
+        assert json_response["next_page_token"] == ""
+
+
+def test_create_issue_with_empty_lists():
+    request_message = CreateIssue()
+    request_message.experiment_id = "exp-123"
+    request_message.name = "Test issue"
+    request_message.description = "Test description"
+
+    issue = Issue(
+        issue_id="iss-empty-lists",
+        experiment_id="exp-123",
+        name="Test issue",
+        description="Test description",
+        status=IssueStatus.PENDING,
+        rationale_examples=[],
+        example_trace_ids=[],
+        trace_ids=[],
+        created_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+    )
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.create_issue.return_value = issue
+
+        _create_issue()
+
+        call_kwargs = mock_store.return_value.create_issue.call_args[1]
+        # Empty lists should be passed as None
+        assert call_kwargs["rationale_examples"] is None
+        assert call_kwargs["example_trace_ids"] is None
+        assert call_kwargs["trace_ids"] is None
