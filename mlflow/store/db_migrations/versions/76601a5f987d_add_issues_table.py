@@ -20,7 +20,7 @@ def upgrade():
     op.create_table(
         SqlIssue.__tablename__,
         sa.Column("issue_id", sa.String(length=36), nullable=False),
-        sa.Column("experiment_id", sa.String(length=32), nullable=False),
+        sa.Column("experiment_id", sa.Integer(), nullable=False),
         sa.Column("run_id", sa.String(length=32), nullable=True),
         sa.Column("name", sa.String(length=250), nullable=False),
         sa.Column("description", sa.Text(), nullable=False),
@@ -33,6 +33,11 @@ def upgrade():
         sa.Column("created_timestamp", sa.BigInteger(), nullable=False),
         sa.Column("last_updated_timestamp", sa.BigInteger(), nullable=False),
         sa.Column("created_by", sa.String(length=255), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            name="fk_issues_experiment_id",
+        ),
         sa.ForeignKeyConstraint(
             ["run_id"],
             ["runs.run_uuid"],
