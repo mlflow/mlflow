@@ -447,15 +447,20 @@ const TracesV3LogsImpl = React.memo(
               isGroupedBySession={forceGroupBySession || isGroupedBySession}
               forceGroupBySession={forceGroupBySession}
               onToggleSessionGrouping={onToggleSessionGrouping}
-              onDetectIssues={() => setIsIssueDetectionModalOpen(true)}
+              onDetectIssues={disableActions ? undefined : () => setIsIssueDetectionModalOpen(true)}
             />
             {renderMainContent()}
           </div>
-          <IssueDetectionModal
-            visible={isIssueDetectionModalOpen}
-            onClose={() => setIsIssueDetectionModalOpen(false)}
-            experimentId={singleExperimentId}
-          />
+          {!disableActions && (
+            <IssueDetectionModal
+              visible={isIssueDetectionModalOpen}
+              onClose={() => setIsIssueDetectionModalOpen(false)}
+              experimentId={singleExperimentId}
+              initialSelectedTraceIds={Object.entries(rowSelection)
+                .filter(([, isSelected]) => isSelected)
+                .map(([traceId]) => traceId)}
+            />
+          )}
         </GenAITracesTableProvider>
       </ModelTraceExplorerContextProvider>
     );

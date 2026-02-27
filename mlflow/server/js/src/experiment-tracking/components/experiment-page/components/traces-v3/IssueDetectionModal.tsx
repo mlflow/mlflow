@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Modal,
   Button,
@@ -15,12 +15,14 @@ import { ProviderSelect } from '../../../../../gateway/components/create-endpoin
 import { IssueDetectionApiKeyConfigurator } from './IssueDetectionApiKeyConfigurator';
 import { IssueDetectionAdvancedSettings } from './IssueDetectionAdvancedSettings';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
+import { SelectTracesModal } from '../../../SelectTracesModal';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 
 interface IssueDetectionModalProps {
   visible: boolean;
   onClose: () => void;
   experimentId?: string;
+  initialSelectedTraceIds?: string[];
 }
 
 const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
@@ -41,7 +43,12 @@ const DEFAULT_MODELS_BY_PROVIDER: Record<string, { analysisModel: string; judgeM
   databricks: { analysisModel: 'databricks-gpt-5', judgeModel: 'databricks-gpt-5-mini' },
 };
 
-export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visible, onClose, experimentId }) => {
+export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
+  visible,
+  onClose,
+  experimentId,
+  initialSelectedTraceIds = [],
+}) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [provider, setProvider] = useState('');
@@ -51,6 +58,16 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
   const [saveKey, setSaveKey] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
+  const [selectedTraceIds, setSelectedTraceIds] = useState<string[]>(initialSelectedTraceIds);
+  const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
+  const prevVisibleRef = useRef(visible);
+
+  useEffect(() => {
+    if (visible && !prevVisibleRef.current) {
+      setSelectedTraceIds(initialSelectedTraceIds);
+    }
+    prevVisibleRef.current = visible;
+  }, [visible, initialSelectedTraceIds]);
 
   const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
     provider,
@@ -87,6 +104,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
     setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
     setSaveKey(false);
     setIsAdvancedSettingsExpanded(false);
+    setSelectedTraceIds([]);
   }, []);
 
   const handleSubmit = async () => {
@@ -111,166 +129,214 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
       : Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) &&
         (!saveKey || !!apiKeyConfig.newSecret.name);
 
-  const isSubmitDisabled = !provider || !analysisModel || !judgeModel || !isApiKeyValid;
+  const isSubmitDisabled =
+    !provider || !analysisModel || !judgeModel || !isApiKeyValid || selectedTraceIds.length === 0;
 
   return (
-    <Modal
-      componentId="mlflow.traces.issue-detection-modal"
-      title={
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <SparkleIcon color="ai" />
-          <FormattedMessage
-            defaultMessage="Detect Issues"
-            description="Title of the issue detection configuration modal"
-          />
-        </div>
-      }
-      visible={visible}
-      onCancel={handleClose}
-      footer={
-        <Button
-          componentId="mlflow.traces.issue-detection-modal.submit"
-          type="primary"
-          onClick={handleSubmit}
-          loading={isSubmitting}
-          disabled={isSubmitDisabled}
-          css={{ width: '100%' }}
-        >
-          <SparkleIcon css={{ marginRight: theme.spacing.xs }} />
-          <FormattedMessage defaultMessage="Run Analysis" description="Submit button to trigger issue detection job" />
-        </Button>
-      }
-    >
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-        <Typography.Text color="secondary">
-          <FormattedMessage
-            defaultMessage="Connect an LLM to run an AI-powered issue analysis on your traces"
-            description="Description text for issue detection modal"
-          />
-        </Typography.Text>
-
-        <div>
-          <ProviderSelect value={provider} onChange={handleProviderChange} />
-          {provider && DEFAULT_MODELS_BY_PROVIDER[provider] && (
-            <Typography.Text
-              color="secondary"
-              css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
-            >
-              <FormattedMessage
-                defaultMessage="Analysis model: {analysisModel} · Judge model: {judgeModel}"
-                description="Display of default models for selected provider"
-                values={{
-                  analysisModel,
-                  judgeModel,
-                }}
-              />
-            </Typography.Text>
-          )}
-          {provider && !DEFAULT_MODELS_BY_PROVIDER[provider] && (
-            <Typography.Text
-              color="secondary"
-              css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
-            >
-              <FormattedMessage
-                defaultMessage="Please select models in `Advanced settings` below"
-                description="Message when provider has no default models"
-              />
-            </Typography.Text>
-          )}
-        </div>
-
-        <div>
-          <Typography.Text css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>
-            <FormattedMessage defaultMessage="Connections" description="Section header for API key configuration" />
-          </Typography.Text>
-          <div css={{ marginTop: theme.spacing.sm }}>
-            <IssueDetectionApiKeyConfigurator
-              value={apiKeyConfig}
-              onChange={setApiKeyConfig}
-              provider={provider}
-              authModes={authModes}
-              defaultAuthMode={defaultAuthMode}
-              isLoadingProviderConfig={isLoadingProviderConfig}
-              hasExistingSecrets={existingSecrets.length > 0}
+    <>
+      <Modal
+        componentId="mlflow.traces.issue-detection-modal"
+        title={
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <SparkleIcon color="ai" />
+            <FormattedMessage
+              defaultMessage="Detect Issues"
+              description="Title of the issue detection configuration modal"
             />
           </div>
-          {provider &&
-            apiKeyConfig.mode === 'new' &&
-            Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
-              <div css={{ marginTop: theme.spacing.md }}>
-                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
-                  <Tooltip
-                    componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
-                    content={intl.formatMessage({
-                      defaultMessage: 'Saved API keys can be managed in AI Gateway → API Keys tab',
-                      description: 'Tooltip explaining where saved API keys can be found',
-                    })}
-                  >
-                    <span>
-                      <Checkbox
-                        componentId="mlflow.traces.issue-detection-modal.save-key-checkbox"
-                        isChecked={saveKey}
-                        onChange={(checked) => setSaveKey(checked)}
-                      >
-                        <FormattedMessage
-                          defaultMessage="Save this key for reuse"
-                          description="Checkbox to save API key for reuse"
-                        />
-                      </Checkbox>
-                    </span>
-                  </Tooltip>
-                  {saveKey && (
-                    <Input
-                      componentId="mlflow.traces.issue-detection-modal.api-key-name"
-                      value={apiKeyConfig.newSecret.name}
-                      onChange={(e) =>
-                        setApiKeyConfig({
-                          ...apiKeyConfig,
-                          newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
-                        })
-                      }
-                      placeholder={intl.formatMessage({
-                        defaultMessage: 'API key name',
-                        description: 'Placeholder for API key name input',
-                      })}
-                      css={{ width: 200 }}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-        </div>
-
-        <Accordion
-          componentId="mlflow.traces.issue-detection-modal.advanced-settings"
-          activeKey={isAdvancedSettingsExpanded ? ['advanced'] : []}
-          onChange={(keys) => setIsAdvancedSettingsExpanded(Array.isArray(keys) ? keys.includes('advanced') : false)}
-          dangerouslyAppendEmotionCSS={{
-            background: 'transparent',
-            border: 'none',
-          }}
-        >
-          <Accordion.Panel
-            header={intl.formatMessage({
-              defaultMessage: 'Advanced settings',
-              description: 'Collapsible section for advanced settings',
-            })}
-            key="advanced"
+        }
+        visible={visible}
+        onCancel={handleClose}
+        footer={
+          <Button
+            componentId="mlflow.traces.issue-detection-modal.submit"
+            type="primary"
+            onClick={handleSubmit}
+            loading={isSubmitting}
+            disabled={isSubmitDisabled}
+            css={{ width: '100%' }}
           >
-            <IssueDetectionAdvancedSettings
-              provider={provider}
-              analysisModel={analysisModel}
-              onAnalysisModelChange={setAnalysisModel}
-              judgeModel={judgeModel}
-              onJudgeModelChange={setJudgeModel}
-              apiKeyConfig={apiKeyConfig}
-              onApiKeyConfigChange={setApiKeyConfig}
-              authModes={authModes}
-              defaultAuthMode={defaultAuthMode}
+            <SparkleIcon css={{ marginRight: theme.spacing.xs }} />
+            <FormattedMessage
+              defaultMessage="Run Analysis"
+              description="Submit button to trigger issue detection job"
             />
-          </Accordion.Panel>
-        </Accordion>
-      </div>
-    </Modal>
+          </Button>
+        }
+      >
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+          <Typography.Text color="secondary">
+            <FormattedMessage
+              defaultMessage="Connect an LLM to run an AI-powered issue analysis on your traces"
+              description="Description text for issue detection modal"
+            />
+          </Typography.Text>
+
+          <div>
+            <ProviderSelect
+              value={provider}
+              onChange={handleProviderChange}
+              componentIdPrefix="mlflow.traces.issue-detection-modal.provider"
+            />
+            {provider && DEFAULT_MODELS_BY_PROVIDER[provider] && (
+              <Typography.Text
+                color="secondary"
+                css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
+              >
+                <FormattedMessage
+                  defaultMessage="Analysis model: {analysisModel} · Judge model: {judgeModel}"
+                  description="Display of default models for selected provider"
+                  values={{
+                    analysisModel,
+                    judgeModel,
+                  }}
+                />
+              </Typography.Text>
+            )}
+            {provider && !DEFAULT_MODELS_BY_PROVIDER[provider] && (
+              <Typography.Text
+                color="secondary"
+                css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
+              >
+                <FormattedMessage
+                  defaultMessage="Please select models in `Advanced settings` below"
+                  description="Message when provider has no default models"
+                />
+              </Typography.Text>
+            )}
+          </div>
+
+          <div>
+            <Typography.Text css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>
+              <FormattedMessage defaultMessage="Connections" description="Section header for API key configuration" />
+            </Typography.Text>
+            <div css={{ marginTop: theme.spacing.sm }}>
+              <IssueDetectionApiKeyConfigurator
+                value={apiKeyConfig}
+                onChange={setApiKeyConfig}
+                provider={provider}
+                authModes={authModes}
+                defaultAuthMode={defaultAuthMode}
+                isLoadingProviderConfig={isLoadingProviderConfig}
+                hasExistingSecrets={existingSecrets.length > 0}
+              />
+            </div>
+            {provider &&
+              apiKeyConfig.mode === 'new' &&
+              Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
+                <div css={{ marginTop: theme.spacing.md }}>
+                  <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
+                    <Tooltip
+                      componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
+                      content={intl.formatMessage({
+                        defaultMessage: 'Saved API keys can be managed in AI Gateway → API Keys tab',
+                        description: 'Tooltip explaining where saved API keys can be found',
+                      })}
+                    >
+                      <span>
+                        <Checkbox
+                          componentId="mlflow.traces.issue-detection-modal.save-key-checkbox"
+                          isChecked={saveKey}
+                          onChange={(checked) => setSaveKey(checked)}
+                        >
+                          <FormattedMessage
+                            defaultMessage="Save this key for reuse"
+                            description="Checkbox to save API key for reuse"
+                          />
+                        </Checkbox>
+                      </span>
+                    </Tooltip>
+                    {saveKey && (
+                      <Input
+                        componentId="mlflow.traces.issue-detection-modal.api-key-name"
+                        value={apiKeyConfig.newSecret.name}
+                        onChange={(e) =>
+                          setApiKeyConfig({
+                            ...apiKeyConfig,
+                            newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
+                          })
+                        }
+                        placeholder={intl.formatMessage({
+                          defaultMessage: 'API key name',
+                          description: 'Placeholder for API key name input',
+                        })}
+                        css={{ width: 200 }}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+          </div>
+
+          <div>
+            <Typography.Text css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>
+              <FormattedMessage defaultMessage="Traces" description="Section header for trace selection" />
+            </Typography.Text>
+            <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.xs }}>
+              <FormattedMessage
+                defaultMessage="Select the traces to analyze for issues"
+                description="Description for trace selection section"
+              />
+            </Typography.Text>
+            <div css={{ marginTop: theme.spacing.sm }}>
+              <Button
+                componentId="mlflow.traces.issue-detection-modal.select-traces"
+                onClick={() => setIsSelectTracesModalOpen(true)}
+              >
+                {selectedTraceIds.length > 0 ? (
+                  <FormattedMessage
+                    defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
+                    description="Label showing number of traces selected"
+                    values={{ count: selectedTraceIds.length }}
+                  />
+                ) : (
+                  <FormattedMessage defaultMessage="Select traces" description="Button to open trace selection modal" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          <Accordion
+            componentId="mlflow.traces.issue-detection-modal.advanced-settings"
+            activeKey={isAdvancedSettingsExpanded ? ['advanced'] : []}
+            onChange={(keys) => setIsAdvancedSettingsExpanded(Array.isArray(keys) ? keys.includes('advanced') : false)}
+            dangerouslyAppendEmotionCSS={{
+              background: 'transparent',
+              border: 'none',
+            }}
+          >
+            <Accordion.Panel
+              header={intl.formatMessage({
+                defaultMessage: 'Advanced settings',
+                description: 'Collapsible section for advanced settings',
+              })}
+              key="advanced"
+            >
+              <IssueDetectionAdvancedSettings
+                provider={provider}
+                analysisModel={analysisModel}
+                onAnalysisModelChange={setAnalysisModel}
+                judgeModel={judgeModel}
+                onJudgeModelChange={setJudgeModel}
+                apiKeyConfig={apiKeyConfig}
+                onApiKeyConfigChange={setApiKeyConfig}
+                authModes={authModes}
+                defaultAuthMode={defaultAuthMode}
+              />
+            </Accordion.Panel>
+          </Accordion>
+        </div>
+      </Modal>
+      {isSelectTracesModalOpen && (
+        <SelectTracesModal
+          onClose={() => setIsSelectTracesModalOpen(false)}
+          onSuccess={(traceIds) => {
+            setSelectedTraceIds(traceIds);
+            setIsSelectTracesModalOpen(false);
+          }}
+          initialTraceIdsSelected={selectedTraceIds}
+        />
+      )}
+    </>
   );
 };
