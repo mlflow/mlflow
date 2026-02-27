@@ -1,0 +1,326 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
+import { useMemo } from 'react';
+import type { CursorPaginationProps } from '@databricks/design-system';
+import {
+  BeakerIcon,
+  Button,
+  Checkbox,
+  useDesignSystemTheme,
+  Empty,
+  NoIcon,
+  PlusIcon,
+  Table,
+  CursorPagination,
+  TableRow,
+  TableHeader,
+  TableCell,
+  TableSkeletonRows,
+  Tag,
+  Tooltip,
+  QuestionMarkIcon,
+} from '@databricks/design-system';
+import 'react-virtualized/styles.css';
+import type { ExperimentEntity } from '../types';
+import type { ColumnDef, OnChangeFn, RowSelectionState, SortingState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
+import { isEmpty } from 'lodash';
+import { FormattedMessage, useIntl } from 'react-intl';
+import Utils from '../../common/utils/Utils';
+import { Link } from '../../common/utils/RoutingUtils';
+import Routes from '../routes';
+import { ExperimentListTableTagsCell } from './ExperimentListTableTagsCell';
+import { isDemoExperiment } from '../utils/isDemoExperiment';
+
+export type ExperimentTableColumnDef = ColumnDef<ExperimentEntity>;
+
+export type ExperimentTableMetadata = { onEditTags: (editedEntity: ExperimentEntity) => void };
+
+const useExperimentsTableColumns = () => {
+  const intl = useIntl();
+  return useMemo(() => {
+    const resultColumns: ExperimentTableColumnDef[] = [
+      {
+        header: ({ table }) => (
+          <Checkbox
+            componentId="mlflow.experiment_list_view.check_all_box"
+            isChecked={table.getIsSomeRowsSelected() ? null : table.getIsAllRowsSelected()}
+            onChange={(_, event) => table.getToggleAllRowsSelectedHandler()(event)}
+          />
+        ),
+        id: 'select',
+        cell: ExperimentListCheckbox,
+        enableSorting: false,
+      },
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Name',
+          description: 'Header for the name column in the experiments table',
+        }),
+        accessorKey: 'name',
+        id: 'name',
+        cell: ExperimentListTableCell,
+        enableSorting: true,
+      },
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Time created',
+          description: 'Header for the time created column in the experiments table',
+        }),
+        id: 'creation_time',
+        accessorFn: ({ creationTime }) => Utils.formatTimestamp(creationTime, intl),
+        enableSorting: true,
+        sortingFn: (rowA, rowB) => Number(rowA.original.creationTime ?? 0) - Number(rowB.original.creationTime ?? 0),
+      },
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Last modified',
+          description: 'Header for the last modified column in the experiments table',
+        }),
+        id: 'last_update_time',
+        accessorFn: ({ lastUpdateTime }) => Utils.formatTimestamp(lastUpdateTime, intl),
+        enableSorting: true,
+        sortingFn: (rowA, rowB) =>
+          Number(rowA.original.lastUpdateTime ?? 0) - Number(rowB.original.lastUpdateTime ?? 0),
+      },
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Description',
+          description: 'Header for the description column in the experiments table',
+        }),
+        id: 'description',
+        accessorFn: ({ tags }) => tags?.find(({ key }) => key === 'mlflow.note.content')?.value ?? '-',
+        enableSorting: false,
+      },
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Tags',
+          description: 'Header for the tags column in the experiments table',
+        }),
+        id: 'tags',
+        accessorKey: 'tags',
+        enableSorting: false,
+        cell: ExperimentListTableTagsCell,
+      },
+    ];
+
+    return resultColumns;
+  }, [intl]);
+};
+
+export const ExperimentListTable = ({
+  experiments,
+  isFiltered,
+  isLoading,
+  rowSelection,
+  setRowSelection,
+  cursorPaginationProps,
+  sortingProps: { sorting, setSorting },
+  onEditTags,
+  onCreateExperiment,
+}: {
+  experiments?: ExperimentEntity[];
+  isFiltered?: boolean;
+  isLoading: boolean;
+  rowSelection: RowSelectionState;
+  setRowSelection: OnChangeFn<RowSelectionState>;
+  cursorPaginationProps?: Omit<CursorPaginationProps, 'componentId'>;
+  sortingProps: { sorting: SortingState; setSorting: OnChangeFn<SortingState> };
+  onEditTags: (editedEntity: ExperimentEntity) => void;
+  onCreateExperiment?: () => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const columns = useExperimentsTableColumns();
+
+  const table = useReactTable('mlflow/server/js/src/experiment-tracking/components/ExperimentListTable.tsx', {
+    data: experiments ?? [],
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getRowId: (row) => row.experimentId,
+    enableRowSelection: true,
+    enableMultiRowSelection: true,
+    onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
+    state: { rowSelection, sorting },
+    meta: { onEditTags } satisfies ExperimentTableMetadata,
+  });
+
+  const getEmptyState = () => {
+    const isEmptyList = !isLoading && isEmpty(experiments);
+    if (isEmptyList && isFiltered) {
+      return (
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 400,
+          }}
+        >
+          <Empty
+            image={<NoIcon />}
+            title={
+              <FormattedMessage
+                defaultMessage="No experiments found"
+                description="Label for the empty state in the experiments table when no experiments are found"
+              />
+            }
+            description={null}
+          />
+        </div>
+      );
+    }
+    if (isEmptyList) {
+      return (
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 400,
+          }}
+        >
+          <Empty
+            image={<BeakerIcon />}
+            title={
+              <FormattedMessage
+                defaultMessage="Create your first experiment"
+                description="Home page experiments empty state title"
+              />
+            }
+            description={
+              <FormattedMessage
+                defaultMessage="Create your first experiment to start tracking ML workflows."
+                description="Home page experiments empty state description"
+              />
+            }
+            button={
+              onCreateExperiment ? (
+                <Button
+                  componentId="mlflow.experiment_list_table.create_experiment"
+                  data-testid="create-experiment-table-empty-state-button"
+                  onClick={onCreateExperiment}
+                  type="primary"
+                  icon={<PlusIcon />}
+                >
+                  <FormattedMessage
+                    defaultMessage="Create experiment"
+                    description="Home page experiments empty state CTA"
+                  />
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const selectColumnStyles = { flex: 'none', height: theme.general.heightBase };
+
+  return (
+    <Table
+      scrollable
+      pagination={
+        cursorPaginationProps ? (
+          <CursorPagination {...cursorPaginationProps} componentId="mlflow.experiment_list_view.pagination" />
+        ) : undefined
+      }
+      empty={getEmptyState()}
+    >
+      <TableRow isHeader>
+        {table.getLeafHeaders().map((header) => (
+          <TableHeader
+            componentId="mlflow.experiment_list_view.table.header"
+            key={header.id}
+            css={header.column.id === 'select' ? selectColumnStyles : undefined}
+            sortable={header.column.getCanSort()}
+            sortDirection={header.column.getIsSorted() || 'none'}
+            onToggleSort={header.column.getToggleSortingHandler()}
+          >
+            {flexRender(header.column.columnDef.header, header.getContext())}
+          </TableHeader>
+        ))}
+      </TableRow>
+      {isLoading ? (
+        <TableSkeletonRows table={table} />
+      ) : (
+        table.getRowModel().rows.map((row) => (
+          <TableRow key={row.id} css={{ height: theme.general.buttonHeight }} data-testid="experiment-list-item">
+            {row.getAllCells().map((cell) => (
+              <TableCell
+                key={cell.id}
+                css={{ alignItems: 'center', ...(cell.column.id === 'select' ? selectColumnStyles : undefined) }}
+              >
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </TableCell>
+            ))}
+          </TableRow>
+        ))
+      )}
+    </Table>
+  );
+};
+
+const ExperimentListTableCell: ExperimentTableColumnDef['cell'] = ({ row: { original } }) => {
+  const { theme } = useDesignSystemTheme();
+  if (isDemoExperiment(original)) {
+    return (
+      <div css={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Link
+          to={Routes.getExperimentPageRoute(original.experimentId)}
+          title={original.name}
+          data-testid="experiment-list-item-link"
+          css={{ textDecoration: 'none' }}
+        >
+          <Tag componentId="mlflow.experiment_list.demo_badge" color="turquoise">
+            <FormattedMessage
+              defaultMessage="MLflow Demo Experiment"
+              description="Badge label for the demo experiment in the experiments list"
+            />
+          </Tag>
+        </Link>
+        <Tooltip
+          componentId="mlflow.experiment_list.demo_tooltip"
+          content={
+            <FormattedMessage
+              defaultMessage="A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings."
+              description="Tooltip explaining the demo experiment in the experiments list"
+            />
+          }
+        >
+          <span css={{ display: 'inline-flex', color: theme.colors.textSecondary }}>
+            <QuestionMarkIcon css={{ fontSize: 13 }} />
+          </span>
+        </Tooltip>
+      </div>
+    );
+  }
+  return (
+    <Link
+      className="experiment-link"
+      css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}
+      to={Routes.getExperimentPageRoute(original.experimentId)}
+      title={original.name}
+      data-testid="experiment-list-item-link"
+    >
+      {original.name}
+    </Link>
+  );
+};
+
+const ExperimentListCheckbox: ExperimentTableColumnDef['cell'] = ({ row }) => {
+  return (
+    <Checkbox
+      componentId="mlflow.experiment_list_view.check_box"
+      id={row.original.experimentId}
+      key={row.original.experimentId}
+      data-testid="experiment-list-item-check-box"
+      isChecked={row.getIsSelected()}
+      disabled={!row.getCanSelect()}
+      onChange={row.getToggleSelectedHandler()}
+    />
+  );
+};

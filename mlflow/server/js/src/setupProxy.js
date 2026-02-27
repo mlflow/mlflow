@@ -17,6 +17,12 @@ module.exports = function (app) {
     }),
   );
   app.use(
+    createProxyMiddleware('/graphql', {
+      target: proxyTarget,
+      changeOrigin: true,
+    }),
+  );
+  app.use(
     createProxyMiddleware('/get-artifact', {
       target: proxyStaticTarget,
       ws: true,
@@ -27,6 +33,12 @@ module.exports = function (app) {
     createProxyMiddleware('/model-versions/get-artifact', {
       target: proxyStaticTarget,
       ws: true,
+      changeOrigin: true,
+    }),
+  );
+  app.use(
+    createProxyMiddleware('/gateway', {
+      target: proxyTarget,
       changeOrigin: true,
     }),
   );

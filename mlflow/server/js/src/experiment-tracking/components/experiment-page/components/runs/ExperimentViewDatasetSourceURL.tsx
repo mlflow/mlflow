@@ -1,5 +1,6 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { DatasetSourceTypes, RunDatasetWithTags } from '../../../../types';
+import type { RunDatasetWithTags } from '../../../../types';
+import { DatasetSourceTypes } from '../../../../types';
 import { getDatasetSourceUrl } from '../../../../utils/DatasetUtils';
 
 export interface ExperimentViewDatasetSourceProps {
@@ -31,7 +32,12 @@ export const ExperimentViewDatasetSourceURL = ({ datasetWithTags }: ExperimentVi
           title={url}
         >
           URL:{' '}
-          <Typography.Link openInNewTab href={url} css={{ display: 'flex', overflow: 'hidden' }}>
+          <Typography.Link
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetsourceurl.tsx_34"
+            openInNewTab
+            href={url}
+            css={{ display: 'flex', overflow: 'hidden' }}
+          >
             <span css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{url}</span>
           </Typography.Link>
         </div>

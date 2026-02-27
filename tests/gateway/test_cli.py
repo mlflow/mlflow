@@ -35,7 +35,7 @@ def test_start_invalid_config(tmp_path):
 
     config.write_text(
         """
-routes:
+endpoints:
   - model:
     name: invalid
 """

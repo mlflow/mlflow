@@ -1,0 +1,100 @@
+import useBaseUrl from '@docusaurus/useBaseUrl';
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import SearchBox from '@site/src/components/SearchBox';
+import Platform from "@site/src/content/platform.mdx"
+import { CardGroup, TitleCard } from "@site/src/components/Card";
+import { Heart, Zap, Puzzle, LifeBuoy, Binoculars, Activity } from "lucide-react";
+import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
+
+# MLflow GenAI: Ship High-quality GenAI, Fast
+
+MLflow GenAI is an open-source, all-in-one integrated platform that helps enhance your Agent & GenAI applications with end-to-end observability, evaluations, AI gateway, prompt management & optimization and tracking.
+
+<FeatureHighlights features={[
+  {
+    icon: Heart,
+    title: "Open Source",
+    description: "Join thousands of teams building GenAI with MLflow - with 20K+ GitHub Stars and 50M+ monthly downloads. As part of the Linux Foundation, MLflow ensures your AI infrastructure remains open and vendor-neutral."
+  },
+  {
+    icon: Zap,
+    title: "OpenTelemetry",
+    description: "MLflow Tracing is fully compatible with OpenTelemetry, making it free from vendor lock-in and easy to integrate with your existing observability stack."
+  },
+  {
+    icon: LifeBuoy,
+    title: "All-in-one Platform",
+    description: "Manage the complete GenAI journey from experimentation to production. Track prompts, evaluate quality, deploy models, and monitor performance in one platform."
+  },
+  {
+    icon: Binoculars,
+    title: "Complete Observability",
+    description: "See inside every AI decision with comprehensive tracing that captures prompts, retrievals, tool calls, and model responses. Debug complex workflows with confidence."
+  },
+  {
+    icon: Activity,
+    title: "Evaluation & Monitoring",
+    description: "Stop manual testing with LLM judges and custom metrics. Systematically evaluate every change to ensure consistent improvements in your AI applications."
+  },
+  {
+    icon: Puzzle,
+    title: "Framework Integration",
+    description: "Use any GenAI framework or model provider. With 30+ integrations and extensible APIs, MLflow adapts to your tech stack, not the other way around."
+  }
+]} />
+
+<br/>
+<GenAIDemoCard />
+
+## Observability
+
+Debug and iterate on GenAI applications using MLflow's tracing, which captures your app's entire execution, including prompts, retrievals and tool calls.
+MLflow's open-source, OpenTelemetry-compatible tracing SDK helps avoid vendor lock-in.
+
+<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop muted aria-label="MLflow Tracing" poster={useBaseUrl("/images/llms/tracing/tracing-top-poster.png")} />
+
+<CardGroup cols={1}>
+    <TitleCard title="Observability Quickstart →" link="/genai/tracing/quickstart">
+    This quickstart will guide you through enabling tracing in your GenAI application and sending your first trace to MLflow.
+    </TitleCard>
+</CardGroup>
+
+## Evaluations
+
+Accurately measure free-form language with LLM judges by utilizing LLM-as-a-judge metrics, mimicking human expertise, to assess and enhance GenAI quality. Access pre-built judges for common metrics like hallucination or relevance, or develop custom judges tailored to your business needs and expert insights.
+
+<video src={useBaseUrl("/images/mlflow-3/eval-monitor/evaluation-result-video.mp4")} controls loop muted aria-label="MLflow Evaluation" poster={useBaseUrl("/images/mlflow-3/eval-monitor/evaluation-result-video-poster.png")} />
+
+<CardGroup cols={1}>
+    <TitleCard title="Evaluations Quickstart →" link="/genai/eval-monitor/quickstart">
+    This quickstart will walk you through preparing a dataset, configuring a scorer, and running your first evaluation in just a few steps.
+    </TitleCard>
+</CardGroup>
+
+## Prompt Management & Optimization
+
+Version, compare, iterate on, and discover prompt templates directly through the MLflow UI. Reuse prompts across multiple versions of your agent or application code, and view rich lineage identifying which versions are using each prompt.
+
+<video src={useBaseUrl("/images/llms/prompt-registry/prompt-management.mp4")} controls loop muted aria-label="MLflow Prompt Management" poster={useBaseUrl("/images/llms/prompt-registry/prompt-management-poster.png")} />
+
+<CardGroup cols={1}>
+    <TitleCard title="Prompt Management Quickstart →" link="/genai/prompt-registry/create-and-edit-prompts">
+    This quickstart will guide you through creating, editing and versioning prompts for your GenAI application.
+    </TitleCard>
+</CardGroup>
+
+---
+
+## Running Anywhere
+
+<Platform />
+
+## Ask AI About MLflow
+
+<SearchBox placeholder="What do you want to know about MLflow?" />
+
+## Community
+
+Connect with fellow builders, ask questions, and stay up to date — join our vibrant MLflow community on Slack, GitHub, LinkedIn, and more!
+
+Learn how to get involved and discover all our channels on the [Community Page](/community).

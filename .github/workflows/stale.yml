@@ -1,32 +1,28 @@
 name: Stale
+
 on:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 * * *" # Run daily at midnight UTC
+  workflow_dispatch:
 
-permissions:
-  contents: read
+defaults:
+  run:
+    shell: bash
 
 jobs:
   stale:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
     permissions:
-      issues: write # harupy/stale
-      pull-requests: write # harupy/stale
+      issues: write
+    timeout-minutes: 10
     steps:
-      - uses: harupy/stale@mlflow-stale-bot
+      - uses: actions/stale@997185467fa4f803885201cee163a9f38240193d # v10.1.1
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          stale-issue-message: "This issue is stale because it has been open 14 days with no activity. Remove stale label or comment or this will be closed in 35 days."
-          close-issue-message: "This issue was closed because it has been stalled for 14 days with no activity."
-          days-before-stale: 14
-          days-before-close: 35
-          # Only process issues created after 2022-07-01 as an experiment. We can remove this option
-          # once we confirm the bot works fine.
-          start-date: "2022-07-01T00:00:00Z"
-          # Prevent the bot from staling/closing PRs
+          days-before-stale: 365
+          days-before-close: 14
           days-before-pr-stale: -1
           days-before-pr-close: -1
-          days-before-triage-reminder: 7
-          days-before-reply-reminder: 14
+          stale-issue-label: stale
+          exempt-issue-labels: security,bug,enhancement
+          operations-per-run: 100

@@ -1,0 +1,165 @@
+import sys
+from collections.abc import AsyncIterator
+
+import pytest
+import pytest_asyncio
+from fastmcp import Client
+from fastmcp.client.transports import StdioTransport
+
+import mlflow
+from mlflow.mcp import server
+
+
+@pytest_asyncio.fixture()
+async def client() -> AsyncIterator[Client]:
+    transport = StdioTransport(
+        command=sys.executable,
+        args=[server.__file__],
+        env={
+            "MLFLOW_TRACKING_URI": mlflow.get_tracking_uri(),
+            "MLFLOW_MCP_TOOLS": "all",  # Test all tools
+        },
+    )
+    async with Client(transport) as client:
+        yield client
+
+
+@pytest.mark.asyncio
+async def test_list_tools(client: Client):
+    tools = await client.list_tools()
+    assert sorted(t.name for t in tools) == [
+        "build_model_docker",
+        "create_deployment",
+        "create_deployment_endpoint",
+        "create_experiment",
+        "create_run",
+        "delete_deployment",
+        "delete_deployment_endpoint",
+        "delete_experiment",
+        "delete_run",
+        "delete_trace_assessment",
+        "delete_trace_tag",
+        "delete_traces",
+        "describe_run",
+        "evaluate_traces",
+        "explain_deployment",
+        "generate_model_dockerfile",
+        "get_deployment",
+        "get_deployment_endpoint",
+        "get_experiment",
+        "get_trace",
+        "get_trace_assessment",
+        "link_traces_to_run",
+        "list_deployment_endpoints",
+        "list_deployments",
+        "list_runs",
+        "list_scorers",
+        "log_trace_expectation",
+        "log_trace_feedback",
+        "predict_with_deployment",
+        "predict_with_model",
+        "prepare_model_env",
+        "register_llm_judge_scorer",
+        "rename_experiment",
+        "restore_experiment",
+        "restore_run",
+        "run_deployment_locally",
+        "search_experiments",
+        "search_traces",
+        "serve_model",
+        "set_trace_tag",
+        "update_deployment",
+        "update_deployment_endpoint",
+        "update_model_pip_requirements",
+        "update_trace_assessment",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_call_tool(client: Client):
+    with mlflow.start_span() as span:
+        pass
+
+    result = await client.call_tool(
+        "get_trace",
+        {"trace_id": span.trace_id},
+        timeout=5,
+    )
+    assert span.trace_id in result.content[0].text
+
+    experiment = mlflow.search_experiments(max_results=1)[0]
+    result = await client.call_tool(
+        "search_traces",
+        {"experiment_id": experiment.experiment_id},
+        timeout=5,
+    )
+    assert span.trace_id in result.content[0].text
+
+    result = await client.call_tool(
+        "delete_traces",
+        {
+            "experiment_id": experiment.experiment_id,
+            "trace_ids": span.trace_id,
+        },
+        timeout=5,
+    )
+    result = await client.call_tool(
+        "get_trace",
+        {"trace_id": span.trace_id},
+        timeout=5,
+        raise_on_error=False,
+    )
+    assert result.is_error is True
+
+
+@pytest.mark.asyncio
+async def test_list_prompts(client: Client):
+    prompts = await client.list_prompts()
+    prompt_names = [p.name for p in prompts]
+
+    # Should have at least the genai_analyze_experiment prompt
+    assert "genai_analyze_experiment" in prompt_names
+
+    # Find the analyze experiment prompt
+    analyze_prompt = next(p for p in prompts if p.name == "genai_analyze_experiment")
+    assert "experiment" in analyze_prompt.description.lower()
+    assert "traces" in analyze_prompt.description.lower()
+
+
+@pytest.mark.asyncio
+async def test_get_prompt(client: Client):
+    # Get the analyze experiment prompt
+    result = await client.get_prompt("genai_analyze_experiment")
+
+    # Should return messages
+    assert len(result.messages) > 0
+
+    # Content should contain the AI command instructions
+    content = result.messages[0].content.text
+    assert "Analyze Experiment" in content
+    assert "Step 1: Setup and Configuration" in content
+    assert "MLflow" in content
+
+
+def test_fn_wrapper_handles_unset_defaults(monkeypatch):
+    import click
+
+    from mlflow.mcp.server import fn_wrapper
+
+    fake_unset = object()
+    monkeypatch.setattr(click.core, "UNSET", fake_unset, raising=False)
+
+    @click.command()
+    @click.option("--foo", type=str)
+    @click.option("--bar", type=str)
+    def cmd(foo, bar):
+        click.echo(f"{foo},{bar}")
+
+    for p in cmd.params:
+        if p.name == "bar":
+            p.default = fake_unset
+
+    wrapper = fn_wrapper(cmd)
+    result = wrapper(foo="hello")
+    assert "hello" in result
+    assert "None" in result

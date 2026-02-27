@@ -5,7 +5,11 @@ import pytest
 
 import mlflow
 from mlflow import MlflowException
-from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import (
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_USERNAME,
+)
 from mlflow.protos.databricks_pb2 import (
     PERMISSION_DENIED,
     RESOURCE_DOES_NOT_EXIST,
@@ -15,6 +19,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.server.auth import auth_config
 from mlflow.server.auth.client import AuthServiceClient
 from mlflow.utils.os import is_windows
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 from tests.server.auth.auth_test_utils import (
@@ -30,9 +35,8 @@ from tests.tracking.integration_test_utils import _init_server
 
 @pytest.fixture(autouse=True)
 def clear_credentials(monkeypatch):
-    monkeypatch.delenvs(
-        [MLFLOW_TRACKING_USERNAME.name, MLFLOW_TRACKING_PASSWORD.name], raising=False
-    )
+    monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
+    monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
 
 
 @pytest.fixture
@@ -49,6 +53,8 @@ def client(tmp_path):
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         app="mlflow.server.auth:create_app",
+        extra_env={MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key"},
+        server_type="flask",
     ) as url:
         yield AuthServiceClient(url)
 
@@ -268,6 +274,7 @@ def test_client_create_registered_model_permission(client, monkeypatch):
         rmp = client.create_registered_model_permission(name, username, PERMISSION)
     assert rmp.name == name
     assert rmp.permission == PERMISSION
+    assert rmp.workspace == DEFAULT_WORKSPACE_NAME
 
     with assert_unauthenticated():
         client.create_registered_model_permission(name, username, PERMISSION)
@@ -285,6 +292,7 @@ def test_client_get_registered_model_permission(client, monkeypatch):
         rmp = client.get_registered_model_permission(name, username)
     assert rmp.name == name
     assert rmp.permission == PERMISSION
+    assert rmp.workspace == DEFAULT_WORKSPACE_NAME
 
     with assert_unauthenticated():
         client.get_registered_model_permission(name, username)
@@ -303,6 +311,7 @@ def test_client_update_registered_model_permission(client, monkeypatch):
         rmp = client.get_registered_model_permission(name, username)
     assert rmp.name == name
     assert rmp.permission == NEW_PERMISSION
+    assert rmp.workspace == DEFAULT_WORKSPACE_NAME
 
     with assert_unauthenticated():
         client.update_registered_model_permission(name, username, PERMISSION)
@@ -318,10 +327,14 @@ def test_client_delete_registered_model_permission(client, monkeypatch):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.create_registered_model_permission(name, username, PERMISSION)
         client.delete_registered_model_permission(name, username)
+        expected_message = (
+            "Registered model permission with "
+            f"workspace={DEFAULT_WORKSPACE_NAME}, name={name} "
+            f"and username={username} not found"
+        )
         with pytest.raises(
             MlflowException,
-            match=rf"Registered model permission with name={name} "
-            rf"and username={username} not found",
+            match=expected_message,
         ) as exception_context:
             client.get_registered_model_permission(name, username)
         assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)

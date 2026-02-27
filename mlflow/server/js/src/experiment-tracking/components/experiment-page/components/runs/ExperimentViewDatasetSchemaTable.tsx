@@ -2,7 +2,7 @@ import { Table, TableCell, TableHeader, TableRow } from '@databricks/design-syst
 import { FormattedMessage } from 'react-intl';
 
 export interface ExperimentViewDatasetSchemaTableProps {
-  schema: any[];
+  schema: Array<{ name: string | string[]; type: string }>;
   filter: string;
 }
 
@@ -10,36 +10,40 @@ export const ExperimentViewDatasetSchemaTable = ({
   schema,
   filter,
 }: ExperimentViewDatasetSchemaTableProps): JSX.Element => {
-  const hasFilter = (name?: string, type?: string) => {
+  const hasFilter = (name?: string | string[], type?: string) => {
+    // Handle both string names (regular columns) and array names (MultiIndex columns)
+    const nameStr = Array.isArray(name) ? name.join('.') : name;
     return (
       filter === '' ||
-      name?.toLowerCase().includes(filter.toLowerCase()) ||
+      nameStr?.toLowerCase().includes(filter.toLowerCase()) ||
       type?.toLowerCase().includes(filter.toLowerCase())
     );
   };
 
-  const filteredSchema = schema.filter((row: { name: string; type: string }, _: number) =>
-    hasFilter(row.name, row.type),
-  );
+  const filteredSchema = schema.filter((row) => hasFilter(row.name, row.type));
 
   const getNameHeader = () => {
     return (
       <FormattedMessage
         defaultMessage="Name"
-        description={'Header for "name" column in the experiment run dataset schema'}
+        description='Header for "name" column in the experiment run dataset schema'
       />
     );
   };
 
   const getTypeHeader = () => {
-    return <FormattedMessage defaultMessage="Type" description={'Header for "type" column in the UC table schema'} />;
+    return <FormattedMessage defaultMessage="Type" description='Header for "type" column in the UC table schema' />;
   };
 
   return (
     <Table scrollable css={{ width: '100%' }}>
       <TableRow isHeader>
-        <TableHeader>{getNameHeader()}</TableHeader>
-        <TableHeader>{getTypeHeader()}</TableHeader>
+        <TableHeader componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetschematable.tsx_57">
+          {getNameHeader()}
+        </TableHeader>
+        <TableHeader componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetschematable.tsx_58">
+          {getTypeHeader()}
+        </TableHeader>
       </TableRow>
       <div onWheel={(e) => e.stopPropagation()}>
         {filteredSchema.length === 0 ? (
@@ -52,9 +56,9 @@ export const ExperimentViewDatasetSchemaTable = ({
             </TableCell>
           </TableRow>
         ) : (
-          filteredSchema.map((row: { name: string; type: string }, idx: number) => (
+          filteredSchema.map((row, idx: number) => (
             <TableRow key={`table-body-row-${idx}`}>
-              <TableCell>{row.name}</TableCell>
+              <TableCell>{Array.isArray(row.name) ? row.name.join('.') : row.name}</TableCell>
               <TableCell>{row.type}</TableCell>
             </TableRow>
           ))

@@ -1,8 +1,14 @@
+import { jest, describe, beforeEach, it, expect, test } from '@jest/globals';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { getTableRowByCellText, getTableRows } from '@databricks/design-system/test-utils/enzyme';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
-import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
-import { ModelListTable, ModelListTableProps } from './ModelListTable';
+import { renderWithIntl, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import type { ModelListTableProps } from './ModelListTable';
+import { ModelListTable } from './ModelListTable';
+import { DesignSystemProvider } from '@databricks/design-system';
+
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
 
 import { Stages } from '../../constants';
 import Utils from '../../../common/utils/Utils';
@@ -10,9 +16,9 @@ import { withNextModelsUIContext } from '../../hooks/useNextModelsUI';
 import { ModelsNextUIToggleSwitch } from '../ModelsNextUIToggleSwitch';
 import userEvent from '@testing-library/user-event';
 import { shouldShowModelsNextUI } from '../../../common/utils/FeatureUtils';
-
+import { I18nUtils } from '../../../i18n/I18nUtils';
 jest.mock('../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldShowModelsNextUI: jest.fn(),
 }));
 
@@ -62,7 +68,9 @@ describe('ModelListTable', () => {
   const createComponentWrapper = (moreProps: Partial<ModelListTableProps> = {}) => {
     return mountWithIntl(
       <MemoryRouter>
-        <ModelListTable {...minimalProps} {...moreProps} />
+        <DesignSystemProvider>
+          <ModelListTable {...minimalProps} {...moreProps} />
+        </DesignSystemProvider>
       </MemoryRouter>,
     );
   };
@@ -79,13 +87,16 @@ describe('ModelListTable', () => {
 
   it('checks if the modification date column is rendered', () => {
     const wrapper = createComponentWrapper({});
+    const intl = I18nUtils.createIntlWithLocale();
 
     const {
       bodyRows: [firstRow],
     } = getTableRows(wrapper);
     expect(
       firstRow
-        .findWhere((column: any) => column.text().includes(Utils.formatTimestamp(MODELS[0].last_updated_timestamp)))
+        .findWhere((column: any) =>
+          column.text().includes(Utils.formatTimestamp(MODELS[0].last_updated_timestamp, intl)),
+        )
         .exists(),
     ).toBeTruthy();
   });
@@ -109,7 +120,6 @@ describe('ModelListTable', () => {
   });
 
   it('checks if the staged model version links are rendered', () => {
-    jest.mocked(shouldShowModelsNextUI).mockImplementation(() => false);
     const wrapper = createComponentWrapper({});
     // Model #2 contains versions 2 and 3 in staging in production, but version 1 is not shown
     const row = getTableRowByCellText(wrapper, 'test_model_2');
@@ -158,35 +168,5 @@ describe('ModelListTable', () => {
     const wrapperHtml = wrapper.html();
     expect(wrapperHtml).toContain('Error fetching models');
     expect(wrapperHtml).toContain(errMsg);
-  });
-
-  test('should display aliases column instead of stage in new models UI', async () => {
-    jest.mocked(shouldShowModelsNextUI).mockImplementation(() => true);
-    const TestComponent = withNextModelsUIContext(() => (
-      <MemoryRouter>
-        <ModelListTable {...minimalProps} />
-        <ModelsNextUIToggleSwitch />
-      </MemoryRouter>
-    ));
-    renderWithIntl(<TestComponent />);
-
-    // Assert stage columns being invisible and aliased versions column being present
-    expect(screen.queryByRole('columnheader', { name: 'Staging' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Production' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Aliased versions' })).toBeInTheDocument();
-
-    // Flip the "Next models UI" switch
-    await act(async () => {
-      userEvent.click(screen.getByRole('switch'));
-    });
-    await act(async () => {
-      userEvent.click(screen.getByText('Disable'));
-    });
-
-    // Assert stages column being visible and aliased versions column being absent
-    expect(screen.queryByRole('columnheader', { name: 'Staging' })).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Production' })).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Aliases' })).not.toBeInTheDocument();
-    jest.resetModules();
   });
 });

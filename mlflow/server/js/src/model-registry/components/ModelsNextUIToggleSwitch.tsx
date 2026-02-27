@@ -36,7 +36,12 @@ export const ModelsNextUIToggleSwitch = () => {
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
         <label>{label}</label>
-        <Switch checked={usingNextModelsUI} aria-label={label} onChange={switchNextUI} />
+        <Switch
+          componentId="codegen_mlflow_app_src_model-registry_components_modelsnextuitoggleswitch.tsx_39"
+          checked={usingNextModelsUI}
+          aria-label={label}
+          onChange={switchNextUI}
+        />
       </div>
       <ModelsNextUIPromoModal
         visible={promoModalVisible}
@@ -48,6 +53,7 @@ export const ModelsNextUIToggleSwitch = () => {
         }}
       />
       <Modal
+        componentId="codegen_mlflow_app_src_model-registry_components_modelsnextuitoggleswitch.tsx_50"
         visible={confirmDisableModalVisible}
         title={
           <FormattedMessage
@@ -71,7 +77,11 @@ export const ModelsNextUIToggleSwitch = () => {
           description="Model registry > Switcher for the new model registry UI containing aliases > disable confirmation modal content"
           values={{
             link: (chunks) => (
-              <Typography.Link href="https://forms.gle/aMB4qDrhMeEm2r359" openInNewTab>
+              <Typography.Link
+                componentId="codegen_mlflow_app_src_model-registry_components_modelsnextuitoggleswitch.tsx_74"
+                href="https://forms.gle/aMB4qDrhMeEm2r359"
+                openInNewTab
+              >
                 {chunks}
               </Typography.Link>
             ),

@@ -58,7 +58,9 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
 
 def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_file_path, tmp_path):
     mlflow.spark.autolog()
-    with _init_server(f"sqlite:///{tmp_path}/test.db", root_artifact_uri=tmp_path.as_uri()) as url:
+    with _init_server(
+        f"sqlite:///{tmp_path}/test.db", root_artifact_uri=tmp_path.as_uri(), server_type="fastapi"
+    ) as url:
         mlflow.set_tracking_uri(url)
         with mlflow.start_run():
             with mock.patch(

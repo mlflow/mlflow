@@ -6,24 +6,25 @@ on:
     types:
       - closed
 
-permissions:
-  contents: read
+defaults:
+  run:
+    shell: bash
 
 jobs:
   cancel:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
       actions: write # to cancel workflow runs
     steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            .github
-      - uses: actions/github-script@v7
-        with:
-          script: |
-            const script = require(
-              `${process.env.GITHUB_WORKSPACE}/.github/workflows/cancel.js`
-            );
-            await script({ context, github });
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh run list --repo "$REPO" --commit "$HEAD_SHA" --event pull_request \
+            --json databaseId,status,name \
+            --jq '.[] | select(.status != "completed" and .name != "release-note") | .databaseId' |
+          while read -r run_id; do
+            gh run cancel "$run_id" --repo "$REPO" || true
+          done

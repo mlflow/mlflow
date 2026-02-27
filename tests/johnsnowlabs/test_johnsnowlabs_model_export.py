@@ -10,7 +10,6 @@ from johnsnowlabs import nlp
 from packaging.version import Version
 
 import mlflow
-import mlflow.utils.file_utils
 from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model, infer_signature
@@ -19,7 +18,9 @@ from mlflow.pyfunc import spark_udf
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 
-from tests.helper_functions import assert_register_model_called_with_local_model_path
+from tests.helper_functions import (
+    assert_register_model_called_with_local_model_path,
+)
 
 MODEL_CACHE_FOLDER = None
 nlu_model = "en.classify.bert_sequence.covid_sentiment"
@@ -85,7 +86,8 @@ def fix_dataframe_with_respect_for_nlu_issues(df1, df2):
 
 
 def validate_model(original_model, new_model):
-    df1, df2 = original_model.predict("Hello World"), new_model.predict("Hello World")
+    df1 = original_model.predict("Hello World")
+    df2 = new_model.predict("Hello World")
     if isinstance(df2, str):
         df2 = (
             pd.DataFrame(json.loads(df2))
@@ -217,7 +219,7 @@ def test_log_model_with_signature_and_examples(jsl_model):
             with mlflow.start_run():
                 mlflow.johnsnowlabs.log_model(
                     jsl_model,
-                    artifact_path=artifact_path,
+                    name=artifact_path,
                     signature=signature,
                     input_example=example,
                 )
@@ -248,8 +250,8 @@ def test_johnsnowlabs_model_log(tmp_path, jsl_model, should_start_run, use_dfs_t
             mlflow.start_run()
         artifact_path = "model"
         mlflow.johnsnowlabs.log_model(
-            artifact_path=artifact_path,
-            spark_model=jsl_model,
+            jsl_model,
+            name=artifact_path,
             dfs_tmpdir=dfs_tmpdir,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -267,8 +269,8 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
     register_model_patch = mock.patch("mlflow.tracking._model_registry.fluent._register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.johnsnowlabs.log_model(
-            artifact_path=artifact_path,
-            spark_model=jsl_model,
+            jsl_model,
+            name=artifact_path,
             dfs_tmpdir=dfs_tmp_dir,
             registered_model_name="AdsModel1",
         )
@@ -659,6 +661,8 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
 #
 #     def mock_get_dbutils():
 #         import inspect
+
+
 #
 #         # _get_dbutils is called during run creation and model logging; to avoid breaking run
 #         # creation, we only mock the output if _get_dbutils is called during spark model logging

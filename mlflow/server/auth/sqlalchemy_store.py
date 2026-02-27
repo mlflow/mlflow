@@ -1,9 +1,8 @@
-from typing import List, Optional
-
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.orm import sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_STATE,
@@ -13,17 +12,46 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.server.auth.db import utils as dbutils
 from mlflow.server.auth.db.models import (
     SqlExperimentPermission,
+    SqlGatewayEndpointPermission,
+    SqlGatewayModelDefinitionPermission,
+    SqlGatewaySecretPermission,
     SqlRegisteredModelPermission,
+    SqlScorerPermission,
     SqlUser,
+    SqlWorkspacePermission,
 )
-from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission, User
-from mlflow.server.auth.permissions import _validate_permission
+from mlflow.server.auth.entities import (
+    ExperimentPermission,
+    GatewayEndpointPermission,
+    GatewayModelDefinitionPermission,
+    GatewaySecretPermission,
+    RegisteredModelPermission,
+    ScorerPermission,
+    User,
+    WorkspacePermission,
+)
+from mlflow.server.auth.permissions import Permission, _validate_permission, get_permission
 from mlflow.store.db.utils import _get_managed_session_maker, create_sqlalchemy_engine_with_retry
+from mlflow.utils import workspace_context
 from mlflow.utils.uri import extract_db_type_from_uri
-from mlflow.utils.validation import _validate_username
+from mlflow.utils.validation import _validate_password, _validate_username
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
 class SqlAlchemyStore:
+    @classmethod
+    def _get_active_workspace_name(cls) -> str:
+        if not MLFLOW_ENABLE_WORKSPACES.get():
+            return DEFAULT_WORKSPACE_NAME
+
+        if workspace_name := workspace_context.get_request_workspace():
+            return workspace_name
+
+        raise MlflowException.invalid_parameter_value(
+            "Active workspace is required. Configure a default workspace or call "
+            "mlflow.set_workspace() before interacting with the authentication store."
+        )
+
     def init_db(self, db_uri):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
@@ -42,6 +70,7 @@ class SqlAlchemyStore:
 
     def create_user(self, username: str, password: str, is_admin: bool = False) -> User:
         _validate_username(username)
+        _validate_password(password)
         pwhash = generate_password_hash(password)
         with self.ManagedSessionMaker() as session:
             try:
@@ -78,13 +107,13 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             return self._get_user(session, username).to_mlflow_entity()
 
-    def list_users(self) -> List[User]:
+    def list_users(self) -> list[User]:
         with self.ManagedSessionMaker() as session:
             users = session.query(SqlUser).all()
             return [u.to_mlflow_entity() for u in users]
 
     def update_user(
-        self, username: str, password: Optional[str] = None, is_admin: Optional[bool] = None
+        self, username: str, password: str | None = None, is_admin: bool | None = None
     ) -> User:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username)
@@ -152,7 +181,7 @@ class SqlAlchemyStore:
                 session, experiment_id, username
             ).to_mlflow_entity()
 
-    def list_experiment_permissions(self, username: str) -> List[ExperimentPermission]:
+    def list_experiment_permissions(self, username: str) -> list[ExperimentPermission]:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             perms = (
@@ -176,6 +205,12 @@ class SqlAlchemyStore:
             perm = self._get_experiment_permission(session, experiment_id, username)
             session.delete(perm)
 
+    def delete_workspace_permissions_for_workspace(self, workspace_name: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            session.query(SqlWorkspacePermission).filter(
+                SqlWorkspacePermission.workspace == workspace_name
+            ).delete(synchronize_session=False)
+
     def create_registered_model_permission(
         self, name: str, username: str, permission: str
     ) -> RegisteredModelPermission:
@@ -183,15 +218,20 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             try:
                 user = self._get_user(session, username=username)
+                workspace_name = self._get_active_workspace_name()
                 perm = SqlRegisteredModelPermission(
-                    name=name, user_id=user.id, permission=permission
+                    workspace=workspace_name,
+                    name=name,
+                    user_id=user.id,
+                    permission=permission,
                 )
                 session.add(perm)
                 session.flush()
                 return perm.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
-                    f"Registered model permission (name={name}, username={username}) "
+                    "Registered model permission "
+                    f"with workspace={workspace_name}, name={name} and username={username} "
                     f"already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
@@ -201,9 +241,11 @@ class SqlAlchemyStore:
     ) -> SqlRegisteredModelPermission:
         try:
             user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
             return (
                 session.query(SqlRegisteredModelPermission)
                 .filter(
+                    SqlRegisteredModelPermission.workspace == workspace_name,
                     SqlRegisteredModelPermission.name == name,
                     SqlRegisteredModelPermission.user_id == user.id,
                 )
@@ -211,13 +253,15 @@ class SqlAlchemyStore:
             )
         except NoResultFound:
             raise MlflowException(
-                f"Registered model permission with name={name} and username={username} not found",
+                "Registered model permission "
+                f"with workspace={workspace_name}, name={name} and username={username} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
         except MultipleResultsFound:
             raise MlflowException(
-                f"Found multiple registered model permissions with name={name} "
-                f"and username={username}",
+                "Registered model permission "
+                f"with workspace={workspace_name}, name={name} and username={username} "
+                "found multiple times",
                 INVALID_STATE,
             )
 
@@ -227,12 +271,16 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             return self._get_registered_model_permission(session, name, username).to_mlflow_entity()
 
-    def list_registered_model_permissions(self, username: str) -> List[RegisteredModelPermission]:
+    def list_registered_model_permissions(self, username: str) -> list[RegisteredModelPermission]:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
+            workspace_name = self._get_active_workspace_name()
             perms = (
                 session.query(SqlRegisteredModelPermission)
-                .filter(SqlRegisteredModelPermission.user_id == user.id)
+                .filter(
+                    SqlRegisteredModelPermission.user_id == user.id,
+                    SqlRegisteredModelPermission.workspace == workspace_name,
+                )
                 .all()
             )
             return [p.to_mlflow_entity() for p in perms]
@@ -250,3 +298,471 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             perm = self._get_registered_model_permission(session, name, username)
             session.delete(perm)
+
+    def delete_registered_model_permissions(self, name: str) -> None:
+        """
+        Delete *all* registered model permission rows for the given model name in the active
+        workspace.
+
+        This is primarily used as cleanup when a registered model is deleted to ensure that
+        previously granted permissions do not implicitly carry over if a new model is later created
+        with the same name.
+        """
+        with self.ManagedSessionMaker() as session:
+            workspace_name = self._get_active_workspace_name()
+            session.query(SqlRegisteredModelPermission).filter(
+                SqlRegisteredModelPermission.workspace == workspace_name,
+                SqlRegisteredModelPermission.name == name,
+            ).delete(synchronize_session=False)
+
+    def rename_registered_model_permissions(self, old_name: str, new_name: str):
+        with self.ManagedSessionMaker() as session:
+            workspace_name = self._get_active_workspace_name()
+            perms = (
+                session.query(SqlRegisteredModelPermission)
+                .filter(
+                    SqlRegisteredModelPermission.workspace == workspace_name,
+                    SqlRegisteredModelPermission.name == old_name,
+                )
+                .all()
+            )
+            for perm in perms:
+                perm.name = new_name
+
+    def list_workspace_permissions(self, workspace_name: str) -> list[WorkspacePermission]:
+        with self.ManagedSessionMaker() as session:
+            rows = (
+                session.query(SqlWorkspacePermission)
+                .filter(SqlWorkspacePermission.workspace == workspace_name)
+                .all()
+            )
+            return [row.to_mlflow_entity() for row in rows]
+
+    def list_user_workspace_permissions(self, username: str) -> list[WorkspacePermission]:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            rows = (
+                session.query(SqlWorkspacePermission)
+                .filter(SqlWorkspacePermission.user_id == user.id)
+                .all()
+            )
+            return [row.to_mlflow_entity() for row in rows]
+
+    def set_workspace_permission(
+        self, workspace_name: str, username: str, permission: str
+    ) -> WorkspacePermission:
+        _validate_permission(permission)
+
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            entity = session.get(
+                SqlWorkspacePermission,
+                (workspace_name, user.id),
+            )
+            if entity is None:
+                entity = SqlWorkspacePermission(
+                    workspace=workspace_name,
+                    user_id=user.id,
+                    permission=permission,
+                )
+                session.add(entity)
+            else:
+                entity.permission = permission
+            session.flush()
+            return entity.to_mlflow_entity()
+
+    def delete_workspace_permission(self, workspace_name: str, username: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            entity = session.get(
+                SqlWorkspacePermission,
+                (workspace_name, user.id),
+            )
+            if entity is None:
+                raise MlflowException(
+                    (
+                        "Workspace permission does not exist for "
+                        f"workspace='{workspace_name}', username='{username}'"
+                    ),
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            session.delete(entity)
+
+    def list_accessible_workspace_names(self, username: str | None) -> set[str]:
+        if username is None:
+            return set()
+
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            rows: list[SqlWorkspacePermission] = (
+                session.query(SqlWorkspacePermission)
+                .filter(SqlWorkspacePermission.user_id == user.id)
+                .all()
+            )
+            accessible: set[str] = set()
+            for row in rows:
+                permission = row.permission
+                if get_permission(permission).can_read:
+                    accessible.add(row.workspace)
+            return accessible
+
+    def get_workspace_permission(self, workspace_name: str, username: str) -> Permission | None:
+        """
+        Get the workspace permission for a user.
+        """
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            entity = session.get(SqlWorkspacePermission, (workspace_name, user.id))
+            if entity is not None:
+                return get_permission(entity.permission)
+        return None
+
+    def create_scorer_permission(
+        self, experiment_id: str, scorer_name: str, username: str, permission: str
+    ) -> ScorerPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                user = self._get_user(session, username=username)
+                perm = SqlScorerPermission(
+                    experiment_id=experiment_id,
+                    scorer_name=scorer_name,
+                    user_id=user.id,
+                    permission=permission,
+                )
+                session.add(perm)
+                session.flush()
+                return perm.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Scorer permission (experiment_id={experiment_id}, scorer_name={scorer_name}, "
+                    f"username={username}) already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    def _get_scorer_permission(
+        self, session, experiment_id: str, scorer_name: str, username: str
+    ) -> SqlScorerPermission:
+        try:
+            user = self._get_user(session, username=username)
+            return (
+                session.query(SqlScorerPermission)
+                .filter(
+                    SqlScorerPermission.experiment_id == experiment_id,
+                    SqlScorerPermission.scorer_name == scorer_name,
+                    SqlScorerPermission.user_id == user.id,
+                )
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Scorer permission with experiment_id={experiment_id}, "
+                f"scorer_name={scorer_name}, and username={username} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple scorer permissions with experiment_id={experiment_id}, "
+                f"scorer_name={scorer_name}, and username={username}",
+                INVALID_STATE,
+            )
+
+    def get_scorer_permission(
+        self, experiment_id: str, scorer_name: str, username: str
+    ) -> ScorerPermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_scorer_permission(
+                session, experiment_id, scorer_name, username
+            ).to_mlflow_entity()
+
+    def list_scorer_permissions(self, username: str) -> list[ScorerPermission]:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            perms = (
+                session.query(SqlScorerPermission)
+                .filter(SqlScorerPermission.user_id == user.id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_scorer_permission(
+        self, experiment_id: str, scorer_name: str, username: str, permission: str
+    ) -> ScorerPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_scorer_permission(session, experiment_id, scorer_name, username)
+            perm.permission = permission
+            return perm.to_mlflow_entity()
+
+    def delete_scorer_permission(self, experiment_id: str, scorer_name: str, username: str):
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_scorer_permission(session, experiment_id, scorer_name, username)
+            session.delete(perm)
+
+    def delete_scorer_permissions_for_scorer(self, experiment_id: str, scorer_name: str):
+        with self.ManagedSessionMaker() as session:
+            session.query(SqlScorerPermission).filter(
+                SqlScorerPermission.experiment_id == experiment_id,
+                SqlScorerPermission.scorer_name == scorer_name,
+            ).delete()
+
+    def create_gateway_secret_permission(
+        self, secret_id: str, username: str, permission: str
+    ) -> GatewaySecretPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                user = self._get_user(session, username=username)
+                perm = SqlGatewaySecretPermission(
+                    secret_id=secret_id, user_id=user.id, permission=permission
+                )
+                session.add(perm)
+                session.flush()
+                return perm.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Gateway secret permission (secret_id={secret_id}, username={username}) "
+                    f"already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    def _get_gateway_secret_permission(
+        self, session, secret_id: str, username: str
+    ) -> SqlGatewaySecretPermission:
+        try:
+            user = self._get_user(session, username=username)
+            return (
+                session.query(SqlGatewaySecretPermission)
+                .filter(
+                    SqlGatewaySecretPermission.secret_id == secret_id,
+                    SqlGatewaySecretPermission.user_id == user.id,
+                )
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Gateway secret permission with secret_id={secret_id} and "
+                f"username={username} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple gateway secret permissions with secret_id={secret_id} "
+                f"and username={username}",
+                INVALID_STATE,
+            )
+
+    def get_gateway_secret_permission(
+        self, secret_id: str, username: str
+    ) -> GatewaySecretPermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_gateway_secret_permission(
+                session, secret_id, username
+            ).to_mlflow_entity()
+
+    def list_gateway_secret_permissions(self, username: str) -> list[GatewaySecretPermission]:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            perms = (
+                session.query(SqlGatewaySecretPermission)
+                .filter(SqlGatewaySecretPermission.user_id == user.id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_gateway_secret_permission(
+        self, secret_id: str, username: str, permission: str
+    ) -> GatewaySecretPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_secret_permission(session, secret_id, username)
+            perm.permission = permission
+            return perm.to_mlflow_entity()
+
+    def delete_gateway_secret_permission(self, secret_id: str, username: str):
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_secret_permission(session, secret_id, username)
+            session.delete(perm)
+
+    def delete_gateway_secret_permissions_for_secret(self, secret_id: str):
+        with self.ManagedSessionMaker() as session:
+            session.query(SqlGatewaySecretPermission).filter(
+                SqlGatewaySecretPermission.secret_id == secret_id,
+            ).delete()
+
+    def create_gateway_endpoint_permission(
+        self, endpoint_id: str, username: str, permission: str
+    ) -> GatewayEndpointPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                user = self._get_user(session, username=username)
+                perm = SqlGatewayEndpointPermission(
+                    endpoint_id=endpoint_id, user_id=user.id, permission=permission
+                )
+                session.add(perm)
+                session.flush()
+                return perm.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Gateway endpoint permission (endpoint_id={endpoint_id}, username={username}) "
+                    f"already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    def _get_gateway_endpoint_permission(
+        self, session, endpoint_id: str, username: str
+    ) -> SqlGatewayEndpointPermission:
+        try:
+            user = self._get_user(session, username=username)
+            return (
+                session.query(SqlGatewayEndpointPermission)
+                .filter(
+                    SqlGatewayEndpointPermission.endpoint_id == endpoint_id,
+                    SqlGatewayEndpointPermission.user_id == user.id,
+                )
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Gateway endpoint permission with endpoint_id={endpoint_id} and "
+                f"username={username} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple gateway endpoint permissions with endpoint_id={endpoint_id} "
+                f"and username={username}",
+                INVALID_STATE,
+            )
+
+    def get_gateway_endpoint_permission(
+        self, endpoint_id: str, username: str
+    ) -> GatewayEndpointPermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_gateway_endpoint_permission(
+                session, endpoint_id, username
+            ).to_mlflow_entity()
+
+    def list_gateway_endpoint_permissions(self, username: str) -> list[GatewayEndpointPermission]:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            perms = (
+                session.query(SqlGatewayEndpointPermission)
+                .filter(SqlGatewayEndpointPermission.user_id == user.id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_gateway_endpoint_permission(
+        self, endpoint_id: str, username: str, permission: str
+    ) -> GatewayEndpointPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_endpoint_permission(session, endpoint_id, username)
+            perm.permission = permission
+            return perm.to_mlflow_entity()
+
+    def delete_gateway_endpoint_permission(self, endpoint_id: str, username: str):
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_endpoint_permission(session, endpoint_id, username)
+            session.delete(perm)
+
+    def delete_gateway_endpoint_permissions_for_endpoint(self, endpoint_id: str):
+        with self.ManagedSessionMaker() as session:
+            session.query(SqlGatewayEndpointPermission).filter(
+                SqlGatewayEndpointPermission.endpoint_id == endpoint_id,
+            ).delete()
+
+    def create_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str, permission: str
+    ) -> GatewayModelDefinitionPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                user = self._get_user(session, username=username)
+                perm = SqlGatewayModelDefinitionPermission(
+                    model_definition_id=model_definition_id, user_id=user.id, permission=permission
+                )
+                session.add(perm)
+                session.flush()
+                return perm.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Gateway model definition permission "
+                    f"(model_definition_id={model_definition_id}, username={username}) "
+                    f"already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    def _get_gateway_model_definition_permission(
+        self, session, model_definition_id: str, username: str
+    ) -> SqlGatewayModelDefinitionPermission:
+        try:
+            user = self._get_user(session, username=username)
+            return (
+                session.query(SqlGatewayModelDefinitionPermission)
+                .filter(
+                    SqlGatewayModelDefinitionPermission.model_definition_id == model_definition_id,
+                    SqlGatewayModelDefinitionPermission.user_id == user.id,
+                )
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Gateway model definition permission with "
+                f"model_definition_id={model_definition_id} and username={username} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple gateway model definition permissions with "
+                f"model_definition_id={model_definition_id} and username={username}",
+                INVALID_STATE,
+            )
+
+    def get_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str
+    ) -> GatewayModelDefinitionPermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_gateway_model_definition_permission(
+                session, model_definition_id, username
+            ).to_mlflow_entity()
+
+    def list_gateway_model_definition_permissions(
+        self, username: str
+    ) -> list[GatewayModelDefinitionPermission]:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            perms = (
+                session.query(SqlGatewayModelDefinitionPermission)
+                .filter(SqlGatewayModelDefinitionPermission.user_id == user.id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_gateway_model_definition_permission(
+        self, model_definition_id: str, username: str, permission: str
+    ) -> GatewayModelDefinitionPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_model_definition_permission(
+                session, model_definition_id, username
+            )
+            perm.permission = permission
+            return perm.to_mlflow_entity()
+
+    def delete_gateway_model_definition_permission(self, model_definition_id: str, username: str):
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_gateway_model_definition_permission(
+                session, model_definition_id, username
+            )
+            session.delete(perm)
+
+    def delete_gateway_model_definition_permissions_for_model_definition(
+        self, model_definition_id: str
+    ):
+        with self.ManagedSessionMaker() as session:
+            session.query(SqlGatewayModelDefinitionPermission).filter(
+                SqlGatewayModelDefinitionPermission.model_definition_id == model_definition_id,
+            ).delete()

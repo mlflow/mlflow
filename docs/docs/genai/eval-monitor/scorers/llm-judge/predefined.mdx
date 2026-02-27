@@ -1,0 +1,172 @@
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from "@site/src/components/ImageBox";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import TileCard from '@site/src/components/TileCard';
+import TilesGrid from '@site/src/components/TilesGrid';
+import { Hammer, Bot, GitBranch } from "lucide-react";
+
+# Built-in LLM Judges
+
+MLflow provides several pre-configured LLM judges optimized for common evaluation scenarios.
+
+## Example Usage
+
+<TabsWrapper>
+<Tabs groupId="creation-method">
+  <TabItem value="ui" label="UI" default>
+
+:::note[Version Requirements]
+The Judge Builder UI requires **MLflow >= 3.9.0**.
+:::
+
+The MLflow UI provides a visual Judge Builder that lets you create custom LLM judges without writing code.
+
+1. Navigate to your experiment and select the **Judges** tab, then click **New LLM judge**
+
+2. **LLM judge**: Select a built-in judge. We're using the `RelevanceToQuery` and `Correctness` judges in this example.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/scorers/relevance-create-judge-ui.png" alt="RelevanceToQuery Judge UI" />
+
+3. Click **Create judge** to save your new LLM judge
+
+  </TabItem>
+  <TabItem value="sdk" label="SDK">
+
+To use the built-in LLM judges, select the judge class from the [available judges](#available-judges) and pass it to the `scorers` argument of the <APILink fn="mlflow.genai.evaluate">evaluate</APILink> function.
+
+```python
+import mlflow
+from mlflow.genai.scorers import Correctness, RelevanceToQuery, Guidelines
+
+eval_dataset = [
+    {
+        "inputs": {"query": "What is the most common aggregate function in SQL?"},
+        "outputs": "The most common aggregate function in SQL is SUM().",
+        # Correctness judge requires an "expected_facts" field.
+        "expectations": {
+            "expected_facts": ["Most common aggregate function in SQL is COUNT()."],
+        },
+    },
+    {
+        "inputs": {"query": "How do I use MLflow?"},
+        # verbose answer
+        "outputs": "Hi, I'm a chatbot that answers questions about MLflow. Thank you for asking a great question! I know MLflow well and I'm glad to help you with that. You will love it! MLflow is a Python-based platform that provides a comprehensive set of tools for logging, tracking, and visualizing machine learning models and experiments throughout their entire lifecycle. It consists of four main components: MLflow Tracking for experiment management, MLflow Projects for reproducible runs, MLflow Models for standardized model packaging, and MLflow Model Registry for centralized model lifecycle management. To get started, simply install it with 'pip install mlflow' and then use mlflow.start_run() to begin tracking your experiments with automatic logging of parameters, metrics, and artifacts. The platform creates a beautiful web UI where you can compare different runs, visualize metrics over time, and manage your entire ML workflow efficiently. MLflow integrates seamlessly with popular ML libraries like scikit-learn, TensorFlow, PyTorch, and many others, making it incredibly easy to incorporate into your existing projects!",
+        "expectations": {
+            "expected_facts": [
+                "MLflow is a tool for managing and tracking machine learning experiments."
+            ],
+        },
+    },
+]
+
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    scorers=[
+        Correctness(),
+        RelevanceToQuery(),
+    ],
+)
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
+
+<ImageBox src="/images/mlflow-3/eval-monitor/scorers/builtin-judges-results.png" alt="Built-in judges result" />
+
+## Available Judges
+
+### Response Quality
+
+| Judge                                                                                                                                  | What does it evaluate?                                        | Requires ground-truth? | Requires traces? |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------- | ---------------- |
+| [RelevanceToQuery](/genai/eval-monitor/scorers/llm-judge/rag/relevance/#relevancetoquery-judge)                                        | Does the app's response directly address the user's input?    | No                     | No               |
+| [Correctness](/genai/eval-monitor/scorers/llm-judge/response-quality/correctness)                                                      | Are the expected facts supported by the app's response?       | Yes\*                  | No               |
+| <APILink fn="mlflow.genai.scorers.Completeness">Completeness</APILink>\*\*                                                             | Does the agent address all questions in a single user prompt? | No                     | No               |
+| <APILink fn="mlflow.genai.scorers.Fluency">Fluency</APILink>                                                                           | Is the response grammatically correct and naturally flowing?  | No                     | No               |
+| [Safety](/genai/eval-monitor/scorers/llm-judge/response-quality/safety)                                                                | Does the app's response avoid harmful or toxic content?       | No                     | No               |
+| <APILink fn="mlflow.genai.scorers.Equivalence">Equivalence</APILink>                                                                   | Is the app's response equivalent to the expected output?      | Yes                    | No               |
+| <APILink fn="mlflow.genai.scorers.Summarization">Summarization</APILink>                                                               | Is the summary faithful, comprehensive, concise, and clear?   | No                     | No               |
+| [Guidelines](/genai/eval-monitor/scorers/llm-judge/guidelines/#1-built-in-guidelines-judge-global-guidelines)                          | Does the response adhere to provided guidelines?              | Yes\*                  | No               |
+| [ExpectationsGuidelines](/genai/eval-monitor/scorers/llm-judge/guidelines/#2-built-in-expectationsguidelines-judge-per-row-guidelines) | Does the response meet specific expectations and guidelines?  | Yes\*                  | No               |
+
+### RAG
+
+| Judge                                                                                               | What does it evaluate?                                    | Requires ground-truth? | Requires traces?      |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------- | --------------------- |
+| [RetrievalRelevance](/genai/eval-monitor/scorers/llm-judge/rag/relevance/#retrievalrelevance-judge) | Are retrieved documents relevant to the user's request?   | No                     | ⚠️ **Trace Required** |
+| [RetrievalGroundedness](/genai/eval-monitor/scorers/llm-judge/rag/groundedness)                     | Is the app's response grounded in retrieved information?  | No                     | ⚠️ **Trace Required** |
+| [RetrievalSufficiency](/genai/eval-monitor/scorers/llm-judge/rag/context-sufficiency)               | Do retrieved documents contain all necessary information? | Yes                    | ⚠️ **Trace Required** |
+
+### Tool Call
+
+| Judge                                                                                  | What does it evaluate?                                       | Requires ground-truth? | Requires traces?      |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------- | --------------------- |
+| [ToolCallCorrectness](/genai/eval-monitor/scorers/llm-judge/tool-call/correctness)\*\* | Are the tool calls and arguments correct for the user query? | No                     | ⚠️ **Trace Required** |
+| [ToolCallEfficiency](/genai/eval-monitor/scorers/llm-judge/tool-call/efficiency)\*\*   | Are the tool calls efficient without redundancy?             | No                     | ⚠️ **Trace Required** |
+
+\*Can extract expectations from trace assessments if available.
+
+\*\*Indicates experimental features that may change in future releases.
+
+### Multi-Turn
+
+Multi-turn judges evaluate entire conversation sessions rather than individual turns. They require traces with session IDs and are experimental in MLflow 3.7.0. See [Track Users and Sessions](/genai/tracing/track-users-sessions/)
+
+:::info Multi-Turn Evaluation Requirements
+Multi-turn judges require:
+
+1. **Session IDs**: Traces must have `mlflow.trace.session` metadata
+2. **List or DataFrame input**: Currently only supports pre-collected traces (no `predict_fn` support yet)
+   :::
+
+| Judge                                                                                                              | What does it evaluate?                                                     | Requires Session? |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- | ----------------- |
+| <APILink fn="mlflow.genai.scorers.ConversationCompleteness">ConversationCompleteness</APILink>\*\*                 | Does the agent address all user questions throughout the conversation?     | Yes               |
+| <APILink fn="mlflow.genai.scorers.ConversationalGuidelines">ConversationalGuidelines</APILink>\*\*                 | Do the assistant's responses comply with provided guidelines?              | Yes               |
+| <APILink fn="mlflow.genai.scorers.ConversationalRoleAdherence">ConversationalRoleAdherence</APILink>\*\*           | Does the assistant maintain its assigned role throughout the conversation? | Yes               |
+| <APILink fn="mlflow.genai.scorers.ConversationalSafety">ConversationalSafety</APILink>\*\*                         | Are the assistant's responses safe and free of harmful content?            | Yes               |
+| <APILink fn="mlflow.genai.scorers.ConversationalToolCallEfficiency">ConversationalToolCallEfficiency</APILink>\*\* | Was tool usage across the conversation efficient and appropriate?          | Yes               |
+| <APILink fn="mlflow.genai.scorers.KnowledgeRetention">KnowledgeRetention</APILink>\*\*                             | Does the assistant correctly retain information from earlier user inputs?  | Yes               |
+| <APILink fn="mlflow.genai.scorers.UserFrustration">UserFrustration</APILink>\*\*                                   | Is the user frustrated? Was the frustration resolved?                      | Yes               |
+
+:::note Availability
+Safety and RetrievalRelevance judges are currently only available in [Databricks managed MLflow](https://docs.databricks.com/mlflow3/genai/eval-monitor/) and will be open-sourced soon.
+:::
+
+:::tip
+
+Typically, you can get started with evaluation using built-in judges. However, every AI application is unique and has domain-specific quality criteria. At some point, you'll need to create your own custom LLM judges.
+
+- Your application has complex inputs/outputs that built-in judges can't parse
+- You need to evaluate specific business logic or domain-specific criteria
+- You want to combine multiple evaluation aspects into a single judge
+
+See <ins>[custom LLM judges](/genai/eval-monitor/scorers/llm-judge/guidelines)</ins> guide for detailed examples.
+
+:::
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Hammer}
+    title="Guidelines Judge"
+    description="Learn how to use the Guidelines judge to evaluate responses against custom criteria"
+    href="/genai/eval-monitor/scorers/llm-judge/guidelines"
+  />
+  <TileCard
+    icon={Bot}
+    title="Evaluate Agents"
+    description="Learn how to evaluate AI agents with specialized techniques and judges"
+    href="/genai/eval-monitor/running-evaluation/agents"
+  />
+  <TileCard
+    icon={GitBranch}
+    title="Evaluate Traces"
+    description="Evaluate production traces to understand and improve your AI application's behavior"
+    href="/genai/eval-monitor/running-evaluation/traces"
+  />
+</TilesGrid>

@@ -105,18 +105,20 @@ def test_statsmodels_autolog_logs_summary_artifact():
 def test_statsmodels_autolog_emit_warning_when_model_is_large():
     mlflow.statsmodels.autolog()
 
-    with mock.patch(
-        "mlflow.statsmodels._model_size_threshold_for_emitting_warning", float("inf")
-    ), mock.patch("mlflow.statsmodels._logger.warning") as mock_warning:
+    with (
+        mock.patch("mlflow.statsmodels._model_size_threshold_for_emitting_warning", float("inf")),
+        mock.patch("mlflow.statsmodels._logger.warning") as mock_warning,
+    ):
         ols_model()
         assert all(
             not call_args[0][0].startswith("The fitted model is larger than")
             for call_args in mock_warning.call_args_list
         )
 
-    with mock.patch("mlflow.statsmodels._model_size_threshold_for_emitting_warning", 1), mock.patch(
-        "mlflow.statsmodels._logger.warning"
-    ) as mock_warning:
+    with (
+        mock.patch("mlflow.statsmodels._model_size_threshold_for_emitting_warning", 1),
+        mock.patch("mlflow.statsmodels._logger.warning") as mock_warning,
+    ):
         ols_model()
         assert any(
             call_args[0][0].startswith("The fitted model is larger than")
@@ -124,12 +126,19 @@ def test_statsmodels_autolog_emit_warning_when_model_is_large():
         )
 
 
-def test_statsmodels_autolog_logs_basic_metrics():
-    mlflow.statsmodels.autolog()
+@pytest.mark.parametrize("log_models", [True, False])
+def test_statsmodels_autolog_logs_basic_metrics(log_models):
+    mlflow.statsmodels.autolog(log_models=log_models)
     ols_model()
     run = get_latest_run()
     metrics = run.data.metrics
     assert set(metrics.keys()) == set(mlflow.statsmodels._autolog_metric_allowlist)
+    logged_model = mlflow.last_logged_model()
+    if log_models:
+        assert logged_model is not None
+        assert metrics == {m.key: m.value for m in logged_model.metrics}
+    else:
+        assert logged_model is None
 
 
 def test_statsmodels_autolog_failed_metrics_warning():
@@ -143,15 +152,17 @@ def test_statsmodels_autolog_failed_metrics_warning():
         def as_text(self):
             return "mock summary."
 
-    with mock.patch(
-        "statsmodels.regression.linear_model.OLSResults.f_pvalue", metric_raise_error
-    ), mock.patch(
-        "statsmodels.regression.linear_model.OLSResults.fvalue", metric_raise_error
-    ), mock.patch(
-        # Prevent `OLSResults.summary` from calling `fvalue` and `f_pvalue` that raise an exception
-        "statsmodels.regression.linear_model.OLSResults.summary",
-        return_value=MockSummary(),
-    ), mock.patch("mlflow.statsmodels._logger.warning") as mock_warning:
+    with (
+        mock.patch("statsmodels.regression.linear_model.OLSResults.f_pvalue", metric_raise_error),
+        mock.patch("statsmodels.regression.linear_model.OLSResults.fvalue", metric_raise_error),
+        mock.patch(
+            # Prevent `OLSResults.summary` from calling `fvalue` and `f_pvalue` that raise an
+            # exception
+            "statsmodels.regression.linear_model.OLSResults.summary",
+            return_value=MockSummary(),
+        ),
+        mock.patch("mlflow.statsmodels._logger.warning") as mock_warning,
+    ):
         ols_model()
         mock_warning.assert_called_once_with("Failed to autolog metrics: f_pvalue, fvalue.")
 
@@ -177,10 +188,7 @@ def test_statsmodels_autolog_works_after_exception():
 def test_statsmodels_autolog_respects_log_models_flag(log_models):
     mlflow.statsmodels.autolog(log_models=log_models)
     ols_model()
-    run = get_latest_run()
-    client = MlflowClient()
-    artifact_paths = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
-    assert ("model" in artifact_paths) == log_models
+    assert (mlflow.last_logged_model() is not None) == log_models
 
 
 def test_statsmodels_autolog_loads_model_from_artifact():

@@ -1,24 +1,15 @@
+import { describe, test, jest, expect } from '@jest/globals';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { RunsChartsConfigureLineChart } from './RunsChartsConfigureLineChart';
 import { IntlProvider } from 'react-intl';
 import { RunsChartsLineChartXAxisType } from '../RunsCharts.common';
-import { shouldEnableManualRangeControls } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 
-jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('@mlflow/mlflow/src/common/utils/FeatureUtils'),
-  shouldEnableManualRangeControls: jest.fn(),
-}));
-
 describe('RunsChartsConfigureLineChart', () => {
-  beforeEach(() => {
-    jest.mocked(shouldEnableManualRangeControls).mockImplementation(() => true);
-  });
-
   test('should update x and y range when manual controls are changed', () => {
     // Arrange
     const metricKeyList = ['metric1'];
-    const onStateChangeMock = jest.fn();
+    const onStateChangeMock = jest.fn<Parameters<typeof RunsChartsConfigureLineChart>[0]['onStateChange']>();
 
     render(
       <IntlProvider locale="en">
@@ -51,6 +42,7 @@ describe('RunsChartsConfigureLineChart', () => {
     const yRangeMaxInput = screen.getByLabelText('y-axis-max');
 
     fireEvent.change(xRangeMinInput, { target: { value: '10' } });
+    // @ts-expect-error Argument of type '{}' is not assignable to parameter of type 'RunsChartsCardConfig'
     expect(onStateChangeMock.mock.calls[0][0]({})).toEqual({
       range: {
         xMin: 10,
@@ -58,6 +50,7 @@ describe('RunsChartsConfigureLineChart', () => {
       },
     });
     fireEvent.change(xRangeMaxInput, { target: { value: '40' } });
+    // @ts-expect-error Argument of type '{}' is not assignable to parameter of type 'RunsChartsCardConfig'
     expect(onStateChangeMock.mock.lastCall[0]({})).toEqual({
       range: {
         xMin: 10,
@@ -65,6 +58,7 @@ describe('RunsChartsConfigureLineChart', () => {
       },
     });
     fireEvent.change(yRangeMinInput, { target: { value: '5' } });
+    // @ts-expect-error Argument of type '{}' is not assignable to parameter of type 'RunsChartsCardConfig'
     expect(onStateChangeMock.mock.lastCall[0]({})).toEqual({
       range: {
         yMin: 5,
@@ -72,6 +66,7 @@ describe('RunsChartsConfigureLineChart', () => {
       },
     });
     fireEvent.change(yRangeMaxInput, { target: { value: '15' } });
+    // @ts-expect-error Argument of type '{}' is not assignable to parameter of type 'RunsChartsCardConfig'
     expect(onStateChangeMock.mock.lastCall[0]({})).toEqual({
       range: {
         yMin: 5,
@@ -163,6 +158,7 @@ describe('RunsChartsConfigureLineChart', () => {
     const xScaleTypeSelect = screen.getByLabelText('x-axis-log');
 
     fireEvent.click(xScaleTypeSelect);
+    // @ts-expect-error Object is of type 'unknown'
     expect(onStateChangeMock.mock.lastCall[0]({})).toEqual({
       range: {
         xMin: Math.log10(1),
@@ -173,6 +169,7 @@ describe('RunsChartsConfigureLineChart', () => {
 
     // Should reset when both range values are invalid log values
     fireEvent.click(yScaleTypeSelect);
+    // @ts-expect-error Object is of type 'unknown'
     expect(onStateChangeMock.mock.lastCall[0]({})).toEqual({
       range: {
         yMin: undefined,
@@ -216,6 +213,7 @@ describe('RunsChartsConfigureLineChart', () => {
     const xScaleTypeSelect = screen.getByLabelText('x-axis-log');
 
     fireEvent.click(xScaleTypeSelect);
+    // @ts-expect-error Object is of type 'unknown'
     expect(onStateChangeMock.mock.lastCall[0]({})).toEqual({
       range: {
         xMin: 10,
@@ -226,6 +224,7 @@ describe('RunsChartsConfigureLineChart', () => {
 
     // Should reset when both range values are invalid log values
     fireEvent.click(yScaleTypeSelect);
+    // @ts-expect-error Object is of type 'unknown'
     expect(onStateChangeMock.mock.lastCall[0]({})).toEqual({
       range: {
         yMin: 0.1,

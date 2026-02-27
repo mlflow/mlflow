@@ -7,12 +7,12 @@ from langchain.prompts import PromptTemplate
 
 import mlflow
 
-assert (
-    "OPENAI_API_KEY" in os.environ
-), "Please set the OPENAI_API_KEY environment variable to run this example."
+assert "OPENAI_API_KEY" in os.environ, (
+    "Please set the OPENAI_API_KEY environment variable to run this example."
+)
 
 
-def build_and_evalute_model_with_prompt(prompt_template):
+def build_and_evaluate_model_with_prompt(prompt_template):
     mlflow.start_run()
     mlflow.log_param("prompt_template", prompt_template)
     # Create a news summarization model using prompt engineering with LangChain. Log the model
@@ -20,7 +20,7 @@ def build_and_evalute_model_with_prompt(prompt_template):
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(input_variables=["article"], template=prompt_template)
     chain = LLMChain(llm=llm, prompt=prompt)
-    logged_model = mlflow.langchain.log_model(chain, artifact_path="model")
+    logged_model = mlflow.langchain.log_model(chain, name="model")
 
     # Evaluate the model on a small sample dataset
     sample_data = pd.read_csv("summarization_example_data.csv")
@@ -36,8 +36,8 @@ def build_and_evalute_model_with_prompt(prompt_template):
 prompt_template_1 = (
     "Write a summary of the following article that is between triple backticks: ```{article}```"
 )
-print(f"Bulding and evaluating model with prompt: '{prompt_template_1}'")
-build_and_evalute_model_with_prompt(prompt_template_1)
+print(f"Building and evaluating model with prompt: '{prompt_template_1}'")
+build_and_evaluate_model_with_prompt(prompt_template_1)
 
 prompt_template_2 = (
     "Write a summary of the following article that is between triple backticks. Be concise. Make"
@@ -45,7 +45,7 @@ prompt_template_2 = (
     " Just return the summary. Do not include any text other than the summary: ```{article}```"
 )
 print(f"Building and evaluating model with prompt: '{prompt_template_2}'")
-build_and_evalute_model_with_prompt(prompt_template_2)
+build_and_evaluate_model_with_prompt(prompt_template_2)
 
 # Load the evaluation results
 results: pd.DataFrame = mlflow.load_table(

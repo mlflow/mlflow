@@ -22,8 +22,8 @@ class GPUMonitor(BaseMetricsMonitor):
         if "pynvml" not in sys.modules:
             # Only instantiate if `pynvml` is installed.
             raise ImportError(
-                "`pynvml` is not installed, to log GPU metrics please run `pip install pynvml` "
-                "to install it."
+                "`nvidia-ml-py` is not installed, to log GPU metrics please run "
+                "`pip install nvidia-ml-py` to install it."
             )
         try:
             # `nvmlInit()` will fail if no GPU is found.
@@ -44,18 +44,28 @@ class GPUMonitor(BaseMetricsMonitor):
                     round(memory.used / memory.total * 100, 1)
                 )
                 self._metrics[f"gpu_{i}_memory_usage_megabytes"].append(memory.used / 1e6)
+            except pynvml.NVMLError as e:
+                _logger.warning(f"Encountered error {e} when trying to collect GPU memory metrics.")
 
+            try:
                 device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
                 self._metrics[f"gpu_{i}_utilization_percentage"].append(device_utilization.gpu)
+            except pynvml.NVMLError as e:
+                _logger.warning(
+                    f"Encountered error {e} when trying to collect GPU utilization metrics."
+                )
 
+            try:
                 power_milliwatts = pynvml.nvmlDeviceGetPowerUsage(handle)
                 power_capacity_milliwatts = pynvml.nvmlDeviceGetEnforcedPowerLimit(handle)
                 self._metrics[f"gpu_{i}_power_usage_watts"].append(power_milliwatts / 1000)
                 self._metrics[f"gpu_{i}_power_usage_percentage"].append(
                     (power_milliwatts / power_capacity_milliwatts) * 100
                 )
-            except pynvml.nvml.NVMLError as e:
-                _logger.warning(f"Encountered error {e} when trying to collect GPU metrics.")
+            except pynvml.NVMLError as e:
+                _logger.warning(
+                    f"Encountered error {e} when trying to collect GPU power usage metrics."
+                )
 
     def aggregate_metrics(self):
         return {k: round(sum(v) / len(v), 1) for k, v in self._metrics.items()}

@@ -1,6 +1,9 @@
-import { mount, ReactWrapper } from 'enzyme';
+import { describe, beforeEach, it, expect } from '@jest/globals';
+import type { ReactWrapper } from 'enzyme';
+import { mount } from 'enzyme';
 import React from 'react';
-import { RunsChartsTooltipBodyComponent, RunsChartsTooltipWrapper, useRunsChartsTooltip } from './useRunsChartsTooltip';
+import type { RunsChartsTooltipBodyComponent } from './useRunsChartsTooltip';
+import { RunsChartsTooltipWrapper, useRunsChartsTooltip } from './useRunsChartsTooltip';
 
 const defaultBodyComponent: RunsChartsTooltipBodyComponent = ({ runUuid }) => (
   <div data-testid="tooltip-body">

@@ -1,5 +1,7 @@
 import json
 import os
+import time
+from unittest import mock
 
 import datasets
 import pandas as pd
@@ -16,10 +18,39 @@ from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
+from tests.helper_functions import skip_if_hf_hub_unhealthy
+from tests.resources.data.dataset_source import SampleDatasetSource
+
+pytestmark = skip_if_hf_hub_unhealthy()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def mock_datasets_load_dataset():
+    """
+    `datasets.load_dataset` is flaky and sometimes fails with a network error.
+    This fixture retries the call up to 5 times with exponential backoff.
+    """
+
+    original = datasets.load_dataset
+
+    def load_dataset(*args, **kwargs):
+        for i in range(5):
+            try:
+                return original(*args, **kwargs)
+            except Exception:
+                if i < 4:
+                    time.sleep(2**i)
+                    continue
+                raise
+
+    with mock.patch("datasets.load_dataset", wraps=load_dataset) as mock_load_dataset:
+        yield
+        mock_load_dataset.assert_called()
+
 
 def test_from_huggingface_dataset_constructs_expected_dataset():
-    ds = datasets.load_dataset("rotten_tomatoes", split="train")
-    mlflow_ds = mlflow.data.from_huggingface(ds, path="rotten_tomatoes")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
+    mlflow_ds = mlflow.data.from_huggingface(ds, path="cornell-movie-review-data/rotten_tomatoes")
 
     assert isinstance(mlflow_ds, HuggingFaceDataset)
     assert mlflow_ds.ds == ds
@@ -43,40 +74,32 @@ def test_from_huggingface_dataset_constructs_expected_dataset():
     assert reloaded_ds.split == ds.split == "train"
     assert reloaded_ds.num_rows == ds.num_rows
 
-    reloaded_mlflow_ds = mlflow.data.from_huggingface(reloaded_ds, path="rotten_tomatoes")
+    reloaded_mlflow_ds = mlflow.data.from_huggingface(
+        reloaded_ds, path="cornell-movie-review-data/rotten_tomatoes"
+    )
     assert reloaded_mlflow_ds.digest == mlflow_ds.digest
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset_with_revision():
-    new_revision = "c33cbf965006dba64f134f7bef69c53d5d0d285d"
-    old_revision = "8ca2693371541a5ba2b23981de4222be3bef149f"
-    ds_new = datasets.load_dataset(
+    # Load this revision:
+    # https://huggingface.co/datasets/cornell-movie-review-data/rotten_tomatoes/commit/aa13bc287fa6fcab6daf52f0dfb9994269ffea28
+    revision = "aa13bc287fa6fcab6daf52f0dfb9994269ffea28"
+    ds = datasets.load_dataset(
         "cornell-movie-review-data/rotten_tomatoes",
         split="train",
-        revision=new_revision,
-        trust_remote_code=True,
-    )
-    ds_old = datasets.load_dataset(
-        "cornell-movie-review-data/rotten_tomatoes",
-        split="train",
-        revision=old_revision,
+        revision=revision,
         trust_remote_code=True,
     )
 
     mlflow_ds_new = mlflow.data.from_huggingface(
-        ds_new, path="rotten_tomatoes", revision=new_revision, trust_remote_code=True
-    )
-    mlflow_ds_old = mlflow.data.from_huggingface(
-        ds_old, path="rotten_tomatoes", revision=old_revision, trust_remote_code=True
+        ds,
+        path="cornell-movie-review-data/rotten_tomatoes",
+        revision=revision,
+        trust_remote_code=True,
     )
 
-    reloaded_ds_new = mlflow_ds_new.source.load()
-    reloaded_ds_old = mlflow_ds_old.source.load()
-
-    # Newer versions of the rotten "rotten_tomatoes" has a `task_templates` field, while the older
-    # one does not.
-    assert reloaded_ds_new.task_templates
-    assert not reloaded_ds_old.task_templates
+    ds = mlflow_ds_new.source.load()
+    assert any(revision in cs for cs in ds.info.download_checksums)
 
 
 def test_from_huggingface_dataset_constructs_expected_dataset_with_data_files():
@@ -138,9 +161,9 @@ def test_from_huggingface_dataset_constructs_expected_dataset_with_data_dir(tmp_
 
 
 def test_from_huggingface_dataset_respects_user_specified_name_and_digest():
-    ds = datasets.load_dataset("rotten_tomatoes", split="train")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
     mlflow_ds = mlflow.data.from_huggingface(
-        ds, path="rotten_tomatoes", name="myname", digest="mydigest"
+        ds, path="cornell-movie-review-data/rotten_tomatoes", name="myname", digest="mydigest"
     )
     assert mlflow_ds.name == "myname"
     assert mlflow_ds.digest == "mydigest"
@@ -168,17 +191,17 @@ def test_from_huggingface_dataset_digest_is_consistent_for_large_ordered_dataset
 
 
 def test_from_huggingface_dataset_throws_for_dataset_dict():
-    ds = datasets.load_dataset("rotten_tomatoes")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes")
     assert isinstance(ds, datasets.DatasetDict)
 
     with pytest.raises(
         MlflowException, match="must be an instance of `datasets.Dataset`.*DatasetDict"
     ):
-        mlflow.data.from_huggingface(ds, path="rotten_tomatoes")
+        mlflow.data.from_huggingface(ds, path="cornell-movie-review-data/rotten_tomatoes")
 
 
 def test_from_huggingface_dataset_no_source_specified():
-    ds = datasets.load_dataset("rotten_tomatoes", split="train")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
     mlflow_ds = mlflow.data.from_huggingface(ds)
 
     assert isinstance(mlflow_ds, HuggingFaceDataset)
@@ -188,8 +211,8 @@ def test_from_huggingface_dataset_no_source_specified():
 
 
 def test_dataset_conversion_to_json():
-    ds = datasets.load_dataset("rotten_tomatoes", split="train")
-    mlflow_ds = mlflow.data.from_huggingface(ds, path="rotten_tomatoes")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
+    mlflow_ds = mlflow.data.from_huggingface(ds, path="cornell-movie-review-data/rotten_tomatoes")
 
     dataset_json = mlflow_ds.to_json()
     parsed_json = json.loads(dataset_json)
@@ -206,13 +229,13 @@ def test_dataset_conversion_to_json():
 
 def test_dataset_source_conversion_to_json():
     ds = datasets.load_dataset(
-        "rotten_tomatoes",
+        "cornell-movie-review-data/rotten_tomatoes",
         split="train",
         revision="c33cbf965006dba64f134f7bef69c53d5d0d285d",
     )
     mlflow_ds = mlflow.data.from_huggingface(
         ds,
-        path="rotten_tomatoes",
+        path="cornell-movie-review-data/rotten_tomatoes",
         revision="c33cbf965006dba64f134f7bef69c53d5d0d285d",
     )
     source = mlflow_ds.source
@@ -222,7 +245,7 @@ def test_dataset_source_conversion_to_json():
     assert parsed_source["revision"] == "c33cbf965006dba64f134f7bef69c53d5d0d285d"
     assert parsed_source["split"] == "train"
     assert parsed_source["config_name"] == "default"
-    assert parsed_source["path"] == "rotten_tomatoes"
+    assert parsed_source["path"] == "cornell-movie-review-data/rotten_tomatoes"
     assert not parsed_source["data_dir"]
     assert not parsed_source["data_files"]
 
@@ -240,10 +263,29 @@ def test_dataset_source_conversion_to_json():
 def test_to_evaluation_dataset():
     import numpy as np
 
-    ds = datasets.load_dataset("rotten_tomatoes", split="train")
-    dataset = mlflow.data.from_huggingface(ds, path="rotten_tomatoes", targets="label")
+    ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes", split="train")
+    dataset = mlflow.data.from_huggingface(
+        ds, path="cornell-movie-review-data/rotten_tomatoes", targets="label"
+    )
 
     evaluation_dataset = dataset.to_evaluation_dataset()
     assert isinstance(evaluation_dataset, EvaluationDataset)
     assert evaluation_dataset.features_data.equals(dataset.ds.to_pandas().drop("label", axis=1))
     assert np.array_equal(evaluation_dataset.labels_data, dataset.ds.to_pandas()["label"].values)
+
+
+def test_from_huggingface_dataset_with_sample_source():
+    source_uri = "test:/my/test/uri"
+    source = SampleDatasetSource._resolve(source_uri)
+
+    data = {"text": ["This is a sample text.", "Another sample text."], "label": [0, 1]}
+    dataset = datasets.Dataset.from_dict(data)
+
+    train_dataset = mlflow.data.from_huggingface(
+        dataset,
+        name="sample-text-dataset",
+        source=source,
+    )
+
+    assert isinstance(train_dataset, HuggingFaceDataset)
+    assert train_dataset.source == source

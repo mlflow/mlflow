@@ -236,6 +236,9 @@ def test_to_evaluation_dataset():
         name="testname",
     )
     evaluation_dataset = dataset.to_evaluation_dataset()
+
+    assert evaluation_dataset.name is not None
+    assert evaluation_dataset.digest is not None
     assert isinstance(evaluation_dataset, EvaluationDataset)
     assert evaluation_dataset.features_data.equals(df.drop("c", axis=1))
     assert np.array_equal(evaluation_dataset.labels_data, df["c"].to_numpy())

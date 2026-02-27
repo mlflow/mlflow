@@ -5,12 +5,12 @@ import pandas as pd
 
 import mlflow
 
-assert (
-    "OPENAI_API_KEY" in os.environ
-), "Please set the OPENAI_API_KEY environment variable to run this example."
+assert "OPENAI_API_KEY" in os.environ, (
+    "Please set the OPENAI_API_KEY environment variable to run this example."
+)
 
 
-def build_and_evalute_model_with_prompt(system_prompt):
+def build_and_evaluate_model_with_prompt(system_prompt):
     mlflow.start_run()
     mlflow.log_param("system_prompt", system_prompt)
 
@@ -19,7 +19,7 @@ def build_and_evalute_model_with_prompt(system_prompt):
     logged_model = mlflow.openai.log_model(
         model="gpt-4o-mini",
         task=openai.chat.completions,
-        artifact_path="model",
+        name="model",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "{question}"},
@@ -46,7 +46,7 @@ def build_and_evalute_model_with_prompt(system_prompt):
 
 system_prompt_1 = "Your job is to answer questions about MLflow."
 print(f"Building and evaluating model with prompt: '{system_prompt_1}'")
-build_and_evalute_model_with_prompt(system_prompt_1)
+build_and_evaluate_model_with_prompt(system_prompt_1)
 
 system_prompt_2 = (
     "Your job is to answer questions about MLflow. When you are asked a question about MLflow,"
@@ -54,7 +54,7 @@ system_prompt_2 = (
     " MLflow, refuse to answer and say that the question is unrelated."
 )
 print(f"Building and evaluating model with prompt: '{system_prompt_2}'")
-build_and_evalute_model_with_prompt(system_prompt_2)
+build_and_evaluate_model_with_prompt(system_prompt_2)
 
 # Load and inspect the evaluation results
 results: pd.DataFrame = mlflow.load_table(

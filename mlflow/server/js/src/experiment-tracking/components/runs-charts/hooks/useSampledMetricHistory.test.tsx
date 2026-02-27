@@ -1,35 +1,48 @@
-import { renderHook, waitFor } from '@testing-library/react-for-react-18';
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
+import { renderHook, waitFor } from '@testing-library/react';
 import { useSampledMetricHistory } from './useSampledMetricHistory';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { fetchEndpoint } from '../../../../common/utils/FetchUtils';
 import { getSampledMetricHistoryBulkAction } from '../../../sdk/SampledMetricHistoryService';
 import React from 'react';
+import { shouldEnableGraphQLSampledMetrics } from '../../../../common/utils/FeatureUtils';
+import { IntlProvider } from 'react-intl';
+import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
+
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  shouldEnableGraphQLSampledMetrics: jest.fn(),
+}));
 
 jest.mock('../../../sdk/SampledMetricHistoryService', () => ({
   getSampledMetricHistoryBulkAction: jest.fn(),
 }));
 
-const hookWrapper: React.FC = ({ children }) => (
-  <MockedReduxStoreProvider
-    state={{
-      entities: {
-        sampledMetricsByRunUuid: {},
-      },
-    }}
-  >
-    {children}
-  </MockedReduxStoreProvider>
+const hookWrapper: React.FC<React.PropsWithChildren<unknown>> = ({ children }) => (
+  <IntlProvider locale="en">
+    <TestApolloProvider>
+      <MockedReduxStoreProvider
+        state={{
+          entities: {
+            sampledMetricsByRunUuid: {},
+          },
+        }}
+      >
+        {children}
+      </MockedReduxStoreProvider>
+    </TestApolloProvider>
+  </IntlProvider>
 );
 
-describe('useSampledMetricHistory', () => {
+describe('useSampledMetricHistory (REST)', () => {
   beforeEach(() => {
+    jest.mocked(shouldEnableGraphQLSampledMetrics).mockImplementation(() => false);
     jest.mocked(getSampledMetricHistoryBulkAction).mockClear();
     jest.mocked(getSampledMetricHistoryBulkAction).mockImplementation(
       () =>
         ({
           payload: Promise.resolve({}),
           type: 'GET_SAMPLED_METRIC_HISTORY_API_BULK',
-        } as any),
+        }) as any,
     );
   });
 
@@ -48,7 +61,7 @@ describe('useSampledMetricHistory', () => {
     );
 
     await waitFor(() => {
-      expect(getSampledMetricHistoryBulkAction).toBeCalledWith(
+      expect(getSampledMetricHistoryBulkAction).toHaveBeenCalledWith(
         ['run-uuid-1'],
         'metric-a',
         undefined,
@@ -72,6 +85,6 @@ describe('useSampledMetricHistory', () => {
       },
     );
 
-    expect(getSampledMetricHistoryBulkAction).not.toBeCalled();
+    expect(getSampledMetricHistoryBulkAction).not.toHaveBeenCalled();
   });
 });

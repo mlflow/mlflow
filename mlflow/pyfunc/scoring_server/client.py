@@ -5,11 +5,12 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import requests
 
 from mlflow.deployments import PredictionsResponse
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc import scoring_server
 from mlflow.utils.proto_json_utils import dump_input_data
@@ -25,7 +26,7 @@ class BaseScoringServerClient(ABC):
         """
 
     @abstractmethod
-    def invoke(self, data, params: Optional[Dict[str, Any]] = None):
+    def invoke(self, data, params: dict[str, Any] | None = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
@@ -72,7 +73,7 @@ class ScoringServerClient(BaseScoringServerClient):
                     raise RuntimeError(f"Server process already exit with returncode {return_code}")
         raise RuntimeError("Wait scoring server ready timeout.")
 
-    def invoke(self, data, params: Optional[Dict[str, Any]] = None):
+    def invoke(self, data, params: dict[str, Any] | None = None):
         """
         Args:
             data: Model input data.
@@ -97,7 +98,12 @@ class StdinScoringServerClient(BaseScoringServerClient):
     def __init__(self, process):
         super().__init__()
         self.process = process
-        self.tmpdir = Path(tempfile.mkdtemp())
+        try:
+            # Use /dev/shm (memory-based filesystem) if possible to make read/write efficient.
+            tmpdir = tempfile.mkdtemp(dir="/dev/shm")
+        except Exception:
+            tmpdir = tempfile.mkdtemp()
+        self.tmpdir = Path(tmpdir)
         self.output_json = self.tmpdir.joinpath("output.json")
 
     def wait_server_ready(self, timeout=30, scoring_server_proc=None):
@@ -105,7 +111,7 @@ class StdinScoringServerClient(BaseScoringServerClient):
         if return_code is not None:
             raise RuntimeError(f"Server process already exit with returncode {return_code}")
 
-    def invoke(self, data, params: Optional[Dict[str, Any]] = None):
+    def invoke(self, data, params: dict[str, Any] | None = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
@@ -140,6 +146,6 @@ class StdinScoringServerClient(BaseScoringServerClient):
                         return resp
             except Exception as e:
                 _logger.debug("Exception while waiting for scoring to complete: %s", e)
-            if time.time() - begin_time > 60:
+            if time.time() - begin_time > MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get():
                 raise MlflowException("Scoring timeout")
             time.sleep(1)

@@ -1,27 +1,29 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
+import { waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { DeepPartial } from 'redux';
+import type { DeepPartial } from 'redux';
+import type { NavigateFunction } from '../../common/utils/RoutingUtils';
 import { MemoryRouter, useNavigate } from '../../common/utils/RoutingUtils';
 import { MockedReduxStoreProvider } from '../../common/utils/TestUtils';
 import {
   findAntdOption,
-  act,
   screen,
   within,
   fastFillInput,
   renderWithIntl,
-} from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
+} from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { PromoteModelButton } from './PromoteModelButton';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { Services as ModelRegistryService } from '../services';
 import { ModelVersionStatus, Stages } from '../constants';
-import { ReduxState } from '../../redux-types';
+import type { ReduxState } from '../../redux-types';
 import { ModelRegistryRoutes } from '../routes';
 import { merge } from 'lodash';
 
 jest.mock('../../model-registry/services');
 jest.mock('../../common/utils/RoutingUtils', () => ({
-  ...jest.requireActual('../../common/utils/RoutingUtils'),
+  ...jest.requireActual<typeof import('../../common/utils/RoutingUtils')>('../../common/utils/RoutingUtils'),
   useNavigate: jest.fn(),
 }));
 
@@ -61,39 +63,39 @@ describe('PromoteModelButton', () => {
   });
 
   it('prepopulates the search registry on render', () => {
-    const searchRegistryMock = jest.fn();
+    const searchRegistryMock = jest.fn<typeof ModelRegistryService.searchRegisteredModels>();
     ModelRegistryService.searchRegisteredModels = searchRegistryMock;
     renderComponent();
     expect(searchRegistryMock).toHaveBeenCalledTimes(1);
   });
 
   it('should show the modal when the button is clicked', async () => {
+    // Need to setup userEvent with `advanceTimers` because test is using fake timers
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     renderComponent();
     const buttonElement = screen.getByRole('button', { name: 'Promote model' });
-    await act(async () => {
-      userEvent.click(buttonElement);
-    });
+    await user.click(buttonElement);
     const modalElement = screen.getByText(/Copy your MLflow models/);
     expect(modalElement).toBeInTheDocument();
     expect(modalElement).toBeVisible();
   });
 
   it('should hide the modal when the cancel button is clicked', async () => {
+    // Need to setup userEvent with `advanceTimers` because test is using fake timers
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     renderComponent();
     const buttonElement = screen.getByRole('button', { name: 'Promote model' });
-    await act(async () => {
-      userEvent.click(buttonElement);
-    });
+    await user.click(buttonElement);
     const cancelButtonElement = screen.getByRole('button', { name: 'Cancel' });
-    await act(async () => {
-      userEvent.click(cancelButtonElement);
-    });
+    await user.click(cancelButtonElement);
     const modalElement = screen.getByText(/Copy your MLflow models/);
     expect(modalElement).toBeInTheDocument();
     expect(modalElement).not.toBeVisible();
   });
 
   it('should invoke expected APIs for copy model version flow', async () => {
+    // Need to setup userEvent with `advanceTimers` because test is using fake timers
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     // Mock this function minimally, only to be spied on
     jest.spyOn(ModelRegistryService, 'searchRegisteredModels').mockResolvedValue([]);
 
@@ -106,7 +108,7 @@ describe('PromoteModelButton', () => {
 
     // Mock the useNavigate hook
     const mockNavigate = jest.fn();
-    (useNavigate as jest.Mock).mockReturnValue(mockNavigate);
+    jest.mocked(useNavigate).mockReturnValue(mockNavigate as ReturnType<typeof useNavigate>);
 
     // Render the component with pre-populated redux state that already has a registered model entity
     renderComponent({
@@ -118,15 +120,11 @@ describe('PromoteModelButton', () => {
     });
 
     // First, open the modal
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Promote model' }));
-    });
+    await user.click(screen.getByRole('button', { name: 'Promote model' }));
 
     // Then, fill in the select filter and click on the option
-    await act(async () => {
-      await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'modelA');
-      userEvent.click(findAntdOption('modelA'));
-    });
+    await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'modelA', user);
+    await user.click(findAntdOption('modelA'));
 
     // Assert two calls to search
     expect(ModelRegistryService.searchRegisteredModels).toHaveBeenCalledTimes(2);
@@ -135,17 +133,19 @@ describe('PromoteModelButton', () => {
     expect(explanationText).toBeInTheDocument();
 
     // Click "copy" button
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Promote' }));
-    });
+    await user.click(screen.getByRole('button', { name: 'Promote' }));
 
     // We should have a new model version created in the already existing model
-    expect(ModelRegistryService.createModelVersion).toHaveBeenCalledTimes(1);
-    expect(ModelRegistryService.createRegisteredModel).toHaveBeenCalledTimes(0);
-    expect(mockNavigate).toHaveBeenCalledWith(ModelRegistryRoutes.getModelVersionPageRoute('modelA', '2'));
+    await waitFor(() => {
+      expect(ModelRegistryService.createModelVersion).toHaveBeenCalledTimes(1);
+      expect(ModelRegistryService.createRegisteredModel).toHaveBeenCalledTimes(0);
+      expect(mockNavigate).toHaveBeenCalledWith(ModelRegistryRoutes.getModelVersionPageRoute('modelA', '2'));
+    });
   });
 
   it('should invoke expected APIs for create registered model and copy MV flow', async () => {
+    // Need to setup userEvent with `advanceTimers` because test is using fake timers
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     // Mock this function minimally, only to be spied on
     jest.spyOn(ModelRegistryService, 'searchRegisteredModels').mockResolvedValue([]);
 
@@ -163,7 +163,7 @@ describe('PromoteModelButton', () => {
 
     // Mock the useNavigate hook
     const mockNavigate = jest.fn();
-    (useNavigate as jest.Mock).mockReturnValue(mockNavigate);
+    jest.mocked(useNavigate).mockReturnValue(mockNavigate as ReturnType<typeof useNavigate>);
 
     renderComponent({
       entities: {
@@ -174,17 +174,11 @@ describe('PromoteModelButton', () => {
     });
 
     // First, open the modal
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Promote model' }));
-    });
+    await user.click(screen.getByRole('button', { name: 'Promote model' }));
 
     // Select create new model option
-    await act(async () => {
-      userEvent.click(screen.getByRole('combobox'));
-    });
-    await act(async () => {
-      userEvent.click(findAntdOption('Create New Model'));
-    });
+    await user.click(screen.getByRole('combobox'));
+    await user.click(findAntdOption('Create New Model'));
 
     // Assert two calls to search
     expect(ModelRegistryService.searchRegisteredModels).toHaveBeenCalledTimes(2);
@@ -193,18 +187,16 @@ describe('PromoteModelButton', () => {
     expect(explanationText).not.toBeInTheDocument();
 
     // Fill in the model name
-    await act(async () => {
-      await fastFillInput(screen.getByPlaceholderText('Input a model name'), 'modelB');
-    });
+    await fastFillInput(screen.getByPlaceholderText('Input a model name'), 'modelB', user);
 
     // Click "copy" button
-    await act(async () => {
-      userEvent.click(screen.getByRole('button', { name: 'Promote' }));
-    });
+    await user.click(screen.getByRole('button', { name: 'Promote' }));
 
     // We should have a created a new registered model and a new model version
-    expect(ModelRegistryService.createRegisteredModel).toHaveBeenCalledTimes(1);
-    expect(ModelRegistryService.createModelVersion).toHaveBeenCalledTimes(1);
-    expect(mockNavigate).toHaveBeenCalledWith(ModelRegistryRoutes.getModelVersionPageRoute('modelB', '1'));
+    await waitFor(() => {
+      expect(ModelRegistryService.createRegisteredModel).toHaveBeenCalledTimes(1);
+      expect(ModelRegistryService.createModelVersion).toHaveBeenCalledTimes(1);
+      expect(mockNavigate).toHaveBeenCalledWith(ModelRegistryRoutes.getModelVersionPageRoute('modelB', '1'));
+    });
   });
 });

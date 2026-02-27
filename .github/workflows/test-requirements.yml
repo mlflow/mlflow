@@ -1,0 +1,103 @@
+name: Test requirements
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - requirements/core-requirements.yaml
+      - requirements/skinny-requirements.yaml
+      - requirements/gateway-requirements.yaml
+      - .github/workflows/test-requirements.yml
+  schedule:
+    - cron: "0 13 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MLFLOW_HOME: ${{ github.workspace }}
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+  SPARK_LOCAL_IP: localhost
+  PYTHON_VERSION: "3.11" # minimum supported version + 1
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+  _MLFLOW_TESTING_TELEMETRY: "true"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  skinny:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dev script dependencies
+        run: |
+          pip install -r dev/requirements.txt
+      - uses: ./.github/actions/update-requirements
+        if: github.event_name == 'schedule'
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh --skinny
+      - uses: ./.github/actions/show-versions
+      - name: Run tests
+        run: |
+          ./dev/run-python-skinny-tests.sh
+
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        include:
+          - splits: 2
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
+          submodules: recursive
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dev script dependencies
+        run: |
+          pip install -r dev/requirements.txt
+      - uses: ./.github/actions/update-requirements
+        if: github.event_name == 'schedule'
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh --ml
+          pip install '.[gateway]'
+          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
+          pip install tf-keras
+      - uses: ./.github/actions/show-versions
+      - name: Run tests
+        run: |
+          source dev/setup-ssh.sh
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests --requires-ssh --ignore-flavors \
+            --ignore=tests/examples --ignore=tests/evaluate \
+            --ignore=tests/deployments --ignore=tests/genai

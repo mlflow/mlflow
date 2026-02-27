@@ -1,5 +1,16 @@
-import { ApolloClient, ApolloLink, InMemoryCache, Operation, createHttpLink } from '@apollo/client';
-import { RetryLink } from '@apollo/client/link/retry';
+import {
+  ApolloClient,
+  ApolloLink,
+  InMemoryCache,
+  type Operation,
+  createHttpLink,
+} from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import {
+  // prettier-ignore
+  RetryLink,
+  DefaultHeadersLink as OssDefaultHeadersLink,
+} from '@mlflow/mlflow/src/common/utils/graphQLHooks';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 function containsMutation(op: Operation): boolean {
   const definitions = (op.query && op.query.definitions) || [];
@@ -10,12 +21,15 @@ const backgroundLinkTimeoutMs = 10000;
 
 const possibleTypes: Record<string, string[]> = {};
 
-const graphqlFetch = async (uri: any, options: any): Promise<Response> => {
+export const graphqlFetch = async (uri: any, options: any): Promise<Response> => {
   const headers = new Headers({
     ...options.headers,
   });
 
-  return fetch(uri, { ...options, headers }).then((res) => res);
+  const resolvedUri = typeof uri === 'string' ? getAjaxUrl(uri) : uri;
+
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
+  return fetch(resolvedUri, { ...options, headers }).then((res) => res);
 };
 
 const apolloCache = new InMemoryCache({
@@ -28,8 +42,9 @@ const apolloCache = new InMemoryCache({
 });
 
 export function createApolloClient() {
+  const uri = 'graphql';
   const httpLink = createHttpLink({
-    uri: '/graphql',
+    uri,
     credentials: 'same-origin',
     fetch: graphqlFetch,
   });
@@ -39,9 +54,17 @@ export function createApolloClient() {
     attempts: { retryIf: (_, op) => !containsMutation(op) },
   });
 
-  const combinedLinks = ApolloLink.from([
+  const DefaultHeadersLink = OssDefaultHeadersLink;
+  const defaultHeadersLink = new DefaultHeadersLink({
+    cookieStr: document.cookie,
+  });
+
+  // eslint-disable-next-line prefer-const
+  let combinedLinks = ApolloLink.from([
     // This link retries queries that fail due to network errors
     retryLink,
+    // This link adds application-specific headers to HTTP requests (e.g., CSRF tokens)
+    defaultHeadersLink,
     httpLink,
   ]);
 

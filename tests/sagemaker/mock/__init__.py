@@ -1,13 +1,16 @@
 import json
 import time
-from collections import namedtuple
 from datetime import datetime
+from typing import Any, NamedTuple
 
 from moto.core import DEFAULT_ACCOUNT_ID, BackendDict, BaseBackend, BaseModel
 from moto.core.models import base_decorator
 from moto.core.responses import BaseResponse
 
-SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"])
+
+class SageMakerResourceWithArn(NamedTuple):
+    resource: Any
+    arn: str
 
 
 class SageMakerResponse(BaseResponse):
@@ -443,8 +446,7 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                f"Attempted to update an endpoint with name: `{endpoint_name}`"
-                " that does not exist."
+                f"Attempted to update an endpoint with name: `{endpoint_name}` that does not exist."
             )
 
         if new_config_name not in self.endpoint_configs:
@@ -469,8 +471,7 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                f"Attempted to delete an endpoint with name: `{endpoint_name}`"
-                " that does not exist."
+                f"Attempted to delete an endpoint with name: `{endpoint_name}` that does not exist."
             )
 
         del self.endpoints[endpoint_name]
@@ -481,11 +482,10 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
         """
-        summaries = []
-        for _, endpoint in self.endpoints.items():
-            summary = EndpointSummary(endpoint=endpoint.resource, arn=endpoint.arn)
-            summaries.append(summary)
-        return summaries
+        return [
+            EndpointSummary(endpoint=endpoint.resource, arn=endpoint.arn)
+            for endpoint in self.endpoints.values()
+        ]
 
     def list_endpoint_configs(self):
         """
@@ -493,13 +493,10 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpointConfigs.html.
         """
-        summaries = []
-        for _, endpoint_config in self.endpoint_configs.items():
-            summary = EndpointConfigSummary(
-                config=endpoint_config.resource, arn=endpoint_config.arn
-            )
-            summaries.append(summary)
-        return summaries
+        return [
+            EndpointConfigSummary(config=endpoint_config.resource, arn=endpoint_config.arn)
+            for endpoint_config in self.endpoint_configs.values()
+        ]
 
     def list_models(self):
         """
@@ -507,11 +504,7 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListModels.html.
         """
-        summaries = []
-        for _, model in self.models.items():
-            summary = ModelSummary(model=model.resource, arn=model.arn)
-            summaries.append(summary)
-        return summaries
+        return [ModelSummary(model=model.resource, arn=model.arn) for model in self.models.values()]
 
     def list_tags(self, resource_arn, region_name, resource_type):
         """
@@ -660,13 +653,10 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTransformJobs.html.
         """
-        summaries = []
-        for _, transform_job in self.transform_jobs.items():
-            summary = TransformJobSummary(
-                transform_job=transform_job.resource, arn=transform_job.arn
-            )
-            summaries.append(summary)
-        return summaries
+        return [
+            TransformJobSummary(transform_job=transform_job.resource, arn=transform_job.arn)
+            for transform_job in self.transform_jobs.values()
+        ]
 
 
 class TimestampedResource(BaseModel):
@@ -714,7 +704,6 @@ class Endpoint(TimestampedResource):
 
 
 class TransformJob(TimestampedResource):
-
     """
     Object representing a SageMaker transform job. The SageMakerBackend will create
     and manage transform jobs.
@@ -779,8 +768,8 @@ class EndpointOperation:
     def __init__(self, latency_seconds, pending_status, completed_status):
         """
         Args:
-            latency: The latency of the operation, in seconds. Before the time window specified
-                by this latency elapses, the operation will have the status specified by
+            latency_seconds: The latency of the operation, in seconds. Before the time window
+                specified by this latency elapses, the operation will have the status specified by
                 ``pending_status``. After the time window elapses, the operation will
                 have the status  specified by ``completed_status``.
             pending_status: The status that the operation should reflect *before* the latency
@@ -1047,7 +1036,7 @@ class ModelDescription:
             "ModelName": self.model.model_name,
             "PrimaryContainer": self.model.primary_container,
             "ExecutionRoleArn": self.model.execution_role_arn,
-            "VpcConfig": self.model.vpc_config if self.model.vpc_config else {},
+            "VpcConfig": self.model.vpc_config or {},
             "CreationTime": self.model.creation_time,
         }
 

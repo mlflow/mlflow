@@ -1,6 +1,6 @@
-import { shouldEnableRunDetailsPageTracesTab } from '../../../common/utils/FeatureUtils';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import { RunPageTabName } from '../../constants';
+
 /**
  * Returns the run view's active tab.
  * - Supports multi-slash artifact paths (hence '*' catch-all param)
@@ -14,7 +14,10 @@ export const useRunViewActiveTab = (): RunPageTabName => {
   if (tabParam === 'system-metrics') {
     return RunPageTabName.SYSTEM_METRIC_CHARTS;
   }
-  if (shouldEnableRunDetailsPageTracesTab() && tabParam === 'traces') {
+  if (tabParam === 'evaluations') {
+    return RunPageTabName.EVALUATIONS;
+  }
+  if (tabParam === 'traces') {
     return RunPageTabName.TRACES;
   }
   if (tabParam?.match(/^(artifactPath|artifacts)/)) {

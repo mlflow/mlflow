@@ -1,6 +1,7 @@
 """
 Benchmark for multi-part upload and download of artifacts.
 """
+
 import hashlib
 import json
 import os

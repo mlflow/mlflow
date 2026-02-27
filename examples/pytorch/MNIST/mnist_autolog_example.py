@@ -15,7 +15,6 @@ from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor, Mode
 from lightning.pytorch.cli import LightningCLI
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
-from torchmetrics.functional import accuracy
 from torchvision import datasets, transforms
 
 import mlflow.pytorch
@@ -201,7 +200,7 @@ class LightningMNISTClassifier(L.LightningModule):
         x, y = test_batch
         output = self.forward(x)
         _, y_hat = torch.max(output, dim=1)
-        test_acc = accuracy(y_hat.cpu(), y.cpu(), task="multiclass", num_classes=10)
+        test_acc = (y_hat == y).float().mean()
         self.test_outputs.append(test_acc)
         return {"test_acc": test_acc}
 
@@ -228,7 +227,6 @@ class LightningMNISTClassifier(L.LightningModule):
                 factor=0.2,
                 patience=2,
                 min_lr=1e-6,
-                verbose=True,
             ),
             "monitor": "val_loss",
         }

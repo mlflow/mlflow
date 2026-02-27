@@ -34,21 +34,6 @@ def multi_modal_pipeline(component_multi_modal):
     return pipeline, task, processor, components
 
 
-def test_flavor_config_tf(small_seq2seq_pipeline):
-    expected = {
-        "task": "text-classification",
-        "instance_type": "TextClassificationPipeline",
-        "pipeline_model_type": "TFMobileBertForSequenceClassification",
-        "source_model_name": "lordtt13/emo-mobilebert",
-        "model_binary": "model",
-        "framework": "tf",
-        "components": ["tokenizer"],
-        "tokenizer_type": "MobileBertTokenizerFast",
-    }
-    conf = build_flavor_config(small_seq2seq_pipeline)
-    assert conf == expected
-
-
 def test_flavor_config_pt_save_pretrained_false(small_qa_pipeline):
     expected = {
         "task": "question-answering",

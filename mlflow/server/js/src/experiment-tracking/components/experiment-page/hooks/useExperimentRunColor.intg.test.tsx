@@ -1,6 +1,7 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { applyMiddleware, combineReducers, compose, createStore } from 'redux';
 import { colorByRunUuid } from '../../../reducers/RunColorReducer';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react-for-react-18';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Provider, useDispatch } from 'react-redux';
 import { RunColorPill } from '../components/RunColorPill';
 import {
@@ -9,9 +10,9 @@ import {
   useSaveExperimentRunColor,
 } from './useExperimentRunColor';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import { searchRunsApi } from '../../../actions';
-import userEventGlobal from '@testing-library/user-event-14';
+import userEventGlobal from '@testing-library/user-event';
 
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';

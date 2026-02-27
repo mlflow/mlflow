@@ -1,15 +1,98 @@
 from unittest.mock import MagicMock, patch
 
-from langchain.agents import AgentExecutor
-from langchain.chat_models.base import SimpleChatModel
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
-from langchain_core.messages.ai import AIMessageChunk
+import pytest
+from langchain_core.language_models.chat_models import SimpleChatModel
+from langchain_core.messages import (
+    AIMessage,
+    AIMessageChunk,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
+from langchain_core.outputs import ChatGenerationChunk
+from langchain_core.outputs.chat_generation import ChatGeneration
+from langchain_core.outputs.generation import Generation
 
 from mlflow.langchain.utils.chat import (
+    convert_lc_message_to_chat_message,
+    parse_token_usage,
     transform_request_json_for_chat_if_necessary,
     try_transform_response_iter_to_chat_format,
     try_transform_response_to_chat_format,
 )
+from mlflow.types.chat import ChatMessage, Function
+from mlflow.types.chat import ToolCall as _ToolCall
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        (
+            AIMessage(content="foo", id="123"),
+            ChatMessage(role="assistant", content="foo", id="123"),
+        ),
+        (
+            ToolMessage(content="foo", tool_call_id="123"),
+            ChatMessage(role="tool", content="foo", tool_call_id="123"),
+        ),
+        (
+            SystemMessage(content="foo"),
+            ChatMessage(role="system", content="foo"),
+        ),
+        (
+            HumanMessage(content="foo"),
+            ChatMessage(role="user", content="foo"),
+        ),
+    ],
+)
+def test_convert_lc_message_to_chat_message(message, expected):
+    assert convert_lc_message_to_chat_message(message) == expected
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        (
+            AIMessage(
+                content=[
+                    {"type": "text", "text": "Response text"},
+                    {"type": "tool_use", "id": "123", "name": "tool"},
+                ],
+                tool_calls=[{"id": "123", "name": "tool", "args": {}, "type": "tool_call"}],
+            ),
+            ChatMessage(
+                role="assistant",
+                content=[{"type": "text", "text": "Response text"}],
+                tool_calls=[
+                    _ToolCall(
+                        id="123",
+                        type="function",
+                        function=Function(name="tool", arguments="{}"),
+                    )
+                ],
+            ),
+        ),
+        (
+            AIMessage(
+                content="",
+                tool_calls=[{"id": "123", "name": "tool_name", "args": {"arg1": "val1"}}],
+            ),
+            ChatMessage(
+                role="assistant",
+                content=None,
+                tool_calls=[
+                    _ToolCall(
+                        id="123",
+                        type="function",
+                        function=Function(name="tool_name", arguments='{"arg1": "val1"}'),
+                    )
+                ],
+            ),
+        ),
+    ],
+)
+def test_convert_lc_message_to_chat_message_tool_calls(message, expected):
+    assert convert_lc_message_to_chat_message(message) == expected
 
 
 def test_transform_response_to_chat_format_no_conversion():
@@ -82,15 +165,6 @@ def test_transform_response_iter_to_chat_format_ai_message():
         )
 
 
-def test_transform_request_json_for_chat_if_necessary_no_conversion():
-    model = MagicMock(spec=AgentExecutor)
-    request_json = {"messages": [{"role": "user", "content": "some_input"}]}
-    assert transform_request_json_for_chat_if_necessary(request_json, model) == (
-        request_json,
-        False,
-    )
-
-
 def test_transform_request_json_for_chat_if_necessary_conversion():
     model = MagicMock(spec=SimpleChatModel)
     request_json = {"messages": [{"role": "user", "content": "some_input"}]}
@@ -121,3 +195,229 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
         assert transformed_request[0][1][0] == AIMessage(content="What would you like to ask?")
         assert transformed_request[0][2][0] == HumanMessage(content="Who owns MLflow?")
         assert transformed_request[1] is True
+
+
+@pytest.mark.parametrize(
+    ("generation", "expected"),
+    [
+        (ChatGeneration(message=AIMessage(content="foo", id="123")), None),
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+                )
+            ),
+            {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+        ),
+        (
+            ChatGeneration(
+                message=AIMessageChunk(
+                    content="foo",
+                    id="123",
+                    usage_metadata={"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+                )
+            ),
+            {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+        ),
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    response_metadata={
+                        "usage": {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15}
+                    },
+                )
+            ),
+            {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+        ),
+        # OpenAI usage_metadata with input_token_details (LangChain standardized format)
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={
+                        "input_tokens": 50,
+                        "output_tokens": 20,
+                        "total_tokens": 70,
+                        "input_token_details": {"cache_read": 30, "cache_creation": 0},
+                    },
+                )
+            ),
+            {
+                "input_tokens": 50,
+                "output_tokens": 20,
+                "total_tokens": 70,
+                "cache_read_input_tokens": 30,
+                "cache_creation_input_tokens": 0,
+            },
+        ),
+        # OpenAI usage_metadata with both cache_read and cache_creation
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={
+                        "input_tokens": 100,
+                        "output_tokens": 50,
+                        "total_tokens": 150,
+                        "input_token_details": {"cache_read": 25, "cache_creation": 15},
+                    },
+                )
+            ),
+            {
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+                "cache_read_input_tokens": 25,
+                "cache_creation_input_tokens": 15,
+            },
+        ),
+        # Raw OpenAI response_metadata with prompt_tokens_details
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    response_metadata={
+                        "token_usage": {
+                            "prompt_tokens": 50,
+                            "completion_tokens": 20,
+                            "total_tokens": 70,
+                            "prompt_tokens_details": {"cached_tokens": 30},
+                        }
+                    },
+                )
+            ),
+            {
+                "input_tokens": 50,
+                "output_tokens": 20,
+                "total_tokens": 70,
+                "cache_read_input_tokens": 30,
+            },
+        ),
+        # Gemini usage_metadata with cached_content_token_count
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={
+                        "input_tokens": 50,
+                        "output_tokens": 20,
+                        "total_tokens": 70,
+                        "cached_content_token_count": 30,
+                    },
+                )
+            ),
+            {
+                "input_tokens": 50,
+                "output_tokens": 20,
+                "total_tokens": 70,
+                "cache_read_input_tokens": 30,
+            },
+        ),
+        # Legacy completion generation object
+        (Generation(text="foo"), None),
+    ],
+)
+def test_parse_token_usage(generation, expected):
+    assert parse_token_usage([generation]) == expected
+
+
+def test_parse_token_usage_streaming_chunks():
+    """
+    Test that streaming chunks with cumulative token usage are handled correctly.
+
+    In streaming mode, each ChatGenerationChunk contains:
+    - Same input_tokens (repeated for each chunk)
+    - Cumulative output_tokens (increasing with each chunk)
+
+    Expected behavior: Use only the last chunk's usage (final cumulative values)
+    """
+    # Simulate 3 streaming chunks with same input_tokens but cumulative output_tokens
+    # This matches the pattern observed in real streaming scenarios
+    chunks = [
+        ChatGenerationChunk(
+            message=AIMessageChunk(
+                content="Agreement",
+                usage_metadata={
+                    "input_tokens": 16049,
+                    "output_tokens": 2,
+                    "total_tokens": 16051,
+                },
+            )
+        ),
+        ChatGenerationChunk(
+            message=AIMessageChunk(
+                content=" ",
+                usage_metadata={
+                    "input_tokens": 16049,
+                    "output_tokens": 58,
+                    "total_tokens": 16107,
+                },
+            )
+        ),
+        ChatGenerationChunk(
+            message=AIMessageChunk(
+                content="",
+                usage_metadata={
+                    "input_tokens": 16049,
+                    "output_tokens": 115,
+                    "total_tokens": 16164,
+                },
+            )
+        ),
+    ]
+
+    result = parse_token_usage(chunks)
+
+    # Should use only the last chunk's usage (final cumulative values)
+    assert result is not None
+    assert result["input_tokens"] == 16049
+    assert result["output_tokens"] == 115
+    assert result["total_tokens"] == 16164
+
+
+def test_parse_token_usage_non_streaming_multiple_calls():
+    """
+    Test that non-streaming multiple calls still sum correctly (existing behavior).
+
+    When multiple ChatGeneration objects are present (non-streaming), they represent
+    separate LLM calls and should be summed.
+    """
+    # Simulate 2 separate non-streaming calls with different token usage
+    generations = [
+        ChatGeneration(
+            message=AIMessage(
+                content="Response 1",
+                usage_metadata={
+                    "input_tokens": 10,
+                    "output_tokens": 20,
+                    "total_tokens": 30,
+                },
+            )
+        ),
+        ChatGeneration(
+            message=AIMessage(
+                content="Response 2",
+                usage_metadata={
+                    "input_tokens": 15,
+                    "output_tokens": 25,
+                    "total_tokens": 40,
+                },
+            )
+        ),
+    ]
+
+    result = parse_token_usage(generations)
+
+    # Should sum all generations (existing non-streaming behavior)
+    assert result is not None
+    assert result["input_tokens"] == 25  # 10 + 15
+    assert result["output_tokens"] == 45  # 20 + 25
+    assert result["total_tokens"] == 70  # 30 + 40

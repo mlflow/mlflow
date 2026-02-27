@@ -1,10 +1,15 @@
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.entities.model_registry.model_version import ModelVersion
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.model_registry.registered_model_alias import RegisteredModelAlias
+from mlflow.entities.model_registry.registered_model_deployment_job_state import (
+    RegisteredModelDeploymentJobState,
+)
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
 from mlflow.protos.model_registry_pb2 import RegisteredModelAlias as ProtoRegisteredModelAlias
 from mlflow.protos.model_registry_pb2 import RegisteredModelTag as ProtoRegisteredModelTag
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 class RegisteredModel(_ModelRegistryEntity):
@@ -21,6 +26,9 @@ class RegisteredModel(_ModelRegistryEntity):
         latest_versions=None,
         tags=None,
         aliases=None,
+        deployment_job_id=None,
+        deployment_job_state=None,
+        workspace: str | None = None,
     ):
         # Constructor is called only from within the system by various backend stores.
         super().__init__()
@@ -31,6 +39,9 @@ class RegisteredModel(_ModelRegistryEntity):
         self._latest_version = latest_versions
         self._tags = {tag.key: tag.value for tag in (tags or [])}
         self._aliases = {alias.alias: alias.version for alias in (aliases or [])}
+        self._deployment_job_id = deployment_job_id
+        self._deployment_job_state = deployment_job_state
+        self._workspace = resolve_entity_workspace_name(workspace)
 
     @property
     def name(self):
@@ -80,12 +91,22 @@ class RegisteredModel(_ModelRegistryEntity):
     @property
     def tags(self):
         """Dictionary of tag key (string) -> tag value for the current registered model."""
-        return self._tags
+        # Remove the is_prompt tag as it should not be user-facing
+        return {k: v for k, v in self._tags.items() if k != IS_PROMPT_TAG_KEY}
+
+    def _is_prompt(self):
+        """Check if the registered model is a prompt."""
+        return self._tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
 
     @property
     def aliases(self):
         """Dictionary of aliases (string) -> version for the current registered model."""
         return self._aliases
+
+    @property
+    def workspace(self) -> str:
+        """Workspace name for the registered model."""
+        return self._workspace
 
     @classmethod
     def _properties(cls):
@@ -97,6 +118,20 @@ class RegisteredModel(_ModelRegistryEntity):
 
     def _add_alias(self, alias):
         self._aliases[alias.alias] = alias.version
+
+    @property
+    def deployment_job_id(self):
+        """Deployment job ID for the current registered model."""
+        return self._deployment_job_id
+
+    @deployment_job_id.setter
+    def deployment_job_id(self, deployment_job_id):
+        self._deployment_job_id = deployment_job_id
+
+    @property
+    def deployment_job_state(self):
+        """Deployment job state for the current registered model."""
+        return self._deployment_job_state
 
     # proto mappers
     @classmethod
@@ -114,6 +149,10 @@ class RegisteredModel(_ModelRegistryEntity):
             registered_model._add_tag(RegisteredModelTag.from_proto(tag))
         for alias in proto.aliases:
             registered_model._add_alias(RegisteredModelAlias.from_proto(alias))
+        registered_model._deployment_job_id = proto.deployment_job_id
+        registered_model._deployment_job_state = RegisteredModelDeploymentJobState.to_string(
+            proto.deployment_job_state
+        )
         return registered_model
 
     def to_proto(self):
@@ -129,6 +168,12 @@ class RegisteredModel(_ModelRegistryEntity):
         if self.latest_versions is not None:
             rmd.latest_versions.extend(
                 [model_version.to_proto() for model_version in self.latest_versions]
+            )
+        if self.deployment_job_id:
+            rmd.deployment_job_id = self.deployment_job_id
+        if self.deployment_job_state:
+            rmd.deployment_job_state = RegisteredModelDeploymentJobState.from_string(
+                self.deployment_job_state
             )
         rmd.tags.extend(
             [ProtoRegisteredModelTag(key=key, value=value) for key, value in self._tags.items()]

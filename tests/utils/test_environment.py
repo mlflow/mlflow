@@ -18,6 +18,7 @@ from mlflow.utils.environment import (
     _parse_pip_requirements,
     _process_conda_env,
     _process_pip_requirements,
+    _remove_incompatible_requirements,
     _validate_env_arguments,
     infer_pip_requirements,
 )
@@ -411,6 +412,25 @@ def test_infer_requirements_error_handling(env_var, fallbacks, should_raise, mon
         ),
         # Verify duplicate extras are not preserved
         (["markdown[extras]", "markdown", "markdown[extras]"], ["markdown[extras]"]),
+        # Marker-differentiated versions should be kept separate
+        (
+            [
+                "numpy==2.2.6 ; python_full_version < '3.11'",
+                "numpy==2.4.2 ; python_full_version >= '3.11'",
+            ],
+            [
+                'numpy==2.2.6; python_full_version < "3.11"',
+                'numpy==2.4.2; python_full_version >= "3.11"',
+            ],
+        ),
+        # Same marker should still merge
+        (
+            [
+                "numpy>=1.0 ; python_version >= '3.10'",
+                "numpy<2.0 ; python_version >= '3.10'",
+            ],
+            ['numpy>=1.0,<2.0; python_version >= "3.10"'],
+        ),
     ],
 )
 def test_deduplicate_requirements_resolve_correctly(input_requirements, expected):
@@ -435,3 +455,20 @@ def test_invalid_requirements_raise(input_requirements):
         MlflowException, match="The specified requirements versions are incompatible"
     ):
         _deduplicate_requirements(input_requirements)
+
+
+@pytest.mark.parametrize(
+    ("input_requirements", "expected"),
+    [
+        (["databricks-connect", "pyspark", "pyspark-connect"], ["databricks-connect"]),
+        (["databricks-connect==1.15.0", "pyspark==3.0.0"], ["databricks-connect==1.15.0"]),
+        (["databricks-connect==1.15.0", "pyspark-connect"], ["databricks-connect==1.15.0"]),
+        (["pyspark==3.0.0", "pyspark-connect"], ["pyspark==3.0.0", "pyspark-connect"]),
+        (
+            ["pyspark==3.0.0", "pyspark-connect==1.0.0"],
+            ["pyspark==3.0.0", "pyspark-connect==1.0.0"],
+        ),
+    ],
+)
+def test_remove_incompatible_requirements(input_requirements, expected):
+    assert _remove_incompatible_requirements(input_requirements) == expected

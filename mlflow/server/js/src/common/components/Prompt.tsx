@@ -1,5 +1,5 @@
 import React from 'react';
-import { UNSAFE_NavigationContext } from '../../common/utils/RoutingUtils';
+import { UNSAFE_NavigationContext } from '../utils/RoutingUtils';
 
 const useNavigationBlock = () => {
   return (React.useContext(UNSAFE_NavigationContext) as any).navigator.block;

@@ -1,0 +1,146 @@
+---
+sidebar_position: 0
+sidebar_label: Overview
+---
+
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Zap, GitBranch, Gauge, Rocket, BookOpen, BarChart3, Settings, Play } from "lucide-react";
+
+# MLflow for Traditional Machine Learning
+
+MLflow provides comprehensive experiment tracking, model management, and deployment capabilities for traditional machine learning workflows. From scikit-learn pipelines to gradient boosting models, MLflow streamlines your path from experimentation to production.
+
+## Get Started
+
+<TilesGrid>
+  <TileCard
+    icon={Play}
+    iconSize={48}
+    title="Scikit-learn Guide"
+    description="Start with scikit-learn autologging, model management, and deployment patterns."
+    href="/ml/traditional-ml/sklearn"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Zap}
+    iconSize={48}
+    title="XGBoost Guide"
+    description="Learn gradient boosting with automatic parameter and feature importance tracking."
+    href="/ml/traditional-ml/xgboost"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Spark MLlib Guide"
+    description="Scale traditional ML to big data with distributed computing."
+    href="/ml/traditional-ml/sparkml"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Settings}
+    iconSize={48}
+    title="Hyperparameter Tuning"
+    description="Optimize models with GridSearchCV, RandomizedSearchCV, and Optuna integration."
+    href="/ml/getting-started/hyperparameter-tuning"
+    linkText="Start tuning →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BarChart3}
+    iconSize={48}
+    title="Model Evaluation"
+    description="Evaluate models with built-in metrics, visualizations, and custom evaluators."
+    href="/ml/evaluation"
+    linkText="Learn evaluation →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Rocket}
+    iconSize={48}
+    title="Model Deployment"
+    description="Deploy models to production with MLflow serving and cloud platforms."
+    href="/ml/deployment"
+    linkText="Deploy models →"
+    containerHeight={64}
+  />
+</TilesGrid>
+
+## Why MLflow for Traditional ML?
+
+<video src={useBaseUrl("/images/traditional-ml-ui.mp4")} controls loop autoPlay muted aria-label="Hyper Parameter Optimization with scikit-learn" />
+
+<FeatureHighlights features={[
+  {
+    icon: Zap,
+    title: "Automatic Logging",
+    description: "Single line of code (mlflow.autolog()) captures parameters, metrics, models, and artifacts for scikit-learn, XGBoost, LightGBM, and more."
+  },
+  {
+    icon: GitBranch,
+    title: "Experiment Organization",
+    description: "Track hyperparameter searches with parent-child runs. Compare models across algorithms with visual charts and sortable tables."
+  },
+  {
+    icon: Gauge,
+    title: "Pipeline Tracking",
+    description: "Automatically log scikit-learn Pipeline components, preprocessing steps, and feature transformations with full reproducibility."
+  },
+  {
+    icon: Rocket,
+    title: "Flexible Deployment",
+    description: "Deploy models for real-time inference, batch processing, or edge deployment with Docker, Kubernetes, and cloud platform support."
+  }
+]} />
+
+## Supported Libraries
+
+<CardGroup>
+  <SmallLogoCard link="/ml/traditional-ml/sklearn">![scikit learn](/images/logos/scikit-learn-logo.svg)</SmallLogoCard>
+  <SmallLogoCard link="/ml/traditional-ml/xgboost">![XGBoost Logo](/images/logos/xgboost-logo.svg)</SmallLogoCard>
+  <SmallLogoCard link="/ml/traditional-ml/sparkml">![Spark Logo](/images/logos/spark-logo.svg)</SmallLogoCard>
+  <SmallLogoCard link="/ml/model#lightgbm-lightgbm">![LightGBM Logo](/images/logos/lightgbm-logo.png)</SmallLogoCard>
+  <SmallLogoCard link="/ml/model#catboost-catboost">![CatBoost Logo](/images/logos/catboost-logo.png)</SmallLogoCard>
+  <SmallLogoCard link="/ml/model#statsmodels-statsmodels">![Statsmodels Logo](/images/logos/statsmodels-logo.svg)</SmallLogoCard>
+  <SmallLogoCard link="/ml/traditional-ml/prophet">![Prophet Logo](/images/logos/prophet-logo.png)</SmallLogoCard>
+</CardGroup>
+
+## Learn More
+
+<TilesGrid>
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Model Registry"
+    description="Manage model versions, aliases, and deployment lifecycle with centralized governance."
+    href="/ml/model-registry"
+    linkText="View registry docs →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BarChart3}
+    iconSize={48}
+    title="MLflow Tracking"
+    description="Track experiments, parameters, metrics, and artifacts across all ML workflows."
+    href="/ml/tracking"
+    linkText="View tracking docs →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Rocket}
+    iconSize={48}
+    title="Custom PyFunc Models"
+    description="Create standardized, reproducible model interfaces with MLflow's PyFunc framework."
+    href="/ml/traditional-ml/tutorials/creating-custom-pyfunc"
+    linkText="View tutorial →"
+    containerHeight={64}
+  />
+</TilesGrid>

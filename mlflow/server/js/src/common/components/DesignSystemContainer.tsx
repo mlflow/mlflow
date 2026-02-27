@@ -1,16 +1,9 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/design-system';
-import { message, ConfigProvider } from 'antd';
 import { ColorsPaletteDatalist } from './ColorsPaletteDatalist';
 
-const isInsideShadowDOM = (element: any) => element instanceof window.Node && element.getRootNode() !== document;
+const isInsideShadowDOM = (element: HTMLDivElement | null): boolean =>
+  element instanceof window.Node && element.getRootNode() !== document;
 
 type DesignSystemContainerProps = {
   isDarkTheme?: boolean;
@@ -22,40 +15,44 @@ const ThemeProvider = ({ children, isDarkTheme }: { children?: React.ReactNode; 
   return <DesignSystemThemeProvider isDarkMode={isDarkTheme}>{children}</DesignSystemThemeProvider>;
 };
 
+export const MLflowImagePreviewContainer = React.createContext({
+  getImagePreviewPopupContainer: () => document.body,
+});
+
 /**
  * MFE-safe DesignSystemProvider that checks if the application is
  * in the context of the Shadow DOM and if true, provides dedicated
  * DOM element for the purpose of housing modals/popups there.
  */
 export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
-  const modalContainerElement = useRef();
+  const modalContainerElement = useRef<HTMLDivElement | null>(null);
   const { isDarkTheme = false, children } = props;
 
-  useEffect(() => {
-    if (isInsideShadowDOM(modalContainerElement.current)) {
-      message.config({
-        // @ts-expect-error TS(2322): Type '() => undefined' is not assignable to type '... Remove this comment to see the full error message
-        getContainer: () => modalContainerElement.current,
-      });
+  const getPopupContainer = useCallback(() => {
+    const modelContainerEle = modalContainerElement.current;
+    if (modelContainerEle !== null && isInsideShadowDOM(modelContainerEle)) {
+      return modelContainerEle;
     }
+    return document.body;
   }, []);
 
-  const getPopupContainer = useCallback(() => {
-    if (isInsideShadowDOM(modalContainerElement.current)) {
-      return modalContainerElement.current;
+  // Specialized container for antd image previews, always rendered near MLflow
+  // to maintain prefixed CSS classes and styles.
+  const getImagePreviewPopupContainer = useCallback(() => {
+    const modelContainerEle = modalContainerElement.current;
+    if (modelContainerEle !== null) {
+      return modelContainerEle;
     }
     return document.body;
   }, []);
 
   return (
     <ThemeProvider isDarkTheme={isDarkTheme}>
-      {/* @ts-expect-error TS(2322): Type '() => HTMLElement | undefined' is not assign... Remove this comment to see the full error message */}
-      <DesignSystemProvider getPopupContainer={getPopupContainer} isCompact {...props}>
-        <ConfigProvider prefixCls="ant">
+      <DesignSystemProvider getPopupContainer={getPopupContainer} {...props}>
+        <MLflowImagePreviewContainer.Provider value={{ getImagePreviewPopupContainer }}>
           {children}
-          {/* @ts-expect-error TS(2322): Type 'MutableRefObject<undefined>' is not assignab... Remove this comment to see the full error message */}
           <div ref={modalContainerElement} />
-        </ConfigProvider>
+        </MLflowImagePreviewContainer.Provider>
       </DesignSystemProvider>
       <ColorsPaletteDatalist />
     </ThemeProvider>

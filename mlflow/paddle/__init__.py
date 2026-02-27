@@ -13,7 +13,7 @@ Paddle (native) format
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 
@@ -41,6 +41,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -86,6 +87,8 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
+    **kwargs,
 ):
     """
     Save a paddle model to a path on the local file system. Produces an MLflow Model
@@ -109,6 +112,8 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
 
     .. code-block:: python
         :caption: Example
@@ -178,10 +183,10 @@ def save_model(
                 opt.step()
                 opt.clear_grad()
         mlflow.log_param("learning_rate", 0.01)
-        mlflow.paddle.log_model(model, "model")
+        mlflow.paddle.log_model(model, name="model")
         sk_path_dir = "./test-out"
         mlflow.paddle.save_model(model, sk_path_dir)
-        print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
+        print("Model saved in run %s" % mlflow.active_run().info.run_id)
     """
     import paddle
 
@@ -209,9 +214,9 @@ def save_model(
     output_path = os.path.join(path, model_data_subpath)
 
     if isinstance(pd_model, paddle.Model):
-        pd_model.save(output_path, training=training)
+        pd_model.save(output_path, training=training, **kwargs)
     else:
-        paddle.jit.save(pd_model, output_path)
+        paddle.jit.save(pd_model, output_path, **kwargs)
 
     # `PyFuncModel` only works for paddle models that define `predict()`.
     pyfunc.add_to_model(
@@ -222,11 +227,15 @@ def save_model(
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
+
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         pickled_model=model_data_subpath,
         paddle_version=paddle.__version__,
         code=code_dir_subpath,
+        **extra_files_config,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -326,7 +335,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pd_model,
-    artifact_path,
+    artifact_path: str | None = None,
     training=False,
     conda_env=None,
     code_paths=None,
@@ -337,6 +346,14 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
+    step: int = 0,
+    model_id: str | None = None,
+    **kwargs,
 ):
     """
     Log a paddle model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -348,7 +365,7 @@ def log_model(
 
     Args:
         pd_model: paddle model to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         training: Only valid when saving a model trained using the PaddlePaddle high level API.
             If set to True, the saved model supports both re-training and
             inference. If set to False, it only supports inference.
@@ -365,6 +382,14 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
+        kwargs: {{ kwargs }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -376,12 +401,10 @@ def log_model(
         import mlflow.paddle
 
 
-        def load_data():
-            ...
+        def load_data(): ...
 
 
-        class Regressor:
-            ...
+        class Regressor: ...
 
 
         model = Regressor()
@@ -393,12 +416,13 @@ def log_model(
         for epoch_id in range(EPOCH_NUM):
             ...
         mlflow.log_param("learning_rate", 0.01)
-        mlflow.paddle.log_model(model, "model")
+        mlflow.paddle.log_model(model, name="model")
         sk_path_dir = ...
         mlflow.paddle.save_model(model, sk_path_dir)
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.paddle,
         pd_model=pd_model,
         conda_env=conda_env,
@@ -411,6 +435,13 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        extra_files=extra_files,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
+        **kwargs,
     )
 
 
@@ -442,7 +473,7 @@ class _PaddleWrapper:
     def predict(
         self,
         data,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ):
         """
         Args:

@@ -7,21 +7,21 @@ import {
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
   Empty,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   SearchIcon,
   LegacySkeleton,
   Spinner,
   ToggleButton,
-  LegacyTooltip,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { EvaluationDataReduxState } from '../../reducers/EvaluationDataReducer';
-import { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
-import { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
+import type { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
+import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { EvaluationArtifactCompareTable } from './components/EvaluationArtifactCompareTable';
 import { useEvaluationArtifactColumns } from './hooks/useEvaluationArtifactColumns';
 import { useEvaluationArtifactTableData } from './hooks/useEvaluationArtifactTableData';
@@ -32,7 +32,7 @@ import { PreviewSidebar } from '../../../common/components/PreviewSidebar';
 import { useEvaluationArtifactViewState } from './hooks/useEvaluationArtifactViewState';
 import { useEvaluationArtifactWriteBack } from './hooks/useEvaluationArtifactWriteBack';
 import { PromptEngineeringContextProvider } from './contexts/PromptEngineeringContext';
-import { ReduxState, ThunkDispatch } from '../../../redux-types';
+import type { ReduxState, ThunkDispatch } from '../../../redux-types';
 import { getEvaluationTableArtifact } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 import {
@@ -50,6 +50,7 @@ import { useUpdateExperimentViewUIState } from '../experiment-page/contexts/Expe
 import { useToggleRowVisibilityCallback } from '../experiment-page/hooks/useToggleRowVisibilityCallback';
 import { RUNS_VISIBILITY_MODE } from '../experiment-page/models/ExperimentPageUIState';
 import { FormattedJsonDisplay } from '@mlflow/mlflow/src/common/components/JsonFormatting';
+import { EvaluationTableParseError } from '../../sdk/EvaluationArtifactService';
 
 const MAX_RUNS_TO_COMPARE = 10;
 
@@ -63,7 +64,7 @@ interface EvaluationArtifactCompareViewProps {
 /**
  * Compares the table data contained in experiment run artifacts.
  */
-export const EvaluationArtifactCompareViewImpl = ({
+const EvaluationArtifactCompareViewImpl = ({
   comparedRuns,
   onDatasetSelected,
   viewState,
@@ -201,7 +202,12 @@ export const EvaluationArtifactCompareViewImpl = ({
       const tablesToFetch = (tablesByRun[run.runUuid] || []).filter((table) => selectedTables.includes(table));
       for (const table of tablesToFetch) {
         dispatch(getEvaluationTableArtifact(run.runUuid, table, false)).catch((e) => {
-          Utils.logErrorAndNotifyUser(e.message || e);
+          if (e instanceof EvaluationTableParseError) {
+            // In case of table parse errors, just display the error to the user without propagating it upstream
+            Utils.displayGlobalErrorNotification(e.message);
+          } else {
+            Utils.logErrorAndNotifyUser(e.message || e);
+          }
         });
       }
     }
@@ -356,6 +362,7 @@ export const EvaluationArtifactCompareViewImpl = ({
           }}
         >
           <DialogCombobox
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_358"
             label={
               <FormattedMessage
                 defaultMessage="Table"
@@ -387,16 +394,19 @@ export const EvaluationArtifactCompareViewImpl = ({
               </DialogComboboxOptionList>
             </DialogComboboxContent>
           </DialogCombobox>
-          <LegacyTooltip
-            title={
+          <Tooltip
+            componentId="mlflow.experiment-tracking.evaluation-artifact-compare.run-header"
+            content={
               <FormattedMessage
                 defaultMessage="Using the list of logged table artifacts, select at least one to start comparing results."
                 description="Experiment page > artifact compare view > table select dropdown tooltip"
               />
             }
           >
-            <InfoIcon />
-          </LegacyTooltip>
+            <span>
+              <InfoSmallIcon />
+            </span>
+          </Tooltip>
         </div>
         {isLoading ? (
           <LegacySkeleton />
@@ -412,6 +422,7 @@ export const EvaluationArtifactCompareViewImpl = ({
               }}
             >
               <Input
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_414"
                 prefix={<SearchIcon />}
                 suffix={showSearchSpinner && <Spinner size="small" />}
                 css={{ width: 300, minWidth: 300 }}
@@ -430,6 +441,7 @@ export const EvaluationArtifactCompareViewImpl = ({
                 disabled={!isViewConfigured || isSyncingArtifacts}
               />
               <DialogCombobox
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_433"
                 value={groupByCols}
                 multiSelect
                 label={
@@ -462,6 +474,7 @@ export const EvaluationArtifactCompareViewImpl = ({
                 </DialogComboboxContent>
               </DialogCombobox>
               <DialogCombobox
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_evaluationartifactcompareview.tsx_465"
                 value={[outputColumn]}
                 label={
                   <FormattedMessage

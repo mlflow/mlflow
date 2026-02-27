@@ -19,9 +19,13 @@ flask:
   pip_release: Flask
   max_major_version: 3
 
+flask-cors:
+  pip_release: Flask-CORS
+  max_major_version: 6
+
 numpy:
   pip_release: numpy
-  max_major_version: 1
+  max_major_version: 2
 
 scipy:
   pip_release: scipy
@@ -36,9 +40,14 @@ sqlalchemy:
   minimum: "1.4.0"
   max_major_version: 2
 
+cryptography:
+  pip_release: cryptography
+  minimum: "43.0.0"
+  max_major_version: 46
+
 gunicorn:
   pip_release: gunicorn
-  max_major_version: 22
+  max_major_version: 25
   markers: "platform_system != 'Windows'"
 
 waitress:
@@ -50,29 +59,14 @@ scikit-learn:
   pip_release: scikit-learn
   max_major_version: 1
 
+skops:
+  pip_release: skops
+  max_major_version: 0
+
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 15
-
-markdown:
-  pip_release: markdown
-  minimum: "3.3"
-  max_major_version: 3
-
-Jinja2-non-windows:
-  pip_release: Jinja2
-  minimum: "2.11"
-  max_major_version: 3
-  markers: "platform_system != 'Windows'"
-
-Jinja2-windows:
-  pip_release: Jinja2
-  # `mlflow.pyfunc.spark_udf` doesn't work properly with Jinja2==2.11 on Windows.
-  # See https://github.com/mlflow/mlflow/pull/6931 for more information.
-  minimum: "3.0"
-  max_major_version: 3
-  markers: "platform_system == 'Windows'"
+  max_major_version: 23
 
 matplotlib:
   pip_release: matplotlib
@@ -81,3 +75,8 @@ matplotlib:
 graphene:
   pip_release: graphene
   max_major_version: 3
+
+huey:
+  pip_release: huey
+  minimum: "2.5.4"
+  max_major_version: 2

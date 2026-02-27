@@ -1,8 +1,62 @@
-.editable-note-actions {
+.mlflow-editable-note-actions {
   margin-top: 16px;
 }
 
-.editable-note-actions button + button {
+.mlflow-editable-note-actions button + button {
   margin-left: 16px;
 }
 
+.mde-header {
+  background: none;
+}
+
+/* Override react-mde library defaults for dark mode */
+
+/* Container border */
+.mlflow-dark-theme .react-mde {
+  border-color: var(--mlflow-dark-border) !important;
+}
+
+/* Toolbar header */
+.mlflow-dark-theme .mde-header {
+  background: var(--mlflow-dark-bg-secondary) !important;
+  border-bottom-color: var(--mlflow-dark-border) !important;
+}
+
+/* Write/Preview tab buttons */
+.mlflow-dark-theme .mde-header .mde-tabs button {
+  color: var(--mlflow-dark-text-primary) !important;
+}
+
+.mlflow-dark-theme .mde-header .mde-tabs button.selected {
+  border-color: var(--mlflow-dark-border) !important;
+  background-color: var(--mlflow-dark-bg-primary) !important;
+}
+
+/* Toolbar icon buttons */
+.mlflow-dark-theme .mde-header ul.mde-header-group li.mde-header-item button {
+  color: var(--mlflow-dark-text-primary) !important;
+}
+
+.mlflow-dark-theme .mde-header ul.mde-header-group li.mde-header-item button:hover {
+  background-color: var(--mlflow-dark-bg-hover) !important;
+}
+
+/* Textarea (write tab) */
+.mlflow-dark-theme .mde-textarea-wrapper textarea.mde-text {
+  background-color: var(--mlflow-dark-bg-primary) !important;
+  color: var(--mlflow-dark-text-primary) !important;
+}
+
+/* Preview pane */
+.mlflow-dark-theme .mde-preview .mde-preview-content {
+  background-color: var(--mlflow-dark-bg-primary) !important;
+  color: var(--mlflow-dark-text-primary) !important;
+}
+
+/* Image drop tip area */
+.mlflow-dark-theme .react-mde .image-tip {
+  background-color: var(--mlflow-dark-bg-secondary) !important;
+  color: var(--mlflow-dark-text-primary) !important;
+  border-top-color: var(--mlflow-dark-border) !important;
+}

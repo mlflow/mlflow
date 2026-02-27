@@ -1,24 +1,23 @@
-import codecs
 import filecmp
 import hashlib
-import json
+import io
 import os
 import shutil
 import stat
 import tarfile
 
-import jinja2.exceptions
 import pandas as pd
 import pytest
 from pyspark.sql import SparkSession
 
 import mlflow
-from mlflow.exceptions import MissingConfigException
+from mlflow.exceptions import MlflowException
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import (
     TempDir,
     _copy_file_or_tree,
     _handle_readonly_on_windows,
+    check_tarfile_security,
     get_parent_dir,
     get_total_file_size,
     local_file_uri_to_path,
@@ -28,7 +27,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.os import is_windows
 
-from tests.helper_functions import random_file, random_int, safe_edit_yaml
+from tests.helper_functions import random_int
 from tests.projects.utils import TEST_PROJECT_DIR
 
 
@@ -36,168 +35,6 @@ from tests.projects.utils import TEST_PROJECT_DIR
 def spark_session():
     with SparkSession.builder.master("local[*]").getOrCreate() as session:
         yield session
-
-
-def test_yaml_read_and_write(tmp_path):
-    temp_dir = str(tmp_path)
-    yaml_file = random_file("yaml")
-    long_value = 1
-    data = {
-        "a": random_int(),
-        "B": random_int(),
-        "text_value": "中文",
-        "long_value": long_value,
-        "int_value": 32,
-        "text_value_2": "hi",
-    }
-    file_utils.write_yaml(temp_dir, yaml_file, data)
-    read_data = file_utils.read_yaml(temp_dir, yaml_file)
-    assert data == read_data
-    yaml_path = os.path.join(temp_dir, yaml_file)
-    with codecs.open(yaml_path, encoding="utf-8") as handle:
-        contents = handle.read()
-    assert "!!python" not in contents
-    # Check that UTF-8 strings are written properly to the file (rather than as ASCII
-    # representations of their byte sequences).
-    assert "中文" in contents
-
-    def edit_func(old_dict):
-        old_dict["more_text"] = "西班牙语"
-        return old_dict
-
-    assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
-    with safe_edit_yaml(temp_dir, yaml_file, edit_func):
-        editted_dict = file_utils.read_yaml(temp_dir, yaml_file)
-        assert "more_text" in editted_dict
-        assert editted_dict["more_text"] == "西班牙语"
-    assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
-
-
-def test_render_and_merge_yaml(tmp_path, monkeypatch):
-    json_file = random_file("json")
-    extra_config = {"key": 123}
-    with open(tmp_path / json_file, "w") as f:
-        json.dump(extra_config, f)
-
-    template_yaml_file = random_file("yaml")
-    with open(tmp_path / template_yaml_file, "w") as f:
-        f.write(
-            """
-            steps:
-              preprocess:
-                train_ratio: {{ MY_TRAIN_RATIO|default(0.5) }}
-                experiment:
-                  tracking_uri: {{ MY_MLFLOW_SERVER|default("https://localhost:5000") }}
-            test_1: [1, 2, 3]
-            test_2: {{ TEST_VAR_1 }}
-            test_3: {{ TEST_VAR_2 }}
-            test_4: {{ TEST_VAR_4 }}
-            """
-            + rf"test_5: {{{{ ('{json_file}' | from_json)['key'] }}}}"
-        )
-    context_yaml_file = random_file("yaml")
-    with open(tmp_path / context_yaml_file, "w") as f:
-        f.write(
-            """
-            MY_MLFLOW_SERVER: "./mlruns"
-            TEST_VAR_1: ["a", 1.2]
-            TEST_VAR_2: {"a": 2}
-            """
-            + rf"TEST_VAR_4: {{{{ ('{json_file}' | from_json)['key'] }}}}"
-        )
-
-    monkeypatch.chdir(tmp_path)
-    result = file_utils.render_and_merge_yaml(tmp_path, template_yaml_file, context_yaml_file)
-    expected = {
-        "MY_MLFLOW_SERVER": "./mlruns",
-        "TEST_VAR_1": ["a", 1.2],
-        "TEST_VAR_2": {"a": 2},
-        "TEST_VAR_4": 123,
-        "steps": {"preprocess": {"train_ratio": 0.5, "experiment": {"tracking_uri": "./mlruns"}}},
-        "test_1": [1, 2, 3],
-        "test_2": ["a", 1.2],
-        "test_3": {"a": 2},
-        "test_4": 123,
-        "test_5": 123,
-    }
-    assert result == expected
-
-
-def test_render_and_merge_yaml_raise_on_duplicate_keys(tmp_path):
-    template_yaml_file = random_file("yaml")
-    with open(tmp_path / template_yaml_file, "w") as f:
-        f.write(
-            """
-            steps: 1
-            steps: 2
-            test_2: {{ TEST_VAR_1 }}
-            """
-        )
-
-    context_yaml_file = random_file("yaml")
-    file_utils.write_yaml(str(tmp_path), context_yaml_file, {"TEST_VAR_1": 3})
-
-    with pytest.raises(ValueError, match="Duplicate 'steps' key found"):
-        file_utils.render_and_merge_yaml(tmp_path, template_yaml_file, context_yaml_file)
-
-
-def test_render_and_merge_yaml_raise_on_non_existent_yamls(tmp_path):
-    template_yaml_file = random_file("yaml")
-    with open(tmp_path / template_yaml_file, "w") as f:
-        f.write("""test_1: {{ TEST_VAR_1 }}""")
-
-    context_yaml_file = random_file("yaml")
-    file_utils.write_yaml(str(tmp_path), context_yaml_file, {"TEST_VAR_1": 3})
-
-    with pytest.raises(MissingConfigException, match="does not exist"):
-        file_utils.render_and_merge_yaml(tmp_path, "invalid_name", context_yaml_file)
-    with pytest.raises(MissingConfigException, match="does not exist"):
-        file_utils.render_and_merge_yaml("invalid_path", template_yaml_file, context_yaml_file)
-    with pytest.raises(MissingConfigException, match="does not exist"):
-        file_utils.render_and_merge_yaml(tmp_path, template_yaml_file, "invalid_name")
-
-
-def test_render_and_merge_yaml_raise_on_not_found_key(tmp_path):
-    template_yaml_file = random_file("yaml")
-    with open(tmp_path / template_yaml_file, "w") as f:
-        f.write("""test_1: {{ TEST_VAR_1 }}""")
-
-    context_yaml_file = random_file("yaml")
-    file_utils.write_yaml(str(tmp_path), context_yaml_file, {})
-
-    with pytest.raises(jinja2.exceptions.UndefinedError, match="'TEST_VAR_1' is undefined"):
-        file_utils.render_and_merge_yaml(tmp_path, template_yaml_file, context_yaml_file)
-
-
-def test_yaml_write_sorting(tmp_path):
-    temp_dir = str(tmp_path)
-    data = {
-        "a": 1,
-        "c": 2,
-        "b": 3,
-    }
-
-    sorted_yaml_file = random_file("yaml")
-    file_utils.write_yaml(temp_dir, sorted_yaml_file, data, sort_keys=True)
-    expected_sorted = """a: 1
-b: 3
-c: 2
-"""
-    with open(os.path.join(temp_dir, sorted_yaml_file)) as f:
-        actual_sorted = f.read()
-
-    assert actual_sorted == expected_sorted
-
-    unsorted_yaml_file = random_file("yaml")
-    file_utils.write_yaml(temp_dir, unsorted_yaml_file, data, sort_keys=False)
-    expected_unsorted = """a: 1
-c: 2
-b: 3
-"""
-    with open(os.path.join(temp_dir, unsorted_yaml_file)) as f:
-        actual_unsorted = f.read()
-
-    assert actual_unsorted == expected_unsorted
 
 
 def test_mkdir(tmp_path):
@@ -386,3 +223,74 @@ def test_get_total_size_basic(tmp_path):
 
     path_file = tmp_path.joinpath("file1.txt")
     assert get_total_file_size(path_file) is None
+
+
+def test_check_tarfile_security(tmp_path):
+    def create_tar_with_escaped_path(tar_path: str, escaped_path: str, content: bytes) -> None:
+        """Create tar with path traversal entry."""
+        with tarfile.open(tar_path, "w:gz") as tar:
+            # Add traversal file
+            data = io.BytesIO(content)
+            info = tarfile.TarInfo(name=escaped_path)
+            info.size = len(content)
+            tar.addfile(info, data)
+
+    tar1_path = str(tmp_path.joinpath("file1.tar"))
+    create_tar_with_escaped_path(tar1_path, "../pwned2.txt", b"ABX")
+    with pytest.raises(
+        MlflowException, match="Escaped path destination in the archive file is not allowed"
+    ):
+        check_tarfile_security(tar1_path)
+
+    def create_tar_with_symlink(
+        tar_path: str, link_name: str, link_target: str, file_via_link: str, content: bytes
+    ) -> None:
+        """Create tar with symlink that points outside, then file through symlink."""
+        with tarfile.open(tar_path, "w:gz") as tar:
+            # First: create a symlink pointing to parent directory
+            link_info = tarfile.TarInfo(name=link_name)
+            link_info.type = tarfile.SYMTYPE
+            link_info.linkname = link_target
+            tar.addfile(link_info)
+            # Second: create a file that goes through the symlink
+            data = io.BytesIO(content)
+            file_info = tarfile.TarInfo(name=file_via_link)
+            file_info.size = len(content)
+            tar.addfile(file_info, data)
+
+    tar2_path = str(tmp_path.joinpath("file2.tar"))
+    create_tar_with_symlink(
+        tar2_path,
+        link_name="escape",
+        link_target="..",
+        file_via_link="escape/pwned.txt",
+        content=b"XYZ",
+    )
+    with pytest.raises(
+        MlflowException, match="Destination path in the archive file can not go through a symlink"
+    ):
+        check_tarfile_security(tar2_path)
+
+    def create_tar_with_abs_path(tar_path: str, abs_path: str, content: bytes) -> None:
+        """Create tar with path traversal entry."""
+        with tarfile.open(tar_path, "w:gz") as tar:
+            # Add traversal file
+            data = io.BytesIO(content)
+            info = tarfile.TarInfo(name=abs_path)
+            info.size = len(content)
+            tar.addfile(info, data)
+
+    tar3_path = str(tmp_path.joinpath("file3.tar"))
+    create_tar_with_abs_path(tar3_path, "/tmp/pwned2.txt", b"ABX")
+    with pytest.raises(
+        MlflowException, match="Absolute path destination in the archive file is not allowed"
+    ):
+        check_tarfile_security(tar3_path)
+
+    # Backslash-based path traversal in tar (Windows tar slip / path traversal)
+    tar4_path = str(tmp_path.joinpath("file4.tar"))
+    create_tar_with_escaped_path(tar4_path, "..\\..\\pwned.txt", b"ABX")
+    with pytest.raises(
+        MlflowException, match="Escaped path destination in the archive file is not allowed"
+    ):
+        check_tarfile_security(tar4_path)

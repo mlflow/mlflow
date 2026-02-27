@@ -30,41 +30,49 @@ module.exports = async ({ context, github }) => {
   const messages = [];
 
   const title = "&#x1F6E0 DevTools &#x1F6E0";
-  if (body && !body.includes(title)) {
-    const codespacesBadge = `[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/${user.login}/mlflow/pull/${issue_number}?quickstart=1)`;
-    const newSection = `
+  // Check if a DevTools comment already exists
+  const comments = await github.paginate(github.rest.issues.listComments, {
+    owner,
+    repo,
+    issue_number,
+  });
+  const devToolsCommentExists = comments.some((comment) => comment.body.includes(title));
+
+  if (!devToolsCommentExists) {
+    const devToolsComment = `
 <details><summary>${title}</summary>
 <p>
-
-${codespacesBadge}
 
 #### Install mlflow from this PR
 
 \`\`\`
+# mlflow
 pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
+# mlflow-skinny
+pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge#subdirectory=libs/skinny
 \`\`\`
 
-#### Checkout with GitHub CLI
+For Databricks, use the following command:
 
 \`\`\`
-gh pr checkout ${issue_number}
+%sh curl -LsSf https://raw.githubusercontent.com/mlflow/mlflow/HEAD/dev/install-skinny.sh | sh -s pull/${issue_number}/merge
 \`\`\`
 
 </p>
 </details>
 `.trim();
-    await github.rest.pulls.update({
+    await github.rest.issues.createComment({
       owner,
       repo,
-      pull_number: issue_number,
-      body: `${newSection}\n\n${body}`,
+      issue_number,
+      body: devToolsComment,
     });
   }
 
   const dcoCheck = await getDcoCheck(github, owner, repo, sha);
   if (dcoCheck && dcoCheck.conclusion !== "success") {
     messages.push(
-      "#### &#x26a0; DCO check\n\n" +
+      "#### &#x274C; DCO check\n\n" +
         "The DCO check failed. " +
         `Please sign off your commit(s) by following the instructions [here](${dcoCheck.html_url}). ` +
         "See https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#sign-your-work for more " +
@@ -74,7 +82,7 @@ gh pr checkout ${issue_number}
 
   if (label.endsWith(":master")) {
     messages.push(
-      "#### &#x26a0; PR branch check\n\n" +
+      "#### &#x274C; PR branch check\n\n" +
         "This PR was filed from the master branch in your fork, which is not recommended " +
         "and may cause our CI checks to fail. Please close this PR and file a new PR from " +
         "a non-master branch."
@@ -83,10 +91,9 @@ gh pr checkout ${issue_number}
 
   if (!(body || "").includes("How should the PR be classified in the release notes?")) {
     messages.push(
-      "#### &#x26a0; Invalid PR template\n\n" +
-        "This PR does not appear to have been filed using the MLflow PR template. " +
-        "Please copy the PR template from [here](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md) " +
-        "and fill it out."
+      "#### &#x274C; Invalid PR template\n\n" +
+        "The PR description is missing required sections. " +
+        "Please use the [PR template](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md)."
     );
   }
 

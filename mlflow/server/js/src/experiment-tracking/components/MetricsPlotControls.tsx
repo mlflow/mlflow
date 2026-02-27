@@ -6,10 +6,10 @@
  */
 
 import React from 'react';
-import _ from 'lodash';
-import { Button, LegacySelect, Switch, LegacyTooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
+import { Button, LegacySelect, Switch, Tooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
 import { Progress } from '../../common/components/Progress';
-import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
+import { CHART_TYPE_LINE } from './MetricsPlotPanel';
+import { EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL } from '../utils/MetricsUtils';
 
 import { FormattedMessage, injectIntl } from 'react-intl';
 import { LineSmoothSlider } from './LineSmoothSlider';
@@ -20,7 +20,7 @@ export const X_AXIS_STEP = 'step';
 export const X_AXIS_RELATIVE = 'relative';
 export const MAX_LINE_SMOOTHNESS = 100;
 
-type OwnProps = {
+type Props = {
   distinctMetricKeys: string[];
   selectedMetricKeys: string[];
   selectedXAxis: string;
@@ -28,9 +28,9 @@ type OwnProps = {
   handleShowPointChange: (...args: any[]) => any;
   handleMetricsSelectChange: (...args: any[]) => any;
   handleYAxisLogScaleChange: (...args: any[]) => any;
-  handleLineSmoothChange: (...args: any[]) => any;
+  handleLineSmoothChange: (value: number) => void;
   chartType: string;
-  initialLineSmoothness: number;
+  lineSmoothness: number;
   yAxisLogScale: boolean;
   showPoint: boolean;
   intl: {
@@ -42,9 +42,7 @@ type OwnProps = {
   disableSmoothnessControl: boolean;
 };
 
-type Props = OwnProps & typeof MetricsPlotControlsImpl.defaultProps;
-
-export class MetricsPlotControlsImpl extends React.Component<Props> {
+class MetricsPlotControlsImpl extends React.Component<Props> {
   static defaultProps = {
     disableSmoothnessControl: false,
   };
@@ -62,29 +60,20 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
   };
 
   render() {
-    const {
-      chartType,
-      yAxisLogScale,
-      initialLineSmoothness,
-      showPoint,
-      numRuns,
-      numCompletedRuns,
-      disableSmoothnessControl,
-    } = this.props;
+    const { chartType, yAxisLogScale, lineSmoothness, showPoint, numRuns, numCompletedRuns, disableSmoothnessControl } =
+      this.props;
 
     const lineSmoothnessTooltipText = (
       <FormattedMessage
-        // eslint-disable-next-line max-len
         defaultMessage='Make the line between points "smoother" based on Exponential Moving Average. Smoothing can be useful for displaying the overall trend when the logging frequency is high.'
         description="Helpful tooltip message to help with line smoothness for the metrics plot"
       />
     );
     const completedRunsTooltipText = (
       <FormattedMessage
-        // eslint-disable-next-line max-len
         defaultMessage="MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval."
         description="Helpful tooltip message to explain the automatic metrics plot update"
-        values={{ interval: Math.round(METRICS_PLOT_POLLING_INTERVAL_MS / 1000) }}
+        values={{ interval: Math.round(EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL / 1000) }}
       />
     );
     return (
@@ -100,9 +89,14 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                   defaultMessage="Completed Runs"
                   description="Label for the progress bar to show the number of completed runs"
                 />{' '}
-                <LegacyTooltip title={completedRunsTooltipText}>
-                  <QuestionMarkIcon />
-                </LegacyTooltip>
+                <Tooltip
+                  componentId="mlflow.experiment-tracking.metrics-plot-controls.reset"
+                  content={completedRunsTooltipText}
+                >
+                  <span>
+                    <QuestionMarkIcon />
+                  </span>
+                </Tooltip>
                 <Progress
                   percent={Math.round((100 * numCompletedRuns) / numRuns)}
                   format={() => `${numCompletedRuns}/${numRuns}`}
@@ -113,11 +107,11 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
               <div className="control-label">
                 <FormattedMessage
                   defaultMessage="Points:"
-                  // eslint-disable-next-line max-len
                   description="Label for the toggle button to toggle to show points or not for the metric experiment run"
                 />
               </div>
               <Switch
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_120"
                 data-testid="show-point-toggle"
                 defaultChecked={showPoint}
                 onChange={this.props.handleShowPointChange}
@@ -130,16 +124,21 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                     defaultMessage="Line Smoothness"
                     description="Label for the smoothness slider for the graph plot for metrics"
                   />{' '}
-                  <LegacyTooltip title={lineSmoothnessTooltipText}>
-                    <QuestionMarkIcon />
-                  </LegacyTooltip>
+                  <Tooltip
+                    componentId="mlflow.experiment-tracking.metrics-plot-controls.save"
+                    content={lineSmoothnessTooltipText}
+                  >
+                    <span>
+                      <QuestionMarkIcon />
+                    </span>
+                  </Tooltip>
                 </div>
                 <LineSmoothSlider
                   data-testid="smoothness-toggle"
                   min={1}
                   max={MAX_LINE_SMOOTHNESS}
-                  onChange={_.debounce(this.props.handleLineSmoothChange, 100)}
-                  defaultValue={initialLineSmoothness}
+                  onChange={this.props.handleLineSmoothChange}
+                  value={lineSmoothness}
                 />
               </div>
             )}
@@ -147,11 +146,11 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
               <div className="control-label">
                 <FormattedMessage
                   defaultMessage="X-axis:"
-                  // eslint-disable-next-line max-len
                   description="Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment"
                 />
               </div>
               <RadioGroup
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_154"
                 name="metrics-plot-x-axis-radio-group"
                 css={styles.xAxisControls}
                 onChange={this.props.handleXAxisChange}
@@ -160,21 +159,18 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                 <Radio value={X_AXIS_STEP} data-testid="x-axis-radio">
                   <FormattedMessage
                     defaultMessage="Step"
-                    // eslint-disable-next-line max-len
                     description="Radio button option to choose the step control option for the X-axis for metric graph on the experiment runs"
                   />
                 </Radio>
                 <Radio value={X_AXIS_WALL} data-testid="x-axis-radio">
                   <FormattedMessage
                     defaultMessage="Time (Wall)"
-                    // eslint-disable-next-line max-len
                     description="Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
                   />
                 </Radio>
                 <Radio value={X_AXIS_RELATIVE} data-testid="x-axis-radio">
                   <FormattedMessage
                     defaultMessage="Time (Relative)"
-                    // eslint-disable-next-line max-len
                     description="Radio button option to choose the time relative control option for the X-axis for metric graph on the experiment runs"
                   />
                 </Radio>
@@ -186,7 +182,6 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
           <div className="control-label">
             <FormattedMessage
               defaultMessage="Y-axis:"
-              // eslint-disable-next-line max-len
               description="Label where the users can choose the metric of the experiment run to be plotted on the Y-axis"
             />
           </div>
@@ -194,7 +189,6 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
             placeholder={this.props.intl.formatMessage({
               defaultMessage: 'Please select metric',
               description:
-                // eslint-disable-next-line max-len
                 'Placeholder text where one can select metrics from the list of available metrics to render on the graph',
             })}
             value={this.props.selectedMetricKeys}
@@ -213,11 +207,14 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
           <div className="control-label">
             <FormattedMessage
               defaultMessage="Y-axis Log Scale:"
-              // eslint-disable-next-line max-len
               description="Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
             />
           </div>
-          <Switch defaultChecked={yAxisLogScale} onChange={this.props.handleYAxisLogScaleChange} />
+          <Switch
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_metricsplotcontrols.tsx_220"
+            defaultChecked={yAxisLogScale}
+            onChange={this.props.handleYAxisLogScaleChange}
+          />
         </div>
         <div className="inline-control">
           <Button
@@ -230,10 +227,9 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
           >
             <FormattedMessage
               defaultMessage="Download data"
-              // eslint-disable-next-line max-len
               description="String for the download csv button to download metrics from this run offline in a CSV format"
             />
-            <i className="fas fa-download" />
+            <i className="fa fa-download" />
           </Button>
         </div>
       </div>

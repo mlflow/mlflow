@@ -6,7 +6,7 @@ import React from 'react';
 import { IntlProvider } from 'react-intl';
 import { MemoryRouter } from '../../../../../../common/utils/RoutingUtils';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../../fixtures/experiment-runs.fixtures';
-import {
+import type {
   RunRowDateAndNestInfo,
   RunRowModelsInfo,
   RunRowType,
@@ -26,7 +26,12 @@ export default {
 
 const MOCK_MODEL = EXPERIMENT_RUNS_MOCK_STORE.entities.modelVersionsByRunUuid['experiment123456789_run4'][0];
 
-const createAgTable = (component: React.ComponentType<any>, name: string, defs?: any[], rows?: any[]) => (
+const createAgTable = (
+  component: React.ComponentType<React.PropsWithChildren<any>>,
+  name: string,
+  defs?: any[],
+  rows?: any[],
+) => (
   <div className="ag-theme-balham" style={{ height: 400 }}>
     <MemoryRouter initialEntries={['/']}>
       <IntlProvider locale="en">

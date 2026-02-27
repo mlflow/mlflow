@@ -1,23 +1,31 @@
 import copy
+import socket
+from unittest.mock import patch
 
 import pytest
 
 from mlflow.entities import Metric, Param, RunTag
+from mlflow.environment_variables import MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
+    MAX_TAG_VAL_LENGTH,
     _is_numeric,
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_db_type_string,
     _validate_experiment_artifact_location,
+    _validate_experiment_artifact_location_length,
     _validate_experiment_name,
+    _validate_list_param,
     _validate_metric_name,
     _validate_model_alias_name,
+    _validate_model_alias_name_reserved,
     _validate_param_name,
     _validate_run_id,
     _validate_tag_name,
+    _validate_webhook_url,
     path_not_unique,
 )
 
@@ -52,7 +60,7 @@ GOOD_ALIAS_NAMES = [
     "test-alias",
     "1a2b5cDeFgH",
     "a" * 255,
-    "lates",
+    "lates",  # spellchecker: disable-line
     "v123_temp",
     "123",
     "123v",
@@ -76,11 +84,6 @@ BAD_ALIAS_NAMES = [
     "a" * 256,
     None,
     "$dgs",
-    "v123",
-    "V1",
-    "latest",
-    "Latest",
-    "LATEST",
 ]
 
 
@@ -124,9 +127,21 @@ def test_validate_metric_name_good(metric_name):
     _validate_metric_name(metric_name)
 
 
+def _bad_parameter_pattern(name):
+    if name == "\\":
+        return r"Invalid value \"\\\\\" for parameter"  # Manually handle the backslash case
+    elif name == "*****":
+        return r"Invalid value \"\*\*\*\*\*\" for parameter"
+    else:
+        return f'Invalid value "{name}" for parameter'
+
+
 @pytest.mark.parametrize("metric_name", BAD_METRIC_OR_PARAM_NAMES)
 def test_validate_metric_name_bad(metric_name):
-    with pytest.raises(MlflowException, match="Invalid metric name") as e:
+    with pytest.raises(
+        MlflowException,
+        match=_bad_parameter_pattern(metric_name),
+    ) as e:
         _validate_metric_name(metric_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -138,7 +153,7 @@ def test_validate_param_name_good(param_name):
 
 @pytest.mark.parametrize("param_name", BAD_METRIC_OR_PARAM_NAMES)
 def test_validate_param_name_bad(param_name):
-    with pytest.raises(MlflowException, match="Invalid parameter name") as e:
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(param_name)) as e:
         _validate_param_name(param_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -152,7 +167,7 @@ def test_validate_param_name_bad(param_name):
     ],
 )
 def test_validate_colon_name_bad_windows(param_name):
-    with pytest.raises(MlflowException, match="Invalid parameter name") as e:
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(param_name)) as e:
         _validate_param_name(param_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -164,7 +179,7 @@ def test_validate_tag_name_good(tag_name):
 
 @pytest.mark.parametrize("tag_name", BAD_METRIC_OR_PARAM_NAMES)
 def test_validate_tag_name_bad(tag_name):
-    with pytest.raises(MlflowException, match="Invalid tag name") as e:
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(tag_name)) as e:
         _validate_tag_name(tag_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -178,6 +193,13 @@ def test_validate_model_alias_name_good(alias_name):
 def test_validate_model_alias_name_bad(alias_name):
     with pytest.raises(MlflowException, match="alias name") as e:
         _validate_model_alias_name(alias_name)
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize("alias_name", ["latest", "LATEST", "Latest", "v123", "V1"])
+def test_validate_model_alias_name_reserved(alias_name):
+    with pytest.raises(MlflowException, match="reserved") as e:
+        _validate_model_alias_name_reserved(alias_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -202,7 +224,7 @@ def test_validate_run_id_good(run_id):
 
 @pytest.mark.parametrize("run_id", ["a/bc" * 8, "", "a" * 400, "*" * 5])
 def test_validate_run_id_bad(run_id):
-    with pytest.raises(MlflowException, match="Invalid run ID") as e:
+    with pytest.raises(MlflowException, match=_bad_parameter_pattern(run_id)) as e:
         _validate_run_id(run_id)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -258,7 +280,7 @@ def test_validate_batch_log_data(monkeypatch):
     ]
     tags_with_bad_val = [
         RunTag("good-tag-key", "hi"),
-        RunTag("another-good-key", "but-bad-val" * 1000),
+        RunTag("another-good-key", "a" * (MAX_TAG_VAL_LENGTH + 1)),
     ]
     bad_kwargs = {
         "metrics": [
@@ -320,3 +342,164 @@ def test_validate_db_type_string_bad(db_type):
     with pytest.raises(MlflowException, match="Invalid database engine") as e:
         _validate_db_type_string(db_type)
     assert "Invalid database engine" in e.value.message
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    [
+        "s3://test-bucket/",
+        "file:///path/to/artifacts",
+        "mlflow-artifacts:/path/to/artifacts",
+        "dbfs:/databricks/mlflow-tracking/some-id",
+    ],
+)
+def test_validate_experiment_artifact_location_length_good(artifact_location):
+    _validate_experiment_artifact_location_length(artifact_location)
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    ["s3://test-bucket/" + "a" * 10000, "file:///path/to/" + "directory" * 1111],
+    ids=["s3_long_path", "file_long_path"],
+)
+def test_validate_experiment_artifact_location_length_bad(artifact_location):
+    with pytest.raises(MlflowException, match="Invalid artifact path length"):
+        _validate_experiment_artifact_location_length(artifact_location)
+
+
+def test_setting_experiment_artifact_location_env_var_works(monkeypatch):
+    artifact_location = "file://aaaa"  # length 11
+
+    # should not throw
+    _validate_experiment_artifact_location_length(artifact_location)
+
+    # reduce limit to 10
+    monkeypatch.setenv(MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.name, "10")
+    with pytest.raises(MlflowException, match="Invalid artifact path length"):
+        _validate_experiment_artifact_location_length(artifact_location)
+
+    # increase limit to 11
+    monkeypatch.setenv(MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.name, "11")
+    _validate_experiment_artifact_location_length(artifact_location)
+
+
+@pytest.mark.parametrize(
+    "param_value",
+    [
+        ["1", "2", "3"],
+        [],
+        [1, 2, 3],
+    ],
+)
+def test_validate_list_param_with_valid_list(param_value):
+    _validate_list_param("experiment_ids", param_value)
+
+
+def test_validate_list_param_with_none_not_allowed():
+    with pytest.raises(MlflowException, match="experiment_ids must be a list"):
+        _validate_list_param("experiment_ids", None, allow_none=False)
+
+
+def test_validate_list_param_with_none_allowed():
+    _validate_list_param("experiment_ids", None, allow_none=True)
+
+
+@pytest.mark.parametrize(
+    ("param_name", "param_value", "expected_type"),
+    [
+        ("experiment_ids", 4, "int"),
+        ("param_name", "value", "str"),
+        ("my_param", {"key": "value"}, "dict"),
+    ],
+)
+def test_validate_list_param_with_invalid_type(param_name, param_value, expected_type):
+    with pytest.raises(
+        MlflowException, match=rf"{param_name} must be a list, got {expected_type}"
+    ) as exc_info:
+        _validate_list_param(param_name, param_value)
+    assert f"Did you mean to use {param_name}=[{param_value!r}]?" in str(exc_info.value)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+# -- _validate_webhook_url tests --
+
+
+def _mock_getaddrinfo(ip_str):
+    return lambda host, port, *a, **kw: [(None, None, None, None, (ip_str, 0))]
+
+
+@pytest.mark.parametrize(
+    ("url", "expected_match"),
+    [
+        (123, "Webhook URL must be a string"),
+        ("", "Webhook URL cannot be empty"),
+        ("   ", "Webhook URL cannot be empty"),
+        ("ftp://example.com", "Invalid webhook URL scheme"),
+        ("http://example.com", "Invalid webhook URL scheme"),
+        ("https://", "must include a hostname"),
+    ],
+)
+def test_validate_webhook_url_rejects_invalid_input(url, expected_match):
+    with pytest.raises(MlflowException, match=expected_match):
+        _validate_webhook_url(url)
+
+
+@pytest.mark.parametrize(
+    ("url", "resolved_ip"),
+    [
+        ("https://127.0.0.1/callback", "127.0.0.1"),
+        ("https://localhost/callback", "127.0.0.1"),
+        ("https://internal.corp/hook", "10.0.0.1"),
+        ("https://internal.corp/hook", "172.16.0.1"),
+        ("https://internal.corp/hook", "192.168.1.1"),
+        ("https://metadata.internal/hook", "169.254.169.254"),
+        ("https://cgnat.internal/hook", "100.64.0.1"),
+        ("https://ipv6-loopback.internal/hook", "::1"),
+        ("https://ipv6-private.internal/hook", "fc00::1"),
+    ],
+)
+def test_validate_webhook_url_rejects_private_ips(url, resolved_ip):
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo(resolved_ip),
+    ):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_webhook_url(url)
+
+
+def test_validate_webhook_url_rejects_unresolvable_hostname():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=socket.gaierror("Name or service not known"),
+    ):
+        with pytest.raises(MlflowException, match="Cannot resolve webhook URL hostname"):
+            _validate_webhook_url("https://does-not-exist.invalid/hook")
+
+
+def test_validate_webhook_url_rejects_if_any_resolved_address_is_private():
+    def multi_resolve(host, port, *a, **kw):
+        return [
+            (None, None, None, None, ("8.8.8.8", 0)),
+            (None, None, None, None, ("10.0.0.1", 0)),
+        ]
+
+    with patch("mlflow.utils.validation.socket.getaddrinfo", side_effect=multi_resolve):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_webhook_url("https://dual-homed.example.com/hook")
+
+
+def test_validate_webhook_url_accepts_public_ip():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("8.8.8.8"),
+    ):
+        _validate_webhook_url("https://example.com/webhook")
+
+
+def test_validate_webhook_url_allow_private_ips_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS", "true")
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("127.0.0.1"),
+    ):
+        _validate_webhook_url("https://localhost/callback")

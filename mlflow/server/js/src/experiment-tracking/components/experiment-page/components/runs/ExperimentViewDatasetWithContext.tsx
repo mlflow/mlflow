@@ -17,6 +17,8 @@ export const ExperimentViewDatasetWithContext = ({
   const { dataset, tags } = datasetWithTags;
   const { theme } = useDesignSystemTheme();
 
+  const contextTag = tags?.find(({ key }) => key === MLFLOW_RUN_DATASET_CONTEXT_TAG)?.value;
+
   return (
     <div
       css={{
@@ -38,15 +40,18 @@ export const ExperimentViewDatasetWithContext = ({
           {dataset.name} ({dataset.digest})
         </Typography.Text>
       )}
-      <Tag
-        css={{
-          textTransform: 'capitalize',
-          marginLeft: theme.spacing.xs,
-          marginRight: theme.spacing.xs,
-        }}
-      >
-        {tags && tags.find(({ key }) => key === MLFLOW_RUN_DATASET_CONTEXT_TAG)?.value}
-      </Tag>
+      {contextTag && (
+        <Tag
+          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetwithcontext.tsx_41"
+          css={{
+            textTransform: 'capitalize',
+            marginLeft: theme.spacing.xs,
+            marginRight: theme.spacing.xs,
+          }}
+        >
+          {contextTag}
+        </Tag>
+      )}
     </div>
   );
 };

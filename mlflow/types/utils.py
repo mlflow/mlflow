@@ -1,15 +1,19 @@
 import logging
 import warnings
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Union
+from copy import deepcopy
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
+import pydantic
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
 from mlflow.types.schema import (
+    HAS_PYSPARK,
+    AnyType,
     Array,
     ColSpec,
     Map,
@@ -22,6 +26,11 @@ from mlflow.types.schema import (
     TensorSpec,
 )
 
+MULTIPLE_TYPES_ERROR_MSG = (
+    "Expected all values in the list to be of the same type. To specify a model signature "
+    "with a list containing elements of multiple types, define the signature manually "
+    "using the Array(AnyType()) type from mlflow.models.schema."
+)
 _logger = logging.getLogger(__name__)
 
 
@@ -30,7 +39,7 @@ class TensorsNotSupportedException(MlflowException):
         super().__init__(f"Multidimensional arrays (aka tensors) are not supported. {msg}")
 
 
-def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
+def _get_tensor_shape(data, variable_dimension: int | None = 0) -> tuple[int, ...]:
     """Infer the shape of the inputted data.
 
     This method creates the shape of the tensor to store in the TensorSpec. The variable dimension
@@ -86,7 +95,7 @@ def clean_tensor_type(dtype: np.dtype):
     return dtype
 
 
-def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
+def _infer_colspec_type(data: Any) -> DataType | Array | Object | AnyType:
     """
     Infer an MLflow Colspec type from the dataset.
 
@@ -98,24 +107,59 @@ def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object]:
     """
     dtype = _infer_datatype(data)
 
-    # Currently only input that gives None is nested list whose items are all empty e.g. [[], []],
-    # because flat empty list [] has special handlign logic in _infer_schema
     if dtype is None:
         raise MlflowException(
-            "A column of nested array type must include at least one non-empty array."
+            f"Numpy array must include at least one non-empty item. Invalid input `{data}`."
         )
 
     return dtype
 
 
-def _infer_datatype(data: Any) -> Union[DataType, Array, Object, Map]:
+class InvalidDataForSignatureInferenceError(MlflowException):
+    def __init__(self, message):
+        super().__init__(message=message, error_code=INVALID_PARAMETER_VALUE)
+
+
+def _infer_datatype(data: Any) -> DataType | Array | Object | AnyType | None:
+    """
+    Infer the datatype of input data.
+    Data type and inferred schema type mapping:
+        - dict -> Object
+        - list -> Array
+        - numpy.ndarray -> Array
+        - scalar -> DataType
+        - None, empty dictionary/list -> AnyType
+
+    .. Note::
+        Empty numpy arrays are inferred as None to keep the backward compatibility, as numpy
+        arrays are used by some traditional ML flavors.
+        e.g. numpy.array([]) -> None, numpy.array([[], []]) -> None
+        While empty lists are inferred as AnyType instead of None after the support of AnyType.
+        e.g. [] -> AnyType, [[], []] -> Array(Any)
+    """
+    if isinstance(data, pydantic.BaseModel):
+        raise InvalidDataForSignatureInferenceError(
+            message="MLflow does not support inferring model signature from input example "
+            "with Pydantic objects. To use Pydantic objects, define your PythonModel's "
+            "`predict` method with a Pydantic type hint, and model signature will be automatically "
+            "inferred when logging the model. e.g. "
+            "`def predict(self, model_input: list[PydanticType])`. Check "
+            "https://mlflow.org/docs/latest/model/python_model.html#type-hint-usage-in-pythonmodel "
+            "for more details."
+        )
+
+    if _is_none_or_nan(data) or (isinstance(data, (list, dict)) and not data):
+        return AnyType()
+
     if isinstance(data, dict):
         properties = []
         for k, v in data.items():
             dtype = _infer_datatype(v)
             if dtype is None:
-                raise MlflowException("Dictionary value must not be an empty list.")
-            properties.append(Property(name=k, dtype=dtype))
+                raise MlflowException("Dictionary value must not be an empty numpy array.")
+            properties.append(
+                Property(name=k, dtype=dtype, required=not isinstance(dtype, AnyType))
+            )
         return Object(properties=properties)
 
     if isinstance(data, (list, np.ndarray)):
@@ -124,7 +168,7 @@ def _infer_datatype(data: Any) -> Union[DataType, Array, Object, Map]:
     return _infer_scalar_datatype(data)
 
 
-def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
+def _infer_array_datatype(data: list[Any] | np.ndarray) -> Array | None:
     """Infer schema from an array. This tries to infer type if there is at least one
     non-null item in the list, assuming the list has a homogeneous type. However,
     if the list is empty or all items are null, returns None as a sign of undetermined.
@@ -133,7 +177,9 @@ def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
         ["a", "b"] => Array(string)
         ["a", None] => Array(string)
         [["a", "b"], []] => Array(Array(string))
+        [["a", "b"], None] => Array(Array(string))
         [] => None
+        [None] => Array(Any)
 
     Args:
         data: data to infer from.
@@ -143,11 +189,6 @@ def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
     """
     result = None
     for item in data:
-        # We accept None in list to provide backward compatibility,
-        # but ignore them for type inference
-        if _is_none_or_nan(item):
-            continue
-
         dtype = _infer_datatype(item)
 
         # Skip item with undetermined type
@@ -156,18 +197,14 @@ def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
 
         if result is None:
             result = Array(dtype)
-        elif isinstance(result.dtype, (Array, Object, Map)):
+        elif isinstance(result.dtype, (Array, Object, Map, AnyType)):
             try:
                 result = Array(result.dtype._merge(dtype))
             except MlflowException as e:
-                raise MlflowException.invalid_parameter_value(
-                    "Expected all values in list to be of same type"
-                ) from e
+                raise MlflowException.invalid_parameter_value(MULTIPLE_TYPES_ERROR_MSG) from e
         elif isinstance(result.dtype, DataType):
-            if dtype != result.dtype:
-                raise MlflowException.invalid_parameter_value(
-                    "Expected all values in list to be of same type"
-                )
+            if not isinstance(dtype, AnyType) and dtype != result.dtype:
+                raise MlflowException.invalid_parameter_value(MULTIPLE_TYPES_ERROR_MSG)
         else:
             raise MlflowException.invalid_parameter_value(
                 f"{dtype} is not a valid type for an item of a list or numpy array."
@@ -175,27 +212,34 @@ def _infer_array_datatype(data: Union[List, np.ndarray]) -> Optional[Array]:
     return result
 
 
+# datetime is not included here
+SCALAR_TO_DATATYPE_MAPPING = {
+    bool: DataType.boolean,
+    np.bool_: DataType.boolean,
+    int: DataType.long,
+    np.int64: DataType.long,
+    np.int32: DataType.integer,
+    float: DataType.double,
+    np.float64: DataType.double,
+    np.float32: DataType.float,
+    str: DataType.string,
+    np.str_: DataType.string,
+    object: DataType.string,
+    bytes: DataType.binary,
+    np.bytes_: DataType.binary,
+    bytearray: DataType.binary,
+}
+
+
 def _infer_scalar_datatype(data) -> DataType:
-    if DataType.is_boolean(data):
-        return DataType.boolean
-    # Order of is_long & is_integer matters
-    # as both of their python_types are int
-    if DataType.is_long(data):
-        return DataType.long
-    if DataType.is_integer(data):
-        return DataType.integer
-    # Order of is_double & is_float matters
-    # as both of their python_types are float
-    if DataType.is_double(data):
-        return DataType.double
-    if DataType.is_float(data):
-        return DataType.float
-    if DataType.is_string(data):
-        return DataType.string
-    if DataType.is_binary(data):
-        return DataType.binary
-    if DataType.is_datetime(data):
+    if data_type := SCALAR_TO_DATATYPE_MAPPING.get(type(data)):
+        return data_type
+    if DataType.check_type(DataType.datetime, data):
         return DataType.datetime
+    if HAS_PYSPARK:
+        for data_type in DataType.all_types():
+            if isinstance(data, type(data_type.to_spark())):
+                return data_type
     raise MlflowException.invalid_parameter_value(
         f"Data {data} is not one of the supported DataType"
     )
@@ -287,7 +331,8 @@ def _infer_schema(data: Any) -> Schema:
                 col_data_mapping[k].append(v)
         requiredness = {}
         for col in col_data_mapping:
-            requiredness[col] = False if any(col not in item for item in data) else True
+            # if col exists in item but its value is None, then it is not required
+            requiredness[col] = all(item.get(col) is not None for item in data)
 
         schema = Schema(
             [
@@ -435,7 +480,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
 
     if dtype.kind == "b":
         return DataType.boolean
-    elif dtype.kind == "i" or dtype.kind == "u":
+    elif dtype.kind in {"i", "u"}:
         if dtype.itemsize < 4 or (dtype.kind == "i" and dtype.itemsize == 4):
             return DataType.integer
         elif dtype.itemsize < 8 or (dtype.kind == "i" and dtype.itemsize == 8):
@@ -462,7 +507,8 @@ def _infer_numpy_dtype(dtype) -> DataType:
 def _is_none_or_nan(x):
     if isinstance(x, float):
         return np.isnan(x)
-    return x is None
+    # NB: We can't use pd.isna() because the input can be a series.
+    return x is None or x is pd.NA or x is pd.NaT
 
 
 def _infer_required(col) -> bool:
@@ -488,7 +534,6 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
         except Exception as e:
             # For backwards compatibility, we fall back to string
             # if the provided array is of string type
-            # This is for diviner test where df field is ('key2', 'key1', 'key0')
             if pd.api.types.is_string_dtype(col):
                 return DataType.string
             raise MlflowException(f"Failed to infer schema for pandas.Series {col}. Error: {e}")
@@ -626,124 +671,20 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
         )
 
 
-def _is_all_string(x):
-    return all(isinstance(v, str) for v in x)
+def _is_list_str(type_hint: Any) -> bool:
+    return type_hint in [
+        List[str],  # noqa: UP006
+        list[str],
+    ]
 
 
-def _validate_is_all_string(x):
-    if not _is_all_string(x):
-        raise MlflowException(f"Expected all values to be string, got {x}", INVALID_PARAMETER_VALUE)
-
-
-def _validate_all_keys_string(d):
-    keys = list(d.keys())
-    if not _is_all_string(keys):
-        raise MlflowException(
-            f"Expected example to be dict with string keys, got {keys}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_all_values_string(d):
-    values = list(d.values())
-    if not _is_all_string(values):
-        raise MlflowException(
-            f"Expected example to be dict with string values, got {values}", INVALID_PARAMETER_VALUE
-        )
-
-
-def _validate_keys_match(d, expected_keys):
-    if d.keys() != expected_keys:
-        raise MlflowException(
-            f"Expected example to be dict with keys {list(expected_keys)}, got {list(d.keys())}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_num_items(d, num_items):
-    actual_num_items = len(d)
-    if actual_num_items != num_items:
-        raise MlflowException(
-            f"Expected example to be dict with {num_items} items, got {actual_num_items}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_has_items(d):
-    num_items = len(d)
-    if num_items == 0:
-        raise MlflowException(
-            f"Expected example to be dict with at least one item, got {num_items}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_is_dict(d):
-    if not isinstance(d, dict):
-        raise MlflowException(
-            f"Expected each item in example to be dict, got {type(d).__name__}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_non_empty(examples):
-    num_items = len(examples)
-    if num_items == 0:
-        raise MlflowException(
-            f"Expected examples to be non-empty list, got {num_items}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_is_list(examples):
-    if not isinstance(examples, list):
-        raise MlflowException(
-            f"Expected examples to be list, got {type(examples).__name__}",
-            INVALID_PARAMETER_VALUE,
-        )
-
-
-def _validate_dict_examples(examples, num_items=None):
-    examples_iter = iter(examples)
-    first_example = next(examples_iter)
-    _validate_is_dict(first_example)
-    _validate_has_items(first_example)
-    if num_items is not None:
-        _validate_num_items(first_example, num_items)
-    _validate_all_keys_string(first_example)
-    _validate_all_values_string(first_example)
-    first_keys = first_example.keys()
-
-    for example in examples_iter:
-        _validate_is_dict(example)
-        _validate_has_items(example)
-        if num_items is not None:
-            _validate_num_items(example, num_items)
-        _validate_all_keys_string(example)
-        _validate_all_values_string(example)
-        _validate_keys_match(example, first_keys)
-
-
-def _infer_schema_from_type_hint(type_hint, examples=None):
-    has_examples = examples is not None
-    if has_examples:
-        _validate_is_list(examples)
-        _validate_non_empty(examples)
-
-    if type_hint == List[str]:
-        if has_examples:
-            _validate_is_all_string(examples)
-        return Schema([ColSpec(type="string", name=None)])
-    elif type_hint == List[Dict[str, str]]:
-        if has_examples:
-            _validate_dict_examples(examples)
-            return Schema([ColSpec(type="string", name=name) for name in examples[0]])
-        else:
-            _logger.warning(f"Could not infer schema for {type_hint} because example is missing")
-            return Schema([ColSpec(type="string", name=None)])
-    else:
-        _logger.info("Unsupported type hint: %s, skipping schema inference", type_hint)
-        return None
+def _is_list_dict_str(type_hint: Any) -> bool:
+    return type_hint in [
+        List[Dict[str, str]],  # noqa: UP006
+        list[Dict[str, str]],  # noqa: UP006
+        List[dict[str, str]],  # noqa: UP006
+        list[dict[str, str]],
+    ]
 
 
 def _get_array_depth(l: Any) -> int:
@@ -761,11 +702,11 @@ def _infer_type_and_shape(value):
             raise MlflowException.invalid_parameter_value(
                 f"Expected parameters to be 1D array or scalar, got {ndim}D array",
             )
-        if all(DataType.is_datetime(v) for v in value):
+        if all(DataType.check_type(DataType.datetime, v) for v in value):
             return DataType.datetime, (-1,)
         value_type = _infer_numpy_dtype(np.array(value).dtype)
         return value_type, (-1,)
-    elif DataType.is_datetime(value):
+    elif DataType.check_type(DataType.datetime, value):
         return DataType.datetime, None
     elif np.isscalar(value):
         try:
@@ -775,12 +716,18 @@ def _infer_type_and_shape(value):
             raise MlflowException.invalid_parameter_value(
                 f"Failed to infer schema for parameter {value}: {e!r}"
             )
+    elif isinstance(value, dict):
+        # reuse _infer_schema to infer schema for dict, wrapping it in a dictionary is
+        # necessary to make sure value is inferred as Object
+        schema = _infer_schema({"value": value})
+        object_type = schema.inputs[0].type
+        return object_type, None
     raise MlflowException.invalid_parameter_value(
         f"Expected parameters to be 1D array or scalar, got {type(value).__name__}",
     )
 
 
-def _infer_param_schema(parameters: Dict[str, Any]):
+def _infer_param_schema(parameters: dict[str, Any]):
     if not isinstance(parameters, dict):
         raise MlflowException.invalid_parameter_value(
             f"Expected parameters to be dict, got {type(parameters).__name__}",
@@ -791,7 +738,9 @@ def _infer_param_schema(parameters: Dict[str, Any]):
     for name, value in parameters.items():
         try:
             value_type, shape = _infer_type_and_shape(value)
-            param_specs.append(ParamSpec(name=name, dtype=value_type, default=value, shape=shape))
+            param_specs.append(
+                ParamSpec(name=name, dtype=value_type, default=deepcopy(value), shape=shape)
+            )
         except Exception as e:
             invalid_params.append((name, value, e))
 

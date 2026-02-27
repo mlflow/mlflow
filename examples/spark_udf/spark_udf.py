@@ -13,7 +13,7 @@ with SparkSession.builder.getOrCreate() as spark:
     signature = infer_signature(X, predictions)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+        model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     infer_spark_df = spark.createDataFrame(X)
 

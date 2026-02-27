@@ -6,7 +6,7 @@
  */
 
 import { ErrorWrapper } from './ErrorWrapper';
-import { getDefaultHeaders, HTTPMethods } from './FetchUtils';
+import { getAjaxUrl, getDefaultHeaders, HTTPMethods } from './FetchUtils';
 
 /**
  * Async function to fetch and return the specified artifact blob from response.
@@ -19,6 +19,7 @@ export async function getArtifactBlob(artifactLocation: any) {
     // TODO: fix types
     headers: new Headers(getDefaultHeaders(document.cookie) as any),
   });
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
   const response = await fetch(getArtifactRequest);
 
   if (!response.ok) {
@@ -41,6 +42,7 @@ export const getArtifactChunkedText = async (artifactLocation: string) =>
       redirect: 'follow',
       headers: new Headers(getDefaultHeaders(document.cookie) as HeadersInit),
     });
+    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
     const response = await fetch(getArtifactRequest);
 
     if (!response.ok) {
@@ -76,8 +78,8 @@ export const getArtifactChunkedText = async (artifactLocation: string) =>
  * the raw content converted to text of the artifact if the fetch is
  * successful, and rejects otherwise
  */
-export function getArtifactContent(artifactLocation: any, isBinary = false) {
-  return new Promise(async (resolve, reject) => {
+export function getArtifactContent<R = unknown>(artifactLocation: string, isBinary = false): Promise<R> {
+  return new Promise<R>(async (resolve, reject) => {
     try {
       const blob = await getArtifactBlob(artifactLocation);
 
@@ -96,6 +98,7 @@ export function getArtifactContent(artifactLocation: any, isBinary = false) {
         fileReader.readAsText(blob);
       }
     } catch (error) {
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
       console.error(error);
       reject(error);
     }
@@ -110,7 +113,13 @@ export function getArtifactBytesContent(artifactLocation: any) {
   return getArtifactContent(artifactLocation, true);
 }
 
+export const getLoggedModelArtifactLocationUrl = (path: string, loggedModelId: string) => {
+  return getAjaxUrl(
+    `ajax-api/2.0/mlflow/logged-models/${loggedModelId}/artifacts/files?artifact_file_path=${encodeURIComponent(path)}`,
+  );
+};
+
 export const getArtifactLocationUrl = (path: string, runUuid: string) => {
   const artifactEndpointPath = 'get-artifact';
-  return `${artifactEndpointPath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
+  return getAjaxUrl(`${artifactEndpointPath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`);
 };

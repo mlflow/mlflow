@@ -7,20 +7,22 @@ meaning of these tags.
 
 MLFLOW_EXPERIMENT_SOURCE_ID = "mlflow.experiment.sourceId"
 MLFLOW_EXPERIMENT_SOURCE_TYPE = "mlflow.experiment.sourceType"
+MLFLOW_EXPERIMENT_IS_GATEWAY = "mlflow.experiment.isGateway"
 MLFLOW_RUN_NAME = "mlflow.runName"
 MLFLOW_RUN_NOTE = "mlflow.note.content"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 MLFLOW_ARTIFACT_LOCATION = "mlflow.artifactLocation"
 MLFLOW_USER = "mlflow.user"
 MLFLOW_SOURCE_TYPE = "mlflow.source.type"
-MLFLOW_RECIPE_TEMPLATE_NAME = "mlflow.pipeline.template.name"
-MLFLOW_RECIPE_STEP_NAME = "mlflow.pipeline.step.name"
-MLFLOW_RECIPE_PROFILE_NAME = "mlflow.pipeline.profile.name"
 MLFLOW_SOURCE_NAME = "mlflow.source.name"
 MLFLOW_GIT_COMMIT = "mlflow.source.git.commit"
 MLFLOW_GIT_BRANCH = "mlflow.source.git.branch"
+MLFLOW_GIT_DIRTY = "mlflow.source.git.dirty"
 MLFLOW_GIT_REPO_URL = "mlflow.source.git.repoURL"
+MLFLOW_GIT_DIFF = "mlflow.source.git.diff"
 MLFLOW_LOGGED_MODELS = "mlflow.log-model.history"
+MLFLOW_MODEL_IS_EXTERNAL = "mlflow.model.isExternal"
+MLFLOW_MODEL_VERSIONS = "mlflow.modelVersions"
 MLFLOW_PROJECT_ENV = "mlflow.project.env"
 MLFLOW_PROJECT_ENTRY_POINT = "mlflow.project.entryPoint"
 MLFLOW_DOCKER_IMAGE_URI = "mlflow.docker.image.uri"
@@ -31,6 +33,9 @@ MLFLOW_AUTOLOGGING = "mlflow.autologging"
 MLFLOW_LOGGED_ARTIFACTS = "mlflow.loggedArtifacts"
 MLFLOW_LOGGED_IMAGES = "mlflow.loggedImages"
 MLFLOW_RUN_SOURCE_TYPE = "mlflow.runSourceType"
+
+# Indicates that an MLflow run was created by an evaluation
+MLFLOW_RUN_IS_EVALUATION = "mlflow.run.isEval"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
@@ -62,14 +67,18 @@ MLFLOW_DATABRICKS_GIT_REPO_REFERENCE = "mlflow.databricks.gitRepoReference"
 MLFLOW_DATABRICKS_GIT_REPO_REFERENCE_TYPE = "mlflow.databricks.gitRepoReferenceType"
 MLFLOW_DATABRICKS_GIT_REPO_STATUS = "mlflow.databricks.gitRepoStatus"
 
+# Databricks model serving endpoint information
+MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME = "mlflow.databricks.modelServingEndpointName"
+
+# For Serverless GPU Compute (SGC) run resumption
+# Experiment tag prefix that maps SGC job run IDs to MLflow run IDs for automatic resumption
+# Format: mlflow.databricks.sgc.resumeRun.jobRunId.{job_run_id} -> {mlflow_run_id}
+MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX = "mlflow.databricks.sgc.resumeRun.jobRunId"
+
 # For MLflow Dataset tracking
 MLFLOW_DATASET_CONTEXT = "mlflow.data.context"
 
 MLFLOW_PROJECT_BACKEND = "mlflow.project.backend"
-
-# The following legacy tags are deprecated and will be removed by MLflow 1.0.
-LEGACY_MLFLOW_GIT_BRANCH_NAME = "mlflow.gitBranchName"  # Replaced with mlflow.source.git.branch
-LEGACY_MLFLOW_GIT_REPO_URL = "mlflow.gitRepoURL"  # Replaced with mlflow.source.git.repoURL
 
 MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = "mlflow.experiment.primaryMetric.name"
 MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
@@ -78,6 +87,12 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
+
+# For online scoring checkpoint tracking
+MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT = "mlflow.latestOnlineScoring.trace.checkpoint"
+
+# For online scoring session checkpoint tracking
+MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT = "mlflow.latestOnlineScoring.session.checkpoint"
 
 # A set of tags that cannot be updated by the user
 IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION}
@@ -93,6 +108,10 @@ TRACE_RESOLVE_TAGS_ALLOWLIST = (
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
     MLFLOW_USER,
+    MLFLOW_GIT_COMMIT,
+    MLFLOW_GIT_BRANCH,
+    MLFLOW_GIT_REPO_URL,
+    MLFLOW_GIT_DIRTY,
 )
 
 

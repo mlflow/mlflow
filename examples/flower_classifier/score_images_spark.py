@@ -7,6 +7,7 @@ returned as a column with predicted class label, class id and probabilities for 
 as an array of strings.
 
 """
+
 import base64
 import os
 
@@ -15,7 +16,6 @@ import pandas as pd
 import pyspark
 from pyspark.sql.types import ArrayType, Row, StringType, StructField, StructType
 
-import mlflow
 import mlflow.pyfunc
 from mlflow.utils import cli_args
 
@@ -79,11 +79,12 @@ def score_model(spark, data_path, model_uri):
 @cli_args.MODEL_URI
 @click.argument("data-path")
 def run(data_path, model_uri):
-    with pyspark.sql.SparkSession.builder.config(
-        key="spark.python.worker.reuse", value=True
-    ).config(key="spark.ui.enabled", value=False).master(
-        "local-cluster[2, 1, 1024]"
-    ).getOrCreate() as spark:
+    with (
+        pyspark.sql.SparkSession.builder.config(key="spark.python.worker.reuse", value=True)
+        .config(key="spark.ui.enabled", value=False)
+        .master("local-cluster[2, 1, 1024]")
+        .getOrCreate() as spark
+    ):
         # ignore spark log output
         spark.sparkContext.setLogLevel("OFF")
         print(score_model(spark, data_path, model_uri))

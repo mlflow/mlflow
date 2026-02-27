@@ -4,11 +4,10 @@ import posixpath
 import re
 import urllib.parse
 import uuid
-from typing import Any, Tuple
+from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import _validate_db_type_string
 
@@ -20,8 +19,10 @@ _INVALID_DB_URI_MSG = (
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 _uc_volume_URI_PREFIX = "/Volumes/"
+_uc_model_URI_PREFIX = "/Models/"
 _UC_DBFS_SYMLINK_PREFIX = "/.fuse-mounts/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
+_OSS_UNITY_CATALOG_SCHEME = "uc"
 
 
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
@@ -29,8 +30,8 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
 
     Args:
         uri: The URI.
-        is_tracking_uri: Whether or not the specified URI is an MLflow Tracking or MLflow
-            Model Registry URI. Examples of other URIs are MLflow artifact URIs,
+        is_tracking_or_registry_uri: Whether or not the specified URI is an MLflow Tracking or
+            MLflow Model Registry URI. Examples of other URIs are MLflow artifact URIs,
             filesystem paths, etc.
     """
     if uri == "databricks" and is_tracking_or_registry_uri:
@@ -75,7 +76,7 @@ def is_file_uri(uri):
 
 def is_http_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == "http" or scheme == "https"
+    return scheme in {"http", "https"}
 
 
 def is_databricks_uri(uri):
@@ -93,13 +94,14 @@ def is_fuse_or_uc_volumes_uri(uri):
     Multiple directory paths are collapsed into a single designator for root path validation.
     For example, "////Volumes/" will resolve to "/Volumes/" for validation purposes.
     """
-    resolved_uri = re.sub("/+", "/", uri).lower()
+    resolved_uri = re.sub(r"/+", "/", uri).lower()
     return any(
         resolved_uri.startswith(x.lower())
         for x in [
             _DBFS_FUSE_PREFIX,
             _DBFS_HDFS_URI_PREFIX,
             _uc_volume_URI_PREFIX,
+            _uc_model_URI_PREFIX,
             _UC_DBFS_SYMLINK_PREFIX,
         ]
     )
@@ -123,12 +125,33 @@ def is_valid_uc_volumes_uri(uri: str) -> bool:
 
 def is_databricks_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
+    return _DATABRICKS_UNITY_CATALOG_SCHEME in (scheme, uri)
+
+
+def is_oss_unity_catalog_uri(uri):
+    scheme = urllib.parse.urlparse(uri).scheme
+    return scheme == "uc"
 
 
 def construct_db_uri_from_profile(profile):
     if profile:
         return "databricks://" + profile
+
+
+def construct_db_uc_uri_from_profile(profile):
+    """
+    Construct a databricks-uc URI from a profile.
+
+    Args:
+        profile: The profile name, optionally with key_prefix (e.g., "profile" or "scope:key")
+
+    Returns:
+        A databricks-uc URI string, or the scheme alone if no profile is provided
+    """
+    if profile:
+        return f"{_DATABRICKS_UNITY_CATALOG_SCHEME}://{profile}"
+    else:
+        return _DATABRICKS_UNITY_CATALOG_SCHEME
 
 
 # Both scope and key_prefix should not contain special chars for URIs, like '/'
@@ -137,8 +160,7 @@ def validate_db_scope_prefix_info(scope, prefix):
     for c in ["/", ":", " "]:
         if c in scope:
             raise MlflowException(
-                f"Unsupported Databricks profile name: {scope}."
-                f" Profile names cannot contain '{c}'."
+                f"Unsupported Databricks profile name: {scope}. Profile names cannot contain '{c}'."
             )
         if prefix and c in prefix:
             raise MlflowException(
@@ -147,8 +169,7 @@ def validate_db_scope_prefix_info(scope, prefix):
             )
     if prefix is not None and prefix.strip() == "":
         raise MlflowException(
-            f"Unsupported Databricks profile key prefix: '{prefix}'."
-            " Key prefixes cannot be empty."
+            f"Unsupported Databricks profile key prefix: '{prefix}'. Key prefixes cannot be empty."
         )
 
 
@@ -158,7 +179,7 @@ def get_db_info_from_uri(uri):
     returns None.
     """
     parsed_uri = urllib.parse.urlparse(uri)
-    if parsed_uri.scheme == "databricks" or parsed_uri.scheme == _DATABRICKS_UNITY_CATALOG_SCHEME:
+    if parsed_uri.scheme in ("databricks", _DATABRICKS_UNITY_CATALOG_SCHEME):
         # netloc should not be an empty string unless URI is formatted incorrectly.
         if parsed_uri.netloc == "":
             raise MlflowException(
@@ -219,7 +240,7 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
         return artifact_uri
 
     scheme = artifact_uri_parsed.scheme
-    if scheme == "dbfs" or scheme == "runs" or scheme == "models":
+    if scheme in {"dbfs", "runs", "models"}:
         if databricks_profile_uri == "databricks":
             netloc = "databricks"
         else:
@@ -254,6 +275,8 @@ def extract_db_type_from_uri(db_uri):
 
 
 def get_uri_scheme(uri_or_path):
+    from mlflow.store.db.db_types import DATABASE_ENGINES
+
     scheme = urllib.parse.urlparse(uri_or_path).scheme
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
@@ -291,7 +314,7 @@ def append_to_uri_path(uri, *paths):
 
     parsed_uri = urllib.parse.urlparse(uri)
 
-    # Validate query string not to contain any traveral path (../) before appending
+    # Validate query string not to contain any traversal path (../) before appending
     # to the end of the path, otherwise they will be resolved as part of the path.
     validate_query_string(parsed_uri.query)
 
@@ -314,7 +337,7 @@ def append_to_uri_path(uri, *paths):
     return prefix + urllib.parse.urlunparse(new_parsed_uri)
 
 
-def append_to_uri_query_params(uri, *query_params: Tuple[str, Any]) -> str:
+def append_to_uri_query_params(uri, *query_params: tuple[str, Any]) -> str:
     """Appends the specified query parameters to an existing URI.
 
     Args:
@@ -379,7 +402,7 @@ def is_valid_dbfs_uri(uri):
     return not parsed.netloc or db_profile_uri is not None
 
 
-def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
+def dbfs_hdfs_uri_to_fuse_path(dbfs_uri: str) -> str:
     """Converts the provided DBFS URI into a DBFS FUSE path
 
     Args:
@@ -388,9 +411,12 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
             is "dbfs:/" (e.g. Databricks)
 
     Returns:
-        A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
+        A DBFS FUSE-style path, e.g. "/dbfs/my-directory". For UC Volumes paths
+        (e.g., "/Volumes/..."), returns the path unchanged.
 
     """
+    if _is_uc_volumes_path(dbfs_uri):
+        return dbfs_uri  # UC Volumes paths do not need conversion
     if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):
         # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
         dbfs_uri = "dbfs:" + dbfs_uri
@@ -471,6 +497,8 @@ def validate_path_is_safe(path):
 
     # We must decode path before validating it
     path = _decode(path)
+    # If control characters are included in the path, escape them.
+    path = _escape_control_characters(path)
 
     exc = MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
     if "#" in path:
@@ -490,9 +518,46 @@ def validate_path_is_safe(path):
     return path
 
 
+def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:
+    """
+    Validates that the constructed path (after resolving symlinks) is within the base directory.
+    This is a security measure to prevent symlink-based path traversal attacks.
+
+    Args:
+        base_dir: The trusted base directory path.
+        constructed_path: The full path that was constructed by joining base_dir with user input.
+
+    Returns:
+        The constructed_path if validation passes.
+    """
+    real_base_dir = pathlib.Path(base_dir).resolve()
+    real_constructed_path = pathlib.Path(constructed_path).resolve()
+
+    if not real_constructed_path.is_relative_to(real_base_dir):
+        raise MlflowException(
+            "Invalid path: resolved path is outside the artifact directory",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    return constructed_path
+
+
+def _escape_control_characters(text: str) -> str:
+    # Method to escape control characters (e.g. \u0017)
+    def escape_char(c):
+        code_point = ord(c)
+
+        # If it's a control character (ASCII 0-31 or 127), escape it
+        if (0 <= code_point <= 31) or (code_point == 127):
+            return f"%{code_point:02x}"
+        return c
+
+    return "".join(escape_char(c) for c in text)
+
+
 def validate_query_string(query):
     query = _decode(query)
-    # Block query strings contain any traveral path (../) because they
+    # Block query strings contain any traversal path (../) because they
     # could be resolved as part of the path and allow path traversal.
     if ".." in query:
         raise MlflowException("Invalid query string", error_code=INVALID_PARAMETER_VALUE)
@@ -523,3 +588,12 @@ def strip_scheme(uri: str) -> str:
     # `_replace` looks like a private method, but it's actually part of the public API:
     # https://docs.python.org/3/library/collections.html#collections.somenamedtuple._replace
     return urllib.parse.urlunparse(parsed._replace(scheme=""))
+
+
+def is_models_uri(uri: str) -> bool:
+    try:
+        parsed = urllib.parse.urlparse(uri)
+    except ValueError:
+        return False
+
+    return parsed.scheme == "models"

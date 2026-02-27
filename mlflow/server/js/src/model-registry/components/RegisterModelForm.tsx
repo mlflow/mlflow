@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Form, Input, LegacySelect } from '@databricks/design-system';
+import { LegacyForm, Input, LegacySelect } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 import './RegisterModelForm.css';
@@ -19,7 +19,7 @@ const CREATE_NEW_MODEL_LABEL = 'Create New Model';
 export const CREATE_NEW_MODEL_OPTION_VALUE = `$$$__${CREATE_NEW_MODEL_LABEL}__$$$`;
 export const SELECTED_MODEL_FIELD = 'selectedModel';
 export const MODEL_NAME_FIELD = 'modelName';
-export const DESCRIPTION_FIELD = 'description';
+const DESCRIPTION_FIELD = 'description';
 
 type Props = {
   modelByName?: any;
@@ -88,15 +88,15 @@ export class RegisterModelForm extends React.Component<Props, State> {
     const creatingNewModel = selectedModel === CREATE_NEW_MODEL_OPTION_VALUE;
     return (
       // @ts-expect-error TS(2322): Type '{ children: (Element | null)[]; ref: any; la... Remove this comment to see the full error message
-      <Form ref={innerRef} layout="vertical" className="register-model-form">
+      <LegacyForm ref={innerRef} layout="vertical" className="mlflow-register-model-form">
         {/* "+ Create new model" OR "Select existing model" */}
-        <Form.Item
+        <LegacyForm.Item
           label={isCopy ? <b>Copy to model</b> : 'Model'}
           name={SELECTED_MODEL_FIELD}
           rules={[{ required: true, message: 'Please select a model or create a new one.' }]}
         >
           <LegacySelect
-            dropdownClassName="model-select-dropdown"
+            dropdownClassName="mlflow-model-select-dropdown"
             onChange={this.handleModelSelectChange}
             placeholder="Select a model"
             filterOption={this.handleFilterOption}
@@ -104,16 +104,16 @@ export class RegisterModelForm extends React.Component<Props, State> {
             // @ts-expect-error TS(2769): No overload matches this call.
             showSearch
           >
-            <Option value={CREATE_NEW_MODEL_OPTION_VALUE} className="create-new-model-option">
+            <Option value={CREATE_NEW_MODEL_OPTION_VALUE} className="mlflow-create-new-model-option">
               <i className="fa fa-plus fa-fw" style={{ fontSize: 13 }} /> {CREATE_NEW_MODEL_LABEL}
             </Option>
             <OptGroup label="Models">{Object.values(modelByName).map((model) => this.renderModel(model))}</OptGroup>
           </LegacySelect>
-        </Form.Item>
+        </LegacyForm.Item>
 
         {/* Name the new model when "+ Create new model" is selected */}
         {creatingNewModel ? (
-          <Form.Item
+          <LegacyForm.Item
             label="Model Name"
             name={MODEL_NAME_FIELD}
             rules={[
@@ -121,13 +121,16 @@ export class RegisterModelForm extends React.Component<Props, State> {
               { validator: this.modelNameValidator },
             ]}
           >
-            <Input placeholder="Input a model name" />
-          </Form.Item>
+            <Input
+              componentId="codegen_mlflow_app_src_model-registry_components_registermodelform.tsx_132"
+              placeholder="Input a model name"
+            />
+          </LegacyForm.Item>
         ) : null}
 
         {/* Explanatory text shown when existing model is selected */}
         {this.renderExplanatoryText()}
-      </Form>
+      </LegacyForm>
     );
   }
 }

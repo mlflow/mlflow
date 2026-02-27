@@ -1,3 +1,4 @@
+import { describe, it, expect, test } from '@jest/globals';
 import { compact, first, flatMap, get, last } from 'lodash';
 import {
   createAggregatedMetricHistory,
@@ -7,8 +8,9 @@ import {
   getRunGroupDisplayName,
   normalizeRunsGroupByKey,
 } from './experimentPage.group-row-utils';
-import { RowGroupRenderMetadata, RunGroupingAggregateFunction, RunGroupingMode } from './experimentPage.row-types';
-import { SingleRunData } from './experimentPage.row-utils';
+import type { RowGroupRenderMetadata } from './experimentPage.row-types';
+import { RunGroupingAggregateFunction, RunGroupingMode } from './experimentPage.row-types';
+import type { SingleRunData } from './experimentPage.row-utils';
 import { MOCK_RUN_UUIDS_TO_HISTORY_MAP } from '../fixtures/experiment-runs.fixtures';
 
 describe('createRunsGroupByKey', () => {
@@ -110,7 +112,7 @@ describe('getGroupedRowRenderMetadata', () => {
         params: [
           { key: 'param3', value: 'param_3_value' },
           { key: 'param_number', value: '-80' },
-        ],
+        ] as any,
         tags: {},
       },
     ];

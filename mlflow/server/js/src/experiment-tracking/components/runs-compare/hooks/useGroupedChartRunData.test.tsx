@@ -1,4 +1,5 @@
-import { renderHook } from '@testing-library/react-for-react-18';
+import { describe, it, expect } from '@jest/globals';
+import { renderHook } from '@testing-library/react';
 import { type UseGroupedChartRunDataParams, useGroupedChartRunData } from './useGroupedChartRunData';
 import type { RunsChartsRunData } from '../../runs-charts/components/RunsCharts.common';
 import { RunGroupingAggregateFunction } from '../../experiment-page/utils/experimentPage.row-types';

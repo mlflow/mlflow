@@ -1,5 +1,5 @@
 import os
-from collections import namedtuple
+from typing import Any, NamedTuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,10 +11,14 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.utils.file_utils import local_file_uri_to_path
 
-ModelWithExplanation = namedtuple(
-    "ModelWithExplanation", ["model", "X", "shap_values", "base_values"]
-)
+
+class ModelWithExplanation(NamedTuple):
+    model: Any
+    X: Any
+    shap_values: Any
+    base_values: Any
 
 
 def yield_artifacts(run_id, path=None):
@@ -108,8 +112,9 @@ def test_log_explanation_with_regressor(regressor):
         os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
-    shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
-    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
+    local_path = local_file_uri_to_path(explanation_path)
+    shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(local_path, "base_values.npy"))
     np.testing.assert_array_equal(shap_values, regressor.shap_values)
     np.testing.assert_array_equal(base_values, regressor.base_values)
 
@@ -134,8 +139,9 @@ def test_log_explanation_with_classifier(classifier):
         os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
-    shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
-    base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
+    local_path = local_file_uri_to_path(explanation_uri)
+    shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(local_path, "base_values.npy"))
     np.testing.assert_array_equal(shap_values, classifier.shap_values)
     np.testing.assert_array_equal(base_values, classifier.base_values)
 
@@ -160,8 +166,9 @@ def test_log_explanation_with_artifact_path(regressor, artifact_path):
         os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
-    shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
-    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
+    local_path = local_file_uri_to_path(explanation_path)
+    shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(local_path, "base_values.npy"))
     np.testing.assert_array_equal(shap_values, regressor.shap_values)
     np.testing.assert_array_equal(base_values, regressor.base_values)
 
@@ -186,8 +193,9 @@ def test_log_explanation_without_active_run(regressor):
             os.path.join(artifact_path, "summary_bar_plot.png"),
         }
 
-        shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
-        base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
+        local_path = local_file_uri_to_path(explanation_uri)
+        shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
+        base_values = np.load(os.path.join(local_path, "base_values.npy"))
         np.testing.assert_array_equal(shap_values, regressor.shap_values)
         np.testing.assert_array_equal(base_values, regressor.base_values)
 
@@ -212,8 +220,9 @@ def test_log_explanation_with_numpy_array(regressor):
         os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
-    shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
-    base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
+    local_path = local_file_uri_to_path(explanation_uri)
+    shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(local_path, "base_values.npy"))
     np.testing.assert_array_equal(shap_values, regressor.shap_values)
     np.testing.assert_array_equal(base_values, regressor.base_values)
 
@@ -227,7 +236,8 @@ def test_log_explanation_with_small_features():
     assert num_rows < mlflow.shap._MAXIMUM_BACKGROUND_DATA_SIZE
 
     X, y = get_diabetes()
-    X, y = X.iloc[:num_rows], y[:num_rows]
+    X = X.iloc[:num_rows]
+    y = y[:num_rows]
     model = RandomForestRegressor()
     model.fit(X, y)
 
@@ -247,7 +257,8 @@ def test_log_explanation_with_small_features():
     explainer = shap.KernelExplainer(model.predict, shap.kmeans(X, num_rows))
     shap_values_expected = explainer.shap_values(X)
 
-    base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
-    shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
+    local_path = local_file_uri_to_path(explanation_uri)
+    base_values = np.load(os.path.join(local_path, "base_values.npy"))
+    shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
     np.testing.assert_array_equal(base_values, explainer.expected_value)
     np.testing.assert_array_equal(shap_values, shap_values_expected)

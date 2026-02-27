@@ -1,10 +1,8 @@
 import time
-from typing import Any, Dict
+from typing import Any
 
-from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-
-from mlflow.gateway.config import HuggingFaceTextGenerationInferenceConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, HuggingFaceTextGenerationInferenceConfig
+from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider
 from mlflow.gateway.providers.utils import (
     rename_payload_keys,
@@ -17,8 +15,8 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
     NAME = "Hugging Face Text Generation Inference"
     CONFIG_TYPE = HuggingFaceTextGenerationInferenceConfig
 
-    def __init__(self, config: RouteConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(
             config.model.config, HuggingFaceTextGenerationInferenceConfig
         ):
@@ -26,7 +24,7 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         self.huggingface_config: HuggingFaceTextGenerationInferenceConfig = config.model.config
         self.headers = {"Content-Type": "application/json"}
 
-    async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _request(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await send_request(
             headers=self.headers,
             base_url=self.huggingface_config.hf_server_url,
@@ -34,7 +32,11 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
             payload=payload,
         )
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
+        from fastapi.encoders import jsonable_encoder
+
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         key_mapping = {
@@ -42,14 +44,14 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         }
         for k1, k2 in key_mapping.items():
             if k2 in payload:
-                raise HTTPException(
+                raise AIGatewayException(
                     status_code=422, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
 
         # HF TGI does not support generating multiple candidates.
         n = payload.pop("n", 1)
         if n != 1:
-            raise HTTPException(
+            raise AIGatewayException(
                 status_code=422,
                 detail="'n' must be '1' for the Text Generation Inference provider."
                 f"Received value: '{n}'.",
@@ -58,10 +60,10 @@ class HFTextGenerationInferenceServerProvider(BaseProvider):
         parameters = rename_payload_keys(payload, key_mapping)
 
         # The range of HF TGI's temperature is 0-100, but ours is 0-2, so we multiply
-        # by 50
-        payload["temperature"] = 50 * payload["temperature"]
-        # HF TGI does not support 0 temperature
-        parameters["temperature"] = max(payload["temperature"], 1e-3)
+        # by 50. HF TGI does not support 0 temperature so we use a small default.
+        if "temperature" in payload:
+            scaled_temp = 50 * payload["temperature"]
+            parameters["temperature"] = max(scaled_temp, 1e-3)
         parameters["details"] = True
         parameters["decoder_input_details"] = True
 

@@ -1,5 +1,6 @@
+import { describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 
 import { CollapsibleSection } from './CollapsibleSection';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';

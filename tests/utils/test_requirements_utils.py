@@ -1,6 +1,7 @@
 import importlib
 import os
 import sys
+from importlib.metadata import version
 from unittest import mock
 
 import cloudpickle
@@ -14,6 +15,7 @@ from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.os import is_windows
 from mlflow.utils.requirements_utils import (
     _capture_imported_modules,
+    _check_requirement_satisfied,
     _get_installed_version,
     _get_pinned_requirement,
     _infer_requirements,
@@ -24,7 +26,6 @@ from mlflow.utils.requirements_utils import (
     _normalize_package_name,
     _parse_requirements,
     _prune_packages,
-    _PyPIPackageIndex,
     _strip_inline_comment,
     _strip_local_version_label,
     warn_dependency_requirement_mismatches,
@@ -81,14 +82,6 @@ def test_join_continued_lines():
 
 
 def test_parse_requirements(tmp_path, monkeypatch):
-    """
-    Ensures `_parse_requirements` returns the same result as `pip._internal.req.parse_requirements`
-    """
-    from pip._internal.network.session import PipSession  # noqa: TID251
-    from pip._internal.req import (  # noqa: TID251
-        parse_requirements as pip_parse_requirements,
-    )
-
     root_req_src = """
 # No version specifier
 noverspec
@@ -160,11 +153,13 @@ line-cont-eof\
     rel_con.write_text("rel-con-xxx\nrel-con-yyy")
     abs_con.write_text("abs-con-zzz")
 
-    expected_cons = [
-        "rel-con-xxx",
-        "rel-con-yyy",
-        "abs-con-zzz",
-    ]
+    # Uncomment this to get the expected output from pip's internal parser
+    # from pip._internal.network.session import PipSession
+    # from pip._internal.req import parse_requirements as pip_parse_requirements
+    #
+    # pip_reqs = list(pip_parse_requirements(root_req.name, session=PipSession()))
+    # print(f"expected_reqs = {[r.requirement for r in pip_reqs if not r.constraint]}")
+    # print(f"expected_cons = {[r.requirement for r in pip_reqs if r.constraint]}")
 
     expected_reqs = [
         "noverspec",
@@ -184,15 +179,15 @@ line-cont-eof\
         "line-cont-blank",
         "line-cont-eof",
     ]
+    expected_cons = [
+        "rel-con-xxx",
+        "rel-con-yyy",
+        "abs-con-zzz",
+    ]
 
     parsed_reqs = list(_parse_requirements(root_req.name, is_constraint=False))
-    pip_reqs = list(pip_parse_requirements(root_req.name, session=PipSession()))
-    # Requirements
     assert [r.req_str for r in parsed_reqs if not r.is_constraint] == expected_reqs
-    assert [r.requirement for r in pip_reqs if not r.constraint] == expected_reqs
-    # Constraints
     assert [r.req_str for r in parsed_reqs if r.is_constraint] == expected_cons
-    assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
 
 
 def test_normalize_package_name():
@@ -234,14 +229,10 @@ def test_strip_local_version_label():
 
 
 def test_get_installed_version(tmp_path, monkeypatch):
-    import numpy as np
-    import pandas as pd
-    import sklearn
-
     assert _get_installed_version("mlflow") == mlflow.__version__
-    assert _get_installed_version("numpy") == np.__version__
-    assert _get_installed_version("pandas") == pd.__version__
-    assert _get_installed_version("scikit-learn", module="sklearn") == sklearn.__version__
+    assert _get_installed_version("numpy") == version("numpy")
+    assert _get_installed_version("pandas") == version("pandas")
+    assert _get_installed_version("scikit-learn", module="sklearn") == version("scikit-learn")
 
     not_found_package = tmp_path.joinpath("not_found.py")
     not_found_package.write_text("__version__ = '1.2.3'")
@@ -249,6 +240,15 @@ def test_get_installed_version(tmp_path, monkeypatch):
     with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
         importlib_metadata.version("not_found")
     assert _get_installed_version("not_found") == "1.2.3"
+
+
+def test_package_with_mismatched_pypi_and_import_name():
+    try:
+        import dspy  # noqa: F401
+
+        assert _get_installed_version("dspy") == version("dspy-ai")
+    except ImportError:
+        pytest.skip("Skipping test because 'dspy' package is not installed")
 
 
 def test_get_pinned_requirement(tmp_path, monkeypatch):
@@ -287,36 +287,6 @@ def test_infer_requirements_excludes_mlflow():
         mlflow_package = "mlflow-skinny" if "MLFLOW_SKINNY" in os.environ else "mlflow"
         assert mlflow_package in importlib_metadata.packages_distributions()["mlflow"]
         assert _infer_requirements("path/to/model", "sklearn") == [f"pytest=={pytest.__version__}"]
-
-
-def test_infer_requirements_prints_warning_for_unrecognized_packages():
-    with mock.patch(
-        "mlflow.utils.requirements_utils._capture_imported_modules",
-        return_value=["sklearn"],
-    ), mock.patch(
-        "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
-        _PyPIPackageIndex(date="2022-01-01", package_names=set()),
-    ), mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
-        _infer_requirements("path/to/model", "sklearn")
-
-        mock_warning.assert_called_once()
-        warning_template = mock_warning.call_args[0][0]
-        date, unrecognized_packages = mock_warning.call_args[0][1:3]
-        warning_text = warning_template % (date, unrecognized_packages)
-        assert "not found in the public PyPI package index" in warning_text
-        assert "scikit-learn" in warning_text
-
-
-def test_infer_requirements_does_not_print_warning_for_recognized_packages():
-    with mock.patch(
-        "mlflow.utils.requirements_utils._capture_imported_modules",
-        return_value=["sklearn"],
-    ), mock.patch(
-        "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
-        _PyPIPackageIndex(date="2022-01-01", package_names={"scikit-learn"}),
-    ), mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
-        _infer_requirements("path/to/model", "sklearn")
-        mock_warning.assert_not_called()
 
 
 def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_path):
@@ -370,21 +340,29 @@ def test_infer_pip_requirements_scopes_databricks_imports():
     mlflow.utils.requirements_utils._MODULES_TO_PACKAGES = None
     mlflow.utils.requirements_utils._PACKAGES_TO_MODULES = None
 
-    with mock.patch(
-        "mlflow.utils.requirements_utils._capture_imported_modules",
-        return_value=[
-            "databricks.automl",
-            "databricks.model_monitoring",
-            "databricks.automl_runtime",
-        ],
-    ), mock.patch(
-        "mlflow.utils.requirements_utils._get_installed_version",
-        return_value="1.0",
-    ), mock.patch(
-        "importlib_metadata.packages_distributions",
-        return_value={
-            "databricks": ["databricks-automl-runtime", "databricks-model-monitoring", "koalas"],
-        },
+    with (
+        mock.patch(
+            "mlflow.utils.requirements_utils._capture_imported_modules",
+            return_value=[
+                "databricks.automl",
+                "databricks.model_monitoring",
+                "databricks.automl_runtime",
+            ],
+        ),
+        mock.patch(
+            "mlflow.utils.requirements_utils._get_installed_version",
+            return_value="1.0",
+        ),
+        mock.patch(
+            "importlib_metadata.packages_distributions",
+            return_value={
+                "databricks": [
+                    "databricks-automl-runtime",
+                    "databricks-model-monitoring",
+                    "koalas",
+                ],
+            },
+        ),
     ):
         assert _infer_requirements("path/to/model", "sklearn") == [
             "databricks-automl-runtime==1.0",
@@ -407,8 +385,8 @@ def test_capture_imported_modules_include_deps_by_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=(["input1"], params),
         )
 
@@ -430,15 +408,15 @@ def test_capture_imported_modules_include_deps_by_params():
 )
 def test_capture_imported_modules_includes_gateway_extra(module_to_import, should_capture_extra):
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, _, inputs, params=None):
+        def predict(self, context, inputs, params=None):
             importlib.import_module(module_to_import)
 
             return inputs
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=([1, 2, 3]),
         )
 
@@ -451,15 +429,15 @@ def test_capture_imported_modules_includes_gateway_extra(module_to_import, shoul
 
 def test_gateway_extra_not_captured_when_importing_deployment_client_only():
     class MyModel(mlflow.pyfunc.PythonModel):
-        def predict(self, _, inputs, params=None):
+        def predict(self, context, model_input, params=None):
             from mlflow.deployments import get_deploy_client  # noqa: F401
 
-            return inputs
+            return model_input
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
+            name="test_model",
             python_model=MyModel(),
-            artifact_path="test_model",
             input_example=([1, 2, 3]),
         )
 
@@ -576,6 +554,16 @@ model's environment and install dependencies using the resulting environment fil
         mock_warning.assert_not_called()
 
 
+def test_check_requirement_satisfied_skips_non_matching_marker():
+    result = _check_requirement_satisfied("numpy==999.0.0 ; python_full_version < '3.0'")
+    assert result is None
+
+
+def test_check_requirement_satisfied_checks_matching_marker():
+    result = _check_requirement_satisfied("numpy==999.0.0 ; python_full_version >= '3.0'")
+    assert result is not None
+
+
 @pytest.mark.parametrize(
     "ignore_package_name",
     [
@@ -634,7 +622,7 @@ def test_capture_imported_modules_with_exception():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             input_example="test",
         )
@@ -661,13 +649,15 @@ def test_capture_imported_modules_raises_when_env_var_set(monkeypatch):
     ):
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
-                "model",
+                name="model",
                 python_model=BadModel(),
                 input_example="test",
             )
 
 
-def test_capture_imported_modules_correct():
+def test_capture_imported_modules_correct(monkeypatch):
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "true")
+
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             import pandas  # noqa: F401
@@ -677,13 +667,100 @@ def test_capture_imported_modules_correct():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model",
+            name="model",
             python_model=TestModel(),
             input_example="test",
         )
 
-    with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
-        modules = _capture_imported_modules(model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME)
-        mock_warning.assert_not_called()
-        assert "pandas" in modules
-        assert "sklearn" in modules
+    modules = _capture_imported_modules(model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME)
+    assert "pandas" in modules
+    assert "sklearn" in modules
+
+
+def test_capture_imported_modules_extra_env_vars(monkeypatch):
+    monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", "true")
+
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            assert os.environ["TEST"] == "test"
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name="model",
+            python_model=TestModel(),
+            input_example="test",
+            pip_requirements=[],
+        )
+
+    _capture_imported_modules(
+        model_info.model_uri, mlflow.pyfunc.FLAVOR_NAME, extra_env_vars={"TEST": "test"}
+    )
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("databricks.agents") is None,
+    reason="Requires databricks.agents",
+)
+def test_infer_pip_requirements_on_databricks_agents(tmp_path):
+    # import here to avoid breaking this test suite on mlflow-skinny
+    from mlflow.pyfunc import _get_pip_requirements_from_model_path
+
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            import databricks.agents  # noqa: F401
+            import pyspark  # noqa: F401
+
+            return model_input
+
+    mlflow.pyfunc.save_model(
+        tmp_path,
+        python_model=TestModel(),
+        input_example="test",
+    )
+
+    requirements = _get_pip_requirements_from_model_path(tmp_path)
+    packages = [req.split("==")[0] for req in requirements]
+    assert "databricks-agents" in packages
+    # databricks-connect should not be pruned even it's a dependency of databricks-agents
+    assert "databricks-connect" in packages
+    # pyspark should not exist because it conflicts with databricks-connect
+    assert "pyspark" not in packages
+
+
+def test_capture_imported_modules_excludes_pyspark_gateway_env_vars(monkeypatch, tmp_path):
+    """
+    Test that PYSPARK_GATEWAY_PORT and PYSPARK_GATEWAY_SECRET are excluded from the
+    subprocess environment when capturing imported modules.
+
+    These env vars, if inherited by a subprocess, can cause the subprocess to connect
+    to the parent's py4j gateway. Libraries like databricks-sdk may then corrupt the
+    parent's gateway state, causing delayed py4j errors like
+    "Error while obtaining a new communication channel".
+    """
+    monkeypatch.setenv("PYSPARK_GATEWAY_PORT", "12345")
+    monkeypatch.setenv("PYSPARK_GATEWAY_SECRET", "secret123")
+
+    captured_env = {}
+
+    def mock_run_command(cmd, timeout_seconds, env):
+        captured_env.update(env)
+        raise MlflowException("Mocked - stopping before actual subprocess execution")
+
+    with (
+        mock.patch(
+            "mlflow.utils.requirements_utils._run_command",
+            side_effect=mock_run_command,
+        ) as mock_run,
+        mock.patch(
+            "mlflow.utils.requirements_utils._download_artifact_from_uri",
+            return_value=str(tmp_path),
+        ) as mock_download,
+    ):
+        with pytest.raises(MlflowException, match="Mocked"):
+            _capture_imported_modules("fake/model/path", "pyfunc")
+
+    mock_download.assert_called_once()
+    mock_run.assert_called_once()
+    assert "PYSPARK_GATEWAY_PORT" not in captured_env
+    assert "PYSPARK_GATEWAY_SECRET" not in captured_env

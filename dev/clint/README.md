@@ -24,3 +24,63 @@ clint file.py ...
   "pylint.path": ["${interpreter}", "-m", "clint"]
 }
 ```
+
+## Ignoring Rules for Specific Files or Lines
+
+**To ignore a rule on a specific line (recommended):**
+
+```python
+foo()  # clint: disable=<rule_name>
+```
+
+Replace `<rule_name>` with the actual rule you want to disable.
+
+To disable multiple rules on the same line, use comma-separated rule names:
+
+```python
+foo()  # clint: disable=rule-a,rule-b
+```
+
+The rule name is shown in the error message. For example:
+
+```
+test_file.py:4:2: pytest-mark-repeat: @pytest.mark.repeat decorator...
+```
+
+Use the rule name (`pytest-mark-repeat`) in the disable comment:
+
+```python
+@pytest.mark.repeat(3)  # clint: disable=pytest-mark-repeat
+def test_something():
+    pass
+```
+
+**For multi-line constructs (docstrings, etc.), place the disable comment on the closing line:**
+
+```python
+def func():
+    """
+    Docstring with [markdown link](url).
+    """  # clint: disable=markdown-link
+    pass
+```
+
+This works because the linter checks both the start and end lines of the violation range.
+
+**To ignore a rule for an entire file:**
+
+Add the file path to the `exclude` list in your `pyproject.toml`:
+
+```toml
+[tool.clint]
+exclude = [
+  # ...existing entries...
+  "path/to/file.py",
+]
+```
+
+## Testing
+
+```bash
+pytest dev/clint
+```

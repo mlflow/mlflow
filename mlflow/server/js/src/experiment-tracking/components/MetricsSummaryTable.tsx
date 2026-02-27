@@ -51,9 +51,7 @@ class MetricsSummaryTable extends React.Component<MetricsSummaryTableProps> {
       {
         title: intl.formatMessage({
           defaultMessage: 'Metric',
-          description:
-            // eslint-disable-next-line max-len
-            'Column title for the column displaying the metric names for a run',
+          description: 'Column title for the column displaying the metric names for a run',
         }),
         dataIndex: 'metricKey',
         sorter: (a: any, b: any) => (a.metricKey < b.metricKey ? -1 : a.metricKey > b.metricKey ? 1 : 0),
@@ -77,9 +75,7 @@ class MetricsSummaryTable extends React.Component<MetricsSummaryTableProps> {
       {
         title: intl.formatMessage({
           defaultMessage: 'Run',
-          description:
-            // eslint-disable-next-line max-len
-            'Column title for the column displaying the run names for a metric',
+          description: 'Column title for the column displaying the run names for a metric',
         }),
         dataIndex: 'runLink',
         sorter: (a: any, b: any) => (a.runName < b.runName ? -1 : a.runName > b.runName ? 1 : 0),
@@ -252,6 +248,6 @@ const mapStateToProps = (state: any, ownProps: any) => {
 };
 
 // @ts-expect-error TS(2769): No overload matches this call.
-export const MetricsSummaryTableWithIntl = injectIntl(MetricsSummaryTable);
+const MetricsSummaryTableWithIntl = injectIntl(MetricsSummaryTable);
 
 export default connect(mapStateToProps)(MetricsSummaryTableWithIntl);

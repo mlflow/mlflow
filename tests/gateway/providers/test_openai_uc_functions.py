@@ -5,10 +5,14 @@ from unittest import mock
 import pytest
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.openai import OpenAIProvider
 from mlflow.gateway.schemas import chat
-from mlflow.gateway.uc_function_utils import uc_type_to_json_schema_type
+from mlflow.gateway.uc_function_utils import (
+    _quote_identifier,
+    get_execute_function_sql_stmt,
+    uc_type_to_json_schema_type,
+)
 
 from tests.gateway.tools import (
     MockAsyncResponse,
@@ -19,7 +23,7 @@ from tests.gateway.tools import (
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "openai",
             "name": "gpt-4o-mini",
@@ -156,10 +160,14 @@ async def test_uc_functions(monkeypatch):
     mock_statement_result.manifest.truncated = "manifest"
     mock_workspace_client.statement_execution.execute_statement.return_value = mock_statement_result
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client_session), mock.patch(
-        "mlflow.gateway.providers.openai._get_workspace_client", return_value=mock_workspace_client
-    ) as mock_workspace_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client_session),
+        mock.patch(
+            "mlflow.gateway.providers.openai._get_workspace_client",
+            return_value=mock_workspace_client,
+        ) as mock_workspace_client,
+    ):
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {
             "messages": [
                 {
@@ -208,6 +216,7 @@ async def test_uc_functions(monkeypatch):
 
 1 + 2 = 3""".lstrip(),
                         "tool_calls": None,
+                        "refusal": None,
                     },
                     "finish_reason": "stop",
                 }
@@ -319,10 +328,14 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
     mock_statement_result.manifest.truncated = "manifest"
     mock_workspace_client.statement_execution.execute_statement.return_value = mock_statement_result
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client_session), mock.patch(
-        "mlflow.gateway.providers.openai._get_workspace_client", return_value=mock_workspace_client
-    ) as mock_workspace_client:
-        provider = OpenAIProvider(RouteConfig(**config))
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client_session),
+        mock.patch(
+            "mlflow.gateway.providers.openai._get_workspace_client",
+            return_value=mock_workspace_client,
+        ) as mock_workspace_client,
+    ):
+        provider = OpenAIProvider(EndpointConfig(**config))
         payload = {
             "messages": [
                 {
@@ -399,9 +412,34 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
                                 },
                             },
                         ],
+                        "refusal": None,
                     },
                     "finish_reason": None,
                 }
             ],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
+
+
+def test_quote_identifier():
+    assert _quote_identifier("catalog.schema.func") == "`catalog`.`schema`.`func`"
+    # Strips existing backticks
+    assert _quote_identifier("`catalog`.`schema`.`func`") == "`catalog`.`schema`.`func`"
+    # Handles special characters
+    assert _quote_identifier("func;DROP TABLE") == "`func;DROP TABLE`"
+    # Rejects embedded backticks
+    with pytest.raises(ValueError, match="Backticks are not allowed"):
+        _quote_identifier("func`tion")
+
+
+def test_get_execute_function_sql_stmt_quotes_function_name():
+    from databricks.sdk.service.catalog import ColumnTypeName, FunctionInfo
+
+    function = mock.Mock(spec=FunctionInfo)
+    function.full_name = "catalog.schema.func); DROP TABLE users; --"
+    function.data_type = ColumnTypeName.INT
+    function.input_params = None
+
+    result = get_execute_function_sql_stmt(function, {})
+
+    assert result.statement == "SELECT `catalog`.`schema`.`func); DROP TABLE users; --`()"

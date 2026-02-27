@@ -1,7 +1,7 @@
 import { isArray } from 'lodash';
 import { atobUtf8, btoaUtf8 } from '../../../../common/utils/StringUtils';
-import { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
-import { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 
 type PersistSearchSerializeFunctions<Serialized = any, Unserialized = any> = {
   serializeLocalStorage?(input: Unserialized): Serialized;

@@ -1,6 +1,9 @@
 import os
 import tempfile
+import threading
 import zipfile
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Generator
 from unittest import mock
 
 import git
@@ -22,6 +25,7 @@ from mlflow.projects.utils import (
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
 
+from tests.helper_functions import get_safe_port
 from tests.projects.utils import (
     GIT_PROJECT_BRANCH,
     GIT_PROJECT_URI,
@@ -29,6 +33,43 @@ from tests.projects.utils import (
     TEST_PROJECT_NAME,
     assert_dirs_equal,
 )
+
+
+class _SimpleHTTPServer(HTTPServer):
+    def __init__(self, port: int) -> None:
+        super().__init__(("127.0.0.1", port), self.RequestHandler)
+        self.content = b""
+        self._thread = None
+
+    class RequestHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(self.server.content)
+
+    def serve_content(self, content: bytes) -> None:
+        self.content = content
+
+    @property
+    def url(self) -> str:
+        return f"http://{self.server_address[0]}:{self.server_address[1]}"
+
+    def __enter__(self) -> "_SimpleHTTPServer":
+        self._thread = threading.Thread(target=self.serve_forever, daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_) -> None:
+        self.shutdown()
+        self.server_close()
+        if self._thread:
+            self._thread.join(timeout=1)
+
+
+@pytest.fixture
+def httpserver() -> Generator[_SimpleHTTPServer, None, None]:
+    with _SimpleHTTPServer(get_safe_port()) as server:
+        yield server
 
 
 def _build_uri(base_uri, subdirectory):
@@ -194,29 +235,29 @@ def test_fetch_create_and_log(tmp_path):
     expected_dir = str(tmp_path)
     project_uri = "http://someuri/myproject.git"
     user_param = {"method_name": "newton"}
-    with mock.patch("mlflow.projects.utils._fetch_project", return_value=expected_dir):
-        with mock.patch(
-            "mlflow.projects._project_spec.load_project", return_value=mock_fetched_project
-        ):
-            work_dir = fetch_and_validate_project("", "", entry_point_name, user_param)
-            project = load_project(work_dir)
-            assert mock_fetched_project == project
-            assert expected_dir == work_dir
-            # Create a run
-            active_run = get_or_create_run(
-                run_id=None,
-                uri=project_uri,
-                experiment_id=experiment_id,
-                work_dir=work_dir,
-                version=None,
-                entry_point=entry_point_name,
-                parameters=user_param,
-            )
+    with (
+        mock.patch("mlflow.projects.utils._fetch_project", return_value=expected_dir),
+        mock.patch("mlflow.projects._project_spec.load_project", return_value=mock_fetched_project),
+    ):
+        work_dir = fetch_and_validate_project("", "", entry_point_name, user_param)
+        project = load_project(work_dir)
+        assert mock_fetched_project == project
+        assert expected_dir == work_dir
+        # Create a run
+        active_run = get_or_create_run(
+            run_id=None,
+            uri=project_uri,
+            experiment_id=experiment_id,
+            work_dir=work_dir,
+            version=None,
+            entry_point=entry_point_name,
+            parameters=user_param,
+        )
 
-            # check tags
-            run = mlflow.get_run(active_run.info.run_id)
-            assert MLFLOW_PROJECT_ENTRY_POINT in run.data.tags
-            assert MLFLOW_SOURCE_NAME in run.data.tags
-            assert entry_point_name == run.data.tags[MLFLOW_PROJECT_ENTRY_POINT]
-            assert project_uri == run.data.tags[MLFLOW_SOURCE_NAME]
-            assert user_param == run.data.params
+        # check tags
+        run = mlflow.get_run(active_run.info.run_id)
+        assert MLFLOW_PROJECT_ENTRY_POINT in run.data.tags
+        assert MLFLOW_SOURCE_NAME in run.data.tags
+        assert entry_point_name == run.data.tags[MLFLOW_PROJECT_ENTRY_POINT]
+        assert project_uri == run.data.tags[MLFLOW_SOURCE_NAME]
+        assert user_param == run.data.params

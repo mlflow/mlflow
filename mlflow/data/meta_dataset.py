@@ -1,14 +1,12 @@
 import hashlib
 import json
-from typing import Any, Dict, Optional
+from typing import Any
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.types import Schema
-from mlflow.utils.annotations import experimental
 
 
-@experimental
 class MetaDataset(Dataset):
     """Dataset that only contains metadata.
 
@@ -64,9 +62,9 @@ class MetaDataset(Dataset):
     def __init__(
         self,
         source: DatasetSource,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
-        schema: Optional[Schema] = None,
+        name: str | None = None,
+        digest: str | None = None,
+        schema: Schema | None = None,
     ):
         # Set `self._schema` before calling the superclass constructor because
         # `self._compute_digest` depends on `self._schema`.
@@ -89,11 +87,11 @@ class MetaDataset(Dataset):
         return hashlib.sha256(json.dumps(config).encode("utf-8")).hexdigest()[:8]
 
     @property
-    def schema(self) -> Optional[Any]:
+    def schema(self) -> Any | None:
         """Returns the schema of the dataset."""
         return self._schema
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the MetaDataset.
 
         Returns a string dictionary containing the following fields: name, digest, source, source

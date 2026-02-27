@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, jest, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import { DeleteExperimentModalImpl } from './DeleteExperimentModal';
@@ -31,7 +32,6 @@ describe('DeleteExperimentModal', () => {
         const response = { value: { experiment_id: fakeExperimentId } };
         return Promise.resolve(response);
       },
-      searchExperimentsApi: () => Promise.resolve([]),
       navigate,
     };
     wrapper = shallow(<DeleteExperimentModalImpl {...minimalProps} />);
@@ -44,14 +44,14 @@ describe('DeleteExperimentModal', () => {
   test('handleSubmit redirects user to root page if current experiment is the only active experiment', async () => {
     instance = wrapper.instance();
     await instance.handleSubmit();
-    expect(navigate).toBeCalledWith(createMLflowRoutePath('/'));
+    expect(navigate).toHaveBeenCalledWith(createMLflowRoutePath('/'));
   });
   test('handleSubmit redirects to compare experiment page if current experiment is one of several active experiments', async () => {
     const props = Object.assign({}, minimalProps, { activeExperimentIds: ['0', '1', '2'] });
     instance = shallow(<DeleteExperimentModalImpl {...props} />).instance();
     await instance.handleSubmit();
 
-    expect(navigate).toBeCalledWith(createMLflowRoutePath('/compare-experiments/s?experiments=["1","2"]'));
+    expect(navigate).toHaveBeenCalledWith(createMLflowRoutePath('/compare-experiments/s?experiments=["1","2"]'));
   });
   test('handleSubmit does not perform redirection if DeleteExperiment request fails', async () => {
     const props = {
@@ -62,13 +62,13 @@ describe('DeleteExperimentModal', () => {
     instance = wrapper.instance();
     await instance.handleSubmit();
 
-    expect(navigate).not.toBeCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
   test('handleSubmit does not perform redirection if deleted experiment is not active experiment', async () => {
     wrapper = shallow(<DeleteExperimentModalImpl {...{ ...minimalProps, activeExperimentIds: undefined }} />);
     instance = wrapper.instance();
     await instance.handleSubmit();
 
-    expect(navigate).not.toBeCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

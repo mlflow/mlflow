@@ -1,0 +1,900 @@
+from unittest import mock
+
+import pytest
+
+from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.providers.base import PassthroughAction
+from mlflow.gateway.providers.litellm import LiteLLMAdapter, LiteLLMProvider
+from mlflow.gateway.schemas import chat, embeddings
+
+TEST_MESSAGE = "This is a test"
+
+
+def chat_config():
+    return {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "litellm",
+            "name": "claude-3-5-sonnet-20241022",
+            "config": {
+                "litellm_auth_config": {"api_key": "test-key"},
+            },
+        },
+    }
+
+
+def chat_config_with_api_base():
+    return {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "litellm",
+            "name": "custom-model",
+            "config": {
+                "litellm_auth_config": {
+                    "api_key": "test-key",
+                    "api_base": "https://custom-api.example.com",
+                },
+            },
+        },
+    }
+
+
+def chat_config_with_provider():
+    return {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "litellm",
+            "name": "claude-3-5-sonnet-20241022",
+            "config": {
+                "litellm_provider": "anthropic",
+                "litellm_auth_config": {"api_key": "test-key"},
+            },
+        },
+    }
+
+
+def embeddings_config():
+    return {
+        "name": "embeddings",
+        "endpoint_type": "llm/v1/embeddings",
+        "model": {
+            "provider": "litellm",
+            "name": "text-embedding-3-small",
+            "config": {
+                "litellm_auth_config": {"api_key": "test-key"},
+            },
+        },
+    }
+
+
+def mock_litellm_chat_response():
+    """Create a mock LiteLLM chat response object."""
+    response = mock.MagicMock()
+    response.id = "litellm-chat-id"
+    response.object = "chat.completion"
+    response.created = 1234567890
+    response.model = "claude-3-5-sonnet-20241022"
+
+    choice = mock.MagicMock()
+    choice.index = 0
+    choice.message = mock.MagicMock()
+    choice.message.role = "assistant"
+    choice.message.content = TEST_MESSAGE
+    choice.message.tool_calls = None
+    choice.finish_reason = "stop"
+
+    response.choices = [choice]
+    response.usage = mock.MagicMock()
+    response.usage.prompt_tokens = 10
+    response.usage.completion_tokens = 20
+    response.usage.total_tokens = 30
+
+    return response
+
+
+def mock_litellm_embeddings_response():
+    """Create a mock LiteLLM embeddings response object."""
+    response = mock.MagicMock()
+    response.model = "text-embedding-3-small"
+
+    data = mock.MagicMock()
+    data.__getitem__ = lambda self, key: [0.1, 0.2, 0.3] if key == "embedding" else None
+    response.data = [data]
+
+    response.usage = mock.MagicMock()
+    response.usage.prompt_tokens = 5
+    response.usage.total_tokens = 5
+
+    return response
+
+
+@pytest.mark.asyncio
+async def test_chat():
+    config = chat_config()
+    mock_response = mock_litellm_chat_response()
+
+    with mock.patch("litellm.acompletion", return_value=mock_response) as mock_completion:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": TEST_MESSAGE}],
+            "temperature": 0.7,
+            "max_tokens": 100,
+        }
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+        assert response.id == "litellm-chat-id"
+        assert response.object == "chat.completion"
+        assert response.model == "claude-3-5-sonnet-20241022"
+        assert len(response.choices) == 1
+        assert response.choices[0].message.content == TEST_MESSAGE
+        assert response.usage.prompt_tokens == 10
+        assert response.usage.completion_tokens == 20
+        assert response.usage.total_tokens == 30
+
+        # Verify litellm was called with correct parameters
+        mock_completion.assert_called_once()
+        call_kwargs = mock_completion.call_args[1]
+        assert call_kwargs["model"] == "claude-3-5-sonnet-20241022"
+        assert call_kwargs["messages"] == [{"role": "user", "content": TEST_MESSAGE}]
+        assert call_kwargs["temperature"] == 0.7
+        assert call_kwargs["max_tokens"] == 100
+        assert call_kwargs["api_key"] == "test-key"
+
+
+@pytest.mark.asyncio
+async def test_chat_with_api_base():
+    config = chat_config_with_api_base()
+    mock_response = mock_litellm_chat_response()
+
+    with mock.patch("litellm.acompletion", return_value=mock_response) as mock_completion:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": TEST_MESSAGE}]}
+        await provider.chat(chat.RequestPayload(**payload))
+
+        # Verify API base is passed
+        call_kwargs = mock_completion.call_args[1]
+        assert call_kwargs["api_base"] == "https://custom-api.example.com"
+
+
+@pytest.mark.asyncio
+async def test_chat_with_provider_prefix():
+    config = chat_config_with_provider()
+    mock_response = mock_litellm_chat_response()
+
+    with mock.patch("litellm.acompletion", return_value=mock_response) as mock_completion:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": TEST_MESSAGE}]}
+        await provider.chat(chat.RequestPayload(**payload))
+
+        # Verify model name includes provider prefix
+        call_kwargs = mock_completion.call_args[1]
+        assert call_kwargs["model"] == "anthropic/claude-3-5-sonnet-20241022"
+
+
+@pytest.mark.asyncio
+async def test_chat_stream():
+    config = chat_config()
+
+    # Create mock streaming chunks
+    async def mock_stream():
+        chunk1 = mock.MagicMock()
+        chunk1.id = "chunk-1"
+        chunk1.object = "chat.completion.chunk"
+        chunk1.created = 1234567890
+        chunk1.model = "claude-3-5-sonnet-20241022"
+        choice1 = mock.MagicMock()
+        choice1.index = 0
+        choice1.delta = mock.MagicMock(spec=["role", "content"])
+        choice1.delta.role = "assistant"
+        choice1.delta.content = "Hello"
+        choice1.finish_reason = None
+        chunk1.choices = [choice1]
+        yield chunk1
+
+        chunk2 = mock.MagicMock()
+        chunk2.id = "chunk-2"
+        chunk2.object = "chat.completion.chunk"
+        chunk2.created = 1234567890
+        chunk2.model = "claude-3-5-sonnet-20241022"
+        choice2 = mock.MagicMock()
+        choice2.index = 0
+        choice2.delta = mock.MagicMock(spec=["content"])
+        choice2.delta.content = " world"
+        choice2.finish_reason = "stop"
+        chunk2.choices = [choice2]
+        yield chunk2
+
+    with mock.patch("litellm.acompletion", return_value=mock_stream()) as mock_completion:
+        provider = LiteLLMProvider(EndpointConfig(**config), enable_tracing=True)
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "stream": True,
+        }
+
+        chunks = [chunk async for chunk in provider.chat_stream(chat.RequestPayload(**payload))]
+
+        assert len(chunks) == 2
+        assert chunks[0].choices[0].delta.content == "Hello"
+        assert chunks[1].choices[0].delta.content == " world"
+        assert chunks[1].choices[0].finish_reason == "stop"
+
+        # Verify stream parameter was set
+        call_kwargs = mock_completion.call_args[1]
+        assert call_kwargs["stream"] is True
+        assert call_kwargs["stream_options"]["include_usage"] is True
+
+
+@pytest.mark.asyncio
+async def test_embeddings():
+    config = embeddings_config()
+    mock_response = mock_litellm_embeddings_response()
+
+    with mock.patch("litellm.aembedding", return_value=mock_response) as mock_embedding:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"input": "Hello world"}
+        response = await provider.embeddings(embeddings.RequestPayload(**payload))
+
+        assert response.model == "text-embedding-3-small"
+        assert len(response.data) == 1
+        assert response.data[0].embedding == [0.1, 0.2, 0.3]
+        assert response.usage.prompt_tokens == 5
+        assert response.usage.total_tokens == 5
+
+        # Verify litellm was called with correct parameters
+        mock_embedding.assert_called_once()
+        call_kwargs = mock_embedding.call_args[1]
+        assert call_kwargs["model"] == "text-embedding-3-small"
+        assert call_kwargs["input"] == "Hello world"
+        assert call_kwargs["api_key"] == "test-key"
+
+
+@pytest.mark.asyncio
+async def test_embeddings_batch():
+    config = embeddings_config()
+
+    # Create mock response for batch
+    response = mock.MagicMock()
+    response.model = "text-embedding-3-small"
+
+    data1 = mock.MagicMock()
+    data1.__getitem__ = lambda self, key: [0.1, 0.2, 0.3] if key == "embedding" else None
+    data2 = mock.MagicMock()
+    data2.__getitem__ = lambda self, key: [0.4, 0.5, 0.6] if key == "embedding" else None
+    response.data = [data1, data2]
+
+    response.usage = mock.MagicMock()
+    response.usage.prompt_tokens = 10
+    response.usage.total_tokens = 10
+
+    with mock.patch("litellm.aembedding", return_value=response):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"input": ["Hello", "World"]}
+        response_payload = await provider.embeddings(embeddings.RequestPayload(**payload))
+
+        assert len(response_payload.data) == 2
+        assert response_payload.data[0].embedding == [0.1, 0.2, 0.3]
+        assert response_payload.data[1].embedding == [0.4, 0.5, 0.6]
+
+
+def test_adapter_chat_to_model():
+    config = EndpointConfig(**chat_config())
+    payload = {
+        "messages": [{"role": "user", "content": TEST_MESSAGE}],
+        "temperature": 0.7,
+    }
+
+    result = LiteLLMAdapter.chat_to_model(payload, config)
+
+    assert result["model"] == "claude-3-5-sonnet-20241022"
+    assert result["messages"] == [{"role": "user", "content": TEST_MESSAGE}]
+    assert result["temperature"] == 0.7
+
+
+def test_adapter_embeddings_to_model():
+    config = EndpointConfig(**embeddings_config())
+    payload = {"input": TEST_MESSAGE}
+
+    result = LiteLLMAdapter.embeddings_to_model(payload, config)
+
+    assert result["model"] == "text-embedding-3-small"
+    assert result["input"] == TEST_MESSAGE
+
+
+def test_adapter_chat_to_model_with_provider():
+    config = EndpointConfig(**chat_config_with_provider())
+    payload = {
+        "messages": [{"role": "user", "content": TEST_MESSAGE}],
+        "temperature": 0.7,
+    }
+
+    result = LiteLLMAdapter.chat_to_model(payload, config)
+
+    assert result["model"] == "anthropic/claude-3-5-sonnet-20241022"
+    assert result["messages"] == [{"role": "user", "content": TEST_MESSAGE}]
+    assert result["temperature"] == 0.7
+
+
+def test_adapter_model_to_chat():
+    config = EndpointConfig(**chat_config())
+    resp = {
+        "id": "test-id",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "test-model",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": TEST_MESSAGE, "tool_calls": None},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+    }
+
+    result = LiteLLMAdapter.model_to_chat(resp, config)
+
+    assert result.id == "test-id"
+    assert result.model == "test-model"
+    assert len(result.choices) == 1
+    assert result.choices[0].message.content == TEST_MESSAGE
+    assert result.usage.prompt_tokens == 10
+
+
+def test_adapter_model_to_embeddings():
+    config = EndpointConfig(**embeddings_config())
+    resp = {
+        "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}],
+        "model": "test-model",
+        "usage": {"prompt_tokens": 5, "total_tokens": 5},
+    }
+
+    result = LiteLLMAdapter.model_to_embeddings(resp, config)
+
+    assert result.model == "test-model"
+    assert len(result.data) == 1
+    assert result.data[0].embedding == [0.1, 0.2, 0.3]
+    assert result.data[0].index == 0
+    assert result.usage.prompt_tokens == 5
+
+
+# Passthrough tests
+
+
+def mock_response_with_model_dump():
+    """Create a mock response object that supports model_dump()."""
+    response = mock.MagicMock()
+    response.model_dump.return_value = {
+        "id": "test-response-id",
+        "output": "Test response output",
+        "model": "test-model",
+    }
+    return response
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_responses():
+    config = chat_config()
+    mock_response = mock_response_with_model_dump()
+
+    with mock.patch("litellm.aresponses", return_value=mock_response) as mock_aresponses:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"input": "Hello, world!"}
+
+        result = await provider.passthrough(
+            PassthroughAction.OPENAI_RESPONSES,
+            payload,
+            headers=None,
+        )
+
+        assert result["id"] == "test-response-id"
+        assert result["output"] == "Test response output"
+        mock_aresponses.assert_called_once()
+        call_kwargs = mock_aresponses.call_args[1]
+        assert call_kwargs["model"] == "claude-3-5-sonnet-20241022"
+        assert call_kwargs["input"] == "Hello, world!"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_responses_streaming():
+    config = chat_config()
+
+    async def mock_stream():
+        for i in range(2):
+            chunk = mock.MagicMock()
+            chunk.model_dump.return_value = {"chunk": i, "content": f"part{i}"}
+            yield chunk
+
+    with mock.patch("litellm.aresponses", return_value=mock_stream()):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"input": "Hello, world!", "stream": True}
+
+        result = await provider.passthrough(
+            PassthroughAction.OPENAI_RESPONSES,
+            payload,
+            headers=None,
+        )
+
+        chunks = [chunk async for chunk in result]
+        assert len(chunks) == 2
+        assert b"data:" in chunks[0]
+
+
+@pytest.mark.asyncio
+async def test_passthrough_anthropic_messages():
+    config = chat_config_with_provider()
+    mock_response = mock.MagicMock()
+    mock_response.model_dump.return_value = {
+        "id": "msg-test-id",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": "Hello!"}],
+    }
+
+    with mock.patch(
+        "litellm.anthropic.messages.acreate", return_value=mock_response
+    ) as mock_acreate:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 100,
+        }
+
+        result = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES,
+            payload,
+            headers=None,
+        )
+
+        assert result["id"] == "msg-test-id"
+        assert result["type"] == "message"
+        mock_acreate.assert_called_once()
+        call_kwargs = mock_acreate.call_args[1]
+        assert call_kwargs["model"] == "anthropic/claude-3-5-sonnet-20241022"
+        assert call_kwargs["max_tokens"] == 100
+
+
+@pytest.mark.asyncio
+async def test_passthrough_anthropic_messages_streaming():
+    config = chat_config_with_provider()
+
+    async def mock_stream():
+        # LiteLLM returns raw SSE bytes for Anthropic streaming
+        yield b'event: message_start\ndata: {"type":"message_start"}\n\n'
+        yield b'event: content_block_delta\ndata: {"type":"content_block_delta","delta":{"text":"Hello"}}\n\n'  # noqa: E501
+        yield b'event: message_stop\ndata: {"type":"message_stop"}\n\n'
+
+    with mock.patch(
+        "litellm.anthropic.messages.acreate", return_value=mock_stream()
+    ) as mock_acreate:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 100,
+            "stream": True,
+        }
+
+        result = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES,
+            payload,
+            headers=None,
+        )
+
+        chunks = [chunk async for chunk in result]
+        assert len(chunks) == 3
+        assert b"message_start" in chunks[0]
+        assert b"content_block_delta" in chunks[1]
+        assert b"message_stop" in chunks[2]
+
+        mock_acreate.assert_called_once()
+        call_kwargs = mock_acreate.call_args[1]
+        assert call_kwargs["stream"] is True
+        assert call_kwargs["model"] == "anthropic/claude-3-5-sonnet-20241022"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_gemini_generate_content():
+    config = chat_config()
+    mock_response = mock.MagicMock()
+    mock_response.model_dump.return_value = {
+        "candidates": [{"content": {"parts": [{"text": "Generated content"}]}}],
+    }
+
+    with mock.patch(
+        "litellm.google_genai.agenerate_content", return_value=mock_response
+    ) as mock_agenerate:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {
+            "contents": [{"parts": [{"text": "Generate something"}]}],
+        }
+
+        result = await provider.passthrough(
+            PassthroughAction.GEMINI_GENERATE_CONTENT,
+            payload,
+            headers=None,
+        )
+
+        assert "candidates" in result
+        mock_agenerate.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_passthrough_gemini_stream_generate_content():
+    config = chat_config()
+
+    async def mock_stream():
+        for i in range(2):
+            chunk = mock.MagicMock()
+            chunk.model_dump.return_value = {
+                "candidates": [{"content": {"parts": [{"text": f"chunk{i}"}]}}]
+            }
+            yield chunk
+
+    # agenerate_content is called with stream=True for streaming
+    with mock.patch("litellm.google_genai.agenerate_content", return_value=mock_stream()):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {
+            "contents": [{"parts": [{"text": "Generate something"}]}],
+        }
+
+        result = provider._passthrough_gemini_stream_generate_content(
+            {"model": "claude-3-5-sonnet-20241022", **payload}
+        )
+
+        chunks = [chunk async for chunk in result]
+        assert len(chunks) == 2
+        assert chunks[0].model_dump() == {
+            "candidates": [{"content": {"parts": [{"text": "chunk0"}]}}]
+        }
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_chat():
+    config = chat_config()
+    mock_response = mock_response_with_model_dump()
+    mock_response.model_dump.return_value = {
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "choices": [{"message": {"role": "assistant", "content": "Hello!"}}],
+    }
+
+    with mock.patch("litellm.acompletion", return_value=mock_response) as mock_completion:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
+
+        result = await provider.passthrough(
+            PassthroughAction.OPENAI_CHAT,
+            payload,
+            headers=None,
+        )
+
+        assert result["id"] == "chatcmpl-test"
+        assert result["object"] == "chat.completion"
+        mock_completion.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_passthrough_openai_embeddings():
+    config = embeddings_config()
+    mock_response = mock.MagicMock()
+    mock_response.model_dump.return_value = {
+        "object": "list",
+        "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}],
+        "model": "text-embedding-3-small",
+    }
+
+    with mock.patch("litellm.aembedding", return_value=mock_response) as mock_embedding:
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"input": "Hello, world!"}
+
+        result = await provider.passthrough(
+            PassthroughAction.OPENAI_EMBEDDINGS,
+            payload,
+            headers=None,
+        )
+
+        assert result["object"] == "list"
+        assert len(result["data"]) == 1
+        mock_embedding.assert_called_once()
+
+
+def test_response_to_dict_with_model_dump():
+    config = chat_config()
+    provider = LiteLLMProvider(EndpointConfig(**config))
+
+    response = mock.MagicMock()
+    response.model_dump.return_value = {"key": "value"}
+
+    result = provider._response_to_dict(response)
+    assert result == {"key": "value"}
+
+
+def test_response_to_dict_with_dict_input():
+    config = chat_config()
+    provider = LiteLLMProvider(EndpointConfig(**config))
+
+    result = provider._response_to_dict({"key": "value"})
+    assert result == {"key": "value"}
+
+
+def test_response_to_dict_with_unknown_type_raises():
+    config = chat_config()
+    provider = LiteLLMProvider(EndpointConfig(**config))
+
+    with pytest.raises(TypeError, match="Unexpected response type"):
+        provider._response_to_dict("string value")
+
+
+# Token extraction tests
+
+
+def test_litellm_extract_passthrough_token_usage_openai_format():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "chatcmpl-123",
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 20,
+            "total_tokens": 30,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_litellm_extract_passthrough_token_usage_anthropic_format():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "msg_123",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+    }
+
+
+def test_litellm_extract_passthrough_token_usage_gemini_format():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "candidates": [{"content": {"parts": [{"text": "Hello"}]}}],
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 20,
+            "totalTokenCount": 30,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.GEMINI_GENERATE_CONTENT, result
+    )
+    assert token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_litellm_extract_passthrough_token_usage_gemini_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "candidates": [{"content": {"parts": [{"text": "Hello"}]}}],
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 20,
+            "totalTokenCount": 30,
+            "cachedContentTokenCount": 5,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.GEMINI_GENERATE_CONTENT, result
+    )
+    assert token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+        "cache_read_input_tokens": 5,
+    }
+
+
+def test_litellm_extract_passthrough_token_usage_no_usage():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {"id": "chatcmpl-123", "choices": []}
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage is None
+
+
+def test_litellm_extract_streaming_token_usage_openai_format():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"id":"chatcmpl-123","usage":'
+        b'{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_anthropic_message_start():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = b'data: {"type":"message_start","message":{"usage":{"input_tokens":100}}}\n'
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {"input_tokens": 100}
+
+
+def test_litellm_extract_streaming_token_usage_anthropic_message_delta():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = b'data: {"type":"message_delta","usage":{"output_tokens":50}}\n'
+    result = provider._extract_streaming_token_usage(chunk)
+    # Method only returns chunk's usage; total is calculated by _stream_passthrough_with_usage
+    assert result == {"output_tokens": 50}
+
+
+def test_litellm_extract_streaming_token_usage_gemini_format():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"candidates":[{"content":{}}],"usageMetadata":'
+        b'{"promptTokenCount":10,"candidatesTokenCount":20,"totalTokenCount":30}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_gemini_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"candidates":[{"content":{}}],"usageMetadata":'
+        b'{"promptTokenCount":10,"candidatesTokenCount":20,"totalTokenCount":30,"cachedContentTokenCount":5}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+        "cache_read_input_tokens": 5,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_empty_chunk():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = b""
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_litellm_extract_streaming_token_usage_done_chunk():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = b"data: [DONE]\n"
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_litellm_extract_streaming_token_usage_invalid_json():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = b"data: {invalid json}\n"
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {}
+
+
+def test_litellm_extract_streaming_token_usage_responses_api():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    # Responses API returns usage in data.response.usage with input_tokens/output_tokens
+    chunk = (
+        b'data: {"type":"response.completed","response":{"id":"resp_123",'
+        b'"usage":{"input_tokens":9,"output_tokens":65,"total_tokens":74}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 9,
+        "output_tokens": 65,
+        "total_tokens": 74,
+    }
+
+
+def test_litellm_extract_passthrough_token_usage_openai_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "chatcmpl-123",
+        "usage": {
+            "prompt_tokens": 50,
+            "completion_tokens": 20,
+            "total_tokens": 70,
+            "prompt_tokens_details": {"cached_tokens": 30},
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage == {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "total_tokens": 70,
+        "cache_read_input_tokens": 30,
+    }
+
+
+def test_litellm_extract_passthrough_token_usage_anthropic_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "msg_123",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_input_tokens": 25,
+            "cache_creation_input_tokens": 15,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cache_read_input_tokens": 25,
+        "cache_creation_input_tokens": 15,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_openai_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"id":"chatcmpl-123","usage":'
+        b'{"prompt_tokens":50,"completion_tokens":20,"total_tokens":70,'
+        b'"prompt_tokens_details":{"cached_tokens":30}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "total_tokens": 70,
+        "cache_read_input_tokens": 30,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_anthropic_message_start_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"type":"message_start","message":{"usage":'
+        b'{"input_tokens":100,"cache_read_input_tokens":25}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 100,
+        "cache_read_input_tokens": 25,
+    }
+
+
+def test_litellm_extract_streaming_token_usage_responses_api_with_cached_tokens():
+    provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"type":"response.completed","response":{"id":"resp_123",'
+        b'"usage":{"input_tokens":100,"output_tokens":50,"total_tokens":150,'
+        b'"input_tokens_details":{"cached_tokens":40}}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cache_read_input_tokens": 40,
+    }

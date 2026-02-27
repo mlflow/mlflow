@@ -11,7 +11,7 @@ import {
   FormUI,
 } from '@databricks/design-system';
 import { LazyPlot } from './LazyPlot';
-import { RunInfoEntity } from '../types';
+import type { RunInfoEntity } from '../types';
 
 type Props = {
   runUuids: string[];
@@ -44,6 +44,7 @@ const Selector = ({
   const intl = useIntl();
   return (
     <SimpleSelect
+      componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunbox.tsx_46"
       id={id}
       css={{ width: '100%', marginBottom: '16px' }}
       placeholder={intl.formatMessage({

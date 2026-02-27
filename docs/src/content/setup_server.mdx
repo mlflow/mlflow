@@ -1,0 +1,51 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="uv" label="Local (uv)" default>
+
+Install the Python package manager [uv](https://docs.astral.sh/uv/getting-started/installation/)
+(that will also install [`uvx` command](https://docs.astral.sh/uv/guides/tools/) to invoke Python tools without installing them).
+
+Start a MLflow server locally.
+
+```shell
+uvx mlflow server
+```
+
+</TabItem>
+
+<TabItem value="local" label="Local (pip)">
+
+**Python Environment**: Python 3.10+
+
+Install the `mlflow` Python package via `pip` and start a MLflow server locally.
+
+```shell
+pip install --upgrade 'mlflow[genai]'
+mlflow server
+```
+
+</TabItem>
+
+<TabItem value="docker" label="Local (docker)">
+
+MLflow provides a Docker Compose file to start a local MLflow server with a PostgreSQL database and a MinIO server.
+
+```shell
+git clone --depth 1 --filter=blob:none --sparse https://github.com/mlflow/mlflow.git
+cd mlflow
+git sparse-checkout set docker-compose
+cd docker-compose
+cp .env.dev.example .env
+docker compose up -d
+```
+
+Refer to the [instruction](https://github.com/mlflow/mlflow/tree/master/docker-compose/README.md) for more details (e.g., overriding the default environment variables).
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>

@@ -1,5 +1,5 @@
 import '@emotion/react';
-import { DesignSystemThemeInterface } from '@databricks/design-system';
+import type { DesignSystemThemeInterface } from '@databricks/design-system';
 
 type ThemeType = DesignSystemThemeInterface['theme'];
 

@@ -16,11 +16,11 @@ directory the example code is found, i.e., it is located in `examples/new_exampl
 The `@pytest.mark.mark.parametrize` decorator for `def test_mlflow_run_example(directory, params):`
 is updated.
 
-If the example is executed by `cd examples/new_example_dir && mlflow run . -P parm1=99 -P parm2=3`, then
+If the example is executed by `cd examples/new_example_dir && mlflow run . -P param1=99 -P param2=3`, then
 this `tuple` is added to the decorator list
 
 ```
-("new_example_dir", ["-P", "parm1=123", "-P", "parm2=99"])
+("new_example_dir", ["-P", "param1=123", "-P", "param2=99"])
 ```
 
 as shown below
@@ -29,7 +29,7 @@ as shown below
 @pytest.mark.parametrize(("directory", "params"), [
     ("sklearn_elasticnet_wine", ["-P", "alpha=0.5"]),
     (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
-    ("new_example_dir", ["-P", "parm1=123", "-P", "parm2=99"]),
+    ("new_example_dir", ["-P", "param1=123", "-P", "param2=99"]),
 ])
 def test_mlflow_run_example(directory, params):
 ```

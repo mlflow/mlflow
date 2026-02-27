@@ -1,21 +1,21 @@
 """increase max dataset schema size
 
-Revision ID: 4465047574b1
-Revises: 5b0e9adcef9c
 Create Date: 2024-07-09 12:54:33.775087
 
 """
+
 import logging
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 
 _logger = logging.getLogger(__name__)
 
 
 # revision identifiers, used by Alembic.
-revision = '4465047574b1'
-down_revision = '5b0e9adcef9c'
+revision = "4465047574b1"
+down_revision = "5b0e9adcef9c"
 branch_labels = None
 depends_on = None
 

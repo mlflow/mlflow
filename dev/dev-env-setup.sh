@@ -124,10 +124,7 @@ quiet_command(){
 
 minor_to_micro() {
   case $1 in
-    "3.7") echo "3.7.14" ;;
-    "3.8") echo "3.8.13" ;;
-    "3.9") echo "3.9.13" ;;
-    "3.10") echo "3.10.4" ;;
+    "3.10") echo "3.10.13" ;;
   esac
 }
 
@@ -216,7 +213,7 @@ check_and_install_pyenv() {
 
 check_and_install_min_py_version() {
   # Get the minimum supported version for development purposes
-  min_py_version="3.8"
+  min_py_version="3.10"
 
   echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(
     tput bold
@@ -230,7 +227,7 @@ check_and_install_min_py_version() {
     elif [[ $version_levels -eq 2 ]]; then
       PY_INSTALL_VERSION=$override_py_ver
     else
-      echo "You must supply a python override version with either minor (e.g., '3.9') or micro (e.g., '3.9.5'). '$override_py_ver' is invalid."
+      echo "You must supply a python override version with either minor (e.g., '3.10') or micro (e.g., '3.10.13'). '$override_py_ver' is invalid."
       exit 1
     fi
   else
@@ -244,7 +241,6 @@ check_and_install_min_py_version() {
   pyenv local "$PY_INSTALL_VERSION"
   pyenv exec pip install $(quiet_command) --upgrade pip
   pyenv exec pip install $(quiet_command) virtualenv
-  pyenv exec pip install $(quiet_command) pre-commit
 }
 
 # Check if the virtualenv already exists at the specified path
@@ -278,13 +274,13 @@ create_virtualenv() {
 install_mlflow_and_dependencies() {
   # Install current checked out version of mlflow (local)
   pip install -e .[extras]
-  
+
   echo "Installing pip dependencies for development environment."
   if [[ -n "$full" ]]; then
     # Install dev requirements
     pip install -r "$rd/dev-requirements.txt"
     # Install test plugin
-    pip install -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
+    pip install -e "$MLFLOW_HOME/tests/resources/mlflow-test-plugin"
   else
     files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
     for r in "${files[@]}"; do
@@ -360,7 +356,7 @@ set_pre_commit_and_git_signoff() {
   fi
 
   # Set up pre-commit hooks
-  pre-commit install -t pre-commit -t prepare-commit-msg
+  pre-commit install --install-hooks
 }
 
 # Execute mandatory setups with strict error handling

@@ -8,7 +8,7 @@ import shap
 import sklearn
 from numba import njit
 from packaging.version import Version
-from sklearn.datasets import fetch_california_housing, load_diabetes
+from sklearn.datasets import load_diabetes
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -33,10 +33,9 @@ def shap_model():
     return shap.Explainer(model.predict, X, algorithm="permutation")
 
 
-def get_housing_data():
-    X, y = fetch_california_housing(as_frame=True, return_X_y=True)
-
-    return X[:1000], y[:1000]
+def get_test_dataset():
+    X, y = load_diabetes(as_frame=True, return_X_y=True)
+    return X, y
 
 
 def test_sklearn_log_explainer():
@@ -47,7 +46,7 @@ def test_sklearn_log_explainer():
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
-        X, y = get_housing_data()
+        X, y = get_test_dataset()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -83,7 +82,7 @@ def test_sklearn_log_explainer_self_serialization():
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
-        X, y = get_housing_data()
+        X, y = get_test_dataset()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -122,7 +121,7 @@ def test_sklearn_log_explainer_pyfunc():
     with mlflow.start_run() as run:
         run_id = run.info.run_id
 
-        X, y = get_housing_data()
+        X, y = get_test_dataset()
 
         model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
         model.fit(X, y)
@@ -151,7 +150,9 @@ def test_log_explanation_doesnt_create_autologged_run():
             mlflow.shap.log_explanation(model.predict, X)
 
         run_data = MlflowClient().get_run(run.info.run_id).data
-        metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+        metrics = run_data.metrics
+        params = run_data.params
+        tags = run_data.tags
         assert not metrics
         assert not params
         assert all("mlflow." in key for key in tags)
@@ -161,7 +162,7 @@ def test_log_explanation_doesnt_create_autologged_run():
 
 
 def test_load_pyfunc(tmp_path):
-    X, y = get_housing_data()
+    X, y = get_test_dataset()
 
     model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
     model.fit(X, y)
@@ -298,27 +299,31 @@ def test_log_model_with_pip_requirements(shap_model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.shap.log_explainer(shap_model, "model", pip_requirements=str(req_file))
+        model_info = mlflow.shap.log_explainer(shap_model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "a", *sklearn_default_reqs],
             strict=False,
         )
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.shap.log_explainer(shap_model, "model", pip_requirements=[f"-r {req_file}", "b"])
+        model_info = mlflow.shap.log_explainer(
+            shap_model, "model", pip_requirements=[f"-r {req_file}", "b"]
+        )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "a", "b", *sklearn_default_reqs],
             strict=False,
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.shap.log_explainer(shap_model, "model", pip_requirements=[f"-c {req_file}", "b"])
+        model_info = mlflow.shap.log_explainer(
+            shap_model, "model", pip_requirements=[f"-c {req_file}", "b"]
+        )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            model_info.model_uri,
             [expected_mlflow_version, "b", "-c constraints.txt", *sklearn_default_reqs],
             ["a"],
             strict=False,
@@ -334,29 +339,31 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.shap.log_explainer(shap_model, "model", extra_pip_requirements=str(req_file))
+        log_info = mlflow.shap.log_explainer(
+            shap_model, "model", extra_pip_requirements=str(req_file)
+        )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            log_info.model_uri,
             [expected_mlflow_version, *shap_default_reqs, "a", *sklearn_default_reqs],
         )
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.shap.log_explainer(
+        log_info = mlflow.shap.log_explainer(
             shap_model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            log_info.model_uri,
             [expected_mlflow_version, *shap_default_reqs, "a", "b", *sklearn_default_reqs],
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.shap.log_explainer(
+        log_info = mlflow.shap.log_explainer(
             shap_model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
+            log_info.model_uri,
             [
                 expected_mlflow_version,
                 *shap_default_reqs,
@@ -389,7 +396,7 @@ def test_pyfunc_serve_and_score_njit():
     def identity_function(x):
         return x
 
-    X, y = get_housing_data()
+    X, y = get_test_dataset()
 
     reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
     model = shap.Explainer(
@@ -407,11 +414,10 @@ def test_pyfunc_serve_and_score_njit():
     )
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.shap.log_explainer(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.shap.log_explainer(model, artifact_path)
 
     resp = pyfunc_serve_and_score_model(
-        model_uri,
+        model_info.model_uri,
         data=pd.DataFrame(X[:3]),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
@@ -425,7 +431,7 @@ def test_pyfunc_serve_and_score():
     # Note: this implementation of an identify function is only compatible with versions of
     # shap <= 0.41.0. A breaking change was introduced with how numba is used with shap in version
     # 0.42.0.
-    X, y = get_housing_data()
+    X, y = get_test_dataset()
 
     reg = sklearn.ensemble.RandomForestRegressor(n_estimators=10).fit(X, y)
     model = shap.Explainer(
@@ -443,11 +449,10 @@ def test_pyfunc_serve_and_score():
     )
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.shap.log_explainer(model, artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.shap.log_explainer(model, artifact_path)
 
     resp = pyfunc_serve_and_score_model(
-        model_uri,
+        model_info.model_uri,
         data=pd.DataFrame(X[:3]),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
@@ -458,13 +463,13 @@ def test_pyfunc_serve_and_score():
 
 def test_log_model_with_code_paths(shap_model):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.shap._add_code_from_conf_to_system_path"
-    ) as add_mock:
-        mlflow.shap.log_explainer(shap_model, artifact_path, code_paths=[__file__])
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.shap.FLAVOR_NAME)
-        mlflow.shap.load_explainer(model_uri)
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.shap._add_code_from_conf_to_system_path") as add_mock,
+    ):
+        model_info = mlflow.shap.log_explainer(shap_model, artifact_path, code_paths=[__file__])
+        _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.shap.FLAVOR_NAME)
+        mlflow.shap.load_explainer(model_info.model_uri)
         add_mock.assert_called()
 
 
@@ -482,10 +487,9 @@ def test_model_log_with_metadata(shap_model):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.shap.log_explainer(
+        model_info = mlflow.shap.log_explainer(
             shap_model, artifact_path=artifact_path, metadata={"metadata_key": "metadata_value"}
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"

@@ -2,30 +2,37 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
+
 import time
+from pathlib import Path
 
 import pytest
 
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
-from mlflow.utils.os import is_windows
+from mlflow.server import handlers
+from mlflow.server.fastapi_app import app
+from mlflow.server.handlers import initialize_backend_stores
 from mlflow.utils.time import get_current_time_millis
 
-from tests.tracking.integration_test_utils import _init_server
+from tests.helper_functions import get_safe_port
+from tests.tracking.integration_test_utils import ServerThread
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def client(request, tmp_path):
-    if request.param == "file":
-        backend_uri = tmp_path.joinpath("file").as_uri()
-    else:
-        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+def client(request: pytest.FixtureRequest, tmp_path: Path, db_uri: str):
+    """Provides an MLflow Tracking API client pointed at the local tracking server."""
+    backend_uri = tmp_path.joinpath("file").as_uri() if request.param == "file" else db_uri
 
-    with _init_server(
-        backend_uri=backend_uri, root_artifact_uri=tmp_path.joinpath("artifacts").as_uri()
-    ) as url:
+    # Force-reset backend stores before each test
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(
+        backend_uri, default_artifact_root=tmp_path.joinpath("artifacts").as_uri()
+    )
+
+    with ServerThread(app, get_safe_port()) as url:
         yield MlflowClient(url)
 
 
@@ -129,12 +136,6 @@ def test_update_registered_model_flow(client):
     assert str(registered_model_detailed_1.description) == ""
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
-
-    # update with no args is an error
-    with pytest.raises(
-        MlflowException, match="Attempting to update registered model with no new field values"
-    ):
-        client.update_registered_model(name=name, description=None)
 
     # update name
     new_name = "UpdateRMTest 2"
@@ -438,8 +439,10 @@ def test_get_model_version(client):
     assert model_version.name == name
     assert model_version.version == "1"
 
+    error_message = "Parameter 'version' must be an integer, got 'something not correct'."
     with pytest.raises(
-        MlflowException, match="INVALID_PARAMETER_VALUE: Model version must be an integer"
+        MlflowException,
+        match=f"INVALID_PARAMETER_VALUE: {error_message}",
     ):
         client.get_model_version(name=name, version="something not correct")
 

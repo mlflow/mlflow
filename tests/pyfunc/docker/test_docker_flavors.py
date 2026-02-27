@@ -8,13 +8,13 @@ To run this test, run the following command manually
     $ pytest tests/pyfunc/test_docker_flavors.py
 
 """
+
 import contextlib
 import os
 import shutil
 import sys
 import threading
 import time
-from operator import itemgetter
 
 import pandas as pd
 import pytest
@@ -28,17 +28,11 @@ from mlflow.models.utils import load_serving_example
 # Only import model fixtures if when MLFLOW_RUN_SLOW_TESTS environment variable is set to true
 if _MLFLOW_RUN_SLOW_TESTS.get():
     from tests.catboost.test_catboost_model_export import reg_model  # noqa: F401
-    from tests.diviner.test_diviner_model_export import (  # noqa: F401
-        diviner_data,
-        grouped_prophet,
-    )
-    from tests.fastai.test_fastai_model_export import fastai_model as fastai_model_raw  # noqa: F401
     from tests.h2o.test_h2o_model_export import h2o_iris_model  # noqa: F401
     from tests.helper_functions import get_safe_port
     from tests.langchain.test_langchain_model_export import fake_chat_model  # noqa: F401
     from tests.lightgbm.test_lightgbm_model_export import lgb_model  # noqa: F401
     from tests.models.test_model import iris_data, sklearn_knn_model  # noqa: F401
-    from tests.paddle.test_paddle_model_export import pd_model  # noqa: F401
     from tests.pmdarima.test_pmdarima_model_export import (  # noqa: F401
         auto_arima_object_model,
         test_data,
@@ -60,7 +54,7 @@ if _MLFLOW_RUN_SLOW_TESTS.get():
     )
     from tests.statsmodels.model_fixtures import ols_model
     from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model  # noqa: F401
-    from tests.transformers.helper import load_small_qa_pipeline, load_small_seq2seq_pipeline
+    from tests.transformers.helper import load_text_classification_pipeline
 
 
 pytestmark = pytest.mark.skipif(
@@ -105,14 +99,15 @@ def start_container(port: int):
                 response = requests.get(url=f"http://localhost:{port}/ping")
                 if response.ok:
                     break
-            except requests.exceptions.ConnectionError:
-                time.sleep(5)
+            except requests.exceptions.ConnectionError as e:
+                sys.stdout.write(f"An exception occurred when calling the server: {e}\n")
 
             container.reload()  # update container status
             if container.status == "exited":
                 raise Exception("Container exited unexpectedly.")
 
             sys.stdout.write(f"Container status: {container.status}\n")
+            time.sleep(5)
 
         else:
             raise TimeoutError("Failed to start server.")
@@ -128,17 +123,14 @@ def start_container(port: int):
     ("flavor"),
     [
         "catboost",
-        "diviner",
-        "fastai",
         "h2o",
         # "johnsnowlabs", # Couldn't test JohnSnowLab locally due to license issue
         "keras",
         "langchain",
         "lightgbm",
-        # "mleap", # Mleap model logging is deprecated since 2.6.1
         "onnx",
         # "openai", # OPENAI API KEY is not necessarily available for everyone
-        "paddle",
+        # "paddle",  # Disabled: https://github.com/PaddlePaddle/PaddleOCR/issues/16402
         "pmdarima",
         "prophet",
         "pyfunc",
@@ -149,7 +141,6 @@ def start_container(port: int):
         "statsmodels",
         "tensorflow",
         "transformers_pt",  # Test with Pytorch-based model
-        "transformers_tf",  # Test with TensorFlow-based model
     ],
 )
 def test_build_image_and_serve(flavor, request):
@@ -196,28 +187,6 @@ def catboost_model(model_path, reg_model):
 
 
 @pytest.fixture
-def diviner_model(model_path, grouped_prophet):
-    save_model_with_latest_mlflow_version(
-        flavor="diviner",
-        diviner_model=grouped_prophet,
-        path=model_path,
-        input_example={"horizon": 10, "frequency": "D"},
-    )
-    return model_path
-
-
-@pytest.fixture
-def fastai_model(model_path, fastai_model_raw):
-    save_model_with_latest_mlflow_version(
-        flavor="fastai",
-        fastai_learner=fastai_model_raw.model,
-        path=model_path,
-        input_example=fastai_model_raw.inference_dataframe[:1],
-    )
-    return model_path
-
-
-@pytest.fixture
 def h2o_model(model_path, h2o_iris_model):
     save_model_with_latest_mlflow_version(
         flavor="h2o",
@@ -249,13 +218,21 @@ def keras_model(model_path, iris_data):
 
 
 @pytest.fixture
-def langchain_model(model_path):
-    from langchain.schema.runnable import RunnablePassthrough
+def langchain_model(model_path, tmp_path):
+    # LangChain v1+ requires models-from-code
+    model_code = """
+from operator import itemgetter
+from langchain_core.runnables import RunnablePassthrough
+import mlflow
 
-    chain = RunnablePassthrough() | itemgetter("messages")
+mlflow.models.set_model(RunnablePassthrough() | itemgetter("messages"))
+"""
+    code_path = tmp_path / "langchain_model.py"
+    code_path.write_text(model_code)
+
     save_model_with_latest_mlflow_version(
         flavor="langchain",
-        lc_model=chain,
+        lc_model=str(code_path),
         path=model_path,
         input_example={"messages": "Hi"},
     )
@@ -301,15 +278,16 @@ def onnx_model(tmp_path, model_path):
     return model_path
 
 
-@pytest.fixture
-def paddle_model(model_path, pd_model):
-    save_model_with_latest_mlflow_version(
-        flavor="paddle",
-        pd_model=pd_model.model,
-        path=model_path,
-        input_example=pd_model.inference_dataframe[:1],
-    )
-    return model_path
+# Paddle fixture disabled: https://github.com/PaddlePaddle/PaddleOCR/issues/16402
+# @pytest.fixture
+# def paddle_model(model_path, pd_model):
+#     save_model_with_latest_mlflow_version(
+#         flavor="paddle",
+#         pd_model=pd_model.model,
+#         path=model_path,
+#         input_example=pd_model.inference_dataframe[:1],
+#     )
+#     return model_path
 
 
 @pytest.fixture
@@ -330,6 +308,8 @@ def prophet_model(model_path, prophet_raw_model):
         pr_model=prophet_raw_model.model,
         path=model_path,
         input_example=prophet_raw_model.data[:1],
+        # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
+        extra_pip_requirements=["numpy<2"],
     )
     return model_path
 
@@ -424,23 +404,11 @@ def tensorflow_model(model_path, tf2_toy_model):
 
 @pytest.fixture
 def transformers_pt_model(model_path):
-    pipeline = load_small_seq2seq_pipeline()
+    pipeline = load_text_classification_pipeline()
     save_model_with_latest_mlflow_version(
         flavor="transformers",
         transformers_model=pipeline,
         path=model_path,
         input_example="hi",
-    )
-    return model_path
-
-
-@pytest.fixture
-def transformers_tf_model(model_path):
-    pipeline = load_small_qa_pipeline()
-    save_model_with_latest_mlflow_version(
-        flavor="transformers",
-        transformers_model=pipeline,
-        path=model_path,
-        input_example={"question": "What is MLflow", "context": "It's an open source platform"},
     )
     return model_path

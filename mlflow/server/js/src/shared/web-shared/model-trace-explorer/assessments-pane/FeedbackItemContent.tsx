@@ -1,0 +1,210 @@
+import { isEmpty, isNil } from 'lodash';
+import { useMemo, useState } from 'react';
+
+import { FileDocumentIcon, Typography, useDesignSystemTheme, NewWindowIcon } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
+import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
+
+import { AssessmentDisplayValue } from './AssessmentDisplayValue';
+import { FeedbackErrorItem } from './FeedbackErrorItem';
+import { FeedbackHistoryModal } from './FeedbackHistoryModal';
+import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
+import type { FeedbackAssessment, RetrieverDocument } from '../ModelTrace.types';
+import { getAssessmentDocumentIndex, isChunkRelevanceAssessment } from '../ModelTraceExplorer.utils';
+import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { Link, useParams } from '../RoutingUtils';
+import {
+  ASSESSMENT_SESSION_METADATA_KEY,
+  MLFLOW_ASSESSMENT_JUDGE_COST,
+  MLFLOW_ASSESSMENT_SCORER_TRACE_ID,
+} from '../constants';
+import { getExperimentPageTracesTabRoute } from '../routes';
+import { isSessionLevelAssessment } from '../ModelTraceExplorer.utils';
+import { ModelTraceHeaderSessionIdTag } from '../ModelTraceHeaderSessionIdTag';
+import { formatCostUSD } from '../CostUtils';
+
+export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment }) => {
+  const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
+  const { theme } = useDesignSystemTheme();
+  const { nodeMap, activeView } = useModelTraceExplorerViewState();
+  const { experimentId } = useParams();
+
+  const value = feedback.feedback.value;
+
+  const associatedSpan = feedback.span_id ? nodeMap[feedback.span_id] : null;
+  // indicate if the assessment is session-level
+  const sessionId = feedback.metadata?.[ASSESSMENT_SESSION_METADATA_KEY];
+  const showSessionTag = activeView === 'summary' && !isEmpty(sessionId);
+  // the summary view displays all assessments regardless of span, so
+  // we need some way to indicate which span an assessment is associated with.
+  const showAssociatedSpan = activeView === 'summary' && associatedSpan && !showSessionTag;
+
+  const documentPreview = useMemo(() => {
+    if (!isChunkRelevanceAssessment(feedback) || !associatedSpan?.outputs) return null;
+    const documentIndex = getAssessmentDocumentIndex(feedback);
+    if (documentIndex === undefined) return null;
+    const outputs = associatedSpan.outputs as RetrieverDocument[];
+    if (!Array.isArray(outputs) || documentIndex >= outputs.length) return null;
+    return outputs[documentIndex]?.page_content ?? null;
+  }, [feedback, associatedSpan]);
+
+  const judgeTraceId = feedback.metadata?.[MLFLOW_ASSESSMENT_SCORER_TRACE_ID];
+  const judgeTraceHref = judgeTraceId && experimentId ? getJudgeTraceHref(experimentId, judgeTraceId) : undefined;
+
+  const judgeCost = feedback.metadata?.[MLFLOW_ASSESSMENT_JUDGE_COST];
+  const formattedCost = (() => {
+    if (judgeCost === null) {
+      return undefined;
+    }
+
+    const numericCost = Number(judgeCost);
+    if (!Number.isFinite(numericCost)) {
+      return undefined;
+    }
+
+    return formatCostUSD(numericCost);
+  })();
+  const shouldShowCostSection = Boolean(formattedCost);
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, marginLeft: theme.spacing.lg }}>
+      {!isNil(feedback.feedback.error) && <FeedbackErrorItem error={feedback.feedback.error} />}
+      {showAssociatedSpan && (
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.xs,
+          }}
+        >
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage defaultMessage="Span" description="Label for the associated span of an assessment" />
+          </Typography.Text>
+          <SpanNameDetailViewLink node={associatedSpan} />
+        </div>
+      )}
+      {showSessionTag && (
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.spacing.xs,
+          }}
+        >
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage
+              defaultMessage="Session"
+              description="Label for the session to which an assessment belongs"
+            />
+          </Typography.Text>
+          <ModelTraceHeaderSessionIdTag
+            experimentId={experimentId ?? ''}
+            sessionId={sessionId ?? ''}
+            traceId={feedback.trace_id}
+            handleCopy={() => {}}
+            hideLabel
+          />
+        </div>
+      )}
+      {documentPreview && (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage
+              defaultMessage="Doc"
+              description="Label for the document preview in a chunk relevance assessment"
+            />
+          </Typography.Text>
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.xs,
+              padding: theme.spacing.xs,
+              borderRadius: theme.borders.borderRadiusSm,
+              backgroundColor: theme.colors.backgroundSecondary,
+            }}
+          >
+            <FileDocumentIcon css={{ flexShrink: 0, color: theme.colors.textSecondary }} />
+            <Typography.Text ellipsis size="sm" css={{ color: theme.colors.textSecondary }}>
+              {documentPreview}
+            </Typography.Text>
+          </div>
+        </div>
+      )}
+      {isNil(feedback.feedback.error) && (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage defaultMessage="Feedback" description="Label for the value of an feedback assessment" />
+          </Typography.Text>
+          <div css={{ display: 'flex', gap: theme.spacing.xs }}>
+            <AssessmentDisplayValue jsonValue={JSON.stringify(value)} assessmentName={feedback.assessment_name} />
+            {feedback.overriddenAssessment && (
+              <>
+                <span onClick={() => setIsHistoryModalVisible(true)}>
+                  <Typography.Text
+                    css={{
+                      '&:hover': {
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                      },
+                    }}
+                    color="secondary"
+                  >
+                    <FormattedMessage
+                      defaultMessage="(edited)"
+                      description="Link text in an edited assessment that allows the user to click to see the previous value"
+                    />
+                  </Typography.Text>
+                </span>
+                <FeedbackHistoryModal
+                  isModalVisible={isHistoryModalVisible}
+                  setIsModalVisible={setIsHistoryModalVisible}
+                  feedback={feedback}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      {feedback.rationale && (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage
+              defaultMessage="Rationale"
+              description="Label for the rationale of an expectation assessment"
+            />
+          </Typography.Text>
+          <div css={{ '& > div:last-of-type': { marginBottom: 0 } }}>
+            <GenAIMarkdownRenderer compact>{feedback.rationale}</GenAIMarkdownRenderer>
+          </div>
+        </div>
+      )}
+      {shouldShowCostSection && (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage
+              defaultMessage="Cost"
+              description="Label for the cost metadata associated with a judge feedback"
+            />
+          </Typography.Text>
+          <Typography.Text style={{ color: theme.colors.textSecondary }}>{formattedCost}</Typography.Text>
+        </div>
+      )}
+      {judgeTraceHref && (
+        <Link to={judgeTraceHref} target="_blank" rel="noreferrer">
+          <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <FormattedMessage
+              defaultMessage="View trace"
+              description="Link text for navigating to the corresponding judge trace"
+            />
+            <NewWindowIcon css={{ fontSize: 12 }} />
+          </span>
+        </Link>
+      )}
+    </div>
+  );
+};
+
+const getJudgeTraceHref = (experimentId: string, judgeTraceId: string) => {
+  return `${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${judgeTraceId}`;
+};

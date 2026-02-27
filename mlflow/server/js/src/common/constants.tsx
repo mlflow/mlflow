@@ -9,13 +9,15 @@ export const ErrorCodes = {
   RESOURCE_CONFLICT: 'RESOURCE_CONFLICT',
 };
 
-export const Version = '2.15.2.dev0';
+export const Version = '3.10.1.dev0';
 
 const DOCS_VERSION = 'latest';
 
-const DOCS_ROOT = `https://www.mlflow.org/docs/${DOCS_VERSION}`;
+export const DOCS_ROOT = `https://www.mlflow.org/docs/${DOCS_VERSION}`;
 
-export const HomePageDocsUrl = `${DOCS_ROOT}/index.html`;
+export const GenAIDocsUrl = `${DOCS_ROOT}/genai/`;
+
+export const MLDocsUrl = `${DOCS_ROOT}/ml/`;
 
 export const ModelRegistryDocUrl = `${DOCS_ROOT}/model-registry.html`;
 
@@ -28,11 +30,7 @@ export const ModelRegistryOnboardingString = (
 
 export const RegisteringModelDocUrl = DOCS_ROOT + '/model-registry.html#adding-an-mlflow-model-to-the-model-registry';
 
-export const ExperimentCliDocUrl = `${DOCS_ROOT}/cli.html#mlflow-experiments`;
-
-export const ExperimentSearchSyntaxDocUrl = `${DOCS_ROOT}/search-runs.html`;
-
-export const ExperimentTrackingDocUrl = `${DOCS_ROOT}/tracking.html`;
+export const ExperimentRunSearchSyntaxDocUrl = `${DOCS_ROOT}/search-runs.html`;
 
 export const PyfuncDocUrl = `${DOCS_ROOT}/python_api/mlflow.pyfunc.html`;
 export const CustomPyfuncModelsDocUrl = DOCS_ROOT + '/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models';
@@ -41,12 +39,10 @@ export const LoggingRunsDocUrl = `${DOCS_ROOT}/tracking.html#logging-data-to-run
 
 export const onboarding = 'onboarding';
 
-export const SupportPageUrl = 'https://github.com/mlflow/mlflow/issues';
+export const SupportPageUrl = 'https://github.com/mlflow/mlflow/issues/new?template=ui_bug_report_template.yaml';
 
 export const ModelSignatureUrl = `${DOCS_ROOT}/models.html#model-signature`;
 
 export const LogModelWithSignatureUrl = DOCS_ROOT + '/models.html#how-to-log-models-with-signatures';
-
-export const mlflowAliasesLearnMoreLink = `${DOCS_ROOT}/model-registry.html#using-registered-model-aliases`;
 
 export const modelStagesMigrationGuideLink = `${DOCS_ROOT}/model-registry.html#migrating-from-stages`;

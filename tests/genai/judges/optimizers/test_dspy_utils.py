@@ -1,0 +1,471 @@
+from unittest.mock import MagicMock, Mock, patch
+
+import dspy
+import pytest
+
+from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.base import JudgeField
+from mlflow.genai.judges.optimizers.dspy_utils import (
+    AgentEvalLM,
+    agreement_metric,
+    append_input_fields_section,
+    construct_dspy_lm,
+    convert_litellm_to_mlflow_uri,
+    convert_mlflow_uri_to_litellm,
+    create_dspy_signature,
+    format_demos_as_examples,
+    trace_to_dspy_example,
+)
+from mlflow.genai.utils.trace_utils import (
+    extract_expectations_from_trace,
+    extract_request_from_trace,
+    extract_response_from_trace,
+)
+
+from tests.genai.judges.optimizers.conftest import MockJudge
+
+
+def test_sanitize_judge_name(sample_trace_with_assessment, mock_judge):
+    # The sanitization is now done inside trace_to_dspy_example
+    # Test that it correctly handles different judge name formats
+
+    mock_dspy = MagicMock()
+    mock_example = MagicMock()
+    mock_example.with_inputs.return_value = mock_example
+    mock_dspy.Example.return_value = mock_example
+
+    with patch.dict("sys.modules", {"dspy": mock_dspy}):
+        judge1 = MockJudge(name="  mock_judge  ")
+        judge2 = MockJudge(name="Mock_Judge")
+        judge3 = MockJudge(name="MOCK_JUDGE")
+        assert trace_to_dspy_example(sample_trace_with_assessment, judge1) is not None
+        assert trace_to_dspy_example(sample_trace_with_assessment, judge2) is not None
+        assert trace_to_dspy_example(sample_trace_with_assessment, judge3) is not None
+
+
+def test_trace_to_dspy_example_two_human_assessments(trace_with_two_human_assessments, mock_judge):
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+
+    trace = trace_with_two_human_assessments
+    result = trace_to_dspy_example(trace, mock_judge)
+
+    assert isinstance(result, dspy.Example)
+    # Should use the newer assessment with value="pass" and specific rationale
+    assert result["result"] == "pass"
+    assert result["rationale"] == "Second assessment - should be used (more recent)"
+
+
+def test_trace_to_dspy_example_human_vs_llm_priority(
+    trace_with_human_and_llm_assessments, mock_judge
+):
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+
+    trace = trace_with_human_and_llm_assessments
+    result = trace_to_dspy_example(trace, mock_judge)
+
+    assert isinstance(result, dspy.Example)
+    # Should use the HUMAN assessment despite being older
+    assert result["result"] == "fail"
+    assert result["rationale"] == "Human assessment - should be prioritized"
+
+
+@pytest.mark.parametrize(
+    ("trace_fixture", "required_fields", "expected_inputs"),
+    [
+        # Test different combinations of required fields
+        ("sample_trace_with_assessment", ["inputs"], ["inputs"]),
+        ("sample_trace_with_assessment", ["outputs"], ["outputs"]),
+        ("sample_trace_with_assessment", ["inputs", "outputs"], ["inputs", "outputs"]),
+        (
+            "sample_trace_with_assessment",
+            ["trace", "inputs", "outputs"],
+            ["trace", "inputs", "outputs"],
+        ),
+        ("trace_with_expectations", ["expectations"], ["expectations"]),
+        (
+            "trace_with_expectations",
+            ["inputs", "expectations"],
+            ["inputs", "expectations"],
+        ),
+        (
+            "trace_with_expectations",
+            ["outputs", "expectations"],
+            ["outputs", "expectations"],
+        ),
+        (
+            "trace_with_expectations",
+            ["inputs", "outputs", "expectations"],
+            ["inputs", "outputs", "expectations"],
+        ),
+        (
+            "trace_with_expectations",
+            ["trace", "inputs", "outputs", "expectations"],
+            ["trace", "inputs", "outputs", "expectations"],
+        ),
+    ],
+)
+def test_trace_to_dspy_example_success(request, trace_fixture, required_fields, expected_inputs):
+    dspy = pytest.importorskip("dspy", reason="DSPy not installed")
+
+    trace = request.getfixturevalue(trace_fixture)
+
+    class TestJudge(MockJudge):
+        def __init__(self, fields):
+            super().__init__(name="mock_judge")
+            self._fields = fields
+
+        def get_input_fields(self):
+            return [JudgeField(name=field, description=f"Test {field}") for field in self._fields]
+
+    judge = TestJudge(required_fields)
+
+    # Use real DSPy since we've skipped if it's not available
+    result = trace_to_dspy_example(trace, judge)
+
+    assert isinstance(result, dspy.Example)
+
+    # Build expected kwargs based on required fields
+    expected_kwargs = {}
+    if "trace" in required_fields:
+        expected_kwargs["trace"] = trace
+    if "inputs" in required_fields:
+        expected_kwargs["inputs"] = extract_request_from_trace(trace)
+    if "outputs" in required_fields:
+        expected_kwargs["outputs"] = extract_response_from_trace(trace)
+    if "expectations" in required_fields:
+        expected_kwargs["expectations"] = extract_expectations_from_trace(trace)
+
+    # Determine expected rationale based on fixture
+    if trace_fixture == "trace_with_expectations":
+        expected_rationale = "Meets expectations"
+    else:
+        expected_rationale = "This looks good"
+
+    # Construct an expected example and assert that the result is the same
+    expected_example = dspy.Example(
+        result="pass",
+        rationale=expected_rationale,
+        **expected_kwargs,
+    ).with_inputs(*expected_inputs)
+
+    # Compare the examples
+    assert result == expected_example
+
+
+@pytest.mark.parametrize(
+    ("trace_fixture", "required_fields"),
+    [
+        ("sample_trace_with_assessment", ["expectations"]),
+        ("sample_trace_with_assessment", ["inputs", "expectations"]),
+        ("sample_trace_with_assessment", ["outputs", "expectations"]),
+        ("sample_trace_with_assessment", ["inputs", "outputs", "expectations"]),
+        (
+            "sample_trace_with_assessment",
+            ["trace", "inputs", "outputs", "expectations"],
+        ),
+    ],
+)
+def test_trace_to_dspy_example_missing_required_fields(request, trace_fixture, required_fields):
+    trace = request.getfixturevalue(trace_fixture)
+
+    class TestJudge(MockJudge):
+        def __init__(self, fields):
+            super().__init__(name="mock_judge")
+            self._fields = fields
+
+        def get_input_fields(self):
+            return [JudgeField(name=field, description=f"Test {field}") for field in self._fields]
+
+    judge = TestJudge(required_fields)
+
+    result = trace_to_dspy_example(trace, judge)
+    assert result is None
+
+
+def test_trace_to_dspy_example_no_assessment(sample_trace_without_assessment, mock_judge):
+    # Use the fixture for trace without assessment
+    trace = sample_trace_without_assessment
+
+    # This should return None since there's no matching assessment
+    result = trace_to_dspy_example(trace, mock_judge)
+
+    assert result is None
+
+
+def test_create_dspy_signature(mock_judge):
+    pytest.importorskip("dspy", reason="DSPy not installed")
+
+    signature = create_dspy_signature(mock_judge)
+
+    assert signature.instructions == mock_judge.instructions
+
+    judge_input_fields = mock_judge.get_input_fields()
+    for field in judge_input_fields:
+        assert field.name in signature.input_fields
+        assert signature.input_fields[field.name].json_schema_extra["desc"] == field.description
+
+    judge_output_fields = mock_judge.get_output_fields()
+    for field in judge_output_fields:
+        assert field.name in signature.output_fields
+        assert signature.output_fields[field.name].json_schema_extra["desc"] == field.description
+
+
+def test_agreement_metric():
+    # Test metric with matching results
+    example = Mock()
+    example.result = "pass"
+    pred = Mock()
+    pred.result = "pass"
+
+    assert agreement_metric(example, pred) is True
+
+    # Test metric with different results
+    pred.result = "fail"
+    assert agreement_metric(example, pred) is False
+
+
+def test_agreement_metric_error_handling():
+    # Test with invalid inputs
+    result = agreement_metric(None, None)
+    assert result is False
+
+
+@pytest.mark.parametrize(
+    ("mlflow_uri", "expected_litellm_uri"),
+    [
+        ("openai:/gpt-4", "openai/gpt-4"),
+        ("openai:/gpt-3.5-turbo", "openai/gpt-3.5-turbo"),
+        ("anthropic:/claude-3", "anthropic/claude-3"),
+        ("anthropic:/claude-3.5-sonnet", "anthropic/claude-3.5-sonnet"),
+        ("cohere:/command", "cohere/command"),
+        ("databricks:/dbrx", "databricks/dbrx"),
+    ],
+)
+def test_convert_mlflow_uri_to_litellm(mlflow_uri, expected_litellm_uri):
+    assert convert_mlflow_uri_to_litellm(mlflow_uri) == expected_litellm_uri
+
+
+@pytest.mark.parametrize(
+    "invalid_uri",
+    [
+        "openai-gpt-4",  # Invalid format (missing colon-slash)
+        "",  # Empty string
+        None,  # None value
+    ],
+)
+def test_convert_mlflow_uri_to_litellm_invalid(invalid_uri):
+    with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
+        convert_mlflow_uri_to_litellm(invalid_uri)
+
+
+@pytest.mark.parametrize(
+    ("litellm_model", "expected_uri"),
+    [
+        ("openai/gpt-4", "openai:/gpt-4"),
+        ("openai/gpt-3.5-turbo", "openai:/gpt-3.5-turbo"),
+        ("anthropic/claude-3", "anthropic:/claude-3"),
+        ("anthropic/claude-3.5-sonnet", "anthropic:/claude-3.5-sonnet"),
+        ("cohere/command", "cohere:/command"),
+        ("databricks/dbrx", "databricks:/dbrx"),
+    ],
+)
+def test_convert_litellm_to_mlflow_uri(litellm_model, expected_uri):
+    result = convert_litellm_to_mlflow_uri(litellm_model)
+    assert result == expected_uri
+
+
+@pytest.mark.parametrize(
+    "invalid_model",
+    [
+        "openai-gpt-4",  # Missing slash
+        "",  # Empty string
+        None,  # None value
+        "openai/",  # Missing model name
+        "/gpt-4",  # Missing provider
+        "//",  # Empty provider and model
+    ],
+)
+def test_convert_litellm_to_mlflow_uri_invalid(invalid_model):
+    with pytest.raises(MlflowException, match="LiteLLM|empty|None") as exc_info:
+        convert_litellm_to_mlflow_uri(invalid_model)
+
+    if invalid_model is None or invalid_model == "":
+        assert "cannot be empty or None" in str(exc_info.value)
+    elif "/" not in invalid_model:
+        assert "Expected format: 'provider/model'" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "mlflow_uri",
+    [
+        "openai:/gpt-4",
+        "anthropic:/claude-3.5-sonnet",
+        "cohere:/command",
+        "databricks:/dbrx",
+    ],
+)
+def test_mlflow_to_litellm_uri_round_trip_conversion(mlflow_uri):
+    # Convert MLflow -> LiteLLM
+    litellm_format = convert_mlflow_uri_to_litellm(mlflow_uri)
+    # Convert LiteLLM -> MLflow
+    result = convert_litellm_to_mlflow_uri(litellm_format)
+    # Should get back the original
+    assert result == mlflow_uri, f"Round-trip failed for {mlflow_uri}"
+
+
+@pytest.mark.parametrize(
+    ("model", "expected_type"),
+    [
+        ("databricks", "AgentEvalLM"),
+        ("openai:/gpt-4", "dspy.LM"),
+        ("anthropic:/claude-3", "dspy.LM"),
+    ],
+)
+def test_construct_dspy_lm_utility_method(model, expected_type):
+    result = construct_dspy_lm(model)
+
+    if expected_type == "AgentEvalLM":
+        assert isinstance(result, AgentEvalLM)
+    elif expected_type == "dspy.LM":
+        assert isinstance(result, dspy.LM)
+        # Ensure MLflow URI format is converted (no :/ in the model)
+        assert ":/" not in result.model
+
+
+def test_agent_eval_lm_uses_optimizer_session_name():
+    from mlflow.utils import AttrDict
+
+    pytest.importorskip("dspy", reason="DSPy not installed")
+
+    mock_response = AttrDict({"output": "test response", "error_message": None})
+
+    with (
+        patch("mlflow.genai.judges.optimizers.dspy_utils.call_chat_completions") as mock_call,
+        patch("mlflow.genai.judges.optimizers.dspy_utils.VERSION", "1.0.0"),
+    ):
+        mock_call.return_value = mock_response
+
+        agent_lm = AgentEvalLM()
+        agent_lm.forward(prompt="test prompt")
+
+        # Verify call_chat_completions was called with the optimizer session name
+        mock_call.assert_called_once_with(
+            user_prompt="test prompt",
+            system_prompt=None,
+            session_name="mlflow-judge-optimizer-v1.0.0",
+            use_case="judge_alignment",
+        )
+
+
+@pytest.mark.parametrize(
+    ("instructions", "field_names", "should_append"),
+    [
+        # Fields already present - should NOT append
+        (
+            "Evaluate {{inputs}} and {{outputs}} for quality",
+            ["inputs", "outputs"],
+            False,
+        ),
+        # Fields NOT present - should append
+        (
+            "Evaluate the response for quality",
+            ["inputs", "outputs"],
+            True,
+        ),
+        # No fields defined - should NOT append
+        (
+            "Some instructions",
+            [],
+            False,
+        ),
+        # Plain field names present but not mustached - should append
+        (
+            "Check the inputs and outputs carefully",
+            ["inputs", "outputs"],
+            True,
+        ),
+    ],
+)
+def test_append_input_fields_section(instructions, field_names, should_append):
+    class TestJudge(MockJudge):
+        def __init__(self, fields):
+            super().__init__(name="test_judge")
+            self._fields = fields
+
+        def get_input_fields(self):
+            return [JudgeField(name=f, description=f"The {f}") for f in self._fields]
+
+    judge = TestJudge(field_names)
+    result = append_input_fields_section(instructions, judge)
+
+    if should_append:
+        assert result != instructions
+        assert "Inputs for assessment:" in result
+        for field in field_names:
+            assert f"{{{{ {field} }}}}" in result
+    else:
+        assert result == instructions
+
+
+def test_format_demos_empty_list(mock_judge):
+    result = format_demos_as_examples([], mock_judge)
+    assert result == ""
+
+
+def test_format_demos_multiple_demos(mock_judge):
+    long_input = "x" * 600
+    demos = [
+        dspy.Example(inputs="Q1", outputs="A1", result="pass", rationale="Good"),
+        dspy.Example(inputs="Q2", outputs="A2", result="fail", rationale="Bad"),
+        dspy.Example(inputs=long_input, outputs="short", result="pass", rationale="Test"),
+    ]
+
+    result = format_demos_as_examples(demos, mock_judge)
+
+    assert "Example 1:" in result
+    assert "Example 2:" in result
+    assert "Example 3:" in result
+    assert "inputs: Q1" in result
+    assert "inputs: Q2" in result
+    # Long values should NOT be truncated
+    assert long_input in result
+
+
+def test_format_demos_respects_judge_fields():
+    class CustomFieldsJudge(MockJudge):
+        def get_input_fields(self):
+            return [
+                JudgeField(name="query", description="The query"),
+                JudgeField(name="context", description="The context"),
+            ]
+
+        def get_output_fields(self):
+            return [JudgeField(name="verdict", description="The verdict")]
+
+    judge = CustomFieldsJudge(name="custom_judge")
+    demo = dspy.Example(
+        query="What is AI?",
+        context="AI is artificial intelligence",
+        verdict="pass",
+        extra_field="should not appear",  # Not in judge fields
+    )
+
+    result = format_demos_as_examples([demo], judge)
+
+    assert "query: What is AI?" in result
+    assert "context: AI is artificial intelligence" in result
+    assert "verdict: pass" in result
+    assert "extra_field" not in result
+
+
+def test_format_demos_raises_on_invalid_demo(mock_judge):
+    class NonDictDemo:
+        pass
+
+    demos = [
+        dspy.Example(inputs="Q1", outputs="A1", result="pass", rationale="Good"),
+        NonDictDemo(),  # Invalid demo - should raise exception
+    ]
+
+    with pytest.raises(MlflowException, match="Demo at index 1 cannot be converted to dict"):
+        format_demos_as_examples(demos, mock_judge)

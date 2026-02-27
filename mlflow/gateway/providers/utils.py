@@ -1,24 +1,32 @@
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Dict
-
-import aiohttp
+from typing import Any, AsyncGenerator
 
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
 from mlflow.utils.uri import append_to_uri_path
 
+# Request gzip/deflate only so upstream never sends Brotli; aiohttp fails to decode
+# Content-Encoding: br without the optional brotli package.
+SUPPORTED_ACCEPT_ENCODING = "gzip, deflate, identity"
+
 
 @asynccontextmanager
-async def _aiohttp_post(headers: Dict[str, str], base_url: str, path: str, payload: Dict[str, Any]):
-    async with aiohttp.ClientSession(headers=headers) as session:
-        url = append_to_uri_path(base_url, path)
+async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):
+    import aiohttp
+
+    # Drop any client Accept-Encoding (any casing) so we send only one value; otherwise
+    # aiohttp may send both and upstream can respond with Brotli, which is not supported.
+    request_headers = {k: v for k, v in headers.items() if k.lower() != "accept-encoding"}
+    request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
+    url = append_to_uri_path(base_url, path)
+    async with aiohttp.ClientSession(headers=request_headers) as session:
         timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
         async with session.post(url, json=payload, timeout=timeout) as response:
             yield response
 
 
-async def send_request(headers: Dict[str, str], base_url: str, path: str, payload: Dict[str, Any]):
+async def send_request(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):
     """
     Send an HTTP request to a specific URL path with given headers and payload.
 
@@ -34,6 +42,7 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
     Raises:
         HTTPException if the HTTP request fails.
     """
+    import aiohttp
     from fastapi import HTTPException
 
     async with _aiohttp_post(headers, base_url, path, payload) as response:
@@ -57,10 +66,10 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
 
 
 async def send_stream_request(
-    headers: Dict[str, str], base_url: str, path: str, payload: Dict[str, Any]
+    headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]
 ) -> AsyncGenerator[bytes, None]:
     """
-    Send an HTTP request to a specific URL path with given headers and payload.
+    Send a streaming HTTP request to a specific URL path with given headers and payload.
 
     Args:
         headers: The headers to include in the request.
@@ -68,18 +77,31 @@ async def send_stream_request(
         path: The specific path of the URL to which the request will be sent.
         payload: The payload (or data) to be included in the request.
 
-    Returns:
-        The server's response as a JSON object.
+    Yields:
+        Bytes from the server's streaming response.
 
     Raises:
         HTTPException if the HTTP request fails.
     """
+    import aiohttp
+    from fastapi import HTTPException
+
     async with _aiohttp_post(headers, base_url, path, payload) as response:
+        try:
+            response.raise_for_status()
+        except aiohttp.ClientResponseError as e:
+            try:
+                error_body = await response.json()
+                detail = error_body.get("error", {}).get("message", e.message)
+            except Exception:
+                detail = e.message
+            raise HTTPException(status_code=e.status, detail=detail)
+
         async for line in response.content:
             yield line
 
 
-def rename_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]) -> Dict[str, Any]:
+def rename_payload_keys(payload: dict[str, Any], mapping: dict[str, str]) -> dict[str, Any]:
     """Rename payload keys based on the specified mapping. If a key is not present in the
     mapping, the key and its value will remain unchanged.
 

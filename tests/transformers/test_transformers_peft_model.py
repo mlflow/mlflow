@@ -1,19 +1,14 @@
 import importlib
 
 import pytest
-import transformers
-from packaging.version import Version
 
 import mlflow
 from mlflow.models import Model
 from mlflow.transformers.peft import get_peft_base_model, is_peft_model
 
 SKIP_IF_PEFT_NOT_AVAILABLE = pytest.mark.skipif(
-    (
-        importlib.util.find_spec("peft") is None
-        or Version(transformers.__version__) <= Version("4.25.1")
-    ),
-    reason="PEFT is not installed or Transformer version is too old",
+    importlib.util.find_spec("peft") is None,
+    reason="PEFT is not installed",
 )
 pytestmark = SKIP_IF_PEFT_NOT_AVAILABLE
 
@@ -30,10 +25,10 @@ def test_get_peft_base_model(peft_pipeline):
 
 
 def test_get_peft_base_model_prompt_learning(small_qa_pipeline):
-    from peft import PeftModel, PromptTuningConfig
+    from peft import PeftModel, PromptTuningConfig, TaskType
 
     peft_config = PromptTuningConfig(
-        task_type="question-answering",
+        task_type=TaskType.QUESTION_ANS,
         num_virtual_tokens=10,
         peft_type="PROMPT_TUNING",
     )
@@ -100,11 +95,7 @@ def test_log_peft_pipeline(peft_pipeline):
     from peft import PeftModel
 
     with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            transformers_model=peft_pipeline,
-            artifact_path="model",
-            input_example="hi",
-        )
+        model_info = mlflow.transformers.log_model(peft_pipeline, name="model", input_example="hi")
 
     loaded_pipeline = mlflow.transformers.load_model(model_info.model_uri)
     assert isinstance(loaded_pipeline.model, PeftModel)

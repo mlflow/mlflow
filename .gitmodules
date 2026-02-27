@@ -1,3 +1,3 @@
-[submodule "examples/recipes"]
-	path = examples/recipes
-	url = https://github.com/mlflow/recipes-examples.git
+[submodule "mlflow/assistant/skills"]
+	path = mlflow/assistant/skills
+	url = https://github.com/mlflow/skills

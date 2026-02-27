@@ -7,6 +7,7 @@ import type {
   SearchExperimentsApiResponse,
   RunDatasetWithTags,
   RunEntity,
+  RunModelEntity,
 } from '../types';
 
 const transformRunInfoEntity = (snakeCaseRunInfoEntity: any): RunInfoEntity => ({
@@ -33,12 +34,42 @@ const transformDatasetInputEntity = (snakeCaseDatasetInputEntity: any): RunDatas
   };
 };
 
+const transformModelEntity = (snakeCaseModelEntity: any): RunModelEntity => {
+  return {
+    modelId: snakeCaseModelEntity.model_id,
+  };
+};
+
 const transformRunInputsEntity = (snakeCaseInputsData: any): RunEntity['inputs'] => {
-  if (!snakeCaseInputsData || !snakeCaseInputsData.dataset_inputs) {
+  if (!snakeCaseInputsData) {
     return snakeCaseInputsData;
   }
+
+  const datasetInputs = snakeCaseInputsData.dataset_inputs
+    ?.map((input: any) => transformDatasetInputEntity(input))
+    .filter(Boolean);
+
+  const modelInputs = snakeCaseInputsData.model_inputs
+    ?.map((input: any) => transformModelEntity(input))
+    .filter(Boolean);
+
   return {
-    datasetInputs: snakeCaseInputsData.dataset_inputs.map((input: any) => transformDatasetInputEntity(input)),
+    ...(datasetInputs?.length ? { datasetInputs } : {}),
+    ...(modelInputs?.length ? { modelInputs } : {}),
+  };
+};
+
+const transformRunOutputsEntity = (snakeCaseOutputsData: any): RunEntity['outputs'] => {
+  if (!snakeCaseOutputsData) {
+    return snakeCaseOutputsData;
+  }
+
+  const modelOutputs = snakeCaseOutputsData.model_outputs
+    ?.map((output: any) => transformModelEntity(output))
+    .filter(Boolean);
+
+  return {
+    ...(modelOutputs?.length ? { modelOutputs } : {}),
   };
 };
 
@@ -49,6 +80,7 @@ const transformExperimentEntity = (snakeCaseExperimentEntity: any): Omit<Experim
   experimentId: snakeCaseExperimentEntity.experiment_id,
   lastUpdateTime: snakeCaseExperimentEntity.last_update_time,
   lifecycleStage: snakeCaseExperimentEntity.lifecycle_stage,
+  tags: snakeCaseExperimentEntity.tags ?? [],
 });
 
 export const transformGetRunResponse = (originalResponse: any): GetRunApiResponse => {
@@ -69,12 +101,14 @@ export const transformSearchRunsResponse = (originalResponse: any): SearchRunsAp
   if (!originalResponse || !originalResponse.runs) {
     return originalResponse;
   }
+
   return {
     ...originalResponse,
     runs: originalResponse.runs.map((run: any) => ({
       ...run,
       info: transformRunInfoEntity(run.info),
       inputs: transformRunInputsEntity(run.inputs),
+      outputs: transformRunOutputsEntity(run.outputs),
     })),
   };
 };

@@ -1,0 +1,128 @@
+---
+sidebar_position: 0
+sidebar_label: Overview
+---
+
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Zap, GitBranch, Rocket, BookOpen, BarChart3 } from "lucide-react";
+
+# MLflow for Deep Learning
+
+MLflow provides comprehensive experiment tracking, model management, and deployment capabilities for deep learning workflows. From PyTorch training loops to TensorFlow models, MLflow streamlines your path from experimentation to production.
+
+## Get Started
+
+<TilesGrid>
+  <TileCard
+    image="/images/logos/pytorch-logo.svg"
+    title="PyTorch Guide"
+    description="Track custom PyTorch training loops with automatic metric and artifact logging."
+    href="/ml/deep-learning/pytorch"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    image="/images/logos/TensorFlow-logo.svg"
+    title="TensorFlow Guide"
+    description="Integrate TensorFlow models with autologging and TensorBoard visualization support."
+    href="/ml/deep-learning/tensorflow"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    image="/images/logos/keras-logo.svg"
+    title="Keras Guide"
+    description="Use Keras 3.0 multi-backend capabilities with unified MLflow tracking."
+    href="/ml/deep-learning/keras"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    image="/images/logos/spacy-logo.svg"
+    title="spaCy Guide"
+    description="Track spaCy NLP pipelines with automatic logging of model performance and artifacts."
+    href="/ml/deep-learning/spacy"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    image="/images/logos/huggingface-logo.svg"
+    imageDark="/images/logos/huggingface-logo-dark.svg"
+    title="Transformers Guide"
+    description="Integrate Hugging Face Transformers with MLflow for LLM and NLP model tracking."
+    href="/ml/deep-learning/transformers"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    image="/images/logos/sentence-transformers-logo.png"
+    title="Sentence Transformers"
+    description="Track embedding models and similarity tasks with sentence-transformers integration."
+    href="/ml/deep-learning/sentence-transformers"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+</TilesGrid>
+
+## Why MLflow for Deep Learning?
+
+<video src={useBaseUrl("/images/deep-learning/dl-run-comparison.mp4")} controls loop autoPlay muted aria-label="Deep Learning Training Comparison" />
+
+<FeatureHighlights features={[
+  {
+    icon: Zap,
+    title: "One-Line Autologging",
+    description: "Enable comprehensive tracking with a single line of code for PyTorch Lightning, TensorFlow, and Keras."
+  },
+  {
+    icon: BarChart3,
+    title: "Real-Time Monitoring",
+    description: "Track metrics, loss curves, and training progress live across epochs and batches."
+  },
+  {
+    icon: GitBranch,
+    title: "Model Checkpoints",
+    description: "Automatically save and version model checkpoints throughout training with complete lineage tracking."
+  },
+  {
+    icon: Rocket,
+    title: "Production Deployment",
+    description: "Deploy models with GPU acceleration, batch inference, and cloud platform integration."
+  }
+]} />
+
+## Learn More
+
+<TilesGrid>
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Model Registry"
+    description="Manage model versions, aliases, and deployment lifecycle with centralized governance."
+    href="/ml/model-registry"
+    linkText="View registry docs →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BarChart3}
+    iconSize={48}
+    title="MLflow Tracking"
+    description="Track experiments, parameters, metrics, and artifacts across all ML workflows."
+    href="/ml/tracking"
+    linkText="View tracking docs →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Rocket}
+    iconSize={48}
+    title="Model Deployment"
+    description="Deploy deep learning models with GPU support, batch inference, and cloud integration."
+    href="/ml/deployment"
+    linkText="View deployment docs →"
+    containerHeight={64}
+  />
+</TilesGrid>

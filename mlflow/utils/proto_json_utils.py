@@ -7,10 +7,14 @@ from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 from json import JSONEncoder
-from typing import Any, Dict, Optional
+from typing import Any
 
+import pydantic
 from google.protobuf.descriptor import FieldDescriptor
+from google.protobuf.duration_pb2 import Duration
 from google.protobuf.json_format import MessageToJson, ParseDict
+from google.protobuf.struct_pb2 import NULL_VALUE, Value
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.exceptions import MlflowException
 
@@ -65,11 +69,13 @@ def _mark_int64_fields(proto_message):
             # Skip all non-int64 fields.
             continue
 
-        json_dict[field.name] = (
-            [ftype(v) for v in value]
-            if field.label == FieldDescriptor.LABEL_REPEATED
-            else ftype(value)
-        )
+        # Use is_repeated property (preferred) with fallback to deprecated label
+        try:
+            is_repeated = field.is_repeated
+        except AttributeError:
+            is_repeated = field.label == FieldDescriptor.LABEL_REPEATED
+
+        json_dict[field.name] = [ftype(v) for v in value] if is_repeated else ftype(value)
     return json_dict
 
 
@@ -123,6 +129,42 @@ def message_to_json(message):
     return json.dumps(json_dict_with_int64_as_numbers, indent=2)
 
 
+def proto_timestamp_to_milliseconds(timestamp: str) -> int:
+    """
+    Converts a timestamp string (e.g. "2025-04-15T08:49:18.699Z") to milliseconds.
+    """
+    t = Timestamp()
+    t.FromJsonString(timestamp)
+    return t.ToMilliseconds()
+
+
+def milliseconds_to_proto_timestamp(milliseconds: int) -> str:
+    """
+    Converts milliseconds to a timestamp string (e.g. "2025-04-15T08:49:18.699Z").
+    """
+    t = Timestamp()
+    t.FromMilliseconds(milliseconds)
+    return t.ToJsonString()
+
+
+def proto_duration_to_milliseconds(duration: str) -> int:
+    """
+    Converts a duration string (e.g. "1.5s") to milliseconds.
+    """
+    d = Duration()
+    d.FromJsonString(duration)
+    return d.ToMilliseconds()
+
+
+def milliseconds_to_proto_duration(milliseconds: int) -> str:
+    """
+    Converts milliseconds to a duration string (e.g. "1.5s").
+    """
+    d = Duration()
+    d.FromMilliseconds(milliseconds)
+    return d.ToJsonString()
+
+
 def _stringify_all_experiment_ids(x):
     """Converts experiment_id fields which are defined as ints into strings in the given json.
     This is necessary for backwards- and forwards-compatibility with MLflow clients/servers
@@ -157,6 +199,53 @@ def parse_dict(js_dict, message):
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
 
 
+def set_pb_value(proto: Value, value: Any):
+    """
+    DO NOT USE THIS FUNCTION. Preserved for backwards compatibility.
+
+    Set a value to the google.protobuf.Value object.
+    """
+    if isinstance(value, dict):
+        for key, val in value.items():
+            set_pb_value(proto.struct_value.fields[key], val)
+    elif isinstance(value, list):
+        for val in value:
+            pb = Value()
+            set_pb_value(pb, val)
+            proto.list_value.values.append(pb)
+    elif isinstance(value, bool):
+        proto.bool_value = value
+    elif isinstance(value, (int, float)):
+        proto.number_value = value
+    elif isinstance(value, str):
+        proto.string_value = value
+    elif value is None:
+        proto.null_value = NULL_VALUE
+
+    else:
+        raise ValueError(f"Unsupported value type: {type(value)}")
+
+
+def parse_pb_value(proto: Value) -> Any | None:
+    """
+    DO NOT USE THIS FUNCTION. Preserved for backwards compatibility.
+
+    Extract a value from the google.protobuf.Value object.
+    """
+    if proto.HasField("struct_value"):
+        return {key: parse_pb_value(val) for key, val in proto.struct_value.fields.items()}
+    elif proto.HasField("list_value"):
+        return [parse_pb_value(val) for val in proto.list_value.values]
+    elif proto.HasField("bool_value"):
+        return proto.bool_value
+    elif proto.HasField("number_value"):
+        return proto.number_value
+    elif proto.HasField("string_value"):
+        return proto.string_value
+
+    return None
+
+
 class NumpyEncoder(JSONEncoder):
     """Special json encoder for numpy types.
     Note that some numpy types doesn't have native python equivalence,
@@ -187,6 +276,8 @@ class NumpyEncoder(JSONEncoder):
             return np.datetime_as_string(o), True
         if isinstance(o, (pd.Timestamp, datetime.date, datetime.datetime, datetime.time)):
             return o.isoformat(), True
+        if isinstance(o, pydantic.BaseModel):
+            return o.model_dump(), True
         return o, False
 
     def default(self, o):
@@ -214,7 +305,7 @@ def cast_df_types_according_to_schema(pdf, schema):
     import numpy as np
 
     from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
-    from mlflow.types.schema import Array, DataType, Map, Object
+    from mlflow.types.schema import AnyType, Array, DataType, Map, Object
 
     actual_cols = set(pdf.columns)
     if schema.has_input_names():
@@ -224,6 +315,7 @@ def cast_df_types_according_to_schema(pdf, schema):
     else:
         n = min(len(schema.input_types()), len(pdf.columns))
         dtype_list = zip(pdf.columns[:n], schema.input_types()[:n])
+    required_input_names = set(schema.required_input_names())
 
     for col_name, col_type_spec in dtype_list:
         if isinstance(col_type_spec, DataType):
@@ -231,6 +323,7 @@ def cast_df_types_according_to_schema(pdf, schema):
         else:
             col_type = col_type_spec
         if col_name in actual_cols:
+            required = col_name in required_input_names
             try:
                 if isinstance(col_type_spec, DataType) and col_type_spec == DataType.binary:
                     # NB: We expect binary data to be passed base64 encoded
@@ -247,11 +340,19 @@ def cast_df_types_according_to_schema(pdf, schema):
                     # `PyFuncModel.predict` being called.
                     pass
                 elif isinstance(col_type_spec, Array):
-                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_array(x, col_type_spec))
+                    pdf[col_name] = pdf[col_name].map(
+                        lambda x: _enforce_array(x, col_type_spec, required=required)
+                    )
                 elif isinstance(col_type_spec, Object):
-                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_object(x, col_type_spec))
+                    pdf[col_name] = pdf[col_name].map(
+                        lambda x: _enforce_object(x, col_type_spec, required=required)
+                    )
                 elif isinstance(col_type_spec, Map):
-                    pdf[col_name] = pdf[col_name].map(lambda x: _enforce_map(x, col_type_spec))
+                    pdf[col_name] = pdf[col_name].map(
+                        lambda x: _enforce_map(x, col_type_spec, required=required)
+                    )
+                elif isinstance(col_type_spec, AnyType):
+                    pass
                 else:
                     pdf[col_name] = pdf[col_name].astype(col_type, copy=False)
             except Exception as ex:
@@ -265,8 +366,8 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
 
     Args:
         decoded_input: Parsed json - either a list or a dictionary.
-        schema: MLflow schema used when parsing the data.
         pandas_orient: pandas data frame convention used to store the data.
+        schema: MLflow schema used when parsing the data.
 
     Returns:
         pandas.DataFrame.
@@ -380,7 +481,7 @@ def convert_data_type(data, spec):
     import numpy as np
 
     from mlflow.models.utils import _enforce_array, _enforce_map, _enforce_object
-    from mlflow.types.schema import Array, ColSpec, DataType, Map, Object, TensorSpec
+    from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, TensorSpec
 
     try:
         if spec is None:
@@ -396,11 +497,13 @@ def convert_data_type(data, spec):
                 )
             elif isinstance(spec.type, Array):
                 # convert to numpy array for backwards compatibility
-                return np.array(_enforce_array(data, spec.type))
+                return np.array(_enforce_array(data, spec.type, required=spec.required))
             elif isinstance(spec.type, Object):
-                return _enforce_object(data, spec.type)
+                return _enforce_object(data, spec.type, required=spec.required)
             elif isinstance(spec.type, Map):
-                return _enforce_map(data, spec.type)
+                return _enforce_map(data, spec.type, required=spec.required)
+            elif isinstance(spec.type, AnyType):
+                return data
     except MlflowException as e:
         raise MlflowInvalidInputException(e.message)
     except Exception as ex:
@@ -598,7 +701,7 @@ def get_jsonable_input(name, data):
         raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
 
 
-def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] = None):
+def dump_input_data(data, inputs_key="inputs", params: dict[str, Any] | None = None):
     """
     Args:
         data: Input data.

@@ -1,8 +1,8 @@
 import json
 import os
 import random
-from collections import namedtuple
 from pathlib import Path
+from typing import Any, NamedTuple
 from unittest import mock
 
 import pandas as pd
@@ -10,7 +10,6 @@ import pytest
 import spacy
 import yaml
 from packaging.version import Version
-from sklearn.datasets import fetch_20newsgroups
 from spacy.util import compounding, minibatch
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -38,7 +37,11 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("spacy") else ["--env-manager", "local"]
 )
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
+
 
 spacy_version = Version(spacy.__version__)
 IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = spacy_version >= Version("3.0.0")
@@ -69,7 +72,7 @@ def spacy_model_with_data():
         textcat.add_label(cat)
 
     # Split train/test and train the model
-    train_x, train_y, test_x, _ = _get_train_test_dataset(categories)
+    train_x, train_y, test_x, _ = _get_train_test_dataset()
     train_data = list(zip(train_x, [{"cats": cats} for cats in train_y]))
 
     if IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0:
@@ -160,10 +163,8 @@ def test_model_log(spacy_model_with_data, tracking_uri_mock):
                 artifact_path = "model"
                 if should_start_run:
                     mlflow.start_run()
-                model_info = mlflow.spacy.log_model(
-                    spacy_model=spacy_model, artifact_path=artifact_path
-                )
-                model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+                model_info = mlflow.spacy.log_model(spacy_model, name=artifact_path)
+                model_uri = model_info.model_uri
                 assert model_info.model_uri == model_uri
 
                 # Load model
@@ -292,14 +293,12 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.spacy.log_model(
-            spacy_model=spacy_model_with_data.model,
-            artifact_path=artifact_path,
+        model_info = mlflow.spacy.log_model(
+            spacy_model_with_data.model,
+            name=artifact_path,
             conda_env=spacy_custom_env,
         )
-        model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        )
+        model_path = _download_artifact_from_uri(model_info.model_uri)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
@@ -318,14 +317,12 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.spacy.log_model(
-            spacy_model=spacy_model_with_data.model,
-            artifact_path=artifact_path,
+        model_info = mlflow.spacy.log_model(
+            spacy_model_with_data.model,
+            name=artifact_path,
             conda_env=spacy_custom_env,
         )
-        model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        )
+        model_path = _download_artifact_from_uri(model_info.model_uri)
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(spacy_custom_env, saved_pip_req_path)
@@ -343,20 +340,16 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.spacy.log_model(spacy_model=spacy_model_with_data.model, artifact_path=artifact_path)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.spacy.get_default_pip_requirements())
+        model_info = mlflow.spacy.log_model(spacy_model_with_data.model, name=artifact_path)
+    _assert_pip_requirements(model_info.model_uri, mlflow.spacy.get_default_pip_requirements())
 
 
 def test_model_log_with_pyfunc_flavor(spacy_model_with_data):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.spacy.log_model(spacy_model=spacy_model_with_data.model, artifact_path=artifact_path)
-        model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        )
+        model_info = mlflow.spacy.log_model(spacy_model_with_data.model, name=artifact_path)
 
-        loaded_model = Model.load(model_path)
+        loaded_model = Model.load(model_info.model_uri)
         assert pyfunc.FLAVOR_NAME in loaded_model.flavors
 
 
@@ -376,10 +369,8 @@ def test_model_log_without_pyfunc_flavor():
 
     # Ensure the pyfunc flavor is not present after logging and loading the model
     with mlflow.start_run():
-        mlflow.spacy.log_model(spacy_model=nlp, artifact_path=artifact_path)
-        model_path = _download_artifact_from_uri(
-            f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-        )
+        model_info = mlflow.spacy.log_model(nlp, name=artifact_path)
+        model_path = _download_artifact_from_uri(model_info.model_uri)
 
         loaded_model = Model.load(model_path)
         assert loaded_model.flavors.keys() == {"spacy"}
@@ -397,7 +388,7 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
             extra_pip_requirements = None
         model_info = mlflow.spacy.log_model(
             model,
-            artifact_path,
+            name=artifact_path,
             extra_pip_requirements=extra_pip_requirements,
             input_example=inference_dataframe,
         )
@@ -415,13 +406,15 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
 
 def test_log_model_with_code_paths(spacy_model_with_data):
     artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.spacy._add_code_from_conf_to_system_path"
-    ) as add_mock:
-        mlflow.spacy.log_model(spacy_model_with_data.model, artifact_path, code_paths=[__file__])
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.spacy.FLAVOR_NAME)
-        mlflow.spacy.load_model(model_uri)
+    with (
+        mlflow.start_run(),
+        mock.patch("mlflow.spacy._add_code_from_conf_to_system_path") as add_mock,
+    ):
+        model_info = mlflow.spacy.log_model(
+            spacy_model_with_data.model, name=artifact_path, code_paths=[__file__]
+        )
+        _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.spacy.FLAVOR_NAME)
+        mlflow.spacy.load_model(model_info.model_uri)
         add_mock.assert_called()
 
 
@@ -440,16 +433,41 @@ def _train_model(nlp, train_data, n_iter=5):
                 nlp.update(texts, annotations, sgd=optimizer, drop=0.2, losses=losses)
 
 
-def _get_train_test_dataset(cats_to_fetch, limit=100):
-    newsgroups = fetch_20newsgroups(
-        remove=("headers", "footers", "quotes"), shuffle=True, categories=cats_to_fetch
-    )
-    X = newsgroups.data[:limit]
-    y = newsgroups.target[:limit]
+def _get_train_test_dataset():
+    graphics_texts = [
+        "The GPU renders 3D graphics with high frame rates.",
+        "OpenGL provides excellent graphics rendering capabilities.",
+        "Computer graphics require powerful hardware acceleration.",
+        "The shader program processes vertex and fragment data.",
+        "Rasterization converts vector graphics to pixels.",
+        "Anti-aliasing smooths jagged edges in rendered images.",
+        "The graphics pipeline transforms 3D models to 2D screens.",
+        "Texture mapping adds detail to polygonal surfaces.",
+        "Ray tracing simulates realistic lighting and shadows.",
+        "The display adapter outputs high resolution graphics.",
+    ] * 5
 
-    X = [str(x) for x in X]  # Ensure all strings to unicode for python 2.7 compatibility
+    baseball_texts = [
+        "The pitcher threw a fastball at 95 miles per hour.",
+        "Home runs are exciting moments in baseball games.",
+        "The shortstop made an incredible diving catch.",
+        "Baseball season runs from spring through fall.",
+        "The batting average measures hitting performance.",
+        "Strikeouts are important for pitching statistics.",
+        "The World Series determines the champion team.",
+        "Base stealing requires speed and good timing.",
+        "The umpire called the runner out at home plate.",
+        "Relief pitchers enter the game in later innings.",
+    ] * 5
 
-    # Category 0 comp-graphic, 1 rec.sport baseball. We can threat it as a binary class.
+    X = graphics_texts + baseball_texts
+    y = [0] * len(graphics_texts) + [1] * len(baseball_texts)
+    combined = list(zip(X, y))
+    random.shuffle(combined)
+    X, y = zip(*combined) if combined else ([], [])
+    X = list(X)
+    y = list(y)
+
     cats = [{"comp.graphics": not bool(el), "rec.sport.baseball": bool(el)} for el in y]
 
     split = int(len(X) * 0.8)
@@ -483,12 +501,11 @@ def test_model_log_with_metadata(spacy_model_with_data):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.spacy.log_model(
+        model_info = mlflow.spacy.log_model(
             spacy_model_with_data.model,
-            artifact_path=artifact_path,
+            name=artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
+    reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"

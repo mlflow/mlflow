@@ -26,7 +26,16 @@ def test_creation_and_hydration():
     metric = Metric(key, value, ts, step)
     _check(metric, key, value, ts, step)
 
-    as_dict = {"key": key, "value": value, "timestamp": ts, "step": step}
+    as_dict = {
+        "key": key,
+        "value": value,
+        "timestamp": ts,
+        "step": step,
+        "model_id": None,
+        "dataset_digest": None,
+        "dataset_name": None,
+        "run_id": None,
+    }
     assert dict(metric) == as_dict
 
     proto = metric.to_proto()
@@ -50,6 +59,10 @@ def test_metric_to_from_dictionary():
         "value": 0.95,
         "timestamp": 1623079352000,
         "step": 1,
+        "model_id": None,
+        "dataset_digest": None,
+        "dataset_name": None,
+        "run_id": None,
     }
     assert metric_dict == expected_dict
 

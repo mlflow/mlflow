@@ -1,6 +1,5 @@
-# sphinx >= 4.0.0 is incompatible with our custom CSS styles and renders the documents improperly.
-# See https://github.com/mlflow/mlflow/pull/4480
-sphinx==3.5.4
+# Minimum version that works with Python 3.10
+sphinx==4.2.0
 jinja2==3.0.3
 # to be compatible with jinja2==3.0.3
 flask<=2.2.5
@@ -10,3 +9,9 @@ sphinx-click
 sphinx-tabs==3.2.0
 # redirect handling
 sphinx-reredirects==0.1.3
+# Pin sphinxcontrib packages. Their newer versions are incompatible with sphinx==4.2.0.
+sphinxcontrib-applehelp<1.0.8
+sphinxcontrib-devhelp<1.0.6
+sphinxcontrib-htmlhelp<2.0.4
+sphinxcontrib-serializinghtml<1.1.10
+sphinxcontrib-qthelp<1.0.7

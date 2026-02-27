@@ -1,7 +1,9 @@
-const RestoreRunModal: React.FC<{
-  isOpen?: boolean;
-  onClose?: () => void;
-  selectedRunIds?: string[];
-}>;
+const RestoreRunModal: React.FC<
+  React.PropsWithChildren<{
+    isOpen?: boolean;
+    onClose?: () => void;
+    selectedRunIds?: string[];
+  }>
+>;
 
 export default RestoreRunModal;

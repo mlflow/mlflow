@@ -9,15 +9,7 @@ body:
       value: |
         Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for additional information about bug reports. For help with debugging your code, please refer to [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).
         #### Please fill in this UI bug report template to ensure a timely and thorough response.
-  - type: dropdown
-    id: contribution
-    attributes:
-      label: Willingness to contribute
-      description: The MLflow Community encourages bug fix contributions. Would you or another member of your organization be willing to contribute a fix for this bug to the MLflow code base?
-      options:
-        - Yes. I can contribute a fix for this bug independently.
-        - Yes. I would be willing to contribute a fix for this bug with guidance from the MLflow community.
-        - No. I cannot contribute a bug fix at this time.
+
     validations:
       required: true
 
@@ -38,7 +30,6 @@ body:
       value: |
         - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
         - **Python version**:
-        - **yarn version, if running the dev UI**:
 
   - type: textarea
     validations:
@@ -71,8 +62,10 @@ body:
         ```
 
   - type: textarea
+    validations:
+      required: true
     attributes:
-      label: Is the console panel in DevTools showing errors relevant to the bug?
+      label: Is the console panel in DevTools showing errors relevant to the bug? Type 'N/A' if not applicable.
       description: |
         If the console panel in your browser's DevTools is showing errors (displayed in red) relevant to the bug as shown in the screenshot below, please provide them as text (preferred) or a screenshot.
 
@@ -94,8 +87,10 @@ body:
         ```
 
   - type: textarea
+    validations:
+      required: true
     attributes:
-      label: Does the network panel in DevTools contain failed requests relevant to the bug?
+      label: Does the network panel in DevTools contain failed requests relevant to the bug? Type 'N/A' if not applicable.
       description: |
         If the network panel in your browser's DevTools contain failed requests (displayed in red) relevant to the bug as shown in the screenshot below, please provide them as text (preferred) or a screenshot.
 

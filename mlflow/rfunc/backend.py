@@ -19,19 +19,39 @@ class RFuncBackend(FlavorBackend):
     """
 
     def build_image(
-        self, model_uri, image_name, install_mlflow, mlflow_home, enable_mlserver, base_image=None
+        self,
+        model_uri,
+        image_name,
+        install_java=False,
+        install_mlflow=False,
+        mlflow_home=None,
+        enable_mlserver=False,
+        base_image=None,
     ):
         pass
 
     def generate_dockerfile(
-        self, model_uri, output_path, install_mlflow, mlflow_home, enable_mlserver, base_image=None
+        self,
+        model_uri,
+        output_dir,
+        install_java=False,
+        install_mlflow=False,
+        mlflow_home=None,
+        enable_mlserver=False,
+        base_image=None,
     ):
         pass
 
     version_pattern = re.compile(r"version ([0-9]+\.[0-9]+\.[0-9]+)")
 
     def predict(
-        self, model_uri, input_path, output_path, content_type, pip_requirements_override=None
+        self,
+        model_uri,
+        input_path,
+        output_path,
+        content_type,
+        pip_requirements_override=None,
+        extra_envs=None,
     ):
         """
         Generate predictions using R model saved with MLflow.
@@ -50,7 +70,7 @@ class RFuncBackend(FlavorBackend):
             _str_optional(output_path),
             _str_optional(content_type),
         )
-        _execute(command)
+        _execute(command, extra_envs=extra_envs)
 
     def serve(
         self,
@@ -107,8 +127,10 @@ class RFuncBackend(FlavorBackend):
         return version[0] > 3 or version[0] == 3 and version[1] >= 3
 
 
-def _execute(command):
+def _execute(command, extra_envs=None):
     env = os.environ.copy()
+    if extra_envs:
+        env.update(extra_envs)
 
     process = subprocess.Popen(
         ["Rscript", "-e", command],

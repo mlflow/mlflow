@@ -15,7 +15,7 @@ llm = OpenAI()
 chain = llm | StrOutputParser()
 
 with mlflow.start_run() as run:
-    model_info = mlflow.langchain.log_model(chain, "model")
+    model_info = mlflow.langchain.log_model(chain, name="model")
 
 loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 

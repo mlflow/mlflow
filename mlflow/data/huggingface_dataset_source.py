@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Mapping, Sequence, Union
 
 from mlflow.data.dataset_source import DatasetSource
 
@@ -12,19 +12,17 @@ class HuggingFaceDatasetSource(DatasetSource):
     def __init__(
         self,
         path: str,
-        config_name: Optional[str] = None,
-        data_dir: Optional[str] = None,
-        data_files: Optional[
-            Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]
-        ] = None,
-        split: Optional[Union[str, "datasets.Split"]] = None,
-        revision: Optional[Union[str, "datasets.Version"]] = None,
-        trust_remote_code: Optional[bool] = None,
+        config_name: str | None = None,
+        data_dir: str | None = None,
+        data_files: str | Sequence[str] | Mapping[str, str | Sequence[str]] | None = None,
+        split: Union[str, "datasets.Split"] | None = None,
+        revision: Union[str, "datasets.Version"] | None = None,
+        trust_remote_code: bool | None = None,
     ):
         """Create a `HuggingFaceDatasetSource` instance.
 
         Arguments in `__init__` match arguments of the same name in
-        [`datasets.load_dataset()`](https://huggingface.co/docs/datasets/v2.14.5/en/package_reference/loading_methods#datasets.load_dataset).
+        `datasets.load_dataset() <https://huggingface.co/docs/datasets/v2.14.5/en/package_reference/loading_methods#datasets.load_dataset>`_.
         The only exception is `config_name` matches `name` in `datasets.load_dataset()`, because
         we need to differentiate from `mlflow.data.Dataset` `name` attribute.
 
@@ -76,13 +74,12 @@ class HuggingFaceDatasetSource(DatasetSource):
         if Version(datasets.__version__) >= Version("2.16.0"):
             load_kwargs["trust_remote_code"] = self.trust_remote_code
 
-        intersecting_keys = set(load_kwargs.keys()) & set(kwargs.keys())
-        if intersecting_keys:
+        if intersecting_keys := set(load_kwargs.keys()) & set(kwargs.keys()):
             raise KeyError(
                 f"Found duplicated arguments in `HuggingFaceDatasetSource` and "
                 f"`kwargs`: {intersecting_keys}. Please remove them from `kwargs`."
             )
-            load_kwargs.update(kwargs)
+        load_kwargs.update(kwargs)
         return datasets.load_dataset(**load_kwargs)
 
     @staticmethod
@@ -96,7 +93,7 @@ class HuggingFaceDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> "HuggingFaceDatasetSource":
         raise NotImplementedError
 
-    def to_dict(self) -> Dict[Any, Any]:
+    def to_dict(self) -> dict[Any, Any]:
         return {
             "path": self.path,
             "config_name": self.config_name,
@@ -107,7 +104,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         }
 
     @classmethod
-    def from_dict(cls, source_dict: Dict[Any, Any]) -> "HuggingFaceDatasetSource":
+    def from_dict(cls, source_dict: dict[Any, Any]) -> "HuggingFaceDatasetSource":
         return cls(
             path=source_dict.get("path"),
             config_name=source_dict.get("config_name"),

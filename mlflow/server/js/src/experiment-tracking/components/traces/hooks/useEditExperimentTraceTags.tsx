@@ -1,7 +1,7 @@
-import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfo, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyValueTagsModal';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { KeyValueEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { useCallback } from 'react';
 import { MLFLOW_INTERNAL_PREFIX } from '../../../../common/utils/TagUtils';
 
@@ -39,8 +39,8 @@ export const useEditExperimentTraceTags = ({
 
       // Fire all requests at once
       const updateRequests = Promise.all([
-        ...addedOrModifiedTags.map(({ key, value }) => MlflowService.setExperimentTraceTag(requestId, key, value)),
-        ...deletedTags.map(({ key }) => MlflowService.deleteExperimentTraceTag(requestId, key)),
+        ...addedOrModifiedTags.map(({ key, value }) => MlflowService.setExperimentTraceTagV3(requestId, key, value)),
+        ...deletedTags.map(({ key }) => MlflowService.deleteExperimentTraceTagV3(requestId, key)),
       ]);
 
       return updateRequests;
@@ -51,13 +51,14 @@ export const useEditExperimentTraceTags = ({
   });
 
   const showEditTagsModalForTrace = useCallback(
-    (trace: ModelTraceInfo) => {
-      if (!trace.request_id) {
+    (trace: ModelTraceInfoV3) => {
+      if (!trace.trace_id) {
         return;
       }
-      const visibleTags = trace.tags?.filter(({ key }) => key && !key.startsWith(MLFLOW_INTERNAL_PREFIX)) || [];
+      const tagsArray = Object.entries(trace.tags ?? {}).map(([key, value]) => ({ key, value }));
+      const visibleTags = tagsArray.filter(({ key }) => key && !key.startsWith(MLFLOW_INTERNAL_PREFIX)) || [];
       showEditTagsModal({
-        traceRequestId: trace.request_id,
+        traceRequestId: trace.trace_id,
         tags: visibleTags || [],
       });
     },

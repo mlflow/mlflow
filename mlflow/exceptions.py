@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Optional
 
 from mlflow.protos.databricks_pb2 import (
     ABORTED,
@@ -120,7 +119,7 @@ class RestException(MlflowException):
     def __init__(self, json):
         self.json = json
 
-        error_code = json.get("error_code", ErrorCode.Name(INTERNAL_ERROR))
+        error_code = json.get("error_code") or ErrorCode.Name(INTERNAL_ERROR)
         message = "{}: {}".format(
             error_code,
             json["message"] if "message" in json else "Response: " + str(json),
@@ -134,7 +133,7 @@ class RestException(MlflowException):
                 # corresponding `ErrorCode`.
                 error_code = HTTP_STATUS_TO_ERROR_CODE[int(error_code)]
                 super().__init__(message, error_code=ErrorCode.Value(error_code))
-            except ValueError or KeyError:
+            except (ValueError, KeyError, TypeError):
                 _logger.warning(
                     f"Received error code not recognized by MLflow: {error_code}, this may "
                     "indicate your request encountered an error before reaching MLflow server, "
@@ -170,6 +169,15 @@ class _UnsupportedMultipartUploadException(MlflowException):
         super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
 
 
+class _UnsupportedMultipartDownloadException(MlflowException):
+    """Exception thrown when multipart download (MPD) is unsupported by an artifact repository"""
+
+    MESSAGE = "Multipart download is not supported for the current artifact repository"
+
+    def __init__(self):
+        super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
+
+
 class MlflowTracingException(MlflowException):
     """
     Exception thrown from tracing logic
@@ -186,7 +194,7 @@ class MlflowTraceDataException(MlflowTracingException):
     """Exception thrown for trace data related error"""
 
     def __init__(
-        self, error_code: str, request_id: Optional[str] = None, artifact_path: Optional[str] = None
+        self, error_code: str, request_id: str | None = None, artifact_path: str | None = None
     ):
         if request_id:
             self.ctx = f"request_id={request_id}"
@@ -202,12 +210,19 @@ class MlflowTraceDataException(MlflowTracingException):
 class MlflowTraceDataNotFound(MlflowTraceDataException):
     """Exception thrown when trace data is not found"""
 
-    def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
+    def __init__(self, request_id: str | None = None, artifact_path: str | None = None):
         super().__init__(NOT_FOUND, request_id, artifact_path)
 
 
 class MlflowTraceDataCorrupted(MlflowTraceDataException):
     """Exception thrown when trace data is corrupted"""
 
-    def __init__(self, request_id: Optional[str] = None, artifact_path: Optional[str] = None):
+    def __init__(self, request_id: str | None = None, artifact_path: str | None = None):
         super().__init__(INVALID_STATE, request_id, artifact_path)
+
+
+class MlflowNotImplementedException(MlflowException):
+    """Exception thrown when a feature is not implemented"""
+
+    def __init__(self, message=""):
+        super().__init__(message, error_code=NOT_IMPLEMENTED)

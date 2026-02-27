@@ -54,6 +54,17 @@ def test_mlflow_artifact_uri_formats_resolved(artifact_uri, resolved_uri, tracki
 
 
 def test_mlflow_artifact_uri_raises_with_invalid_tracking_uri():
+    with pytest.raises(
+        MlflowException,
+        match="When an mlflow-artifacts URI was supplied, the tracking URI must be a valid",
+    ):
+        MlflowArtifactsRepository.resolve_uri(
+            artifact_uri=f"mlflow-artifacts://myhostname:4242{base_path}/hostport",
+            tracking_uri="file:///tmp",
+        )
+
+
+def test_mlflow_artifact_uri_raises_with_invalid_artifact_uri():
     failing_conditions = [f"mlflow-artifacts://5000/{base_path}", "mlflow-artifacts://5000/"]
 
     for failing_condition in failing_conditions:
@@ -284,8 +295,7 @@ def test_download_artifacts(mlflow_artifact_repo, tmp_path):
     # ---------
     def http_request(_host_creds, endpoint, _method, **kwargs):
         # Responses for list_artifacts
-        params = kwargs.get("params")
-        if params:
+        if params := kwargs.get("params"):
             if params.get("path") == "":
                 return MockResponse(
                     {

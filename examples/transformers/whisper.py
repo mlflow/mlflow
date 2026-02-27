@@ -14,6 +14,10 @@ task = "automatic-speech-recognition"
 architecture = "openai/whisper-tiny"
 
 model = transformers.WhisperForConditionalGeneration.from_pretrained(architecture)
+# workaround for https://github.com/huggingface/transformers/issues/37172
+model.generation_config.input_ids = model.generation_config.forced_decoder_ids
+model.generation_config.forced_decoder_ids = None
+
 tokenizer = transformers.WhisperTokenizer.from_pretrained(architecture)
 feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(architecture)
 model.generation_config.alignment_heads = [[2, 2], [3, 0], [3, 2], [3, 3], [3, 4], [3, 5]]
@@ -31,7 +35,7 @@ signature = mlflow.models.infer_signature(
 )
 
 inference_config = {
-    "return_timestamps": "word",
+    "return_timestamps": False,
     "chunk_length_s": 20,
     "stride_length_s": [5, 3],
 }
@@ -40,7 +44,7 @@ inference_config = {
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=audio_transcription_pipeline,
-        artifact_path="whisper_transcriber",
+        name="whisper_transcriber",
         signature=signature,
         input_example=audio,
         inference_config=inference_config,

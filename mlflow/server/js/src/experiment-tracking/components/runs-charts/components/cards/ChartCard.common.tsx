@@ -10,15 +10,18 @@ import {
   Switch,
   Spinner,
 } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
-import { PropsWithChildren, ReactNode, memo, useCallback, useRef } from 'react';
-import { useDragAndDropElement } from '../../../../../common/hooks/useDragAndDropElement';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
+import type { Theme } from '@emotion/react';
+import type { PropsWithChildren, ReactNode } from 'react';
+import React, { memo, useCallback, forwardRef } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartsCardConfig } from '../../runs-charts.types';
 import type { ExperimentChartImageDownloadFileFormat } from '../../hooks/useChartImageDownloadHandler';
 import { noop } from 'lodash';
+
+export const DRAGGABLE_CARD_HANDLE_CLASS = 'mlflow-charts-drag-handle';
+export const DRAGGABLE_CARD_TRANSITION_NAME = '--drag-transform';
+export const DRAGGABLE_CARD_TRANSITION_VAR = `var(${DRAGGABLE_CARD_TRANSITION_NAME})`;
 
 export enum RunsChartsChartsDragGroup {
   PARALLEL_CHARTS_AREA = 'PARALLEL_CHARTS_AREA',
@@ -31,11 +34,25 @@ export interface RunsChartCardReorderProps {
   canMoveDown: boolean;
   previousChartUuid?: string;
   nextChartUuid?: string;
+  canMoveToTop: boolean;
+  canMoveToBottom: boolean;
+  firstChartUuid?: string;
+  lastChartUuid?: string;
+}
+
+export interface RunsChartCardSizeProps {
+  height?: number;
+  positionInSection?: number;
+}
+
+export interface RunsChartCardVisibilityProps {
+  isInViewport?: boolean;
+  isInViewportDeferred?: boolean;
 }
 
 export type RunsChartCardSetFullscreenFn = (chart: {
   config: RunsChartsCardConfig;
-  title: string;
+  title: string | ReactNode;
   subtitle: ReactNode;
 }) => void;
 
@@ -50,12 +67,12 @@ export interface ChartCardToggleProps {
   setToggle: () => void;
 }
 
-export interface ChartCardWrapperProps extends RunsChartCardReorderProps {
+export interface ChartCardWrapperProps extends RunsChartCardReorderProps, RunsChartCardSizeProps {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   onEdit: () => void;
   onDelete: () => void;
-  tooltip?: string;
+  tooltip?: React.ReactNode;
   uuid?: string;
   dragGroupKey: RunsChartsChartsDragGroup;
   additionalMenuContent?: React.ReactNode;
@@ -67,41 +84,11 @@ export interface ChartCardWrapperProps extends RunsChartCardReorderProps {
   isHidden?: boolean;
 }
 
-export const ChartRunsCountIndicator = memo(({ runsOrGroups }: { runsOrGroups: RunsChartsRunData[] }) => {
-  const containsGroups = runsOrGroups.some(({ groupParentInfo }) => groupParentInfo);
-  const containsRuns = runsOrGroups.some(({ runInfo }) => runInfo);
-
-  // After moving to the new run rows visibility model, we don't configure run count per chart
-  if (shouldUseNewRunRowsVisibilityModel()) {
-    return null;
-  }
-
-  return containsRuns && containsGroups ? (
-    <FormattedMessage
-      defaultMessage="Comparing first {count} groups and runs"
-      values={{ count: runsOrGroups.length }}
-      description="Experiment page > compare runs > chart header > compared groups and runs count label"
-    />
-  ) : containsGroups ? (
-    <FormattedMessage
-      defaultMessage="Comparing first {count} groups"
-      values={{ count: runsOrGroups.length }}
-      description="Experiment page > compare runs > chart header > compared groups count label"
-    />
-  ) : (
-    <FormattedMessage
-      defaultMessage="Comparing first {count} runs"
-      values={{ count: runsOrGroups.length }}
-      description="Experiment page > compare runs > chart header > compared runs count label"
-    />
-  );
-});
-
 /**
  * Wrapper components for all chart cards. Provides styles and adds
  * a dropdown menu with actions for configure and delete.
  */
-export const RunsChartCardWrapperRaw = ({
+const RunsChartCardWrapperRaw = ({
   title,
   subtitle,
   onDelete,
@@ -113,24 +100,22 @@ export const RunsChartCardWrapperRaw = ({
   onReorderWith = noop,
   canMoveDown,
   canMoveUp,
+  canMoveToTop,
+  canMoveToBottom,
   previousChartUuid,
   nextChartUuid,
+  firstChartUuid,
+  lastChartUuid,
   additionalMenuContent,
   toggleFullScreenChart,
   toggles,
   supportedDownloadFormats = [],
   onClickDownload,
   isHidden,
+  height,
   isRefreshing = false,
 }: PropsWithChildren<ChartCardWrapperProps>) => {
   const { theme } = useDesignSystemTheme();
-
-  const { dragHandleRef, dragPreviewRef, dropTargetRef, isDraggingOtherGroup, isOver } = useDragAndDropElement({
-    dragGroupKey,
-    dragKey: uuid || '',
-    onDrop: onReorderWith,
-    disabled: isHidden,
-  });
 
   const onMoveUp = useCallback(
     () => onReorderWith(uuid || '', previousChartUuid || ''),
@@ -140,11 +125,22 @@ export const RunsChartCardWrapperRaw = ({
     () => onReorderWith(uuid || '', nextChartUuid || ''),
     [onReorderWith, uuid, nextChartUuid],
   );
+  const onMoveToTop = useCallback(
+    () => onReorderWith(uuid || '', firstChartUuid || ''),
+    [onReorderWith, uuid, firstChartUuid],
+  );
+  const onMoveToBottom = useCallback(
+    () => onReorderWith(uuid || '', lastChartUuid || ''),
+    [onReorderWith, uuid, lastChartUuid],
+  );
+
+  const usingCustomTitle = React.isValidElement(title);
 
   return (
     <div
       css={{
-        height: 360,
+        // Either use provided height or default to 360
+        height: height ?? 360,
         overflow: 'hidden',
         display: 'grid',
         gridTemplateRows: 'auto 1fr',
@@ -158,15 +154,7 @@ export const RunsChartCardWrapperRaw = ({
         transition: 'opacity 0.12s',
         position: 'relative',
       }}
-      style={{
-        opacity: isDraggingOtherGroup ? 0.1 : isOver ? 0.5 : 1,
-      }}
       data-testid="experiment-view-compare-runs-card"
-      ref={(element) => {
-        // Use this element for both drag preview and drop target
-        dragPreviewRef?.(element);
-        dropTargetRef?.(element);
-      }}
     >
       <div
         css={{
@@ -175,32 +163,36 @@ export const RunsChartCardWrapperRaw = ({
         }}
       >
         <div
-          ref={dragHandleRef}
           data-testid="experiment-view-compare-runs-card-drag-handle"
           css={{
-            marginTop: theme.spacing.xs,
+            marginTop: usingCustomTitle ? theme.spacing.sm : theme.spacing.xs,
             marginRight: theme.spacing.sm,
             cursor: 'grab',
           }}
+          className={DRAGGABLE_CARD_HANDLE_CLASS}
         >
           <DragIcon />
         </div>
-        <div css={{ overflow: 'hidden', flex: 1, flexShrink: 1 }}>
-          <Typography.Title
-            title={String(title)}
-            level={4}
-            css={{
-              marginBottom: 0,
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {title}
-          </Typography.Title>
-          {subtitle && <span css={styles.subtitle(theme)}>{subtitle}</span>}
-          {tooltip && <LegacyInfoTooltip css={{ verticalAlign: 'middle' }} title={tooltip} />}
-        </div>
+        {usingCustomTitle ? (
+          title
+        ) : (
+          <div css={{ overflow: 'hidden', flex: 1, flexShrink: 1 }}>
+            <Typography.Title
+              title={String(title)}
+              level={4}
+              withoutMargins
+              css={{
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {title}
+            </Typography.Title>
+            {subtitle && <span css={styles.subtitle(theme)}>{subtitle}</span>}
+            {tooltip && <LegacyInfoTooltip css={{ verticalAlign: 'middle' }} title={tooltip} />}
+          </div>
+        )}
         {isRefreshing && (
           <div
             css={{
@@ -226,6 +218,7 @@ export const RunsChartCardWrapperRaw = ({
             {toggles.map((toggle) => {
               return (
                 <Switch
+                  componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_262"
                   key={toggle.toggleLabel}
                   checked={toggle.currentToggle}
                   onChange={toggle.setToggle}
@@ -251,17 +244,28 @@ export const RunsChartCardWrapperRaw = ({
             />
           </DropdownMenu.Trigger>
           <DropdownMenu.Content align="end" minWidth={100}>
-            <DropdownMenu.Item onClick={onEdit} data-testid="experiment-view-compare-runs-card-edit">
+            <DropdownMenu.Item
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_288"
+              onClick={onEdit}
+              data-testid="experiment-view-compare-runs-card-edit"
+            >
               Configure
             </DropdownMenu.Item>
-            <DropdownMenu.Item onClick={onDelete} data-testid="experiment-view-compare-runs-card-delete">
+            <DropdownMenu.Item
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_291"
+              onClick={onDelete}
+              data-testid="experiment-view-compare-runs-card-delete"
+            >
               Delete
             </DropdownMenu.Item>
             {supportedDownloadFormats.length > 0 && onClickDownload && (
               <>
                 <DropdownMenu.Separator />
                 {supportedDownloadFormats.includes('csv') && (
-                  <DropdownMenu.Item onClick={() => onClickDownload('csv')}>
+                  <DropdownMenu.Item
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_298"
+                    onClick={() => onClickDownload('csv')}
+                  >
                     <FormattedMessage
                       defaultMessage="Export as CSV"
                       description="Experiment page > compare runs tab > chart header > export CSV data option"
@@ -269,7 +273,10 @@ export const RunsChartCardWrapperRaw = ({
                   </DropdownMenu.Item>
                 )}
                 {supportedDownloadFormats.includes('svg') && (
-                  <DropdownMenu.Item onClick={() => onClickDownload('svg')}>
+                  <DropdownMenu.Item
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_316"
+                    onClick={() => onClickDownload('svg')}
+                  >
                     <FormattedMessage
                       defaultMessage="Download as SVG"
                       description="Experiment page > compare runs tab > chart header > download as SVG option"
@@ -277,7 +284,10 @@ export const RunsChartCardWrapperRaw = ({
                   </DropdownMenu.Item>
                 )}
                 {supportedDownloadFormats.includes('png') && (
-                  <DropdownMenu.Item onClick={() => onClickDownload('png')}>
+                  <DropdownMenu.Item
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_324"
+                    onClick={() => onClickDownload('png')}
+                  >
                     <FormattedMessage
                       defaultMessage="Download as PNG"
                       description="Experiment page > compare runs tab > chart header > download as PNG option"
@@ -288,6 +298,18 @@ export const RunsChartCardWrapperRaw = ({
             )}
             <DropdownMenu.Separator />
             <DropdownMenu.Item
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_334"
+              disabled={!canMoveToTop}
+              onClick={onMoveToTop}
+              data-testid="experiment-view-compare-runs-move-to-top"
+            >
+              <FormattedMessage
+                defaultMessage="Move to top"
+                description="Experiment page > compare runs tab > chart header > move to top option"
+              />
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_340"
               disabled={!canMoveUp}
               onClick={onMoveUp}
               data-testid="experiment-view-compare-runs-move-up"
@@ -298,6 +320,7 @@ export const RunsChartCardWrapperRaw = ({
               />
             </DropdownMenu.Item>
             <DropdownMenu.Item
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_344"
               disabled={!canMoveDown}
               onClick={onMoveDown}
               data-testid="experiment-view-compare-runs-move-down"
@@ -308,6 +331,17 @@ export const RunsChartCardWrapperRaw = ({
               />
             </DropdownMenu.Item>
             {additionalMenuContent}
+            <DropdownMenu.Item
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-charts_components_cards_chartcard.common.tsx_350"
+              disabled={!canMoveToBottom}
+              onClick={onMoveToBottom}
+              data-testid="experiment-view-compare-runs-move-to-bottom"
+            >
+              <FormattedMessage
+                defaultMessage="Move to bottom"
+                description="Experiment page > compare runs tab > chart header > move to bottom option"
+              />
+            </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>
       </div>
@@ -339,3 +373,21 @@ const styles = {
 };
 
 export const RunsChartCardWrapper = memo(RunsChartCardWrapperRaw);
+
+export const RunsChartCardLoadingPlaceholder = forwardRef<
+  HTMLDivElement,
+  {
+    className?: string;
+    style?: React.CSSProperties;
+  }
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
+>(({ className, style }, ref) => (
+  <div
+    css={{ display: 'flex', height: '100%', justifyContent: 'center', alignItems: 'center' }}
+    className={className}
+    style={style}
+    ref={ref}
+  >
+    <Spinner />
+  </div>
+));

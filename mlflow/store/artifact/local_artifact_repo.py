@@ -1,28 +1,31 @@
 import os
 import shutil
-from typing import Any, Dict
+from typing import Any
 
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     try_read_trace_data,
     verify_artifact_path,
 )
-from mlflow.tracing.artifact_utils import TRACE_DATA_FILE_NAME
+from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.file_utils import (
     get_file_info,
     list_all,
     local_file_uri_to_path,
     mkdir,
     relative_path_to_artifact_path,
+    shutil_copytree_without_file_permissions,
 )
-from mlflow.utils.uri import validate_path_is_safe
+from mlflow.utils.uri import validate_path_is_safe, validate_path_within_directory
 
 
 class LocalArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a local directory."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         self._artifact_dir = local_file_uri_to_path(self.artifact_uri)
 
     @property
@@ -64,7 +67,7 @@ class LocalArtifactRepository(ArtifactRepository):
         )
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
-        shutil.copytree(src=local_dir, dst=artifact_dir, dirs_exist_ok=True)
+        shutil_copytree_without_file_permissions(local_dir, artifact_dir)
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
@@ -83,20 +86,18 @@ class LocalArtifactRepository(ArtifactRepository):
         """
         if dst_path:
             return super().download_artifacts(artifact_path, dst_path)
-        # NOTE: The artifact_path is expected to be a relative path in posix format.
-        # Posix paths work fine on windows but just in case we normalize it here.
         artifact_path = validate_path_is_safe(artifact_path)
         local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
+        validate_path_within_directory(self.artifact_dir, local_artifact_path)
         if not os.path.exists(local_artifact_path):
             raise OSError(f"No such file or directory: '{local_artifact_path}'")
         return os.path.abspath(local_artifact_path)
 
     def list_artifacts(self, path=None):
-        # NOTE: The path is expected to be in posix format.
-        # Posix paths work fine on windows but just in case we normalize it here.
         if path:
             path = os.path.normpath(path)
         list_dir = os.path.join(self.artifact_dir, path) if path else self.artifact_dir
+        validate_path_within_directory(self.artifact_dir, list_dir)
         if os.path.isdir(list_dir):
             artifact_files = list_all(list_dir, full_path=True)
             infos = [
@@ -110,10 +111,9 @@ class LocalArtifactRepository(ArtifactRepository):
             return []
 
     def _download_file(self, remote_file_path, local_path):
-        # NOTE: The remote_file_path is expected to be a relative path in posix format.
-        # Posix paths work fine on windows but just in case we normalize it here.
         remote_file_path = validate_path_is_safe(remote_file_path)
         remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
+        validate_path_within_directory(self.artifact_dir, remote_file_path)
         shutil.copy2(remote_file_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
@@ -122,9 +122,12 @@ class LocalArtifactRepository(ArtifactRepository):
         )
 
         if os.path.exists(artifact_path):
-            shutil.rmtree(artifact_path)
+            if os.path.isfile(artifact_path):
+                os.remove(artifact_path)
+            else:
+                shutil.rmtree(artifact_path)
 
-    def download_trace_data(self) -> Dict[str, Any]:
+    def download_trace_data(self) -> dict[str, Any]:
         """
         Download the trace data.
 

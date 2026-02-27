@@ -16,8 +16,6 @@ import numpy as np
 
 import mlflow
 import mlflow.projects
-import mlflow.sklearn
-import mlflow.tracking
 from mlflow.tracking import MlflowClient
 
 _inf = np.finfo(np.float64).max
@@ -40,8 +38,8 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
     def new_eval(
         nepochs, experiment_id, null_train_loss=_inf, null_val_loss=_inf, null_test_loss=_inf
     ):
-        def eval(parms):
-            lr, momentum = parms
+        def eval(params):
+            lr, momentum = params
             with mlflow.start_run(nested=True) as child_run:
                 p = mlflow.projects.run(
                     run_id=child_run.info.run_id,

@@ -1,27 +1,15 @@
-import {
-  PinIcon,
-  PinFillIcon,
-  LegacyTooltip,
-  VisibleIcon as VisibleHollowIcon,
-  VisibleOffIcon,
-  useDesignSystemTheme,
-  Icon,
-  visuallyHidden,
-} from '@databricks/design-system';
+import { PinIcon, PinFillIcon, useDesignSystemTheme, visuallyHidden, Tooltip } from '@databricks/design-system';
 import type { SuppressKeyboardEventParams } from '@ag-grid-community/core';
 
 // TODO: Import this icon from design system when added
 import { ReactComponent as VisibleFillIcon } from '../../../../../../common/static/icon-visible-fill.svg';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import React, { useMemo } from 'react';
 import { FormattedMessage, defineMessages } from 'react-intl';
-import { RunRowType, RunRowVisibilityControl } from '../../../utils/experimentPage.row-types';
-import {
-  shouldEnableToggleIndividualRunsInGroups,
-  shouldUseNewRunRowsVisibilityModel,
-} from '../../../../../../common/utils/FeatureUtils';
+import type { RunRowType } from '../../../utils/experimentPage.row-types';
+import { RunRowVisibilityControl } from '../../../utils/experimentPage.row-types';
 import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPageUIStateContext';
-import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
+import type { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
 import { isRemainingRunsGroup } from '../../../utils/experimentPage.group-row-utils';
 import { RunVisibilityControlButton } from './RunVisibilityControlButton';
 import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
@@ -73,10 +61,8 @@ const labels = {
   },
 };
 
-// Mouse enter/leave delays passed to tooltips are set to 0 so swift toggling/pinning runs is not hampered
-const MOUSE_DELAYS = { mouseEnterDelay: 0, mouseLeaveDelay: 0 };
-
 export const RowActionsCellRenderer = React.memo(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: {
     data: RunRowType;
     value: { pinned: boolean; hidden: boolean };
@@ -90,8 +76,7 @@ export const RowActionsCellRenderer = React.memo(
     const { groupParentInfo, runDateAndNestInfo, visibilityControl } = props.data;
     const { belongsToGroup } = runDateAndNestInfo || {};
     const isGroupRow = Boolean(groupParentInfo);
-    const isVisibilityButtonDisabled =
-      shouldEnableToggleIndividualRunsInGroups() && visibilityControl === RunRowVisibilityControl.Disabled;
+    const isVisibilityButtonDisabled = visibilityControl === RunRowVisibilityControl.Disabled;
     const { pinned, hidden } = props.value;
     const { runUuid, rowUuid } = props.data;
 
@@ -102,7 +87,7 @@ export const RowActionsCellRenderer = React.memo(
     const isRowHidden = (() => {
       // If "Use grouping from the runs table in charts" option is off and we're displaying a group,
       // we should check if all runs in the group are hidden in order to determine visibility toggle.
-      if (shouldEnableToggleIndividualRunsInGroups() && useGroupedValuesInCharts === false && groupParentInfo) {
+      if (useGroupedValuesInCharts === false && groupParentInfo) {
         return Boolean(groupParentInfo.allRunsHidden);
       }
 
@@ -115,27 +100,18 @@ export const RowActionsCellRenderer = React.memo(
         ? labels.visibility.groups.unhide
         : labels.visibility.groups.hide
       : isRowHidden
-      ? labels.visibility.runs.unhide
-      : labels.visibility.runs.hide;
+        ? labels.visibility.runs.unhide
+        : labels.visibility.runs.hide;
 
     const pinningMessageDescriptor = isGroupRow
       ? pinned
         ? labels.pinning.groups.unpin
         : labels.pinning.groups.pin
       : pinned
-      ? labels.pinning.runs.unpin
-      : labels.pinning.runs.pin;
+        ? labels.pinning.runs.unpin
+        : labels.pinning.runs.pin;
 
-    const isVisibilityButtonHidden = useMemo(() => {
-      if (shouldEnableToggleIndividualRunsInGroups()) {
-        return visibilityControl === RunRowVisibilityControl.Hidden;
-      }
-      return !(
-        !shouldUseNewRunRowsVisibilityModel() ||
-        (groupParentInfo && !isRemainingRunsGroup(groupParentInfo)) ||
-        (Boolean(runUuid) && !belongsToGroup)
-      );
-    }, [groupParentInfo, belongsToGroup, runUuid, visibilityControl]);
+    const isVisibilityButtonHidden = visibilityControl === RunRowVisibilityControl.Hidden;
 
     return (
       <div css={styles.actionsContainer}>
@@ -148,18 +124,19 @@ export const RowActionsCellRenderer = React.memo(
           runUuid={runUuidToToggle}
           css={[
             styles.actionCheckbox(theme),
-            // We show this button only in the runs compare mode and only when the feature flag is set
-            shouldUseNewRunRowsVisibilityModel() && styles.showOnlyInCompareMode,
+            // We show this button only in the runs compare mode
+            styles.showOnlyInCompareMode,
           ]}
         />
         {((props.data.pinnable && runUuid) || groupParentInfo) && (
-          <LegacyTooltip
-            dangerouslySetAntdProps={MOUSE_DELAYS}
-            placement="right"
+          <Tooltip
+            componentId="mlflow.run.row_actions.pinning.tooltip"
+            delayDuration={0}
+            side="right"
             // We have to force remount of the tooltip with every rerender, otherwise it will jump
             // around when the row order changes.
             key={Math.random()}
-            title={<FormattedMessage {...pinningMessageDescriptor} />}
+            content={<FormattedMessage {...pinningMessageDescriptor} />}
           >
             <label css={styles.actionCheckbox(theme)} className="is-pin-toggle" data-testid="column-pin-toggle">
               <span css={visuallyHidden}>
@@ -185,11 +162,12 @@ export const RowActionsCellRenderer = React.memo(
               />
               {pinned ? <PinFillIcon /> : <PinIcon />}
             </label>
-          </LegacyTooltip>
+          </Tooltip>
         )}
       </div>
     );
   },
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (prevProps, nextProps) =>
     prevProps.value.hidden === nextProps.value.hidden &&
     prevProps.value.pinned === nextProps.value.pinned &&
