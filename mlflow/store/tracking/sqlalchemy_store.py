@@ -5861,23 +5861,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.commit()
 
             # Return Issue entity
-            return Issue(
-                issue_id=issue_id,
-                experiment_id=experiment_id,
-                run_id=run_id,
-                name=name,
-                description=description,
-                root_cause=root_cause,
-                status=status,
-                frequency=frequency,
-                confidence=confidence,
-                rationale_examples=(json.loads(rationale_examples) if rationale_examples else None),
-                example_trace_ids=json.loads(example_trace_ids) if example_trace_ids else None,
-                trace_ids=trace_ids,
-                created_timestamp=current_time,
-                last_updated_timestamp=current_time,
-                created_by=created_by,
-            )
+            return sql_issue.to_mlflow_entity(trace_ids=trace_ids)
 
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints
