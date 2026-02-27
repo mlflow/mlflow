@@ -34,15 +34,6 @@ const getBaseUrl = (baseUrl?: string): string => {
   return 'http://localhost:5000';
 };
 
-// Default request body for MLflow Invocations (no endpoint name in body). Used for initial state and by getCodeExamples.
-const MLFLOW_INVOCATIONS_DEFAULT_BODY = JSON.stringify(
-  {
-    messages: [{ role: 'user', content: 'Hello, how are you?' }],
-  },
-  null,
-  2,
-);
-
 type TryItUnifiedVariant = 'mlflow-invocations' | 'chat-completions';
 
 const getTryItRequestUrl = (
@@ -98,7 +89,13 @@ response = requests.post(
     }
 )
 print(response.json())`,
-        defaultBody: MLFLOW_INVOCATIONS_DEFAULT_BODY,
+        defaultBody: JSON.stringify(
+          {
+            messages: [{ role: 'user', content: 'Hello, how are you?' }],
+          },
+          null,
+          2,
+        ),
       };
     case 'chat-completions':
       return {
