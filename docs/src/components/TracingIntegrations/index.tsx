@@ -405,6 +405,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/claude_code',
     category: 'Tools',
   },
+  {
+    id: 'goose',
+    name: 'Goose',
+    logoPath: '/images/logos/goose-logo.png',
+    link: '/genai/tracing/integrations/listing/goose',
+    category: 'No-Code',
+  },
   // Gateways
   {
     id: 'mlflow-ai-gateway',
