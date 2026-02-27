@@ -525,7 +525,9 @@ class IssueReference(Assessment):
         if issue_id is None:
             raise MlflowException.invalid_parameter_value("The `issue_id` field must be specified.")
         if issue_name is None:
-            raise MlflowException.invalid_parameter_value("The `issue_name` field must be specified.")
+            raise MlflowException.invalid_parameter_value(
+                "The `issue_name` field must be specified."
+            )
 
         super().__init__(
             name=issue_id,

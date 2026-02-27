@@ -760,5 +760,3 @@ def test_issue_reference_conversion(source, metadata):
     assert proto_timestamp_to_milliseconds(dict_repr["last_update_time"]) == timestamp_ms
     assert dict_repr["issue"] == {"issue_name": "timeout_error"}
     assert dict_repr.get("metadata") == metadata
-
-
