@@ -110,6 +110,7 @@ from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
+    SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
     SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
@@ -5955,6 +5956,68 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             trace_ids = self._get_trace_ids_for_issue(session, issue_id)
 
             return sql_issue.to_mlflow_entity(trace_ids=trace_ids or None)
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        run_id: str | None = None,
+        status: str | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
+        page_token: str | None = None,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            run_id: Optional run ID to filter by.
+            status: Optional status to filter by.
+            filter_string: Optional filter string for advanced filtering (not implemented yet).
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Parse page token to get offset
+            offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
+
+            # Build query
+            query = session.query(SqlIssue)
+
+            # Apply filters
+            if experiment_id:
+                query = query.filter(SqlIssue.experiment_id == experiment_id)
+            if run_id:
+                query = query.filter(SqlIssue.run_id == run_id)
+            if status:
+                query = query.filter(SqlIssue.status == status)
+
+            # Order by frequency DESC, then by created_timestamp DESC
+            query = query.order_by(
+                SqlIssue.frequency.desc(),
+                SqlIssue.created_timestamp.desc(),
+            )
+
+            # Apply pagination - fetch max_results + 1 to determine if there's a next page
+            query = query.offset(offset).limit(max_results + 1)
+
+            sql_issues = query.all()
+
+            # Determine next page token before loading trace_ids
+            has_next_page = len(sql_issues) > max_results
+            next_token = (
+                SearchTraceUtils.create_page_token(offset + max_results) if has_next_page else None
+            )
+
+            issues = []
+            for sql_issue in sql_issues[:max_results]:
+                trace_ids = self._get_trace_ids_for_issue(session, sql_issue.issue_id)
+                issues.append(sql_issue.to_mlflow_entity(trace_ids=trace_ids or None))
+
+            return PagedList(issues, token=next_token)
 
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints
