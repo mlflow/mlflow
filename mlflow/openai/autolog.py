@@ -38,6 +38,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     log_traces=True,
+    disable_openai_agent_tracer=True,
 ):
     """
     Enables (or disables) and configures autologging from OpenAI to MLflow.
@@ -58,6 +59,8 @@ def autolog(
             autologging.
         log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
             collected during inference. Default to ``True``.
+        disable_openai_agent_tracer: If ``True``, disable the OpenAI Agent SDK tracer. If ``False``,
+            enable the OpenAI Agent SDK tracer. Default to ``True``.
     """
     if Version(importlib.metadata.version("openai")).major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
@@ -86,13 +89,16 @@ def autolog(
 
         from mlflow.openai._agent_tracer import (
             add_mlflow_trace_processor,
+            clear_trace_processors,
             remove_mlflow_trace_processor,
         )
 
-        if log_traces and not disable:
-            add_mlflow_trace_processor()
-        else:
+        if disable or not log_traces:
             remove_mlflow_trace_processor()
+        else:
+            if disable_openai_agent_tracer:
+                clear_trace_processors()
+            add_mlflow_trace_processor()
     except ImportError:
         pass
 

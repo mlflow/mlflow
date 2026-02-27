@@ -11,7 +11,6 @@ except ImportError:
     pytest.skip("OpenAI SDK is not installed. Skipping tests.", allow_module_level=True)
 
 from agents import Agent, Runner, function_tool, set_default_openai_client, trace
-from agents.tracing import set_trace_processors
 from openai.types.responses.function_tool import FunctionTool
 from openai.types.responses.response import Response
 from openai.types.responses.response_output_item import (
@@ -38,12 +37,6 @@ def set_dummy_client(expected_responses):
     async_client.responses.create = _mocked_create
 
     set_default_openai_client(async_client)
-
-
-@pytest.fixture(autouse=True)
-def disable_default_tracing():
-    # Disable default OpenAI tracer
-    set_trace_processors([])
 
 
 @pytest.mark.asyncio
@@ -389,3 +382,33 @@ async def test_disable_enable_autolog():
     await Runner.run(agent, messages)
 
     assert get_traces() == []
+
+
+@pytest.mark.asyncio
+async def test_autolog_disable_openai_agent_tracer():
+    from agents.tracing.setup import get_trace_provider
+
+    from mlflow.openai._agent_tracer import MlflowOpenAgentTracingProcessor
+
+    def _get_processors():
+        return get_trace_provider()._multi_processor._processors
+
+    # By default, autolog should clear the OpenAI agents tracer
+    mlflow.openai.autolog()
+    processors = _get_processors()
+    assert len(processors) == 1
+    assert isinstance(processors[0], MlflowOpenAgentTracingProcessor)
+
+    # When disable_openai_agent_tracer=False, the default OpenAI tracer should be preserved
+    mlflow.openai.autolog(disable=True)
+
+    # Re-add the default processor to simulate a fresh state
+    from agents.tracing.processors import default_processor
+
+    get_trace_provider().register_processor(default_processor())
+
+    mlflow.openai.autolog(disable_openai_agent_tracer=False)
+    processors = _get_processors()
+    assert len(processors) >= 2
+    assert any(isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors)
+    assert any(not isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors)
