@@ -839,6 +839,37 @@ def test_search_experiments_filter_by_tag(store: SqlAlchemyStore):
     assert len(experiments) == 0
 
 
+def test_search_experiments_filter_by_tag_is_null(store: SqlAlchemyStore):
+    experiments = [
+        ("exp1", [ExperimentTag("key1", "value"), ExperimentTag("key2", "value")]),
+        ("exp2", [ExperimentTag("key1", "value")]),
+        ("exp3", []),
+    ]
+    for name, tags in experiments:
+        time.sleep(0.001)
+        store.create_experiment(name, tags=tags)
+
+    # IS NOT NULL: experiments that have key1
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL")
+    assert [e.name for e in results] == ["exp2", "exp1"]
+
+    # IS NULL: experiments that don't have key2 (includes Default)
+    results = store.search_experiments(filter_string="tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp3", "exp2", "Default"]
+
+    # Combined IS NOT NULL and IS NULL
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Combined with value filter
+    results = store.search_experiments(filter_string="tag.key1 = 'value' AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Error: IS NULL on attribute
+    with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported for tags"):
+        store.search_experiments(filter_string="name IS NULL")
+
+
 def test_search_experiments_filter_by_attribute_and_tag(store: SqlAlchemyStore):
     store.create_experiment("exp1", tags=[ExperimentTag("a", "1"), ExperimentTag("b", "2")])
     store.create_experiment("exp2", tags=[ExperimentTag("a", "3"), ExperimentTag("b", "4")])
@@ -13102,6 +13133,44 @@ def test_log_spans_then_start_trace_preserves_tag(store: SqlAlchemyStore):
 
     trace_info = store.get_trace_info(trace_id)
     assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+
+
+def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_preview_preserved")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="llm_call",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+        attributes={
+            "input.value": '{"messages": [{"role": "user", "content": "Hello"}]}',
+            "output.value": '{"choices": [{"message": {"role": "assistant", "content": "Hi"}}]}',
+            "openinference.span.kind": "LLM",
+        },
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    store.start_trace(trace_info_for_start)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview is not None
+    assert trace_info.response_preview is not None
+    assert "Hello" in trace_info.request_preview
+    assert "Hi" in trace_info.response_preview
 
 
 @pytest.mark.skipif(

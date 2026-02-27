@@ -11,6 +11,7 @@ from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 import mlflow.anthropic
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -190,6 +191,8 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     span.outputs["usage"] = {
         key: span.outputs["usage"][key] for key in ["input_tokens", "output_tokens"]
     }
+    # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
+    span.outputs.pop("container", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -200,12 +203,13 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
-    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 10.0,
-        "output_cost": 36.0,
-        "total_cost": 46.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 10,
@@ -293,12 +297,13 @@ def test_messages_autolog_tool_calling(is_async, mock_litellm_cost):
     assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(exclude_unset=False)
 
-    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 10.0,
-        "output_cost": 36.0,
-        "total_cost": 46.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
 
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
@@ -380,6 +385,8 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     span.outputs["usage"] = {
         key: span.outputs["usage"][key] for key in ["input_tokens", "output_tokens"]
     }
+    # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
+    span.outputs.pop("container", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -390,12 +397,13 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
-    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 10.0,
-        "output_cost": 36.0,
-        "total_cost": 46.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 10,

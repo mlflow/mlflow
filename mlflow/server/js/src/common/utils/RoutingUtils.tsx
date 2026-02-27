@@ -9,7 +9,6 @@
 import {
   BrowserRouter,
   MemoryRouter,
-  HashRouter,
   matchPath,
   generatePath,
   Route,
@@ -159,7 +158,6 @@ export {
   // React Router V6 API exports
   BrowserRouter,
   MemoryRouter,
-  HashRouter,
   Link,
   NavLink,
   useNavigate,

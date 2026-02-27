@@ -552,6 +552,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/mistral",
             "tests/models",
             "tests/onnx",
+            "tests/otel",
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",
@@ -739,6 +740,8 @@ def remote_backend_for_tracing_sdk_test():
                 mlflow_root,
                 "--with",
                 "setuptools<82",  # setuptools 82+ removed pkg_resources
+                "--with",
+                "litellm",  # Required for computing cost of LLM calls
                 "mlflow",
                 "server",
                 "--port",
@@ -1225,11 +1228,17 @@ def mock_litellm_cost():
     Uses cost of 1.0 per input token and 2.0 per output token.
     Returns (input_cost, output_cost) based on the token counts passed.
     """
+    try:
+        import litellm  # noqa: F401
+    except ImportError:
+        # mock.patch will fail if litellm is not installed, e.g. tracing SDK test
+        yield None
+        return
 
     def calculate_cost(model, prompt_tokens, completion_tokens, **kwargs):
         input_cost = prompt_tokens * 1.0
         output_cost = completion_tokens * 2.0
         return (input_cost, output_cost)
 
-    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost) as mock_cost:
+    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost, create=True) as mock_cost:
         yield mock_cost

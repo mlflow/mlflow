@@ -685,6 +685,16 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/phoenix',
                       label: 'Arize Phoenix',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/trulens',
+                      label: 'TruLens',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/guardrails',
+                      label: 'Guardrails AI',
+                    },
                   ],
                   collapsed: false,
                   link: {

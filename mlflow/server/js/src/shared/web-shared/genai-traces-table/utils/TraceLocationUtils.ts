@@ -1,9 +1,9 @@
-import {
-  type ModelTraceLocationMlflowExperiment,
-  type ModelTraceLocationUcSchema,
-  isV3ModelTraceInfo,
-  type ModelTrace,
-} from '../../model-trace-explorer';
+import type {
+  ModelTraceLocationMlflowExperiment,
+  ModelTraceLocationUcSchema,
+  ModelTrace,
+} from '../../model-trace-explorer/ModelTrace.types';
+import { isV3ModelTraceInfo } from '../../model-trace-explorer/ModelTraceExplorer.utils';
 
 /**
  * Helper utility: creates experiment trace location descriptor based on provided experiment ID.

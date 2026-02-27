@@ -139,3 +139,27 @@ async def test_get_prompt(client: Client):
     assert "Analyze Experiment" in content
     assert "Step 1: Setup and Configuration" in content
     assert "MLflow" in content
+
+
+def test_fn_wrapper_handles_unset_defaults(monkeypatch):
+    import click
+
+    from mlflow.mcp.server import fn_wrapper
+
+    fake_unset = object()
+    monkeypatch.setattr(click.core, "UNSET", fake_unset, raising=False)
+
+    @click.command()
+    @click.option("--foo", type=str)
+    @click.option("--bar", type=str)
+    def cmd(foo, bar):
+        click.echo(f"{foo},{bar}")
+
+    for p in cmd.params:
+        if p.name == "bar":
+            p.default = fake_unset
+
+    wrapper = fn_wrapper(cmd)
+    result = wrapper(foo="hello")
+    assert "hello" in result
+    assert "None" in result

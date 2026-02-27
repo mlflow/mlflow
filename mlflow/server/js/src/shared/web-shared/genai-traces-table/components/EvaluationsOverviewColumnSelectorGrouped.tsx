@@ -24,8 +24,8 @@ interface Props {
   selectedColumns: TracesTableColumn[];
   toggleColumns: (cols: TracesTableColumn[]) => void;
   setSelectedColumns: (cols: TracesTableColumn[]) => void;
-  isMetadataLoading?: boolean;
-  metadataError?: Error | null;
+  isLoading?: boolean;
+  isError?: boolean;
 }
 
 const OPTION_HEIGHT = 32;
@@ -44,8 +44,8 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
   selectedColumns = [],
   toggleColumns,
   setSelectedColumns,
-  isMetadataLoading = false,
-  metadataError,
+  isLoading,
+  isError,
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -140,9 +140,9 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
         maxHeight={OPTION_HEIGHT * 15.5}
         minWidth={300}
         maxWidth={500}
-        loading={isMetadataLoading && !metadataError}
+        loading={isLoading && !isError}
       >
-        {metadataError ? (
+        {isError ? (
           <div
             css={{
               display: 'flex',

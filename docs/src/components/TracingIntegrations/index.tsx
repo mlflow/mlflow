@@ -412,6 +412,20 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/goose',
     category: 'No-Code',
   },
+  {
+    id: 'langfuse',
+    name: 'Langfuse',
+    logoPath: '/images/logos/langfuse-logo.png',
+    link: '/genai/tracing/integrations/listing/langfuse',
+    category: 'Tools',
+  },
+  {
+    id: 'arize-phoenix',
+    name: 'Arize / Phoenix',
+    logoPath: '/images/logos/arize-phoenix-logo.png',
+    link: '/genai/tracing/integrations/listing/arize',
+    category: 'Tools',
+  },
   // Gateways
   {
     id: 'mlflow-ai-gateway',

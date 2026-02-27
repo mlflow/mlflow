@@ -26,6 +26,7 @@ from mlflow.types.chat import (
     ChatUsage,  # noqa F401
     Function,  # noqa F401
     FunctionToolDefinition,
+    PromptTokensDetails,  # noqa F401
     ToolCall,  # noqa F401
     ToolCallDelta,  # noqa F401
 )

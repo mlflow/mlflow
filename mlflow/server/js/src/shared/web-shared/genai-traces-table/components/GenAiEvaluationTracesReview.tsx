@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { Spinner, useDesignSystemTheme } from '@databricks/design-system';
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import type { UseQueryResult } from '@databricks/web-shared/query-client';
+import type { ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
+import type { UseQueryResult } from '../../query-client/queryClient';
 
 import { EvaluationsReviewDetails } from './EvaluationsReviewDetails';
 import {

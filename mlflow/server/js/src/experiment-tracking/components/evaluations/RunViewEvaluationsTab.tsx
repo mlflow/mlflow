@@ -1,6 +1,6 @@
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isNil } from 'lodash';
-import { ParagraphSkeleton, Typography, Empty } from '@databricks/design-system';
+import { ParagraphSkeleton, Typography, Empty, Drawer } from '@databricks/design-system';
 import { type KeyValueEntity } from '../../../common/types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
@@ -40,7 +40,9 @@ import {
   createTraceLocationForUCSchema,
   useFetchTraceV4LazyQuery,
   doesTraceSupportV4API,
-  getSimulationColumnsToAdd,
+  SESSION_COLUMN_ID,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
@@ -105,9 +107,8 @@ const RunViewEvaluationsTabInner = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const makeHtmlFromMarkdown = useMarkdownConverter();
-  const [compareToRunUuid, setCompareToRunUuidBase] = useCompareToRunUuid();
+  const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
   const [isGroupedBySession, setIsGroupedBySession] = useState(false);
-  const hasAutoSelectedGoalPersona = useRef(false);
 
   const traceLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
   const getTrace = getTraceV3;
@@ -143,9 +144,9 @@ const RunViewEvaluationsTabInner = ({
 
   const defaultSelectedColumns = useCallback(
     (columns: TracesTableColumn[]) => {
-      const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(
-        evaluatedTraces.concat(otherEvaluatedTraces),
-      );
+      const allTraces = evaluatedTraces.concat(otherEvaluatedTraces);
+      const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(allTraces);
+      const hasSessionIds = allTraces.some((t) => Boolean(t.traceInfo?.trace_metadata?.[SESSION_ID_METADATA_KEY]));
 
       return columns.filter(
         (col) =>
@@ -155,7 +156,9 @@ const RunViewEvaluationsTabInner = ({
           (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
           (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID) ||
           (col.type === TracesTableColumnType.TRACE_INFO &&
-            [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)),
+            [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)) ||
+          (hasSessionIds &&
+            [SESSION_COLUMN_ID, SIMULATION_GOAL_COLUMN_ID, SIMULATION_PERSONA_COLUMN_ID].includes(col.id)),
       );
     },
     [evaluatedTraces, otherEvaluatedTraces],
@@ -199,57 +202,10 @@ const RunViewEvaluationsTabInner = ({
     isQueryDisabled,
   });
 
-  // Helper to add goal/persona columns if traces have the metadata
-  const maybeAddGoalPersonaColumns = useCallback(
-    (traces: ModelTraceInfoV3[]) => {
-      if (hasAutoSelectedGoalPersona.current) {
-        return;
-      }
-
-      const columnsToAdd = getSimulationColumnsToAdd(traces, allColumns, selectedColumns);
-      if (columnsToAdd.length > 0) {
-        toggleColumns(columnsToAdd);
-        hasAutoSelectedGoalPersona.current = true;
-      }
-    },
-    [allColumns, selectedColumns, toggleColumns],
-  );
-
   // Handler for toggling session grouping
   const onToggleSessionGrouping = useCallback(() => {
-    const newIsGrouped = !isGroupedBySession;
-    setIsGroupedBySession(newIsGrouped);
-
-    // When enabling grouping while comparing, auto-select goal/persona columns
-    if (newIsGrouped && compareToRunUuid) {
-      const allTraces = (traceInfos || []).concat(compareToRunData || []);
-      maybeAddGoalPersonaColumns(allTraces);
-    }
-
-    // Reset the ref when ungrouping so columns can be auto-selected again later
-    if (!newIsGrouped) {
-      hasAutoSelectedGoalPersona.current = false;
-    }
-  }, [isGroupedBySession, compareToRunUuid, traceInfos, compareToRunData, maybeAddGoalPersonaColumns]);
-
-  // Wrapper for setCompareToRunUuid that handles auto-selecting columns
-  const setCompareToRunUuid = useCallback(
-    (newCompareToRunUuid: string | undefined) => {
-      setCompareToRunUuidBase(newCompareToRunUuid);
-
-      // When starting comparison while grouped, auto-select columns
-      // Note: compareToRunData won't be available yet, so we use current traces
-      if (newCompareToRunUuid && isGroupedBySession && traceInfos) {
-        maybeAddGoalPersonaColumns(traceInfos);
-      }
-
-      // Reset the ref when stopping comparison so columns can be auto-selected again later
-      if (!newCompareToRunUuid) {
-        hasAutoSelectedGoalPersona.current = false;
-      }
-    },
-    [setCompareToRunUuidBase, isGroupedBySession, traceInfos, maybeAddGoalPersonaColumns],
-  );
+    setIsGroupedBySession((prev) => !prev);
+  }, []);
 
   const hasSetInitialGrouping = useRef(false);
   useEffect(() => {
@@ -294,7 +250,6 @@ const RunViewEvaluationsTabInner = ({
   }, [deleteTracesAction, showEditTagsModalForTrace, EditTagsModal]);
 
   const isTableLoading = traceInfosLoading || compareToRunLoading;
-  const displayLoadingOverlay = false;
 
   const selectedRunColor = getRunColor(runUuid);
   const compareToRunColor = compareToRunUuid ? getRunColor(compareToRunUuid) : undefined;
@@ -425,7 +380,7 @@ const RunViewEvaluationsTabInner = ({
                     currentTraceInfoV3={traceInfos || []}
                     compareToTraceInfoV3={compareToRunData}
                     onTraceTagsEdit={showEditTagsModalForTrace}
-                    displayLoadingOverlay={displayLoadingOverlay}
+                    isTableLoading={isTableLoading}
                     isGroupedBySession={isGroupedBySession}
                   />
                 </ContextProviders>
