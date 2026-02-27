@@ -77,11 +77,22 @@ def register_model(
     tracking backend.
 
     Args:
-        model_uri: URI referring to the MLmodel directory. Use a ``runs:/`` URI if you want to
-            record the run ID with the model in model registry (recommended), or pass the
-            local filesystem path of the model if registering a locally-persisted MLflow
-            model that was previously saved using ``save_model``.
-            ``models:/`` URIs are currently not supported.
+        model_uri: URI referring to the MLmodel directory. Supported URI schemes include:
+
+            - ``runs:/`` URIs (e.g., ``runs:/<run_id>/<artifact_path>``) to register a model
+              from a specific run. The run ID is recorded with the model version.
+            - ``models:/`` URIs, which support two forms:
+
+              - ``models:/<model_name>/<version>`` to promote an existing registered
+                model version. The source run lineage is preserved when the
+                referenced model version has an associated source run.
+              - ``models:/<model_id>`` to create a new registered model version from a logged
+                model (for example, one returned by ``log_model``). The source
+                run lineage is preserved.
+
+            - Local filesystem paths for registering locally-persisted MLflow models that were
+              previously saved using ``save_model``.
+
         name: Name of the registered model under which to create a new model version. If a
             registered model with the given name does not exist, it will be created
             automatically.

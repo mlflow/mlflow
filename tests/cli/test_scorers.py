@@ -16,7 +16,6 @@ from mlflow.utils.string_utils import _create_table
 def mock_databricks_environment():
     with (
         patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
-        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True),
     ):
         yield
 

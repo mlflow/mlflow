@@ -5,7 +5,7 @@ import logging
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Callable, Literal, TypeAlias, TypeVar, overload
+from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -16,11 +16,10 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracking import get_tracking_uri
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.uri import is_databricks_uri
+from mlflow.utils.databricks_utils import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -431,9 +430,10 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
         # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
-        # execution risk. Only allow loading in Databricks runtime environments where the
-        # execution environment is controlled.
-        if not is_in_databricks_runtime():
+        # execution risk. Only allow loading when connected to a Databricks workspace, where
+        # registration is gated behind authentication. OSS backends don't have this guarantee,
+        # so block loading to prevent executing untrusted code.
+        if not is_databricks_uri(get_tracking_uri()):
             code_snippet = (
                 "\n\nfrom mlflow.genai import scorer\n\n"
                 f"@scorer\ndef {serialized.original_func_name}{serialized.call_signature}:\n"
@@ -441,34 +441,17 @@ class Scorer(BaseModel):
             for line in serialized.call_source.split("\n"):
                 code_snippet += f"    {line}\n"
 
-            is_databricks_remote = is_databricks_uri(get_tracking_uri())
-
-            if is_databricks_remote:
-                error_msg = (
-                    f"Loading custom scorer '{serialized.name}' via remote access is not "
-                    "supported. You are connected to a Databricks workspace but executing code "
-                    "outside of it. Custom scorers require arbitrary code execution during "
-                    "deserialization and must be loaded within the Databricks workspace for "
-                    "security reasons.\n\n"
-                    "To use this scorer:\n"
-                    "1. Run your code inside the Databricks workspace (notebook or job), or\n"
-                    "2. Copy the code below and use it directly in your source code, or\n"
-                    "3. Use built-in scorers or make_judge() scorers instead\n\n"
-                    f"Registered scorer code:\n{code_snippet}"
-                )
-            else:
-                error_msg = (
-                    f"Loading custom scorer '{serialized.name}' is not supported outside of "
-                    "Databricks runtime environments due to security concerns. Custom scorers "
-                    "require arbitrary code execution during deserialization.\n\n"
-                    "To use this scorer, please:\n"
-                    "1. Copy the code below and save it in your source code repository\n"
-                    "2. Import and use it directly in your code, or\n"
-                    "3. Use built-in scorers or make_judge() scorers instead\n\n"
-                    f"Registered scorer code:\n{code_snippet}"
-                )
-
-            raise MlflowException.invalid_parameter_value(error_msg)
+            raise MlflowException.invalid_parameter_value(
+                f"Loading custom scorer '{serialized.name}' is not supported outside of "
+                "Databricks environments due to security concerns. Custom scorers "
+                "require arbitrary code execution during deserialization.\n\n"
+                "To use this scorer, please:\n"
+                "1. Configure MLflow to use a Databricks tracking URI, or\n"
+                "2. Copy the code below and save it in your source code repository\n"
+                "3. Import and use it directly in your code, or\n"
+                "4. Use built-in scorers or make_judge() scorers instead\n\n"
+                f"Registered scorer code:\n{code_snippet}"
+            )
 
         try:
             recreated_func = recreate_function(
@@ -1070,6 +1053,15 @@ def scorer(
           - A trace object corresponding to the prediction for the row.
           - Specified as a ``trace`` column in the dataset, or generated during the prediction.
 
+        * - ``session``
+          - A list of trace objects belonging to the same conversation session.
+          - When this parameter is present, the scorer is automatically treated as a
+            **session-level** (multi-turn) scorer. It will be called once per session
+            rather than once per trace.
+
+            * ``session`` can only be combined with ``expectations``. Using ``session``
+              together with ``inputs``, ``outputs``, or ``trace`` is not allowed.
+
     The scorer function should return one of the following:
 
     * A boolean value
@@ -1157,6 +1149,18 @@ def scorer(
                 )
 
 
+            # Session-level scorer that evaluates an entire conversation.
+            # Including `session` in the function signature automatically makes this
+            # a session-level scorer.
+            @scorer
+            def conversation_quality(session) -> Feedback:
+                total_turns = len(session)
+                has_errors = any(t.info.status == "ERROR" for t in session)
+                return Feedback(
+                    value=not has_errors, rationale=f"{total_turns} turns, errors={has_errors}"
+                )
+
+
             # Use the scorer in an evaluation
             mlflow.genai.evaluate(
                 data=data,
@@ -1169,9 +1173,23 @@ def scorer(
             scorer, name=name, description=description, aggregations=aggregations
         )
 
+    func_params = set(inspect.signature(func).parameters.keys())
+    _is_session_level = "session" in func_params
+
+    if _is_session_level:
+        if invalid_params := func_params & {"inputs", "outputs", "trace"}:
+            raise MlflowException.invalid_parameter_value(
+                f"Session-level scorers (functions with a `session` parameter) cannot "
+                f"also accept {', '.join(sorted(f'`{p}`' for p in invalid_params))}. "
+                f"Session-level scorers are called once per session with the full list "
+                f"of traces, so single-turn parameters are not available. "
+                f"Use only `session` and optionally `expectations`."
+            )
+
     class CustomScorer(Scorer):
         # Store reference to the original function
         _original_func: Callable[..., Any] | None = PrivateAttr(default=None)
+        _is_session_level_scorer: ClassVar[bool] = _is_session_level
 
         def __init__(self, **data):
             super().__init__(**data)
@@ -1183,6 +1201,10 @@ def scorer(
 
         def __call__(self, *args, **kwargs):
             return func(*args, **kwargs)
+
+        @property
+        def is_session_level_scorer(self) -> bool:
+            return self._is_session_level_scorer
 
         @property
         def kind(self) -> ScorerKind:
