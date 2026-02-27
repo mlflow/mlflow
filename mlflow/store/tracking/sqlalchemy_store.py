@@ -5908,29 +5908,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             trace_ids = self._get_trace_ids_for_issue(session, issue_id)
 
-            return Issue(
-                issue_id=sql_issue.issue_id,
-                experiment_id=sql_issue.experiment_id,
-                run_id=sql_issue.run_id,
-                name=sql_issue.name,
-                description=sql_issue.description,
-                root_cause=sql_issue.root_cause,
-                status=sql_issue.status,
-                frequency=sql_issue.frequency,
-                confidence=sql_issue.confidence,
-                rationale_examples=(
-                    json.loads(sql_issue.rationale_examples)
-                    if sql_issue.rationale_examples
-                    else None
-                ),
-                example_trace_ids=(
-                    json.loads(sql_issue.example_trace_ids) if sql_issue.example_trace_ids else None
-                ),
-                trace_ids=trace_ids or None,
-                created_timestamp=sql_issue.created_timestamp,
-                last_updated_timestamp=sql_issue.last_updated_timestamp,
-                created_by=sql_issue.created_by,
-            )
+            return sql_issue.to_mlflow_entity(trace_ids=trace_ids or None)
 
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints
