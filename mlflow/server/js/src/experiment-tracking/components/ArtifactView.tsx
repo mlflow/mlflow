@@ -43,7 +43,11 @@ import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
 import { FallbackToLoggedModelArtifactsInfo } from './artifact-view-components/FallbackToLoggedModelArtifactsInfo';
-import { getArtifactLocationUrl, getLoggedModelArtifactLocationUrl } from '../../common/utils/ArtifactUtils';
+import {
+  getArtifactBlob,
+  getArtifactLocationUrl,
+  getLoggedModelArtifactLocationUrl,
+} from '../../common/utils/ArtifactUtils';
 import { ArtifactViewTree } from './ArtifactViewTree';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { Button } from '@databricks/design-system';
@@ -218,19 +222,31 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
-  onDownloadClick(
+  async onDownloadClick(
     // comment for copybara formatting
     runUuid: any,
     artifactPath: any,
     loggedModelId?: string,
     isFallbackToLoggedModelArtifacts?: boolean,
   ) {
-    // Logged model artifact API should be used when falling back to logged model artifacts on the run artifact page.
+    let url: string;
     if (runUuid && !isFallbackToLoggedModelArtifacts) {
-      window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
+      url = getArtifactLocationUrl(artifactPath, runUuid);
     } else if (loggedModelId) {
-      window.location.href = getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId);
+      url = getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId);
+    } else {
+      return;
     }
+
+    const blob = await getArtifactBlob(url);
+    const blobUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = blobUrl;
+    anchor.download = getBasename(artifactPath);
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(blobUrl);
   }
 
   renderControls() {
