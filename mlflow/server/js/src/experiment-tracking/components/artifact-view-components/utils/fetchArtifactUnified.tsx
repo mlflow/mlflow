@@ -8,7 +8,7 @@ import {
 import type { KeyValueEntity } from '../../../../common/types';
 
 type FetchArtifactParams = {
-  experimentId: string;
+  experimentId?: string;
   runUuid: string;
   path: string;
   isLoggedModelsMode?: boolean;
