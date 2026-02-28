@@ -92,6 +92,22 @@ const sidebarsSelfHosting: SidebarsConfig = {
       ],
     },
     {
+      type: 'category',
+      label: 'Deploying MLflow to cloud',
+      items: [
+        {
+          type: 'doc',
+          id: 'deploy-to-cloud/index',
+          label: 'Overview',
+        },
+        {
+          type: 'doc',
+          id: 'deploy-to-cloud/aws',
+          label: 'AWS',
+        },
+      ],
+    },
+    {
       type: 'doc',
       id: 'migration',
       label: 'Upgrade',
