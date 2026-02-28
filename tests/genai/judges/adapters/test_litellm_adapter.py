@@ -6,10 +6,6 @@ from litellm import RetryPolicy
 from litellm.types.utils import ModelResponse
 from pydantic import BaseModel, Field
 
-from mlflow.entities.trace import Trace
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import TraceLocation
-from mlflow.entities.trace_state import TraceState
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     _invoke_litellm,
@@ -25,17 +21,6 @@ from mlflow.types.llm import ChatMessage
 @pytest.fixture(autouse=True)
 def clear_model_capabilities_cache():
     _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
-
-
-@pytest.fixture
-def mock_trace():
-    trace_info = TraceInfo(
-        trace_id="test-trace",
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=1234567890,
-        state=TraceState.OK,
-    )
-    return Trace(info=trace_info, data=None)
 
 
 def test_invoke_litellm_basic():
@@ -170,7 +155,7 @@ def test_invoke_litellm_with_gateway_params():
     assert call_kwargs["api_key"] == "mlflow-gateway-auth"
 
 
-def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_direct_provider(mock_trace):
+def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_direct_provider():
     # For direct providers (non-gateway), use token-counting based pruning
     context_error = litellm.ContextWindowExceededError(
         message="Context window exceeded", model="openai/gpt-4", llm_provider="openai"
@@ -198,7 +183,7 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_direct_pro
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="Very long message" * 100)],
-            trace=None,
+            tools=None,
             num_retries=3,
         )
 
@@ -239,7 +224,7 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_pr
             provider="gateway",
             model_name="my-endpoint",
             messages=[ChatMessage(role="user", content="Very long message" * 100)],
-            trace=None,
+            tools=None,
             num_retries=3,
         )
 
@@ -274,12 +259,12 @@ def test_invoke_litellm_and_handle_tools_gateway_context_window_no_tool_calls_to
                 provider="gateway",
                 model_name="my-endpoint",
                 messages=[ChatMessage(role="user", content="Very long message")],
-                trace=None,
+                tools=None,
                 num_retries=3,
             )
 
 
-def test_invoke_litellm_and_handle_tools_integration(mock_trace):
+def test_invoke_litellm_and_handle_tools_integration():
     tool_call_response = ModelResponse(
         choices=[
             {
@@ -304,12 +289,8 @@ def test_invoke_litellm_and_handle_tools_integration(mock_trace):
             "litellm.completion",
             side_effect=[tool_call_response, final_response],
         ) as mock_litellm,
-        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
         mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
     ):
-        mock_tool = mock.Mock()
-        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "test_tool"}
-        mock_list_tools.return_value = [mock_tool]
         mock_invoke.return_value = {"trace_data": "some data"}
 
         from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
@@ -317,8 +298,8 @@ def test_invoke_litellm_and_handle_tools_integration(mock_trace):
         output = _invoke_litellm_and_handle_tools(
             provider="openai",
             model_name="gpt-4",
-            messages=[ChatMessage(role="user", content="Test with trace")],
-            trace=mock_trace,
+            messages=[ChatMessage(role="user", content="Test with tools")],
+            tools=[{"name": "test_tool"}],
             num_retries=3,
         )
 
@@ -353,7 +334,7 @@ def test_gateway_provider_integration():
             provider="gateway",
             model_name="my-endpoint",
             messages=[ChatMessage(role="user", content="Test")],
-            trace=None,
+            tools=None,
             num_retries=3,
         )
 
@@ -375,7 +356,7 @@ def test_gateway_provider_requires_http_tracking_uri():
                 provider="gateway",
                 model_name="my-endpoint",
                 messages=[ChatMessage(role="user", content="Test")],
-                trace=None,
+                tools=None,
                 num_retries=3,
             )
 

@@ -5,7 +5,7 @@ This module provides a tool for retrieving the root span of a trace,
 which contains the top-level inputs and outputs.
 """
 
-from mlflow.entities.trace import Trace
+import mlflow
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.genai.judges.tools.get_span import GetSpanTool
@@ -42,6 +42,10 @@ class GetRootSpanTool(JudgeTool):
                 parameters=ToolParamsSchema(
                     type="object",
                     properties={
+                        "trace_id": {
+                            "type": "string",
+                            "description": "The ID of the MLflow trace to analyze",
+                        },
                         "attributes_to_fetch": {
                             "type": "array",
                             "items": {"type": "string"},
@@ -61,7 +65,7 @@ class GetRootSpanTool(JudgeTool):
                             "description": "Token to retrieve the next page of content",
                         },
                     },
-                    required=[],
+                    required=["trace_id"],
                 ),
             ),
             type="function",
@@ -69,7 +73,7 @@ class GetRootSpanTool(JudgeTool):
 
     def invoke(
         self,
-        trace: Trace,
+        trace_id: str,
         attributes_to_fetch: list[str] | None = None,
         max_content_length: int = 100000,
         page_token: str | None = None,
@@ -78,7 +82,7 @@ class GetRootSpanTool(JudgeTool):
         Get the root span from the trace.
 
         Args:
-            trace: The MLflow trace object to analyze
+            trace_id: The ID of the MLflow trace to analyze
             attributes_to_fetch: List of specific attributes to fetch (None for all)
             max_content_length: Maximum content size in bytes to return
             page_token: Token to retrieve the next page (offset in bytes)
@@ -86,6 +90,7 @@ class GetRootSpanTool(JudgeTool):
         Returns:
             SpanResult with the root span content as JSON string
         """
+        trace = mlflow.get_trace(trace_id)
         if not trace or not trace.data or not trace.data.spans:
             return SpanResult(
                 span_id=None, content=None, content_size_bytes=0, error="Trace has no spans"
@@ -106,5 +111,5 @@ class GetRootSpanTool(JudgeTool):
             )
 
         return GetSpanTool().invoke(
-            trace, root_span_id, attributes_to_fetch, max_content_length, page_token
+            trace_id, root_span_id, attributes_to_fetch, max_content_length, page_token
         )

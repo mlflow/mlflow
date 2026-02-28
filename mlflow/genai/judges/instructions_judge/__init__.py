@@ -518,6 +518,8 @@ class InstructionsJudge(Judge):
                 extract_if_none=self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables,
             )
 
+        is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
+
         conversation = None
         if session is not None and session:
             self._validate_session(session)
@@ -532,8 +534,6 @@ class InstructionsJudge(Judge):
             original_inputs, original_outputs, original_expectations, conversation
         )
 
-        is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
-
         system_content = self._build_system_message(is_trace_based)
         user_content = self._build_user_message(inputs, outputs, expectations, conversation)
 
@@ -546,11 +546,20 @@ class InstructionsJudge(Judge):
 
         response_format = self._create_response_format_model()
 
+        trace_id = trace.info.trace_id if trace is not None else None
+
+        tools = None
+        if is_trace_based and trace is not None:
+            from mlflow.genai.judges.tools.registry import list_judge_tools
+
+            tools = [t.get_definition().to_dict() for t in list_judge_tools()]
+
         return invoke_judge_model(
             model_uri=self._model,
             prompt=messages,
             assessment_name=self.name,
-            trace=trace if is_trace_based else None,
+            trace_id=trace_id,
+            tools=tools,
             response_format=response_format,
             use_case=USE_CASE_AGENTIC_JUDGE,
             inference_params=self._inference_params,

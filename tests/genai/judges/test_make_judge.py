@@ -120,7 +120,8 @@ def mock_invoke_judge_model(monkeypatch):
         model_uri,
         prompt,
         assessment_name,
-        trace=None,
+        trace_id=None,
+        tools=None,
         num_retries=10,
         response_format=None,
         use_case=None,
@@ -135,7 +136,8 @@ def mock_invoke_judge_model(monkeypatch):
                 "model_uri": model_uri,
                 "prompt": prompt,
                 "assessment_name": assessment_name,
-                "trace": trace,
+                "trace_id": trace_id,
+                "tools": tools,
                 "num_retries": num_retries,
                 "response_format": response_format,
                 "use_case": use_case,
@@ -143,8 +145,8 @@ def mock_invoke_judge_model(monkeypatch):
             }
         )
 
-        # Return appropriate Feedback based on whether trace is provided
-        if trace is not None:
+        # Return appropriate Feedback based on whether trace_id is provided
+        if trace_id is not None:
             return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
         else:
             return Feedback(name=assessment_name, value=True, rationale="The response is formal")
@@ -670,7 +672,8 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
         model_uri,
         prompt,
         assessment_name,
-        trace=None,
+        trace_id=None,
+        tools=None,
         num_retries=10,
         response_format=None,
         use_case=None,
@@ -681,7 +684,8 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
                 "model_uri": model_uri,
                 "prompt": prompt,
                 "assessment_name": assessment_name,
-                "trace": trace,
+                "trace_id": trace_id,
+                "tools": tools,
                 "num_retries": num_retries,
                 "response_format": response_format,
                 "use_case": use_case,
@@ -702,7 +706,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
     result = judge(trace=mock_trace)
 
     assert isinstance(result, Feedback)
-    assert captured_args["trace"] == mock_trace
+    assert captured_args["trace_id"] == mock_trace.info.trace_id
     assert captured_args["model_uri"] == "openai:/gpt-4"
     assert captured_args["assessment_name"] == "test_judge"
 
@@ -721,15 +725,15 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
     # These should all work - trace-based judge ignores inputs/outputs
     result1 = judge(trace=mock_trace, inputs={"query": "test"})
     assert isinstance(result1, Feedback)
-    assert captured_args["trace"] == mock_trace
+    assert captured_args["trace_id"] == mock_trace.info.trace_id
 
     result2 = judge(trace=mock_trace, outputs={"answer": "test"})
     assert isinstance(result2, Feedback)
-    assert captured_args["trace"] == mock_trace
+    assert captured_args["trace_id"] == mock_trace.info.trace_id
 
     result3 = judge(trace=mock_trace, expectations={"expected": "test"})
     assert isinstance(result3, Feedback)
-    assert captured_args["trace"] == mock_trace
+    assert captured_args["trace_id"] == mock_trace.info.trace_id
 
 
 def test_call_with_no_inputs_or_outputs():
@@ -1535,7 +1539,8 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
         model_uri,
         prompt,
         assessment_name,
-        trace=None,
+        trace_id=None,
+        tools=None,
         num_retries=10,
         response_format=None,
         use_case=None,
@@ -1694,7 +1699,7 @@ def test_judge_accepts_valid_trace(mock_trace, mock_invoke_judge_model):
 
     result = judge(trace=mock_trace)
     assert isinstance(result, Feedback)
-    assert mock_invoke_judge_model.captured_args["trace"] == mock_trace
+    assert mock_invoke_judge_model.captured_args["trace_id"] == mock_trace.info.trace_id
 
 
 def test_instructions_judge_with_chat_messages():
@@ -2357,7 +2362,7 @@ def test_trace_template_with_expectations_extracts_correctly(mock_invoke_judge_m
     result = judge(trace=trace)
 
     assert result is not None
-    assert mock_invoke_judge_model.captured_args["trace"] == trace
+    assert mock_invoke_judge_model.captured_args["trace_id"] == trace.info.trace_id
 
     prompt = mock_invoke_judge_model.captured_args["prompt"]
     assert isinstance(prompt, list)

@@ -5,7 +5,7 @@ This module provides a tool for retrieving traces from the same session
 to enable multi-turn evaluation capabilities.
 """
 
-from mlflow.entities.trace import Trace
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
@@ -44,6 +44,13 @@ class GetTracesInSession(JudgeTool):
                 parameters=ToolParamsSchema(
                     type="object",
                     properties={
+                        "trace_id": {
+                            "type": "string",
+                            "description": (
+                                "The ID of the current MLflow trace. Used to "
+                                "determine the session context."
+                            ),
+                        },
                         "max_results": {
                             "type": "integer",
                             "description": "Maximum number of traces to return (default: 20)",
@@ -58,7 +65,7 @@ class GetTracesInSession(JudgeTool):
                             ),
                         },
                     },
-                    required=[],
+                    required=["trace_id"],
                 ),
             ),
             type="function",
@@ -66,7 +73,7 @@ class GetTracesInSession(JudgeTool):
 
     def invoke(
         self,
-        trace: Trace,
+        trace_id: str,
         max_results: int = 20,
         order_by: list[str] | None = None,
     ) -> list[JudgeToolTraceInfo]:
@@ -74,7 +81,7 @@ class GetTracesInSession(JudgeTool):
         Retrieve traces from the same session.
 
         Args:
-            trace: The current MLflow trace object
+            trace_id: The ID of the current MLflow trace
             max_results: Maximum number of traces to return
             order_by: List of order by clauses for sorting results
 
@@ -82,8 +89,15 @@ class GetTracesInSession(JudgeTool):
             List of JudgeToolTraceInfo objects containing trace metadata, request, and response
 
         Raises:
-            MlflowException: If session ID is not found or has invalid format
+            MlflowException: If trace not found, session ID is missing, or has invalid format
         """
+        trace = mlflow.get_trace(trace_id)
+        if trace is None:
+            raise MlflowException(
+                f"Trace with ID '{trace_id}' not found",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
 
         if not session_id:
@@ -108,5 +122,8 @@ class GetTracesInSession(JudgeTool):
         )
 
         return SearchTracesTool().invoke(
-            trace=trace, filter_string=filter_string, order_by=order_by, max_results=max_results
+            trace_id=trace_id,
+            filter_string=filter_string,
+            order_by=order_by,
+            max_results=max_results,
         )

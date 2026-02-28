@@ -4,10 +4,6 @@ from unittest import mock
 import litellm
 import pytest
 
-from mlflow.entities.trace import Trace
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import TraceLocation
-from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     _run_databricks_agentic_loop,
@@ -17,17 +13,6 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
 )
 from mlflow.types.llm import ChatMessage
 from mlflow.utils import AttrDict
-
-
-@pytest.fixture
-def mock_trace():
-    trace_info = TraceInfo(
-        trace_id="test-trace",
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=1234567890,
-        state=TraceState.OK,
-    )
-    return Trace(info=trace_info, data=None)
 
 
 @pytest.fixture
@@ -223,7 +208,7 @@ def test_agentic_loop_final_answer_without_tool_calls():
     ) as mock_call:
         result = _run_databricks_agentic_loop(
             messages=messages,
-            trace=None,
+            tools=None,
             on_final_answer=callback,
         )
 
@@ -251,7 +236,7 @@ def test_agentic_loop_forwards_use_case():
     ) as mock_call:
         _run_databricks_agentic_loop(
             messages=[litellm.Message(role="user", content="test")],
-            trace=None,
+            tools=None,
             on_final_answer=lambda content: content,
             use_case="builtin_judge",
         )
@@ -260,7 +245,7 @@ def test_agentic_loop_forwards_use_case():
         assert kwargs["use_case"] == "builtin_judge"
 
 
-def test_agentic_loop_tool_calling_loop(mock_trace):
+def test_agentic_loop_tool_calling_loop():
     # First response has tool calls, second response is final answer
     mock_responses = [
         # First call: LLM requests tool call
@@ -334,7 +319,7 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
 
         result = _run_databricks_agentic_loop(
             messages=messages,
-            trace=mock_trace,
+            tools=[{"name": "get_root_span"}],
             on_final_answer=callback,
         )
 
@@ -348,7 +333,7 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
         assert result == {"result": '{"outputs": "The answer is 42"}'}
 
 
-def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
+def test_agentic_loop_max_iteration_limit(monkeypatch):
     # Always return tool calls (never a final answer)
     mock_response = AttrDict(
         {
@@ -403,7 +388,7 @@ def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
         with pytest.raises(MlflowException, match="iteration limit of 1 exceeded"):
             _run_databricks_agentic_loop(
                 messages=messages,
-                trace=mock_trace,
+                tools=[{"name": "get_root_span"}],
                 on_final_answer=callback,
             )
 

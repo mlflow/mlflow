@@ -78,9 +78,9 @@ class GatewayAdapter(BaseJudgeAdapter):
         return model_provider in _NATIVE_PROVIDERS and isinstance(prompt, str)
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
-        if input_params.trace is not None:
+        if input_params.tools is not None:
             raise MlflowException(
-                "LiteLLM is required for using traces with judges. "
+                "LiteLLM is required for using tools with judges. "
                 "Please install it with `pip install litellm`.",
             )
 

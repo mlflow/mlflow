@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any
 import pydantic
 
 if TYPE_CHECKING:
-    from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
@@ -40,7 +39,8 @@ def invoke_judge_model(
     model_uri: str,
     prompt: str | list["ChatMessage"],
     assessment_name: str,
-    trace: Trace | None = None,
+    trace_id: str | None = None,
+    tools: list[dict[str, Any]] | None = None,
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
     use_case: str | None = None,
@@ -60,7 +60,8 @@ def invoke_judge_model(
         prompt: The prompt to evaluate. Can be a string (single prompt) or
                 a list of ChatMessage objects.
         assessment_name: The name of the assessment.
-        trace: Optional trace object for context.
+        trace_id: Optional trace ID for feedback association.
+        tools: Optional list of tool definitions for tool calling support.
         num_retries: Number of retries on transient failures when using litellm.
         response_format: Optional Pydantic model class for structured output format.
         use_case: The use case for the chat completion. Only applicable when using the
@@ -82,7 +83,8 @@ def invoke_judge_model(
         model_uri=model_uri,
         prompt=prompt,
         assessment_name=assessment_name,
-        trace=trace,
+        trace_id=trace_id,
+        tools=tools,
         num_retries=num_retries,
         response_format=response_format,
         use_case=use_case,
@@ -96,7 +98,6 @@ def invoke_judge_model(
 def _invoke_databricks_structured_output(
     messages: list["ChatMessage"],
     output_schema: type[pydantic.BaseModel],
-    trace: "Trace | None" = None,
 ) -> pydantic.BaseModel:
     """
     Invoke Databricks chat completions for structured output extraction.
@@ -107,8 +108,6 @@ def _invoke_databricks_structured_output(
     Args:
         messages: List of ChatMessage objects for the conversation.
         output_schema: Pydantic model class defining the expected output structure.
-        trace: Optional trace object for context. When provided, enables tool
-               calling to examine trace spans.
 
     Returns:
         Instance of output_schema with the structured data from the LLM.
@@ -153,14 +152,14 @@ def _invoke_databricks_structured_output(
                 f"Response does not match expected schema: {e}\n\nResponse: {content}"
             ) from e
 
-    return _run_databricks_agentic_loop(litellm_messages, trace, parse_structured_output)
+    return _run_databricks_agentic_loop(litellm_messages, None, parse_structured_output)
 
 
 def get_chat_completions_with_structured_output(
     model_uri: str,
     messages: list["ChatMessage"],
     output_schema: type[pydantic.BaseModel],
-    trace: Trace | None = None,
+    tools: list[dict[str, Any]] | None = None,
     num_retries: int = 10,
     inference_params: dict[str, Any] | None = None,
 ) -> pydantic.BaseModel:
@@ -168,7 +167,7 @@ def get_chat_completions_with_structured_output(
     Get chat completions from an LLM with structured output conforming to a Pydantic schema.
 
     This function invokes an LLM and ensures the response matches the provided Pydantic schema.
-    When a trace is provided, the LLM can use tool calling to examine trace spans.
+    When tools are provided, the LLM can use tool calling to examine trace spans.
 
     Args:
         model_uri: The model URI (e.g., "openai:/gpt-4", "anthropic:/claude-3",
@@ -176,8 +175,7 @@ def get_chat_completions_with_structured_output(
         messages: List of ChatMessage objects for the conversation with the LLM.
         output_schema: Pydantic model class defining the expected output structure.
                        The LLM will be instructed to return data matching this schema.
-        trace: Optional trace object for context. When provided, enables tool
-               calling to examine trace spans.
+        tools: Optional list of tool definitions for tool calling support.
         num_retries: Number of retries on transient failures. Defaults to 10 with
                      exponential backoff.
         inference_params: Optional dictionary of inference parameters to pass to the
@@ -204,8 +202,6 @@ def get_chat_completions_with_structured_output(
                 outputs: str = Field(description="The system's final response")
 
 
-            # Extract fields from a trace where root span lacks input/output
-            # but nested spans contain the actual data
             result = get_chat_completions_with_structured_output(
                 model_uri="openai:/gpt-4",
                 messages=[
@@ -213,14 +209,13 @@ def get_chat_completions_with_structured_output(
                     ChatMessage(role="user", content="Find the inputs and outputs"),
                 ],
                 output_schema=FieldExtraction,
-                trace=trace,  # Trace with nested spans containing actual data
             )
-            print(result.inputs)  # Extracted from inner span
-            print(result.outputs)  # Extracted from inner span
+            print(result.inputs)
+            print(result.outputs)
     """
     # Handle Databricks default judge model
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
-        return _invoke_databricks_structured_output(messages, output_schema, trace)
+        return _invoke_databricks_structured_output(messages, output_schema)
 
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
@@ -234,7 +229,7 @@ def get_chat_completions_with_structured_output(
         provider=model_provider,
         model_name=model_name,
         messages=messages,
-        trace=trace,
+        tools=tools,
         num_retries=num_retries,
         response_format=output_schema,
         inference_params=inference_params,

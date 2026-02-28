@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar
 if TYPE_CHECKING:
     import litellm
 
-    from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage, ToolDefinition
 
 T = TypeVar("T")  # Generic type for agentic loop return value
@@ -132,7 +131,7 @@ def call_chat_completions(
 def _parse_databricks_judge_response(
     llm_output: str | None,
     assessment_name: str,
-    trace: "Trace | None" = None,
+    trace_id: str | None = None,
 ) -> Feedback:
     """
     Parse the response from Databricks judge into a Feedback object.
@@ -140,7 +139,7 @@ def _parse_databricks_judge_response(
     Args:
         llm_output: Raw output from the LLM, or None if no response.
         assessment_name: Name of the assessment.
-        trace: Optional trace object to associate with the feedback.
+        trace_id: Optional trace ID to associate with the feedback.
 
     Returns:
         Feedback object with parsed results or error.
@@ -148,7 +147,6 @@ def _parse_databricks_judge_response(
     source = AssessmentSource(
         source_type=AssessmentSourceType.LLM_JUDGE, source_id=_DATABRICKS_DEFAULT_JUDGE_MODEL
     )
-    trace_id = trace.info.trace_id if trace else None
 
     if not llm_output:
         return Feedback(
@@ -243,7 +241,7 @@ def create_litellm_message_from_databricks_response(
 
 def _run_databricks_agentic_loop(
     messages: list["litellm.Message"],
-    trace: "Trace | None",
+    tools: list[dict[str, Any]] | None,
     on_final_answer: Callable[[str | None], T],
     use_case: str | None = None,
 ) -> T:
@@ -256,10 +254,11 @@ def _run_databricks_agentic_loop(
 
     Args:
         messages: Initial litellm Message objects for the conversation.
-        trace: Optional trace for tool calling. If provided, enables tool use.
+        tools: Optional list of tool definitions for tool calling support.
         on_final_answer: Callback to process the final LLM response content.
             Receives the content string (or None if empty) and should return
             the appropriate result type or raise an exception.
+        use_case: Optional use case for the chat completion.
 
     Returns:
         Result from on_final_answer callback.
@@ -267,12 +266,6 @@ def _run_databricks_agentic_loop(
     Raises:
         MlflowException: If max iterations exceeded or other errors occur.
     """
-    tools = None
-    if trace is not None:
-        from mlflow.genai.judges.tools import list_judge_tools
-
-        tools = [tool.get_definition() for tool in list_judge_tools()]
-
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
     iteration_count = 0
 
@@ -315,7 +308,6 @@ def _run_databricks_agentic_loop(
             messages.append(message)
             tool_response_messages = _process_tool_calls(
                 tool_calls=message.tool_calls,
-                trace=trace,
             )
             messages.extend(tool_response_messages)
         except Exception:
@@ -326,19 +318,16 @@ def _run_databricks_agentic_loop(
 def _invoke_databricks_default_judge(
     prompt: str | list["ChatMessage"],
     assessment_name: str,
-    trace: "Trace | None" = None,
+    trace_id: str | None = None,
     use_case: str | None = None,
 ) -> Feedback:
     """
     Invoke the Databricks default judge with agentic tool calling support.
 
-    When a trace is provided, enables an agentic loop where the judge can iteratively
-    call tools to analyze the trace data before producing a final assessment.
-
     Args:
         prompt: The formatted prompt with template variables filled in.
         assessment_name: The name of the assessment.
-        trace: Optional trace object for tool-based analysis.
+        trace_id: Optional trace ID for feedback association.
         use_case: The use case for the chat completion. Only used if supported by the
             installed databricks-agents version.
 
@@ -357,11 +346,16 @@ def _invoke_databricks_default_judge(
         else:
             messages = [litellm.Message(role=msg.role, content=msg.content) for msg in prompt]
 
-        # Define callback to parse final answer into Feedback
-        def parse_judge_response(content: str | None) -> Feedback:
-            return _parse_databricks_judge_response(content, assessment_name, trace)
+        tools = None
+        if trace_id is not None:
+            from mlflow.genai.judges.tools import list_judge_tools
 
-        return _run_databricks_agentic_loop(messages, trace, parse_judge_response, use_case)
+            tools = [tool.get_definition() for tool in list_judge_tools()]
+
+        def parse_judge_response(content: str | None) -> Feedback:
+            return _parse_databricks_judge_response(content, assessment_name, trace_id)
+
+        return _run_databricks_agentic_loop(messages, tools, parse_judge_response, use_case)
 
     except Exception as e:
         _logger.debug(f"Failed to invoke Databricks judge: {e}", exc_info=True)
@@ -372,7 +366,7 @@ def _invoke_databricks_default_judge(
                 source_type=AssessmentSourceType.LLM_JUDGE,
                 source_id=_DATABRICKS_DEFAULT_JUDGE_MODEL,
             ),
-            trace_id=trace.info.trace_id if trace else None,
+            trace_id=trace_id,
         )
 
 
@@ -391,7 +385,7 @@ class DatabricksManagedJudgeAdapter(BaseJudgeAdapter):
         feedback = _invoke_databricks_default_judge(
             prompt=input_params.prompt,
             assessment_name=input_params.assessment_name,
-            trace=input_params.trace,
+            trace_id=input_params.trace_id,
             use_case=input_params.use_case,
         )
         return AdapterInvocationOutput(feedback=feedback)
