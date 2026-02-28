@@ -678,13 +678,7 @@ class Model:
         model metadata.
         """
         if logged_model is None and self.model_id is not None:
-            try:
-                logged_model = mlflow.get_logged_model(model_id=self.model_id)
-            except MlflowException as e:
-                if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                    raise
-                # model_id may belong to a different workspace (e.g. during cross-workspace
-                # model version copy). Proceed without the logged model.
+            logged_model = mlflow.get_logged_model(model_id=self.model_id)
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
