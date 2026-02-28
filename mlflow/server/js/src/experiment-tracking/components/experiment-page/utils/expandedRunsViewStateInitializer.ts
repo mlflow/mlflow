@@ -22,7 +22,7 @@ export const expandedEvaluationRunRowsUIStateInitializer = (
   const parentIdsOfEvaluationRunIds = compact(
     runsData.runInfos.map(
       ({ runUuid }, index) =>
-        evaluationRunIds.includes(runUuid) && runsData.tagsList[index]?.[EXPERIMENT_PARENT_ID_TAG].value,
+        evaluationRunIds.includes(runUuid) && runsData.tagsList[index]?.[EXPERIMENT_PARENT_ID_TAG]?.value,
     ),
   );
 

@@ -388,6 +388,8 @@ export const GenAiTracesTableBody = React.memo(
     const tableHeaderGroups = table.getHeaderGroups();
     const columnSizingInfo = table.getState().columnSizingInfo;
 
+    const columnSizeInfo = table.getState().columnSizingInfo;
+
     /**
      * Instead of calling `column.getSize()` on every render for every header
      * and especially every data cell (very expensive),

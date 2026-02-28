@@ -84,11 +84,8 @@ describe('ExperimentGenAIOverviewPage', () => {
     it('should render the control bar with time range and time unit selectors', async () => {
       renderComponent();
 
-      await waitFor(() => {
-        // Both time range and time unit selectors should be present
-        const comboboxes = screen.getAllByRole('combobox');
-        expect(comboboxes.length).toBeGreaterThanOrEqual(2);
-      });
+      expect(await screen.findByTestId('time-unit-select-dropdown')).toBeInTheDocument();
+      expect(await screen.findByTestId('time-range-select-dropdown')).toBeInTheDocument();
     });
 
     it('should have proper container structure', async () => {

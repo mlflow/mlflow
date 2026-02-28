@@ -91,10 +91,6 @@
     "defaultMessage": "Optimize prompts",
     "description": "Home page news card title two"
   },
-  "+fb25b": {
-    "defaultMessage": "Time created",
-    "description": "Label for the start time select dropdown for experiment runs view"
-  },
   "+gqcru": {
     "defaultMessage": "System",
     "description": "Display text for the 'system' role in a GenAI chat message."
@@ -1350,6 +1346,10 @@
     "defaultMessage": "Auto",
     "description": "Runs charts > line chart > display points > auto setting label"
   },
+  "7o1ly+": {
+    "defaultMessage": "Time",
+    "description": "Label for the time range select dropdown"
+  },
   "7pRcdg": {
     "defaultMessage": "Edit description",
     "description": "Label for the edit description button on the logged models details page"
@@ -1921,10 +1921,6 @@
   "BFzsMn": {
     "defaultMessage": "No runs selected",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > title"
-  },
-  "BJvcsS": {
-    "defaultMessage": "Time Range",
-    "description": "Label for the start range select dropdown for experiment runs view"
   },
   "BMUd0e": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
@@ -4000,6 +3996,10 @@
   "RCjxf0": {
     "defaultMessage": "Compare runs",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > title"
+  },
+  "RDg+Pl": {
+    "defaultMessage": "Time",
+    "description": "Label for the time select dropdown for experiment runs view"
   },
   "RGKRP9": {
     "defaultMessage": "Feedback",
@@ -7962,6 +7962,10 @@
   "s35HDG": {
     "defaultMessage": "Used by {runNames} {hasMore, select, true {and other runs} other {}}",
     "description": "Experiment page > artifact compare view > label indicating which runs are using particular input field"
+  },
+  "s4TBi3": {
+    "defaultMessage": "Columns",
+    "description": "Evaluation review > evaluations list > column selector button"
   },
   "s5ygFF": {
     "defaultMessage": "Download as PNG",
