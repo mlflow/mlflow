@@ -1,2 +1,2 @@
-/home/runner/work/mlflow/mlflow
+mlflow
 scikit-learn==1.4.2
