@@ -29,6 +29,8 @@ def _invoke_via_gateway(
     provider: str,
     prompt: str,
     inference_params: dict[str, Any] | None = None,
+    base_url: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> str:
     """
     Invoke the judge model via native AI Gateway adapters.
@@ -39,6 +41,9 @@ def _invoke_via_gateway(
         prompt: The prompt to evaluate.
         inference_params: Optional dictionary of inference parameters to pass to the
             model (e.g., temperature, top_p, max_tokens).
+        base_url: Optional base URL to route requests through.
+        extra_headers: Optional dictionary of additional HTTP headers to include
+            in requests to the LLM provider.
 
     Returns:
         The JSON response string from the model.
@@ -59,6 +64,8 @@ def _invoke_via_gateway(
         model_uri=model_uri,
         payload=prompt,
         eval_parameters=inference_params,
+        extra_headers=extra_headers,
+        proxy_url=base_url,
         endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
     )
 
@@ -96,6 +103,8 @@ class GatewayAdapter(BaseJudgeAdapter):
             input_params.model_provider,
             input_params.prompt,
             input_params.inference_params,
+            input_params.base_url,
+            input_params.extra_headers,
         )
 
         cleaned_response = _strip_markdown_code_blocks(response)

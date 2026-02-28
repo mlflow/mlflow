@@ -635,3 +635,118 @@ def test_list_scorers_env_var_still_works(runner, experiment, monkeypatch):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_ID", experiment)
     result = runner.invoke(commands, ["list"])
     assert result.exit_code == 0
+
+
+def test_create_judge_with_base_url(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "proxy_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--model",
+            "openai:/gpt-4",
+            "--base-url",
+            "http://my-proxy:8080/v1",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    # base_url is not persisted, so the registered judge won't have it
+    scorers = list_scorers(experiment_id=experiment)
+    assert any(s.name == "proxy_judge" for s in scorers)
+
+
+def test_create_judge_with_extra_headers(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "headers_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--model",
+            "openai:/gpt-4",
+            "--extra-headers",
+            '{"X-Api-Key": "secret", "X-Org": "my-org"}',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    scorers = list_scorers(experiment_id=experiment)
+    assert any(s.name == "headers_judge" for s in scorers)
+
+
+def test_create_judge_with_base_url_and_extra_headers(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "full_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--model",
+            "openai:/gpt-4",
+            "--base-url",
+            "http://proxy:9090",
+            "--extra-headers",
+            '{"Authorization": "Bearer token"}',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+
+def test_create_judge_invalid_extra_headers_json(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "bad_json_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--extra-headers",
+            "not valid json",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "must be valid JSON" in result.output
+
+
+def test_create_judge_extra_headers_not_dict(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "array_headers_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--extra-headers",
+            '["not", "a", "dict"]',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "must be a JSON object" in result.output

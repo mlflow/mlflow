@@ -10,6 +10,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    DatabricksManagedJudgeAdapter,
     _run_databricks_agentic_loop,
     call_chat_completions,
     create_litellm_message_from_databricks_response,
@@ -692,3 +693,29 @@ def test_create_litellm_message_from_databricks_response_with_multiple_tool_call
 def test_create_litellm_message_from_databricks_response_errors(response_data, expected_error):
     with pytest.raises(ValueError, match=expected_error):
         create_litellm_message_from_databricks_response(response_data)
+
+
+@pytest.mark.parametrize(
+    ("base_url", "extra_headers"),
+    [
+        ("http://proxy:8080", None),
+        (None, {"X-Key": "val"}),
+        ("http://proxy:8080", {"X-Key": "val"}),
+    ],
+)
+def test_databricks_managed_adapter_rejects_base_url_and_extra_headers(base_url, extra_headers):
+    from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
+
+    adapter = DatabricksManagedJudgeAdapter()
+    input_params = AdapterInvocationInput(
+        prompt="test prompt",
+        assessment_name="test",
+        model_uri="databricks",
+        trace=None,
+        num_retries=3,
+        base_url=base_url,
+        extra_headers=extra_headers,
+    )
+
+    with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
+        adapter.invoke(input_params)
