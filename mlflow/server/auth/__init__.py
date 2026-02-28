@@ -560,7 +560,9 @@ _EXPERIMENT_ID_PATTERN = re.compile(r"^(\d+)/")
 
 
 def _get_experiment_id_from_view_args():
-    if artifact_path := request.view_args.get("artifact_path"):
+    # For download/upload/delete endpoints, artifact_path is a URL path parameter.
+    # For list/delete endpoints, the path is a query parameter named "path".
+    if artifact_path := (request.view_args.get("artifact_path") or request.args.get("path")):
         if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
             return m.group(1)
     return None
