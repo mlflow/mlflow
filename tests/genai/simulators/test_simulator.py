@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.simulators import (
     BaseSimulatedUserAgent,
@@ -912,7 +913,7 @@ def test_conversation_simulator_rejects_both_input_and_messages(simple_test_case
 
     simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
 
-    with pytest.raises(Exception, match="cannot have both 'messages' and 'input' parameters"):
+    with pytest.raises(MlflowException, match="cannot have both 'messages' and 'input' parameters"):
         simulator.simulate(invalid_predict_fn)
 
 
@@ -926,7 +927,7 @@ def test_conversation_simulator_rejects_neither_input_nor_messages(
 
     simulator = ConversationSimulator(test_cases=[simple_test_case], max_turns=1)
 
-    with pytest.raises(Exception, match="must accept either 'messages' or 'input'"):
+    with pytest.raises(MlflowException, match="must accept either 'messages' or 'input'"):
         simulator.simulate(invalid_predict_fn)
 
 
