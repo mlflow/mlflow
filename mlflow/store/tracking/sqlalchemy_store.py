@@ -15,6 +15,7 @@ from pathlib import PurePath
 from typing import Any, TypedDict, TypeVar
 from urllib.parse import urlparse
 
+import click
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
@@ -356,12 +357,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .first()
             )
             if workspace_scoped_experiment:
-                raise MlflowException(
-                    "Cannot disable workspaces because experiments exist outside the default "
-                    "workspace (i.e., assigned to non-default workspaces). Enable workspace "
-                    "support (MLFLOW_ENABLE_WORKSPACES=true) or move those experiments back to the "
-                    "default workspace before starting the tracking store in single-tenant mode.",
-                    error_code=INVALID_STATE,
+                click.confirm(
+                    "Experiments exist outside the default workspace (i.e., assigned to "
+                    "non-default workspaces). Starting the tracking store in single-tenant mode "
+                    "may cause these experiments to become inaccessible. Consider enabling "
+                    "workspace support (MLFLOW_ENABLE_WORKSPACES=true) or moving those "
+                    "experiments back to the default workspace.\n"
+                    "Do you want to proceed anyway?",
+                    default=False,
+                    abort=True,
                 )
 
         try:
