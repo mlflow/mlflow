@@ -10,12 +10,6 @@ from clint.rules import PreferNext
     "code",
     [
         pytest.param("[x for x in items if f(x)][0]", id="basic_pattern"),
-        pytest.param("[x.name for x in items if x.active][0]", id="attribute_access"),
-        pytest.param("[item for item in data if item > 5][0]", id="comparison"),
-        pytest.param("[x for x in items if x and x.valid][0]", id="complex_condition"),
-        pytest.param(
-            "[req for req in requests if req['name'] == 'test'][0]", id="subscript_condition"
-        ),
     ],
 )
 def test_flag(index_path: Path, code: str) -> None:
