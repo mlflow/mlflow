@@ -1,3 +1,4 @@
+name: virtualenv-conda
 channels:
   - conda-forge
 dependencies:
@@ -5,6 +6,5 @@ dependencies:
   - numpy
   - pip
   - pip:
+      - mlflow
       - scikit-learn==1.4.2
-      - /home/runner/work/mlflow/mlflow
-name: virtualenv-conda
