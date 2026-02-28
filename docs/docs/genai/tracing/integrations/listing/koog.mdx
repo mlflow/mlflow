@@ -58,6 +58,8 @@ mlflow experiments create --experiment-name "koog-agent-traces"
 
 Run your Koog agent, then open the MLflow UI at `http://localhost:5000` and navigate to the **Traces** tab to see detailed execution spans, including agent lifecycle events, LLM calls, and tool executions.
 
+![Koog Tracing](/images/llms/tracing/koog-tracing.png)
+
 ## Enable Verbose Tracing
 
 By default, Koog masks span content for security. To include full prompts and responses in MLflow traces, enable verbose mode and optionally set service info:
