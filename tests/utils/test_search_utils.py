@@ -264,6 +264,12 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         ("datasets.name = 'name1' AND datasets.digest = 'digest2'", []),
         ("datasets.context = 'train'", [0]),
         ("datasets.name = 'name1' AND datasets.context = 'train'", [0]),
+        # RLIKE (regex) comparator tests
+        ("params.my_param RLIKE '^A$'", [0, 1]),
+        ("params.my_param RLIKE 'A|B'", [0, 1, 2]),
+        ("tags.tag1 RLIKE '[CD]'", [1, 2]),
+        ("attributes.status RLIKE 'FAIL'", [0, 2]),
+        ("datasets.name RLIKE 'name[12]'", [0, 1, 2]),
     ],
 )
 def test_correct_filtering(filter_string, matching_runs):
