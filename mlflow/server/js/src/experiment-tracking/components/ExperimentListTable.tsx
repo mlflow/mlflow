@@ -88,7 +88,13 @@ const useExperimentsTableColumns = () => {
           description: 'Header for the description column in the experiments table',
         }),
         id: 'description',
-        accessorFn: ({ tags }) => tags?.find(({ key }) => key === 'mlflow.note.content')?.value ?? '-',
+        accessorFn: ({ tags }) => {
+          const value = tags?.find(({ key }) => key === 'mlflow.note.content')?.value;
+          if (!value) return '-';
+          // Strip HTML tags from the value
+          const stripped = value.replace(/<[^>]*>/g, '').trim();
+          return stripped || '-';
+        },
         enableSorting: false,
       },
       {
