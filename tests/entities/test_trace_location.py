@@ -6,6 +6,7 @@ from mlflow.entities.trace_location import (
     TraceLocation,
     TraceLocationType,
     UCSchemaLocation,
+    UnityCatalog,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2 as pb
@@ -31,7 +32,10 @@ def test_trace_location():
 
     with pytest.raises(
         MlflowException,
-        match="Only one of mlflow_experiment, inference_table, or uc_schema can be provided",
+        match=(
+            "Only one of mlflow_experiment, inference_table, uc_schema, "
+            "or uc_table_prefix can be provided"
+        ),
     ):
         TraceLocation(
             type=TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED,
@@ -66,6 +70,14 @@ def test_trace_location_mismatch():
             uc_schema=UCSchemaLocation(catalog_name="a", schema_name="b"),
         )
 
+    with pytest.raises(
+        MlflowException, match="Trace location .+ does not match the provided location"
+    ):
+        TraceLocation(
+            type=TraceLocationType.INFERENCE_TABLE,
+            uc_table_prefix=UnityCatalog(catalog_name="a", schema_name="b", table_prefix="p"),
+        )
+
 
 def test_trace_location_from_v4_proto_mlflow_experiment():
     proto = pb.TraceLocation(
@@ -96,3 +108,33 @@ def test_uc_schema_location_full_otel_spans_table_name():
     )
     uc_schema._otel_spans_table_name = "otel_spans"
     assert uc_schema.full_otel_spans_table_name == "test_catalog.test_schema.otel_spans"
+
+
+def test_uc_schema_location_round_trip():
+    uc_schema = UCSchemaLocation(
+        catalog_name="test_catalog",
+        schema_name="test_schema",
+    )
+    assert uc_schema.schema_location == "test_catalog.test_schema"
+    assert UCSchemaLocation.from_dict(uc_schema.to_dict()) == uc_schema
+
+
+def test_unity_catalog_requires_table_prefix():
+    with pytest.raises(TypeError, match="table_prefix"):
+        UnityCatalog(catalog_name="catalog", schema_name="schema")
+
+
+def test_unity_catalog_factory_for_table_prefix():
+    location = UnityCatalog(catalog_name="catalog", schema_name="schema", table_prefix="pref")
+    assert isinstance(location, UnityCatalog)
+    assert location.full_table_prefix == "catalog.schema.pref"
+
+
+def test_uc_table_prefix_location_round_trip():
+    location = UnityCatalog(
+        catalog_name="catalog",
+        schema_name="schema",
+        table_prefix="prefix",
+    )
+    assert location.full_table_prefix == "catalog.schema.prefix"
+    assert UnityCatalog.from_dict(location.to_dict()) == location
