@@ -249,6 +249,14 @@ _DATABRICKS_VERSION_FILE_PATH = "/databricks/DBR_VERSION"
 
 
 def get_databricks_runtime_version():
+    # DATABRICKS_ENV_VERSION is set for serverless clusters with the major version (e.g. 4).
+    # Use it over DATABRICKS_RUNTIME_VERSION (which includes the minor version) if present.
+    if env_version := os.environ.get("DATABRICKS_ENV_VERSION"):
+        version = f"client.{env_version}"
+        # DATABRICKS_ACCELERATOR is set for serverless GPU clusters.
+        if os.environ.get("DATABRICKS_ACCELERATOR"):
+            version += "-gpu"
+        return version
     if ver := os.environ.get("DATABRICKS_RUNTIME_VERSION"):
         return ver
     if os.path.exists(_DATABRICKS_VERSION_FILE_PATH):
