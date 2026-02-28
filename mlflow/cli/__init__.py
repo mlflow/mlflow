@@ -862,6 +862,15 @@ def _gc_tracking_resources(
                     fg="yellow",
                 ),
             )
+        except MlflowException as e:
+            click.echo(
+                click.style(
+                    f"Failed to delete artifacts for run {run_id}: {e}. "
+                    "The artifact directory may not exist (e.g., the run had no logged artifacts). "
+                    "Continuing with metadata deletion.",
+                    fg="yellow",
+                )
+            )       
 
         backend_store._hard_delete_run(run_id)
         click.echo(f"Run with ID {run_id} has been permanently deleted.")
@@ -882,6 +891,7 @@ def _gc_tracking_resources(
                     f"Logged model {model_id} is not in `deleted` lifecycle stage. "
                     "Only logged models in `deleted` lifecycle stage can be deleted."
                 )
+
             if older_than and model_id not in deleted_logged_model_ids_older_than:
                 raise MlflowException(
                     f"Logged model {model_id} is not older than the required age. "
@@ -906,6 +916,15 @@ def _gc_tracking_resources(
                         "and consider manually deleting any unused artifacts. ",
                         fg="yellow",
                     ),
+                )
+            except MlflowException as e:
+                click.echo(
+                    click.style(
+                        f"Failed to delete artifacts for model {model_id}: {e}. "
+                        "The artifact directory may not exist (e.g., the run had no logged artifacts). "
+                        "Continuing with metadata deletion.",
+                        fg="yellow",
+                    )
                 )
             backend_store._hard_delete_logged_model(model_id)
             click.echo(f"Logged model with ID {model_id} has been permanently deleted.")
