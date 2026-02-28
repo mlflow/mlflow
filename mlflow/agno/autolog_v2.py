@@ -9,7 +9,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
+from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, build_otlp_headers
 
 _logger = logging.getLogger(__name__)
 _agno_instrumentor = None
@@ -63,7 +63,7 @@ def _setup_otel_instrumentation() -> None:
         experiment_id = _get_experiment_id()
 
         exporter = OTLPSpanExporter(
-            endpoint=endpoint, headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id}
+            endpoint=endpoint, headers=build_otlp_headers(experiment_id)
         )
 
         tracer_provider = trace.get_tracer_provider()

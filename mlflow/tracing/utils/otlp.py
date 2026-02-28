@@ -1,3 +1,4 @@
+import base64
 import gzip
 import os
 import zlib
@@ -8,7 +9,7 @@ from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoRe
 from opentelemetry.sdk.resources import Resource as OTelResource
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER
+from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER, MLFLOW_TRACKING_TOKEN
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
@@ -16,6 +17,38 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 MLFLOW_EXPERIMENT_ID_HEADER = "x-mlflow-experiment-id"
 OTLP_TRACES_PATH = "/v1/traces"
 OTLP_METRICS_PATH = "/v1/metrics"
+
+
+def build_otlp_headers(experiment_id: str) -> dict[str, str]:
+    """Build OTLP exporter headers including authentication credentials.
+
+    Reads tracking credentials from the MLflow credential system (environment
+    variables and ``~/.mlflow/credentials``) and returns a header dict suitable
+    for ``OTLPSpanExporter(headers=...)``.
+
+    Supports Bearer token (preferred) and Basic username/password auth.
+
+    Args:
+        experiment_id: The MLflow experiment ID to include in the headers.
+
+    Returns:
+        A dict of HTTP headers.
+    """
+    from mlflow.utils.credentials import read_mlflow_creds
+
+    headers: dict[str, str] = {MLFLOW_EXPERIMENT_ID_HEADER: experiment_id}
+
+    token = MLFLOW_TRACKING_TOKEN.get()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+        return headers
+
+    creds = read_mlflow_creds()
+    if creds.username and creds.password:
+        encoded = base64.b64encode(f"{creds.username}:{creds.password}".encode()).decode()
+        headers["Authorization"] = f"Basic {encoded}"
+
+    return headers
 
 
 def should_use_otlp_exporter() -> bool:

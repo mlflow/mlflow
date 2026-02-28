@@ -27,7 +27,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
-from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
+from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH, build_otlp_headers
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.safety import _AUTOLOGGING_CLEANUP_CALLBACKS
@@ -122,7 +122,7 @@ def setup_otel_processor(batch: bool | None = None) -> None:
 
     exporter = OTLPSpanExporter(
         endpoint=endpoint,
-        headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id},
+        headers=build_otlp_headers(experiment_id),
     )
 
     inner = BatchSpanProcessor(exporter) if batch else SimpleSpanProcessor(exporter)
