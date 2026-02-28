@@ -71,31 +71,41 @@ Then in Okta account sidebar menu: Actions -> Triggers -> Sign up & Login: post-
 Use the following commands to deploy the MLflow server with the OIDC plugin, note that we need to set a couple of environment variables correctly.
 
 ```bash
-pip install "mlflow-oidc-auth[full]"
+pip install 'mlflow-oidc-auth[full]'
+```
 
 # The ${Domain} is the domain value that you can view on the Okta application's basic information page.
+
 export OIDC_DISCOVERY_URL="https://${Domain}/.well-known/openid-configuration"
 
 # You can view the OIDC_CLIENT_ID and OIDC_CLIENT_SECRET values on the Okta application's basic information page.
+
 export OIDC_CLIENT_ID=...
 export OIDC_CLIENT_SECRET=...
 
 # this is the callback URL that is configured for the Okta application.
+
 export OIDC_REDIRECT_URI="http://127.0.0.1:8080/callback"
 
 # this must match the key used in the Okta post-login trigger action "api.idToken.setCustomClaim"
+
 export OIDC_GROUPS_ATTRIBUTE="urn:mlflow:groups"
 
 # NOTE: OAuth 2.0 and OIDC define the scope parameter as a space-separated list of scope values
+
 export OIDC_SCOPE="openid profile email"
 
 # Set a stable, secret value (e.g. 32+ random characters) and keep it the same across restarts and replicas.
+
 # If you don't set it, the app will use an auto-generated key that changes on server restart / UI page reloading
+
 # and breaks sessions.
+
 export SECRET_KEY="your-stable-secret-at-least-32-chars-long"
 
 mlflow server --app-name oidc-auth --host 0.0.0.0 --port 8080
-```
+
+````
 
 Then you can open URL "http://127.0.0.1:8080/" and it will jump to the OIDC login page, use your Okta account to log in, after login, it will jump to the OIDC permission configuration page as follows:
 
@@ -120,7 +130,7 @@ Then set the credentials for basic auth to environment variables:
 export MLFLOW_TRACKING_USERNAME=...
 # set the `MLFLOW_TRACKING_PASSWORD` to the access token that is generated on the OIDC user permission page.
 export MLFLOW_TRACKING_PASSWORD=...
-```
+````
 
 then, in MLflow client side, you can run code as follows:
 
