@@ -72,7 +72,7 @@ The Production Tracing SDK works with various observability platforms. Choose yo
           In self-hosting mode, you will be responsible for running the tracking server instance and scaling it to your needs. We **strongly recommend** using a SQL-based tracking server on top of a performant database to minimize operational overhead and ensure high availability.
 
           **Setup Steps:**
-          1. Install MLflow server: `pip install mlflow[extras]`
+          1. Install MLflow server: `pip install 'mlflow[extras]'`
           2. Configure backend store (PostgreSQL/MySQL recommended)
           3. Configure artifact store (S3, Azure Blob, GCS, etc.)
           4. Start server: `mlflow server --backend-store-uri postgresql://... --default-artifact-root s3://...`
