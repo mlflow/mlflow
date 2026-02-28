@@ -2,7 +2,7 @@ import { HoverCard, Tag, Typography, useDesignSystemTheme } from '@databricks/de
 import { aggregateStringAssessments } from '../utils/SessionAggregationUtils';
 import type { AssessmentInfo } from '../types';
 import { FormattedMessage } from '@databricks/i18n';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 import { NullCell } from './NullCell';
 
 export const SessionHeaderStringAggregatedCell = ({

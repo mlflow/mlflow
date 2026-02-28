@@ -119,10 +119,6 @@
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
   },
-  "+li9YN": {
-    "defaultMessage": "Provider",
-    "description": "Provider selection label"
-  },
   "+mAXPc": {
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
@@ -350,6 +346,10 @@
   "0M7VVC": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
+  },
+  "0QTEQi": {
+    "defaultMessage": "Usage",
+    "description": "Tab label for usage charts"
   },
   "0Qu0bD": {
     "defaultMessage": "Endpoints",
@@ -615,6 +615,10 @@
     "defaultMessage": "10",
     "description": "Label for 10 first runs visible in run count selector within runs compare configuration modal"
   },
+  "2N2M5a": {
+    "defaultMessage": "Response",
+    "description": "Response body label"
+  },
   "2NJ8E5": {
     "defaultMessage": "Please select parameters and/or metrics to display the comparison.",
     "description": "Explanation displayed in the metrics and params compare plot when no values are selected"
@@ -749,6 +753,10 @@
   "3bagxW": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search models"
+  },
+  "3cn8ue": {
+    "defaultMessage": "Sending...",
+    "description": "Send request button loading state"
   },
   "3geT+I": {
     "defaultMessage": "Use the log artifact APIs to store file outputs from MLflow runs.",
@@ -1786,6 +1794,10 @@
     "defaultMessage": "Edit Endpoint Name",
     "description": "Title for edit endpoint name modal"
   },
+  "AbCFL2": {
+    "defaultMessage": "Response from the endpoint after clicking Send request.",
+    "description": "Response body tooltip"
+  },
   "AdlJNW": {
     "defaultMessage": "Assessment Name",
     "description": "Field label for assessment name in a creation form"
@@ -2054,6 +2066,10 @@
     "defaultMessage": "Next",
     "description": "Evaluation review > assessments > next button"
   },
+  "CDBd4J": {
+    "defaultMessage": "Unified API",
+    "description": "Unified API variant label"
+  },
   "CDOfWP": {
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
@@ -2285,6 +2301,10 @@
   "EBwDIg": {
     "defaultMessage": "Delete",
     "description": "Delete evaluation runs modal button text"
+  },
+  "ECjBf5": {
+    "defaultMessage": "Edit the request body below and click Send request to call the endpoint.",
+    "description": "Try it description for unified"
   },
   "ED1+Xu": {
     "defaultMessage": "Prompts & versions",
@@ -4568,6 +4588,10 @@
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
   },
+  "VHuRTt": {
+    "defaultMessage": "Doc",
+    "description": "Label for the document preview in a chunk relevance assessment"
+  },
   "VMTV4I": {
     "defaultMessage": "Getting Started",
     "description": "Home page features section title"
@@ -4963,10 +4987,6 @@
     "defaultMessage": "Endpoint name is required",
     "description": "Error message when endpoint name is empty"
   },
-  "Y7AIKR": {
-    "defaultMessage": "MLflow Invocations API",
-    "description": "MLflow invocations API section title"
-  },
   "Y7DzTT": {
     "defaultMessage": "Input",
     "description": "Label for the input tokens in the tooltip for the tokens cell."
@@ -5079,6 +5099,10 @@
     "defaultMessage": "Choose experiment type",
     "description": "A title for the modal displayed when the experiment type could not be inferred"
   },
+  "YrYgo5": {
+    "defaultMessage": "Select an endpoint to view logs",
+    "description": "No endpoint selected message for logs tab"
+  },
   "YuYnxd": {
     "defaultMessage": "Delete",
     "description": "Text for delete button on the experiment view page header"
@@ -5122,6 +5146,10 @@
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
     "description": "Code comment which states how we can perform SparkML inference"
+  },
+  "ZKtBkW": {
+    "defaultMessage": "Edit the request body below and click Send request to call the provider API.",
+    "description": "Try it description for passthrough"
   },
   "ZNYFUr": {
     "defaultMessage": "Adheres to guidelines",
@@ -5823,10 +5851,6 @@
     "defaultMessage": "You cannot select rows when comparing runs",
     "description": "Tooltip message for the select button when comparing runs"
   },
-  "dsPsxG": {
-    "defaultMessage": "OpenAI-Compatible Chat Completions API",
-    "description": "OpenAI compatible API section title"
-  },
   "dt3hj5": {
     "defaultMessage": "Add tags",
     "description": "Run page > Overview > Tags cell > 'Add' button label"
@@ -5894,6 +5918,10 @@
   "eIWfRN": {
     "defaultMessage": "Discard",
     "description": "Evaluation review > assessments > discard pending assessments button label"
+  },
+  "eIdMWq": {
+    "defaultMessage": "Reset example",
+    "description": "Reset example button"
   },
   "eLgTRT": {
     "defaultMessage": "Key",
@@ -6235,6 +6263,10 @@
     "defaultMessage": "Rationale",
     "description": "Label for the rationale of an expectation assessment"
   },
+  "gYlgfM": {
+    "defaultMessage": "MLflow Invocations",
+    "description": "Unified API variant: MLflow Invocations"
+  },
   "gZSJbg": {
     "defaultMessage": "All charts are filtered. Clear the search filter to see hidden metric charts.",
     "description": "Experiment page > compare runs > no metric charts > description"
@@ -6302,6 +6334,10 @@
   "h3vlVA": {
     "defaultMessage": "Aliases:",
     "description": "A label for the aliases list in the prompt details page"
+  },
+  "h48hnl": {
+    "defaultMessage": "Send request",
+    "description": "Send request button"
   },
   "hBAhI8": {
     "defaultMessage": "Copy",
@@ -6458,10 +6494,6 @@
   "i9OADf": {
     "defaultMessage": "Params",
     "description": "Experiment page > group by runs control > params section label"
-  },
-  "iBIflN": {
-    "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
-    "description": "Tooltip showing error count"
   },
   "iC2Owx": {
     "defaultMessage": "Stop sequences: {stopSequences}",
@@ -6735,6 +6767,10 @@
     "defaultMessage": "Optimize",
     "description": "A label for a button to display the modal with instructions to optimize the prompt"
   },
+  "k0CEIu": {
+    "defaultMessage": "OpenAI Chat Completions",
+    "description": "Unified API variant: OpenAI Chat Completions"
+  },
   "k0l8lF": {
     "defaultMessage": "Boolean",
     "description": "Boolean select menu option for assessment data type"
@@ -6779,6 +6815,10 @@
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
     "description": "Evaluation review > assessments > tooltip > edited by human"
   },
+  "kICSro": {
+    "defaultMessage": "JSON body for the {providerName} API. This payload is sent directly to the provider in its native format.",
+    "description": "Request body tooltip for passthrough provider"
+  },
   "kIESP/": {
     "defaultMessage": "Filter applies to the first trace in each session. Only run on sessions where the first trace matches this filter; leave blank to run on all. Uses MLflow {link}.",
     "description": "Hint text for filter string input for session-level scorers"
@@ -6814,6 +6854,10 @@
   "kZaBMS": {
     "defaultMessage": "trace.status = 'OK'",
     "description": "Placeholder example for filter string input"
+  },
+  "ka9hO4": {
+    "defaultMessage": "Try it",
+    "description": "Try it - interactive request/response"
   },
   "kbOsmf": {
     "defaultMessage": "The AI Gateway is using the default encryption passphrase. This is acceptable for development or single-user deployments, but for multi-user production environments, you should rotate the passphrase using the CLI command: mlflow crypto rotate-kek",
@@ -7099,6 +7143,10 @@
     "defaultMessage": "The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported.",
     "description": "Warning banner shown on the Overview tab when using FileStore backend"
   },
+  "mZtok7": {
+    "defaultMessage": "Linked prompts",
+    "description": "Label for the linked prompts view tab in the model trace explorer"
+  },
   "md81Lo": {
     "defaultMessage": "Error",
     "description": "MLflow trace notebook output > error state title"
@@ -7134,6 +7182,10 @@
   "mmz4aA": {
     "defaultMessage": "Delete {numRuns, plural, =1 {1 run} other {# runs}}",
     "description": "Delete evaluation runs modal title"
+  },
+  "mo1su3": {
+    "defaultMessage": "Provider",
+    "description": "Provider selector label"
   },
   "mpHsCg": {
     "defaultMessage": "Size:",
@@ -7795,6 +7847,10 @@
     "defaultMessage": "Run judge on trace",
     "description": "Title for run judge modal in traces view"
   },
+  "rJWzb6": {
+    "defaultMessage": "Request",
+    "description": "Request body label"
+  },
   "rJitqj": {
     "defaultMessage": "Permission denied for {modelName}. Error: \"{errorMsg}\"",
     "description": "Permission denied error message on registered model detail page"
@@ -7994,6 +8050,10 @@
   "sXyBDU": {
     "defaultMessage": "Model Configuration",
     "description": "Section header for model configuration in prompt creation"
+  },
+  "sYkXR1": {
+    "defaultMessage": "JSON body for the MLflow Invocations API. Use \"messages\" for chat or \"input\" for embeddings.",
+    "description": "Request body tooltip for unified MLflow Invocations API"
   },
   "sbHChH": {
     "defaultMessage": "Dataset name is required",
@@ -8655,6 +8715,10 @@
     "defaultMessage": "Search prompts",
     "description": "Placeholder text for the search input in the prompts table on the logged model details page"
   },
+  "xbfKJS": {
+    "defaultMessage": "JSON body for the OpenAI-compatible Chat Completions API. Include \"model\" (endpoint name) and \"messages\".",
+    "description": "Request body tooltip for unified Chat Completions API"
+  },
   "xcmW/z": {
     "defaultMessage": "Enable Usage Tracking in the Configuration tab to view logs",
     "description": "Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first"
@@ -8698,6 +8762,10 @@
   "xqc4yl": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling a judge run"
+  },
+  "xvd8So": {
+    "defaultMessage": "Logs",
+    "description": "Tab label for trace logs"
   },
   "xwe7WH": {
     "defaultMessage": "Default rendering",

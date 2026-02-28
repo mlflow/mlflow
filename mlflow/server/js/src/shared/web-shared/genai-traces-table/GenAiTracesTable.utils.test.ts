@@ -5,7 +5,7 @@ import { SIMULATION_GOAL_COLUMN_ID, SIMULATION_PERSONA_COLUMN_ID } from './hooks
 import { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from './utils/SessionGroupingUtils';
 import type { TracesTableColumn } from './types';
 import { TracesTableColumnType, TracesTableColumnGroup } from './types';
-import type { ModelTraceInfoV3 } from '../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 const createTrace = (metadata: Record<string, string> = {}): ModelTraceInfoV3 =>
   ({

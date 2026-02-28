@@ -347,6 +347,35 @@ def create_span(
                 ],
             },
         ),
+        # one retrieval step - string outputs (UC schema casts attributes to MAP<STRING, STRING>)
+        (
+            [
+                create_span(
+                    span_id=1,
+                    parent_id=None,
+                    inputs="What is the capital of France?",
+                    outputs=json.dumps(
+                        [
+                            {
+                                "page_content": "document content 1",
+                                "metadata": {"doc_uri": "uri1"},
+                            },
+                            {
+                                "page_content": "document content 2",
+                                "metadata": {"doc_uri": "uri2"},
+                            },
+                        ]
+                    ),
+                    span_type=SpanType.RETRIEVER,
+                ),
+            ],
+            {
+                "0000000000000001": [
+                    {"doc_uri": "uri1", "content": "document content 1"},
+                    {"doc_uri": "uri2", "content": "document content 2"},
+                ],
+            },
+        ),
         # one retrieval step - empty retrieval span outputs
         (
             [

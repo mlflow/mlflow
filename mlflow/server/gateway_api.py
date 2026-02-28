@@ -316,7 +316,7 @@ def _create_provider(
         ]
 
         if not fallback_models:
-            _logger.warning(
+            _logger.debug(
                 f"Endpoint '{endpoint_config.endpoint_name}' has fallback_config "
                 "but no FALLBACK models configured"
             )

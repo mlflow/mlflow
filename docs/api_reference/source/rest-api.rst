@@ -2968,6 +2968,285 @@ Request Structure
 
 
 
+.. _mlflowMlflowServicecreateBudgetPolicy:
+
+Create Budget Policy
+====================
+
+
++---------------------------------------+-------------+
+|               Endpoint                | HTTP Method |
++=======================================+=============+
+| ``3.0/mlflow/gateway/budgets/create`` | ``POST``    |
++---------------------------------------+-------------+
+
+Create a new budget policy
+
+
+
+
+.. _mlflowCreateGatewayBudgetPolicy:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++----------------+---------------------------------+-------------+
+|   Field Name   |              Type               | Description |
++================+=================================+=============+
+| budget_unit    | :ref:`mlflowbudgetunit`         |             |
++----------------+---------------------------------+-------------+
+| budget_amount  | ``DOUBLE``                      |             |
++----------------+---------------------------------+-------------+
+| duration_unit  | :ref:`mlflowbudgetdurationunit` |             |
++----------------+---------------------------------+-------------+
+| duration_value | ``INT32``                       |             |
++----------------+---------------------------------+-------------+
+| target_scope   | :ref:`mlflowbudgettargetscope`  |             |
++----------------+---------------------------------+-------------+
+| budget_action  | :ref:`mlflowbudgetaction`       |             |
++----------------+---------------------------------+-------------+
+| created_by     | ``STRING``                      |             |
++----------------+---------------------------------+-------------+
+
+.. _mlflowCreateGatewayBudgetPolicyResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++---------------+----------------------------------+-------------+
+|  Field Name   |               Type               | Description |
++===============+==================================+=============+
+| budget_policy | :ref:`mlflowgatewaybudgetpolicy` |             |
++---------------+----------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicegetBudgetPolicy:
+
+Get Budget Policy
+=================
+
+
++------------------------------------+-------------+
+|              Endpoint              | HTTP Method |
++====================================+=============+
+| ``3.0/mlflow/gateway/budgets/get`` | ``GET``     |
++------------------------------------+-------------+
+
+Get a budget policy by ID
+
+
+
+
+.. _mlflowGetGatewayBudgetPolicy:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+------------+-------------+
+|    Field Name    |    Type    | Description |
++==================+============+=============+
+| budget_policy_id | ``STRING`` |             |
++------------------+------------+-------------+
+
+.. _mlflowGetGatewayBudgetPolicyResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++---------------+----------------------------------+-------------+
+|  Field Name   |               Type               | Description |
++===============+==================================+=============+
+| budget_policy | :ref:`mlflowgatewaybudgetpolicy` |             |
++---------------+----------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServiceupdateBudgetPolicy:
+
+Update Budget Policy
+====================
+
+
++---------------------------------------+-------------+
+|               Endpoint                | HTTP Method |
++=======================================+=============+
+| ``3.0/mlflow/gateway/budgets/update`` | ``POST``    |
++---------------------------------------+-------------+
+
+Update a budget policy
+
+
+
+
+.. _mlflowUpdateGatewayBudgetPolicy:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+---------------------------------+-------------+
+|    Field Name    |              Type               | Description |
++==================+=================================+=============+
+| budget_policy_id | ``STRING``                      |             |
++------------------+---------------------------------+-------------+
+| budget_unit      | :ref:`mlflowbudgetunit`         |             |
++------------------+---------------------------------+-------------+
+| budget_amount    | ``DOUBLE``                      |             |
++------------------+---------------------------------+-------------+
+| duration_unit    | :ref:`mlflowbudgetdurationunit` |             |
++------------------+---------------------------------+-------------+
+| duration_value   | ``INT32``                       |             |
++------------------+---------------------------------+-------------+
+| target_scope     | :ref:`mlflowbudgettargetscope`  |             |
++------------------+---------------------------------+-------------+
+| budget_action    | :ref:`mlflowbudgetaction`       |             |
++------------------+---------------------------------+-------------+
+| updated_by       | ``STRING``                      |             |
++------------------+---------------------------------+-------------+
+
+.. _mlflowUpdateGatewayBudgetPolicyResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++---------------+----------------------------------+-------------+
+|  Field Name   |               Type               | Description |
++===============+==================================+=============+
+| budget_policy | :ref:`mlflowgatewaybudgetpolicy` |             |
++---------------+----------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicedeleteBudgetPolicy:
+
+Delete Budget Policy
+====================
+
+
++---------------------------------------+-------------+
+|               Endpoint                | HTTP Method |
++=======================================+=============+
+| ``3.0/mlflow/gateway/budgets/delete`` | ``DELETE``  |
++---------------------------------------+-------------+
+
+Delete a budget policy
+
+
+
+
+.. _mlflowDeleteGatewayBudgetPolicy:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+------------+-------------+
+|    Field Name    |    Type    | Description |
++==================+============+=============+
+| budget_policy_id | ``STRING`` |             |
++------------------+------------+-------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicelistBudgetPolicies:
+
+List Budget Policies
+====================
+
+
++-------------------------------------+-------------+
+|              Endpoint               | HTTP Method |
++=====================================+=============+
+| ``3.0/mlflow/gateway/budgets/list`` | ``GET``     |
++-------------------------------------+-------------+
+
+List budget policies
+
+
+
+
+.. _mlflowListGatewayBudgetPolicies:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++-------------+------------+-------------+
+| Field Name  |    Type    | Description |
++=============+============+=============+
+| max_results | ``INT64``  |             |
++-------------+------------+-------------+
+| page_token  | ``STRING`` |             |
++-------------+------------+-------------+
+
+.. _mlflowListGatewayBudgetPoliciesResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++-----------------+----------------------------------------------+-------------+
+|   Field Name    |                     Type                     | Description |
++=================+==============================================+=============+
+| budget_policies | An array of :ref:`mlflowgatewaybudgetpolicy` |             |
++-----------------+----------------------------------------------+-------------+
+| next_page_token | ``STRING``                                   |             |
++-----------------+----------------------------------------------+-------------+
+
+===========================
+
+
+
 .. _mlflowModelRegistryServicecreateRegisteredModel:
 
 Create RegisteredModel
@@ -5569,6 +5848,42 @@ FinalizeLoggedModel
 | status     | :ref:`mlflowloggedmodelstatus` | Whether or not the model is ready for use. Valid values in this message: ENUM<LOGGED_MODEL_READY, LOGGED_MODEL_UPLOAD_FAILED>                          |
 |            |                                | ("LOGGED_MODEL_UPLOAD_FAILED" indicates that something went wrong when logging the model weights / agent code) This field is required.                 |
 +------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+.. _mlflowGatewayBudgetPolicy:
+
+GatewayBudgetPolicy
+-------------------
+
+
+
+Represents a budget policy for the AI Gateway
+
+
++------------------+---------------------------------+-----------------------------------------------------------+
+|    Field Name    |              Type               |                        Description                        |
++==================+=================================+===========================================================+
+| budget_policy_id | ``STRING``                      | Unique identifier for this budget policy                  |
++------------------+---------------------------------+-----------------------------------------------------------+
+| budget_unit      | :ref:`mlflowbudgetunit`         | Budget measurement unit (e.g. USD)                        |
++------------------+---------------------------------+-----------------------------------------------------------+
+| budget_amount    | ``DOUBLE``                      | Budget limit amount                                       |
++------------------+---------------------------------+-----------------------------------------------------------+
+| duration_unit    | :ref:`mlflowbudgetdurationunit` | Unit of time window (MINUTES, HOURS, DAYS, WEEKS, MONTHS) |
++------------------+---------------------------------+-----------------------------------------------------------+
+| duration_value   | ``INT32``                       | Length of the window in units of duration_unit            |
++------------------+---------------------------------+-----------------------------------------------------------+
+| target_scope     | :ref:`mlflowbudgettargetscope`  | Scope of the budget (GLOBAL or WORKSPACE)                 |
++------------------+---------------------------------+-----------------------------------------------------------+
+| budget_action    | :ref:`mlflowbudgetaction`       | Action when budget is exceeded                            |
++------------------+---------------------------------+-----------------------------------------------------------+
+| created_by       | ``STRING``                      | User ID who created the policy                            |
++------------------+---------------------------------+-----------------------------------------------------------+
+| created_at       | ``INT64``                       | Creation timestamp in milliseconds                        |
++------------------+---------------------------------+-----------------------------------------------------------+
+| last_updated_by  | ``STRING``                      | User ID who last updated the policy                       |
++------------------+---------------------------------+-----------------------------------------------------------+
+| last_updated_at  | ``INT64``                       | Last update timestamp in milliseconds                     |
++------------------+---------------------------------+-----------------------------------------------------------+
 
 .. _mlflowGatewayEndpoint:
 
@@ -8505,6 +8820,82 @@ Aggregation type for metrics.
 | MAX        | Maximum value.                                                |
 +------------+---------------------------------------------------------------+
 
+.. _mlflowBudgetAction:
+
+BudgetAction
+------------
+
+
+Action to take when a budget is exceeded
+
++---------------------------+-------------+
+|           Name            | Description |
++===========================+=============+
+| BUDGET_ACTION_UNSPECIFIED |             |
++---------------------------+-------------+
+| ALERT                     |             |
++---------------------------+-------------+
+| REJECT                    |             |
++---------------------------+-------------+
+
+.. _mlflowBudgetDurationUnit:
+
+BudgetDurationUnit
+------------------
+
+
+Duration unit for budget policy fixed windows
+
++---------------------------+-------------+
+|           Name            | Description |
++===========================+=============+
+| DURATION_UNIT_UNSPECIFIED |             |
++---------------------------+-------------+
+| MINUTES                   |             |
++---------------------------+-------------+
+| HOURS                     |             |
++---------------------------+-------------+
+| DAYS                      |             |
++---------------------------+-------------+
+| WEEKS                     |             |
++---------------------------+-------------+
+| MONTHS                    |             |
++---------------------------+-------------+
+
+.. _mlflowBudgetTargetScope:
+
+BudgetTargetScope
+-----------------
+
+
+Target scope for a budget policy
+
++--------------------------+-------------+
+|           Name           | Description |
++==========================+=============+
+| TARGET_SCOPE_UNSPECIFIED |             |
++--------------------------+-------------+
+| GLOBAL                   |             |
++--------------------------+-------------+
+| WORKSPACE                |             |
++--------------------------+-------------+
+
+.. _mlflowBudgetUnit:
+
+BudgetUnit
+----------
+
+
+Budget measurement unit
+
++-------------------------+-------------+
+|          Name           | Description |
++=========================+=============+
+| BUDGET_UNIT_UNSPECIFIED |             |
++-------------------------+-------------+
+| USD                     |             |
++-------------------------+-------------+
+
 .. _mlflowModelVersionDeploymentJobStateDeploymentJobRunState:
 
 DeploymentJobRunState
@@ -8889,6 +9280,8 @@ Webhook action types
 +--------------------+-------------+
 | SET                |             |
 +--------------------+-------------+
+| EXCEEDED           |             |
++--------------------+-------------+
 
 .. _mlflowWebhookEntity:
 
@@ -8920,6 +9313,8 @@ Webhook entity types
 | PROMPT_VERSION_TAG  |             |
 +---------------------+-------------+
 | PROMPT_ALIAS        |             |
++---------------------+-------------+
+| BUDGET_POLICY       |             |
 +---------------------+-------------+
 
 .. _mlflowWebhookStatus:

@@ -90,7 +90,7 @@ jobs:
           cp /tmp/build.tar.gz /tmp/app-deploy/
           cp .github/ui-preview/app.py /tmp/app-deploy/
           cp .github/ui-preview/app.yaml /tmp/app-deploy/
-          echo "$WHEEL_NAME" > /tmp/app-deploy/requirements.txt
+          echo "./$WHEEL_NAME[genai]" > /tmp/app-deploy/requirements.txt
 
       - name: Upload app files
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

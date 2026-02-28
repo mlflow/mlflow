@@ -1,7 +1,9 @@
 import json
+import logging
 from unittest import mock
 from unittest.mock import Mock, patch
 
+import litellm
 import pytest
 from opentelemetry import trace as trace_api
 from pydantic import ValidationError
@@ -25,6 +27,7 @@ from mlflow.tracing.utils import (
     _calculate_percentile,
     aggregate_cost_from_spans,
     aggregate_usage_from_spans,
+    calculate_cost_by_model_and_token_usage,
     capture_function_input_args,
     construct_full_inputs,
     encode_span_id,
@@ -630,3 +633,37 @@ def test_generate_trace_id_v4_from_otel_trace_id():
     parsed_location, parsed_id = parse_trace_id_v4(result)
     assert parsed_location == location
     assert parsed_id == expected_hex_id
+
+
+def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
+    litellm.suppress_debug_info = False
+
+    calculate_cost_by_model_and_token_usage(
+        model_name="databricks-claude-sonnet-4-5",
+        usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
+    )
+
+    captured = capsys.readouterr()
+    assert "Provider List" not in captured.out
+    assert litellm.suppress_debug_info is False
+
+
+def test_litellm_provider_list_printed_when_debug_logging(capsys):
+    litellm.suppress_debug_info = True
+
+    _logger = logging.getLogger("mlflow.tracing.utils")
+    original_level = _logger.level
+    _logger.setLevel(logging.DEBUG)
+    try:
+        calculate_cost_by_model_and_token_usage(
+            model_name="databricks-claude-sonnet-4-5",
+            usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
+        )
+    finally:
+        _logger.setLevel(original_level)
+
+    captured = capsys.readouterr()
+    assert "Provider List" in captured.out
+    # During the call to calculate cost, suppress was set to False
+    # We are asserting that suppress is reset to the original value after
+    assert litellm.suppress_debug_info is True
