@@ -1,0 +1,449 @@
+from __future__ import annotations
+
+import logging
+import random
+from collections import defaultdict
+
+import mlflow
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.span_status import SpanStatusCode
+from mlflow.entities.trace import Trace
+from mlflow.genai.discovery.constants import (
+    _DEEP_ANALYSIS_SYSTEM_PROMPT,
+    _DEFAULT_SCORER_NAME,
+    _ERROR_CHAR_LIMIT,
+    _SCORER_GENERATION_SYSTEM_PROMPT,
+    _SPAN_IO_CHAR_LIMIT,
+    _TEMPLATE_VARS,
+    _TRACE_IO_CHAR_LIMIT,
+    _TRIM_MARKER,
+    _build_satisfaction_instructions,
+)
+from mlflow.genai.discovery.entities import (
+    _BatchTraceAnalysisResult,
+    _IdentifiedIssue,
+    _ScorerInstructionsResult,
+    _ScorerSpec,
+    _TraceAnalysis,
+)
+from mlflow.genai.evaluation.entities import EvaluationResult
+from mlflow.genai.judges.make_judge import make_judge
+from mlflow.genai.judges.utils.invocation_utils import (
+    get_chat_completions_with_structured_output,
+)
+from mlflow.genai.scorers.base import Scorer
+from mlflow.types.llm import ChatMessage
+
+_logger = logging.getLogger(__name__)
+
+
+def _trim(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit] + _TRIM_MARKER
+
+
+def _get_session_id(trace: Trace) -> str | None:
+    return (trace.info.tags or {}).get("mlflow.trace.session_id") or (
+        trace.info.trace_metadata or {}
+    ).get("mlflow.trace.session")
+
+
+def _sample_traces(
+    sample_size: int,
+    search_kwargs: dict[str, object],
+    pool_multiplier: int = 5,
+) -> list[Trace]:
+    """Randomly sample traces, grouping by session when session IDs exist.
+
+    Fetches a pool of traces larger than `sample_size`, then:
+    - If sessions exist: randomly selects `sample_size` sessions and returns
+      all traces from those sessions.
+    - If no sessions: randomly selects `sample_size` individual traces.
+    """
+    pool_size = sample_size * pool_multiplier
+    pool = mlflow.search_traces(max_results=pool_size, **search_kwargs)
+    if not pool:
+        return []
+
+    sessions: dict[str, list[Trace]] = defaultdict(list)
+    no_session: list[Trace] = []
+    for trace in pool:
+        if sid := _get_session_id(trace):
+            sessions[sid].append(trace)
+        else:
+            no_session.append(trace)
+
+    if sessions:
+        session_ids = list(sessions.keys())
+        k = min(sample_size, len(session_ids))
+        selected = random.sample(session_ids, k)
+        result = [t for sid in selected for t in sessions[sid]]
+        _logger.info(
+            "Sampled %d sessions (%d traces) from pool of %d sessions",
+            k,
+            len(result),
+            len(session_ids),
+        )
+        return result
+
+    k = min(sample_size, len(no_session))
+    result = random.sample(no_session, k)
+    _logger.info("Sampled %d traces from pool of %d", k, len(no_session))
+    return result
+
+
+def _has_session_ids(traces: list[Trace]) -> bool:
+    for t in traces:
+        if (t.info.tags or {}).get("mlflow.trace.session_id"):
+            return True
+        if (t.info.trace_metadata or {}).get("mlflow.trace.session"):
+            return True
+    return False
+
+
+def _build_default_satisfaction_scorer(model: str | None, use_conversation: bool) -> Scorer:
+    instructions = _build_satisfaction_instructions(use_conversation=use_conversation)
+    return make_judge(
+        name=_DEFAULT_SCORER_NAME,
+        instructions=instructions,
+        model=model,
+        feedback_value_type=bool,
+    )
+
+
+def _ensure_template_var(instructions: str) -> str:
+    if any(var in instructions for var in _TEMPLATE_VARS):
+        return instructions
+    return f"Analyze the following {{{{ trace }}}} and determine:\n\n{instructions}"
+
+
+def _get_existing_score(trace: Trace, scorer_name: str) -> bool | None:
+    for assessment in trace.info.assessments:
+        if isinstance(assessment, Feedback) and assessment.name == scorer_name:
+            if isinstance(assessment.value, bool):
+                return assessment.value
+    return None
+
+
+def _partition_by_existing_scores(
+    traces: list[Trace],
+    scorer_name: str,
+) -> tuple[list[Trace], list[Trace], list[Trace]]:
+    negative: list[Trace] = []
+    positive: list[Trace] = []
+    needs_scoring: list[Trace] = []
+    for trace in traces:
+        score = _get_existing_score(trace, scorer_name)
+        if score is True:
+            positive.append(trace)
+        elif score is False:
+            negative.append(trace)
+        else:
+            needs_scoring.append(trace)
+    return negative, positive, needs_scoring
+
+
+def _test_scorer(scorer: Scorer, trace: Trace) -> None:
+    result = mlflow.genai.evaluate(data=[trace], scorers=[scorer])
+
+    if result.run_id:
+        try:
+            mlflow.MlflowClient().delete_run(result.run_id)
+        except Exception:
+            _logger.debug("Failed to delete test run %s", result.run_id)
+
+    if result.result_df is None:
+        return
+
+    value_col = f"{scorer.name}/value"
+    if value_col not in result.result_df.columns:
+        return
+
+    if result.result_df[value_col].iloc[0] is not None:
+        return
+
+    error_msg = None
+    if "trace" in result.result_df.columns:
+        result_trace = result.result_df["trace"].iloc[0]
+        if isinstance(result_trace, str):
+            result_trace = Trace.from_json(result_trace)
+        if result_trace is not None:
+            for assessment in result_trace.info.assessments:
+                if isinstance(assessment, Feedback) and assessment.name == scorer.name:
+                    error_msg = assessment.error_message
+                    break
+
+    raise mlflow.exceptions.MlflowException(
+        f"Scorer '{scorer.name}' failed on test trace "
+        f"{trace.info.trace_id}: {error_msg or 'unknown error (check model API logs)'}"
+    )
+
+
+def _build_span_tree(spans: list[object]) -> str:
+    if not spans:
+        return "    (no spans)"
+
+    span_by_id: dict[str, object] = {}
+    children: dict[str | None, list[object]] = {}
+    for span in spans:
+        span_by_id[span.span_id] = span
+        children.setdefault(span.parent_id, []).append(span)
+
+    def _format_span(span, depth: int) -> list[str]:
+        indent = "    " + "  " * depth
+        duration_ms = ""
+        if span.end_time_ns is not None and span.start_time_ns is not None:
+            duration_ms = f", {(span.end_time_ns - span.start_time_ns) // 1_000_000}ms"
+
+        status = span.status.status_code.value if span.status else "UNKNOWN"
+        span_type = getattr(span, "span_type", "UNKNOWN") or "UNKNOWN"
+        model = getattr(span, "model_name", None)
+        model_str = f", model={model}" if model else ""
+
+        line = f"{indent}{span.name} ({span_type}, {status}{duration_ms}{model_str})"
+        lines = [line]
+
+        if span.status and span.status.status_code == SpanStatusCode.ERROR:
+            if span.status.description:
+                lines.append(
+                    f"{indent}  ERROR: {_trim(span.status.description, _ERROR_CHAR_LIMIT)}"
+                )
+            for event in getattr(span, "events", []):
+                if event.name == "exception":
+                    exc_type = event.attributes.get("exception.type", "")
+                    exc_msg = event.attributes.get("exception.message", "")
+                    if exc_type or exc_msg:
+                        exc_text = _trim(f"{exc_type}: {exc_msg}", _ERROR_CHAR_LIMIT)
+                        lines.append(f"{indent}  EXCEPTION: {exc_text}")
+
+        inputs = getattr(span, "inputs", None)
+        outputs = getattr(span, "outputs", None)
+        if inputs:
+            lines.append(f"{indent}  in: {_trim(str(inputs), _SPAN_IO_CHAR_LIMIT)}")
+        if outputs:
+            lines.append(f"{indent}  out: {_trim(str(outputs), _SPAN_IO_CHAR_LIMIT)}")
+
+        for child in children.get(span.span_id, []):
+            lines.extend(_format_span(child, depth + 1))
+        return lines
+
+    roots = children.get(None, [])
+    if not roots:
+        roots = spans
+
+    result_lines: list[str] = []
+    for root in roots:
+        result_lines.extend(_format_span(root, 0))
+    return "\n".join(result_lines)
+
+
+def _get_root_span_io(trace: Trace) -> tuple[str, str]:
+    if trace.data.spans:
+        root = next(
+            (s for s in trace.data.spans if s.parent_id is None),
+            trace.data.spans[0],
+        )
+        request = str(root.inputs) if root.inputs else ""
+        response = str(root.outputs) if root.outputs else ""
+    else:
+        request = ""
+        response = ""
+    if not request:
+        request = trace.info.request_preview or ""
+    if not response:
+        response = trace.info.response_preview or ""
+    return request, response
+
+
+def _build_assessments_section(trace: Trace) -> str:
+    lines: list[str] = []
+    for assessment in trace.info.assessments:
+        if not isinstance(assessment, Feedback):
+            continue
+        entry = f"    {assessment.name}: {assessment.value}"
+        if assessment.rationale:
+            entry += f" — {assessment.rationale}"
+        lines.append(entry)
+    if not lines:
+        return ""
+    return "  Assessments:\n" + "\n".join(lines)
+
+
+def _build_enriched_trace_summary(index: int, trace: Trace, rationale: str) -> str:
+    request, response = _get_root_span_io(trace)
+    request = _trim(request, _TRACE_IO_CHAR_LIMIT)
+    response = _trim(response, _TRACE_IO_CHAR_LIMIT)
+    duration = trace.info.execution_duration or 0
+    span_tree = _build_span_tree(trace.data.spans)
+    assessments = _build_assessments_section(trace)
+    parts = [
+        f"[{index}] trace_id={trace.info.trace_id}",
+        f"  Input: {request}",
+        f"  Output: {response}",
+        f"  Duration: {duration}ms | Failure rationale: {rationale}",
+    ]
+    if assessments:
+        parts.append(assessments)
+    parts.append(f"  Span tree:\n{span_tree}")
+    return "\n".join(parts)
+
+
+def _run_deep_analysis(
+    enriched_summaries: list[str],
+    analysis_model: str,
+) -> list[_TraceAnalysis]:
+    result = get_chat_completions_with_structured_output(
+        model_uri=analysis_model,
+        messages=[
+            ChatMessage(role="system", content=_DEEP_ANALYSIS_SYSTEM_PROMPT),
+            ChatMessage(
+                role="user",
+                content=(
+                    "Analyze each of the following failing traces:\n\n"
+                    + "\n\n".join(enriched_summaries)
+                ),
+            ),
+        ],
+        output_schema=_BatchTraceAnalysisResult,
+    )
+    return result.analyses
+
+
+def _format_analysis_for_clustering(
+    index: int,
+    analysis: _TraceAnalysis,
+    enriched_summary: str,
+) -> str:
+    return (
+        f"[{index}] Category: {analysis.failure_category} | "
+        f"Severity: {analysis.severity}/5\n"
+        f"  Summary: {analysis.failure_summary}\n"
+        f"  Root cause: {analysis.root_cause_hypothesis}\n"
+        f"  Affected spans: {', '.join(analysis.affected_spans)}\n"
+        f"  ---\n"
+        f"  {enriched_summary}"
+    )
+
+
+def _generate_scorer_specs(
+    issue: _IdentifiedIssue,
+    example_analyses: list[_TraceAnalysis],
+    judge_model: str,
+) -> list[_ScorerSpec]:
+    examples_text = "\n".join(
+        f"- [{a.failure_category}] {a.failure_summary} (affected: {', '.join(a.affected_spans)})"
+        for a in example_analyses
+    )
+    result = get_chat_completions_with_structured_output(
+        model_uri=judge_model,
+        messages=[
+            ChatMessage(role="system", content=_SCORER_GENERATION_SYSTEM_PROMPT),
+            ChatMessage(
+                role="user",
+                content=(
+                    f"Issue: {issue.name}\n"
+                    f"Description: {issue.description}\n"
+                    f"Root cause: {issue.root_cause}\n\n"
+                    f"Example failures:\n{examples_text}\n\n"
+                    "Write detection scorer(s) for this issue. Use one scorer if the issue is "
+                    "a single criterion, or multiple scorers if it involves independent criteria."
+                ),
+            ),
+        ],
+        output_schema=_ScorerInstructionsResult,
+    )
+    for spec in result.scorers:
+        spec.detection_instructions = _ensure_template_var(spec.detection_instructions)
+    return result.scorers
+
+
+def _extract_failing_traces(
+    eval_result: EvaluationResult,
+    scorer_name: str,
+) -> tuple[list[Trace], dict[str, str]]:
+    failing = []
+    rationales: dict[str, str] = {}
+    df = eval_result.result_df
+    if df is None:
+        return failing, rationales
+
+    value_col = f"{scorer_name}/value"
+    rationale_col = f"{scorer_name}/rationale"
+    if value_col not in df.columns:
+        return failing, rationales
+
+    for _, row in df.iterrows():
+        val = row.get(value_col)
+        if val is None or bool(val):
+            continue
+        trace = row.get("trace")
+        if trace is None:
+            continue
+        if isinstance(trace, str):
+            trace = Trace.from_json(trace)
+        failing.append(trace)
+        rationales[trace.info.trace_id] = str(row.get(rationale_col, "") or "")
+
+    return failing, rationales
+
+
+def _compute_frequencies(
+    eval_result: EvaluationResult,
+    scorer_names: list[str],
+) -> tuple[dict[str, float], dict[str, list[str]]]:
+    frequencies: dict[str, float] = {}
+    rationale_examples: dict[str, list[str]] = {}
+    df = eval_result.result_df
+    if df is None:
+        return frequencies, rationale_examples
+
+    total = len(df)
+    for name in scorer_names:
+        value_col = f"{name}/value"
+        rationale_col = f"{name}/rationale"
+        if value_col not in df.columns:
+            continue
+
+        affected = df[value_col].eq(False).sum()
+        frequencies[name] = affected / total if total > 0 else 0.0
+
+        examples = []
+        if rationale_col in df.columns:
+            for _, row in df.iterrows():
+                val = row.get(value_col)
+                if val is not None and not bool(val) and len(examples) < 3:
+                    if r := row.get(rationale_col):
+                        examples.append(str(r))
+        rationale_examples[name] = examples
+
+    return frequencies, rationale_examples
+
+
+def _log_discovery_artifacts(run_id: str, artifacts: dict[str, str]) -> None:
+    if not run_id:
+        return
+    client = mlflow.MlflowClient()
+    for filename, content in artifacts.items():
+        try:
+            client.log_text(run_id, content, filename)
+        except Exception:
+            _logger.warning("Failed to log %s to run %s", filename, run_id, exc_info=True)
+
+
+def _build_summary(issues: list[object], total_traces: int) -> str:
+    if not issues:
+        return f"## Issue Discovery Summary\n\nAnalyzed {total_traces} traces. No issues found."
+
+    lines = [
+        "## Issue Discovery Summary\n",
+        f"Analyzed **{total_traces}** traces. Found **{len(issues)}** issues:\n",
+    ]
+    for i, issue in enumerate(issues, 1):
+        lines.append(
+            f"### {i}. {issue.name} ({issue.frequency:.0%} of traces, "
+            f"confidence: {issue.confidence}/100)\n\n"
+            f"{issue.description}\n\n"
+            f"**Root cause:** {issue.root_cause}\n"
+        )
+    return "\n".join(lines)
