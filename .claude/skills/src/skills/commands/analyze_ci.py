@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
@@ -235,26 +236,29 @@ async def analyze_single_job(job: JobLogs) -> AnalysisResult:
     formatted_logs = format_single_job_for_analysis(job)
     prompt = f"Analyze this CI failure:\n\n{formatted_logs}"
 
-    options = ClaudeAgentOptions(
-        system_prompt=ANALYZE_SYSTEM_PROMPT,
-        max_turns=1,
-        model="haiku",
-    )
+    # Use an isolated temp directory to avoid conflicts with the parent Claude session
+    with tempfile.TemporaryDirectory() as tmpdir:
+        options = ClaudeAgentOptions(
+            system_prompt=ANALYZE_SYSTEM_PROMPT,
+            max_turns=1,
+            model="haiku",
+            cwd=tmpdir,
+        )
 
-    text_parts: list[str] = []
-    total_cost_usd: float | None = None
-    usage: dict[str, Any] | None = None
+        text_parts: list[str] = []
+        total_cost_usd: float | None = None
+        usage: dict[str, Any] | None = None
 
-    async for message in query(prompt=prompt, options=options):
-        match message:
-            case AssistantMessage(content=content):
-                for block in content:
-                    match block:
-                        case TextBlock(text=text):
-                            text_parts.append(text)
-            case ResultMessage(total_cost_usd=cost, usage=u):
-                total_cost_usd = cost
-                usage = u
+        async for message in query(prompt=prompt, options=options):
+            match message:
+                case AssistantMessage(content=content):
+                    for block in content:
+                        match block:
+                            case TextBlock(text=text):
+                                text_parts.append(text)
+                case ResultMessage(total_cost_usd=cost, usage=u):
+                    total_cost_usd = cost
+                    usage = u
 
     return AnalysisResult(
         text="".join(text_parts),
