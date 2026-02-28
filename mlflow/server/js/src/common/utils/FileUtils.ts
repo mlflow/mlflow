@@ -45,12 +45,12 @@ export const TEXT_EXTENSIONS = new Set([
   'js',
   'py',
   'py3',
-  'md',
   'rst',
   MLPROJECT_FILE_NAME.toLowerCase(),
   MLMODEL_FILE_NAME.toLowerCase(),
   'jsonnet',
 ]);
+export const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown']);
 export const HTML_EXTENSIONS = new Set(['html']);
 export const MAP_EXTENSIONS = new Set(['geojson']);
 export const PDF_EXTENSIONS = new Set(['pdf']);
