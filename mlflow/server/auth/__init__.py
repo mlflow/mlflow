@@ -301,10 +301,10 @@ def _get_request_param(param: str) -> str:
 
 def _get_permission_from_store_or_default(
     store_permission_func: Callable[[], str],
-    workspace_level_permission_func: Callable[[], Permission | None] | None = None,
+    workspace_level_permission_func: Callable[[], Permission | None],
 ) -> Permission:
     """
-    Resolve a permission from the auth store, with an optional workspace-aware fallback.
+    Resolve a permission from the auth store, with a workspace-aware fallback.
 
     Behavior:
     - If a direct (resource-level) permission exists, it is returned.
@@ -319,7 +319,7 @@ def _get_permission_from_store_or_default(
         perm = store_permission_func()
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            if workspace_level_permission_func is not None:
+            if MLFLOW_ENABLE_WORKSPACES.get():
                 workspace_permission = workspace_level_permission_func()
                 # workspace_permission is only None when workspaces are not enabled.
                 # workspace_permission defaults to NO_PERMISSIONS. In effect, this means that
