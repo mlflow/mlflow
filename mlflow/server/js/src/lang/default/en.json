@@ -734,6 +734,10 @@
     "defaultMessage": "Delete",
     "description": "String for the delete button to delete a particular experiment run"
   },
+  "3S361w": {
+    "defaultMessage": "View source",
+    "description": "Tooltip for button that shows raw markdown source text"
+  },
   "3S3Ah4": {
     "defaultMessage": "Download data",
     "description": "String for the download csv button to download metrics from this run offline in a CSV format"
@@ -3362,6 +3366,10 @@
     "defaultMessage": "avg per trace",
     "description": "Subtitle for average tokens per trace"
   },
+  "MXsbcc": {
+    "defaultMessage": "Supported formats: image, text, markdown, html, pdf, audio, video, geojson files",
+    "description": "Text to explain users which formats are supported to display the artifacts"
+  },
   "MZCW9F": {
     "defaultMessage": "Labeling schemas",
     "description": "Label for the labeling schemas tab in the MLflow experiment navbar"
@@ -4839,10 +4847,6 @@
   "WtUqxc": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in experiment datasets UI"
-  },
-  "Wv3B3G": {
-    "defaultMessage": "Supported formats: image, text, html, pdf, audio, video, geojson files",
-    "description": "Text to explain users which formats are supported to display the artifacts"
   },
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
@@ -8574,6 +8578,10 @@
   "wrNl6F": {
     "defaultMessage": "Preview",
     "description": "Label for the preview mode on the registered prompt details page"
+  },
+  "wtcucM": {
+    "defaultMessage": "View rendered",
+    "description": "Tooltip for button that shows rendered markdown"
   },
   "wtpLvY": {
     "defaultMessage": "Load more",
