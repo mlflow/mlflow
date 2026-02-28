@@ -280,6 +280,13 @@ MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_SQLALCHEMYSTORE_ECHO = _BooleanEnvironmentVariable("MLFLOW_SQLALCHEMYSTORE_ECHO", False)
 
+#: When set to ``true``, allows the MLflow server to start even when the database schema
+#: revision does not match the expected revision. Schema mismatches produce a warning instead
+#: of a fatal error. This is useful for zero-downtime deployments where safe (additive)
+#: migrations can be applied while the server is running.
+#: (default: ``False``)
+MLFLOW_ALLOW_SCHEMA_MISMATCH = _BooleanEnvironmentVariable("MLFLOW_ALLOW_SCHEMA_MISMATCH", False)
+
 #: Specifies whether or not to print a warning when `--env-manager=conda` is specified.
 #: (default: ``False``)
 MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING = _BooleanEnvironmentVariable(
