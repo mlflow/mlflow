@@ -402,7 +402,7 @@ class ConversationSimulator:
             - "goal": Describing what the simulated user wants to achieve.
             - "persona" (optional): Custom persona for the simulated user.
             - "context" (optional): Dict of additional kwargs to pass to predict_fn.
-              Keys ``"input"``, ``"messages"``, and ``"mlflow_session_id"`` are reserved
+              Keys ``input``, ``messages``, and ``mlflow_session_id`` are reserved
               by the simulator and cannot be used.
             - "expectations" (optional): Dict of expected values (ground truth) for
               session-level evaluation. These are logged to the first trace of the
