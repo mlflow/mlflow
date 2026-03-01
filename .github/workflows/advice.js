@@ -69,6 +69,11 @@ For Databricks, use the following command:
     });
   }
 
+  // Exit early if the PR author is a bot
+  if (user.type === "Bot") {
+    return;
+  }
+
   const dcoCheck = await getDcoCheck(github, owner, repo, sha);
   if (dcoCheck && dcoCheck.conclusion !== "success") {
     messages.push(
