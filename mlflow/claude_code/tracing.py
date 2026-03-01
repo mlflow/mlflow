@@ -485,37 +485,46 @@ def _finalize_trace(
     try:
         # Set trace previews and metadata for UI display
         with InMemoryTraceManager.get_instance().get_trace(parent_span.trace_id) as in_memory_trace:
-            if user_prompt:
-                in_memory_trace.info.request_preview = user_prompt[:MAX_PREVIEW_LENGTH]
-            if final_response:
-                in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
-
-            metadata = {
-                TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
-                "mlflow.trace.working_directory": os.getcwd(),
-            }
-            if session_id:
-                metadata[TraceMetadataKey.TRACE_SESSION] = session_id
-
-            # Set token usage directly on trace metadata so it survives
-            # even if span-level aggregation doesn't pick it up
-            if usage:
-                input_tokens = usage.get("input_tokens", 0) + usage.get(
-                    "cache_creation_input_tokens", 0
+            # in_memory_trace is None when the span is a NoOpSpan (e.g. tracing
+            # backend is unreachable) because the trace was never registered.
+            if in_memory_trace is None:
+                get_logger().warning(
+                    "Trace %s not found in memory; skipping metadata update. "
+                    "This usually means the tracing backend is unreachable.",
+                    parent_span.trace_id,
                 )
-                output_tokens = usage.get("output_tokens", 0)
-                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(
-                    {
-                        TokenUsageKey.INPUT_TOKENS: input_tokens,
-                        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-                        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
-                    }
-                )
+            else:
+                if user_prompt:
+                    in_memory_trace.info.request_preview = user_prompt[:MAX_PREVIEW_LENGTH]
+                if final_response:
+                    in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
 
-            in_memory_trace.info.trace_metadata = {
-                **in_memory_trace.info.trace_metadata,
-                **metadata,
-            }
+                metadata = {
+                    TraceMetadataKey.TRACE_USER: os.environ.get("USER", ""),
+                    "mlflow.trace.working_directory": os.getcwd(),
+                }
+                if session_id:
+                    metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+
+                # Set token usage directly on trace metadata so it survives
+                # even if span-level aggregation doesn't pick it up
+                if usage:
+                    input_tokens = usage.get("input_tokens", 0) + usage.get(
+                        "cache_creation_input_tokens", 0
+                    )
+                    output_tokens = usage.get("output_tokens", 0)
+                    metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(
+                        {
+                            TokenUsageKey.INPUT_TOKENS: input_tokens,
+                            TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+                            TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
+                        }
+                    )
+
+                in_memory_trace.info.trace_metadata = {
+                    **in_memory_trace.info.trace_metadata,
+                    **metadata,
+                }
     except Exception as e:
         get_logger().warning("Failed to update trace metadata and previews: %s", e)
 

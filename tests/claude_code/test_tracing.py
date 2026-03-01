@@ -158,6 +158,32 @@ def test_flush_trace_async_logging_skips_without_async_queue(monkeypatch):
 
 
 # ============================================================================
+# FINALIZE TRACE WITH NOOP SPAN TESTS
+# ============================================================================
+
+
+def test_finalize_trace_handles_noop_span(monkeypatch):
+    """Regression test for #21222: _finalize_trace should not raise
+    AttributeError when the parent span is a NoOpSpan and the trace is
+    not found in the in-memory trace manager."""
+    from mlflow.entities.span import NoOpSpan
+
+    noop_span = NoOpSpan()
+    monkeypatch.setattr(
+        tracing_module, "_flush_trace_async_logging", lambda: None
+    )
+    # _finalize_trace should not raise; it returns None because
+    # mlflow.get_trace returns None for a no-op trace id.
+    result = tracing_module._finalize_trace(
+        parent_span=noop_span,
+        user_prompt="hello",
+        final_response="world",
+        session_id="test-noop-session",
+    )
+    assert result is None
+
+
+# ============================================================================
 # INTEGRATION TESTS
 # ============================================================================
 
