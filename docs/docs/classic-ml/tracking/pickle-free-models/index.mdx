@@ -1,0 +1,180 @@
+---
+sidebar_label: Pickle-Free Model format
+sidebar_position: 5
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Pickle-Free Model format
+
+Saving models with Python's `pickle` or `cloudpickle` relies on Python's object serialization mechanism, which can execute arbitrary code during deserialization. MLflow supports safer **pickle-free** saving formats for several model flavors. Prefer these formats when possible.
+
+:::warning Upcoming Default Behavior Change
+Pickle-free saving formats will become the **default** in an upcoming MLflow release. **Most users (scikit-learn, LightGBM, LangChain, custom Python) will see no breaking change.** PyTorch users should review the [requirements](#pickle-free-format-for-pytorch-model) — `input_example` will be required and `torch.jit.ScriptModule` is not supported.
+:::
+
+## Pickle-free format for Scikit-learn model
+
+When saving a scikit-learn model, set the parameter `serialization_format="skops"` to use the **skops** format for safe deserialization of scikit-learn models. The `skops` format does not rely on Python's pickle and avoids arbitrary code execution when loading.
+
+```python
+import mlflow
+from sklearn.datasets import load_iris
+from sklearn.tree import DecisionTreeClassifier
+
+X, y = load_iris(return_X_y=True)
+model = DecisionTreeClassifier().fit(X, y)
+
+with mlflow.start_run():
+    mlflow.sklearn.log_model(
+        model,
+        name="model",
+        serialization_format="skops",
+    )
+```
+
+For some scikit-learn models that contain custom or third-party types, you need to set `skops_trusted_types` to a list of fully qualified type names so skops can load them. For example, a pipeline with a custom transformer must list that transformer's type as trusted:
+
+```python
+from numpy.random import randint
+from sklearn.base import BaseEstimator, TransformerMixin
+import pandas as pd
+from sklearn.pipeline import Pipeline
+
+
+class CustomTransformer(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+        # Perform arbitrary transformation
+        X["random_int"] = randint(0, 10, X.shape[0])
+        return X
+
+
+df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9]})
+
+pipeline = Pipeline(steps=[("use_custom_transformer", CustomTransformer())])
+
+# Custom classes must be marked as trusted for skops
+with mlflow.start_run():
+    mlflow.sklearn.log_model(
+        pipeline,
+        name="model",
+        serialization_format="skops",
+        skops_trusted_types=["__main__.CustomTransformer"],
+    )
+```
+
+See <APILink fn="mlflow.sklearn.log_model" /> and <APILink fn="mlflow.sklearn.save_model" /> for full parameters.
+
+## Pickle-free format for PyTorch model
+
+When saving a PyTorch model, saving with `serialization_format="pt2"` uses `torch.export.save` and stores the model as a traced graph instead of pickle serialization format.
+
+:::danger Requirements and Limitations
+
+- `torch` >= 2.4
+- An **input_example** is required (and only `Tensor` type inputs are supported for the exported model)
+- Not supported for `torch.jit.ScriptModule` models
+- Model weights **cannot be transferred between devices** after loading. If the model is saved with weights on GPU device 0, it must also be loaded onto GPU device 0 — not CPU or a different GPU.
+
+:::
+
+```python
+import mlflow
+import torch
+from torch import nn
+from sklearn.datasets import load_diabetes
+
+# Load a real dataset and use a sample as the input example
+X, _ = load_diabetes(return_X_y=True)
+input_example = torch.tensor(X[:5], dtype=torch.float32).numpy()
+sequential_model = nn.Sequential(nn.Linear(10, 3), nn.ReLU(), nn.Linear(3, 1))
+with mlflow.start_run():
+    mlflow.pytorch.log_model(
+        sequential_model,
+        name="model",
+        serialization_format="pt2",
+        input_example=input_example,
+    )
+```
+
+See <APILink fn="mlflow.pytorch.log_model" /> and <APILink fn="mlflow.pytorch.save_model" /> for details.
+
+## Pickle-free format for DSPy model
+
+Currently, DSPy models do not support a pickle-free format, but a new saving option `use_dspy_model_save` is introduced to delegate the model saving implementation to the DSPy library.
+Set param `use_dspy_model_save=True` to use the DSPy built-in `dspy.Module.save` method. This option requires **dspy > 3.1.0**.
+
+```python
+import mlflow
+import dspy
+
+model = dspy.ChainOfThought("question -> answer")
+
+with mlflow.start_run():
+    mlflow.dspy.log_model(
+        model,
+        name="model",
+        use_dspy_model_save=True,
+    )
+```
+
+See <APILink fn="mlflow.dspy.log_model" /> and <APILink fn="mlflow.dspy.save_model" /> for full parameters.
+
+## Pickle-free format for LightGBM model
+
+For LightGBM models that are scikit-learn model types (e.g., `LGBMClassifier`, `LGBMRegressor`), you can use the **skops** format. This does not apply to `lightgbm.Booster` instances, which use a native format.
+
+```python
+import mlflow
+from lightgbm import LGBMClassifier
+from sklearn.datasets import load_iris
+
+X, y = load_iris(return_X_y=True)
+model = LGBMClassifier(objective="multiclass", random_state=42).fit(X, y)
+
+with mlflow.start_run():
+    mlflow.lightgbm.log_model(
+        model,
+        name="model",
+        serialization_format="skops",
+        skops_trusted_types=[
+            "collections.OrderedDict",
+            "lightgbm.basic.Booster",
+            "lightgbm.sklearn.LGBMClassifier",
+        ],
+    )
+```
+
+See <APILink fn="mlflow.lightgbm.log_model" /> and <APILink fn="mlflow.lightgbm.save_model" /> for details.
+
+## Pickle-free format for LangChain model
+
+LangChain model supports saving as **Models From Code** artifacts, which avoids pickle entirely. For details and examples, see [Models From Code](/ml/model/models-from-code).
+
+## Pickle-free format for custom Python model
+
+Custom Python model supports saving as **Models From Code** artifacts, which avoids pickle entirely. For details and examples, see [Models From Code](/ml/model/models-from-code).
+
+## Global configuration to force MLflow pickle-free model loading
+
+You can disallow MLflow model loading with `pickle` or `cloudpickle` globally by setting the environment variable as follows:
+
+```bash
+export MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false
+```
+
+When set to `false`, loading a model that was saved with `pickle` or `cloudpickle` will raise an error unless you use a pickle-free saving option when logging the model. The default is `true` for backward compatibility.
+
+## Summary
+
+| Flavor              | Pickle-free option             | Notes                                                         | Impact when becoming default                                                                       |
+| ------------------- | ------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Scikit-learn        | `serialization_format="skops"` | Use `skops_trusted_types` when needed.                        | No impact — transparent upgrade for most models.                                                   |
+| PyTorch             | `serialization_format="pt2"`   | Requires `input_example`, torch >= 2.4; not for ScriptModule. | **Breaking change** — `input_example` will be required; `torch.jit.ScriptModule` is not supported. |
+| DSPy                | `use_dspy_model_save=True`     | Requires dspy > 3.1.0.                                        | Requires upgrading to dspy > 3.1.0.                                                                |
+| LightGBM            | `serialization_format="skops"` | Only for lightGBM models of sklearn type.                     | No impact — transparent upgrade for sklearn-type LightGBM models.                                  |
+| LangChain           | Models From Code               | Pickle saving emits warnings.                                 | No impact.                                                                                         |
+| Custom Python model | Models From Code               | Pickle saving emits warnings.                                 | No impact.                                                                                         |
