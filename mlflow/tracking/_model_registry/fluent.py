@@ -20,6 +20,7 @@ from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     NOT_FOUND,
     RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -281,14 +282,25 @@ def _register_model(
                 "version": create_version_response.version,
             }
         ]
-        model = client.get_logged_model(model_id)
-        if existing_value := model.tags.get(mlflow_tags.MLFLOW_MODEL_VERSIONS):
-            new_value = json.loads(existing_value) + new_value
+        try:
+            model = client.get_logged_model(model_id)
+            if existing_value := model.tags.get(mlflow_tags.MLFLOW_MODEL_VERSIONS):
+                new_value = json.loads(existing_value) + new_value
 
-        client.set_logged_model_tags(
-            model_id,
-            {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
-        )
+            client.set_logged_model_tags(
+                model_id,
+                {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
+            )
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                _logger.warning(
+                    "Unable to update logged model tags for model ID '%s': the logged model "
+                    "does not exist in the current workspace. No model version link will be "
+                    "recorded on the logged model.",
+                    model_id,
+                )
+            else:
+                raise
 
     if validated_env_pack:
         eprint(
