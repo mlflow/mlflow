@@ -22,7 +22,6 @@ members = [
 constraints = [
     { name = "pyspark", specifier = "<4.1.0" },
     { name = "setuptools", specifier = "<82" },
-    { name = "transformers", specifier = "<5" },
     { name = "xgboost", specifier = "<3.1.0" },
 ]
 excludes = ["uv"]
@@ -280,12 +279,13 @@ sdist = { url = "https://files.pythonhosted.org/packages/cc/ad/e32feeaaef73ed320
 
 [[package]]
 name = "aliyun-python-sdk-core-v3"
-version = "2.11.5"
+version = "2.13.33"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycryptodome" },
+    { name = "cryptography" },
+    { name = "jmespath" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/04/6176b46909f17953cb14d268eca09d02b183ddd1f9fdbe1eb9dfa2d215d0/aliyun-python-sdk-core-v3-2.11.5.tar.gz", hash = "sha256:129052ba3fc3fc421f8d8b66ebfa33d3bb9c37c189714392076f4ac63a3150a5", size = 34267, upload-time = "2019-01-08T18:59:32.825Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/50/31/bdf3eba750e9d7213248efea30ad29a62f2d449607e03f538d4d9455d952/aliyun-python-sdk-core-v3-2.13.33.tar.gz", hash = "sha256:d7df820fa31193be3f0a3a991c4126051900b3d2f09c0fc5ff7af43cf36ac245", size = 440774, upload-time = "2022-02-07T09:10:11.89Z" }
 
 [[package]]
 name = "aliyun-python-sdk-kms"
@@ -3243,11 +3243,11 @@ wheels = [
 
 [[package]]
 name = "jmespath"
-version = "1.1.0"
+version = "0.10.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d3/59/322338183ecda247fb5d1763a6cbe46eff7222eaeebafd9fa65d4bf5cb11/jmespath-1.1.0.tar.gz", hash = "sha256:472c87d80f36026ae83c6ddd0f1d05d4e510134ed462851fd5f754c8c3cbb88d", size = 27377, upload-time = "2026-01-22T16:35:26.279Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3c/56/3f325b1eef9791759784aa5046a8f6a1aff8f7c898a2e34506771d3b99d8/jmespath-0.10.0.tar.gz", hash = "sha256:b85d0567b8666149a93172712e68920734333c0ce7e89b78b3e987f71e5ed4f9", size = 21607, upload-time = "2020-05-12T22:03:47.267Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/14/2f/967ba146e6d58cf6a652da73885f52fc68001525b4197effc174321d70b4/jmespath-1.1.0-py3-none-any.whl", hash = "sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64", size = 20419, upload-time = "2026-01-22T16:35:24.919Z" },
+    { url = "https://files.pythonhosted.org/packages/07/cb/5f001272b6faeb23c1c9e0acc04d48eaaf5c862c17709d20e3469c6e0139/jmespath-0.10.0-py2.py3-none-any.whl", hash = "sha256:cdf6525904cc597730141d61b36f2e4b8ecc257c420fa2f4549bac2c2d0cb72f", size = 24489, upload-time = "2020-05-12T22:03:45.643Z" },
 ]
 
 [[package]]

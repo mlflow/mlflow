@@ -53,7 +53,7 @@ class DummyTokenizer:
     def convert_tokens_to_ids(self, tokens: list[str]):
         return [int(x) for x in tokens]
 
-    def _tokenize(self, text: str):
+    def tokenize(self, text: str):
         return [x for x in text.split(" ") if x]
 
     def apply_chat_template(self, messages: list[dict[str, str]], **kwargs):

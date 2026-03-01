@@ -14,6 +14,7 @@ _logger = logging.getLogger(__name__)
 
 transformers_version = Version(transformers.__version__)
 IS_NEW_FEATURE_EXTRACTION_API = transformers_version >= Version("4.27.0")
+IS_TRANSFORMERS_V5_OR_LATER = transformers_version.major >= 5
 
 CHAT_TEMPLATE = "{% for message in messages %}{{ message.content }}{{ eos_token }}{% endfor %}"
 
@@ -41,15 +42,23 @@ def load_small_qa_pipeline():
 @flaky()
 def load_small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
-    feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
-        architecture, low_cpu_mem_usage=True
-    )
     model = transformers.MobileNetV2ForImageClassification.from_pretrained(
         architecture, low_cpu_mem_usage=True
     )
-    return transformers.pipeline(
-        task="image-classification", model=model, feature_extractor=feature_extractor
-    )
+    if IS_NEW_FEATURE_EXTRACTION_API:
+        image_processor = transformers.AutoImageProcessor.from_pretrained(
+            architecture, low_cpu_mem_usage=True
+        )
+        return transformers.pipeline(
+            task="image-classification", model=model, image_processor=image_processor
+        )
+    else:
+        feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
+            architecture, low_cpu_mem_usage=True
+        )
+        return transformers.pipeline(
+            task="image-classification", model=model, feature_extractor=feature_extractor
+        )
 
 
 @prefetch
@@ -86,7 +95,7 @@ def load_small_conversational_model():
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             "microsoft/DialoGPT-small", low_cpu_mem_usage=True
         )
-        model = transformers.AutoModelWithLMHead.from_pretrained(
+        model = transformers.AutoModelForCausalLM.from_pretrained(
             "satvikag/chatbot", low_cpu_mem_usage=True
         )
         return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
@@ -104,6 +113,9 @@ def load_fill_mask_pipeline():
 @prefetch
 @flaky()
 def load_text2text_generation_pipeline():
+    if transformers_version.major >= 5:
+        _logger.info("Skipping text2text-generation pipeline prefetch: removed in transformers 5.x")
+        return None
     task = "text2text-generation"
     architecture = "mrm8488/t5-small-finetuned-common_gen"
     model = transformers.T5ForConditionalGeneration.from_pretrained(architecture)
@@ -116,7 +128,7 @@ def load_text2text_generation_pipeline():
 def load_text_generation_pipeline():
     task = "text-generation"
     architecture = "distilgpt2"
-    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
+    model = transformers.AutoModelForCausalLM.from_pretrained(architecture)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         architecture, chat_template=CHAT_TEMPLATE
     )
@@ -126,6 +138,9 @@ def load_text_generation_pipeline():
 @prefetch
 @flaky()
 def load_translation_pipeline():
+    if transformers_version.major >= 5:
+        _logger.info("Skipping translation pipeline prefetch: removed in transformers 5.x")
+        return None
     return transformers.pipeline(
         task="translation_en_to_de",
         model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
@@ -136,6 +151,9 @@ def load_translation_pipeline():
 @prefetch
 @flaky()
 def load_summarizer_pipeline():
+    if transformers_version.major >= 5:
+        _logger.info("Skipping summarizer pipeline prefetch: removed in transformers 5.x")
+        return None
     task = "summarization"
     architecture = "sshleifer/distilbart-cnn-6-6"
     model = transformers.BartForConditionalGeneration.from_pretrained(architecture)

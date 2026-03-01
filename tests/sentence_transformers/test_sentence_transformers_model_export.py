@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import sentence_transformers
+import transformers
 import yaml
 from packaging.version import Version
 from pyspark.sql import SparkSession
@@ -71,6 +72,11 @@ def test_model_save_and_load(model_path, basic_model):
     Version(sentence_transformers.__version__) < Version("2.4.0"),
     reason="`trust_remote_code` is not supported in Sentence Transformers < 2.3.0 "
     "and `include_prompt` from gte-base-en-v1.5 requires 2.4.0 or above",
+)
+@pytest.mark.skipif(
+    Version(transformers.__version__).major >= 5,
+    reason="Alibaba-NLP/gte-base-en-v1.5 has corrupted position_ids buffers on transformers 5.x "
+    "due to uninitialized meta-device loading (https://github.com/huggingface/transformers/issues/43957)",
 )
 def test_model_save_and_load_with_custom_code(model_path, model_with_remote_code):
     mlflow.sentence_transformers.save_model(model=model_with_remote_code, path=model_path)
