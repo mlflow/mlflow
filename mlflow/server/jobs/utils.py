@@ -339,8 +339,10 @@ def _exec_job(
         else:
             lock = None
 
+        job_started = False
         try:
             job_store.start_job(job_id)
+            job_started = True
 
             fn_fullname = get_job_fn_fullname(job_name)
             function = _load_function(fn_fullname)
@@ -376,6 +378,23 @@ def _exec_job(
             else:
                 _logger.error(f"Job {job_id} ({job_name}) failed with error: {job_result.error}")
                 job_store.fail_job(job_id, job_result.error)
+        except Exception as exc:
+            # If start_job succeeded but a subsequent step raises an unexpected error,
+            # fail the job so it doesn't remain stuck in RUNNING state.
+            # Note: RetryTask is raised intentionally by _exponential_backoff_retry to
+            # schedule a Huey retry, not a real error - skip fail_job in that case.
+            from huey.exceptions import RetryTask
+
+            if job_started and not isinstance(exc, RetryTask):
+                _logger.error(
+                    f"Job {job_id} ({job_name}) encountered an unexpected error: {exc!r}",
+                    exc_info=True,
+                )
+                try:
+                    job_store.fail_job(job_id, repr(exc))
+                except Exception:
+                    pass
+            raise
         finally:
             if lock is not None:
                 lock.release()
