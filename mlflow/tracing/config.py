@@ -61,7 +61,6 @@ def reset_config():
     _MLFLOW_TRACING_CONFIG = TracingConfig()
 
 
-@experimental(version="3.2.0")
 def configure(
     span_processors: list[Callable[["LiveSpan"], None]] | None = None,
 ) -> TracingConfigContext:
