@@ -34,8 +34,10 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
 )
 from mlflow.tracing.provider import (
+    get_current_context,
     get_current_otel_span,
     is_tracing_enabled,
+    run_with_otel_context,
     safe_set_span_in_context,
     with_active_span,
 )
@@ -1181,6 +1183,30 @@ def get_active_trace_id() -> str | None:
     if active_span := get_current_active_span():
         return active_span.trace_id
     return None
+
+
+def current_otel_context() -> "Any":
+    """
+    Return a snapshot of the current OpenTelemetry context for propagation across async
+    or thread-pool boundaries.
+
+    The returned object can be passed to :func:`mlflow.tracing.provider.run_with_otel_context`
+    to run a callable with the captured parent-span context attached, so that child spans
+    created inside that callable are correctly nested under the active span at the capture site.
+
+    Returns:
+        The current ``opentelemetry.context.Context`` object, or ``None`` when MLflow is
+        running in *unified* (global OTel provider) mode and no explicit context override is
+        in effect.
+    """
+    from opentelemetry import context as otel_context_api
+
+    ctx = get_current_context()
+    if ctx is None:
+        # In unified-provider mode get_current_context() returns None; fall back to the
+        # OTel runtime context which holds the actual active span.
+        ctx = otel_context_api.get_current()
+    return ctx
 
 
 def get_last_active_trace_id(thread_local: bool = False) -> str | None:

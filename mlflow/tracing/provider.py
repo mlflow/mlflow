@@ -147,6 +147,28 @@ def get_current_otel_span() -> trace.Span | None:
     return trace.get_current_span(context=get_current_context())
 
 
+def run_with_otel_context(
+    otel_ctx: "context_api.Context | None",
+    fn: "Callable[..., Any]",
+    *args: "Any",
+    **kwargs: "Any",
+) -> "Any":
+    """
+    Run ``fn(*args, **kwargs)`` with ``otel_ctx`` attached as the active OTel context.
+
+    This is used to propagate the parent span across boundaries (async event loops,
+    thread-pool workers) where the OTel ContextVar would otherwise not be visible.
+    If ``otel_ctx`` is *None* the function is called directly without any attachment.
+    """
+    if otel_ctx is None:
+        return fn(*args, **kwargs)
+    token = context_api.attach(otel_ctx)
+    try:
+        return fn(*args, **kwargs)
+    finally:
+        context_api.detach(token)
+
+
 def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.Span:
     """
     Start a new OpenTelemetry span in the current context.

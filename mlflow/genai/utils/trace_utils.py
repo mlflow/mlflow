@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import functools
 import inspect
 import json
@@ -496,7 +497,16 @@ def _wrap_async_predict_fn(async_fn: Callable[..., Any]) -> Callable[..., Any]:
                     "install nest-asyncio: pip install nest-asyncio"
                 )
 
-        return asyncio.run(asyncio.wait_for(async_fn(*args, **kwargs), timeout=timeout))
+        # Capture the current Python contextvars context — which includes the
+        # OTel ContextVar holding the active span — so that asyncio.run() sees
+        # the parent span instead of an empty context.  Without this, every
+        # child LLM span created inside the coroutine is traced as a root span.
+        calling_ctx = contextvars.copy_context()
+
+        def _run():
+            return asyncio.run(asyncio.wait_for(async_fn(*args, **kwargs), timeout=timeout))
+
+        return calling_ctx.run(_run)
 
     return sync_wrapper
 
