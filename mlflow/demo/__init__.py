@@ -1,7 +1,14 @@
 import logging
 
 import mlflow.demo.generators  # noqa: F401
-from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DEMO_PROMPT_PREFIX, BaseDemoGenerator, DemoResult
+from mlflow.demo.base import (
+    DEMO_EXPERIMENT_NAME,
+    DEMO_PROMPT_PREFIX,
+    BaseDemoGenerator,
+    DemoResult,
+    get_demo_experiment_name,
+    set_uc_schema,
+)
 from mlflow.demo.registry import demo_registry
 from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
 
@@ -14,6 +21,8 @@ __all__ = [
     "DemoResult",
     "demo_registry",
     "generate_all_demos",
+    "get_demo_experiment_name",
+    "set_uc_schema",
 ]
 
 
