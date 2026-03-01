@@ -679,6 +679,10 @@
     "defaultMessage": "Compare",
     "description": "Compare evaluation runs action"
   },
+  "2kNo2y": {
+    "defaultMessage": "Tool Error Rates",
+    "description": "Title for the tool error rates section"
+  },
   "2mRfvl": {
     "defaultMessage": "Request error",
     "description": "A title shown on the experiment page if the runs request fails"
@@ -1125,6 +1129,10 @@
   "6WQ9yl": {
     "defaultMessage": "Unable to load experiment judges",
     "description": "Error message when experiment judges page fails to load"
+  },
+  "6Wa6vB": {
+    "defaultMessage": "All tools",
+    "description": "Label for tool selector when all tools are selected"
   },
   "6XfILf": {
     "defaultMessage": "Contour chart",
@@ -5367,6 +5375,10 @@
     "defaultMessage": "The chunk-relevance-precision LLM judge determines whether the chunks returned by the retriever are relevant to the input request. Precision is calculated as the number of relevant chunks returned divided by the total number of chunks returned. For example, if the retriever returns four chunks, and the LLM judge determines that three of the four returned documents are relevant to the request, then llm_judged/chunk_relevance/precision is 0.75.",
     "description": "Evaluation results > known type of evaluation result assessment > chunk relevance judge."
   },
+  "aVIoIw": {
+    "defaultMessage": "No tools selected",
+    "description": "Label for tool selector when no tools are selected"
+  },
   "aW3CeS": {
     "defaultMessage": "Bound {date}",
     "description": "Gateway > Bindings using key drawer > Binding created date"
@@ -5782,6 +5794,10 @@
   "dJaboT": {
     "defaultMessage": "Fetching traces failed",
     "description": "Error message for fetching traces failed"
+  },
+  "dM8NOe": {
+    "defaultMessage": "{count} selected",
+    "description": "Label for tool selector showing count of selected tools"
   },
   "dMKo75": {
     "defaultMessage": "Search experiments",
@@ -6754,6 +6770,10 @@
   "jwALGI": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
+  },
+  "jxMFKl": {
+    "defaultMessage": "Select All",
+    "description": "Option to select all tools in the tool selector"
   },
   "jzNMBH": {
     "defaultMessage": "This key is currently in use. After deleting, you will need to attach a different API key to continue using the endpoints currently using this key.",
