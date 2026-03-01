@@ -155,6 +155,38 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
     assert response.status_code == 403
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_proxy_artifact_list_query_param_uses_experiment_permission(client, monkeypatch):
+    # Regression test for https://github.com/mlflow/mlflow/issues/21201:
+    # When default_permission is NO_PERMISSIONS, a user with explicit experiment permission
+    # should be able to list artifacts via query parameter path (GET ?path=<experiment_id>/...).
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("proxy-artifact-list-query-param-test")
+
+    # user1 has MANAGE on experiment — list via query param path should be allowed (not 403)
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow-artifacts/artifacts",
+        params={"path": f"{experiment_id}/models/m-abc123/artifacts"},
+        auth=(username1, password1),
+    )
+    assert response.status_code != 403
+
+    # user2 has no permission on the experiment — expect 403
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow-artifacts/artifacts",
+        params={"path": f"{experiment_id}/models/m-abc123/artifacts"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
 @pytest.mark.parametrize("mpu_action", ["create", "complete", "abort"])
 def test_mpu_authorization_required(client, monkeypatch, mpu_action):
     username1, password1 = create_user(client.tracking_uri)
