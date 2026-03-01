@@ -39,9 +39,14 @@ from mlflow.gateway.providers.base import (
     TrafficRouteProvider,
 )
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
+from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.server.gateway_budget import (
+    get_model_info,
+    make_cost_recording_reducer,
+    maybe_record_budget_cost,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.gateway.entities import (
@@ -54,6 +59,7 @@ from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationTyp
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
+from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
 
@@ -425,6 +431,7 @@ async def invocations(endpoint_name: str, request: Request):
     headers = dict(request.headers)
 
     store = _get_store()
+    workspace = get_request_workspace()
 
     _validate_store(store)
 
@@ -446,7 +453,7 @@ async def invocations(endpoint_name: str, request: Request):
                 provider.chat_stream,
                 endpoint_config,
                 user_metadata,
-                output_reducer=aggregate_chat_stream_chunks,
+                output_reducer=make_cost_recording_reducer(store, endpoint_config, workspace),
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
             )(payload)
@@ -455,13 +462,16 @@ async def invocations(endpoint_name: str, request: Request):
                 media_type="text/event-stream",
             )
         else:
-            return await maybe_traced_gateway_call(
+            response = await maybe_traced_gateway_call(
                 provider.chat,
                 endpoint_config,
                 user_metadata,
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
             )(payload)
+            model_name, model_provider = get_model_info(endpoint_config)
+            maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+            return response
 
     elif "input" in body:
         # Embeddings request
@@ -475,13 +485,16 @@ async def invocations(endpoint_name: str, request: Request):
             store, endpoint_name, endpoint_type
         )
 
-        return await maybe_traced_gateway_call(
+        response = await maybe_traced_gateway_call(
             provider.embeddings,
             endpoint_config,
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_EMBEDDINGS,
         )(payload)
+        model_name, model_provider = get_model_info(endpoint_config)
+        maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+        return response
 
     else:
         raise HTTPException(
@@ -517,6 +530,7 @@ async def chat_completions(request: Request):
     body.pop("model")
 
     store = _get_store()
+    workspace = get_request_workspace()
 
     _validate_store(store)
 
@@ -534,7 +548,7 @@ async def chat_completions(request: Request):
             provider.chat_stream,
             endpoint_config,
             user_metadata,
-            output_reducer=aggregate_chat_stream_chunks,
+            output_reducer=make_cost_recording_reducer(store, endpoint_config, workspace),
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_CHAT,
         )(payload)
@@ -543,13 +557,16 @@ async def chat_completions(request: Request):
             media_type="text/event-stream",
         )
     else:
-        return await maybe_traced_gateway_call(
+        response = await maybe_traced_gateway_call(
             provider.chat,
             endpoint_config,
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_CHAT,
         )(payload)
+        model_name, model_provider = get_model_info(endpoint_config)
+        maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+        return response
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
@@ -580,6 +597,7 @@ async def openai_passthrough_chat(request: Request):
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
 
     headers = dict(request.headers)
@@ -615,9 +633,12 @@ async def openai_passthrough_chat(request: Request):
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
     )
-    return await traced_passthrough(
+    response = await traced_passthrough(
         action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
     )
+    model_name, model_provider = get_model_info(endpoint_config)
+    maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+    return response
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
@@ -644,6 +665,7 @@ async def openai_passthrough_embeddings(request: Request):
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
 
     headers = dict(request.headers)
@@ -658,9 +680,12 @@ async def openai_passthrough_embeddings(request: Request):
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS,
     )
-    return await traced_passthrough(
+    response = await traced_passthrough(
         action=PassthroughAction.OPENAI_EMBEDDINGS, payload=body, headers=headers
     )
+    model_name, model_provider = get_model_info(endpoint_config)
+    maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+    return response
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
@@ -691,6 +716,7 @@ async def openai_passthrough_responses(request: Request):
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
 
     headers = dict(request.headers)
@@ -726,9 +752,12 @@ async def openai_passthrough_responses(request: Request):
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
     )
-    return await traced_passthrough(
+    response = await traced_passthrough(
         action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
     )
+    model_name, model_provider = get_model_info(endpoint_config)
+    maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+    return response
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
@@ -759,6 +788,7 @@ async def anthropic_passthrough_messages(request: Request):
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
 
     headers = dict(request.headers)
@@ -794,9 +824,12 @@ async def anthropic_passthrough_messages(request: Request):
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
     )
-    return await traced_passthrough(
+    response = await traced_passthrough(
         action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
     )
+    model_name, model_provider = get_model_info(endpoint_config)
+    maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+    return response
 
 
 @gateway_router.post(
@@ -827,13 +860,13 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     user_metadata = _get_user_metadata(request)
 
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
 
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
-
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough,
         endpoint_config,
@@ -841,9 +874,14 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
     )
-    return await traced_passthrough(
+    response = await traced_passthrough(
         action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
     )
+    model_name, model_provider = get_model_info(endpoint_config)
+    maybe_record_budget_cost(
+        store, response, model_name=model_name, model_provider=model_provider, workspace=workspace
+    )
+    return response
 
 
 @gateway_router.post(
