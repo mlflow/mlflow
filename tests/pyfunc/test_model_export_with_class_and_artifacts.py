@@ -30,6 +30,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.entities import Trace
 from mlflow.environment_variables import (
+    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
     MLFLOW_LOG_MODEL_COMPRESSION,
     MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
 )
@@ -1099,6 +1100,20 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
         in log_message
         for log_message in log_messages
     )
+
+
+def test_load_cloudpickle_model_raises_when_pickle_deserialization_disallowed(
+    model_path, monkeypatch
+):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    mlflow.pyfunc.save_model(path=model_path, python_model=TestModel())
+    monkeypatch.setenv(MLFLOW_ALLOW_PICKLE_DESERIALIZATION.name, "false")
+
+    with pytest.raises(MlflowException, match="Deserializing model using pickle is disallowed"):
+        mlflow.pyfunc.load_model(model_uri=model_path)
 
 
 def test_save_and_load_model_with_special_chars(
