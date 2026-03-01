@@ -181,14 +181,38 @@ class ToolUse(DeepEvalScorer):
         threshold: Minimum score threshold for passing (default: 0.5, range: 0.0-1.0)
         model: {{ model }}
         include_reason: Whether to include reasoning in the evaluation
+        available_tools: A list of available tools for the agent to use.
 
     Examples:
         .. code-block:: python
 
+            import pandas as pd
+            import mlflow
             from mlflow.genai.scorers.deepeval import ToolUse
 
-            scorer = ToolUse(threshold=0.7)
-            feedback = scorer(traces=[trace1, trace2, trace3])
+            # Define available tools
+            available_tools = ["Tool 1", "Tool 2"]
+
+            # Create the scorer
+            scorer = ToolUse(threshold=0.7, available_tools=available_tools)
+
+            # Create a dummy evaluation dataset
+            eval_df = pd.DataFrame(
+                {
+                    "inputs": ["What is the weather in Tokyo?"],
+                    "outputs": ["The weather in Tokyo is sunny."],
+                    "context": ["context"],
+                }
+            )
+
+            # Evaluate the model using the scorer
+            with mlflow.start_run():
+                results = mlflow.genai.evaluate(
+                    data=eval_df,
+                    scorers=[scorer],
+                    model_type="question-answering",
+                )
+                print(results.metrics)
 
     """
 
