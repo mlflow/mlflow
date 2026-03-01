@@ -435,12 +435,11 @@ def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
             result = json.loads(value)
             if isinstance(result, str):
                 try:
-                    # If the original value is a string or dict, we store it as
-                    # a JSON-encoded string.  For other types, we store the original value directly.
-                    # For string type, this is to avoid interpreting "1" as an int accidentally.
-                    # For dictionary, we save the json-encoded-once string so that the UI can render
-                    # it correctly after loading.
-                    if isinstance(json.loads(result), (str, dict)):
+                    # If the value was double-encoded (e.g., via OTLP where from_otel_proto
+                    # calls dump_span_attribute_value on an already-serialized string), strip
+                    # one layer of encoding. The inner json.loads verifies the result is valid
+                    # JSON so we don't accidentally mangle non-JSON strings.
+                    if json.loads(result) is not None:
                         updated_attributes[key] = result
                         continue
                 except json.JSONDecodeError:
