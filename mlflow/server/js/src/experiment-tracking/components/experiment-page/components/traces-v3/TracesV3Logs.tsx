@@ -445,6 +445,9 @@ const TracesV3LogsImpl = React.memo(
               isGroupedBySession={forceGroupBySession || isGroupedBySession}
               forceGroupBySession={forceGroupBySession}
               onToggleSessionGrouping={onToggleSessionGrouping}
+              onDetectIssues={() => {
+                // TODO: Implement issue detection logic
+              }}
             />
             {renderMainContent()}
           </div>
