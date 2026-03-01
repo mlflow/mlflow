@@ -44,6 +44,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlOnlineScoringConfig,
     SqlScorer,
     SqlScorerVersion,
+    SqlSpan,
+    SqlSpanMetrics,
+    SqlTraceInfo,
+    SqlTraceMetadata,
 )
 from mlflow.store.tracking.gateway.config_resolver import (
     get_endpoint_config,
@@ -51,6 +55,7 @@ from mlflow.store.tracking.gateway.config_resolver import (
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -79,6 +84,10 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlOnlineScoringConfig,
             SqlScorerVersion,
             SqlScorer,
+            SqlSpanMetrics,
+            SqlSpan,
+            SqlTraceMetadata,
+            SqlTraceInfo,
             SqlExperimentTag,
             SqlExperiment,
         ):
@@ -2195,3 +2204,102 @@ def test_create_budget_policy_all_budget_actions(store: SqlAlchemyStore):
             budget_action=action,
         )
         assert policy.budget_action == action
+
+
+# =============================================================================
+# sum_gateway_trace_cost Tests
+# =============================================================================
+
+
+def _insert_trace_with_cost(
+    session,
+    experiment_id,
+    trace_id,
+    timestamp_ms,
+    span_costs,
+    is_gateway=True,
+    endpoint_id="ep-test",
+):
+    trace = SqlTraceInfo(
+        request_id=trace_id,
+        experiment_id=experiment_id,
+        timestamp_ms=timestamp_ms,
+        execution_time_ms=100,
+        status="OK",
+    )
+    session.add(trace)
+    session.flush()
+
+    if is_gateway:
+        metadata = SqlTraceMetadata(
+            request_id=trace_id,
+            key=TraceMetadataKey.GATEWAY_ENDPOINT_ID,
+            value=endpoint_id,
+        )
+        session.add(metadata)
+
+    for span_id, cost in span_costs:
+        span = SqlSpan(
+            trace_id=trace_id,
+            experiment_id=experiment_id,
+            span_id=span_id,
+            status="OK",
+            start_time_unix_nano=timestamp_ms * 1_000_000,
+            end_time_unix_nano=(timestamp_ms + 100) * 1_000_000,
+            content="{}",
+        )
+        session.add(span)
+        session.flush()
+
+        metric = SqlSpanMetrics(
+            trace_id=trace_id,
+            span_id=span_id,
+            key=SpanMetricKey.TOTAL_COST,
+            value=cost,
+        )
+        session.add(metric)
+
+    session.flush()
+
+
+def test_sum_gateway_trace_cost_basic(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-basic")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "t1", 1000, [("s1", 0.05), ("s2", 0.03)])
+        _insert_trace_with_cost(session, exp_id, "t2", 2000, [("s1", 0.10)])
+
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total - 0.18) < 1e-9
+
+
+def test_sum_gateway_trace_cost_excludes_non_gateway(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-non-gw")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "gw1", 1000, [("s1", 0.10)], is_gateway=True)
+        _insert_trace_with_cost(session, exp_id, "nongw1", 1000, [("s1", 0.50)], is_gateway=False)
+
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total - 0.10) < 1e-9
+
+
+def test_sum_gateway_trace_cost_time_window(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-window")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "early", 500, [("s1", 0.01)])
+        _insert_trace_with_cost(session, exp_id, "in-window", 1500, [("s1", 0.05)])
+        _insert_trace_with_cost(session, exp_id, "late", 3000, [("s1", 0.99)])
+
+    # Only in-window trace should be included
+    total = store.sum_gateway_trace_cost(start_time_ms=1000, end_time_ms=2000)
+    assert abs(total - 0.05) < 1e-9
+
+
+def test_sum_gateway_trace_cost_empty(store: SqlAlchemyStore):
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert total == 0.0
