@@ -10,7 +10,6 @@ FLAVOR_NAME = "agno"
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.3.0")
 def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = False) -> None:
     """
     Enables (or disables) and configures autologging from Agno to MLflow.

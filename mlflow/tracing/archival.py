@@ -6,7 +6,6 @@ _ERROR_MSG = (
 )
 
 
-@experimental(version="3.3.0")
 def enable_databricks_trace_archival(
     *,
     delta_table_fullname: str,
@@ -46,7 +45,6 @@ def enable_databricks_trace_archival(
     )
 
 
-@experimental(version="3.3.0")
 def disable_databricks_trace_archival(*, experiment_id: str | None = None) -> None:
     """
     Disable archiving traces for an MLflow experiment to a Unity Catalog Delta table.
