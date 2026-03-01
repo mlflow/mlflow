@@ -367,6 +367,7 @@ def build(package_type: PackageType) -> None:
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
                 "jfrog": ["mlflow-jfrog-plugin"],
+                "kubernetes": ["kubernetes"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],
             }
