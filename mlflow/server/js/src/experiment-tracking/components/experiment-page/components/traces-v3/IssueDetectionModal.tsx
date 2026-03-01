@@ -1,0 +1,197 @@
+import React, { useState, useCallback } from 'react';
+import {
+  Modal,
+  Button,
+  useDesignSystemTheme,
+  FormUI,
+  SparkleIcon,
+  Typography,
+  Checkbox,
+  Tooltip,
+} from '@databricks/design-system';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
+import { ProviderSelect } from '../../../../../gateway/components/create-endpoint/ProviderSelect';
+import { ModelSelect } from '../../../../../gateway/components/create-endpoint/ModelSelect';
+import { ApiKeyConfigurator } from '../../../../../gateway/components/model-configuration/components/ApiKeyConfigurator';
+import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
+import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
+
+interface IssueDetectionModalProps {
+  visible: boolean;
+  onClose: () => void;
+  experimentId?: string;
+}
+
+const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
+  mode: 'new',
+  existingSecretId: '',
+  newSecret: {
+    name: '',
+    authMode: '',
+    secretFields: {},
+    configFields: {},
+  },
+};
+
+export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visible, onClose, experimentId }) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const [provider, setProvider] = useState('');
+  const [model, setModel] = useState('');
+  const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(DEFAULT_API_KEY_CONFIG);
+  const [saveKey, setSaveKey] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { existingSecrets, isLoadingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } =
+    useApiKeyConfiguration({ provider });
+
+  const handleProviderChange = useCallback((newProvider: string) => {
+    setProvider(newProvider);
+    setModel('');
+    setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
+    setSaveKey(false);
+  }, []);
+
+  const resetForm = useCallback(() => {
+    setProvider('');
+    setModel('');
+    setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
+    setSaveKey(false);
+  }, []);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      // TODO: Save API key if saveKey is true and implement backend API call for issue detection
+      // eslint-disable-next-line no-console
+      console.log('Issue detection triggered:', {
+        provider,
+        model,
+        apiKeyConfig,
+        saveKey,
+        experimentId,
+      });
+      resetForm();
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClose = useCallback(() => {
+    resetForm();
+    onClose();
+  }, [resetForm, onClose]);
+
+  const isApiKeyValid =
+    apiKeyConfig.mode === 'existing'
+      ? !!apiKeyConfig.existingSecretId
+      : !!apiKeyConfig.newSecret.name && Object.keys(apiKeyConfig.newSecret.secretFields).length > 0;
+
+  const isSubmitDisabled = !provider || !model || !isApiKeyValid;
+
+  return (
+    <Modal
+      componentId="mlflow.traces.issue-detection-modal"
+      title={
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+          <SparkleIcon color="ai" />
+          <FormattedMessage
+            defaultMessage="Detect Issues"
+            description="Title of the issue detection configuration modal"
+          />
+        </div>
+      }
+      visible={visible}
+      onCancel={handleClose}
+      footer={
+        <Button
+          componentId="mlflow.traces.issue-detection-modal.submit"
+          type="primary"
+          onClick={handleSubmit}
+          loading={isSubmitting}
+          disabled={isSubmitDisabled}
+          css={{ width: '100%' }}
+        >
+          <SparkleIcon css={{ marginRight: theme.spacing.xs }} />
+          <FormattedMessage defaultMessage="Run Analysis" description="Submit button to trigger issue detection job" />
+        </Button>
+      }
+    >
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+        <Typography.Text color="secondary">
+          <FormattedMessage
+            defaultMessage="Connect an LLM to run an AI-powered issue analysis on your traces"
+            description="Description text for issue detection modal"
+          />
+        </Typography.Text>
+
+        <div>
+          <FormUI.Label>
+            <FormattedMessage defaultMessage="Model" description="Section header for model selection" />
+          </FormUI.Label>
+          <div css={{ display: 'flex', gap: theme.spacing.md, marginTop: theme.spacing.sm }}>
+            <div css={{ flex: 1 }}>
+              <ProviderSelect
+                value={provider}
+                onChange={handleProviderChange}
+                componentIdPrefix="mlflow.traces.issue-detection-modal.provider"
+              />
+            </div>
+            <div css={{ flex: 1 }}>
+              <ModelSelect
+                provider={provider}
+                value={model}
+                onChange={setModel}
+                componentIdPrefix="mlflow.traces.issue-detection-modal.model"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <Typography.Text css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>
+            <FormattedMessage defaultMessage="Connections" description="Section header for API key configuration" />
+          </Typography.Text>
+          <div css={{ marginTop: theme.spacing.sm }}>
+            <ApiKeyConfigurator
+              value={apiKeyConfig}
+              onChange={setApiKeyConfig}
+              provider={provider}
+              existingSecrets={existingSecrets}
+              isLoadingSecrets={isLoadingSecrets}
+              authModes={authModes}
+              defaultAuthMode={defaultAuthMode}
+              isLoadingProviderConfig={isLoadingProviderConfig}
+              componentIdPrefix="mlflow.traces.issue-detection-modal.api-key"
+            />
+          </div>
+          {provider && apiKeyConfig.mode === 'new' && (
+            <div css={{ marginTop: theme.spacing.md }}>
+              <Tooltip
+                componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
+                content={intl.formatMessage({
+                  defaultMessage: 'Saved API keys can be managed in AI Gateway → API Keys tab',
+                  description: 'Tooltip explaining where saved API keys can be found',
+                })}
+              >
+                <span>
+                  <Checkbox
+                    componentId="mlflow.traces.issue-detection-modal.save-key-checkbox"
+                    isChecked={saveKey}
+                    onChange={(checked) => setSaveKey(checked)}
+                  >
+                    <FormattedMessage
+                      defaultMessage="Save this key for reuse"
+                      description="Checkbox to save API key for reuse"
+                    />
+                  </Checkbox>
+                </span>
+              </Tooltip>
+            </div>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+};

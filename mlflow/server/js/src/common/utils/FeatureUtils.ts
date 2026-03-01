@@ -178,3 +178,10 @@ export const shouldEnableImprovedEvalRunsComparison = () => {
 export const isScorerModelSelectionEnabled = () => {
   return true;
 };
+
+/**
+ * Determines if issue detection feature is enabled in the traces table toolbar.
+ */
+export const shouldEnableIssueDetection = () => {
+  return true;
+};
