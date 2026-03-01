@@ -4189,10 +4189,6 @@
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
     "description": "Help text explaining model configuration purpose"
   },
-  "Sb0Z4Z": {
-    "defaultMessage": ", . : / - = and blank spaces are not allowed",
-    "description": "Add new key-value tag modal > Invalid characters error"
-  },
   "SbMdmm": {
     "defaultMessage": "{spanName} was called",
     "description": "Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
@@ -4391,6 +4387,10 @@
   "U0joaT": {
     "defaultMessage": "Select traces",
     "description": "Title for the select traces modal"
+  },
+  "U189tZ": {
+    "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
+    "description": "Key-value tag editor modal > Tag dropdown Manage Modal > Invalid characters error"
   },
   "U2x2cM": {
     "defaultMessage": "Endpoint:",
@@ -4966,6 +4966,10 @@
   "XwkX9B": {
     "defaultMessage": "No metrics recorded",
     "description": "Placeholder text when no metrics are recorded for a logged model"
+  },
+  "Y++w0Q": {
+    "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
+    "description": "Add new key-value tag modal > Invalid characters or path error"
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -6058,10 +6062,6 @@
   "fUwLyA": {
     "defaultMessage": "Sample judge output",
     "description": "Title for sample judge output panel"
-  },
-  "fWEvZL": {
-    "defaultMessage": ", . : / - = and blank spaces are not allowed",
-    "description": "Key-value tag editor modal > Tag dropdown Manage Modal > Invalid characters error"
   },
   "fWPlO9": {
     "defaultMessage": "About this logged model",
