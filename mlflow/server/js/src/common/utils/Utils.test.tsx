@@ -957,3 +957,84 @@ test('isValidHttpUrl', () => {
   /* eslint-disable no-script-url*/
   expect(Utils.isValidHttpUrl('javascript:void(0)')).toEqual(false);
 });
+
+test('sanitizeUrl', () => {
+  expect(Utils.sanitizeUrl('http://localhost/foo')).toEqual('http://localhost/foo');
+  expect(Utils.sanitizeUrl('https://example.com/path?q=1')).toEqual('https://example.com/path?q=1');
+  expect(Utils.sanitizeUrl('https://databricks.com/#job/123')).toEqual('https://databricks.com/#job/123');
+  expect(Utils.sanitizeUrl('http://databricks/?o=123#notebook/456')).toEqual('http://databricks/?o=123#notebook/456');
+
+  // dangerous schemes must be rejected
+  /* eslint-disable no-script-url */
+  expect(Utils.sanitizeUrl('javascript:alert(1)')).toEqual('');
+  expect(Utils.sanitizeUrl('javascript://alert(1)')).toEqual('');
+  /* eslint-enable no-script-url */
+  expect(Utils.sanitizeUrl('data:text/html,<script>alert(1)</script>')).toEqual('');
+  expect(Utils.sanitizeUrl('vbscript:msgbox("xss")')).toEqual('');
+
+  // unparseable URLs must be rejected
+  expect(Utils.sanitizeUrl('')).toEqual('');
+  expect(Utils.sanitizeUrl('not-a-url')).toEqual('');
+});
+
+test('getJobSourceUrl sanitizes dangerous workspaceUrl', () => {
+  // @ts-expect-error TS(2345): workspaceUrl param typed as null default
+  expect(Utils.getJobSourceUrl(null, '123', '456', 'https://databricks.com')).toEqual(
+    'https://databricks.com/#job/123/run/456',
+  );
+
+  /* eslint-disable no-script-url */
+  // @ts-expect-error TS(2345): workspaceUrl param typed as null default
+  expect(Utils.getJobSourceUrl(null, '123', '456', 'javascript://evil.com')).toEqual('');
+  /* eslint-enable no-script-url */
+});
+
+test('getNotebookSourceUrl sanitizes dangerous workspaceUrl', () => {
+  // @ts-expect-error TS(2345): workspaceUrl param typed as null default
+  expect(Utils.getNotebookSourceUrl(null, '789', 'rev1', 'run1', 'https://databricks.com')).toEqual(
+    'https://databricks.com/#notebook/789/revision/rev1/mlflow/run/run1',
+  );
+
+  /* eslint-disable no-script-url */
+  // @ts-expect-error TS(2345): workspaceUrl param typed as null default
+  expect(Utils.getNotebookSourceUrl(null, '789', 'rev1', null, 'javascript://evil.com')).toEqual('');
+  /* eslint-enable no-script-url */
+});
+
+test('renderJobSource renders plain text for dangerous workspaceUrl', () => {
+  expect(Utils.renderJobSource(null, '123', '456', 'my job', null)).toEqual(
+    <a title="my job" href="http://localhost/#job/123/run/456" target="_top">
+      my job
+    </a>,
+  );
+
+  /* eslint-disable no-script-url */
+  expect(
+    // @ts-expect-error TS(2345): Argument of type 'string' is not assignable
+    Utils.renderJobSource(null, '123', '456', 'my job', 'javascript://evil.com', null),
+  ).toEqual('my job');
+  /* eslint-enable no-script-url */
+});
+
+test('renderNotebookSource renders plain text for dangerous workspaceUrl', () => {
+  expect(Utils.renderNotebookSource(null, '789', 'rev1', null, '/Users/test/iris', null)).toEqual(
+    <a title="/Users/test/iris" href="http://localhost/#notebook/789/revision/rev1" target="_top">
+      iris
+    </a>,
+  );
+
+  /* eslint-disable no-script-url */
+  expect(
+    Utils.renderNotebookSource(
+      null,
+      '789',
+      'rev1',
+      null,
+      '/Users/test/iris',
+      // @ts-expect-error TS(2345): Argument of type 'string' is not assignable
+      'javascript://evil.com',
+      null,
+    ),
+  ).toEqual('iris');
+  /* eslint-enable no-script-url */
+});
