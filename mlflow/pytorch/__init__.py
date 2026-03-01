@@ -13,6 +13,7 @@ import importlib
 import itertools
 import logging
 import os
+import warnings
 from functools import partial
 from typing import Any
 
@@ -71,6 +72,8 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "pytorch"
 
+SERIALIZATION_FORMAT_PICKLE = "pickle"
+SERIALIZATION_FORMAT_PT2 = "pt2"
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _EXPORTED_TORCH_MODEL_FILE_NAME = "model.pt2"
 _TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
@@ -162,6 +165,7 @@ def log_model(
     step: int = 0,
     model_id: str | None = None,
     export_model: bool = False,
+    serialization_format: str = SERIALIZATION_FORMAT_PICKLE,
     **kwargs,
 ):
     """
@@ -213,10 +217,18 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
-        export_model: Save the model via `torch.export.save`. This saving format exports the model
-            as a traced graph. This format addresses the security vulnerability of `CloudPickle`
-            format. If using the format, the `input_example` is required and only the `Tensor` type
-            input is supported.
+        export_model: If set to True, save the model as "pt2" format. This argument is deprecated,
+            For details, see documentation of `serialization_format` argument.
+        serialization_format: The serialization format that is used to save the PyTorch model.
+            The value can be "pickle" or "pt2". If set to "pickle", the PyTorch model is saved
+            by "pickle" or "cloudpickle", depends on 'pickle_module' param setting.
+            If set it to "pt2", the model is saved by `torch.export.save`. This saving format
+            exports the model as a traced graph and is a safer serialization format,
+            it prevents executing arbitrary code during deserialization. If using the "pt2" format,
+            the `input_example` is required (because PyTorch traces the model graph by virtually
+            executing `model.forward` with the provided example input) and only the `Tensor` type
+            input is supported, for details of 'pt2' format, please refer to
+            https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
         kwargs: kwargs to pass to ``torch.save`` method.
 
     Returns:
@@ -310,6 +322,7 @@ def log_model(
         step=step,
         model_id=model_id,
         export_model=export_model,
+        serialization_format=serialization_format,
         **kwargs,
     )
 
@@ -328,7 +341,8 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    export_model=False,
+    export_model: bool = False,
+    serialization_format=SERIALIZATION_FORMAT_PICKLE,
     **kwargs,
 ):
     """
@@ -361,10 +375,18 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:{{ metadata }}
-        export_model: Save the model via `torch.export.save`. This saving format exports the model
-            as a traced graph. This format addresses the security vulnerability of `CloudPickle`
-            format. If using the format, the `input_example` is required and only the `Tensor` type
-            input is supported.
+        export_model: If set to True, save the model as "pt2" format. This argument is deprecated,
+            For details, see documentation of `serialization_format` argument.
+        serialization_format: The serialization format that is used to save the PyTorch model.
+            The value can be "pickle" or "pt2". If set to "pickle", the PyTorch model is saved
+            by "pickle" or "cloudpickle", depends on 'pickle_module' param setting.
+            If set it to "pt2", the model is saved by `torch.export.save`. This saving format
+            exports the model as a traced graph and is a safer serialization format,
+            it prevents executing arbitrary code during deserialization. If using the "pt2" format,
+            the `input_example` is required (because PyTorch traces the model graph by virtually
+            executing `model.forward` with the provided example input) and only the `Tensor` type
+            input is supported, for details of 'pt2' format, please refer to
+            https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
         kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -417,6 +439,20 @@ def save_model(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
+    if export_model:
+        warnings.warn(
+            "`export_model` argument is deprecated. "
+            "Please set `serialization_format` argument instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        serialization_format = "pt2"
+
+    if serialization_format not in [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FORMAT_PT2]:
+        raise MlflowException.invalid_parameter_value(
+            "The `serialization_format` param value must be one of 'pickle' or 'pt2'."
+        )
+
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
 
     if not isinstance(pytorch_model, torch.nn.Module):
@@ -426,7 +462,12 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
-    saved_example = _save_example(mlflow_model, input_example, path)
+
+    try:
+        saved_example = _save_example(mlflow_model, input_example, path)
+    except MlflowException:
+        # `_save_example` does not support tensor / list of tensor / list of numpy array as input.
+        saved_example = None
 
     if signature is None and saved_example is not None:
         wrapped_model = _PyTorchWrapper(pytorch_model, device="cpu")
@@ -446,45 +487,58 @@ def save_model(
     os.makedirs(model_data_path)
 
     # Save pytorch model
-    if export_model:
+    if serialization_format == SERIALIZATION_FORMAT_PT2:
         if Version(torch.__version__) < Version("2.4"):
             raise MlflowException(
-                "If `export_model` is set to True, `torch` package version must be >= 2.4"
+                "If `serialization_format` is set to 'pt2', `torch` package version must be >= 2.4."
             )
 
         if isinstance(pytorch_model, torch.jit.ScriptModule):
             raise MlflowException(
-                "torch.export does not support `torch.jit.ScriptModule` models. "
-                "If the model is a `torch.jit.ScriptModule` model, `export_model` must be False."
+                "The 'pt2' serialization format is not supported for torch.jit.ScriptModule "
+                "models, please set `serialization_format` to 'pickle'."
             )
 
-        if input_example is None or not isinstance(input_example, np.ndarray):
+        if isinstance(input_example, (np.ndarray, torch.Tensor)):
+            input_example = (input_example,)
+        if input_example is None or not all(
+            isinstance(value, (np.ndarray, torch.Tensor)) for value in input_example
+        ):
             raise MlflowException(
-                "If `export_model` is True, then `input_example` is required and "
-                "must be a numpy array."
+                "If `serialization_format` is set to 'pt2', then `input_example` is required and "
+                "must be a numpy array or torch tensor, or a tuple / list of numpy arrays or "
+                "torch tensors, because 'pt2' is a traced-graph format, "
+                "and PyTorch traces the model graph by virtually executing `model.forward` with "
+                "the provided example input."
             )
 
         if not (
             signature is not None
             and signature.inputs is not None
-            and len(signature.inputs) == 1
+            and len(signature.inputs) >= 1
             and signature.inputs.is_tensor_spec()
         ):
             raise MlflowException(
-                "If `export_model` is True, then the model input signature must contain "
-                "only one tensor spec."
+                "If `serialization_format` is set to 'pt2', then the model input signature must "
+                "by specified using `TensorSpec`."
             )
 
-        tensor_spec = signature.inputs.inputs[0]
+        tensor_spec_list = signature.inputs.inputs
 
-        try:
-            dynamic_dim = tensor_spec.shape.index(-1)
-            dynamic_shapes = ({dynamic_dim: ExportDim("dynamic_dim")},)
-        except ValueError:
-            dynamic_shapes = None
+        dynamic_shapes = []
+
+        for tensor_spec in tensor_spec_list:
+            try:
+                dynamic_dim = tensor_spec.shape.index(-1)
+                dynamic_shape = {dynamic_dim: ExportDim("dynamic_dim")}
+            except ValueError:
+                dynamic_shape = None
+            dynamic_shapes.append(dynamic_shape)
 
         exported_prog = torch.export.export(
-            pytorch_model, (torch.from_numpy(input_example),), dynamic_shapes=dynamic_shapes
+            pytorch_model,
+            tuple(torch.from_numpy(v) if isinstance(v, np.ndarray) else v for v in input_example),
+            dynamic_shapes=dynamic_shapes,
         )
         model_path = os.path.join(model_data_path, _EXPORTED_TORCH_MODEL_FILE_NAME)
         torch.export.save(exported_prog, model_path)
@@ -494,8 +548,8 @@ def save_model(
                 "Saving pytorch model by Pickle or CloudPickle format requires exercising "
                 "caution because these formats rely on Python's object serialization mechanism, "
                 "which can execute arbitrary code during deserialization."
-                "The recommended safe alternative is to set 'export_model' to True to save the "
-                "pytorch model using the safe graph model format."
+                "The recommended safe alternative is to set `serialization_format` to 'pt2' to "
+                "save the PyTorch model using the safe graph model format."
             )
         # Persist the pickle module name as a file in the model's `data` directory. This is
         # necessary
@@ -581,7 +635,8 @@ def _load_by_pickle_check():
             "Deserializing model using pickle is disallowed, but this model is saved "
             "in pickle format. To address this issue, you need to set environment variable "
             "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true', or save the model with "
-            "'export_model=True' like `mlflow.pytorch.save_model(model, path, export_model=True)`."
+            "serialization_format='pt2' like "
+            "`mlflow.pytorch.save_model(model, path, serialization_format='pt2')`."
         )
 
 
@@ -671,7 +726,7 @@ def _load_model(path, device=None, **kwargs):
                         f"be loaded on '{target_device_type}' device. To address this issue, "
                         f"You should save the model in the following way: "
                         f"`mlflow.pytorch.save_model("
-                        f"model.to('{target_device_type}'), path=..., export_model=True)`."
+                        f"model.to('{target_device_type}'), path=..., serialization_format='pt2')`"
                     )
         else:
             pytorch_model.to(device=device)
