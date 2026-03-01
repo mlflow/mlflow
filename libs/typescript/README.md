@@ -27,6 +27,9 @@ MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | [@mlflow/core](./core)                  | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fcore?style=flat-square)](https://www.npmjs.com/package/@mlflow/core)     | The core tracing functionality and manual instrumentation. |
 | [@mlflow/openai](./integrations/openai) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai) | Auto-instrumentation integration for OpenAI.               |
+| [@mlflow/anthropic](./integrations/anthropic) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fanthropic?style=flat-square)](https://www.npmjs.com/package/@mlflow/anthropic) | Auto-instrumentation integration for Anthropic.             |
+| [@mlflow/gemini](./integrations/gemini) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fgemini?style=flat-square)](https://www.npmjs.com/package/@mlflow/gemini) | Auto-instrumentation integration for Gemini.                |
+| [@mlflow/langchain](./integrations/langchain) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Flangchain?style=flat-square)](https://www.npmjs.com/package/@mlflow/langchain) | Auto-instrumentation integration for LangChain.             |
 
 ## Installation
 
@@ -145,7 +148,7 @@ View traces in MLflow UI:
 ## Publishing
 
 1. Run `yarn bump-version --version <new_version>` from this directory to bump the package versions appropriately
-2. `cd` into `core` and run `npm publish`, and repeat for `integrations/openai`
+2. `cd` into `core` and run `npm publish`, and repeat for each package under `integrations/`
 
 ## Adding New Integrations
 
