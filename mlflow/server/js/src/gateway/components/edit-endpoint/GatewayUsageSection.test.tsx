@@ -2,6 +2,17 @@ import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
+import { setActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
+import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
+
+jest.mock('../../../experiment-tracking/hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../../../experiment-tracking/hooks/useServerInfo')>(
+    '../../../experiment-tracking/hooks/useServerInfo',
+  ),
+  getWorkspacesEnabledSync: jest.fn(),
+}));
+
+const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
 
 // Mock GatewayChartsPanel
 jest.mock('../GatewayChartsPanel', () => ({
@@ -25,6 +36,11 @@ describe('GatewayUsageSection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    getWorkspacesEnabledSyncMock.mockReturnValue(false);
+    setActiveWorkspace(null);
+    if (typeof window !== 'undefined') {
+      window.localStorage.clear();
+    }
   });
 
   const renderComponent = (experimentId: string = testExperimentId) => {
@@ -53,6 +69,24 @@ describe('GatewayUsageSection', () => {
     const link = screen.getByText('View full dashboard');
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', `#/experiments/${testExperimentId}/overview`);
+  });
+
+  test('renders view full dashboard link with workspace param when workspace is active', () => {
+    getWorkspacesEnabledSyncMock.mockReturnValue(true);
+    setActiveWorkspace('my-workspace');
+    renderComponent();
+
+    const link = screen.getByText('View full dashboard');
+    expect(link).toHaveAttribute('href', `#/experiments/${testExperimentId}/overview?workspace=my-workspace`);
+  });
+
+  test('renders view full dashboard link with workspace from localStorage when active workspace is missing', () => {
+    getWorkspacesEnabledSyncMock.mockReturnValue(true);
+    window.localStorage.setItem('mlflow.activeWorkspace', 'stored-workspace');
+    renderComponent();
+
+    const link = screen.getByText('View full dashboard');
+    expect(link).toHaveAttribute('href', `#/experiments/${testExperimentId}/overview?workspace=stored-workspace`);
   });
 
   test('renders time range controls', () => {
