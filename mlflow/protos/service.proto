@@ -2957,6 +2957,11 @@ message SearchRuns {
 
   optional string page_token = 7;
 
+  // When true, search across all active experiments, ignoring experiment_ids.
+  // This is more efficient than passing all experiment IDs when you want to search
+  // across the entire tracking store.
+  optional bool search_all_experiments = 8;
+
   message Response {
     // Runs that match the search criteria.
     repeated Run runs = 1;

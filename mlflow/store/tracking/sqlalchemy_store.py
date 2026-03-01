@@ -1726,6 +1726,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         max_results,
         order_by,
         page_token,
+        search_all_experiments=False,
     ):
         def compute_next_token(current_size):
             next_token = None
@@ -1769,14 +1770,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
             experiment_ids = [int(e) for e in experiment_ids]
             experiment_ids = self._filter_experiment_ids(session, experiment_ids)
+
+            # Build base filters - only add experiment filter if not searching all experiments
+            base_filters = [
+                SqlRun.lifecycle_stage.in_(stages),
+                *attribute_filters,
+            ]
+            if not search_all_experiments:
+                base_filters.insert(0, SqlRun.experiment_id.in_(experiment_ids))
+
             stmt = (
                 stmt.distinct()
                 .options(*self._get_eager_run_query_options())
-                .filter(
-                    SqlRun.experiment_id.in_(experiment_ids),
-                    SqlRun.lifecycle_stage.in_(stages),
-                    *attribute_filters,
-                )
+                .filter(*base_filters)
                 .order_by(*parsed_orderby)
                 .offset(offset)
             )

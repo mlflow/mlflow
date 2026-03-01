@@ -931,7 +931,14 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         return PagedList(metric_history, response_proto.next_page_token or None)
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        search_all_experiments=False,
     ):
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(
@@ -941,6 +948,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            search_all_experiments=search_all_experiments,
         )
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)

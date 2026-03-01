@@ -3843,18 +3843,20 @@ class MlflowClient:
 
     def search_runs(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str = "",
         run_view_type: int = ViewType.ACTIVE_ONLY,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        search_all_experiments: bool = False,
     ) -> PagedList[Run]:
         """
         Search for Runs that fit the specified criteria.
 
         Args:
             experiment_ids: List of experiment IDs, or a single int or string id.
+                Can be None if search_all_experiments is True.
             filter_string: Filter query string, defaults to searching all runs.
             run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                 defined in :py:class:`mlflow.entities.ViewType`.
@@ -3864,6 +3866,8 @@ class MlflowClient:
                 The default ordering is to sort by ``start_time DESC``, then ``run_id``.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_runs`` call.
+            search_all_experiments: If True, search across all active experiments, ignoring
+                experiment_ids. This is more efficient than passing all experiment IDs.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -3930,8 +3934,22 @@ class MlflowClient:
             metrics: {'m': 1.55}
             tags: {'s.release': '1.1.0-RC'}
         """
+        if experiment_ids is None:
+            experiment_ids = []
+        if search_all_experiments and len(experiment_ids) > 0:
+            raise MlflowException(
+                "experiment_ids and search_all_experiments cannot both be set. "
+                "When search_all_experiments=True, experiment_ids should be empty or None.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         return self._tracking_client.search_runs(
-            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            max_results,
+            order_by,
+            page_token,
+            search_all_experiments=search_all_experiments,
         )
 
     # Registry API

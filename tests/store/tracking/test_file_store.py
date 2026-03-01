@@ -4068,3 +4068,73 @@ def test_malicious_meta_yaml_in_artifact_folder_path_traversal(tmp_path):
     # The fix should prevent the artifact folder from being treated as a run directory
     with pytest.raises(MlflowException, match="Run 'artifacts' not found"):
         fs.get_run("artifacts")
+
+def test_search_runs_search_all_experiments(store):
+    """Test that search_all_experiments=True searches across all experiments."""
+    experiments, _, _ = _create_root(store)
+    exp1, exp2 = experiments[0], experiments[1]
+
+    # Create additional runs in different experiments
+    run1 = store.create_run(exp1, "user", 0, [], "test_run_exp1")
+    run2 = store.create_run(exp2, "user", 0, [], "test_run_exp2")
+
+    # Set tags on specific runs
+    store.set_tag(run1.info.run_id, RunTag("search_all_test", "yes"))
+    store.set_tag(run2.info.run_id, RunTag("search_all_test", "yes"))
+
+    # Search with search_all_experiments=True should return runs from all experiments
+    result = store.search_runs(
+        experiment_ids=[],
+        filter_string="tags.search_all_test = 'yes'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        search_all_experiments=True,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id in run_ids
+
+
+def test_search_runs_search_all_experiments_with_filter(store):
+    """Test that search_all_experiments=True works correctly with tag filters."""
+    experiments, _, _ = _create_root(store)
+    exp1, exp2 = experiments[0], experiments[1]
+
+    run1 = store.create_run(exp1, "user", 0, [], "test_run1")
+    run2 = store.create_run(exp2, "user", 0, [], "test_run2")
+    run3 = store.create_run(exp1, "user", 0, [], "test_run3")
+
+    # Set tags on specific runs
+    store.set_tag(run1.info.run_id, RunTag("include_in_leaderboard", "true"))
+    store.set_tag(run2.info.run_id, RunTag("include_in_leaderboard", "true"))
+    # run3 does not have the tag
+
+    # Search with filter and search_all_experiments=True
+    result = store.search_runs(
+        experiment_ids=[],
+        filter_string="tags.include_in_leaderboard = 'true'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        search_all_experiments=True,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id in run_ids
+    assert run3.info.run_id not in run_ids
+
+
+def test_search_runs_search_all_experiments_false_uses_experiment_ids(store):
+    """Test that search_all_experiments=False (default) uses experiment_ids as expected."""
+    experiments, _, _ = _create_root(store)
+    exp1, exp2 = experiments[0], experiments[1]
+
+    run1 = store.create_run(exp1, "user", 0, [], "test_run1")
+    run2 = store.create_run(exp2, "user", 0, [], "test_run2")
+
+    # Search with specific experiment_ids (default search_all_experiments=False)
+    result = store.search_runs(
+        experiment_ids=[exp1],
+        filter_string=None,
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id not in run_ids

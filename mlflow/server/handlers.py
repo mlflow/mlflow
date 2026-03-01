@@ -1676,6 +1676,7 @@ def _search_runs():
                 lambda x: _assert_less_than_or_equal(int(x), 50000),
             ],
             "order_by": [_assert_array, _assert_item_type_string],
+            "search_all_experiments": [_assert_bool],
         },
     )
     response_message = search_runs_impl(request_message)
@@ -1704,6 +1705,7 @@ def search_runs_impl(request_message):
         pass
 
     order_by = request_message.order_by
+    search_all_experiments = request_message.search_all_experiments
     run_entities = _get_tracking_store().search_runs(
         experiment_ids=experiment_ids,
         filter_string=filter_string,
@@ -1711,6 +1713,7 @@ def search_runs_impl(request_message):
         max_results=max_results,
         order_by=order_by,
         page_token=request_message.page_token or None,
+        search_all_experiments=search_all_experiments,
     )
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:

@@ -849,6 +849,7 @@ class AbstractStore(GatewayStoreMixin):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        search_all_experiments=False,
     ):
         """
         Return runs that match the given list of search expressions within the experiments.
@@ -861,6 +862,8 @@ class AbstractStore(GatewayStoreMixin):
             order_by: List of order_by clauses.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_runs`` call.
+            search_all_experiments: If True, search across all active experiments, ignoring
+                experiment_ids. This is more efficient than passing all experiment IDs.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -877,6 +880,7 @@ class AbstractStore(GatewayStoreMixin):
             max_results,
             order_by,
             page_token,
+            search_all_experiments,
         )
         return PagedList(runs, token)
 
@@ -889,6 +893,7 @@ class AbstractStore(GatewayStoreMixin):
         max_results,
         order_by,
         page_token,
+        search_all_experiments=False,
     ):
         """
         Return runs that match the given list of search expressions within the experiments, as

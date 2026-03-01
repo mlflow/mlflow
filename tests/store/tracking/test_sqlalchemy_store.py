@@ -13520,3 +13520,126 @@ def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
     )
     assert len(completed) == 1
     assert completed[0].session_id == "session-c"
+
+def test_search_runs_search_all_experiments(store: SqlAlchemyStore):
+    """Test that search_all_experiments=True searches across all experiments."""
+    # Create multiple experiments with runs
+    exp1 = store.create_experiment("search_all_exp1")
+    exp2 = store.create_experiment("search_all_exp2")
+    exp3 = store.create_experiment("search_all_exp3")
+
+    run1 = _run_factory(store, _get_run_configs(exp1))
+    run2 = _run_factory(store, _get_run_configs(exp2))
+    run3 = _run_factory(store, _get_run_configs(exp3))
+
+    # Search with search_all_experiments=True should return runs from all experiments
+    result = store.search_runs(
+        experiment_ids=[],
+        filter_string=None,
+        run_view_type=ViewType.ACTIVE_ONLY,
+        search_all_experiments=True,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id in run_ids
+    assert run3.info.run_id in run_ids
+
+
+def test_search_runs_search_all_experiments_with_filter(store: SqlAlchemyStore):
+    """Test that search_all_experiments=True works correctly with tag filters."""
+    exp1 = store.create_experiment("search_all_filter_exp1")
+    exp2 = store.create_experiment("search_all_filter_exp2")
+
+    run1 = _run_factory(store, _get_run_configs(exp1))
+    run2 = _run_factory(store, _get_run_configs(exp2))
+    run3 = _run_factory(store, _get_run_configs(exp1))
+
+    # Set tags on specific runs
+    store.set_tag(run1.info.run_id, RunTag("include_in_leaderboard", "true"))
+    store.set_tag(run2.info.run_id, RunTag("include_in_leaderboard", "true"))
+    # run3 does not have the tag
+
+    # Search with filter and search_all_experiments=True
+    result = store.search_runs(
+        experiment_ids=[],
+        filter_string="tags.include_in_leaderboard = 'true'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        search_all_experiments=True,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id in run_ids
+    assert run3.info.run_id not in run_ids
+
+
+def test_search_runs_search_all_experiments_respects_lifecycle(store: SqlAlchemyStore):
+    """Test that search_all_experiments=True respects run_view_type."""
+    exp1 = store.create_experiment("search_all_lifecycle_exp1")
+    exp2 = store.create_experiment("search_all_lifecycle_exp2")
+
+    run1 = _run_factory(store, _get_run_configs(exp1))
+    run2 = _run_factory(store, _get_run_configs(exp2))
+
+    # Delete run2
+    store.delete_run(run2.info.run_id)
+
+    # Search only active runs
+    result = store.search_runs(
+        experiment_ids=[],
+        filter_string=None,
+        run_view_type=ViewType.ACTIVE_ONLY,
+        search_all_experiments=True,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id not in run_ids
+
+    # Search only deleted runs
+    result = store.search_runs(
+        experiment_ids=[],
+        filter_string=None,
+        run_view_type=ViewType.DELETED_ONLY,
+        search_all_experiments=True,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id not in run_ids
+    assert run2.info.run_id in run_ids
+
+    # Search all runs
+    result = store.search_runs(
+        experiment_ids=[],
+        filter_string=None,
+        run_view_type=ViewType.ALL,
+        search_all_experiments=True,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id in run_ids
+
+
+def test_search_runs_search_all_experiments_false_requires_experiment_ids(store: SqlAlchemyStore):
+    """Test that search_all_experiments=False (default) uses experiment_ids as expected."""
+    exp1 = store.create_experiment("search_all_false_exp1")
+    exp2 = store.create_experiment("search_all_false_exp2")
+
+    run1 = _run_factory(store, _get_run_configs(exp1))
+    run2 = _run_factory(store, _get_run_configs(exp2))
+
+    # Search with specific experiment_ids and search_all_experiments=False (default)
+    result = store.search_runs(
+        experiment_ids=[exp1],
+        filter_string=None,
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id not in run_ids
+
+    # Search with empty experiment_ids and search_all_experiments=False returns nothing
+    result = store.search_runs(
+        experiment_ids=[],
+        filter_string=None,
+        run_view_type=ViewType.ACTIVE_ONLY,
+        search_all_experiments=False,
+    )
+    assert len(result) == 0

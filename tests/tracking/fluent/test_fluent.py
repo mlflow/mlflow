@@ -1042,25 +1042,46 @@ def test_search_runs_no_arguments(search_runs_output_format):
 
 def test_search_runs_all_experiments(search_runs_output_format):
     """
-    When no experiment ID is specified but flag is passed, it should search all experiments.
+    When no experiment ID is specified but flag is passed, it should pass
+    search_all_experiments=True to the backend instead of resolving experiment IDs.
     """
-    from mlflow.entities import Experiment
-
-    mock_experiment_id = mock.Mock()
-    mock_experiment = mock.Mock(Experiment)
     experiment_id_patch = mock.patch(
-        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
-    )
-    experiment_list_patch = mock.patch(
-        "mlflow.tracking.fluent.search_experiments", return_value=[mock_experiment]
+        "mlflow.tracking.fluent._get_experiment_id", return_value=mock.Mock()
     )
     get_paginated_runs_patch = mock.patch(
         "mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=[]
     )
-    with experiment_id_patch, experiment_list_patch, get_paginated_runs_patch:
+    with experiment_id_patch, get_paginated_runs_patch:
         search_runs(output_format=search_runs_output_format, search_all_experiments=True)
-        mlflow.tracking.fluent.search_experiments.assert_called_once()
+        mlflow.tracking.fluent.get_results_from_paginated_fn.assert_called_once()
+        # Should NOT resolve experiment IDs when search_all_experiments=True
         mlflow.tracking.fluent._get_experiment_id.assert_not_called()
+
+
+def test_search_runs_all_experiments_with_ids_raises(search_runs_output_format):
+    """
+    Passing both search_all_experiments=True and experiment_ids should raise an error.
+    """
+    err_msg = "search_all_experiments cannot be used with experiment_ids or experiment_names"
+    with pytest.raises(MlflowException, match=err_msg):
+        search_runs(
+            experiment_ids=["1"],
+            search_all_experiments=True,
+            output_format=search_runs_output_format,
+        )
+
+
+def test_search_runs_all_experiments_with_names_raises(search_runs_output_format):
+    """
+    Passing both search_all_experiments=True and experiment_names should raise an error.
+    """
+    err_msg = "search_all_experiments cannot be used with experiment_ids or experiment_names"
+    with pytest.raises(MlflowException, match=err_msg):
+        search_runs(
+            experiment_names=["my_exp"],
+            search_all_experiments=True,
+            output_format=search_runs_output_format,
+        )
 
 
 def test_search_runs_by_experiment_name():

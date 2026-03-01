@@ -3145,35 +3145,46 @@ def search_runs(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if search_all_experiments and no_ids_or_names:
-        experiment_ids = [
-            exp.experiment_id for exp in search_experiments(view_type=ViewType.ACTIVE_ONLY)
-        ]
-    elif no_ids_or_names:
-        experiment_ids = [_get_experiment_id()]
-    elif not no_names:
-        experiments = []
-        for n in experiment_names:
-            if n is not None:
-                if experiment_by_name := get_experiment_by_name(n):
-                    experiments.append(experiment_by_name)
-                else:
-                    _logger.warning("Cannot retrieve experiment by name %s", n)
-        experiment_ids = [e.experiment_id for e in experiments if e is not None]
+    if search_all_experiments and not no_ids_or_names:
+        raise MlflowException(
+            message="search_all_experiments cannot be used with experiment_ids or experiment_names. "
+            "When search_all_experiments=True, leave experiment_ids and experiment_names empty.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
-    if len(experiment_ids) == 0:
+    # When search_all_experiments is True and no specific experiments are requested,
+    # pass the flag to the backend instead of resolving all experiment IDs upfront.
+    # This allows the backend (especially SQL stores) to skip the experiment_id filter
+    # entirely, which is much more efficient for large deployments.
+    use_search_all_flag = search_all_experiments and no_ids_or_names
+
+    if not use_search_all_flag:
+        if no_ids_or_names:
+            experiment_ids = [_get_experiment_id()]
+        elif not no_names:
+            experiments = []
+            for n in experiment_names:
+                if n is not None:
+                    if experiment_by_name := get_experiment_by_name(n):
+                        experiments.append(experiment_by_name)
+                    else:
+                        _logger.warning("Cannot retrieve experiment by name %s", n)
+            experiment_ids = [e.experiment_id for e in experiments if e is not None]
+
+    if not use_search_all_flag and len(experiment_ids) == 0:
         runs = []
     else:
         # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
         # full thing is a mess
         def pagination_wrapper_func(number_to_get, next_page_token):
             return MlflowClient().search_runs(
-                experiment_ids,
+                experiment_ids if not use_search_all_flag else [],
                 filter_string,
                 run_view_type,
                 number_to_get,
                 order_by,
                 next_page_token,
+                search_all_experiments=use_search_all_flag,
             )
 
         runs = get_results_from_paginated_fn(

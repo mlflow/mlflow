@@ -1052,6 +1052,7 @@ class FileStore(AbstractStore):
         max_results,
         order_by,
         page_token,
+        search_all_experiments=False,
     ):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
@@ -1059,6 +1060,12 @@ class FileStore(AbstractStore):
                 f"most {SEARCH_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
                 databricks_pb2.INVALID_PARAMETER_VALUE,
             )
+        # If searching all experiments, get all experiment IDs from the file store
+        if search_all_experiments:
+            experiment_ids = [
+                exp.experiment_id
+                for exp in self.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+            ]
         runs = []
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)

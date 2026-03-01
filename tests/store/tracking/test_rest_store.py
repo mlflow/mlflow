@@ -3701,3 +3701,33 @@ def test_query_trace_metrics():
 
     # Verify pagination token
     assert result.token == "next_token"
+
+def test_search_runs_search_all_experiments():
+    """Test that search_all_experiments flag is serialized into the SearchRuns protobuf message."""
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = '{"runs": [], "next_page_token": ""}'
+        mock_http.return_value = response
+
+        store.search_runs(
+            experiment_ids=[],
+            filter_string="tags.env = 'prod'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+            max_results=10,
+            search_all_experiments=True,
+        )
+
+        expected_message = SearchRuns(
+            experiment_ids=[],
+            filter="tags.env = 'prod'",
+            run_view_type=ViewType.to_proto(ViewType.ACTIVE_ONLY),
+            max_results=10,
+            search_all_experiments=True,
+        )
+        _verify_requests(
+            mock_http, creds, "runs/search", "POST", message_to_json(expected_message)
+        )
