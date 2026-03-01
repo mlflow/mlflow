@@ -5,6 +5,7 @@ import os
 import uuid
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
@@ -46,6 +47,7 @@ from mlflow.store.tracking._secret_cache import (
     SecretCache,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlExperiment,
     SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
@@ -53,6 +55,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpointTag,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
+    SqlSpanMetrics,
+    SqlTraceInfo,
+    SqlTraceMetadata,
 )
 from mlflow.telemetry.events import (
     GatewayCreateEndpointEvent,
@@ -66,6 +71,7 @@ from mlflow.telemetry.events import (
     GatewayUpdateSecretEvent,
 )
 from mlflow.telemetry.track import record_usage_event
+from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
@@ -1320,3 +1326,33 @@ class SqlAlchemyGatewayStoreMixin:
             if len(policies) > max_results:
                 next_token = SearchUtils.create_page_token(offset + max_results)
             return PagedList(policies[:max_results], next_token)
+
+    def sum_gateway_trace_cost(
+        self,
+        start_time_ms: int,
+        end_time_ms: int,
+        workspace: str | None = None,
+    ) -> float:
+        with self.ManagedSessionMaker() as session:
+            query = (
+                session.query(func.coalesce(func.sum(SqlSpanMetrics.value), 0.0))
+                .join(SqlTraceInfo, SqlTraceInfo.request_id == SqlSpanMetrics.trace_id)
+                .join(
+                    SqlTraceMetadata,
+                    SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
+                )
+                .filter(
+                    SqlSpanMetrics.key == SpanMetricKey.TOTAL_COST,
+                    SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
+                    SqlTraceInfo.timestamp_ms >= start_time_ms,
+                    SqlTraceInfo.timestamp_ms < end_time_ms,
+                )
+            )
+
+            if workspace is not None:
+                query = query.join(
+                    SqlExperiment,
+                    SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
+                ).filter(SqlExperiment.workspace == workspace)
+
+            return float(query.scalar())
