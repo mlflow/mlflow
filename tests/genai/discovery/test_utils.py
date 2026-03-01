@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -7,7 +8,6 @@ from mlflow.genai.discovery.constants import _DEFAULT_SCORER_NAME
 from mlflow.genai.discovery.entities import (
     Issue,
     _ConversationAnalysis,
-    _IdentifiedIssue,
 )
 from mlflow.genai.discovery.utils import (
     _build_default_satisfaction_scorer,
@@ -161,22 +161,27 @@ def test_summarize_cluster():
         ),
     ]
 
-    mock_issue = _IdentifiedIssue(
-        name="hallucination",
-        description="LLM generates incorrect facts",
-        root_cause="Model confabulation",
-        example_indices=[],
-        confidence="definitely_yes",
-    )
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps(
+                    {
+                        "name": "hallucination",
+                        "description": "LLM generates incorrect facts",
+                        "root_cause": "Model confabulation",
+                        "example_indices": [],
+                        "confidence": "definitely_yes",
+                    }
+                )
+            )
+        )
+    ]
 
-    with patch(
-        "mlflow.genai.discovery.utils.get_chat_completions_with_structured_output",
-        return_value=mock_issue,
-    ) as mock_llm:
+    with patch("litellm.completion", return_value=mock_response) as mock_completion:
         result = _summarize_cluster([0, 1], analyses, "openai:/gpt-5")
 
-    mock_llm.assert_called_once()
-    assert mock_llm.call_args[1]["model_uri"] == "openai:/gpt-5"
+    mock_completion.assert_called_once()
     assert result.name == "hallucination"
     assert result.example_indices == [0, 1]
 

@@ -21,15 +21,14 @@ from mlflow.genai.discovery.entities import (
     _IdentifiedIssue,
 )
 from mlflow.genai.judges.make_judge import make_judge
-from mlflow.genai.judges.utils.invocation_utils import (
-    get_chat_completions_with_structured_output,
-)
 from mlflow.genai.scorers.base import Scorer
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.entities import EvaluationResult
 
 _logger = logging.getLogger(__name__)
+
+_NUM_RETRIES = 5
 
 
 def _get_session_id(trace: Trace) -> str | None:
@@ -64,9 +63,10 @@ def _sample_traces(
             no_session.append(trace)
 
     if sessions:
-        session_ids = list(sessions.keys())
+        session_ids = sorted(sessions.keys())
         k = min(sample_size, len(session_ids))
-        selected = random.sample(session_ids, k)
+        rng = random.Random(42)
+        selected = rng.sample(session_ids, k)
         result = [t for sid in selected for t in sessions[sid]]
         _logger.info(
             "Sampled %d sessions (%d traces) from pool of %d sessions",
@@ -77,7 +77,9 @@ def _sample_traces(
         return result
 
     k = min(sample_size, len(no_session))
-    result = random.sample(no_session, k)
+    rng = random.Random(42)
+    no_session.sort(key=lambda t: t.info.trace_id)
+    result = rng.sample(no_session, k)
     _logger.info("Sampled %d traces from pool of %d", k, len(no_session))
     return result
 
@@ -311,6 +313,7 @@ def _embed_texts(texts: list[str], embedding_model: str) -> list[list[float]]:
 def _extract_failure_labels(
     analyses: list[_ConversationAnalysis],
     model: str,
+    token_counter=None,
 ) -> list[str]:
     """
     Extract short failure labels that combine execution path with symptom.
@@ -323,10 +326,10 @@ def _extract_failure_labels(
     rationale. Together they enable clustering by "what the agent did"
     and "how it failed."
     """
-    import litellm
 
     from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
     from mlflow.genai.discovery.constants import _FAILURE_LABEL_SYSTEM_PROMPT
+    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     scheme, path = _parse_model_uri(model)
@@ -337,14 +340,20 @@ def _extract_failure_labels(
 
     def _label_one(a: _ConversationAnalysis) -> str:
         rationale = a.surface[:800]
-        response = litellm.completion(
-            model=litellm_model,
+        response = _invoke_litellm(
+            litellm_model=litellm_model,
             messages=[
                 {"role": "system", "content": _FAILURE_LABEL_SYSTEM_PROMPT},
                 {"role": "user", "content": rationale},
             ],
-            max_tokens=1000,
+            tools=[],
+            num_retries=_NUM_RETRIES,
+            response_format=None,
+            include_response_format=False,
+            inference_params={"max_tokens": 1000, "temperature": 0},
         )
+        if token_counter is not None:
+            token_counter.track(response)
         symptom = response.choices[0].message.content.strip()
         exec_path = a.execution_path or "(no routing)"
         return f"[{exec_path}] {symptom}"
@@ -365,6 +374,7 @@ def _cluster_analyses(
     max_issues: int,
     labels: list[str] | None = None,
     label_model: str | None = None,
+    token_counter=None,
 ) -> list[list[int]]:
     """
     Group failure analyses into issue clusters.
@@ -380,7 +390,7 @@ def _cluster_analyses(
         return [[0]]
 
     if labels:
-        return _cluster_by_llm(labels, max_issues, label_model)
+        return _cluster_by_llm(labels, max_issues, label_model, token_counter=token_counter)
 
     return _cluster_by_embeddings(analyses, embedding_model, max_issues)
 
@@ -389,6 +399,7 @@ def _cluster_by_llm(
     labels: list[str],
     max_issues: int,
     model: str | None = None,
+    token_counter=None,
 ) -> list[list[int]]:
     """
     Use an LLM to group failure labels by execution path and symptom.
@@ -398,9 +409,9 @@ def _cluster_by_llm(
     groups labels that share similar execution paths AND similar failure
     symptoms into coherent issue categories.
     """
-    import litellm
 
     from mlflow.genai.discovery.constants import _DEFAULT_JUDGE_MODEL
+    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     model = model or _DEFAULT_JUDGE_MODEL
@@ -434,12 +445,17 @@ def _cluster_by_llm(
         "Return ONLY the JSON, no explanation."
     )
 
-    response = litellm.completion(
-        model=litellm_model,
+    response = _invoke_litellm(
+        litellm_model=litellm_model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=8000,
+        tools=[],
+        num_retries=_NUM_RETRIES,
         response_format={"type": "json_object"},
+        include_response_format=True,
+        inference_params={"max_tokens": 8000, "temperature": 0},
     )
+    if token_counter is not None:
+        token_counter.track(response)
     content = (response.choices[0].message.content or "").strip()
     if not content:
         _logger.warning(
@@ -510,7 +526,12 @@ def _summarize_cluster(
     cluster_indices: list[int],
     analyses: list[_ConversationAnalysis],
     analysis_model: str,
+    token_counter=None,
 ) -> _IdentifiedIssue:
+
+    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
     cluster_analyses = [analyses[i] for i in cluster_indices]
     parts = []
     for i, a in zip(cluster_indices, cluster_analyses):
@@ -520,19 +541,38 @@ def _summarize_cluster(
         parts.append(entry)
     analyses_text = "\n\n".join(parts)
 
-    from mlflow.types.llm import ChatMessage
-
-    result = get_chat_completions_with_structured_output(
-        model_uri=analysis_model,
-        messages=[
-            ChatMessage(role="system", content=_CLUSTER_SUMMARY_SYSTEM_PROMPT),
-            ChatMessage(
-                role="user",
-                content=(f"Cluster of {len(cluster_indices)} analyses:\n\n{analyses_text}"),
-            ),
-        ],
-        output_schema=_IdentifiedIssue,
+    schema_json = json.dumps(_IdentifiedIssue.model_json_schema(), indent=2)
+    system_prompt = (
+        f"{_CLUSTER_SUMMARY_SYSTEM_PROMPT}\n\n"
+        f"Respond with a JSON object matching this schema:\n{schema_json}"
     )
+
+    scheme, path = _parse_model_uri(analysis_model)
+    if scheme in ("endpoints", "databricks"):
+        litellm_model = f"databricks/{path}"
+    else:
+        litellm_model = f"{scheme}/{path}"
+
+    response = _invoke_litellm(
+        litellm_model=litellm_model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": f"Cluster of {len(cluster_indices)} analyses:\n\n{analyses_text}",
+            },
+        ],
+        tools=[],
+        num_retries=_NUM_RETRIES,
+        response_format={"type": "json_object"},
+        include_response_format=True,
+        inference_params={"max_tokens": 4096, "temperature": 0},
+    )
+    if token_counter is not None:
+        token_counter.track(response)
+
+    content = (response.choices[0].message.content or "").strip()
+    result = _IdentifiedIssue(**json.loads(content))
     result.example_indices = cluster_indices
     return result
 
