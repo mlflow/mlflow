@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import bisect
 import hashlib
 import json
 import logging
@@ -18,7 +19,7 @@ from urllib.parse import urlparse
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, case, exists, func, or_, select, sql
+from sqlalchemy import and_, case, distinct, exists, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Query, Session, aliased, joinedload
 from sqlalchemy.sql.elements import ColumnElement
@@ -103,6 +104,7 @@ from mlflow.store.analytics import trace_correlation
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
+    MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
     SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
@@ -1408,6 +1410,89 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 for metric in metrics
             ]
+
+    def get_metric_history_bulk_interval(
+        self,
+        run_ids: list[str],
+        metric_key: str,
+        max_results: int,
+        start_step: int,
+        end_step: int,
+    ) -> list[MetricWithRunId]:
+        """Override the base implementation to avoid loading all metric rows into Python.
+
+        The base class implementation calls get_metric_history() for each run, which loads
+        every metric row (potentially hundreds of thousands) into Python just to extract
+        distinct steps for downsampling. This override performs the step discovery via a
+        SELECT DISTINCT query in SQL, which is dramatically faster when metrics tables
+        are large.
+        """
+        with self.ManagedSessionMaker() as session:
+            for run_id in run_ids:
+                self._validate_run_accessible(session, run_id)
+
+            # Get distinct steps across all runs using SQL instead of loading all rows
+            all_steps = [
+                row[0]
+                for row in session.query(distinct(SqlMetric.step))
+                .filter(
+                    SqlMetric.key == metric_key,
+                    SqlMetric.run_uuid.in_(run_ids),
+                )
+                .order_by(SqlMetric.step)
+                .all()
+            ]
+
+            if not all_steps:
+                return []
+
+            # Preserve min/max steps per run for data boundary accuracy
+            all_mins_and_maxes = set()
+            for min_step, max_step in (
+                session.query(func.min(SqlMetric.step), func.max(SqlMetric.step))
+                .filter(SqlMetric.key == metric_key, SqlMetric.run_uuid.in_(run_ids))
+                .group_by(SqlMetric.run_uuid)
+                .all()
+            ):
+                all_mins_and_maxes.add(min_step)
+                all_mins_and_maxes.add(max_step)
+
+            if start_step is None and end_step is None:
+                start_step = 0
+                end_step = all_steps[-1]
+
+            all_mins_and_maxes = {
+                step for step in all_mins_and_maxes if start_step <= step <= end_step
+            }
+
+            start_idx = bisect.bisect_left(all_steps, start_step)
+            end_idx = bisect.bisect_right(all_steps, end_step)
+
+            if end_idx - start_idx <= max_results:
+                sampled_steps = set(all_steps[start_idx:end_idx])
+            else:
+                num_steps = end_idx - start_idx
+                interval = num_steps / max_results
+                sampled_steps = set()
+                for i in range(max_results):
+                    idx = start_idx + int(i * interval)
+                    if idx < end_idx:
+                        sampled_steps.add(all_steps[idx])
+                sampled_steps.add(all_steps[end_idx - 1])
+
+            steps = sorted(sampled_steps.union(all_mins_and_maxes))
+
+        metrics_with_run_ids = []
+        for run_id in run_ids:
+            metrics_with_run_ids.extend(
+                self.get_metric_history_bulk_interval_from_steps(
+                    run_id=run_id,
+                    metric_key=metric_key,
+                    steps=steps,
+                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
+                )
+            )
+        return metrics_with_run_ids
 
     def _search_datasets(self, experiment_ids):
         """
