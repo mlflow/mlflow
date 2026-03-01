@@ -12,6 +12,7 @@ import { ExperimentView } from './ExperimentView';
 import { LegacySkeleton, PageWrapper, useDesignSystemTheme } from '@databricks/design-system';
 import { useNavigateToExperimentPageTab } from './hooks/useNavigateToExperimentPageTab';
 import { useExperimentIds } from './hooks/useExperimentIds';
+import { IndexedDBInitializationContextProvider } from '@mlflow/mlflow/src/experiment-tracking/components/contexts/IndexedDBInitializationContext';
 
 /**
  * Concrete actions for GetExperiments context
@@ -56,9 +57,11 @@ const ExperimentPage = () => {
   }
   return (
     <PageWrapper css={{ height: '100%', paddingTop: theme.spacing.md }}>
-      <GetExperimentsContextProvider actions={getExperimentActions}>
-        <ExperimentView />
-      </GetExperimentsContextProvider>
+      <IndexedDBInitializationContextProvider>
+        <GetExperimentsContextProvider actions={getExperimentActions}>
+          <ExperimentView />
+        </GetExperimentsContextProvider>
+      </IndexedDBInitializationContextProvider>
     </PageWrapper>
   );
 };

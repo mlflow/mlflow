@@ -60,3 +60,9 @@ test('Session scoped storage works', () => {
     expect(otherStore.loadComponentState().searchInput).toEqual('metrics.ok');
   });
 });
+
+test('IndexedDB scoped storage falls back to localStorage when unavailable', () => {
+  const store = LocalStorageUtils.getIndexedDBScopedStoreForComponent('TestComponent', 1, false);
+  store.setItem('key', 'value');
+  expect(store.getItem('key')).toEqual('value');
+});

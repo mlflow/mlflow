@@ -1,6 +1,6 @@
 import { TableSkeleton, ToggleButton, useDesignSystemTheme } from '@databricks/design-system';
 import { compact, mapValues, values } from 'lodash';
-import type { ReactNode } from 'react';
+import { ReactNode, useContext } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
@@ -38,6 +38,7 @@ import type { UseGetRunQueryResponseRunInfo } from './hooks/useGetRunQuery';
 import { RunsChartsGlobalChartSettingsDropdown } from '../runs-charts/components/RunsChartsGlobalChartSettingsDropdown';
 import { RunsChartsDraggableCardsGridContextProvider } from '../runs-charts/components/RunsChartsDraggableCardsGridContext';
 import { RunsChartsFilterInput } from '../runs-charts/components/RunsChartsFilterInput';
+import { IndexedDBInitializationContext } from '@mlflow/mlflow/src/experiment-tracking/components/contexts/IndexedDBInitializationContext';
 
 interface RunViewMetricChartsProps {
   metricKeys: string[];
@@ -304,9 +305,12 @@ const RunViewMetricChartsImpl = ({
 export const RunViewMetricCharts = (props: RunViewMetricChartsProps) => {
   const persistenceIdentifier = `${props.runInfo.runUuid}-${props.mode}`;
 
+  const { isIndexedDBAvailable } = useContext(IndexedDBInitializationContext);
+
   const localStore = useMemo(
-    () => LocalStorageUtils.getStoreForComponent('RunPage', persistenceIdentifier),
-    [persistenceIdentifier],
+    () =>
+      LocalStorageUtils.getIndexedDBScopedStoreForComponent('RunPage', persistenceIdentifier, !!isIndexedDBAvailable),
+    [persistenceIdentifier, isIndexedDBAvailable],
   );
 
   const [chartUIState, updateChartsUIState] = useState<ExperimentRunsChartsUIConfiguration>(() => {
