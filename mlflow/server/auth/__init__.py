@@ -77,7 +77,10 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
+    BatchGetTraces,
+    CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
+    CreateAssessment,
     CreateExperiment,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
@@ -87,6 +90,7 @@ from mlflow.protos.service_pb2 import (
     CreatePromptOptimizationJob,
     CreateRun,
     CreateWorkspace,
+    DeleteAssessment,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteGatewayEndpoint,
@@ -100,9 +104,15 @@ from mlflow.protos.service_pb2 import (
     DeleteRun,
     DeleteScorer,
     DeleteTag,
+    DeleteTraces,
+    DeleteTracesV3,
+    DeleteTraceTag,
+    DeleteTraceTagV3,
     DeleteWorkspace,
     DetachModelFromGatewayEndpoint,
+    EndTrace,
     FinalizeLoggedModel,
+    GetAssessmentRequest,
     GetExperiment,
     GetExperimentByName,
     GetGatewayEndpoint,
@@ -113,7 +123,12 @@ from mlflow.protos.service_pb2 import (
     GetPromptOptimizationJob,
     GetRun,
     GetScorer,
+    GetTrace,
+    GetTraceInfo,
+    GetTraceInfoV3,
     GetWorkspace,
+    LinkPromptsToTrace,
+    LinkTracesToRun,
     ListArtifacts,
     ListGatewayEndpointBindings,
     ListScorers,
@@ -124,16 +139,24 @@ from mlflow.protos.service_pb2 import (
     LogMetric,
     LogModel,
     LogParam,
+    QueryTraceMetrics,
     RegisterScorer,
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
     SearchLoggedModels,
     SearchPromptOptimizationJobs,
+    SearchTraces,
+    SearchTracesV3,
     SetExperimentTag,
     SetGatewayEndpointTag,
     SetLoggedModelTags,
     SetTag,
+    SetTraceTag,
+    SetTraceTagV3,
+    StartTrace,
+    StartTraceV3,
+    UpdateAssessment,
     UpdateExperiment,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
@@ -625,6 +648,34 @@ def _get_permission_from_model_id() -> Permission:
     model_id = _get_request_param("model_id")
     model = _get_tracking_store().get_logged_model(model_id)
     experiment_id = model.experiment_id
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
+            username, experiment_id
+        ),
+    )
+
+
+def _get_permission_from_request_id() -> Permission:
+    """Get experiment permission via trace lookup using request_id (V2 trace identifier)."""
+    request_id = _get_request_param("request_id")
+    trace = _get_tracking_store().get_trace_info(request_id)
+    experiment_id = trace.experiment_id
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
+            username, experiment_id
+        ),
+    )
+
+
+def _get_permission_from_trace_id() -> Permission:
+    """Get experiment permission via trace lookup using trace_id (V3 trace identifier)."""
+    trace_id = _get_request_param("trace_id")
+    trace = _get_tracking_store().get_trace_info(trace_id)
+    experiment_id = trace.experiment_id
     username = authenticate_request().username
     return _get_permission_from_store_or_default(
         lambda: store.get_experiment_permission(experiment_id, username).permission,
@@ -1325,6 +1376,136 @@ def validate_can_read_trace_artifact():
     return _get_permission_from_trace_request_id().can_read
 
 
+# Traces (V2 - identified by request_id)
+def validate_can_read_trace_by_request_id():
+    return _get_permission_from_request_id().can_read
+
+
+def validate_can_update_trace_by_request_id():
+    return _get_permission_from_request_id().can_update
+
+
+# Traces (V3 - identified by trace_id)
+def validate_can_read_trace_by_trace_id():
+    return _get_permission_from_trace_id().can_read
+
+
+def validate_can_update_trace_by_trace_id():
+    return _get_permission_from_trace_id().can_update
+
+
+def validate_can_search_traces():
+    """Checks READ permission on all specified experiment_ids for trace search."""
+    if request.method == "GET":
+        experiment_ids = request.args.getlist("experiment_ids")
+    else:
+        data = request.json or {}
+        experiment_ids = data.get("experiment_ids", [])
+
+    if not experiment_ids:
+        raise MlflowException(
+            "Request must specify at least one experiment_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    username = authenticate_request().username
+    for experiment_id in experiment_ids:
+
+        def get_workspace_perm(eid=experiment_id):
+            return _workspace_permission_for_experiment(username, eid)
+
+        permission = _get_permission_from_store_or_default(
+            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission,
+            workspace_level_permission_func=get_workspace_perm,
+        )
+        if not permission.can_read:
+            return False
+
+    return True
+
+
+def validate_can_search_traces_v3():
+    """Checks READ permission for SearchTracesV3 locations."""
+    data = request.json or {}
+    locations = data.get("locations", [])
+    experiment_ids = []
+    for loc in locations:
+        mlflow_experiment = loc.get("mlflow_experiment", {})
+        if eid := mlflow_experiment.get("experiment_id"):
+            experiment_ids.append(eid)
+
+    if not experiment_ids:
+        raise MlflowException(
+            "SearchTracesV3 request must specify at least one experiment location.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    username = authenticate_request().username
+    for experiment_id in experiment_ids:
+
+        def get_workspace_perm(eid=experiment_id):
+            return _workspace_permission_for_experiment(username, eid)
+
+        permission = _get_permission_from_store_or_default(
+            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission,
+            workspace_level_permission_func=get_workspace_perm,
+        )
+        if not permission.can_read:
+            return False
+
+    return True
+
+
+def validate_can_start_trace_v3():
+    """Checks UPDATE permission on the experiment for StartTraceV3."""
+    data = request.json or {}
+    trace = data.get("trace", {})
+    trace_info = trace.get("trace_info", {})
+    experiment_id = trace_info.get("experiment_id")
+    if not experiment_id:
+        raise MlflowException(
+            "StartTraceV3 request must specify trace.trace_info.experiment_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    username = authenticate_request().username
+    permission = _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission,
+        workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
+            username, experiment_id
+        ),
+    )
+    return permission.can_update
+
+
+def validate_can_batch_get_traces():
+    """Checks READ permission on all traces in a batch request."""
+    trace_ids = request.args.getlist("trace_ids")
+    if not trace_ids:
+        raise MlflowException(
+            "BatchGetTraces request must specify at least one trace_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    username = authenticate_request().username
+    tracking_store = _get_tracking_store()
+    for trace_id in trace_ids:
+        trace = tracking_store.get_trace_info(trace_id)
+        experiment_id = trace.experiment_id
+
+        def get_workspace_perm(eid=experiment_id):
+            return _workspace_permission_for_experiment(username, eid)
+
+        permission = _get_permission_from_store_or_default(
+            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission,
+            workspace_level_permission_func=get_workspace_perm,
+        )
+        if not permission.can_read:
+            return False
+
+    return True
+
+
 def validate_can_read_metric_history_bulk(run_ids=None):
     """Checks READ permission on all requested runs.
 
@@ -1481,20 +1662,50 @@ BEFORE_REQUEST_HANDLERS = {
     GetScorer: validate_can_read_scorer,
     DeleteScorer: validate_can_delete_scorer,
     ListScorerVersions: validate_can_read_scorer,
+    # Routes for traces (V2 - identified by request_id)
+    StartTrace: validate_can_update_experiment,
+    EndTrace: validate_can_update_trace_by_request_id,
+    GetTraceInfo: validate_can_read_trace_by_request_id,
+    SearchTraces: validate_can_search_traces,
+    DeleteTraces: validate_can_delete_experiment,
+    SetTraceTag: validate_can_update_trace_by_request_id,
+    DeleteTraceTag: validate_can_update_trace_by_request_id,
+    # Routes for traces (V3 - identified by trace_id)
+    StartTraceV3: validate_can_start_trace_v3,
+    GetTraceInfoV3: validate_can_read_trace_by_trace_id,
+    GetTrace: validate_can_read_trace_by_trace_id,
+    BatchGetTraces: validate_can_batch_get_traces,
+    SearchTracesV3: validate_can_search_traces_v3,
+    DeleteTracesV3: validate_can_delete_experiment,
+    SetTraceTagV3: validate_can_update_trace_by_trace_id,
+    DeleteTraceTagV3: validate_can_update_trace_by_trace_id,
+    LinkTracesToRun: validate_can_update_run,
+    LinkPromptsToTrace: validate_can_update_trace_by_trace_id,
+    # Routes for trace analytics
+    CalculateTraceFilterCorrelation: validate_can_search_traces,
+    QueryTraceMetrics: validate_can_search_traces,
+    # Routes for assessments (permission inherited from trace's experiment)
+    CreateAssessment: validate_can_update_trace_by_trace_id,
+    UpdateAssessment: validate_can_update_trace_by_trace_id,
+    DeleteAssessment: validate_can_update_trace_by_trace_id,
+    GetAssessmentRequest: validate_can_read_trace_by_trace_id,
     # Routes for gateway secrets
     GetGatewaySecretInfo: validate_can_read_gateway_secret,
     UpdateGatewaySecret: validate_can_update_gateway_secret,
     DeleteGatewaySecret: validate_can_delete_gateway_secret,
+    ListGatewaySecretInfos: sender_is_admin,
     # Routes for gateway endpoints
     CreateGatewayEndpoint: validate_can_create_gateway_endpoint,
     GetGatewayEndpoint: validate_can_read_gateway_endpoint,
     UpdateGatewayEndpoint: validate_can_update_gateway_endpoint,
     DeleteGatewayEndpoint: validate_can_delete_gateway_endpoint,
+    ListGatewayEndpoints: sender_is_admin,
     # Routes for gateway model definitions
     CreateGatewayModelDefinition: validate_can_create_gateway_model_definition,
     GetGatewayModelDefinition: validate_can_read_gateway_model_definition,
     UpdateGatewayModelDefinition: validate_can_update_gateway_model_definition,
     DeleteGatewayModelDefinition: validate_can_delete_gateway_model_definition,
+    ListGatewayModelDefinitions: sender_is_admin,
     # Routes for gateway endpoint-model mappings
     AttachModelToGatewayEndpoint: validate_can_update_gateway_endpoint,
     DetachModelFromGatewayEndpoint: validate_can_update_gateway_endpoint,
