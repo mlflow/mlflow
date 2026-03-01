@@ -63,6 +63,8 @@ import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluat
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import { useRunScorerInTracesViewConfiguration } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
+import { IssueDetectionModal } from './IssueDetectionModal';
+import { useIssueDetectionNotification } from './hooks/useIssueDetectionNotification';
 
 const JudgeContextProvider = ({ children }: { children: React.ReactNode }) => {
   const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
@@ -137,6 +139,9 @@ const TracesV3LogsImpl = React.memo(
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
     const [isGroupedBySession, setIsGroupedBySession] = useState(false);
+    const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
+    const { showIssueDetectionNotification, notificationContextHolder } =
+      useIssueDetectionNotification(singleExperimentId);
 
     // Check if we're already inside a provider (e.g., from SelectTracesModal)
     // If so, we won't create our own provider to avoid shadowing the parent's selection state
@@ -445,9 +450,22 @@ const TracesV3LogsImpl = React.memo(
               isGroupedBySession={forceGroupBySession || isGroupedBySession}
               forceGroupBySession={forceGroupBySession}
               onToggleSessionGrouping={onToggleSessionGrouping}
+              onDetectIssues={disableActions ? undefined : () => setIsIssueDetectionModalOpen(true)}
             />
             {renderMainContent()}
           </div>
+          {!disableActions && (
+            <IssueDetectionModal
+              visible={isIssueDetectionModalOpen}
+              onClose={() => setIsIssueDetectionModalOpen(false)}
+              experimentId={singleExperimentId}
+              initialSelectedTraceIds={Object.entries(rowSelection)
+                .filter(([, isSelected]) => isSelected)
+                .map(([traceId]) => traceId)}
+              onSubmitSuccess={showIssueDetectionNotification}
+            />
+          )}
+          {notificationContextHolder}
         </GenAITracesTableProvider>
       </ModelTraceExplorerContextProvider>
     );
