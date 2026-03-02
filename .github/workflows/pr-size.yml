@@ -2,7 +2,6 @@ name: PR Size Labeling
 
 on:
   pull_request_target:
-    # Only trigger on opened and closed to avoid excessive label churn
     types:
       - opened
       - closed
