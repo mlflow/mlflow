@@ -11,7 +11,7 @@ CONFIDENCE_LEVELS = ("definitely_no", "weak_no", "maybe", "weak_yes", "definitel
 CONFIDENCE_ORDER = {level: i for i, level in enumerate(CONFIDENCE_LEVELS)}
 MIN_CONFIDENCE = "weak_yes"
 
-DEFAULT_JUDGE_MODEL = "openai:/gpt-5.2-mini"
+DEFAULT_JUDGE_MODEL = "openai:/gpt-5-mini"
 DEFAULT_ANALYSIS_MODEL = "openai:/gpt-5.2"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
 

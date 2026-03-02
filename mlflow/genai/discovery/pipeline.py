@@ -352,7 +352,7 @@ def discover_issues(
             scorer during triage. A trace is considered failing if *any*
             scorer (satisfaction or additional) marks it as ``False``.
         judge_model: LLM used for scoring traces (satisfaction + issue detection).
-            Defaults to ``"openai:/gpt-5.2-mini"``.
+            Defaults to ``"openai:/gpt-5-mini"``.
         analysis_model: LLM used for analysis and cluster summarization.
             Defaults to ``"openai:/gpt-5.2"``.
         embedding_model: Embedding model for semantic clustering.
