@@ -78,7 +78,7 @@ RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
 
 skip_transformers_v5_or_later = pytest.mark.skipif(
-    Version(transformers.__version__).major >= 5,
+    IS_TRANSFORMERS_V5_OR_LATER,
     reason="Incompatible API changes in transformers 5.x",
 )
 image_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"

@@ -9,12 +9,13 @@ from mlflow.transformers import _PEFT_PIPELINE_ERROR_MSG, _try_import_conversati
 from mlflow.utils.logging_utils import suppress_logs
 
 from tests.helper_functions import flaky
+from tests.transformers.version import (
+    IS_NEW_FEATURE_EXTRACTION_API,
+    IS_TRANSFORMERS_V5_OR_LATER,
+    transformers_version,
+)
 
 _logger = logging.getLogger(__name__)
-
-transformers_version = Version(transformers.__version__)
-IS_NEW_FEATURE_EXTRACTION_API = transformers_version >= Version("4.27.0")
-IS_TRANSFORMERS_V5_OR_LATER = transformers_version.major >= 5
 
 CHAT_TEMPLATE = "{% for message in messages %}{{ message.content }}{{ eos_token }}{% endfor %}"
 
@@ -229,7 +230,7 @@ def load_whisper_pipeline():
     tokenizer = transformers.WhisperTokenizer.from_pretrained(architecture)
     feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(architecture)
     model.generation_config.alignment_heads = [[2, 2], [3, 0], [3, 2], [3, 3], [3, 4], [3, 5]]
-    if Version(transformers.__version__) > Version("4.49.0"):
+    if transformers_version > Version("4.49.0"):
         # forced_decoder_ids is not allowed
         # ref: https://github.com/huggingface/transformers/blob/6a2627918d84f25422b931507a8fb9146106ca20/src/transformers/generation/utils.py#L1083
         model.generation_config.forced_decoder_ids = None
