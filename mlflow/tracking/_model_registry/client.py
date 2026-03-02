@@ -42,7 +42,6 @@ from mlflow.telemetry.events import (
 )
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
-from mlflow.utils.annotations import experimental
 from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
@@ -805,7 +804,6 @@ class ModelRegistryClient:
         self.store.delete_prompt_version_tag(name, version, key)
 
     # Webhook APIs
-    @experimental(version="3.3.0")
     @record_usage_event(CreateWebhookEvent)
     def create_webhook(
         self,
@@ -832,7 +830,6 @@ class ModelRegistryClient:
         """
         return self.store.create_webhook(name, url, events, description, secret, status)
 
-    @experimental(version="3.3.0")
     def get_webhook(self, webhook_id: str) -> Webhook:
         """
         Get webhook instance by ID.
@@ -845,7 +842,6 @@ class ModelRegistryClient:
         """
         return self.store.get_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def list_webhooks(
         self,
         max_results: int | None = None,
@@ -863,7 +859,6 @@ class ModelRegistryClient:
         """
         return self.store.list_webhooks(max_results, page_token)
 
-    @experimental(version="3.3.0")
     def update_webhook(
         self,
         webhook_id: str,
@@ -891,7 +886,6 @@ class ModelRegistryClient:
         """
         return self.store.update_webhook(webhook_id, name, description, url, events, secret, status)
 
-    @experimental(version="3.3.0")
     def delete_webhook(self, webhook_id: str) -> None:
         """
         Delete a webhook.
@@ -904,7 +898,6 @@ class ModelRegistryClient:
         """
         self.store.delete_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def test_webhook(
         self, webhook_id: str, event: WebhookEventStr | WebhookEvent | None = None
     ) -> WebhookTestResult:
