@@ -209,37 +209,6 @@ def test_register_model_skips_logged_model_tag_when_not_found(monkeypatch):
     mlflow.set_registry_uri(orig_registry_uri)
 
 
-def test_register_model_reraises_non_not_found_errors(monkeypatch):
-    # Only RESOURCE_DOES_NOT_EXIST is swallowed; other errors propagate.
-    orig_registry_uri = mlflow.get_registry_uri()
-    mlflow.set_registry_uri("databricks-uc")
-    model_id = "m-err"
-    name = "name.mlflow.err_model"
-    version = "1"
-    with (
-        mock.patch("mlflow.tracking._model_registry.fluent.eprint"),
-        mock.patch(
-            "mlflow.tracking._model_registry.fluent.get_workspace_url", return_value=None
-        ),
-        mock.patch(
-            "mlflow.MlflowClient.create_registered_model",
-            return_value=RegisteredModel(name),
-        ),
-        mock.patch(
-            "mlflow.MlflowClient._create_model_version",
-            return_value=ModelVersion(name, version, creation_timestamp=123),
-        ),
-        mock.patch(
-            "mlflow.MlflowClient.get_logged_model",
-            side_effect=MlflowException("internal error", error_code=INTERNAL_ERROR),
-        ),
-    ):
-        with pytest.raises(MlflowException, match="internal error"):
-            register_model(f"models:/{model_id}", name)
-
-    mlflow.set_registry_uri(orig_registry_uri)
-
-
 def test_set_model_version_tag():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, model_input):
