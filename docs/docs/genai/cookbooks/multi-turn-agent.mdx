@@ -1,0 +1,273 @@
+---
+title: Evaluating a Multi-Turn Conversational Agent
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+
+# Evaluating a Multi-Turn Conversational Agent
+
+Evaluate a customer support chat agent across full conversation sessions using MLflow's conversational scorers. Single-turn evaluation misses problems that only surface over multiple exchanges -- frustrated users, incomplete resolutions, and guideline drift.
+
+:::tip[Prerequisites]
+```bash
+pip install mlflow>=3.0 openai
+```
+:::
+
+<StepHeader number={1} title="Set Up MLflow and Build a Chat Agent" />
+
+The agent maintains conversation history per session and responds to customer support inquiries about orders, returns, and account issues.
+
+```python
+import mlflow
+import openai
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("multi-turn-agent-eval")
+mlflow.openai.autolog()
+
+client = openai.OpenAI()
+
+SYSTEM_PROMPT = (
+    "You are a customer support agent for ShopFast, "
+    "an online retail company. Follow these rules:\n"
+    "1. Always greet the customer by name if provided.\n"
+    "2. For order status questions, ask for the order "
+    "number if not provided.\n"
+    "3. Never promise specific refund timelines.\n"
+    "4. Escalate to a human agent if the customer asks "
+    "more than twice about the same unresolved issue.\n"
+    "5. Always end with asking if there's anything else "
+    "you can help with."
+)
+
+# Store conversation histories keyed by session_id
+conversation_histories: dict[str, list[dict]] = {}
+
+
+@mlflow.trace
+def chat(message: str, session_id: str) -> str:
+    mlflow.update_current_trace(
+        metadata={"mlflow.trace.session": session_id}
+    )
+
+    if session_id not in conversation_histories:
+        conversation_histories[session_id] = [
+            {"role": "system", "content": SYSTEM_PROMPT}
+        ]
+
+    conversation_histories[session_id].append(
+        {"role": "user", "content": message}
+    )
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=conversation_histories[session_id],
+    )
+
+    assistant_message = response.choices[0].message.content
+    conversation_histories[session_id].append(
+        {"role": "assistant", "content": assistant_message}
+    )
+
+    return assistant_message
+```
+
+Test the agent with a single message to verify tracing works:
+
+```python
+reply = chat(
+    "Hi, I'm Sarah. Where is my order?",
+    session_id="test-session",
+)
+print(reply)
+# Check the MLflow UI at http://127.0.0.1:5000 --
+# you should see a trace with the OpenAI call.
+```
+
+<StepHeader number={2} title="Create Multi-Turn Conversations" />
+
+Define realistic customer support conversations. Each conversation is a sequence of messages sharing the same `session_id`. The conversations cover a range of outcomes: a smooth resolution, a frustrated customer, and a case where the agent fails to address all questions.
+
+```python
+conversations = [
+    {
+        "session_id": "session-order-status",
+        "turns": [
+            "Hi, my name is Sarah. Can you check on my order?",
+            "It's order number 98765.",
+            "Great, thanks! Can I also change the shipping "
+            "address?",
+            "The new address is 123 Oak St, Portland, OR.",
+            "That's all, thank you!",
+        ],
+    },
+    {
+        "session_id": "session-frustrated-customer",
+        "turns": [
+            "I've been waiting 3 weeks for my refund! "
+            "Order 44312.",
+            "You said that last time. When exactly will I "
+            "get my money back?",
+            "This is ridiculous. I want to speak to a "
+            "manager right now.",
+            "I'm not going to wait any longer. Fix this "
+            "or I'm filing a chargeback.",
+        ],
+    },
+    {
+        "session_id": "session-incomplete",
+        "turns": [
+            "Hey, I need help with two things. First, "
+            "where's order 77210?",
+            "Ok. Second, I want to return the shoes from "
+            "order 77210. They don't fit.",
+            "What's the return window? And do I get free "
+            "return shipping?",
+        ],
+    },
+]
+```
+
+<StepHeader number={3} title="Run the Conversations and Trace Them" />
+
+Each call to `chat()` produces a traced turn. Because `mlflow.openai.autolog()` is enabled, every OpenAI call is automatically captured. The `session_id` metadata groups turns into sessions.
+
+```python
+# Clear any prior test history
+conversation_histories.clear()
+
+for convo in conversations:
+    session_id = convo["session_id"]
+    for turn in convo["turns"]:
+        reply = chat(turn, session_id=session_id)
+        print(f"[{session_id}] User: {turn[:50]}...")
+        print(f"[{session_id}] Agent: {reply[:80]}...")
+        print()
+```
+
+<StepHeader number={4} title="Evaluate with Conversational Scorers" />
+
+Retrieve the traces and run three session-level scorers:
+
+- **ConversationCompleteness** -- did the agent address all user requests by the end? Returns `"yes"` or `"no"`.
+- **ConversationalGuidelines** -- did the agent follow the support rules across the full conversation? Returns `"yes"` or `"no"`.
+- **UserFrustration** -- did the user show frustration, and was it resolved? Returns `"none"`, `"resolved"`, or `"unresolved"`.
+
+```python
+from mlflow.genai.scorers import (
+    ConversationCompleteness,
+    ConversationalGuidelines,
+    UserFrustration,
+)
+
+traces = mlflow.search_traces(
+    experiment_ids=[
+        mlflow.get_experiment_by_name(
+            "multi-turn-agent-eval"
+        ).experiment_id
+    ],
+    return_type="list",
+)
+
+results = mlflow.genai.evaluate(
+    data=traces,
+    scorers=[
+        ConversationCompleteness(),
+        ConversationalGuidelines(
+            guidelines=[
+                "Always greet the customer by name if "
+                "provided",
+                "Ask for the order number if not provided",
+                "Never promise specific refund timelines",
+                "End each response by asking if there's "
+                "anything else to help with",
+            ],
+        ),
+        UserFrustration(),
+    ],
+)
+```
+
+<StepHeader number={5} title="Analyze Results" />
+
+```python
+print(results.metrics)
+# Example output:
+# {
+#   'conversation_completeness/mean': 0.67,
+#   'conversational_guidelines/mean': 0.67,
+#   'user_frustration/mean': ...,
+# }
+```
+
+The per-session breakdown shows which conversations had problems:
+
+```python
+df = results.result_df
+
+score_cols = [c for c in df.columns if c.endswith("/value")]
+rationale_cols = [
+    c for c in df.columns if c.endswith("/rationale")
+]
+
+print(df[score_cols])
+# conversation_completeness/value: "yes", "yes", "no"
+# conversational_guidelines/value: "yes", "no", "yes"
+# user_frustration/value: "none", "unresolved", "none"
+```
+
+Inspect rationales for failed scores to understand what went wrong in specific sessions:
+
+```python
+for _, row in df.iterrows():
+    for col in score_cols:
+        val = row[col]
+        scorer_name = col.replace("/value", "")
+        rationale_col = f"{scorer_name}/rationale"
+
+        is_failure = (
+            val == "no"
+            or val == "unresolved"
+            or val is False
+        )
+        if is_failure and rationale_col in df.columns:
+            print(f"Scorer: {scorer_name}")
+            print(f"  Value: {val}")
+            print(f"  Rationale: {row[rationale_col]}")
+            print()
+# Example output:
+# Scorer: conversation_completeness
+#   Value: no
+#   Rationale: The user asked about the return window
+#     and free return shipping, but the agent did not
+#     fully address both questions.
+#
+# Scorer: user_frustration
+#   Value: unresolved
+#   Rationale: The user expressed escalating frustration
+#     about a delayed refund and the agent was unable
+#     to resolve the situation.
+```
+
+Open the MLflow UI at `http://127.0.0.1:5000` and navigate to the **multi-turn-agent-eval** experiment. The evaluation run shows per-session scores with linked traces. Click any session to walk through the full conversation and see where the agent fell short.
+
+## Results Interpretation
+
+| Session | Completeness | Guidelines | Frustration |
+|---|---|---|---|
+| order-status | yes | yes | none |
+| frustrated-customer | yes | no | unresolved |
+| incomplete | no | yes | none |
+
+- **order-status**: Clean conversation. All questions answered, guidelines followed, no frustration.
+- **frustrated-customer**: The agent likely promised a refund timeline (violating guideline 3) or failed to escalate to a human (violating guideline 4). The user's frustration was never resolved.
+- **incomplete**: The agent didn't fully address the return window and shipping cost questions. No frustration detected because the user didn't express any, but the conversation ended with open questions.
+
+These results point to specific improvements: better escalation handling for angry customers and more thorough follow-through on multi-part questions.
+
+## Next Steps
+
+- [Evaluate Conversations](/genai/eval-monitor/running-evaluation/multi-turn) -- Full reference for multi-turn evaluation with session tracing and conversation simulation
+- [Built-in Scorers Reference](/genai/eval-monitor/scorers/llm-judge/predefined#multi-turn) -- All available conversational scorers including KnowledgeRetention, ConversationalSafety, and ConversationalRoleAdherence
+- [Custom LLM Judges](/genai/cookbooks/custom-llm-judges) -- Build domain-specific judges for your use case

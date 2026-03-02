@@ -1,0 +1,368 @@
+---
+title: Evaluation-Driven Development
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+
+# Evaluation-Driven Development
+
+Use MLflow evaluation to find weaknesses in a GenAI application, fix them, and measure the improvement -- all in a tight, repeatable loop.
+
+:::tip[Prerequisites]
+```bash
+pip install mlflow>=3.0 openai
+```
+:::
+
+## The Idea
+
+Write an eval dataset once. Run it against your app. Read the per-row scores to find failures. Improve the app. Re-run the same eval. Compare the two runs to confirm the fix worked.
+
+This cookbook walks through that cycle with a customer support agent that starts out giving vague, generic answers and ends up producing grounded, policy-aware responses.
+
+<StepHeader number={1} title="Set Up MLflow and Build a Baseline Agent" />
+
+```python
+import mlflow
+import openai
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("eval-driven-development")
+
+mlflow.openai.autolog()
+client = openai.OpenAI()
+
+SYSTEM_PROMPT_V1 = "You are a customer support agent."
+
+
+@mlflow.trace
+def support_agent(question: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT_V1},
+            {"role": "user", "content": question},
+        ],
+    )
+    return response.choices[0].message.content
+```
+
+This agent has no product knowledge, no policies, and no guardrails. It will answer based on whatever the LLM already knows.
+
+<StepHeader number={2} title="Create an Evaluation Dataset" />
+
+Each row has an input question and an `expected_response` that the `Correctness` scorer uses as ground truth.
+
+```python
+eval_data = [
+    {
+        "inputs": {"question": "How do I reset my password?"},
+        "expectations": {
+            "expected_response": (
+                "Go to the login page, click 'Forgot Password', "
+                "enter your email, and follow the link in the "
+                "reset email. The link expires after 24 hours."
+            ),
+        },
+    },
+    {
+        "inputs": {
+            "question": "What is your refund policy?"
+        },
+        "expectations": {
+            "expected_response": (
+                "Full refunds are available within 30 days of "
+                "purchase. After 30 days, we offer store credit. "
+                "Refunds are processed in 5-7 business days."
+            ),
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "My order arrived damaged. What should I do?"
+            )
+        },
+        "expectations": {
+            "expected_response": (
+                "Take photos of the damage, then contact support "
+                "with your order number and photos. We will ship "
+                "a replacement within 2 business days at no cost."
+            ),
+        },
+    },
+    {
+        "inputs": {
+            "question": "Can I change my shipping address?"
+        },
+        "expectations": {
+            "expected_response": (
+                "You can change your shipping address if the "
+                "order has not shipped yet. Go to Order History, "
+                "select the order, and click Edit Address."
+            ),
+        },
+    },
+    {
+        "inputs": {
+            "question": "Do you offer student discounts?"
+        },
+        "expectations": {
+            "expected_response": (
+                "Yes, verified students get 15% off. Register "
+                "with a .edu email at our student portal to "
+                "activate the discount."
+            ),
+        },
+    },
+]
+```
+
+<StepHeader number={3} title="Run the Baseline Evaluation" />
+
+Three scorers cover three angles:
+
+- **`Correctness`** -- does the response match the expected facts?
+- **`RelevanceToQuery`** -- does the response address the question?
+- **`Guidelines`** -- does the response follow support policies?
+
+```python
+from mlflow.genai.scorers import (
+    Correctness,
+    Guidelines,
+    RelevanceToQuery,
+)
+
+support_policies = Guidelines(
+    name="support_policies",
+    guidelines=[
+        "Always include specific steps or actions the "
+        "customer should take",
+        "Include relevant timeframes, deadlines, or SLAs "
+        "when applicable",
+        "Never make up policies -- only state facts from "
+        "the provided company knowledge base",
+    ],
+)
+
+baseline_results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=support_agent,
+    scorers=[
+        Correctness(),
+        RelevanceToQuery(),
+        support_policies,
+    ],
+)
+```
+
+<StepHeader number={4} title="Analyze the Failures" />
+
+Start with the aggregate metrics, then drill into the per-row results.
+
+```python
+print(baseline_results.metrics)
+# Example output:
+# {
+#   'correctness/mean': 0.2,
+#   'relevance_to_query/mean': 1.0,
+#   'support_policies/mean': 0.4,
+# }
+```
+
+The agent's responses are relevant to the questions but fail on correctness (it does not know the company's actual policies) and guideline adherence (it gives vague answers without concrete steps or timeframes).
+
+Dig into the per-row detail to find which questions failed and why.
+
+```python
+df = baseline_results.result_df
+
+cols = [
+    "inputs",
+    "outputs",
+    "correctness/value",
+    "correctness/rationale",
+    "support_policies/value",
+    "support_policies/rationale",
+]
+print(df[cols].to_string())
+```
+
+Read the `correctness/rationale` and `support_policies/rationale` columns. Common patterns:
+
+- "The response does not mention the 24-hour expiration for password reset links."
+- "No specific timeframe was provided for refund processing."
+- "The response fabricates a generic process rather than stating the company's actual policy."
+
+These rationales point to the root cause: the agent has no access to company policies.
+
+<StepHeader number={5} title="Improve the Agent" />
+
+Inject the company knowledge base directly into the system prompt.
+
+```python
+SYSTEM_PROMPT_V2 = """\
+You are a customer support agent for Acme Corp. \
+Answer questions using ONLY the company policies below. \
+If the answer is not covered by these policies, say \
+"I'll need to check with our team on that."
+
+COMPANY POLICIES:
+- Password Reset: Direct customers to the login page, \
+click "Forgot Password", enter email, follow the reset \
+link. The link expires after 24 hours.
+- Refunds: Full refunds within 30 days of purchase. \
+After 30 days, store credit only. Refunds processed \
+in 5-7 business days.
+- Damaged Orders: Customer should photograph the \
+damage, contact support with order number and photos. \
+Replacement shipped within 2 business days at no cost.
+- Shipping Address Changes: Can be changed if order \
+has not shipped. Go to Order History, select order, \
+click Edit Address.
+- Student Discount: 15% off for verified students. \
+Register with a .edu email at the student portal.\
+"""
+
+
+@mlflow.trace
+def support_agent_v2(question: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT_V2},
+            {"role": "user", "content": question},
+        ],
+    )
+    return response.choices[0].message.content
+```
+
+<StepHeader number={6} title="Re-Run Evaluation and Compare" />
+
+Run the same dataset and scorers against the improved agent.
+
+```python
+improved_results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=support_agent_v2,
+    scorers=[
+        Correctness(),
+        RelevanceToQuery(),
+        support_policies,
+    ],
+)
+
+print(improved_results.metrics)
+# Example output:
+# {
+#   'correctness/mean': 1.0,
+#   'relevance_to_query/mean': 1.0,
+#   'support_policies/mean': 1.0,
+# }
+```
+
+Compare side by side:
+
+```python
+import pandas as pd
+
+comparison = pd.DataFrame({
+    "scorer": [
+        "correctness",
+        "relevance_to_query",
+        "support_policies",
+    ],
+    "baseline": [
+        baseline_results.metrics["correctness/mean"],
+        baseline_results.metrics[
+            "relevance_to_query/mean"
+        ],
+        baseline_results.metrics["support_policies/mean"],
+    ],
+    "improved": [
+        improved_results.metrics["correctness/mean"],
+        improved_results.metrics[
+            "relevance_to_query/mean"
+        ],
+        improved_results.metrics[
+            "support_policies/mean"
+        ],
+    ],
+})
+print(comparison.to_string(index=False))
+#         scorer  baseline  improved
+#    correctness       0.2       1.0
+# relevance_to_query   1.0       1.0
+#  support_policies    0.4       1.0
+```
+
+<StepHeader number={7} title="Compare Runs in the MLflow UI" />
+
+Open `http://127.0.0.1:5000` and navigate to the `eval-driven-development` experiment. You will see two evaluation runs -- one for the baseline and one for the improved agent.
+
+1. Select both runs using the checkboxes.
+2. Click **Compare** to see metrics side by side.
+3. Click into individual runs to inspect per-row traces and scorer rationales.
+
+The traces show exactly what the agent produced for each question. The scorer rationales explain why each row passed or failed. Together, these give you a full audit trail of what changed and why.
+
+## Adding a Custom Scorer
+
+Built-in scorers cover general quality. For domain-specific checks, add a custom scorer.
+
+```python
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def mentions_acme(outputs) -> bool:
+    """
+    Checks that the agent identifies itself as
+    Acme Corp support, not a generic assistant.
+    """
+    return "acme" in outputs.lower()
+
+
+all_scorers = [
+    Correctness(),
+    RelevanceToQuery(),
+    support_policies,
+    mentions_acme,
+]
+
+final_results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=support_agent_v2,
+    scorers=all_scorers,
+)
+
+print(final_results.metrics)
+# Example output:
+# {
+#   'correctness/mean': 1.0,
+#   'relevance_to_query/mean': 1.0,
+#   'support_policies/mean': 1.0,
+#   'mentions_acme/mean': 0.8,
+# }
+```
+
+If `mentions_acme` scores below 1.0, the next iteration of the prompt should instruct the agent to identify itself as Acme Corp in every response.
+
+## Summary
+
+The loop is always the same:
+
+1. Define eval data with inputs and expected outputs.
+2. Pick scorers that measure what matters.
+3. Run evaluation.
+4. Read per-row rationales to find the root cause.
+5. Fix the app (prompt, retrieval, tools, etc.).
+6. Re-run the same evaluation.
+7. Confirm improvement in the MLflow UI.
+
+Repeat until all scorers hit your quality bar.
+
+## Next Steps
+
+- [End-to-End RAG Evaluation](/genai/cookbooks/rag-evaluation) -- Apply the same loop to a RAG pipeline with retrieval-specific scorers
+- [Built-in Scorers Reference](/genai/eval-monitor/scorers/llm-judge/predefined) -- Full list of available scorers

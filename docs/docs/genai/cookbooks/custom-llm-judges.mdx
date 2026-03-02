@@ -1,0 +1,320 @@
+---
+title: Building Custom LLM Judges
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+
+# Building Custom LLM Judges
+
+Evaluate GenAI application outputs using built-in guideline scorers, custom programmatic scorers, and custom LLM-based judges.
+
+:::tip[Prerequisites]
+```bash
+pip install mlflow>=3.0 openai
+```
+:::
+
+<StepHeader number={1} title="Set Up MLflow and Build a Q&A Agent" />
+
+```python
+import mlflow
+import openai
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("custom-judges")
+
+mlflow.openai.autolog()
+
+client = openai.OpenAI()
+
+
+@mlflow.trace
+def answer_question(question: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a medical information assistant. "
+                    "Always include a disclaimer that users "
+                    "should consult a healthcare professional. "
+                    "Cite sources when available. "
+                    "Structure your response with sections: "
+                    "Overview, Details, and Disclaimer."
+                ),
+            },
+            {"role": "user", "content": question},
+        ],
+    )
+    return response.choices[0].message.content
+```
+
+Verify the agent works:
+
+```python
+print(answer_question("What are the symptoms of iron deficiency?"))
+```
+
+<StepHeader number={2} title="Define Evaluation Data" />
+
+```python
+eval_data = [
+    {
+        "inputs": {
+            "question": "What are common symptoms of vitamin D deficiency?"
+        },
+        "expectations": {
+            "required_sections": [
+                "Overview",
+                "Details",
+                "Disclaimer",
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "question": "How does melatonin affect sleep?"
+        },
+        "expectations": {
+            "required_sections": [
+                "Overview",
+                "Details",
+                "Disclaimer",
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "question": "What are the risks of prolonged sitting?"
+        },
+        "expectations": {
+            "required_sections": [
+                "Overview",
+                "Details",
+                "Disclaimer",
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "question": "What causes migraines?"
+        },
+        "expectations": {
+            "required_sections": [
+                "Overview",
+                "Details",
+                "Disclaimer",
+            ]
+        },
+    },
+]
+```
+
+<StepHeader number={3} title="Predict Function" />
+
+The parameter name must match the key in the `inputs` dicts.
+
+```python
+def predict_fn(question):
+    return answer_question(question)
+```
+
+<StepHeader number={4} title="Use the Guidelines Scorer" />
+
+The `Guidelines` scorer checks whether responses follow specific rules. Each `Guidelines` instance evaluates its own set of guidelines independently.
+
+```python
+from mlflow.genai.scorers import Guidelines
+
+conciseness = Guidelines(
+    name="conciseness",
+    guidelines=[
+        "Response must be under 500 words",
+        "Response must avoid unnecessary filler phrases",
+    ],
+)
+
+source_citation = Guidelines(
+    name="source_citation",
+    guidelines=[
+        "Response must cite sources when making factual claims",
+        "Response must not present opinions as facts",
+    ],
+)
+```
+
+Run evaluation with just these two guideline scorers:
+
+```python
+guideline_results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=predict_fn,
+    scorers=[conciseness, source_citation],
+)
+
+print(guideline_results.metrics)
+# Example output:
+# {'conciseness/mean': 1.0, 'source_citation/mean': 0.8}
+
+df = guideline_results.result_df
+print(
+    df[
+        [
+            "inputs/question",
+            "conciseness/value",
+            "source_citation/value",
+            "source_citation/rationale",
+        ]
+    ]
+)
+```
+
+<StepHeader number={5} title="Build a Custom Programmatic Scorer" />
+
+Use the `@scorer` decorator to write a scorer that checks domain-specific logic with code -- no LLM calls needed.
+
+This scorer verifies that responses contain the required sections defined in `expectations`.
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Feedback
+
+
+@scorer
+def has_required_sections(outputs, expectations) -> Feedback:
+    required = expectations.get("required_sections", [])
+    missing = [
+        section
+        for section in required
+        if section.lower() not in outputs.lower()
+    ]
+
+    if missing:
+        return Feedback(
+            value=False,
+            rationale=(
+                f"Missing sections: {', '.join(missing)}"
+            ),
+        )
+    return Feedback(
+        value=True,
+        rationale="All required sections present",
+    )
+```
+
+<StepHeader number={6} title="Build a Custom LLM-Based Judge" />
+
+For evaluation criteria that require nuanced judgment, write a scorer that calls an LLM directly. This scorer asks GPT-4o-mini to rate the medical accuracy and tone of responses.
+
+```python
+import json
+
+
+@scorer
+def medical_tone_judge(outputs) -> Feedback:
+    prompt = f"""Rate the following medical information response.
+Check these criteria:
+1. Uses appropriate medical terminology
+2. Avoids definitive diagnostic language
+3. Includes a disclaimer about consulting professionals
+4. Maintains a neutral, informative tone
+
+Response to evaluate:
+{outputs}
+
+Return JSON with this exact format:
+{{
+    "pass": true,
+    "rationale": "Brief explanation of your rating"
+}}
+"""
+    response = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+        response_format={"type": "json_object"},
+    )
+
+    result = json.loads(
+        response.choices[0].message.content
+    )
+    return Feedback(
+        value=result["pass"],
+        rationale=result["rationale"],
+        source=AssessmentSource(
+            source_type="LLM_JUDGE",
+            source_id="openai:/gpt-4o-mini",
+        ),
+    )
+```
+
+Import `AssessmentSource` at the top of your script:
+
+```python
+from mlflow.entities import AssessmentSource, Feedback
+```
+
+<StepHeader number={7} title="Run Evaluation with All Scorers" />
+
+Compare built-in guideline scorers against custom scorers in a single evaluation run.
+
+```python
+all_results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=predict_fn,
+    scorers=[
+        conciseness,
+        source_citation,
+        has_required_sections,
+        medical_tone_judge,
+    ],
+)
+```
+
+<StepHeader number={8} title="Analyze Results" />
+
+```python
+# Aggregate metrics across all scorers
+print(all_results.metrics)
+# Example output:
+# {
+#   'conciseness/mean': 1.0,
+#   'source_citation/mean': 0.8,
+#   'has_required_sections/mean': 0.75,
+#   'medical_tone_judge/mean': 1.0
+# }
+
+# Per-row breakdown
+df = all_results.result_df
+score_columns = [
+    c for c in df.columns if c.endswith("/value")
+]
+print(df[["inputs/question"] + score_columns])
+```
+
+Inspect rationales for rows that failed a scorer:
+
+```python
+for _, row in df.iterrows():
+    question = row["inputs/question"]
+    for col in df.columns:
+        if (
+            col.endswith("/value")
+            and row[col] is False
+        ):
+            scorer_name = col.replace("/value", "")
+            rationale_col = f"{scorer_name}/rationale"
+            print(f"Question: {question}")
+            print(f"  Failed: {scorer_name}")
+            print(f"  Reason: {row[rationale_col]}")
+            print()
+```
+
+Open the MLflow UI at `http://127.0.0.1:5000` to see the evaluation run, per-row scores, and linked traces for each question.
+
+## Next Steps
+
+- [End-to-End RAG Evaluation](/genai/cookbooks/rag-evaluation) -- Evaluate retrieval and generation quality together
+- [Built-in Scorers Reference](/genai/eval-monitor/scorers/llm-judge/predefined) -- Full list of available scorers

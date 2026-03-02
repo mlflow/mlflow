@@ -1,0 +1,369 @@
+---
+title: Cost-Quality Tradeoff Analysis Across LLM Providers
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+
+# Cost-Quality Tradeoff Analysis Across LLM Providers
+
+Compare two OpenAI models on quality and cost using MLflow evaluation
+and tracing. Run the same questions through `gpt-4o-mini` and
+`gpt-4o`, score the outputs, then use traced token usage to
+estimate costs.
+
+:::tip[Prerequisites]
+```bash
+pip install mlflow>=3.0 openai
+```
+:::
+
+<StepHeader number={1} title="Set Up MLflow and Define an Evaluation Dataset" />
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("cost-quality-tradeoff")
+
+eval_data = [
+    {
+        "inputs": {"question": "What is a database index?"},
+        "expectations": {
+            "expected_facts": [
+                "data structure that improves query speed",
+                "trades write performance for read performance",
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "Explain the CAP theorem"
+                " in distributed systems."
+            )
+        },
+        "expectations": {
+            "expected_facts": [
+                "consistency",
+                "availability",
+                "partition tolerance",
+                "cannot guarantee all three simultaneously",
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "What is the difference between"
+                " TCP and UDP?"
+            )
+        },
+        "expectations": {
+            "expected_facts": [
+                "TCP is connection-oriented",
+                "UDP is connectionless",
+                "TCP guarantees delivery",
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "How does garbage collection"
+                " work in Java?"
+            )
+        },
+        "expectations": {
+            "expected_facts": [
+                "automatic memory management",
+                "identifies unreachable objects",
+                "reclaims memory",
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "question": "What is a race condition?"
+        },
+        "expectations": {
+            "expected_facts": [
+                "concurrent access to shared resource",
+                "outcome depends on timing",
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "Explain how TLS/SSL"
+                " handshake works."
+            )
+        },
+        "expectations": {
+            "expected_facts": [
+                "client hello and server hello",
+                "certificate exchange",
+                "symmetric key establishment",
+            ]
+        },
+    },
+]
+```
+
+<StepHeader number={2} title="Create Predict Functions for Each Model" />
+
+Each predict function calls a different model. The parameter
+name `question` matches the key in the `inputs` dicts.
+
+```python
+import openai
+
+mlflow.openai.autolog()
+
+client = openai.OpenAI()
+
+SYSTEM_PROMPT = (
+    "You are a senior software engineer. "
+    "Answer technical questions accurately "
+    "and concisely in 2-4 sentences."
+)
+
+
+def predict_gpt4o_mini(question: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": question},
+        ],
+    )
+    return response.choices[0].message.content
+
+
+def predict_gpt4o(question: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": question},
+        ],
+    )
+    return response.choices[0].message.content
+```
+
+<StepHeader number={3} title="Run Evaluation for Each Model" />
+
+Score both models with `Correctness` (are expected facts
+present?) and `Completeness` (did the model fully address the
+question?).
+
+```python
+from mlflow.genai.scorers import Correctness, Completeness
+
+scorers = [Correctness(), Completeness()]
+
+results_mini = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=predict_gpt4o_mini,
+    scorers=scorers,
+)
+
+results_4o = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=predict_gpt4o,
+    scorers=scorers,
+)
+```
+
+<StepHeader number={4} title="Compare Quality Metrics" />
+
+`EvaluationResult.metrics` contains aggregated scores
+across all rows.
+
+```python
+print("=== gpt-4o-mini ===")
+print(results_mini.metrics)
+# Example:
+# {'correctness/mean': 0.83,
+#  'completeness/mean': 0.67}
+
+print("\n=== gpt-4o ===")
+print(results_4o.metrics)
+# Example:
+# {'correctness/mean': 1.0,
+#  'completeness/mean': 1.0}
+```
+
+For per-question detail, inspect `result_df`:
+
+```python
+cols = [
+    "inputs/question",
+    "correctness/value",
+    "completeness/value",
+]
+print(results_mini.result_df[cols])
+print(results_4o.result_df[cols])
+```
+
+<StepHeader number={5} title="Extract Token Usage from Traces" />
+
+MLflow traces automatically capture token usage when
+`mlflow.openai.autolog()` is enabled. Each trace stores
+aggregated token counts in its metadata.
+
+```python
+traces_mini = mlflow.search_traces(
+    run_id=results_mini.run_id,
+    return_type="list",
+)
+
+traces_4o = mlflow.search_traces(
+    run_id=results_4o.run_id,
+    return_type="list",
+)
+
+
+def sum_token_usage(traces):
+    total_input = 0
+    total_output = 0
+    for trace in traces:
+        usage = trace.info.token_usage
+        if usage:
+            total_input += usage.get(
+                "input_tokens", 0
+            )
+            total_output += usage.get(
+                "output_tokens", 0
+            )
+    return {
+        "input_tokens": total_input,
+        "output_tokens": total_output,
+        "total_tokens": total_input + total_output,
+    }
+
+
+usage_mini = sum_token_usage(traces_mini)
+usage_4o = sum_token_usage(traces_4o)
+
+print("gpt-4o-mini tokens:", usage_mini)
+# Example: {'input_tokens': 420, 'output_tokens': 690,
+#            'total_tokens': 1110}
+print("gpt-4o tokens:", usage_4o)
+# Example: {'input_tokens': 420, 'output_tokens': 780,
+#            'total_tokens': 1200}
+```
+
+<StepHeader number={6} title="Calculate Cost Estimates" />
+
+Apply each model's per-token pricing to the recorded usage.
+
+```python
+# Pricing per 1M tokens (USD) — check OpenAI's pricing
+# page for current rates
+PRICING = {
+    "gpt-4o-mini": {
+        "input": 0.15,   # $0.15 per 1M input tokens
+        "output": 0.60,  # $0.60 per 1M output tokens
+    },
+    "gpt-4o": {
+        "input": 2.50,   # $2.50 per 1M input tokens
+        "output": 10.00, # $10.00 per 1M output tokens
+    },
+}
+
+
+def estimate_cost(usage, model_name):
+    pricing = PRICING[model_name]
+    input_cost = (
+        usage["input_tokens"] * pricing["input"] / 1_000_000
+    )
+    output_cost = (
+        usage["output_tokens"] * pricing["output"] / 1_000_000
+    )
+    return {
+        "input_cost": input_cost,
+        "output_cost": output_cost,
+        "total_cost": input_cost + output_cost,
+    }
+
+
+cost_mini = estimate_cost(usage_mini, "gpt-4o-mini")
+cost_4o = estimate_cost(usage_4o, "gpt-4o")
+
+print(f"gpt-4o-mini cost: ${cost_mini['total_cost']:.6f}")
+print(f"gpt-4o cost: ${cost_4o['total_cost']:.6f}")
+```
+
+<StepHeader number={7} title="Cost vs. Quality Comparison" />
+
+Combine metrics, token usage, and cost into a single table.
+
+```python
+import pandas as pd
+
+comparison = pd.DataFrame([
+    {
+        "model": "gpt-4o-mini",
+        "correctness": results_mini.metrics.get(
+            "correctness/mean", 0
+        ),
+        "completeness": results_mini.metrics.get(
+            "completeness/mean", 0
+        ),
+        "total_tokens": usage_mini["total_tokens"],
+        "cost_usd": cost_mini["total_cost"],
+    },
+    {
+        "model": "gpt-4o",
+        "correctness": results_4o.metrics.get(
+            "correctness/mean", 0
+        ),
+        "completeness": results_4o.metrics.get(
+            "completeness/mean", 0
+        ),
+        "total_tokens": usage_4o["total_tokens"],
+        "cost_usd": cost_4o["total_cost"],
+    },
+])
+
+# Cost per quality point
+comparison["cost_per_correct_pct"] = (
+    comparison["cost_usd"]
+    / comparison["correctness"].replace(0, float("nan"))
+)
+
+print(comparison.to_string(index=False))
+# Example output:
+#        model  correctness  completeness  total_tokens  cost_usd  cost_per_correct_pct
+#  gpt-4o-mini         0.83          0.67          1110  0.000477              0.000575
+#       gpt-4o         1.00          1.00          1200  0.010800              0.010800
+```
+
+Open the MLflow UI at `http://127.0.0.1:5000` and navigate to
+the `cost-quality-tradeoff` experiment. Each evaluation run
+shows per-question scores and linked traces with full token
+usage details.
+
+## Analysis: When to Use Which Model
+
+**Use `gpt-4o-mini` when:**
+- The task is straightforward (simple factual questions, classification, extraction)
+- Cost is a primary constraint and you need to process high volumes
+- A small drop in correctness is acceptable
+
+**Use `gpt-4o` when:**
+- Accuracy matters more than cost (medical, legal, financial domains)
+- Questions require nuanced reasoning or multi-step analysis
+- Completeness is critical and partial answers are not acceptable
+
+The cost difference between these models is typically 15-20x.
+For many production workloads, routing simple queries to
+`gpt-4o-mini` and complex queries to `gpt-4o` provides the
+best tradeoff.
+
+## Next Steps
+
+- [End-to-End RAG Evaluation](/genai/cookbooks/rag-evaluation) -- Evaluate retrieval and generation quality together
+- [Custom LLM Judges](/genai/cookbooks/custom-llm-judges) -- Build domain-specific scorers for your use case
+- [Built-in Scorers Reference](/genai/eval-monitor/scorers/llm-judge/predefined) -- Full list of available scorers

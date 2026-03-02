@@ -1,0 +1,468 @@
+---
+title: Tracing and Evaluating OpenAI Agents
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { ShoppingCart, Layers, CheckCircle } from "lucide-react";
+
+# Tracing and Evaluating OpenAI Agents
+
+Build an e-commerce support agent using OpenAI function calling, trace every LLM call and tool invocation with MLflow, and evaluate tool selection accuracy and answer correctness with built-in scorers.
+
+:::tip[Prerequisites]
+```bash
+pip install mlflow>=3.0 openai
+```
+:::
+
+## What You'll Build
+
+<FeatureHighlights
+  features={[
+    { icon: ShoppingCart, title: "E-commerce support agent", description: "Look up order status, cancel orders, and retrieve product info with OpenAI function calling." },
+    { icon: Layers, title: "Automatic tracing", description: "Capture every OpenAI API call and tool invocation with autolog and @mlflow.trace decorators." },
+    { icon: CheckCircle, title: "Tool + answer evaluation", description: "Score tool selection with ToolCallCorrectness and answer quality with Correctness." },
+  ]}
+/>
+
+<StepHeader number={1} title="Set Up MLflow and Enable OpenAI Auto-Tracing" />
+
+`mlflow.openai.autolog()` patches `openai.chat.completions.create` so every call produces a trace span. No other instrumentation is needed for OpenAI calls.
+
+```python
+import json
+import mlflow
+import openai
+from mlflow.entities import SpanType
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("openai-ecommerce-agent")
+
+mlflow.openai.autolog()
+
+client = openai.OpenAI()
+```
+
+<StepHeader number={2} title="Define Tools for the E-Commerce Agent" />
+
+Each tool is a Python function decorated with `@mlflow.trace(span_type=SpanType.TOOL)`. This creates TOOL spans in the trace that `ToolCallCorrectness` inspects during evaluation.
+
+```python
+@mlflow.trace(span_type=SpanType.TOOL)
+def get_order_status(order_id: str) -> str:
+    """Look up the current status of an order."""
+    orders = {
+        "ORD-1001": {
+            "status": "shipped",
+            "eta": "March 5, 2025",
+            "carrier": "FedEx",
+            "tracking": "FX-9283746",
+        },
+        "ORD-1002": {
+            "status": "processing",
+            "eta": "March 8, 2025",
+            "carrier": "pending",
+            "tracking": "pending",
+        },
+        "ORD-1003": {
+            "status": "delivered",
+            "delivered_on": "February 27, 2025",
+            "carrier": "UPS",
+        },
+    }
+    if order_id in orders:
+        info = orders[order_id]
+        return json.dumps(info)
+    return f"Order {order_id} not found."
+
+
+@mlflow.trace(span_type=SpanType.TOOL)
+def cancel_order(order_id: str) -> str:
+    """Cancel an order if it hasn't shipped yet."""
+    cancelable = {
+        "ORD-1002": True,
+    }
+    if order_id not in cancelable:
+        return (
+            f"Cannot cancel {order_id}."
+            " It may have already shipped or"
+            " does not exist."
+        )
+    return (
+        f"Order {order_id} has been cancelled."
+        " Refund will be processed in 3-5"
+        " business days."
+    )
+
+
+@mlflow.trace(span_type=SpanType.TOOL)
+def get_product_info(product_name: str) -> str:
+    """Get details about a product."""
+    products = {
+        "wireless headphones": {
+            "name": "ProSound Wireless Headphones",
+            "price": "$79.99",
+            "in_stock": True,
+            "rating": "4.5/5",
+        },
+        "laptop stand": {
+            "name": "ErgoRise Laptop Stand",
+            "price": "$34.99",
+            "in_stock": True,
+            "rating": "4.7/5",
+        },
+        "usb-c hub": {
+            "name": "ConnectAll USB-C Hub",
+            "price": "$49.99",
+            "in_stock": False,
+            "rating": "4.3/5",
+        },
+    }
+    key = product_name.lower()
+    if key in products:
+        return json.dumps(products[key])
+    return f"Product '{product_name}' not found."
+```
+
+<StepHeader number={3} title="Define the Tool Schema for OpenAI" />
+
+The `tools` parameter tells the model which functions are available and their argument schemas.
+
+```python
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_order_status",
+            "description": (
+                "Look up the current status of an"
+                " order by order ID"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": (
+                            "The order ID, e.g."
+                            " ORD-1001"
+                        ),
+                    }
+                },
+                "required": ["order_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "cancel_order",
+            "description": (
+                "Cancel an order that has not"
+                " shipped yet"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": "The order ID",
+                    }
+                },
+                "required": ["order_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_product_info",
+            "description": (
+                "Get details about a product"
+                " including price and availability"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "product_name": {
+                        "type": "string",
+                        "description": (
+                            "Name of the product"
+                        ),
+                    }
+                },
+                "required": ["product_name"],
+            },
+        },
+    },
+]
+
+tool_functions = {
+    "get_order_status": get_order_status,
+    "cancel_order": cancel_order,
+    "get_product_info": get_product_info,
+}
+```
+
+<StepHeader number={4} title="Build the Agent Loop" />
+
+The agent calls the LLM, checks for tool calls, executes them, feeds results back, and repeats until the model produces a final text response. The `@mlflow.trace` decorator on the outer function groups everything into a single trace.
+
+```python
+@mlflow.trace(span_type=SpanType.AGENT)
+def ecommerce_agent(question: str) -> str:
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a helpful e-commerce"
+                " support agent. Use the available"
+                " tools to answer customer"
+                " questions about orders and"
+                " products. Be concise and"
+                " friendly."
+            ),
+        },
+        {"role": "user", "content": question},
+    ]
+
+    while True:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            tools=tools,
+        )
+        ai_msg = response.choices[0].message
+        messages.append(ai_msg)
+
+        # No tool calls means the model
+        # produced a final answer
+        if not ai_msg.tool_calls:
+            return ai_msg.content
+
+        # Execute each requested tool
+        for tool_call in ai_msg.tool_calls:
+            fn_name = tool_call.function.name
+            fn = tool_functions.get(fn_name)
+            if not fn:
+                result = (
+                    f"Unknown tool: {fn_name}"
+                )
+            else:
+                args = json.loads(
+                    tool_call.function.arguments
+                )
+                result = fn(**args)
+
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": result,
+                }
+            )
+```
+
+<StepHeader number={5} title="Run the Agent and Inspect Traces" />
+
+```python
+answer = ecommerce_agent(
+    "Where is my order ORD-1001?"
+)
+print(answer)
+# The agent calls get_order_status("ORD-1001")
+# and responds with shipping details:
+# FedEx tracking FX-9283746, ETA March 5, 2025.
+```
+
+Open the MLflow UI at `http://127.0.0.1:5000` and navigate to the `openai-ecommerce-agent` experiment. Click on the trace to see the full execution: the parent AGENT span containing the OpenAI chat completion span (with the tool call highlighted) and the `get_order_status` TOOL span showing inputs and outputs.
+
+<StepHeader number={6} title="Create an Evaluation Dataset" />
+
+Define test scenarios with expected tool calls and expected facts. The `inputs` key must match the predict function parameter name.
+
+```python
+eval_data = [
+    {
+        "inputs": {
+            "question": (
+                "Where is my order ORD-1001?"
+            ),
+        },
+        "expectations": {
+            "expected_facts": [
+                "shipped",
+                "FedEx",
+                "March 5, 2025",
+            ],
+            "expected_tool_calls": [
+                {
+                    "name": "get_order_status",
+                    "arguments": {
+                        "order_id": "ORD-1001",
+                    },
+                },
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "I want to cancel order ORD-1002."
+            ),
+        },
+        "expectations": {
+            "expected_facts": [
+                "cancelled",
+                "refund",
+                "3-5 business days",
+            ],
+            "expected_tool_calls": [
+                {
+                    "name": "cancel_order",
+                    "arguments": {
+                        "order_id": "ORD-1002",
+                    },
+                },
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "How much do wireless headphones"
+                " cost and are they in stock?"
+            ),
+        },
+        "expectations": {
+            "expected_facts": [
+                "$79.99",
+                "in stock",
+            ],
+            "expected_tool_calls": [
+                {
+                    "name": "get_product_info",
+                    "arguments": {
+                        "product_name": (
+                            "wireless headphones"
+                        ),
+                    },
+                },
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "Can I cancel order ORD-1001?"
+            ),
+        },
+        "expectations": {
+            "expected_facts": [
+                "cannot cancel",
+                "shipped",
+            ],
+            "expected_tool_calls": [
+                {
+                    "name": "cancel_order",
+                    "arguments": {
+                        "order_id": "ORD-1001",
+                    },
+                },
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "Tell me about the USB-C hub"
+                " and check on order ORD-1003."
+            ),
+        },
+        "expectations": {
+            "expected_facts": [
+                "$49.99",
+                "out of stock",
+                "delivered",
+            ],
+            "expected_tool_calls": [
+                {
+                    "name": "get_product_info",
+                    "arguments": {
+                        "product_name": "usb-c hub",
+                    },
+                },
+                {
+                    "name": "get_order_status",
+                    "arguments": {
+                        "order_id": "ORD-1003",
+                    },
+                },
+            ],
+        },
+    },
+]
+```
+
+<StepHeader number={7} title="Evaluate with Correctness and ToolCallCorrectness" />
+
+The predict function wraps the agent so MLflow can call it for each row. Its parameter name must match the keys in `inputs`. `ToolCallCorrectness` automatically extracts tool calls from the TOOL spans in each trace and compares them against `expected_tool_calls`. `Correctness` checks whether the final answer contains the `expected_facts`.
+
+```python
+from mlflow.genai.scorers import (
+    Correctness,
+    ToolCallCorrectness,
+)
+
+
+def predict_fn(question: str) -> str:
+    return ecommerce_agent(question)
+
+
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=predict_fn,
+    scorers=[
+        ToolCallCorrectness(),
+        Correctness(),
+    ],
+)
+```
+
+<StepHeader number={8} title="Analyze Results" />
+
+```python
+# Aggregate pass rates across all scenarios
+print(results.metrics)
+# Example output:
+# {
+#   'tool_call_correctness/mean': 0.8,
+#   'correctness/mean': 1.0,
+# }
+
+# Per-scenario breakdown
+df = results.result_df
+print(
+    df[[
+        "inputs/question",
+        "tool_call_correctness/value",
+        "tool_call_correctness/rationale",
+        "correctness/value",
+    ]]
+)
+# Rows where tool_call_correctness/value is
+# "no" indicate the agent picked the wrong
+# tool or passed incorrect arguments.
+```
+
+Open the MLflow UI and navigate to the evaluation run. Each row links to the full agent trace -- click through to see which tools were called, what arguments were passed, and where the agent deviated from expectations.
+
+Scenarios where `tool_call_correctness` fails but `correctness` passes mean the agent reached the right answer through unexpected tool usage. Scenarios where both fail indicate the agent is calling the wrong tools and producing wrong answers.
+
+## Next Steps
+
+- [Tracing and Evaluating a LangGraph Agent](/genai/cookbooks/langgraph-agent) -- Apply similar patterns with LangGraph's agent framework
+- [End-to-End RAG Evaluation](/genai/cookbooks/rag-evaluation) -- Evaluate retrieval and generation quality in RAG pipelines
+- [Building Custom LLM Judges](/genai/cookbooks/custom-llm-judges) -- Create domain-specific judges for your use case
+- [Built-in Scorers Reference](/genai/eval-monitor/scorers/llm-judge/predefined) -- Full list of available scorers including `Safety`, `Guidelines`, and `RelevanceToQuery`

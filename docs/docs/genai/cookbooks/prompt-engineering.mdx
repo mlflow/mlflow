@@ -1,0 +1,334 @@
+---
+title: Prompt Engineering Lifecycle
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+
+# Prompt Engineering Lifecycle
+
+Register, version, evaluate, and promote prompt templates using MLflow's prompt registry and evaluation framework. You'll iterate on a product FAQ agent's prompt, measure the impact of each change, and deploy the best version behind a stable alias.
+
+:::tip[Prerequisites]
+```bash
+pip install mlflow>=3.0 openai
+```
+:::
+
+<StepHeader number={1} title="Register an Initial Prompt" />
+
+Start with a basic system prompt for a SaaS product FAQ agent that handles billing, features, and troubleshooting questions.
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("prompt-engineering")
+
+prompt_v1 = mlflow.genai.register_prompt(
+    name="product-faq-agent",
+    template=(
+        "You are a support agent for Acme Analytics, "
+        "a SaaS platform for business intelligence.\n\n"
+        "Answer the user's question: {{question}}"
+    ),
+    commit_message="Initial FAQ prompt — minimal instructions",
+)
+
+print(prompt_v1)
+# PromptVersion(name=product-faq-agent, version=1,
+#   template=You are a support agent for Acme Analytics...)
+```
+
+<StepHeader number={2} title="Build an Agent Using the Prompt" />
+
+Load the prompt by name and version, format it with user input, and call the LLM.
+
+```python
+import openai
+
+mlflow.openai.autolog()
+oai_client = openai.OpenAI()
+
+
+@mlflow.trace
+def faq_agent(question: str) -> str:
+    prompt = mlflow.genai.load_prompt(
+        "product-faq-agent", version=1
+    )
+    system_message = prompt.format(question=question)
+    response = oai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_message},
+        ],
+    )
+    return response.choices[0].message.content
+
+
+# Quick smoke test
+print(faq_agent("How do I upgrade my plan?"))
+```
+
+<StepHeader number={3} title="Evaluate the Initial Prompt" />
+
+Define a test set covering billing, features, and troubleshooting. Each row has an `expectations` field with the `expected_response` the scorer checks against.
+
+```python
+from mlflow.genai.scorers import (
+    Correctness,
+    RelevanceToQuery,
+    Guidelines,
+)
+
+eval_data = [
+    {
+        "inputs": {"question": "How do I upgrade my plan?"},
+        "expectations": {
+            "expected_response": (
+                "Go to Settings > Billing and click "
+                "Change Plan to select a higher tier."
+            ),
+        },
+    },
+    {
+        "inputs": {
+            "question": "What's included in the Pro plan?"
+        },
+        "expectations": {
+            "expected_response": (
+                "The Pro plan includes unlimited dashboards, "
+                "API access, and priority support."
+            ),
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "My dashboard is loading slowly. "
+                "What should I do?"
+            )
+        },
+        "expectations": {
+            "expected_response": (
+                "Try reducing the date range, removing "
+                "unused widgets, or clearing browser cache."
+            ),
+        },
+    },
+    {
+        "inputs": {
+            "question": "Can I get a refund?"
+        },
+        "expectations": {
+            "expected_response": (
+                "Refunds are available within 14 days of "
+                "purchase. Contact billing@acme-analytics.com."
+            ),
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "How do I connect a PostgreSQL data source?"
+            )
+        },
+        "expectations": {
+            "expected_response": (
+                "Go to Data Sources > Add New, select "
+                "PostgreSQL, and enter your connection string."
+            ),
+        },
+    },
+]
+
+concise = Guidelines(
+    name="concise",
+    guidelines=[
+        "Responses must be under 3 sentences.",
+        "Do not include marketing language or upsells.",
+    ],
+)
+
+
+def predict_fn(question: str) -> str:
+    return faq_agent(question)
+
+
+results_v1 = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=predict_fn,
+    scorers=[Correctness(), RelevanceToQuery(), concise],
+)
+
+print(results_v1.metrics)
+# Example:
+# {'correctness/mean': 0.4,
+#  'relevance_to_query/mean': 0.8,
+#  'concise/mean': 0.6}
+```
+
+<StepHeader number={4} title="Register an Improved Prompt" />
+
+The v1 prompt gives vague answers because it has no product knowledge. Register a v2 with explicit product details and few-shot examples.
+
+```python
+prompt_v2 = mlflow.genai.register_prompt(
+    name="product-faq-agent",
+    template=(
+        "You are a support agent for Acme Analytics, "
+        "a SaaS business intelligence platform.\n\n"
+        "PRODUCT FACTS:\n"
+        "- Plans: Free (2 dashboards), Pro ($49/mo, "
+        "unlimited dashboards + API + priority support), "
+        "Enterprise (custom pricing).\n"
+        "- Upgrade path: Settings > Billing > "
+        "Change Plan.\n"
+        "- Refund policy: 14 days from purchase. "
+        "Contact billing@acme-analytics.com.\n"
+        "- Supported data sources: PostgreSQL, MySQL, "
+        "BigQuery, Snowflake, CSV upload.\n"
+        "- Adding a data source: Data Sources > "
+        "Add New > select type > enter credentials.\n"
+        "- Slow dashboards: reduce date range, "
+        "remove unused widgets, clear browser cache.\n\n"
+        "RULES:\n"
+        "- Answer in 1-3 sentences.\n"
+        "- Use only the product facts above.\n"
+        "- If you don't know, say "
+        '"I don\'t have that information. '
+        'Please contact support@acme-analytics.com."\n\n'
+        "EXAMPLES:\n"
+        "Q: How do I add a team member?\n"
+        "A: Go to Settings > Team > Invite Member "
+        "and enter their email address.\n\n"
+        "Q: Do you support Snowflake?\n"
+        "A: Yes. Go to Data Sources > Add New and "
+        "select Snowflake.\n\n"
+        "Answer the user's question: {{question}}"
+    ),
+    commit_message=(
+        "Add product facts, response rules, "
+        "and few-shot examples"
+    ),
+)
+
+print(prompt_v2.version)
+# 2
+```
+
+<StepHeader number={5} title="Re-evaluate with the New Prompt" />
+
+Update the agent to use v2, then run the same evaluation.
+
+```python
+@mlflow.trace
+def faq_agent_v2(question: str) -> str:
+    prompt = mlflow.genai.load_prompt(
+        "product-faq-agent", version=2
+    )
+    system_message = prompt.format(question=question)
+    response = oai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_message},
+        ],
+    )
+    return response.choices[0].message.content
+
+
+def predict_fn_v2(question: str) -> str:
+    return faq_agent_v2(question)
+
+
+results_v2 = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=predict_fn_v2,
+    scorers=[Correctness(), RelevanceToQuery(), concise],
+)
+
+print(results_v2.metrics)
+# Example:
+# {'correctness/mean': 0.8,
+#  'relevance_to_query/mean': 1.0,
+#  'concise/mean': 1.0}
+```
+
+<StepHeader number={6} title="Compare Prompt Versions" />
+
+Pull the aggregate metrics from both runs side by side.
+
+```python
+import pandas as pd
+
+comparison = pd.DataFrame(
+    {
+        "v1": results_v1.metrics,
+        "v2": results_v2.metrics,
+    }
+)
+comparison["delta"] = comparison["v2"] - comparison["v1"]
+print(comparison)
+# Example:
+#                            v1   v2  delta
+# correctness/mean          0.4  0.8    0.4
+# relevance_to_query/mean   0.8  1.0    0.2
+# concise/mean              0.6  1.0    0.4
+```
+
+You can also compare per-row results in the MLflow UI at `http://127.0.0.1:5000`. Navigate to the `prompt-engineering` experiment and open either evaluation run to see per-question scores and linked traces.
+
+<StepHeader number={7} title="Promote the Winning Prompt" />
+
+Set a `production` alias on v2 so downstream consumers reference a stable name instead of a hard-coded version number.
+
+```python
+mlflow.genai.set_prompt_alias(
+    name="product-faq-agent",
+    alias="production",
+    version=2,
+)
+```
+
+<StepHeader number={8} title="Load the Prompt by Alias in Production" />
+
+Production code loads the prompt via the `prompts:/name@alias` URI. When you promote a new version, the alias pointer updates and production picks it up automatically — no code changes or redeployment needed.
+
+```python
+@mlflow.trace
+def faq_agent_prod(question: str) -> str:
+    prompt = mlflow.genai.load_prompt(
+        "prompts:/product-faq-agent@production"
+    )
+    system_message = prompt.format(question=question)
+    response = oai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_message},
+        ],
+    )
+    return response.choices[0].message.content
+
+
+# This always uses whichever version "production" points to
+print(faq_agent_prod("Can I get a refund?"))
+# "Refunds are available within 14 days of purchase.
+#  Contact billing@acme-analytics.com."
+```
+
+Later, when you register v3 and it beats v2 in evaluation, promoting is a single call:
+
+```python
+# After registering and evaluating v3...
+mlflow.genai.set_prompt_alias(
+    name="product-faq-agent",
+    alias="production",
+    version=3,
+)
+# faq_agent_prod() now serves v3 — no redeploy needed
+```
+
+## Next Steps
+
+- [End-to-End RAG Evaluation](/genai/cookbooks/rag-evaluation) — Add retrieval to your agent and evaluate both retrieval and generation quality
+- [Built-in Scorers Reference](/genai/eval-monitor/scorers/llm-judge/predefined) — Full list of available scorers
+- [Prompt Registry Guide](/genai/prompt-registry) — Deep dive into prompt versioning, aliases, and chat templates

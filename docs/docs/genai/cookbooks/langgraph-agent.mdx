@@ -1,0 +1,409 @@
+---
+title: Tracing and Evaluating a LangGraph Agent
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Plane, Network, CheckCircle } from "lucide-react";
+
+# Tracing and Evaluating a LangGraph Agent
+
+Build a tool-calling travel planning agent with LangGraph, trace every step with MLflow, and evaluate tool selection accuracy with built-in scorers.
+
+:::tip[Prerequisites]
+```bash
+pip install mlflow>=3.0 openai langgraph langchain-openai
+```
+:::
+
+## What You'll Build
+
+<FeatureHighlights
+  features={[
+    { icon: Plane, title: "Travel planning agent", description: "Look up flights, weather, and hotels with LangGraph tool-calling." },
+    { icon: Network, title: "Full execution tracing", description: "Auto-capture every LLM call, tool invocation, and routing decision." },
+    { icon: CheckCircle, title: "Tool call evaluation", description: "Score tool selection accuracy with ToolCallCorrectness and answer quality with Correctness." },
+  ]}
+/>
+
+<StepHeader number={1} title="Set Up MLflow and Enable Auto-Tracing" />
+
+`mlflow.langchain.autolog()` instruments both LangChain and LangGraph. Every `invoke()` call on a LangGraph graph produces a trace with nested spans for each node, tool call, and LLM interaction.
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("langgraph-travel-agent")
+
+# This single call enables tracing for all LangChain
+# and LangGraph components
+mlflow.langchain.autolog()
+```
+
+<StepHeader number={2} title="Define Tools for the Travel Agent" />
+
+Each tool is a plain Python function decorated with `@tool`. LangGraph passes these to the LLM as callable functions.
+
+```python
+from langchain_core.tools import tool
+
+
+@tool
+def get_flight_price(
+    origin: str, destination: str, date: str
+) -> str:
+    """
+    Look up the cheapest round-trip flight price
+    between two cities on a given date.
+    """
+    # Mock pricing data
+    prices = {
+        ("SFO", "NRT", "2025-03-15"): "$850",
+        ("SFO", "LHR", "2025-03-15"): "$620",
+        ("JFK", "CDG", "2025-04-01"): "$540",
+        ("LAX", "SYD", "2025-05-10"): "$1,200",
+    }
+    key = (
+        origin.upper(),
+        destination.upper(),
+        date,
+    )
+    if key in prices:
+        return (
+            f"Cheapest flight from {origin} to"
+            f" {destination} on {date}: {prices[key]}"
+        )
+    return (
+        f"No flights found from {origin} to"
+        f" {destination} on {date}."
+    )
+
+
+@tool
+def get_weather(city: str, date: str) -> str:
+    """
+    Get the weather forecast for a city
+    on a specific date.
+    """
+    forecasts = {
+        ("Tokyo", "2025-03-15"): "54F, partly cloudy",
+        ("London", "2025-03-15"): "48F, rainy",
+        ("Paris", "2025-04-01"): "59F, sunny",
+        ("Sydney", "2025-05-10"): "68F, clear skies",
+    }
+    key = (city, date)
+    if key in forecasts:
+        return (
+            f"Weather in {city} on {date}:"
+            f" {forecasts[key]}"
+        )
+    return (
+        f"No forecast available for {city}"
+        f" on {date}."
+    )
+
+
+@tool
+def search_hotels(
+    city: str, checkin: str, checkout: str
+) -> str:
+    """
+    Search for available hotels in a city
+    for the given date range.
+    """
+    hotels = {
+        "Tokyo": [
+            {"name": "Hotel Sakura", "price": "$120/night"},
+            {"name": "Shinjuku Grand", "price": "$185/night"},
+        ],
+        "London": [
+            {"name": "The Thames Inn", "price": "$150/night"},
+            {"name": "Kensington Suites", "price": "$220/night"},
+        ],
+        "Paris": [
+            {"name": "Le Marais Hotel", "price": "$175/night"},
+            {"name": "Montmartre Lodge", "price": "$130/night"},
+        ],
+        "Sydney": [
+            {"name": "Harbour View Hotel", "price": "$200/night"},
+            {"name": "Bondi Beach Stay", "price": "$160/night"},
+        ],
+    }
+    if city in hotels:
+        listings = "; ".join(
+            f"{h['name']} ({h['price']})"
+            for h in hotels[city]
+        )
+        return (
+            f"Hotels in {city} ({checkin} to"
+            f" {checkout}): {listings}"
+        )
+    return f"No hotels found in {city}."
+```
+
+<StepHeader number={3} title="Build the LangGraph Agent" />
+
+Use LangGraph's `create_react_agent` to wire the tools into a ReAct-style agent loop. The agent calls the LLM, which decides which tools to invoke, and the graph routes tool outputs back to the LLM until it produces a final answer.
+
+```python
+from langchain_openai import ChatOpenAI
+from langgraph.prebuilt import create_react_agent
+
+llm = ChatOpenAI(model="gpt-4o-mini")
+
+tools = [get_flight_price, get_weather, search_hotels]
+
+agent = create_react_agent(
+    model=llm,
+    tools=tools,
+    prompt=(
+        "You are a travel planning assistant. Use the"
+        " available tools to help users plan trips."
+        " Always check flights, weather, and hotels"
+        " when a user asks about traveling to a"
+        " destination. Provide a concise summary."
+    ),
+)
+```
+
+<StepHeader number={4} title="Run the Agent and Inspect Traces" />
+
+```python
+response = agent.invoke(
+    {"messages": [
+        {
+            "role": "user",
+            "content": (
+                "I want to fly from SFO to Tokyo on"
+                " March 15, 2025. What are the flight"
+                " prices, weather, and hotel options?"
+            ),
+        }
+    ]}
+)
+
+print(response["messages"][-1].content)
+# The agent's summary will include:
+# - Flight: $850 from SFO to NRT
+# - Weather: 54F, partly cloudy
+# - Hotels: Hotel Sakura ($120/night),
+#           Shinjuku Grand ($185/night)
+```
+
+Open the MLflow UI at `http://127.0.0.1:5000`. Navigate to the `langgraph-travel-agent` experiment and click on the trace. You'll see the full execution graph: the initial LLM call that selects tools, each tool invocation as a child span, and the final LLM call that synthesizes the answer.
+
+<StepHeader number={5} title="Create an Evaluation Dataset" />
+
+Define test scenarios with expected tool calls and expected facts in the final answer. The `inputs` keys must match the parameter names of the predict function you'll define next.
+
+```python
+eval_data = [
+    {
+        "inputs": {
+            "question": (
+                "I want to fly from SFO to Tokyo"
+                " on March 15, 2025. What are flights,"
+                " weather, and hotels?"
+            ),
+        },
+        "expectations": {
+            "expected_facts": [
+                "$850",
+                "partly cloudy",
+                "Hotel Sakura",
+            ],
+            "expected_tool_calls": [
+                {
+                    "name": "get_flight_price",
+                    "arguments": {
+                        "origin": "SFO",
+                        "destination": "NRT",
+                        "date": "2025-03-15",
+                    },
+                },
+                {
+                    "name": "get_weather",
+                    "arguments": {
+                        "city": "Tokyo",
+                        "date": "2025-03-15",
+                    },
+                },
+                {
+                    "name": "search_hotels",
+                },
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "What's the weather like in Paris on"
+                " April 1, 2025?"
+            ),
+        },
+        "expectations": {
+            "expected_facts": [
+                "59F",
+                "sunny",
+            ],
+            "expected_tool_calls": [
+                {
+                    "name": "get_weather",
+                    "arguments": {
+                        "city": "Paris",
+                        "date": "2025-04-01",
+                    },
+                },
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "Find me hotels in London for March"
+                " 15-20, 2025."
+            ),
+        },
+        "expectations": {
+            "expected_facts": [
+                "The Thames Inn",
+                "Kensington Suites",
+            ],
+            "expected_tool_calls": [
+                {
+                    "name": "search_hotels",
+                    "arguments": {
+                        "city": "London",
+                    },
+                },
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "I'm planning a trip from JFK to Paris"
+                " on April 1, 2025. How much are flights"
+                " and what's the weather?"
+            ),
+        },
+        "expectations": {
+            "expected_facts": [
+                "$540",
+                "59F",
+                "sunny",
+            ],
+            "expected_tool_calls": [
+                {
+                    "name": "get_flight_price",
+                    "arguments": {
+                        "origin": "JFK",
+                        "destination": "CDG",
+                        "date": "2025-04-01",
+                    },
+                },
+                {
+                    "name": "get_weather",
+                    "arguments": {
+                        "city": "Paris",
+                        "date": "2025-04-01",
+                    },
+                },
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "What's the cheapest flight from LAX"
+                " to Sydney on May 10, 2025?"
+            ),
+        },
+        "expectations": {
+            "expected_facts": [
+                "$1,200",
+                "LAX",
+                "Sydney",
+            ],
+            "expected_tool_calls": [
+                {
+                    "name": "get_flight_price",
+                    "arguments": {
+                        "origin": "LAX",
+                        "destination": "SYD",
+                        "date": "2025-05-10",
+                    },
+                },
+            ],
+        },
+    },
+]
+```
+
+<StepHeader number={6} title="Define the Predict Function and Run Evaluation" />
+
+The predict function wraps the agent so MLflow can call it for each row. Parameter names must match the keys in `inputs`. Tool call information is automatically extracted from the trace produced during each invocation.
+
+```python
+from mlflow.genai.scorers import (
+    Correctness,
+    ToolCallCorrectness,
+)
+
+
+def predict_fn(question: str) -> str:
+    result = agent.invoke(
+        {"messages": [
+            {"role": "user", "content": question}
+        ]}
+    )
+    return result["messages"][-1].content
+
+
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=predict_fn,
+    scorers=[
+        ToolCallCorrectness(),
+        Correctness(),
+    ],
+)
+```
+
+`ToolCallCorrectness` compares the tool calls in each trace against the `expected_tool_calls` in expectations using fuzzy matching by default — the LLM judge determines whether the actual calls semantically match the expected ones. `Correctness` checks whether the final answer contains the `expected_facts`.
+
+<StepHeader number={7} title="Analyze Results" />
+
+```python
+# Aggregate pass rates across all scenarios
+print(results.metrics)
+# Example output:
+# {
+#   'tool_call_correctness/mean': 0.8,
+#   'correctness/mean': 1.0,
+# }
+
+# Per-scenario breakdown
+df = results.result_df
+print(
+    df[[
+        "inputs/question",
+        "tool_call_correctness/value",
+        "tool_call_correctness/rationale",
+        "correctness/value",
+    ]]
+)
+# Rows where tool_call_correctness/value is "no"
+# indicate the agent picked the wrong tools
+# or passed incorrect arguments.
+```
+
+Open the MLflow UI and navigate to the evaluation run. Each row links to the full agent trace — click through to see exactly which tools were called, what arguments were passed, and where the agent deviated from expectations.
+
+Scenarios where `tool_call_correctness` fails but `correctness` passes mean the agent reached the right answer through unexpected tool usage. Scenarios where both fail indicate a fundamental routing problem — the agent is calling the wrong tools and producing wrong answers.
+
+## Next Steps
+
+- [End-to-End RAG Evaluation](/genai/cookbooks/rag-evaluation) — Apply similar evaluation patterns to RAG pipelines
+- [Built-in Scorers Reference](/genai/eval-monitor/scorers/llm-judge/predefined) — Full list of available scorers including `Safety`, `Guidelines`, and `RelevanceToQuery`

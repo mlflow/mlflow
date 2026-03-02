@@ -37,6 +37,67 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
+      type: 'category',
+      label: 'Cookbooks',
+      className: 'sidebar-top-level-category',
+      link: {
+        type: 'doc',
+        id: 'cookbooks/index',
+      },
+      items: [
+        {
+          type: 'doc',
+          id: 'cookbooks/rag-evaluation',
+          label: 'End-to-End RAG Evaluation',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/multi-turn-agent',
+          label: 'Multi-Turn Conversational Agent',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/custom-llm-judges',
+          label: 'Building Custom LLM Judges',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/langgraph-agent',
+          label: 'LangGraph Agent',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/openai-agents',
+          label: 'OpenAI Agents',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/prompt-engineering',
+          label: 'Prompt Engineering Lifecycle',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/eval-driven-development',
+          label: 'Evaluation-Driven Development',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/cost-quality-tradeoff',
+          label: 'Cost-Quality Tradeoff Analysis',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/red-teaming',
+          label: 'Red-Teaming Your LLM App',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/production-observability',
+          label: 'Production Observability',
+        },
+      ],
+    },
+    {
       type: 'html',
       value: '<b>Core Components</b>',
       defaultStyle: true,
