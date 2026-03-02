@@ -446,8 +446,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.38.2"
-    # transformers 5.x is not supported yet
-    maximum: "4.57.6"
+    maximum: "5.2.0"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -493,8 +492,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.38.2"
-    # transformers 5.x is not supported yet
-    maximum: "4.57.6"
+    maximum: "5.2.0"
     test_every_n_versions: 4
     unsupported: [
         # https://github.com/huggingface/transformers/issues/38269
@@ -510,7 +508,6 @@ transformers:
           "torch",
           "torchvision",
           "tensorflow",
-          "setfit",
           "optuna",
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
@@ -525,6 +522,10 @@ transformers:
       # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
       "< 4.42": ["sentence-transformers<5.1.2"]
       "< 4.52.0.dev0": ["accelerate<1"]
+      # transformers 5.x requires accelerate>=1.1.0 for Trainer
+      ">= 5.0": ["accelerate>=1.1.0"]
+      # setfit is incompatible with transformers 5.x (imports removed `default_logdir` from training_args)
+      "< 5.0": ["setfit"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 

@@ -249,8 +249,6 @@ constraint-dependencies = [
   "xgboost<3.1.0",
   # pyspark 4.1.0 causes issues with documentation build
   "pyspark<4.1.0",
-  # TODO: Remove this once transformers 5.x is supported
-  "transformers<5",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
   "setuptools<82",
 ]
