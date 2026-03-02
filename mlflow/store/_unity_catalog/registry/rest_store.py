@@ -995,7 +995,10 @@ class UcModelRegistryStore(BaseRestStore):
                 self._validate_model_signature(local_model_dir)
             self._download_model_weights_if_not_saved(local_model_dir)
             feature_deps = get_feature_dependencies(local_model_dir)
-            other_model_deps = get_model_version_dependencies(local_model_dir)
+            if model_id:
+                other_model_deps = get_model_version_dependencies(local_model_dir)
+            else:
+                other_model_deps = []
             req_body = message_to_json(
                 CreateModelVersionRequest(
                     name=full_name,
