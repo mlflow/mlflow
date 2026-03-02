@@ -30,6 +30,14 @@ export const barChartCardDefaultMargin = {
   pad: 0,
 };
 
+const getBarChartTitle = (config: RunsChartsBarCardConfig): string => {
+  const metricKeys = config.selectedMetricKeys ?? [config.metricKey];
+  if (metricKeys.length <= 1) {
+    return customMetricBehaviorDefs[config.metricKey]?.displayName ?? config.displayName ?? config.metricKey;
+  }
+  return metricKeys.join(' vs ');
+};
+
 export const RunsChartsBarChartCard = ({
   config,
   chartRunData,
@@ -41,25 +49,35 @@ export const RunsChartsBarChartCard = ({
   isInViewport: isInViewportProp,
   ...reorderProps
 }: RunsChartsBarChartCardProps) => {
-  const dataKey = config.dataAccessKey ?? config.metricKey;
+  const selectedMetricKeys = useMemo(
+    () => config.selectedMetricKeys ?? [config.dataAccessKey ?? config.metricKey],
+    [config.selectedMetricKeys, config.dataAccessKey, config.metricKey],
+  );
+  const isMultiMetric = selectedMetricKeys.length > 1;
+  const primaryDataKey = config.dataAccessKey ?? config.metricKey;
 
   const toggleFullScreenChart = () => {
     setFullScreenChart?.({
       config,
-      title: customMetricBehaviorDefs[config.metricKey]?.displayName ?? config.metricKey,
+      title: getBarChartTitle(config),
       subtitle: null,
     });
   };
 
   const slicedRuns = useMemo(
-    () => chartRunData.filter(({ hidden, metrics }) => !hidden && metrics[dataKey]),
-    [chartRunData, dataKey],
+    () =>
+      chartRunData.filter(({ hidden, metrics }) => {
+        if (hidden) return false;
+        // Include run if it has ANY of the selected metrics
+        return selectedMetricKeys.some((key) => metrics[key]);
+      }),
+    [chartRunData, selectedMetricKeys],
   );
 
   const isEmptyDataset = useMemo(() => {
-    const metricsInRuns = slicedRuns.flatMap(({ metrics }) => Object.keys(metrics));
-    return !metricsInRuns.includes(dataKey);
-  }, [dataKey, slicedRuns]);
+    const metricsInRuns = new Set(slicedRuns.flatMap(({ metrics }) => Object.keys(metrics)));
+    return !selectedMetricKeys.some((key) => metricsInRuns.has(key));
+  }, [selectedMetricKeys, slicedRuns]);
 
   const { setTooltip, resetTooltip, selectedRunUuid } = useRunsChartsTooltip(config);
 
@@ -81,7 +99,8 @@ export const RunsChartsBarChartCard = ({
       {isInViewport ? (
         <RunsMetricsBarPlot
           runsData={slicedRuns}
-          metricKey={dataKey}
+          metricKey={primaryDataKey}
+          selectedMetricKeys={isMultiMetric ? selectedMetricKeys : undefined}
           displayRunNames={false}
           displayMetricKey={false}
           useDefaultHoverBox={false}
@@ -117,7 +136,7 @@ export const RunsChartsBarChartCard = ({
         </div>
       );
     }
-    return customMetricBehaviorDefs[config.metricKey]?.displayName ?? config.displayName ?? config.metricKey;
+    return getBarChartTitle(config);
   })();
 
   return (
@@ -131,12 +150,13 @@ export const RunsChartsBarChartCard = ({
       toggleFullScreenChart={isEmptyDataset ? undefined : toggleFullScreenChart}
       supportedDownloadFormats={['png', 'svg', 'csv']}
       onClickDownload={(format) => {
+        const chartTitleForExport = getBarChartTitle(config);
         if (format === 'csv' || format === 'csv-full') {
           const runsToExport = [...slicedRuns].reverse();
-          downloadChartDataCsv(runsToExport, [config.metricKey], [], config.metricKey);
+          downloadChartDataCsv(runsToExport, selectedMetricKeys, [], chartTitleForExport);
           return;
         }
-        imageDownloadHandler?.(format, config.metricKey);
+        imageDownloadHandler?.(format, chartTitleForExport);
       }}
       {...reorderProps}
     >
