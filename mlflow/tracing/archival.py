@@ -1,5 +1,3 @@
-from mlflow.utils.annotations import experimental
-
 _ERROR_MSG = (
     "The `databricks-agents` package is required to use databricks trace archival. "
     "Please install it with `pip install databricks-agents`."

@@ -42,7 +42,6 @@ from mlflow.telemetry.events import (
 )
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
-from mlflow.utils.annotations import experimental
 from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)

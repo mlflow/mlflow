@@ -2,7 +2,6 @@ from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Callable
 
 from mlflow.tracing.utils.processor import validate_span_processors
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     from mlflow.entities.span import LiveSpan

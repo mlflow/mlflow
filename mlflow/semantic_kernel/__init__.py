@@ -8,7 +8,7 @@ from mlflow.semantic_kernel.tracing_utils import (
 )
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import experimental as experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "semantic_kernel"
