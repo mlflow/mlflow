@@ -55,7 +55,7 @@ function sanitizeInputsForTracing(inputs: any): any {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       for (const block of msg.content as any[]) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (block.type && !MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string)) {
+        if (block && block.type && !MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string)) {
           needsSanitization = true;
           break;
         }
@@ -83,7 +83,8 @@ function sanitizeInputsForTracing(inputs: any): any {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const hasUnsupported = (msg.content as any[]).some(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      (block: any) => block.type && !MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string),
+      (block: any) =>
+        block && block.type && !MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string),
     );
     if (!hasUnsupported) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -93,7 +94,7 @@ function sanitizeInputsForTracing(inputs: any): any {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const sanitizedContent = (msg.content as any[]).map((block: any) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (!block.type || MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string)) {
+      if (!block || !block.type || MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string)) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return block;
       }
@@ -126,7 +127,8 @@ function sanitizeOutputsForTracing(output: any): any {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const hasUnsupported = (output.content as any[]).some(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    (block: any) => block.type && !MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string),
+    (block: any) =>
+      block && block.type && !MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string),
   );
   if (!hasUnsupported) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -136,7 +138,7 @@ function sanitizeOutputsForTracing(output: any): any {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const sanitizedContent = (output.content as any[]).map((block: any) => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (!block.type || MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string)) {
+    if (!block || !block.type || MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string)) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return block;
     }

@@ -7,7 +7,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import { tracedAnthropic } from '../src';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { anthropicMockHandlers, createStreamingErrorHandler } from './mockAnthropicServer';
+import {
+  anthropicMockHandlers,
+  createStreamingErrorHandler,
+  createStreamingWithUnsupportedContentHandler,
+} from './mockAnthropicServer';
 import { createAuthProvider } from '@mlflow/core/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
@@ -546,6 +550,60 @@ describe('tracedAnthropic', () => {
 
       expect(span.outputs.content).toEqual([
         { type: 'thinking', thinking: 'Let me think about this...' },
+        { type: 'text', text: '[redacted_thinking]' },
+        { type: 'text', text: 'Here is my response.' },
+      ]);
+    });
+
+    it('should sanitize outputs when streaming via async iteration', async () => {
+      server.use(createStreamingWithUnsupportedContentHandler());
+
+      const anthropic = new Anthropic({ apiKey: 'test-key' });
+      const wrappedAnthropic = tracedAnthropic(anthropic);
+
+      const stream = wrappedAnthropic.messages.stream({
+        model: 'claude-3-7-sonnet-20250219',
+        max_tokens: 256,
+        messages: [{ role: 'user', content: 'Test streaming output sanitization.' }],
+      });
+
+      for await (const _event of stream) {
+        // consume all events
+      }
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+
+      // The streamed final message contained a redacted_thinking block;
+      // outputs stored on the span should have it replaced with a text placeholder
+      expect(span.outputs.content).toEqual([
+        { type: 'thinking', thinking: 'Let me think...' },
+        { type: 'text', text: '[redacted_thinking]' },
+        { type: 'text', text: 'Here is my response.' },
+      ]);
+    });
+
+    it('should sanitize outputs when streaming via finalMessage()', async () => {
+      server.use(createStreamingWithUnsupportedContentHandler());
+
+      const anthropic = new Anthropic({ apiKey: 'test-key' });
+      const wrappedAnthropic = tracedAnthropic(anthropic);
+
+      const stream = wrappedAnthropic.messages.stream({
+        model: 'claude-3-7-sonnet-20250219',
+        max_tokens: 256,
+        messages: [{ role: 'user', content: 'Test streaming finalMessage output sanitization.' }],
+      });
+
+      const message = await stream.finalMessage();
+      expect(message).toBeDefined();
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+
+      // Outputs stored on the span should have redacted_thinking replaced
+      expect(span.outputs.content).toEqual([
+        { type: 'thinking', thinking: 'Let me think...' },
         { type: 'text', text: '[redacted_thinking]' },
         { type: 'text', text: 'Here is my response.' },
       ]);
