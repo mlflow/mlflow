@@ -170,13 +170,13 @@ def test_proxy_artifact_list_query_param_uses_experiment_permission(client, monk
     with User(username1, password1, monkeypatch):
         experiment_id = client.create_experiment("proxy-artifact-list-query-param-test")
 
-    # user1 has MANAGE on experiment — list via query param path should be allowed (not 403)
+    # user1 has MANAGE on experiment — list via query param path should be allowed (HTTP 200)
     response = requests.get(
         url=client.tracking_uri + "/api/2.0/mlflow-artifacts/artifacts",
         params={"path": f"{experiment_id}/models/m-abc123/artifacts"},
         auth=(username1, password1),
     )
-    assert response.status_code != 403
+    assert response.status_code == 200
 
     # user2 has no permission on the experiment — expect 403
     response = requests.get(
