@@ -30,19 +30,6 @@ import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { ExperimentListTableTagsCell } from './ExperimentListTableTagsCell';
 import { isDemoExperiment } from '../utils/isDemoExperiment';
-import { getMarkdownConverter, sanitizeConvertedHtml } from '../../common/utils/MarkdownUtils';
-
-const converter = getMarkdownConverter();
-
-// Convert markdown to plain text by sanitizing HTML and stripping tags
-const getPlainTextFromMarkdown = (markdown: string | undefined) => {
-  if (!markdown) return '';
-  const html = converter.makeHtml(markdown);
-  const sanitized = sanitizeConvertedHtml(html);
-  // Strip all HTML tags to get plain text
-  const plainText = sanitized.replace(/<[^>]*>/g, '').trim();
-  return plainText;
-};
 
 export type ExperimentTableColumnDef = ColumnDef<ExperimentEntity>;
 
@@ -101,12 +88,7 @@ const useExperimentsTableColumns = () => {
           description: 'Header for the description column in the experiments table',
         }),
         id: 'description',
-        accessorFn: ({ tags }) => {
-          const value = tags?.find(({ key }) => key === 'mlflow.note.content')?.value;
-          if (!value) return '-';
-          const plainText = getPlainTextFromMarkdown(value);
-          return plainText || '-';
-        },
+        accessorFn: ({ tags }) => tags?.find(({ key }) => key === 'mlflow.note.content')?.value ?? '-',
         enableSorting: false,
       },
       {
