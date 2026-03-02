@@ -12,9 +12,9 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
-    _CLUSTER_SUMMARY_SYSTEM_PROMPT,
-    _DEFAULT_SCORER_NAME,
-    _build_satisfaction_instructions,
+    CLUSTER_SUMMARY_SYSTEM_PROMPT,
+    DEFAULT_SCORER_NAME,
+    build_satisfaction_instructions,
 )
 from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
@@ -22,6 +22,7 @@ from mlflow.genai.discovery.entities import (
 )
 from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
+from mlflow.tracing.constant import TraceMetadataKey
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.entities import EvaluationResult
@@ -31,10 +32,18 @@ _logger = logging.getLogger(__name__)
 _NUM_RETRIES = 5
 
 
+def _to_litellm_model(model_uri: str) -> str:
+    """Convert an MLflow model URI (e.g. 'openai:/gpt-5') to a litellm model string."""
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    scheme, path = _parse_model_uri(model_uri)
+    if scheme in ("endpoints", "databricks"):
+        return f"databricks/{path}"
+    return f"{scheme}/{path}"
+
+
 def _get_session_id(trace: Trace) -> str | None:
-    return (trace.info.tags or {}).get("mlflow.trace.session_id") or (
-        trace.info.trace_metadata or {}
-    ).get("mlflow.trace.session")
+    return (trace.info.trace_metadata or {}).get(TraceMetadataKey.TRACE_SESSION)
 
 
 def _sample_traces(
@@ -57,46 +66,37 @@ def _sample_traces(
     sessions: dict[str, list[Trace]] = defaultdict(list)
     no_session: list[Trace] = []
     for trace in pool:
-        if sid := _get_session_id(trace):
-            sessions[sid].append(trace)
+        if session_id := _get_session_id(trace):
+            sessions[session_id].append(trace)
         else:
             no_session.append(trace)
 
+    rng = random.Random(42)
+
     if sessions:
         session_ids = sorted(sessions.keys())
-        k = min(sample_size, len(session_ids))
-        rng = random.Random(42)
-        selected = rng.sample(session_ids, k)
-        result = [t for sid in selected for t in sessions[sid]]
+        num_samples = min(sample_size, len(session_ids))
+        selected = rng.sample(session_ids, num_samples)
+        result = [trace for sid in selected for trace in sessions[sid]]
         _logger.info(
             "Sampled %d sessions (%d traces) from pool of %d sessions",
-            k,
+            num_samples,
             len(result),
             len(session_ids),
         )
         return result
 
-    k = min(sample_size, len(no_session))
-    rng = random.Random(42)
-    no_session.sort(key=lambda t: t.info.trace_id)
-    result = rng.sample(no_session, k)
-    _logger.info("Sampled %d traces from pool of %d", k, len(no_session))
+    num_samples = min(sample_size, len(no_session))
+    no_session.sort(key=lambda trace: trace.info.trace_id)
+    result = rng.sample(no_session, num_samples)
+    _logger.info("Sampled %d traces from pool of %d", num_samples, len(no_session))
     return result
 
 
-def _has_session_ids(traces: list[Trace]) -> bool:
-    for t in traces:
-        if (t.info.tags or {}).get("mlflow.trace.session_id"):
-            return True
-        if (t.info.trace_metadata or {}).get("mlflow.trace.session"):
-            return True
-    return False
-
-
 def _build_default_satisfaction_scorer(model: str | None, use_conversation: bool) -> Scorer:
-    instructions = _build_satisfaction_instructions(use_conversation=use_conversation)
+    instructions = build_satisfaction_instructions(use_conversation=use_conversation)
     return make_judge(
-        name=_DEFAULT_SCORER_NAME,
+        name=DEFAULT_SCORER_NAME,
         instructions=instructions,
         model=model,
         feedback_value_type=bool,
@@ -128,10 +128,14 @@ def _test_scorer(scorer: Scorer, trace: Trace) -> None:
         if isinstance(result_trace, str):
             result_trace = Trace.from_json(result_trace)
         if result_trace is not None:
-            for assessment in result_trace.info.assessments:
-                if isinstance(assessment, Feedback) and assessment.name == scorer.name:
-                    error_msg = assessment.error_message
-                    break
+            error_msg = next(
+                (
+                    a.error_message
+                    for a in result_trace.info.assessments
+                    if isinstance(a, Feedback) and a.name == scorer.name
+                ),
+                None,
+            )
 
     raise mlflow.exceptions.MlflowException(
         f"Scorer '{scorer.name}' failed on test trace "
@@ -156,12 +160,10 @@ def _extract_execution_path(trace: Trace) -> str:
     if not spans:
         return "(no spans)"
 
-    # Build parent-child map
     children: dict[str | None, list[object]] = defaultdict(list)
-    for s in spans:
-        children[s.parent_id].append(s)
+    for span in spans:
+        children[span.parent_id].append(span)
 
-    # Collect meaningful span names in tree order, tracking depth
     meaningful: list[tuple[str, int, str]] = []  # (name, depth, status)
 
     def _walk(span, depth: int):
@@ -204,19 +206,13 @@ def _extract_execution_path(trace: Trace) -> str:
             sub_items[current_top].append(entry)
 
     parts = []
-    for t in top_level:
-        base_name = t.replace(" [ERROR]", "")
+    for top_entry in top_level:
+        base_name = top_entry.replace(" [ERROR]", "")
         if subs := sub_items.get(base_name, []):
-            # Deduplicate while preserving order
-            seen = set()
-            unique_subs = []
-            for s in subs:
-                if s not in seen:
-                    seen.add(s)
-                    unique_subs.append(s)
-            parts.append(f"{t} > {', '.join(unique_subs)}")
+            unique_subs = list(dict.fromkeys(subs))
+            parts.append(f"{top_entry} > {', '.join(unique_subs)}")
         else:
-            parts.append(t)
+            parts.append(top_entry)
 
     return " | ".join(parts) if parts else "(no routing)"
 
@@ -228,18 +224,11 @@ def _extract_execution_paths_for_session(traces: list[Trace]) -> str:
     Deduplicates paths and joins them, giving a compact summary of
     what the agent did across the entire conversation.
     """
-    paths = []
-    seen = set()
-    for t in traces:
-        path = _extract_execution_path(t)
-        if path not in seen:
-            seen.add(path)
-            paths.append(path)
+    paths = list(dict.fromkeys(_extract_execution_path(t) for t in traces))
     return "; ".join(paths) if paths else "(no routing)"
 
 
 def _extract_span_errors(trace: Trace, max_length: int = 500) -> str:
-    """Collect error messages from trace spans (status descriptions and exception events)."""
     spans = trace.data.spans
     if not spans:
         return ""
@@ -250,13 +239,11 @@ def _extract_span_errors(trace: Trace, max_length: int = 500) -> str:
     for span in spans:
         if not (span.status and span.status.status_code == SpanStatusCode.ERROR):
             continue
-        # Status description (e.g., "Exception: Connection failed")
         if span.status.description:
             msg = f"{span.name}: {span.status.description}"
             if msg not in seen:
                 seen.add(msg)
                 errors.append(msg)
-        # Exception events carry type + message
         for event in span.events or []:
             if event.name != "exception":
                 continue
@@ -270,8 +257,7 @@ def _extract_span_errors(trace: Trace, max_length: int = 500) -> str:
 
     if not errors:
         return ""
-    combined = "; ".join(errors)
-    return combined[:max_length] if len(combined) > max_length else combined
+    return "; ".join(errors)[:max_length]
 
 
 def _group_traces_by_session(
@@ -284,11 +270,11 @@ def _group_traces_by_session(
     """
     groups: dict[str, list[Trace]] = defaultdict(list)
     for trace in traces:
-        sid = _get_session_id(trace) or trace.info.trace_id
-        groups[sid].append(trace)
+        session_id = _get_session_id(trace) or trace.info.trace_id
+        groups[session_id].append(trace)
 
     for traces_in_group in groups.values():
-        traces_in_group.sort(key=lambda t: t.info.timestamp_ms)
+        traces_in_group.sort(key=lambda trace: trace.info.timestamp_ms)
 
     return dict(groups)
 
@@ -296,16 +282,9 @@ def _group_traces_by_session(
 def _embed_texts(texts: list[str], embedding_model: str) -> list[list[float]]:
     import litellm
 
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
-
-    scheme, path = _parse_model_uri(embedding_model)
-    if scheme in ("endpoints", "databricks"):
-        litellm_model = f"databricks/{path}"
-    else:
-        litellm_model = f"{scheme}/{path}"
-
+    litellm_model = _to_litellm_model(embedding_model)
     # Embedding APIs reject empty strings; replace with a placeholder.
-    sanitized = [t or "(empty)" for t in texts]
+    sanitized = [text or "(empty)" for text in texts]
     response = litellm.embedding(model=litellm_model, input=sanitized)
     return [item["embedding"] for item in response.data]
 
@@ -328,22 +307,17 @@ def _extract_failure_labels(
     """
 
     from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
-    from mlflow.genai.discovery.constants import _FAILURE_LABEL_SYSTEM_PROMPT
+    from mlflow.genai.discovery.constants import FAILURE_LABEL_SYSTEM_PROMPT
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-    scheme, path = _parse_model_uri(model)
-    if scheme in ("endpoints", "databricks"):
-        litellm_model = f"databricks/{path}"
-    else:
-        litellm_model = f"{scheme}/{path}"
+    litellm_model = _to_litellm_model(model)
 
-    def _label_one(a: _ConversationAnalysis) -> str:
-        rationale = a.surface[:800]
+    def _label_one(analysis: _ConversationAnalysis) -> str:
+        rationale = analysis.surface[:800]
         response = _invoke_litellm(
             litellm_model=litellm_model,
             messages=[
-                {"role": "system", "content": _FAILURE_LABEL_SYSTEM_PROMPT},
+                {"role": "system", "content": FAILURE_LABEL_SYSTEM_PROMPT},
                 {"role": "user", "content": rationale},
             ],
             tools=[],
@@ -355,13 +329,15 @@ def _extract_failure_labels(
         if token_counter is not None:
             token_counter.track(response)
         symptom = response.choices[0].message.content.strip()
-        exec_path = a.execution_path or "(no routing)"
+        exec_path = analysis.execution_path or "(no routing)"
         return f"[{exec_path}] {symptom}"
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(analyses))
     labels: list[str | None] = [None] * len(analyses)
     with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="label") as executor:
-        future_to_idx = {executor.submit(_label_one, a): i for i, a in enumerate(analyses)}
+        future_to_idx = {
+            executor.submit(_label_one, analysis): i for i, analysis in enumerate(analyses)
+        }
         for future in as_completed(future_to_idx):
             labels[future_to_idx[future]] = future.result()
 
@@ -410,16 +386,11 @@ def _cluster_by_llm(
     symptoms into coherent issue categories.
     """
 
-    from mlflow.genai.discovery.constants import _DEFAULT_JUDGE_MODEL
+    from mlflow.genai.discovery.constants import DEFAULT_JUDGE_MODEL
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-    model = model or _DEFAULT_JUDGE_MODEL
-    scheme, path = _parse_model_uri(model)
-    if scheme in ("endpoints", "databricks"):
-        litellm_model = f"databricks/{path}"
-    else:
-        litellm_model = f"{scheme}/{path}"
+    model = model or DEFAULT_JUDGE_MODEL
+    litellm_model = _to_litellm_model(model)
 
     numbered = "\n".join(f"[{i}] {lbl}" for i, lbl in enumerate(labels))
     prompt = (
@@ -474,8 +445,8 @@ def _cluster_by_llm(
     # Convert to list of index lists
     all_indices = set()
     cluster_groups: list[list[int]] = []
-    for g in groups:
-        indices = [i for i in g["indices"] if 0 <= i < len(labels)]
+    for group in groups:
+        indices = [i for i in group["indices"] if 0 <= i < len(labels)]
         if indices := [i for i in indices if i not in all_indices]:
             cluster_groups.append(indices)
             all_indices.update(indices)
@@ -496,12 +467,11 @@ def _cluster_by_embeddings(
     embedding_model: str,
     max_issues: int,
 ) -> list[list[int]]:
-    """Fallback: embedding-based agglomerative clustering on surface text."""
     import numpy as np
     from scipy.cluster.hierarchy import fcluster, linkage
     from scipy.spatial.distance import pdist
 
-    texts = [a.surface for a in analyses]
+    texts = [analysis.surface for analysis in analyses]
     vecs = np.array(_embed_texts(texts, embedding_model))
 
     dists = pdist(vecs, metric="cosine")
@@ -530,28 +500,23 @@ def _summarize_cluster(
 ) -> _IdentifiedIssue:
 
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     cluster_analyses = [analyses[i] for i in cluster_indices]
     parts = []
-    for i, a in zip(cluster_indices, cluster_analyses):
-        entry = f"[{i}] {a.surface}"
-        if a.execution_path:
-            entry += f"\n  execution_path: {a.execution_path}"
+    for i, analysis in zip(cluster_indices, cluster_analyses):
+        entry = f"[{i}] {analysis.surface}"
+        if analysis.execution_path:
+            entry += f"\n  execution_path: {analysis.execution_path}"
         parts.append(entry)
     analyses_text = "\n\n".join(parts)
 
     schema_json = json.dumps(_IdentifiedIssue.model_json_schema(), indent=2)
     system_prompt = (
-        f"{_CLUSTER_SUMMARY_SYSTEM_PROMPT}\n\n"
+        f"{CLUSTER_SUMMARY_SYSTEM_PROMPT}\n\n"
         f"Respond with a JSON object matching this schema:\n{schema_json}"
     )
 
-    scheme, path = _parse_model_uri(analysis_model)
-    if scheme in ("endpoints", "databricks"):
-        litellm_model = f"databricks/{path}"
-    else:
-        litellm_model = f"{scheme}/{path}"
+    litellm_model = _to_litellm_model(analysis_model)
 
     response = _invoke_litellm(
         litellm_model=litellm_model,
@@ -604,12 +569,11 @@ def _extract_failing_traces(
         return failing, rationales
 
     # Filter to scorer names whose value column actually exists
-    active_scorers = [s for s in scorer_names if f"{s}/value" in df.columns]
+    active_scorers = [name for name in scorer_names if f"{name}/value" in df.columns]
     if not active_scorers:
         return failing, rationales
 
     for idx, (_, row) in enumerate(df.iterrows()):
-        # Check if ANY scorer marks this row as failing
         row_failing_scorers: list[str] = []
         for scorer_name in active_scorers:
             val = row.get(f"{scorer_name}/value")
@@ -619,7 +583,6 @@ def _extract_failing_traces(
         if not row_failing_scorers:
             continue
 
-        # Map back to original trace by position when available.
         if original_traces and idx < len(original_traces):
             trace = original_traces[idx]
         else:
@@ -645,9 +608,11 @@ def _extract_failing_traces(
                         eval_trace = Trace.from_json(eval_trace)
                     rationale = next(
                         (
-                            a.rationale
-                            for a in reversed(eval_trace.info.assessments)
-                            if isinstance(a, Feedback) and a.name == scorer_name and a.rationale
+                            assessment.rationale
+                            for assessment in reversed(eval_trace.info.assessments)
+                            if isinstance(assessment, Feedback)
+                            and assessment.name == scorer_name
+                            and assessment.rationale
                         ),
                         "",
                     )

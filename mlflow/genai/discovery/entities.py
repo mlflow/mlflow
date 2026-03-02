@@ -1,45 +1,38 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Literal
+from dataclasses import dataclass
 
 import pydantic
 
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.discovery.constants import ConfidenceLevel
 
-ConfidenceLevel = Literal["definitely_no", "weak_no", "maybe", "weak_yes", "definitely_yes"]
-
-# ---- Public dataclasses ----
+MAX_EXAMPLE_TRACE_IDS = 10
 
 
 @dataclass
 class Issue:
+    issue_id: str
+    run_id: str
     name: str
     description: str
     root_cause: str
     example_trace_ids: list[str]
-    scorer: Scorer | None
     frequency: float
     confidence: ConfidenceLevel
-    rationale_examples: list[str] = field(default_factory=list)
+    status: str = "open"
+    created_at: str = ""
 
 
 @dataclass
 class DiscoverIssuesResult:
     issues: list[Issue]
     triage_run_id: str
-    validation_run_id: str | None
     summary: str
     total_traces_analyzed: int
 
 
-# ---- Pydantic schemas for LLM structured output ----
-
-
 @dataclass
 class _ConversationAnalysis:
-    """Full analysis — LLM fields plus programmatically-set trace IDs."""
-
     surface: str
     root_cause: str
     symptoms: str

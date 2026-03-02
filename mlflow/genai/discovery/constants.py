@@ -1,27 +1,23 @@
-_DEFAULT_TRIAGE_SAMPLE_SIZE = 100
-_MIN_EXAMPLES = 1
+from __future__ import annotations
+
+from typing import Literal
+
+DEFAULT_TRIAGE_SAMPLE_SIZE = 100
+MIN_EXAMPLES = 1
 
 # Likert confidence scale — ordinal comparison for filtering/sorting
-_CONFIDENCE_LEVELS = ("definitely_no", "weak_no", "maybe", "weak_yes", "definitely_yes")
-_CONFIDENCE_ORDER = {level: i for i, level in enumerate(_CONFIDENCE_LEVELS)}
-_MIN_CONFIDENCE = "weak_yes"
+ConfidenceLevel = Literal["definitely_no", "weak_no", "maybe", "weak_yes", "definitely_yes"]
+CONFIDENCE_LEVELS = ("definitely_no", "weak_no", "maybe", "weak_yes", "definitely_yes")
+CONFIDENCE_ORDER = {level: i for i, level in enumerate(CONFIDENCE_LEVELS)}
+MIN_CONFIDENCE = "weak_yes"
 
-
-def _confidence_gte(a: str, b: str) -> bool:
-    return _CONFIDENCE_ORDER.get(a, -1) >= _CONFIDENCE_ORDER.get(b, 0)
-
-
-def _confidence_max(a: str, b: str) -> str:
-    return a if _CONFIDENCE_ORDER.get(a, 0) >= _CONFIDENCE_ORDER.get(b, 0) else b
-
-
-_DEFAULT_JUDGE_MODEL = "openai:/gpt-5-mini"
-_DEFAULT_ANALYSIS_MODEL = "openai:/gpt-5"
-_DEFAULT_SCORER_NAME = "_issue_discovery_judge"
+DEFAULT_JUDGE_MODEL = "openai:/gpt-5-mini"
+DEFAULT_ANALYSIS_MODEL = "openai:/gpt-5.2"
+DEFAULT_SCORER_NAME = "_issue_discovery_judge"
 
 # ---- Satisfaction scorer instructions ----
 
-_SATISFACTION_INSTRUCTIONS_PREAMBLE = """\
+SATISFACTION_INSTRUCTIONS_PREAMBLE = """\
 Follow all the steps below VERY CAREFULLY AND PRECISELY to determine if the user's goals \
 were achieved efficiently.
 
@@ -31,7 +27,7 @@ user asked! Correcting for an assistant's mistakes or shortcomings is also NOT a
 Goals should always be independent of the agent's behavior.\
 """
 
-_SATISFACTION_INSTRUCTIONS_BODY = """
+SATISFACTION_INSTRUCTIONS_BODY = """
 {extra_goal_context}\
 Thoroughly analyze the {template_var} between a user and an AI assistant to identify if \
 the user's goals were achieved.
@@ -89,7 +85,7 @@ In your rationale, explain:
 """
 
 
-_TRACE_QUALITY_INSTRUCTIONS = """\
+TRACE_QUALITY_INSTRUCTIONS = """\
 You are evaluating whether an AI application produced a correct response.
 
 ALL DATA YOU NEED IS PROVIDED BELOW. Do NOT attempt to call tools, access external \
@@ -133,40 +129,40 @@ Then cite specific evidence from the APPLICATION OUTPUT above.\
 """
 
 
-def _build_satisfaction_instructions(*, use_conversation: bool) -> str:
-    if use_conversation:
-        preamble = _SATISFACTION_INSTRUCTIONS_PREAMBLE.format(context_noun="conversation")
-        body = _SATISFACTION_INSTRUCTIONS_BODY.format(
-            extra_goal_context=(
-                " Agent responses may give users new "
-                "information or context that leads to new goals, but these goals are driven "
-                "by the user's knowledge, context, and motivations external to the assistant.\n\n"
-            ),
-            template_var="{{ conversation }}",
-            context_noun="conversation",
-            extra_donts=(
-                "\n- Consider abrupt topic changes as failure "
-                "unless preceding messages indicate unmet expectations"
-                "\n- Interpret off-topic user messages as an indication of failure"
-            ),
-            extra_proof_requirement=(
-                "\nIMPORTANT: to prove that a goal was not achieved or was achieved poorly, "
-                "you must either:\n"
-                " - (1) cite concrete evidence based on the *user's* subsequent messages!\n"
-                " - (2) be extremely certain that the assistant's behavior is\n"
-                "       *blatantly* problematic and be prepared to explain why.\n"
-                "       If the issue is subtle or open to interpretation,\n"
-                "       then you should conclude that goals were achieved efficiently.\n"
-            ),
-        )
-    else:
-        return _TRACE_QUALITY_INSTRUCTIONS
+def build_satisfaction_instructions(*, use_conversation: bool) -> str:
+    if not use_conversation:
+        return TRACE_QUALITY_INSTRUCTIONS
+
+    preamble = SATISFACTION_INSTRUCTIONS_PREAMBLE.format(context_noun="conversation")
+    body = SATISFACTION_INSTRUCTIONS_BODY.format(
+        extra_goal_context=(
+            " Agent responses may give users new "
+            "information or context that leads to new goals, but these goals are driven "
+            "by the user's knowledge, context, and motivations external to the assistant.\n\n"
+        ),
+        template_var="{{ conversation }}",
+        context_noun="conversation",
+        extra_donts=(
+            "\n- Consider abrupt topic changes as failure "
+            "unless preceding messages indicate unmet expectations"
+            "\n- Interpret off-topic user messages as an indication of failure"
+        ),
+        extra_proof_requirement=(
+            "\nIMPORTANT: to prove that a goal was not achieved or was achieved poorly, "
+            "you must either:\n"
+            " - (1) cite concrete evidence based on the *user's* subsequent messages!\n"
+            " - (2) be extremely certain that the assistant's behavior is\n"
+            "       *blatantly* problematic and be prepared to explain why.\n"
+            "       If the issue is subtle or open to interpretation,\n"
+            "       then you should conclude that goals were achieved efficiently.\n"
+        ),
+    )
     return preamble + body
 
 
 # ---- Failure label extraction prompt ----
 
-_FAILURE_LABEL_SYSTEM_PROMPT = (
+FAILURE_LABEL_SYSTEM_PROMPT = (
     "You extract a short failure symptom from a conversation analysis. "
     "Describe WHAT WENT WRONG from the user's perspective in 5-15 words.\n\n"
     "Briefly mention the domain or topic so the label has context, "
@@ -183,9 +179,9 @@ _FAILURE_LABEL_SYSTEM_PROMPT = (
 
 # ---- Cluster summary prompt ----
 
-_NO_ISSUE_KEYWORD = "NO_ISSUE_DETECTED"
+NO_ISSUE_KEYWORD = "NO_ISSUE_DETECTED"
 
-_CLUSTER_SUMMARY_SYSTEM_PROMPT = (
+CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "You are an expert at analyzing AI application failures. You will be given a group of "
     "per-conversation failure analyses that were pre-clustered by semantic similarity.\n\n"
     "Your job is to:\n"
@@ -193,12 +189,12 @@ _CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "2. **Validate** whether the grouped analyses actually represent the same underlying issue\n\n"
     "IMPORTANT: If the analyses do NOT represent a real failure — e.g. the user's goals were "
     "achieved, the system functioned correctly, or there is no concrete deficiency — you MUST "
-    f'set the name to exactly "{_NO_ISSUE_KEYWORD}" and set confidence to "definitely_no". '
+    f'set the name to exactly "{NO_ISSUE_KEYWORD}" and set confidence to "definitely_no". '
     "Do NOT invent an issue where none exists.\n\n"
     "Provide:\n"
     "- A name prefixed with 'Issue: ' followed by a short readable description "
     "(3-8 words, plain English), e.g. 'Issue: Media control commands ignored', "
-    f"'Issue: Incorrect data returned' — or exactly \"{_NO_ISSUE_KEYWORD}\" if no real issue\n"
+    f"'Issue: Incorrect data returned' — or exactly \"{NO_ISSUE_KEYWORD}\" if no real issue\n"
     "- A description of what specifically went wrong from the user's perspective. "
     "Cite observable symptoms (e.g. 'returned empty response', 'ignored the user's "
     "constraint to avoid implementation'). Avoid vague language like 'inefficient' "
@@ -208,14 +204,14 @@ _CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "tool may be returning stale cached results', 'the system prompt does not instruct "
     "the agent to respect user constraints'). Be specific but note these are hypotheses "
     "based on observed symptoms.\n"
-    "- A confidence level from: definitely_no, weak_no, maybe, weak_yes, definitely_yes. "
+    f"- A confidence level from: {', '.join(CONFIDENCE_LEVELS)}. "
     "Use weak_yes or definitely_yes only if the analyses clearly share the same failure "
     "pattern. Use definitely_no if they do NOT belong together or represent no real issue."
 )
 
 # ---- Trace annotation prompt ----
 
-_TRACE_ANNOTATION_SYSTEM_PROMPT = (
+TRACE_ANNOTATION_SYSTEM_PROMPT = (
     "You are annotating a trace that was identified as exhibiting a known issue.\n\n"
     "You will be given:\n"
     "- The issue (name, description, root cause)\n"

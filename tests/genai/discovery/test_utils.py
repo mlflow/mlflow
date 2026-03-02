@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from mlflow.genai.discovery.constants import _DEFAULT_SCORER_NAME
+from mlflow.genai.discovery.constants import DEFAULT_SCORER_NAME
 from mlflow.genai.discovery.entities import (
     Issue,
     _ConversationAnalysis,
@@ -16,7 +16,6 @@ from mlflow.genai.discovery.utils import (
     _embed_texts,
     _extract_failing_traces,
     _group_traces_by_session,
-    _has_session_ids,
     _sample_traces,
     _summarize_cluster,
 )
@@ -90,7 +89,6 @@ def test_cluster_analyses_groups_similar():
         ),
     ]
 
-    # Mock _embed_texts to return vectors that make first two similar, third different
     def mock_embed(texts, model):
         result = []
         for text in texts:
@@ -122,7 +120,6 @@ def test_cluster_analyses_respects_max_issues():
         for i in range(5)
     ]
 
-    # Each analysis gets a very different embedding
     def mock_embed(texts, model):
         import numpy as np
 
@@ -133,7 +130,6 @@ def test_cluster_analyses_respects_max_issues():
         groups = _cluster_analyses(analyses, "openai:/text-embedding-3-small", max_issues=2)
 
     assert len(groups) <= 2
-    # Only the largest clusters are kept; smallest are dropped
     flat = [idx for g in groups for idx in g]
     assert len(flat) <= 5
 
@@ -293,11 +289,12 @@ def test_build_summary_no_issues():
 def test_build_summary_with_issues():
     issues = [
         Issue(
+            issue_id="test-id",
+            run_id="run-1",
             name="tool_failure",
             description="Tool calls fail intermittently",
             root_cause="API timeout",
             example_trace_ids=["t-0"],
-            scorer=MagicMock(),
             frequency=0.3,
             confidence="definitely_yes",
         ),
@@ -306,25 +303,6 @@ def test_build_summary_with_issues():
     assert "tool_failure" in summary
     assert "30%" in summary
     assert "API timeout" in summary
-
-
-# ---- _has_session_ids ----
-
-
-def test_has_session_ids_true(make_trace):
-    trace = make_trace(session_id="session-1")
-    assert _has_session_ids([trace]) is True
-
-
-def test_has_session_ids_false(make_trace):
-    trace = make_trace()
-    assert _has_session_ids([trace]) is False
-
-
-def test_has_session_ids_mixed(make_trace):
-    t1 = make_trace()
-    t2 = make_trace(session_id="session-1")
-    assert _has_session_ids([t1, t2]) is True
 
 
 # ---- _build_default_satisfaction_scorer ----
@@ -345,7 +323,7 @@ def test_build_default_satisfaction_scorer(use_conversation, expected_var):
 
     mock_make_judge.assert_called_once()
     call_kwargs = mock_make_judge.call_args[1]
-    assert call_kwargs["name"] == _DEFAULT_SCORER_NAME
+    assert call_kwargs["name"] == DEFAULT_SCORER_NAME
     assert call_kwargs["feedback_value_type"] is bool
     assert call_kwargs["model"] == "openai:/gpt-4"
     assert expected_var in call_kwargs["instructions"]
@@ -382,11 +360,7 @@ def test_sample_traces_with_sessions(make_trace):
         result = _sample_traces(2, search_kwargs)
 
     mock_search.assert_called_once()
-    session_ids = {
-        (t.info.tags or {}).get("mlflow.trace.session_id")
-        or (t.info.trace_metadata or {}).get("mlflow.trace.session")
-        for t in result
-    }
+    session_ids = {(t.info.trace_metadata or {}).get("mlflow.trace.session") for t in result}
     assert len(session_ids) == 2
 
 
@@ -435,7 +409,6 @@ def test_group_traces_by_session_no_sessions(make_trace):
     groups = _group_traces_by_session([t1, t2])
 
     assert len(groups) == 2
-    # Each trace is its own "session" keyed by trace_id
     assert t1.info.trace_id in groups
     assert t2.info.trace_id in groups
 
