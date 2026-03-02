@@ -32,14 +32,11 @@ function createMockAIMessage(
     },
     // concat for chunk aggregation
     concat(other: any) {
-      return createMockAIMessage(
-        content + (other.content || ''),
-        {
-          tool_calls: [...(this.tool_calls || []), ...(other.tool_calls || [])],
-          usage_metadata: other.usage_metadata ?? this.usage_metadata,
-          response_metadata: other.response_metadata ?? this.response_metadata,
-        },
-      );
+      return createMockAIMessage(content + (other.content || ''), {
+        tool_calls: [...(this.tool_calls || []), ...(other.tool_calls || [])],
+        usage_metadata: other.usage_metadata ?? this.usage_metadata,
+        response_metadata: other.response_metadata ?? this.response_metadata,
+      });
     },
   };
 }
@@ -75,32 +72,34 @@ function createMockModel(
   ];
 
   const model = {
-    invoke: async (...args: any[]) => {
-      if (options?.invokeError) throw options.invokeError;
-      return invokeResult;
+    invoke(_args: any[]): Promise<any> {
+      if (options?.invokeError) {
+        return Promise.reject(options.invokeError);
+      }
+      return Promise.resolve(invokeResult);
     },
-    stream: async (...args: any[]) => {
-      if (options?.streamError) throw options.streamError;
-      // Return an async iterable
-      return {
-        [Symbol.asyncIterator]: async function* () {
+    stream(_args: any[]): Promise<any> {
+      if (options?.streamError) {
+        return Promise.reject(options.streamError);
+      }
+      return Promise.resolve({
+        async *[Symbol.asyncIterator]() {
           for (const chunk of streamChunks) {
-            yield chunk;
+            yield await Promise.resolve(chunk);
           }
         },
-      };
+      });
     },
-    bindTools: (tools: any[], toolConfig?: any) => {
-      // Return a new mock model with tools bound
+    bindTools(_tools: any[], _toolConfig?: any) {
       return createMockModel(className, options);
     },
   };
 
-  // Set the constructor name to simulate real LangChain classes
-  Object.defineProperty(model.constructor, 'name', { value: className });
-  // Also set via a custom class approach
-  const ctor = { name: className };
-  Object.setPrototypeOf(model, { constructor: ctor });
+  // Set the constructor name to simulate real LangChain classes.
+  // Use a dedicated function constructor to avoid mutating the global Object constructor.
+  function MockLangChainModel() {}
+  Object.defineProperty(MockLangChainModel, 'name', { value: className });
+  Object.setPrototypeOf(model, MockLangChainModel.prototype);
 
   return model;
 }
@@ -269,12 +268,13 @@ describe('tracedModel', () => {
     });
 
     // Override stream to produce an error during iteration
-    mockModel.stream = async () => ({
-      [Symbol.asyncIterator]: async function* () {
-        yield createMockAIMessage('Hel');
-        throw new Error('Stream interrupted');
-      },
-    });
+    mockModel.stream = (): Promise<any> =>
+      Promise.resolve({
+        async *[Symbol.asyncIterator]() {
+          yield await Promise.resolve(createMockAIMessage('Hel'));
+          throw new Error('Stream interrupted');
+        },
+      });
 
     const traced = tracedModel(mockModel);
     const stream = await traced.stream([createMockHumanMessage('Hello')]);
@@ -296,8 +296,8 @@ describe('tracedModel', () => {
     const mockModel = createMockModel('ChatAnthropic');
     const traced = tracedModel(mockModel);
 
-    const result = await mlflow.withSpan(
-      async (_span) => {
+    await mlflow.withSpan(
+      () => {
         return traced.invoke([createMockHumanMessage('Hello from parent span.')]);
       },
       {

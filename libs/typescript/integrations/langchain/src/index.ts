@@ -42,6 +42,12 @@ const MODEL_CLASS_TO_FORMAT: Record<string, string> = {
 };
 
 /**
+ * Valid message format values that serializeInput/serializeOutput handle.
+ * Used to validate the explicit messageFormat option.
+ */
+const VALID_MESSAGE_FORMATS = new Set(['anthropic', 'openai', 'gemini', 'langchain']);
+
+/**
  * Detect the message format from the model's class name.
  * For RunnableBinding (result of bindTools/withConfig), checks the inner bound model.
  * Falls back to 'langchain' for unknown model types.
@@ -107,7 +113,8 @@ function extractModelConfig(model: any): Record<string, unknown> {
   if (bindingTools && Array.isArray(bindingTools)) {
     config.tools = bindingTools;
   }
-  const bindingToolChoice = model?.config?.tool_choice ?? model?.defaultOptions?.tool_choice ?? model?.kwargs?.tool_choice;
+  const bindingToolChoice =
+    model?.config?.tool_choice ?? model?.defaultOptions?.tool_choice ?? model?.kwargs?.tool_choice;
   if (bindingToolChoice != null) {
     config.tool_choice = bindingToolChoice;
   }
@@ -148,7 +155,10 @@ export function tracedModel<T = any>(model: T, options?: TracedModelOptions): T 
     return model;
   }
 
-  const explicitFormat = options?.messageFormat;
+  const explicitFormat =
+    options?.messageFormat && VALID_MESSAGE_FORMATS.has(options.messageFormat)
+      ? options.messageFormat
+      : undefined;
 
   return new Proxy(model as any, {
     get(target, prop, receiver) {
@@ -180,7 +190,9 @@ export function tracedModel<T = any>(model: T, options?: TracedModelOptions): T 
  * These override or supplement the model-level config.
  */
 function extractCallOptions(callOptions: any): Record<string, unknown> {
-  if (!callOptions || typeof callOptions !== 'object') {return {};}
+  if (!callOptions || typeof callOptions !== 'object') {
+    return {};
+  }
   const opts: Record<string, unknown> = {};
   if (callOptions.tools && Array.isArray(callOptions.tools)) {
     opts.tools = callOptions.tools;
@@ -251,7 +263,11 @@ function wrapStream(fn: Function, target: any, explicitFormat: string | undefine
     } catch (error) {
       // stream() threw synchronously — record an error span
       const parentSpan = getCurrentActiveSpan();
-      const span = startSpan({ name: 'ChatModel', spanType: SpanType.LLM, parent: parentSpan ?? undefined });
+      const span = startSpan({
+        name: 'ChatModel',
+        spanType: SpanType.LLM,
+        parent: parentSpan ?? undefined,
+      });
       span.setInputs(inputs);
       span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, messageFormat);
       span.setStatus(SpanStatusCode.ERROR, (error as Error).message);
@@ -268,7 +284,11 @@ function wrapStream(fn: Function, target: any, explicitFormat: string | undefine
         (error: Error) => {
           // stream() promise rejected — record an error span
           const parentSpan = getCurrentActiveSpan();
-          const span = startSpan({ name: 'ChatModel', spanType: SpanType.LLM, parent: parentSpan ?? undefined });
+          const span = startSpan({
+            name: 'ChatModel',
+            spanType: SpanType.LLM,
+            parent: parentSpan ?? undefined,
+          });
           span.setInputs(inputs);
           span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, messageFormat);
           span.setStatus(SpanStatusCode.ERROR, error.message);
@@ -322,16 +342,22 @@ async function* wrapStreamIterator(
   messageFormat: string,
 ): AsyncGenerator<any> {
   const parentSpan = getCurrentActiveSpan();
-  const span = startSpan({ name: 'ChatModel', spanType: SpanType.LLM, parent: parentSpan ?? undefined });
+  const span = startSpan({
+    name: 'ChatModel',
+    spanType: SpanType.LLM,
+    parent: parentSpan ?? undefined,
+  });
   span.setInputs(inputs);
 
   const chunks: any[] = [];
   let iterationError: Error | undefined;
+  let completedNaturally = false;
 
   try {
     while (true) {
       const { value, done } = await iterator.next();
       if (done) {
+        completedNaturally = true;
         break;
       }
       chunks.push(value);
@@ -341,6 +367,12 @@ async function* wrapStreamIterator(
     iterationError = error as Error;
     throw error;
   } finally {
+    // If the consumer stopped iterating early (e.g. break, return), propagate
+    // cancellation to the underlying iterator so it can release resources.
+    if (!completedNaturally && !iterationError) {
+      await iterator.return?.();
+    }
+
     if (iterationError) {
       span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, messageFormat);
       span.setStatus(SpanStatusCode.ERROR, iterationError.message);
@@ -373,8 +405,12 @@ async function* wrapStreamIterator(
  * This is the same pattern used by LangChain internally for combining streamed chunks.
  */
 function aggregateChunks(chunks: any[]): any {
-  if (chunks.length === 0) {return undefined;}
-  if (chunks.length === 1) {return chunks[0];}
+  if (chunks.length === 0) {
+    return undefined;
+  }
+  if (chunks.length === 1) {
+    return chunks[0];
+  }
 
   try {
     // LangChain AIMessageChunk implements concat()
@@ -475,11 +511,13 @@ function serializeAnthropicInput(input: any[], modelConfig: Record<string, unkno
       // Anthropic API represents tool results as user messages with tool_result content blocks
       messages.push({
         role: 'user',
-        content: [{
-          type: 'tool_result',
-          tool_use_id: msg.tool_call_id ?? '',
-          content: typeof content === 'string' ? content : JSON.stringify(content),
-        }],
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: msg.tool_call_id ?? '',
+            content: typeof content === 'string' ? content : JSON.stringify(content),
+          },
+        ],
       });
       continue;
     }
@@ -496,7 +534,9 @@ function serializeAnthropicInput(input: any[], modelConfig: Record<string, unkno
         // of blocks (thinking, text, etc.) alongside tool_calls
         for (const block of content) {
           if (typeof block === 'string') {
-            if (block) {contentBlocks.push({ type: 'text', text: block });}
+            if (block) {
+              contentBlocks.push({ type: 'text', text: block });
+            }
           } else if (block.type && MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string)) {
             contentBlocks.push(block);
           } else if (block.type) {
@@ -515,8 +555,10 @@ function serializeAnthropicInput(input: any[], modelConfig: Record<string, unkno
       result.content = contentBlocks;
     } else if (Array.isArray(content)) {
       // Sanitize array content blocks to replace unsupported types
-      result.content = (content).map((block: any) => {
-        if (typeof block === 'string') {return { type: 'text', text: block };}
+      result.content = content.map((block: any) => {
+        if (typeof block === 'string') {
+          return { type: 'text', text: block };
+        }
         if (block.type && MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string)) {
           return block;
         }
@@ -545,8 +587,14 @@ function serializeAnthropicInput(input: any[], modelConfig: Record<string, unkno
  * to render the Chat tab in the trace/span explorer.
  * Includes model name, hyperparameters, and tool definitions alongside messages.
  */
-function serializeInput(input: any, messageFormat: string, modelConfig: Record<string, unknown>): any {
-  if (!input) {return input;}
+function serializeInput(
+  input: any,
+  messageFormat: string,
+  modelConfig: Record<string, unknown>,
+): any {
+  if (!input) {
+    return input;
+  }
 
   if (!Array.isArray(input)) {
     return input;
@@ -572,9 +620,12 @@ function serializeInput(input: any, messageFormat: string, modelConfig: Record<s
     const contents = input.map((msg: any) => {
       const role = langchainTypeToRole(msg);
       const content = msg.content;
-      const parts = typeof content === 'string'
-        ? [{ text: content }]
-        : Array.isArray(content) ? content.map((p: any) => ({ text: p.text ?? String(p) })) : [{ text: String(content) }];
+      const parts =
+        typeof content === 'string'
+          ? [{ text: content }]
+          : Array.isArray(content)
+            ? content.map((p: any) => ({ text: p.text ?? String(p) }))
+            : [{ text: String(content) }];
       return { role: role === 'assistant' ? 'model' : role, parts };
     });
     return { contents, ...modelConfig };
@@ -615,7 +666,9 @@ function serializeInput(input: any, messageFormat: string, modelConfig: Record<s
  * Includes token usage statistics in the format expected by each provider.
  */
 function serializeOutput(output: any, messageFormat: string, usage?: TokenUsage): any {
-  if (!output || typeof output !== 'object') {return output;}
+  if (!output || typeof output !== 'object') {
+    return output;
+  }
   if (output.content === undefined) {
     return output;
   }
@@ -623,9 +676,13 @@ function serializeOutput(output: any, messageFormat: string, usage?: TokenUsage)
   if (messageFormat === 'langchain') {
     // LangChain LLMResult format: {generations: [[{message: {content, type, ...}}]]}
     const result: Record<string, unknown> = {
-      generations: [[{
-        message: serializeLangchainMessage(output),
-      }]],
+      generations: [
+        [
+          {
+            message: serializeLangchainMessage(output),
+          },
+        ],
+      ],
     };
     if (usage) {
       result.usage_metadata = {
@@ -640,13 +697,18 @@ function serializeOutput(output: any, messageFormat: string, usage?: TokenUsage)
   if (messageFormat === 'gemini') {
     // Gemini format: {candidates: [{content: {role: "model", parts: [{text: "..."}]}}]}
     const content = output.content;
-    const parts = typeof content === 'string'
-      ? [{ text: content }]
-      : Array.isArray(content) ? content.map((p: any) => ({ text: p.text ?? String(p) })) : [{ text: String(content) }];
+    const parts =
+      typeof content === 'string'
+        ? [{ text: content }]
+        : Array.isArray(content)
+          ? content.map((p: any) => ({ text: p.text ?? String(p) }))
+          : [{ text: String(content) }];
     const result: Record<string, unknown> = {
-      candidates: [{
-        content: { role: 'model', parts },
-      }],
+      candidates: [
+        {
+          content: { role: 'model', parts },
+        },
+      ],
     };
     if (usage) {
       result.usageMetadata = {
@@ -744,7 +806,7 @@ function extractTokenUsage(response: any): TokenUsage | undefined {
 
   const inputTokens = usage.input_tokens ?? usage.inputTokens ?? 0;
   const outputTokens = usage.output_tokens ?? usage.outputTokens ?? 0;
-  const totalTokens = usage.total_tokens ?? usage.totalTokens ?? (inputTokens + outputTokens);
+  const totalTokens = usage.total_tokens ?? usage.totalTokens ?? inputTokens + outputTokens;
 
   return {
     input_tokens: inputTokens,
