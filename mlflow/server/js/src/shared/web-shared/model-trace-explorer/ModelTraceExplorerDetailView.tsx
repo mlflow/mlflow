@@ -14,7 +14,7 @@ import ModelTraceExplorerSearchBox from './ModelTraceExplorerSearchBox';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { useModelTraceSearch } from './hooks/useModelTraceSearch';
 import { ModelTraceExplorerRightPaneTabs, RIGHT_PANE_MIN_WIDTH } from './right-pane/ModelTraceExplorerRightPaneTabs';
-import { TimelineTree } from './timeline-tree';
+import { TimelineTree } from './timeline-tree/TimelineTree';
 import {
   DEFAULT_EXPAND_DEPTH,
   getModelTraceSpanNodeDepth,

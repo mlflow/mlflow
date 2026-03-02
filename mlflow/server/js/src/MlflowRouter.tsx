@@ -33,6 +33,7 @@ import {
   getActiveWorkspace,
   isGlobalRoute,
   setActiveWorkspace,
+  setLastUsedWorkspace,
 } from './workspaces/utils/WorkspaceUtils';
 import { useWorkspaces } from './workspaces/hooks/useWorkspaces';
 
@@ -137,6 +138,10 @@ const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean
   useEffect(() => {
     if (!workspacesEnabled) {
       setActiveWorkspace(null);
+      // Clear localStorage so stale workspace values don't leak into
+      // requests (e.g. X-MLFLOW-WORKSPACE header) when the server
+      // no longer supports workspaces.
+      setLastUsedWorkspace(null);
       return;
     }
 

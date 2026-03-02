@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Header, TableSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { Header, HomeIcon, TableSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../common/components/ScrollablePageWrapper';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
@@ -8,7 +8,8 @@ import type { SearchExperimentsApiResponse } from '../experiment-tracking/types'
 import { CreateExperimentModal } from '../experiment-tracking/components/modals/CreateExperimentModal';
 import { useInvalidateExperimentList } from '../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
 import { FeaturesSection } from './components/features';
-import { LogTracesDrawer } from './components/LogTracesDrawer';
+// Loaders and lazy imports for expensive components
+import LogTracesDrawerLoader from './components/LogTracesDrawerLoader';
 import { TelemetryInfoAlert } from '../telemetry/TelemetryInfoAlert';
 
 const ExperimentsHomeView = React.lazy(() => import('./components/ExperimentsHomeView'));
@@ -52,12 +53,29 @@ const HomePage = () => {
         padding: theme.spacing.md,
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing.lg,
+        gap: theme.spacing.md,
         height: 'min-content',
       }}
     >
-      <Header title={<FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />} />
+      <Header
+        title={
+          <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <span
+              css={{
+                display: 'flex',
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                padding: theme.spacing.sm,
+              }}
+            >
+              <HomeIcon />
+            </span>
+            <FormattedMessage defaultMessage="Welcome to MLflow" description="Home page hero title" />
+          </span>
+        }
+      />
       <TelemetryInfoAlert />
+      <FeaturesSection />
       <React.Suspense fallback={<HomePageSectionSkeleton />}>
         <ExperimentsHomeView
           experiments={experiments}
@@ -65,16 +83,16 @@ const HomePage = () => {
           error={error}
           onCreateExperiment={handleOpenCreateModal}
           onRetry={refetch}
+          onTagsUpdated={refetch}
         />
       </React.Suspense>
-      <FeaturesSection />
 
       <CreateExperimentModal
         isOpen={isCreateModalOpen}
         onClose={handleCloseCreateModal}
         onExperimentCreated={handleExperimentCreated}
       />
-      <LogTracesDrawer />
+      <LogTracesDrawerLoader />
     </ScrollablePageWrapper>
   );
 };

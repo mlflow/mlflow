@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 from typing import Callable, TypeVar
 
-from mlflow.entities.workspace import Workspace
+from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
@@ -117,12 +117,23 @@ def update_workspace(
 
 
 @experimental(version="3.10.0")
-def delete_workspace(name: str) -> None:
-    """Delete an existing workspace."""
+def delete_workspace(name: str, *, mode: str = WorkspaceDeletionMode.RESTRICT) -> None:
+    """Delete an existing workspace.
 
+    Args:
+        name: Name of the workspace to delete.
+        mode: Deletion mode. One of SET_DEFAULT, CASCADE, or RESTRICT.
+    """
+    try:
+        deletion_mode = WorkspaceDeletionMode(mode)
+    except ValueError:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid deletion mode '{mode}'. "
+            f"Must be one of: {', '.join(m.value for m in WorkspaceDeletionMode)}"
+        )
     if name != DEFAULT_WORKSPACE_NAME:
         WorkspaceNameValidator.validate(name)
-    _workspace_client_call(lambda client: client.delete_workspace(name=name))
+    _workspace_client_call(lambda client: client.delete_workspace(name=name, mode=deletion_mode))
 
 
 __all__ = [

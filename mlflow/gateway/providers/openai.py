@@ -113,11 +113,19 @@ class OpenAIAdapter(ProviderAdapter):
                 )
                 for idx, c in enumerate(resp["choices"])
             ],
-            usage=chat.ChatUsage(
-                prompt_tokens=resp["usage"]["prompt_tokens"],
-                completion_tokens=resp["usage"]["completion_tokens"],
-                total_tokens=resp["usage"]["total_tokens"],
-            ),
+            usage=cls._build_chat_usage(resp["usage"]),
+        )
+
+    @classmethod
+    def _build_chat_usage(cls, usage_data: dict[str, Any]) -> chat.ChatUsage:
+        prompt_tokens_details = None
+        if details := usage_data.get("prompt_tokens_details"):
+            prompt_tokens_details = chat.PromptTokensDetails(**details)
+        return chat.ChatUsage(
+            prompt_tokens=usage_data.get("prompt_tokens"),
+            completion_tokens=usage_data.get("completion_tokens"),
+            total_tokens=usage_data.get("total_tokens"),
+            prompt_tokens_details=prompt_tokens_details,
         )
 
     @classmethod
@@ -125,11 +133,7 @@ class OpenAIAdapter(ProviderAdapter):
         # Extract usage from the final chunk (when stream_options.include_usage=true)
         usage = None
         if usage_data := resp.get("usage"):
-            usage = chat.ChatUsage(
-                prompt_tokens=usage_data.get("prompt_tokens"),
-                completion_tokens=usage_data.get("completion_tokens"),
-                total_tokens=usage_data.get("total_tokens"),
-            )
+            usage = cls._build_chat_usage(usage_data)
 
         return chat.StreamResponsePayload(
             id=resp["id"],
@@ -671,18 +675,29 @@ class OpenAIProvider(BaseProvider):
         """
         Extract token usage from OpenAI passthrough response.
 
-        OpenAI response format:
-        {
-            "usage": {
-                "prompt_tokens": int,
-                "completion_tokens": int,
-                "total_tokens": int
-            }
-        }
+        Chat Completions: usage.prompt_tokens/completion_tokens, prompt_tokens_details.cached_tokens
+        Responses API: usage.input_tokens/output_tokens, input_tokens_details.cached_tokens
         """
-        return self._extract_token_usage_from_dict(
-            result.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
-        )
+        usage = result.get("usage")
+        if not usage:
+            return None
+
+        if action == PassthroughAction.OPENAI_RESPONSES:
+            return self._extract_token_usage_from_dict(
+                usage,
+                "input_tokens",
+                "output_tokens",
+                "total_tokens",
+                cache_read_key="input_tokens_details.cached_tokens",
+            )
+        else:
+            return self._extract_token_usage_from_dict(
+                usage,
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+                cache_read_key="prompt_tokens_details.cached_tokens",
+            )
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         """
@@ -696,19 +711,31 @@ class OpenAIProvider(BaseProvider):
             A dictionary with token usage found in this chunk.
         """
         for data in parse_sse_lines(chunk):
-            # Chat Completions API format: usage at top level
-            if (
-                token_usage := self._extract_token_usage_from_dict(
-                    data.get("usage"), "prompt_tokens", "completion_tokens", "total_tokens"
-                )
-            ) or (
-                token_usage := self._extract_token_usage_from_dict(
-                    data.get("response", {}).get("usage"),
+            # Responses API: usage nested under data.response
+            resp_usage = data.get("response", {}).get("usage")
+            # Chat Completions API: usage at top level
+            chat_usage = data.get("usage")
+
+            if resp_usage:
+                token_usage = self._extract_token_usage_from_dict(
+                    resp_usage,
                     "input_tokens",
                     "output_tokens",
                     "total_tokens",
+                    cache_read_key="input_tokens_details.cached_tokens",
                 )
-            ):
+            elif chat_usage:
+                token_usage = self._extract_token_usage_from_dict(
+                    chat_usage,
+                    "prompt_tokens",
+                    "completion_tokens",
+                    "total_tokens",
+                    cache_read_key="prompt_tokens_details.cached_tokens",
+                )
+            else:
+                continue
+
+            if token_usage:
                 return token_usage
         return {}
 

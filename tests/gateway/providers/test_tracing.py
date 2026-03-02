@@ -135,6 +135,80 @@ async def test_chat_stream_captures_usage_from_final_chunk(mock_provider):
 
 
 @pytest.mark.asyncio
+async def test_chat_stream_captures_cached_tokens(mock_provider):
+    usage = chat.ChatUsage(
+        prompt_tokens=50,
+        completion_tokens=20,
+        total_tokens=70,
+        prompt_tokens_details=chat.PromptTokensDetails(cached_tokens=30),
+        cache_creation_input_tokens=10,
+    )
+
+    mock_provider._chat_stream_chunks = [
+        chat.StreamResponsePayload(
+            id="1",
+            created=int(time.time()),
+            model="mock-model",
+            choices=[chat.StreamChoice(index=0, delta=chat.StreamDelta(content="Hello"))],
+            usage=usage,
+        ),
+    ]
+
+    @mlflow.trace
+    async def traced_operation():
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hi")])
+        return await _collect_chunks(mock_provider.chat_stream(payload))
+
+    await traced_operation()
+
+    traces = get_traces()
+    provider_span = {s.name: s for s in traces[0].data.spans}["provider/MockProvider/mock-model"]
+    token_usage = provider_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] == 50
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 20
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 70
+    assert token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 30
+    assert token_usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 10
+
+
+@pytest.mark.asyncio
+async def test_chat_non_streaming_captures_cached_tokens(mock_provider):
+    mock_provider._chat_response = chat.ResponsePayload(
+        id="1",
+        created=int(time.time()),
+        model="mock-model",
+        choices=[
+            chat.Choice(
+                index=0,
+                message=chat.ResponseMessage(role="assistant", content="Hello!"),
+                finish_reason="stop",
+            )
+        ],
+        usage=chat.ChatUsage(
+            prompt_tokens=50,
+            completion_tokens=20,
+            total_tokens=70,
+            prompt_tokens_details=chat.PromptTokensDetails(cached_tokens=30),
+        ),
+    )
+
+    @mlflow.trace
+    async def traced_operation():
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hi")])
+        return await mock_provider.chat(payload)
+
+    await traced_operation()
+
+    traces = get_traces()
+    provider_span = {s.name: s for s in traces[0].data.spans}["provider/MockProvider/mock-model"]
+    token_usage = provider_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] == 50
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 20
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 70
+    assert token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 30
+
+
+@pytest.mark.asyncio
 async def test_chat_stream_without_usage(mock_provider):
     mock_provider._chat_stream_chunks = [
         chat.StreamResponsePayload(

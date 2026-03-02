@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,7 @@ from mlflow.deployments.server.constants import (
 from mlflow.environment_variables import (
     MLFLOW_GATEWAY_CONFIG,
     MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI,
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import SetLimitsModel
@@ -463,6 +465,8 @@ def create_app_from_path(config_path: str | Path) -> GatewayAPI:
     """
     Load the path and generate the GatewayAPI app instance.
     """
+    # Enable file-based API key resolution for the legacy YAML-config gateway
+    os.environ[MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.name] = "true"
     config = _load_gateway_config(config_path)
     return create_app_from_config(config)
 

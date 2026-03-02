@@ -17,7 +17,6 @@ from mlflow.genai.agent_server.utils import get_request_headers, set_request_hea
 from mlflow.genai.agent_server.validator import BaseAgentValidator, ResponsesAgentValidator
 from mlflow.pyfunc import ResponsesAgent
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.utils.annotations import experimental
 
 logger = logging.getLogger(__name__)
 STREAM_KEY = "stream"
@@ -32,17 +31,14 @@ _invoke_function: Callable[..., Any] | None = None
 _stream_function: Callable[..., Any] | None = None
 
 
-@experimental(version="3.6.0")
 def get_invoke_function():
     return _invoke_function
 
 
-@experimental(version="3.6.0")
 def get_stream_function():
     return _stream_function
 
 
-@experimental(version="3.6.0")
 def invoke() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
     """Decorator to register a function as an invoke endpoint. Can only be used once."""
 
@@ -61,7 +57,6 @@ def invoke() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
     return decorator
 
 
-@experimental(version="3.6.0")
 def stream() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
     """Decorator to register a function as a stream endpoint. Can only be used once."""
 
@@ -80,31 +75,31 @@ def stream() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
     return decorator
 
 
-@experimental(version="3.6.0")
 class AgentServer:
     """FastAPI-based server for hosting agents.
 
     Args:
         agent_type: An optional parameter to specify the type of agent to serve. If provided,
-        input/output validation and streaming tracing aggregation will be done automatically.
+            input/output validation and streaming tracing aggregation will be done automatically.
 
-        Currently only "ResponsesAgent" is supported.
+            Currently only "ResponsesAgent" is supported.
 
-        If ``None``, no input/output validation and streaming tracing aggregation will be done.
-        Default to ``None``.
+            If ``None``, no input/output validation and streaming tracing aggregation will be done.
+            Default to ``None``.
 
         enable_chat_proxy: If ``True``, enables a proxy middleware that forwards unmatched requests
-        to a chat app running on the port specified by the CHAT_APP_PORT environment variable
-        (defaults to 3000) with a timeout specified by the CHAT_PROXY_TIMEOUT_SECONDS environment
-        variable, (defaults to 300 seconds). ``enable_chat_proxy`` defaults to ``False``.
+            to a chat app running on the port specified by the CHAT_APP_PORT environment variable
+            (defaults to 3000) with a timeout specified by the
+            CHAT_PROXY_TIMEOUT_SECONDS environment variable, (defaults to 300 seconds).
+            ``enable_chat_proxy`` defaults to ``False``.
 
-        The proxy allows requests to ``/``, ``/favicon.ico``, ``/assets/*``, and ``/api/*`` by
-        default. Additional paths can be configured via environment variables:
+            The proxy allows requests to ``/``, ``/favicon.ico``, ``/assets/*``, and ``/api/*`` by
+            default. Additional paths can be configured via environment variables:
 
-        - ``CHAT_PROXY_ALLOWED_EXACT_PATHS``: Comma-separated list of additional exact paths
-          to allow (e.g., ``/custom,/another``).
-        - ``CHAT_PROXY_ALLOWED_PATH_PREFIXES``: Comma-separated list of additional path prefixes
-          to allow (e.g., ``/custom/,/another/``).
+            - ``CHAT_PROXY_ALLOWED_EXACT_PATHS``: Comma-separated list of additional exact paths
+              to allow (e.g., ``/custom,/another``).
+            - ``CHAT_PROXY_ALLOWED_PATH_PREFIXES``: Comma-separated list of additional path prefixes
+              to allow (e.g., ``/custom/,/another/``).
 
     See https://mlflow.org/docs/latest/genai/serving/agent-server for more information.
     """
@@ -202,8 +197,8 @@ class AgentServer:
                         try:
                             async for chunk in proxy_response.aiter_bytes():
                                 yield chunk
-                        except Exception as e:
-                            logger.error(f"Streaming error: {e}")
+                        except Exception:
+                            logger.exception("Error in chat proxy streaming")
                             raise
                         finally:
                             await proxy_response.aclose()
@@ -343,14 +338,7 @@ class AgentServer:
             return result
 
         except Exception as e:
-            logger.debug(
-                "Error response sent",
-                extra={
-                    "endpoint": "invoke",
-                    "error": str(e),
-                    "function_name": func_name,
-                },
-            )
+            logger.exception("Error in invoke endpoint")
 
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -396,14 +384,9 @@ class AgentServer:
             )
 
         except Exception as e:
-            logger.debug(
-                "Streaming response error",
-                extra={
-                    "endpoint": "stream",
-                    "error": str(e),
-                    "function_name": func_name,
-                    "chunks_sent": len(all_chunks),
-                },
+            logger.exception(
+                "Error in stream endpoint",
+                extra={"chunks_sent": len(all_chunks)},
             )
 
             yield f"data: {json.dumps({'error': str(e)})}\n\n"

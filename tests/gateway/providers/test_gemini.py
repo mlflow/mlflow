@@ -6,7 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import PassthroughAction
-from mlflow.gateway.providers.gemini import GeminiProvider
+from mlflow.gateway.providers.gemini import GeminiAdapter, GeminiProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import (
@@ -1308,6 +1308,27 @@ def test_gemini_extract_passthrough_token_usage():
     }
 
 
+def test_gemini_extract_passthrough_token_usage_cached():
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    result = {
+        "usageMetadata": {
+            "promptTokenCount": 50,
+            "candidatesTokenCount": 20,
+            "totalTokenCount": 70,
+            "cachedContentTokenCount": 30,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.GEMINI_GENERATE_CONTENT, result
+    )
+    assert token_usage == {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "total_tokens": 70,
+        "cache_read_input_tokens": 30,
+    }
+
+
 def test_gemini_extract_passthrough_token_usage_no_usage():
     provider = GeminiProvider(EndpointConfig(**chat_config()))
     result = {"candidates": [{"content": {"parts": [{"text": "Hello"}]}}]}
@@ -1345,6 +1366,22 @@ def test_gemini_extract_streaming_token_usage():
     }
 
 
+def test_gemini_extract_streaming_token_usage_cached():
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"candidates":[{"content":{"parts":[{"text":"Hello"}]}}],'
+        b'"usageMetadata":{"promptTokenCount":50,"candidatesTokenCount":20,'
+        b'"totalTokenCount":70,"cachedContentTokenCount":30}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "total_tokens": 70,
+        "cache_read_input_tokens": 30,
+    }
+
+
 def test_gemini_extract_streaming_token_usage_no_usage_in_chunk():
     provider = GeminiProvider(EndpointConfig(**chat_config()))
     chunk = b'data: {"candidates":[{"content":{"parts":[{"text":"Hello"}]}}]}\n'
@@ -1378,3 +1415,31 @@ def test_gemini_extract_streaming_token_usage_done_chunk():
     chunk = b"data: [DONE]\n"
     result = provider._extract_streaming_token_usage(chunk)
     assert result == {}
+
+
+def test_gemini_adapter_build_chat_usage_with_cached_tokens():
+    usage_metadata = {
+        "promptTokenCount": 50,
+        "candidatesTokenCount": 20,
+        "totalTokenCount": 70,
+        "cachedContentTokenCount": 30,
+    }
+    usage = GeminiAdapter._build_chat_usage(usage_metadata)
+    assert usage.prompt_tokens == 50
+    assert usage.completion_tokens == 20
+    assert usage.total_tokens == 70
+    assert usage.prompt_tokens_details is not None
+    assert usage.prompt_tokens_details.cached_tokens == 30
+
+
+def test_gemini_adapter_build_chat_usage_without_cached_tokens():
+    usage_metadata = {
+        "promptTokenCount": 50,
+        "candidatesTokenCount": 20,
+        "totalTokenCount": 70,
+    }
+    usage = GeminiAdapter._build_chat_usage(usage_metadata)
+    assert usage.prompt_tokens == 50
+    assert usage.completion_tokens == 20
+    assert usage.total_tokens == 70
+    assert usage.prompt_tokens_details is None

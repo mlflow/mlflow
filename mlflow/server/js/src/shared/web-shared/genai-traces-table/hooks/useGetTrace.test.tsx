@@ -2,8 +2,8 @@ import { describe, beforeEach, afterEach, jest, test, expect } from '@jest/globa
 import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 
-import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import type { ModelTrace, ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 
 import type { GetTraceFunction } from './useGetTrace';
 import { useGetTrace } from './useGetTrace';
@@ -21,6 +21,7 @@ describe('useGetTrace', () => {
   };
 
   beforeEach(() => {
+    jest.useFakeTimers();
     queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -31,6 +32,8 @@ describe('useGetTrace', () => {
   });
 
   afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
@@ -91,5 +94,135 @@ describe('useGetTrace', () => {
       demoTraceInfo,
     );
     expect(result.current.data).toEqual(mockTrace);
+  });
+
+  describe('polling behavior', () => {
+    test('should stop polling after max retries when OK state has span count mismatch', async () => {
+      const traceWithOKState: ModelTrace = {
+        data: { spans: [{ name: 'span1' }] as any },
+        info: {
+          trace_id: 'trace-id-123',
+          trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+          request_time: '1625247600000',
+          state: 'OK',
+          trace_metadata: {
+            'mlflow.trace.sizeStats': JSON.stringify({ num_spans: 5 }), // Mismatch: metadata says 5, but only 1 span
+          },
+          tags: {},
+        } as ModelTraceInfoV3,
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(traceWithOKState);
+      const { result } = renderHook(() => useGetTrace(mockGetTrace, traceWithOKState.info, true), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      // Advance timers to simulate polling attempts
+      jest.advanceTimersByTime(3000);
+
+      await waitFor(() => {
+        const callCount = mockGetTrace.mock.calls.length;
+        // Should have polled more than once (initial + retries) but not indefinitely
+        expect(callCount).toBeGreaterThan(1);
+        expect(callCount).toBeLessThanOrEqual(61); // 1 initial + max 60 retries
+      });
+    });
+
+    test('should reset poll counter when traceId changes', async () => {
+      const traceInfoA: ModelTraceInfoV3 = {
+        trace_id: 'trace-A',
+        trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+        request_time: '1625247600000',
+        state: 'OK',
+        trace_metadata: {
+          'mlflow.trace.sizeStats': JSON.stringify({ num_spans: 5 }),
+        },
+        tags: {},
+      };
+
+      const traceInfoB: ModelTraceInfoV3 = {
+        trace_id: 'trace-B',
+        trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+        request_time: '1625247600000',
+        state: 'OK',
+        trace_metadata: {
+          'mlflow.trace.sizeStats': JSON.stringify({ num_spans: 5 }),
+        },
+        tags: {},
+      };
+
+      const traceWithMismatchA: ModelTrace = {
+        data: { spans: [{ name: 'span1' }] as any },
+        info: traceInfoA as ModelTraceInfoV3,
+      };
+      const traceWithMismatchB: ModelTrace = {
+        data: { spans: [{ name: 'span1' }] as any },
+        info: traceInfoB as ModelTraceInfoV3,
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockImplementation((traceId) => {
+        return Promise.resolve(traceId === 'trace-A' ? traceWithMismatchA : traceWithMismatchB);
+      });
+
+      let currentTraceInfo = traceInfoA;
+      const { result, rerender } = renderHook(() => useGetTrace(mockGetTrace, currentTraceInfo, true), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      // Advance timers to let trace A poll for a bit
+      jest.advanceTimersByTime(2000);
+
+      await waitFor(() => {
+        const callsForTraceA = mockGetTrace.mock.calls.filter((c: any) => c[0] === 'trace-A').length;
+        expect(callsForTraceA).toBeGreaterThan(1);
+      });
+
+      // Switch to trace B - poll counter should reset
+      currentTraceInfo = traceInfoB;
+      rerender();
+
+      await waitFor(() => {
+        expect(mockGetTrace).toHaveBeenCalledWith('trace-B', traceInfoB);
+      });
+
+      // Advance timers to let trace B poll for a bit
+      jest.advanceTimersByTime(2000);
+
+      await waitFor(() => {
+        const callsForTraceB = mockGetTrace.mock.calls.filter((c: any) => c[0] === 'trace-B').length;
+        // Trace B should get its own full set of polling attempts (not reduced by trace A's count)
+        expect(callsForTraceB).toBeGreaterThan(1);
+      });
+    });
+
+    test('should not poll when trace state is ERROR', async () => {
+      const traceWithErrorState: ModelTrace = {
+        data: { spans: [] },
+        info: {
+          trace_id: 'trace-id-123',
+          trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+          request_time: '1625247600000',
+          state: 'ERROR',
+          trace_metadata: {},
+          tags: {},
+        } as ModelTraceInfoV3,
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(traceWithErrorState);
+      const { result } = renderHook(() => useGetTrace(mockGetTrace, traceWithErrorState.info, true), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      // Advance timers to ensure no additional calls are made
+      jest.advanceTimersByTime(1500);
+
+      expect(mockGetTrace).toHaveBeenCalledTimes(1);
+    });
   });
 });

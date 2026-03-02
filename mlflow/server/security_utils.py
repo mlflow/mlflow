@@ -23,8 +23,9 @@ STATE_CHANGING_METHODS = ["POST", "PUT", "DELETE", "PATCH"]
 # Paths exempt from host validation
 HEALTH_ENDPOINTS = ["/health", "/version"]
 
-# API path prefix for MLflow endpoints
+# API path prefixes for MLflow endpoints
 API_PATH_PREFIX = "/api/"
+AJAX_API_PATH_PREFIX = "/ajax-api/"
 
 # Test-only endpoints that should not have CORS blocking
 TEST_ENDPOINTS = ["/test", "/api/test"]
@@ -122,7 +123,9 @@ def should_block_cors_request(origin: str, method: str, allowed_origins: list[st
 
 def is_api_endpoint(path: str) -> bool:
     """Check if a path is an API endpoint that should have CORS/OPTIONS handling."""
-    return path.startswith(API_PATH_PREFIX) and path not in TEST_ENDPOINTS
+    return (
+        path.startswith(API_PATH_PREFIX) or path.startswith(AJAX_API_PATH_PREFIX)
+    ) and path not in TEST_ENDPOINTS
 
 
 def is_allowed_host_header(allowed_hosts: list[str], host: str) -> bool:

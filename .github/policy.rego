@@ -23,6 +23,7 @@ deny_unsafe_checkout contains msg if {
 	# "on.push" becomes "true.push" which is why below statements use "true"
 	# instead of "on".
 	input["true"].pull_request_target
+	not safe_pull_request_target_workflow
 	some job in input.jobs
 	some step in job.steps
 	startswith(step.uses, "actions/checkout@")
@@ -31,6 +32,12 @@ deny_unsafe_checkout contains msg if {
 		"Explicit checkout in a pull_request_target workflow is unsafe. ",
 		"See https://securitylab.github.com/resources/github-actions-preventing-pwn-requests for more information.",
 	])
+}
+
+# Workflows that are safe to use pull_request_target with explicit checkout
+# because they restrict execution to trusted authors via author_association.
+safe_pull_request_target_workflow if {
+	input.name == "UI Preview"
 }
 
 deny_unnecessary_github_token contains msg if {

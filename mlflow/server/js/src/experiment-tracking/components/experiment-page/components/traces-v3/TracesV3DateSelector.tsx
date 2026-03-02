@@ -25,6 +25,7 @@ import { isNil } from 'lodash';
 import { RangePicker } from '@databricks/design-system/development';
 import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import { useQueryClient, useIsFetching } from '@databricks/web-shared/query-client';
+import { shouldEnableTracesTableStatePersistence } from '@databricks/web-shared/model-trace-explorer';
 
 export interface DateRange {
   startDate: string;
@@ -55,7 +56,9 @@ export const TracesV3DateSelector = React.memo(function TracesV3DateSelector({
   const queryClient = useQueryClient();
   const isFetching = useIsFetching({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
 
-  const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
+  const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters({
+    persist: shouldEnableTracesTableStatePersistence(),
+  });
 
   const namedDateFilters = useMemo(() => {
     const filters = getNamedDateFilters(intl);

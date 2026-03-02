@@ -839,6 +839,37 @@ def test_search_experiments_filter_by_tag(store: SqlAlchemyStore):
     assert len(experiments) == 0
 
 
+def test_search_experiments_filter_by_tag_is_null(store: SqlAlchemyStore):
+    experiments = [
+        ("exp1", [ExperimentTag("key1", "value"), ExperimentTag("key2", "value")]),
+        ("exp2", [ExperimentTag("key1", "value")]),
+        ("exp3", []),
+    ]
+    for name, tags in experiments:
+        time.sleep(0.001)
+        store.create_experiment(name, tags=tags)
+
+    # IS NOT NULL: experiments that have key1
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL")
+    assert [e.name for e in results] == ["exp2", "exp1"]
+
+    # IS NULL: experiments that don't have key2 (includes Default)
+    results = store.search_experiments(filter_string="tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp3", "exp2", "Default"]
+
+    # Combined IS NOT NULL and IS NULL
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Combined with value filter
+    results = store.search_experiments(filter_string="tag.key1 = 'value' AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Error: IS NULL on attribute
+    with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported for tags"):
+        store.search_experiments(filter_string="name IS NULL")
+
+
 def test_search_experiments_filter_by_attribute_and_tag(store: SqlAlchemyStore):
     store.create_experiment("exp1", tags=[ExperimentTag("a", "1"), ExperimentTag("b", "2")])
     store.create_experiment("exp2", tags=[ExperimentTag("a", "3"), ExperimentTag("b", "4")])
@@ -3336,6 +3367,51 @@ def test_log_batch_same_metrics_repeated_multiple_reqs(store: SqlAlchemyStore):
     _verify_logged(store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
     store.log_batch(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
     _verify_logged(store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+
+
+def test_log_batch_duplicate_metrics_across_key_batches(store: SqlAlchemyStore):
+    """Test that duplicate metric detection works correctly when metric keys span multiple
+    batches (batches of 100 keys). Previously, _insert_metrics was called inside the
+    per-batch loop, causing metrics from unqueried batches to be inserted prematurely,
+    which could raise an unhandled IntegrityError.
+    See https://github.com/mlflow/mlflow/issues/19144
+    """
+    run = _run_factory(store)
+    # Create >100 unique metric keys so they span multiple key batches
+    num_keys = 150
+    metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    # Log the metrics once
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    _verify_logged(store, run.info.run_id, params=[], metrics=metrics, tags=[])
+    # Log the same metrics again (all duplicates) — this should not raise
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    _verify_logged(store, run.info.run_id, params=[], metrics=metrics, tags=[])
+
+
+def test_log_batch_duplicate_metrics_mixed_with_new_across_key_batches(store: SqlAlchemyStore):
+    # Test logging a mix of duplicate and new metrics when keys span multiple batches.
+    run = _run_factory(store)
+    num_keys = 150
+    # Log initial metrics
+    initial_metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    store.log_batch(run.info.run_id, params=[], metrics=initial_metrics, tags=[])
+    # Log a mix: some duplicates from the initial batch + some new metrics
+    duplicate_metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    new_metrics = [
+        Metric(key=f"metric-{i}", value=float(i + num_keys), timestamp=2, step=1)
+        for i in range(num_keys)
+    ]
+    mixed_metrics = duplicate_metrics + new_metrics
+    store.log_batch(run.info.run_id, params=[], metrics=mixed_metrics, tags=[])
+    _verify_logged(
+        store, run.info.run_id, params=[], metrics=initial_metrics + new_metrics, tags=[]
+    )
 
 
 def test_log_batch_null_metrics(store: SqlAlchemyStore):
@@ -7459,15 +7535,11 @@ def test_search_traces_with_span_attributute_backticks(store: SqlAlchemyStore):
     store.log_spans(exp_id, [span1])
     store.log_spans(exp_id, [span2])
 
-    traces, _ = store.search_traces(
-        [exp_id], filter_string='span.attributes.`mlflow.spanInputs` ILIKE "%test1%"'
-    )
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%test1%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace_info_1.trace_id
 
-    traces, _ = store.search_traces(
-        [exp_id], filter_string='span.attributes.`mlflow.spanInputs` ILIKE "%test2%"'
-    )
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%test2%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace_info_2.trace_id
 
@@ -13061,6 +13133,44 @@ def test_log_spans_then_start_trace_preserves_tag(store: SqlAlchemyStore):
 
     trace_info = store.get_trace_info(trace_id)
     assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+
+
+def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_preview_preserved")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="llm_call",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+        attributes={
+            "input.value": '{"messages": [{"role": "user", "content": "Hello"}]}',
+            "output.value": '{"choices": [{"message": {"role": "assistant", "content": "Hi"}}]}',
+            "openinference.span.kind": "LLM",
+        },
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    store.start_trace(trace_info_for_start)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview is not None
+    assert trace_info.response_preview is not None
+    assert "Hello" in trace_info.request_preview
+    assert "Hi" in trace_info.response_preview
 
 
 @pytest.mark.skipif(

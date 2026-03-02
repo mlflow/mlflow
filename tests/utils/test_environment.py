@@ -412,6 +412,25 @@ def test_infer_requirements_error_handling(env_var, fallbacks, should_raise, mon
         ),
         # Verify duplicate extras are not preserved
         (["markdown[extras]", "markdown", "markdown[extras]"], ["markdown[extras]"]),
+        # Marker-differentiated versions should be kept separate
+        (
+            [
+                "numpy==2.2.6 ; python_full_version < '3.11'",
+                "numpy==2.4.2 ; python_full_version >= '3.11'",
+            ],
+            [
+                'numpy==2.2.6; python_full_version < "3.11"',
+                'numpy==2.4.2; python_full_version >= "3.11"',
+            ],
+        ),
+        # Same marker should still merge
+        (
+            [
+                "numpy>=1.0 ; python_version >= '3.10'",
+                "numpy<2.0 ; python_version >= '3.10'",
+            ],
+            ['numpy>=1.0,<2.0; python_version >= "3.10"'],
+        ),
     ],
 )
 def test_deduplicate_requirements_resolve_correctly(input_requirements, expected):

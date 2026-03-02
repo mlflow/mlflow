@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { LLM_TEMPLATE, LLMScorer } from '../types';
+import type { LLMScorer } from '../types';
+import { LLM_TEMPLATE } from '../types';
 import { useGetScheduledScorers } from './useGetScheduledScorers';
 import { useExperimentIds } from '../../../components/experiment-page/hooks/useExperimentIds';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -20,8 +21,8 @@ import { PillControl } from '@databricks/design-system/development';
 import ScorerModalRenderer from '../ScorerModalRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from '../constants';
 import { useRunSerializedScorer } from './useRunSerializedScorer';
-import { ModelTraceExplorerRunJudgeConfig } from '@databricks/web-shared/model-trace-explorer';
-import { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
+import type { ModelTraceExplorerRunJudgeConfig } from '@databricks/web-shared/model-trace-explorer';
+import type { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 import { useTemplateOptions } from '../llmScorerUtils';
 import { EndpointSelector } from '../../../components/EndpointSelector';
 import {

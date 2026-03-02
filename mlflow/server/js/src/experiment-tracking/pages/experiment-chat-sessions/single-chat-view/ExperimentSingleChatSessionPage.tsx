@@ -26,6 +26,7 @@ import {
   ModelTraceExplorerDrawer,
   ModelTraceExplorerRunJudgesContextProvider,
   ModelTraceExplorerUpdateTraceContextProvider,
+  ModelTraceExplorerPreferencesProvider,
   shouldEnableAssessmentsInSessions,
   shouldUseTracesV4API,
 } from '@databricks/web-shared/model-trace-explorer';
@@ -60,14 +61,16 @@ const ContextProviders = ({
   const DrawerComponent = AssistantAwareDrawer;
 
   return (
-    <ModelTraceExplorerContextProvider
-      renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-      DrawerComponent={DrawerComponent}
-    >
-      <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
-        {children}
-      </ModelTraceExplorerUpdateTraceContextProvider>
-    </ModelTraceExplorerContextProvider>
+    <ModelTraceExplorerPreferencesProvider>
+      <ModelTraceExplorerContextProvider
+        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        DrawerComponent={DrawerComponent}
+      >
+        <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
+          {children}
+        </ModelTraceExplorerUpdateTraceContextProvider>
+      </ModelTraceExplorerContextProvider>
+    </ModelTraceExplorerPreferencesProvider>
   );
 };
 
@@ -140,7 +143,8 @@ const ExperimentSingleChatSessionPageImpl = () => {
   }, [selectedTraceIdFromUrl, traces, isLoadingTraceDatas]);
 
   return (
-    <ContextProviders // prettier-ignore
+    <ContextProviders
+      // prettier-ignore
       invalidateTraceQuery={invalidateSingleTraceQuery}
     >
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>

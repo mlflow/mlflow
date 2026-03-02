@@ -44,7 +44,7 @@ pip install 'mlflow[genai]' openai
   <TabItem value="typescript" label="JS / TS">
 
 ```bash
-npm install mlflow-openai openai
+npm install @mlflow/openai openai
 ```
 
   </TabItem>
@@ -84,7 +84,7 @@ npm install mlflow-openai openai
 
     ```typescript
     import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+    import { tracedOpenAI } from "@mlflow/openai";
 
     // Wrap the OpenAI client and point to Databricks endpoint
     const client = tracedOpenAI(

@@ -16,6 +16,7 @@ from pydantic import BaseModel
 import mlflow.mistral
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -176,12 +177,13 @@ def test_chat_complete_autolog(mock_litellm_cost):
         TokenUsageKey.OUTPUT_TOKENS: 18,
         TokenUsageKey.TOTAL_TOKENS: 28,
     }
-    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 10.0,
-        "output_cost": 36.0,
-        "total_cost": 46.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
 
     with patch(
         "mistralai.chat.Chat.do_request",

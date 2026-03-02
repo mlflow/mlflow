@@ -1,4 +1,5 @@
-import { createLazyRouteElement, DocumentTitleHandle } from '../common/utils/RoutingUtils';
+import type { DocumentTitleHandle } from '../common/utils/RoutingUtils';
+import { createLazyRouteElement } from '../common/utils/RoutingUtils';
 import { GatewayPageId, GatewayRoutePaths } from './routes';
 
 export const getGatewayRouteDefs = () => {

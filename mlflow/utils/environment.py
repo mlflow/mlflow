@@ -762,11 +762,12 @@ def _deduplicate_requirements(requirements):
         try:
             parsed_req = Requirement(req)
             base_pkg = parsed_req.name
+            key = (base_pkg, str(parsed_req.marker) if parsed_req.marker else "")
 
-            existing_req = deduped_reqs.get(base_pkg)
+            existing_req = deduped_reqs.get(key)
 
             if not existing_req:
-                deduped_reqs[base_pkg] = parsed_req
+                deduped_reqs[key] = parsed_req
             else:
                 # Verify that there are not unresolvable constraints applied if set and combine
                 # if possible
@@ -794,7 +795,7 @@ def _deduplicate_requirements(requirements):
                 elif existing_req.extras and not parsed_req.extras:
                     parsed_req.extras = existing_req.extras
 
-                deduped_reqs[base_pkg] = parsed_req
+                deduped_reqs[key] = parsed_req
 
         except InvalidRequirement:
             # Include non-standard package strings as-is

@@ -1,0 +1,30 @@
+import ImageBox from "@site/src/components/ImageBox";
+import { Rocket } from "lucide-react";
+
+<details>
+<summary>
+<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+  <Rocket />
+  <b>Try MLflow GenAI Demo</b>
+</div>
+<br/>
+The quickest way to learn about MLflow GenAI is to try the demo. Click to see how to launch the demo ↓
+
+</summary>
+
+#### **Starting from UI**
+
+To start the demo, click on the "Start Demo" button on the top page of the MLflow UI.
+
+<ImageBox src="/images/llms/demo/demo.png" alt="MLflow GenAI Demo UI" />
+
+#### **Starting from CLI**
+
+Alternatively, you can start the demo from the command line using the `mlflow demo` command. This option does
+not require you to have a running MLflow server.
+
+```bash
+uvx mlflow demo
+```
+
+</details>
