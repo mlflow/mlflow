@@ -5,6 +5,8 @@ on:
     - cron: "0 0 * * *" # Run daily at midnight UTC
   workflow_dispatch:
 
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash

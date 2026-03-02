@@ -10,6 +10,8 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash

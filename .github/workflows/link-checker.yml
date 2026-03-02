@@ -9,6 +9,8 @@ on:
     paths:
       - ".github/workflows/link-checker.yml"
 
+permissions:
+  contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true

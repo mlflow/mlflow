@@ -6,6 +6,8 @@ on:
       - opened
       - edited
 
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash

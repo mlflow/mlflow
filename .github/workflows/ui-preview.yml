@@ -13,6 +13,8 @@ on:
       - .github/workflows/ui-preview.yml
       - .github/ui-preview/**
 
+permissions:
+  contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true

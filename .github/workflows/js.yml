@@ -18,6 +18,8 @@ on:
       - mlflow/server/js/**
       - .github/workflows/js.yml
 
+permissions:
+  contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true

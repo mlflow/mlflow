@@ -7,6 +7,8 @@ on:
       - edited
       - synchronize
 
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash

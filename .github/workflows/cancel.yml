@@ -6,6 +6,8 @@ on:
     types:
       - closed
 
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash

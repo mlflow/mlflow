@@ -6,6 +6,8 @@ on:
       - opened
       - ready_for_review
 
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash

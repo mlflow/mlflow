@@ -10,6 +10,8 @@ on:
       - ".github/workflows/title.yml"
       - ".github/workflows/title.js"
 
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash

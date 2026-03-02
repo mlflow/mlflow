@@ -5,6 +5,8 @@ on:
     workflows: [docs]
     types: [completed]
 
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash

@@ -26,6 +26,8 @@ on:
         required: true
         default: "master"
 
+permissions:
+  contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true

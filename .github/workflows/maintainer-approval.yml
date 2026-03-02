@@ -3,6 +3,8 @@ name: Maintainer approval
 on:
   pull_request_target:
 
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash
