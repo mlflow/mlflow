@@ -3,10 +3,12 @@ import base64
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, build_otlp_headers
 
 
-def test_build_otlp_headers_no_credentials(monkeypatch):
+def test_build_otlp_headers_no_credentials(monkeypatch, tmp_path):
     monkeypatch.delenv("MLFLOW_TRACKING_TOKEN", raising=False)
     monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
     monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+    # Prevent ~/.mlflow/credentials from leaking into the test
+    monkeypatch.setenv("HOME", str(tmp_path))
 
     headers = build_otlp_headers("42")
     assert headers == {MLFLOW_EXPERIMENT_ID_HEADER: "42"}
@@ -30,6 +32,7 @@ def test_build_otlp_headers_bearer_token(monkeypatch):
     monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
 
     headers = build_otlp_headers("1")
+    assert headers[MLFLOW_EXPERIMENT_ID_HEADER] == "1"
     assert headers["Authorization"] == "Bearer tok-abc"
 
 
@@ -39,4 +42,5 @@ def test_build_otlp_headers_token_takes_precedence_over_basic(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "pass")
 
     headers = build_otlp_headers("5")
+    assert headers[MLFLOW_EXPERIMENT_ID_HEADER] == "5"
     assert headers["Authorization"] == "Bearer tok-xyz"
