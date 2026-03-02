@@ -183,9 +183,7 @@ def test_register_model_skips_logged_model_tag_when_not_found(monkeypatch):
     version = "1"
     with (
         mock.patch("mlflow.tracking._model_registry.fluent.eprint"),
-        mock.patch(
-            "mlflow.tracking._model_registry.fluent.get_workspace_url", return_value=None
-        ),
+        mock.patch("mlflow.tracking._model_registry.fluent.get_workspace_url", return_value=None),
         mock.patch(
             "mlflow.MlflowClient.create_registered_model",
             return_value=RegisteredModel(name),
