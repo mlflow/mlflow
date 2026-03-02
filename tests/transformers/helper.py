@@ -113,7 +113,7 @@ def load_fill_mask_pipeline():
 @prefetch
 @flaky()
 def load_text2text_generation_pipeline():
-    if transformers_version.major >= 5:
+    if IS_TRANSFORMERS_V5_OR_LATER:
         _logger.info("Skipping text2text-generation pipeline prefetch: removed in transformers 5.x")
         return None
     task = "text2text-generation"
@@ -138,7 +138,7 @@ def load_text_generation_pipeline():
 @prefetch
 @flaky()
 def load_translation_pipeline():
-    if transformers_version.major >= 5:
+    if IS_TRANSFORMERS_V5_OR_LATER:
         _logger.info("Skipping translation pipeline prefetch: removed in transformers 5.x")
         return None
     return transformers.pipeline(
@@ -151,7 +151,7 @@ def load_translation_pipeline():
 @prefetch
 @flaky()
 def load_summarizer_pipeline():
-    if transformers_version.major >= 5:
+    if IS_TRANSFORMERS_V5_OR_LATER:
         _logger.info("Skipping summarizer pipeline prefetch: removed in transformers 5.x")
         return None
     task = "summarization"

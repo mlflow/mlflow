@@ -1700,49 +1700,31 @@ def _try_import_conversational_pipeline():
         return
 
 
-def _try_import_translation_pipeline():
+def _is_translation_pipeline(pipeline):
     try:
         from transformers import TranslationPipeline
 
-        return TranslationPipeline
+        return isinstance(pipeline, TranslationPipeline)
     except ImportError:
-        return
-
-
-def _is_translation_pipeline(pipeline):
-    if cls := _try_import_translation_pipeline():
-        return isinstance(pipeline, cls)
-    return False
-
-
-def _try_import_summarization_pipeline():
-    try:
-        from transformers import SummarizationPipeline
-
-        return SummarizationPipeline
-    except ImportError:
-        return
+        return False
 
 
 def _is_summarization_pipeline(pipeline):
-    if cls := _try_import_summarization_pipeline():
-        return isinstance(pipeline, cls)
-    return False
-
-
-def _try_import_text2text_generation_pipeline():
     try:
-        from transformers import Text2TextGenerationPipeline
+        from transformers import SummarizationPipeline
 
-        return Text2TextGenerationPipeline
+        return isinstance(pipeline, SummarizationPipeline)
     except ImportError:
-        return
+        return False
 
 
 def _is_text2text_generation_pipeline(pipeline):
-    if cls := _try_import_text2text_generation_pipeline():
-        return isinstance(pipeline, cls)
-    return False
+    try:
+        from transformers import Text2TextGenerationPipeline
+
+        return isinstance(pipeline, Text2TextGenerationPipeline)
+    except ImportError:
+        return False
 
 
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):

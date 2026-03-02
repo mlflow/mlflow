@@ -4,6 +4,8 @@ import json
 import os
 from typing import TYPE_CHECKING, Any
 
+from packaging.version import Version
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, INVALID_PARAMETER_VALUE
 from mlflow.transformers.hub_utils import get_latest_commit_for_repo
@@ -194,6 +196,15 @@ def build_flavor_config_from_local_checkpoint(
 
     task_metadata = pipelines.check_task(task)
     pipeline_class = task_metadata[1]["impl"].__name__
+    # pipeline.framework was removed in transformers 5.x
+    import transformers
+
+    framework = (
+        ("pt" if is_torch_available() else "tf")
+        if Version(transformers.__version__).major < 5
+        else None
+    )
+
     flavor_conf = {
         FlavorKey.TASK: task,
         FlavorKey.INSTANCE_TYPE: pipeline_class,
@@ -203,12 +214,8 @@ def build_flavor_config_from_local_checkpoint(
         FlavorKey.MODEL_BINARY: _MODEL_BINARY_FILE_NAME,
     }
 
-    # pipeline.framework was removed in transformers 5.x
-    import transformers
-    from packaging.version import Version
-
-    if Version(transformers.__version__).major < 5:
-        flavor_conf[FlavorKey.FRAMEWORK] = "pt" if is_torch_available() else "tf"
+    if framework is not None:
+        flavor_conf[FlavorKey.FRAMEWORK] = framework
 
     components = {FlavorKey.TOKENIZER}
     try:
