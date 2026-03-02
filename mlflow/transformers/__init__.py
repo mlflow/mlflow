@@ -1577,7 +1577,7 @@ def _get_engine_type(model):
 
     try:
         from transformers import TFPreTrainedModel
-    except Exception:
+    except ImportError:
         TFPreTrainedModel = None
 
     try:
