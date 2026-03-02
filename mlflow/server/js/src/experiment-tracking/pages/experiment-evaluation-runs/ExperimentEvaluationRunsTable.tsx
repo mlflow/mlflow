@@ -29,6 +29,7 @@ export interface ExperimentEvaluationRunsTableProps {
   viewMode: ExperimentEvaluationRunsPageMode;
   onScroll?: React.UIEventHandler<HTMLDivElement>;
   isGrouped?: boolean;
+  enableImprovedComparison?: boolean;
 }
 
 export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, ExperimentEvaluationRunsTableProps>(
@@ -49,6 +50,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       viewMode,
       onScroll,
       isGrouped,
+      enableImprovedComparison,
     },
     ref,
   ) => {
@@ -166,6 +168,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
                 isHidden={isRowHidden(row.id, row.index, runStatus)}
                 columns={columns}
                 isGrouped={isGrouped}
+                enableImprovedComparison={enableImprovedComparison}
               />
             );
           })}

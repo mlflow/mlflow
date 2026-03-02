@@ -16,6 +16,7 @@ from groq.types.chat.chat_completion import (
 import mlflow.groq
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -90,12 +91,13 @@ def test_chat_completion_autolog(mock_litellm_cost):
         "output_tokens": 648,
         "total_tokens": 668,
     }
-    # Verify cost is calculated (20 input tokens * 1.0 + 648 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 20.0,
-        "output_cost": 1296.0,
-        "total_cost": 1316.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (20 input tokens * 1.0 + 648 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 20.0,
+            "output_cost": 1296.0,
+            "total_cost": 1316.0,
+        }
 
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "groq"
 

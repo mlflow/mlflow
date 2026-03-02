@@ -6,7 +6,7 @@ import time
 import webbrowser
 from collections.abc import Generator
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import urljoin
 
 import click
 
@@ -47,6 +47,55 @@ def _set_quiet_logging() -> None:
     # Set environment variable so MLflow configures logging in subprocesses
     # This affects mlflow, alembic, and huey loggers via _configure_mlflow_loggers
     os.environ["MLFLOW_LOGGING_LEVEL"] = "WARNING"
+
+
+def _check_server_connection(tracking_uri: str, max_retries: int = 3, timeout: int = 5) -> None:
+    """Check if the MLflow tracking server is reachable.
+
+    Args:
+        tracking_uri: URL of the tracking server.
+        max_retries: Maximum number of connection attempts.
+        timeout: Timeout in seconds for each connection attempt.
+
+    Raises:
+        click.ClickException: If the server is not reachable after all retries.
+    """
+    import requests
+
+    from mlflow.utils.request_utils import _get_http_response_with_retries
+
+    health_url = urljoin(tracking_uri.rstrip("/") + "/", "health")
+
+    try:
+        response = _get_http_response_with_retries(
+            method="GET",
+            url=health_url,
+            max_retries=max_retries,
+            backoff_factor=1,
+            backoff_jitter=0.5,
+            retry_codes=(408, 429, 500, 502, 503, 504),
+            timeout=timeout,
+            raise_on_status=False,
+        )
+        response.close()
+    except requests.exceptions.ConnectionError as e:
+        raise click.ClickException(
+            f"Cannot connect to MLflow server at {tracking_uri}\n"
+            f"Error: {e}\n\n"
+            f"Please verify:\n"
+            f"  1. The server is running\n"
+            f"  2. The URL is correct\n"
+            f"  3. No firewall is blocking the connection"
+        ) from None
+    except requests.exceptions.Timeout:
+        raise click.ClickException(
+            f"Connection to MLflow server at {tracking_uri} timed out.\n\n"
+            f"Please verify the server is running and responsive."
+        ) from None
+    except requests.exceptions.RequestException as e:
+        raise click.ClickException(
+            f"Failed to connect to MLflow server at {tracking_uri}\nError: {e}"
+        ) from None
 
 
 @click.command()
@@ -134,7 +183,10 @@ def _run_with_existing_server(
     from mlflow.demo.base import DEMO_EXPERIMENT_NAME
 
     click.echo()
-    click.echo(f"Connecting to MLflow server at {tracking_uri}...")
+    click.echo(f"Connecting to MLflow server at {tracking_uri}... ", nl=False)
+
+    _check_server_connection(tracking_uri)
+    click.secho("connected!", fg="green")
 
     mlflow.set_tracking_uri(tracking_uri)
 
@@ -151,8 +203,13 @@ def _run_with_existing_server(
     else:
         click.echo("  Demo data already exists (skipped generation).")
 
-    encoded_experiment = quote(DEMO_EXPERIMENT_NAME, safe="")
-    experiment_url = f"{tracking_uri.rstrip('/')}/#/experiments/{encoded_experiment}/overview"
+    experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    if experiment is None:
+        raise click.ClickException(
+            f"Demo experiment '{DEMO_EXPERIMENT_NAME}' not found. "
+            "This should not happen after generating demo data."
+        )
+    experiment_url = f"{tracking_uri.rstrip('/')}/#/experiments/{experiment.experiment_id}/overview"
 
     click.echo()
     click.secho(f"View the demo at: {experiment_url}", fg="green", bold=True)
@@ -164,6 +221,7 @@ def _run_with_existing_server(
 
 
 def _run_with_new_server(port: int | None, no_browser: bool, debug: bool, refresh: bool) -> None:
+    import mlflow
     from mlflow.demo import generate_all_demos
     from mlflow.demo.base import DEMO_EXPERIMENT_NAME
     from mlflow.server import _run_server
@@ -207,8 +265,13 @@ def _run_with_new_server(port: int | None, no_browser: bool, debug: bool, refres
     if results:
         click.echo(f"  Generated: {', '.join(r.feature for r in results)}")
 
-    encoded_experiment = quote(DEMO_EXPERIMENT_NAME, safe="")
-    experiment_url = f"http://127.0.0.1:{port}/#/experiments/{encoded_experiment}/overview"
+    experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    if experiment is None:
+        raise click.ClickException(
+            f"Demo experiment '{DEMO_EXPERIMENT_NAME}' not found. "
+            "This should not happen after generating demo data."
+        )
+    experiment_url = f"http://127.0.0.1:{port}/#/experiments/{experiment.experiment_id}/overview"
 
     if not no_browser:
 

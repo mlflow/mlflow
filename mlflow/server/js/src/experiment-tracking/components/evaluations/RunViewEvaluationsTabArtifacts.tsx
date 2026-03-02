@@ -25,6 +25,7 @@ import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableA
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { getTraceLegacy } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
+import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 
 export const RunViewEvaluationsTabArtifacts = ({
   experimentId,
@@ -121,19 +122,21 @@ export const RunViewEvaluationsTabArtifacts = ({
         overflowY: 'hidden',
       }}
     >
-      <div
-        css={{
-          width: '100%',
-          padding: `${theme.spacing.xs}px 0`,
-        }}
-      >
-        <EvaluationRunCompareSelector
-          experimentId={experimentId}
-          currentRunUuid={runUuid}
-          compareToRunUuid={compareToRunUuid}
-          setCompareToRunUuid={setCompareToRunUuid}
-        />
-      </div>
+      {!shouldEnableImprovedEvalRunsComparison() && (
+        <div
+          css={{
+            width: '100%',
+            padding: `${theme.spacing.xs}px 0`,
+          }}
+        >
+          <EvaluationRunCompareSelector
+            experimentId={experimentId}
+            currentRunUuid={runUuid}
+            compareToRunUuid={compareToRunUuid}
+            setCompareToRunUuid={setCompareToRunUuid}
+          />
+        </div>
+      )}
       {getOverviewTableComponent()}
     </div>
   );

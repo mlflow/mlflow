@@ -1,8 +1,7 @@
 from __future__ import annotations
 
+import re
 from typing import Any
-
-from mlflow.exceptions import MlflowException
 
 # Mapping: metric name -> (feedback method name, argument mapping)
 # Argument mapping: generic key -> TruLens-specific argument name
@@ -35,21 +34,18 @@ _METRIC_REGISTRY: dict[str, tuple[str, dict[str, str]]] = {
 
 
 def get_feedback_method_name(metric_name: str) -> str:
-    if metric_name not in _METRIC_REGISTRY:
-        available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
-        raise MlflowException.invalid_parameter_value(
-            f"Unknown TruLens metric: '{metric_name}'. Available metrics: {available_metrics}"
-        )
-    return _METRIC_REGISTRY[metric_name][0]
+    if metric_name in _METRIC_REGISTRY:
+        return _METRIC_REGISTRY[metric_name][0]
+    # Convert CamelCase to snake_case and append _with_cot_reasons
+    snake_case = re.sub(r"(?<!^)(?=[A-Z])", "_", metric_name).lower()
+    return f"{snake_case}_with_cot_reasons"
 
 
 def get_argument_mapping(metric_name: str) -> dict[str, str]:
-    if metric_name not in _METRIC_REGISTRY:
-        available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
-        raise MlflowException.invalid_parameter_value(
-            f"Unknown TruLens metric: '{metric_name}'. Available metrics: {available_metrics}"
-        )
-    return _METRIC_REGISTRY[metric_name][1]
+    if metric_name in _METRIC_REGISTRY:
+        return _METRIC_REGISTRY[metric_name][1]
+    # Return default empty mapping for unknown metrics
+    return {}
 
 
 def build_trulens_args(

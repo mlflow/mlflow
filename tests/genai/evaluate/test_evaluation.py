@@ -16,6 +16,7 @@ from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvaluationResult
+from mlflow.genai.evaluation.harness import _log_assessments
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.genai.simulators import ConversationSimulator
@@ -1402,3 +1403,88 @@ def test_evaluate_handles_empty_expectations(expectations_values, expected_count
     assert result.result_df is not None
     assert len(result.result_df) == expected_count
     assert result.metrics["always_pass/mean"] == 1.0
+
+
+from mlflow.genai.simulators.simulator import BaseSimulatedUserAgent
+
+
+class MockUserAgent(BaseSimulatedUserAgent):
+    def __init__(self, **kwargs):
+        pass
+
+    def generate_message(self, context):
+        if context.turn == 0:
+            return f"Hello, I want to {context.goal}"
+        return "[GOAL ACHIEVED]"
+
+
+def test_evaluate_with_simulator_creates_single_run(tmp_path):
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "get help"}],
+        max_turns=2,
+        user_agent_class=MockUserAgent,
+    )
+
+    def mock_predict_fn(input: list[dict[str, Any]], **kwargs):
+        return {"content": "Response"}
+
+    with mock.patch(
+        "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
+        return_value='{"rationale": "Goal achieved!", "result": "yes"}',
+    ):
+        mlflow.genai.evaluate(data=simulator, predict_fn=mock_predict_fn, scorers=[])
+
+    runs = mlflow.search_runs()
+    assert len(runs) == 1
+
+
+def test_evaluate_with_simulator_within_parent_run(tmp_path):
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("test-experiment")
+
+    simulator = ConversationSimulator(
+        test_cases=[{"goal": "get help"}],
+        max_turns=2,
+        user_agent_class=MockUserAgent,
+    )
+
+    def mock_predict_fn(input: list[dict[str, Any]], **kwargs):
+        return {"content": "Response"}
+
+    with mock.patch(
+        "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
+        return_value='{"rationale": "Goal achieved!", "result": "yes"}',
+    ):
+        with mlflow.start_run(run_name="parent-run") as parent_run:
+            parent_run_id = parent_run.info.run_id
+            mlflow.genai.evaluate(data=simulator, predict_fn=mock_predict_fn, scorers=[])
+            assert mlflow.active_run().info.run_id == parent_run_id
+
+    runs = mlflow.search_runs()
+    assert len(runs) == 1
+    assert runs.iloc[0]["tags.mlflow.runName"] == "parent-run"
+
+
+def test_log_assessments_preserves_existing_span_id(server_config):
+    with mlflow.start_span(name="root") as root:
+        with mlflow.start_span(name="retriever", span_type=SpanType.RETRIEVER) as retriever:
+            pass
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    _log_assessments(
+        run_id=None,
+        trace=trace,
+        assessments=[
+            Feedback(name="with_span_id", value="yes", span_id=retriever.span_id),
+            Feedback(name="without_span_id", value="yes"),
+        ],
+    )
+
+    trace = mlflow.get_trace(trace.info.trace_id)
+    logged = {a.name: a.span_id for a in trace.info.assessments}
+    assert logged["with_span_id"] == retriever.span_id
+    assert logged["without_span_id"] == root.span_id

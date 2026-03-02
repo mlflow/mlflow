@@ -17,6 +17,8 @@ import { useOverviewChartContext } from '../OverviewChartContext';
 export interface ToolErrorRateDataPoint {
   name: string;
   errorRate: number;
+  /** Raw timestamp in milliseconds for navigation */
+  timestampMs: number;
 }
 
 export interface UseToolErrorRateChartDataResult {
@@ -46,7 +48,7 @@ interface UseToolErrorRateChartDataProps {
 export function useToolErrorRateChartData({
   toolName,
 }: UseToolErrorRateChartDataProps): UseToolErrorRateChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
 
   // Filter for TOOL type spans with specific name
   const toolFilters = useMemo(
@@ -56,7 +58,7 @@ export function useToolErrorRateChartData({
 
   // Query span counts grouped by status and time bucket
   const { data, isLoading, error } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.SPANS,
@@ -105,6 +107,7 @@ export function useToolErrorRateChartData({
     return timeBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       errorRate: errorRateByTimestamp.get(timestampMs) || 0,
+      timestampMs,
     }));
   }, [timeBuckets, errorRateByTimestamp, timeIntervalSeconds]);
 

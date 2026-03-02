@@ -1,7 +1,6 @@
 import pytest
 
-from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.trulens.registry import get_feedback_method_name
+from mlflow.genai.scorers.trulens.registry import get_argument_mapping, get_feedback_method_name
 
 
 @pytest.mark.parametrize(
@@ -17,6 +16,25 @@ def test_get_feedback_method_name(metric_name, expected_method):
     assert get_feedback_method_name(metric_name) == expected_method
 
 
-def test_get_feedback_method_name_invalid_metric():
-    with pytest.raises(MlflowException, match="Unknown TruLens metric"):
-        get_feedback_method_name("InvalidMetric")
+def test_get_feedback_method_name_unknown_metric():
+    # Unknown metrics should return inferred method name
+    assert get_feedback_method_name("NewMetric") == "new_metric_with_cot_reasons"
+    assert get_feedback_method_name("SomeOtherMetric") == "some_other_metric_with_cot_reasons"
+
+
+@pytest.mark.parametrize(
+    ("metric_name", "expected_mapping"),
+    [
+        ("Groundedness", {"context": "source", "output": "statement"}),
+        ("ContextRelevance", {"input": "question", "context": "context"}),
+        ("AnswerRelevance", {"input": "prompt", "output": "response"}),
+        ("Coherence", {"output": "text"}),
+    ],
+)
+def test_get_argument_mapping(metric_name, expected_mapping):
+    assert get_argument_mapping(metric_name) == expected_mapping
+
+
+def test_get_argument_mapping_unknown_metric():
+    # Unknown metrics should return empty mapping
+    assert get_argument_mapping("UnknownMetric") == {}

@@ -1,11 +1,11 @@
 import { isNil } from 'lodash';
 
+import { ERROR_KEY } from './AggregationUtils';
 import {
   getEvaluationResultAssessmentValue,
   KnownEvaluationResultAssessmentName,
 } from '../components/GenAiEvaluationTracesReview.utils';
 import type { AssessmentFilter, EvalTraceComparisonEntry } from '../types';
-import { ERROR_KEY } from './AggregationUtils';
 
 function filterEval(
   comparisonEntry: EvalTraceComparisonEntry,

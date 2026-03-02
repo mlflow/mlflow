@@ -21,6 +21,7 @@ from mlflow.gateway.config import (
     AnthropicConfig,
     EndpointConfig,
     EndpointType,
+    GatewayRequestType,
     GeminiConfig,
     LiteLLMConfig,
     MistralConfig,
@@ -38,7 +39,8 @@ from mlflow.gateway.providers.base import (
     TrafficRouteProvider,
 )
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.utils import make_streaming_response, translate_http_exception
+from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
+from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
@@ -50,6 +52,7 @@ from mlflow.store.tracking.gateway.entities import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationType
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
@@ -57,7 +60,7 @@ _logger = logging.getLogger(__name__)
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
 
 
-async def _get_request_body(request: Request) -> dict:
+async def _get_request_body(request: Request) -> dict[str, Any]:
     """
     Get request body, using cached version if available.
 
@@ -84,6 +87,26 @@ async def _get_request_body(request: Request) -> dict:
         return await request.json()
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e!s}")
+
+
+def _get_user_metadata(request: Request) -> dict[str, Any]:
+    """
+    Extract user metadata from request state for tracing.
+
+    The auth middleware stores the authenticated user's info in request.state.
+
+    Args:
+        request: The FastAPI Request object.
+
+    Returns:
+        Dictionary with user metadata (username and user_id if available).
+    """
+    metadata = {}
+    if username := getattr(request.state, "username", None):
+        metadata[TraceMetadataKey.AUTH_USERNAME] = username
+    if user_id := getattr(request.state, "user_id", None):
+        metadata[TraceMetadataKey.AUTH_USER_ID] = str(user_id)
+    return metadata
 
 
 def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callable[..., Any]:
@@ -224,6 +247,7 @@ def _build_endpoint_config(
 def _create_provider(
     endpoint_config: GatewayEndpointConfig,
     endpoint_type: EndpointType,
+    enable_tracing: bool = False,
 ) -> BaseProvider:
     """
     Create a provider instance based on endpoint routing strategy.
@@ -272,6 +296,7 @@ def _create_provider(
             configs=configs,
             traffic_splits=weights,
             routing_strategy="TRAFFIC_SPLIT",
+            enable_tracing=enable_tracing,
         )
     else:
         # Default: use the first PRIMARY model
@@ -280,7 +305,7 @@ def _create_provider(
             endpoint_config.endpoint_name, model_config, endpoint_type
         )
         provider_class = get_provider(model_config.provider)
-        primary_provider = provider_class(gateway_endpoint_config)
+        primary_provider = provider_class(gateway_endpoint_config, enable_tracing=enable_tracing)
 
     # Wrap with FallbackProvider if fallback configuration exists
     if endpoint_config.fallback_config:
@@ -291,7 +316,7 @@ def _create_provider(
         ]
 
         if not fallback_models:
-            _logger.warning(
+            _logger.debug(
                 f"Endpoint '{endpoint_config.endpoint_name}' has fallback_config "
                 "but no FALLBACK models configured"
             )
@@ -308,7 +333,8 @@ def _create_provider(
                     endpoint_name=endpoint_config.endpoint_name,
                     model_config=model_config,
                     endpoint_type=endpoint_type,
-                )
+                ),
+                enable_tracing=enable_tracing,
             )
             for model_config in fallback_models
         ]
@@ -316,13 +342,13 @@ def _create_provider(
         max_attempts = endpoint_config.fallback_config.max_attempts or len(fallback_models)
 
         # FallbackProvider expects all providers (primary + fallback)
-        # We need to create a combined provider that tries primary first, then fallbacks
         all_providers = [primary_provider] + fallback_providers
 
         return FallbackProvider(
             providers=all_providers,
             max_attempts=max_attempts + 1,  # +1 to include primary
             strategy=endpoint_config.fallback_config.strategy,
+            enable_tracing=enable_tracing,
         )
 
     return primary_provider
@@ -332,20 +358,24 @@ def _create_provider_from_endpoint_name(
     store: SqlAlchemyStore,
     endpoint_name: str,
     endpoint_type: EndpointType,
-) -> BaseProvider:
+    enable_tracing: bool = True,
+) -> tuple[BaseProvider, GatewayEndpointConfig]:
     """
-    Create a provider from an endpoint name (backward compatibility helper for tests).
+    Create a provider from an endpoint name.
 
     Args:
         store: The SQLAlchemy store instance.
         endpoint_name: The endpoint name.
         endpoint_type: Endpoint type (chat or embeddings).
+        enable_tracing: If True, enables MLflow tracing for provider calls.
 
     Returns:
-        Provider instance
+        Tuple of (provider instance, endpoint config)
     """
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
-    return _create_provider(endpoint_config, endpoint_type)
+    return _create_provider(
+        endpoint_config, endpoint_type, enable_tracing=enable_tracing
+    ), endpoint_config
 
 
 def _validate_store(store: AbstractStore) -> None:
@@ -391,6 +421,8 @@ async def invocations(endpoint_name: str, request: Request):
     - If payload has "input" field -> embeddings endpoint
     """
     body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
+    headers = dict(request.headers)
 
     store = _get_store()
 
@@ -405,12 +437,31 @@ async def invocations(endpoint_name: str, request: Request):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-        provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
+        provider, endpoint_config = _create_provider_from_endpoint_name(
+            store, endpoint_name, endpoint_type
+        )
 
         if payload.stream:
-            return await make_streaming_response(provider.chat_stream(payload))
+            stream = maybe_traced_gateway_call(
+                provider.chat_stream,
+                endpoint_config,
+                user_metadata,
+                output_reducer=aggregate_chat_stream_chunks,
+                request_headers=headers,
+                request_type=GatewayRequestType.UNIFIED_CHAT,
+            )(payload)
+            return StreamingResponse(
+                safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+                media_type="text/event-stream",
+            )
         else:
-            return await provider.chat(payload)
+            return await maybe_traced_gateway_call(
+                provider.chat,
+                endpoint_config,
+                user_metadata,
+                request_headers=headers,
+                request_type=GatewayRequestType.UNIFIED_CHAT,
+            )(payload)
 
     elif "input" in body:
         # Embeddings request
@@ -420,9 +471,17 @@ async def invocations(endpoint_name: str, request: Request):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
 
-        provider = _create_provider_from_endpoint_name(store, endpoint_name, endpoint_type)
+        provider, endpoint_config = _create_provider_from_endpoint_name(
+            store, endpoint_name, endpoint_type
+        )
 
-        return await provider.embeddings(payload)
+        return await maybe_traced_gateway_call(
+            provider.embeddings,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.UNIFIED_EMBEDDINGS,
+        )(payload)
 
     else:
         raise HTTPException(
@@ -450,6 +509,8 @@ async def chat_completions(request: Request):
         }
     """
     body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
+    headers = dict(request.headers)
 
     # Extract endpoint name from "model" parameter
     endpoint_name = _extract_endpoint_name_from_model(body)
@@ -464,12 +525,31 @@ async def chat_completions(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
 
     if payload.stream:
-        return await make_streaming_response(provider.chat_stream(payload))
+        stream = maybe_traced_gateway_call(
+            provider.chat_stream,
+            endpoint_config,
+            user_metadata,
+            output_reducer=aggregate_chat_stream_chunks,
+            request_headers=headers,
+            request_type=GatewayRequestType.UNIFIED_CHAT,
+        )(payload)
+        return StreamingResponse(
+            safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
+            media_type="text/event-stream",
+        )
     else:
-        return await provider.chat(payload)
+        return await maybe_traced_gateway_call(
+            provider.chat,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.UNIFIED_CHAT,
+        )(payload)
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
@@ -495,6 +575,7 @@ async def openai_passthrough_chat(request: Request):
         }
     """
     body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -502,12 +583,41 @@ async def openai_passthrough_chat(request: Request):
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough(PassthroughAction.OPENAI_CHAT, body, headers)
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
 
-    if body.get("stream"):
-        return StreamingResponse(response, media_type="text/event-stream")
-    return response
+    if body.get("stream", False):
+        stream = await provider.passthrough(
+            action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
+        )
+
+        # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
+        async def yield_stream(body: dict[str, Any]):
+            async for chunk in stream:
+                yield chunk
+
+        traced_stream = maybe_traced_gateway_call(
+            yield_stream,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
+        )
+        return StreamingResponse(
+            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+        )
+
+    traced_passthrough = maybe_traced_gateway_call(
+        provider.passthrough,
+        endpoint_config,
+        user_metadata,
+        request_headers=headers,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
+    )
+    return await traced_passthrough(
+        action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
+    )
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
@@ -529,6 +639,7 @@ async def openai_passthrough_embeddings(request: Request):
         }
     """
     body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -536,10 +647,20 @@ async def openai_passthrough_embeddings(request: Request):
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(
+    provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
-    return await provider.passthrough(PassthroughAction.OPENAI_EMBEDDINGS, body, headers)
+
+    traced_passthrough = maybe_traced_gateway_call(
+        provider.passthrough,
+        endpoint_config,
+        user_metadata,
+        request_headers=headers,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS,
+    )
+    return await traced_passthrough(
+        action=PassthroughAction.OPENAI_EMBEDDINGS, payload=body, headers=headers
+    )
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
@@ -565,6 +686,7 @@ async def openai_passthrough_responses(request: Request):
         }
     """
     body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -572,12 +694,41 @@ async def openai_passthrough_responses(request: Request):
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough(PassthroughAction.OPENAI_RESPONSES, body, headers)
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
 
-    if body.get("stream"):
-        return StreamingResponse(response, media_type="text/event-stream")
-    return response
+    if body.get("stream", False):
+        stream = await provider.passthrough(
+            action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
+        )
+
+        # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
+        async def yield_stream(body: dict[str, Any]):
+            async for chunk in stream:
+                yield chunk
+
+        traced_stream = maybe_traced_gateway_call(
+            yield_stream,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
+        )
+        return StreamingResponse(
+            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+        )
+
+    traced_passthrough = maybe_traced_gateway_call(
+        provider.passthrough,
+        endpoint_config,
+        user_metadata,
+        request_headers=headers,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
+    )
+    return await traced_passthrough(
+        action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
+    )
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
@@ -603,6 +754,7 @@ async def anthropic_passthrough_messages(request: Request):
         }
     """
     body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
 
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
@@ -610,12 +762,41 @@ async def anthropic_passthrough_messages(request: Request):
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, body, headers)
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
 
-    if body.get("stream"):
-        return StreamingResponse(response, media_type="text/event-stream")
-    return response
+    if body.get("stream", False):
+        stream = await provider.passthrough(
+            action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
+        )
+
+        # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
+        async def yield_stream(body: dict[str, Any]):
+            async for chunk in stream:
+                yield chunk
+
+        traced_stream = maybe_traced_gateway_call(
+            yield_stream,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
+        )
+        return StreamingResponse(
+            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+        )
+
+    traced_passthrough = maybe_traced_gateway_call(
+        provider.passthrough,
+        endpoint_config,
+        user_metadata,
+        request_headers=headers,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
+    )
+    return await traced_passthrough(
+        action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
+    )
 
 
 @gateway_router.post(
@@ -643,13 +824,26 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         }
     """
     body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
 
     store = _get_store()
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    return await provider.passthrough(PassthroughAction.GEMINI_GENERATE_CONTENT, body, headers)
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
+
+    traced_passthrough = maybe_traced_gateway_call(
+        provider.passthrough,
+        endpoint_config,
+        user_metadata,
+        request_headers=headers,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
+    )
+    return await traced_passthrough(
+        action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
+    )
 
 
 @gateway_router.post(
@@ -677,13 +871,32 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         }
     """
     body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
 
     store = _get_store()
     _validate_store(store)
 
     headers = dict(request.headers)
-    provider = _create_provider_from_endpoint_name(store, endpoint_name, EndpointType.LLM_V1_CHAT)
-    response = await provider.passthrough(
-        PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, body, headers
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
-    return StreamingResponse(response, media_type="text/event-stream")
+
+    stream = await provider.passthrough(
+        action=PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, payload=body, headers=headers
+    )
+
+    # Wrap stream iteration in an async generator so @mlflow.trace properly captures chunks
+    async def yield_stream(body: dict[str, Any]):
+        async for chunk in stream:
+            yield chunk
+
+    traced_stream = maybe_traced_gateway_call(
+        yield_stream,
+        endpoint_config,
+        user_metadata,
+        request_headers=headers,
+        request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
+    )
+    return StreamingResponse(
+        safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+    )

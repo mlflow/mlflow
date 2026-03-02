@@ -96,7 +96,7 @@ export const OpenAICompatibleGatewayDoc: React.FC<Props> = ({ gatewayId }) => {
             <CodeBlock language="bash">pip install mlflow openai</CodeBlock>
           </TabItem>
           <TabItem value="typescript" label="TypeScript">
-            <CodeBlock language="bash">npm install mlflow-openai openai</CodeBlock>
+            <CodeBlock language="bash">npm install @mlflow/openai openai</CodeBlock>
           </TabItem>
         </Tabs>
       </TabsWrapper>
@@ -148,8 +148,8 @@ print(response.choices[0].message.content)`}
               <code>tracedOpenAI</code> function.
             </p>
             <CodeBlock language="typescript">
-              {`import { init } from "mlflow-tracing";
-import { tracedOpenAI } from "mlflow-openai";
+              {`import { init } from "@mlflow/core";
+import { tracedOpenAI } from "@mlflow/openai";
 import { OpenAI } from "openai";
 
 // Initialize MLflow tracing
@@ -223,8 +223,8 @@ print(answer)`}
           </TabItem>
           <TabItem value="typescript" label="TypeScript">
             <CodeBlock language="typescript">
-              {`import { init, trace, SpanType } from "mlflow-tracing";
-import { tracedOpenAI } from "mlflow-openai";
+              {`import { init, trace, SpanType } from "@mlflow/core";
+import { tracedOpenAI } from "@mlflow/openai";
 import { OpenAI } from "openai";
 
 init({
@@ -290,8 +290,8 @@ for chunk in stream:
           </TabItem>
           <TabItem value="typescript" label="TypeScript">
             <CodeBlock language="typescript">
-              {`import { init } from "mlflow-tracing";
-import { tracedOpenAI } from "mlflow-openai";
+              {`import { init } from "@mlflow/core";
+import { tracedOpenAI } from "@mlflow/openai";
 import { OpenAI } from "openai";
 
 init({

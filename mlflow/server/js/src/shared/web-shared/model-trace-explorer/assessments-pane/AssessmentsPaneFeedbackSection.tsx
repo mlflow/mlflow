@@ -5,11 +5,12 @@ import {
   GavelIcon,
   PlusIcon,
   Spacer,
+  StopCircleFillIcon,
   TableSkeleton,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FeedbackAssessment } from '../ModelTrace.types';
+import type { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -79,17 +80,14 @@ const AddFeedbackButton = ({
               size="small"
               icon={<PlusIcon />}
             >
-              <FormattedMessage
-                defaultMessage="Add feedback"
-                description="Label for the button to add a new feedback"
-              />
+              <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add new feedback" />
             </Button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Content>
             <DropdownMenu.Item componentId="mlflow.model-trace-explorer.add-human-feedback" onClick={onClick}>
               <FormattedMessage
                 defaultMessage="Human feedback"
-                description="Label for the button to add a human feedback to the trace"
+                description="Label for the button to add human feedback to the trace"
               />
             </DropdownMenu.Item>
             <DropdownMenu.Item
@@ -98,7 +96,7 @@ const AddFeedbackButton = ({
             >
               <FormattedMessage
                 defaultMessage="LLM judge feedback"
-                description="Label for the button to add a LLM judge feedback to the trace"
+                description="Label for the button to add LLM judge feedback to the trace"
               />
             </DropdownMenu.Item>
           </DropdownMenu.Content>
@@ -120,7 +118,7 @@ const AddFeedbackButton = ({
       icon={<PlusIcon />}
       onClick={onClick}
     >
-      <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add a new feedback" />
+      <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add new feedback" />
     </Button>
   );
 };
@@ -142,7 +140,7 @@ export const AssessmentsPaneFeedbackSection = ({
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
 
-  const { evaluations, subscribeToScorerFinished } = useModelTraceExplorerRunJudgesContext();
+  const { evaluations, subscribeToScorerFinished, reset } = useModelTraceExplorerRunJudgesContext();
 
   // Derive evaluations for this trace from context state
   const currentTraceEvaluations = useMemo(() => {
@@ -254,19 +252,36 @@ export const AssessmentsPaneFeedbackSection = ({
           {/* <AssessmentSourceTypeTag sourceType="LLM_JUDGE" /> */}
           <Typography.Text bold>{evaluation.label}</Typography.Text>
           <TableSkeleton lines={3} />
+          {reset && (
+            <Button
+              componentId="shared.model-trace-explorer.cancel-evaluation"
+              size="small"
+              icon={<StopCircleFillIcon />}
+              onClick={() => reset(evaluation.requestKey)}
+            >
+              <FormattedMessage
+                defaultMessage="Cancel judge"
+                description="Button text for canceling judge evaluation"
+              />
+            </Button>
+          )}
         </div>
       ))}
 
-      {groupedFeedbacks.map(([name, valuesMap]) => (
-        <FeedbackGroup
-          key={name}
-          name={name}
-          valuesMap={valuesMap}
-          traceId={traceId}
-          activeSpanId={activeSpanId}
-          loading={loadingEvaluations.some((evaluation) => evaluation.label === name)}
-        />
-      ))}
+      {groupedFeedbacks.map(([name, valuesMap]) => {
+        const loadingEvaluation = loadingEvaluations.find((evaluation) => evaluation.label === name);
+        return (
+          <FeedbackGroup
+            key={name}
+            name={name}
+            valuesMap={valuesMap}
+            traceId={traceId}
+            activeSpanId={activeSpanId}
+            loading={Boolean(loadingEvaluation)}
+            onCancelLoading={loadingEvaluation && reset ? () => reset(loadingEvaluation.requestKey) : undefined}
+          />
+        );
+      })}
       {isSectionEmpty && !createFormVisible && (
         <div
           css={{
@@ -278,8 +293,8 @@ export const AssessmentsPaneFeedbackSection = ({
         >
           <Typography.Hint>
             <FormattedMessage
-              defaultMessage="Add a custom feedback to this trace."
-              description="Hint message prompting user to add a new feedback"
+              defaultMessage="Add custom feedback to this trace."
+              description="Hint message prompting user to add new feedback"
             />{' '}
             <Typography.Link
               componentId="shared.model-trace-explorer.feedback-learn-more-link"

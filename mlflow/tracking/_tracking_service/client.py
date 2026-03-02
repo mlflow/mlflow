@@ -9,6 +9,7 @@ import os
 import sys
 from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, Literal
+from urllib import parse as urllib_parse
 
 from mlflow.entities import (
     ExperimentTag,
@@ -74,6 +75,8 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_run_id,
 )
+from mlflow.utils.workspace_context import get_request_workspace
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -775,6 +778,12 @@ class TrackingServiceClient:
         else:
             experiment_url = f"{host_url}/#/experiments/{experiment_id}"
         run_url = f"{experiment_url}/runs/{run_id}"
+
+        workspace = get_request_workspace()
+        if workspace and workspace != DEFAULT_WORKSPACE_NAME:
+            encoded = urllib_parse.quote(workspace, safe="")
+            experiment_url = f"{experiment_url}?workspace={encoded}"
+            run_url = f"{run_url}?workspace={encoded}"
 
         sys.stdout.write(f"🏃 View run {run_name} at: {run_url}\n")
         sys.stdout.write(f"🧪 View experiment at: {experiment_url}\n")

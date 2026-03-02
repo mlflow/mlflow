@@ -80,7 +80,11 @@ export const TrafficSplitConfigurator = ({
       ))}
 
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Button componentId={`${componentIdPrefix}.add`} icon={<PlusIcon />} onClick={handleAddModel}>
+        <Button
+          componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_TrafficSplitConfigurator.tsx_83"
+          icon={<PlusIcon />}
+          onClick={handleAddModel}
+        >
           <FormattedMessage
             defaultMessage="Add model for traffic split"
             description="Button to add model for traffic split"

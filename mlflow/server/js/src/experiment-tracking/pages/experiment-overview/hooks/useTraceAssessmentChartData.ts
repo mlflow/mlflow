@@ -20,6 +20,8 @@ import { useOverviewChartContext } from '../OverviewChartContext';
 export interface AssessmentChartDataPoint {
   name: string;
   value: number | null;
+  /** Raw timestamp in milliseconds for navigation */
+  timestampMs: number;
 }
 
 export interface DistributionChartDataPoint {
@@ -50,7 +52,7 @@ export interface UseTraceAssessmentChartDataResult {
  * @returns Processed chart data (time series and distribution), loading state, and error state
  */
 export function useTraceAssessmentChartData(assessmentName: string): UseTraceAssessmentChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Create filters for feedback assessments with the given name
   const filters = useMemo(() => [createAssessmentFilter(AssessmentFilterKey.NAME, assessmentName)], [assessmentName]);
 
@@ -60,7 +62,7 @@ export function useTraceAssessmentChartData(assessmentName: string): UseTraceAss
     isLoading: isLoadingTimeSeries,
     error: timeSeriesError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.ASSESSMENTS,
@@ -76,7 +78,7 @@ export function useTraceAssessmentChartData(assessmentName: string): UseTraceAss
     isLoading: isLoadingDistribution,
     error: distributionError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.ASSESSMENTS,
@@ -101,6 +103,7 @@ export function useTraceAssessmentChartData(assessmentName: string): UseTraceAss
     return timeBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       value: valuesByTimestamp.get(timestampMs) ?? null,
+      timestampMs,
     }));
   }, [timeBuckets, valuesByTimestamp, timeIntervalSeconds]);
 

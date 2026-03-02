@@ -236,6 +236,30 @@ def test_agentic_loop_final_answer_without_tool_calls():
         assert mock_call.call_count == 1
 
 
+def test_agentic_loop_forwards_use_case():
+    mock_response = AttrDict(
+        {
+            "output_json": json.dumps(
+                {"choices": [{"message": {"role": "assistant", "content": "done"}}]}
+            )
+        }
+    )
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+        return_value=mock_response,
+    ) as mock_call:
+        _run_databricks_agentic_loop(
+            messages=[litellm.Message(role="user", content="test")],
+            trace=None,
+            on_final_answer=lambda content: content,
+            use_case="builtin_judge",
+        )
+
+        _, kwargs = mock_call.call_args
+        assert kwargs["use_case"] == "builtin_judge"
+
+
 def test_agentic_loop_tool_calling_loop(mock_trace):
     # First response has tool calls, second response is final answer
     mock_responses = [

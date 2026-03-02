@@ -3,10 +3,11 @@ from unittest.mock import patch
 
 import pytest
 
-from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
+from mlflow.entities.webhook import Webhook, WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.webhooks.delivery import deliver_webhook
+from mlflow.webhooks.delivery import test_webhook as send_test_webhook
 
 
 @pytest.fixture
@@ -101,3 +102,20 @@ def test_deliver_webhook_no_exception_for_file_store(
         # _deliver_webhook_impl should not be called, so no error should be logged
         mock_impl.assert_not_called()
         mock_logger.error.assert_not_called()
+
+
+def test_test_webhook_rejects_private_ip():
+    event = WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)
+    webhook = Webhook(
+        webhook_id="wh-1",
+        name="test",
+        url="https://localhost/hook",
+        events=[event],
+        creation_timestamp=0,
+        last_updated_timestamp=0,
+    )
+
+    result = send_test_webhook(webhook)
+
+    assert result.success is False
+    assert "must not resolve to a non-public" in result.error_message

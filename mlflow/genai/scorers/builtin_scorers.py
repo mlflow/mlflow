@@ -501,10 +501,14 @@ class RetrievalRelevance(BuiltInScorer):
                 request=request, retrieved_context=chunks, assessment_name=self.name
             )
         else:
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
                 prompt = get_prompt(request=request, context=chunk["content"])
                 feedback = invoke_judge_model(model, prompt, assessment_name=self.name)
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
+                sanitized_feedback.metadata = {
+                    **(sanitized_feedback.metadata or {}),
+                    "chunk_index": i,
+                }
                 chunk_feedbacks.append(sanitized_feedback)
 
         for feedback in chunk_feedbacks:
@@ -2849,7 +2853,7 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         Args:
             session: List of traces from the same conversation session.
             expectations: Not used for this scorer.
-            **kwargs: Additional arguments (will raise TypeError if provided).
+            kwargs: Additional arguments (will raise TypeError if provided).
 
         Returns:
             A single Feedback object with value "yes" or "no", plus detailed rationale

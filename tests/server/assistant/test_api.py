@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -59,7 +60,7 @@ class MockProvider(AssistantProvider):
         tracking_uri: str,
         session_id: str | None = None,
         cwd: Path | None = None,
-        context: dict | None = None,
+        context: dict[str, Any] | None = None,
         mlflow_session_id: str | None = None,
     ):
         yield Event.from_message(message=Message(role="user", content="Hello from mock"))

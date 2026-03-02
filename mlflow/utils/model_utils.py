@@ -23,13 +23,62 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_parent_module
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.requirements_utils import _capture_imported_modules
 from mlflow.utils.uri import append_to_uri_path
 
 FLAVOR_CONFIG_CODE = "code"
+EXTRA_FILES_KEY = "extra_files"
 
 _logger = logging.getLogger(__name__)
+
+
+def _copy_extra_files(extra_files, path):
+    """Validates and copies extra files to the model directory.
+
+    Downloads extra files from URIs and copies them to an 'extra_files' subdirectory
+    within the model path.
+
+    Args:
+        extra_files: A list of URIs or local paths to extra files that should be saved
+            alongside the model. Remote URIs are resolved to absolute filesystem paths.
+        path: The local model path where the extra files will be stored.
+
+    Returns:
+        A dictionary with the extra_files configuration that should be added to the
+        flavor config. Returns an empty dict if extra_files is None or empty.
+
+    Raises:
+        TypeError: If extra_files is not a list.
+
+    Example:
+        >>> extra_files_config = _copy_extra_files(
+        ...     ["s3://bucket/f1.txt", "/local/f2.txt"], "/path/to/model"
+        ... )
+        >>> # extra_files_config will be:
+        >>> # {"extra_files": [{"path": "extra_files/f1.txt"}, {"path": "extra_files/f2.txt"}]}
+    """
+    if not extra_files:
+        return {}
+
+    if not isinstance(extra_files, list):
+        raise TypeError("Extra files argument should be a list")
+
+    extra_files_config = {EXTRA_FILES_KEY: []}
+
+    with TempDir() as tmp_extra_files_dir:
+        for extra_file in extra_files:
+            _download_artifact_from_uri(
+                artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
+            )
+            rel_path = os.path.join(EXTRA_FILES_KEY, os.path.basename(extra_file))
+            extra_files_config[EXTRA_FILES_KEY].append({"path": rel_path})
+        shutil.move(
+            tmp_extra_files_dir.path(),
+            os.path.join(path, EXTRA_FILES_KEY),
+        )
+
+    return extra_files_config
 
 
 def _get_all_flavor_configurations(model_path):

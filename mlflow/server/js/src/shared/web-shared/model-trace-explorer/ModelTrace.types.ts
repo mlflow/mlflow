@@ -1,4 +1,4 @@
-import type { TimelineTreeNode } from './timeline-tree';
+import type { TimelineTreeNode } from './timeline-tree/TimelineTree.types';
 
 export const MLFLOW_TRACE_SCHEMA_VERSION_KEY = 'mlflow.trace_schema.version';
 

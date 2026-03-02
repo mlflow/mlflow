@@ -1,0 +1,194 @@
+from __future__ import annotations
+
+import pytest
+import werkzeug
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from flask import Flask
+
+from mlflow.entities import Workspace
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.exceptions import MlflowException
+from mlflow.server import app as flask_app
+from mlflow.server.fastapi_app import add_fastapi_workspace_middleware
+from mlflow.server.job_api import job_api_router
+from mlflow.server.workspace_helpers import (
+    WORKSPACE_HEADER_NAME,
+    workspace_before_request_handler,
+    workspace_teardown_request_handler,
+)
+from mlflow.utils import workspace_context
+
+
+@pytest.fixture
+def flask_workspace_app(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    if not hasattr(werkzeug, "__version__"):
+        werkzeug.__version__ = "tests"
+
+    app = Flask(__name__)
+    app.before_request(workspace_before_request_handler)
+    app.teardown_request(workspace_teardown_request_handler)
+
+    @app.route("/ping")
+    def _ping():
+        return workspace_context.get_request_workspace() or "none"
+
+    return app
+
+
+def test_flask_workspace_middleware_sets_context(flask_workspace_app, monkeypatch):
+    class DummyWorkspaceStore:
+        def get_workspace(self, name):
+            return Workspace(name=name)
+
+    store = DummyWorkspaceStore()
+    monkeypatch.setattr(
+        "mlflow.server.workspace_helpers._get_workspace_store",
+        lambda workspace_uri=None, tracking_uri=None: store,
+    )
+
+    client = flask_workspace_app.test_client()
+    resp = client.get("/ping", headers={WORKSPACE_HEADER_NAME: "team-a"})
+    assert resp.data.decode() == "team-a"
+    assert workspace_context.get_request_workspace() is None
+
+
+def test_flask_workspace_middleware_requires_header(flask_workspace_app, monkeypatch):
+    class DefaultlessWorkspaceStore:
+        def get_default_workspace(self):
+            raise MlflowException.invalid_parameter_value("Active workspace is required.")
+
+    store = DefaultlessWorkspaceStore()
+    monkeypatch.setattr(
+        "mlflow.server.workspace_helpers._get_workspace_store",
+        lambda workspace_uri=None, tracking_uri=None: store,
+    )
+
+    client = flask_workspace_app.test_client()
+    resp = client.get("/ping")
+    assert resp.status_code == 400
+    assert "Active workspace is required" in resp.json["message"]
+    assert workspace_context.get_request_workspace() is None
+
+
+def _fastapi_workspace_app(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    app = FastAPI()
+    add_fastapi_workspace_middleware(app)
+
+    ping_path = f"{job_api_router.prefix}/ping"
+
+    @app.get(ping_path)
+    async def ping():
+        return {"workspace": workspace_context.get_request_workspace()}
+
+    return app, ping_path
+
+
+def test_fastapi_workspace_middleware_sets_context(monkeypatch):
+    app, ping_path = _fastapi_workspace_app(monkeypatch)
+    monkeypatch.setattr(
+        "mlflow.server.fastapi_app.resolve_workspace_for_request_if_enabled",
+        lambda _path, header: Workspace(name=header),
+    )
+
+    client = TestClient(app)
+    resp = client.get(ping_path, headers={WORKSPACE_HEADER_NAME: "team-fast"})
+    assert resp.status_code == 200
+    assert resp.json() == {"workspace": "team-fast"}
+    assert workspace_context.get_request_workspace() is None
+
+
+def test_fastapi_workspace_middleware_handles_missing_header(monkeypatch):
+    app, ping_path = _fastapi_workspace_app(monkeypatch)
+    monkeypatch.setattr(
+        "mlflow.server.fastapi_app.resolve_workspace_for_request_if_enabled",
+        lambda _path, _header: None,
+    )
+
+    client = TestClient(app)
+    resp = client.get(ping_path)
+    assert resp.status_code == 200
+    assert resp.json() == {"workspace": None}
+    assert workspace_context.get_request_workspace() is None
+
+
+def test_server_info_workspaces_enabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    client = flask_app.test_client()
+    resp = client.get("/api/3.0/mlflow/server-info")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["workspaces_enabled"] is True
+
+    # Disable workspaces and ensure the endpoint reflects the change.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    resp = client.get("/api/3.0/mlflow/server-info")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["workspaces_enabled"] is False
+
+
+def test_server_info_skips_workspace_resolution(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    def _raise_if_called(_header_workspace):
+        raise AssertionError("workspace resolution should not run for server-info")
+
+    monkeypatch.setattr(
+        "mlflow.server.workspace_helpers.resolve_workspace_from_header", _raise_if_called
+    )
+
+    client = flask_app.test_client()
+    resp = client.get("/api/3.0/mlflow/server-info", headers={WORKSPACE_HEADER_NAME: "missing"})
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["workspaces_enabled"] is True
+
+
+def test_fastapi_wsgi_flask_workspace_propagation(monkeypatch):
+    from fastapi.middleware.wsgi import WSGIMiddleware
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    if not hasattr(werkzeug, "__version__"):
+        werkzeug.__version__ = "tests"
+
+    flask_resolution_count = []
+
+    original_resolve = workspace_context.is_request_workspace_resolved
+
+    def tracking_is_resolved():
+        result = original_resolve()
+        flask_resolution_count.append(result)
+        return result
+
+    monkeypatch.setattr(
+        "mlflow.server.workspace_helpers.workspace_context.is_request_workspace_resolved",
+        tracking_is_resolved,
+    )
+
+    test_flask_app = Flask(__name__)
+    test_flask_app.before_request(workspace_before_request_handler)
+    test_flask_app.teardown_request(workspace_teardown_request_handler)
+
+    @test_flask_app.route("/flask-ping")
+    def _flask_ping():
+        return workspace_context.get_request_workspace() or "none"
+
+    fastapi_app = FastAPI()
+    add_fastapi_workspace_middleware(fastapi_app)
+    fastapi_app.mount("/", WSGIMiddleware(test_flask_app))
+
+    monkeypatch.setattr(
+        "mlflow.server.fastapi_app.resolve_workspace_for_request_if_enabled",
+        lambda _path, header: Workspace(name=header) if header else None,
+    )
+
+    client = TestClient(fastapi_app)
+    resp = client.get("/flask-ping", headers={WORKSPACE_HEADER_NAME: "team-wsgi"})
+
+    assert resp.status_code == 200
+    assert resp.text == "team-wsgi"
+    assert len(flask_resolution_count) == 1
+    assert flask_resolution_count[0] is True

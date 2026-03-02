@@ -128,7 +128,8 @@ repos:
         exclude: |
           (?x)^(
             \.pre-commit-config\.yaml|
-            changelogs/CHANGELOG\.md|
+            CHANGELOG\.md|
+            changelogs/.*|
             docs/api_reference/source/R-api\.rst|
             examples/llms/RAG/.*\.(json|csv)|
             mlflow/cli/__init__\.py|

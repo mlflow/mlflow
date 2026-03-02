@@ -7,7 +7,7 @@ export interface ProviderGroup {
   providers: string[];
 }
 
-export const PROVIDER_GROUPS: Record<string, Omit<ProviderGroup, 'providers'>> = {
+export const PROVIDER_GROUPS = {
   openai_azure: {
     groupId: 'openai_azure',
     displayName: 'OpenAI / Azure OpenAI',
@@ -32,9 +32,9 @@ export function buildProviderGroups(providers: string[]): {
   for (const provider of providers) {
     const groupId = getProviderGroupId(provider);
     if (groupId) {
-      const existing = groupedProviders.get(groupId) ?? [];
+      const existing = groupedProviders.get(groupId as keyof typeof PROVIDER_GROUPS) ?? [];
       existing.push(provider);
-      groupedProviders.set(groupId, existing);
+      groupedProviders.set(groupId as keyof typeof PROVIDER_GROUPS, existing);
     } else {
       ungroupedProviders.push(provider);
     }
@@ -62,7 +62,7 @@ export function buildProviderGroups(providers: string[]): {
   return { groups, ungroupedProviders };
 }
 
-const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+const PROVIDER_DISPLAY_NAMES = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   bedrock: 'Amazon Bedrock',
@@ -83,18 +83,18 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   deepinfra: 'DeepInfra',
   nvidia_nim: 'NVIDIA NIM',
   cerebras: 'Cerebras',
-};
+} satisfies Record<string, string>;
 
 export function formatProviderName(provider: string): string {
-  if (PROVIDER_DISPLAY_NAMES[provider]) {
-    return PROVIDER_DISPLAY_NAMES[provider];
+  if (provider in PROVIDER_DISPLAY_NAMES) {
+    return PROVIDER_DISPLAY_NAMES[provider as keyof typeof PROVIDER_DISPLAY_NAMES];
   }
 
   return provider.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function formatAuthMethodName(authMethod: string): string {
-  const formatMap: Record<string, string> = {
+  const formatMap = {
     auth_token: 'Auth Token',
     api_key: 'API Key',
     access_key: 'Access Key',
@@ -105,12 +105,17 @@ export function formatAuthMethodName(authMethod: string): string {
     bearer_token: 'Bearer Token',
     basic_auth: 'Basic Auth',
     pat: 'Personal Access Token',
-  };
-  return formatMap[authMethod] ?? authMethod.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  } satisfies Record<string, string>;
+
+  if (authMethod in formatMap) {
+    return formatMap[authMethod as keyof typeof formatMap];
+  }
+
+  return authMethod.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function formatCredentialFieldName(fieldName: string): string {
-  const formatMap: Record<string, string> = {
+  const formatMap = {
     api_key: 'API Key',
     aws_access_key_id: 'AWS Access Key ID',
     aws_secret_access_key: 'AWS Secret Access Key',
@@ -128,16 +133,25 @@ export function formatCredentialFieldName(fieldName: string): string {
     vertex_location: 'Location',
     databricks_token: 'Databricks Token',
     databricks_host: 'Databricks Host',
-  };
-  return formatMap[fieldName] ?? fieldName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  } satisfies Record<string, string>;
+
+  if (fieldName in formatMap) {
+    return formatMap[fieldName as keyof typeof formatMap];
+  }
+
+  return fieldName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-const PROVIDER_FIELD_ORDER: Record<string, string[]> = {
+const PROVIDER_FIELD_ORDER = {
   databricks: ['client_id', 'client_secret', 'api_base'],
-};
+} satisfies Record<string, string[]>;
 
 export function sortFieldsByProvider<T extends { name: string }>(fields: T[], provider: string): T[] {
-  const fieldOrder = PROVIDER_FIELD_ORDER[provider];
+  if (!(provider in PROVIDER_FIELD_ORDER)) {
+    return fields;
+  }
+
+  const fieldOrder = PROVIDER_FIELD_ORDER[provider as keyof typeof PROVIDER_FIELD_ORDER];
   if (!fieldOrder) {
     return fields;
   }

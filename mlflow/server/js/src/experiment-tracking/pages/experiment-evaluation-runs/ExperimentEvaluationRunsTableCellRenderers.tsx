@@ -7,6 +7,8 @@ import {
   useDesignSystemTheme,
   Checkbox,
   ParagraphSkeleton,
+  Button,
+  NewWindowIcon,
   SortUnsortedIcon,
   VisibleIcon,
   VisibleOffIcon,
@@ -22,8 +24,11 @@ import { RunColorPill } from '../../components/experiment-page/components/RunCol
 import { TimeAgo } from '@databricks/web-shared/browse';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import { useMemo } from 'react';
+import { FormattedMessage } from 'react-intl';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
+import { RunPageTabName } from '../../constants';
+import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
@@ -83,6 +88,43 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       >
         {row.original.info.runName}
       </Typography.Link>
+      {!shouldEnableImprovedEvalRunsComparison() && (
+        <div
+          css={{
+            display: 'none',
+            flexShrink: 0,
+            '.eval-runs-table-row:hover &': { display: 'inline' },
+            svg: {
+              width: theme.typography.fontSizeMd,
+              height: theme.typography.fontSizeMd,
+            },
+          }}
+        >
+          <Link
+            target="_blank"
+            rel="noreferrer"
+            to={Routes.getRunPageTabRoute(row.original.info.experimentId, runUuid, RunPageTabName.EVALUATIONS)}
+          >
+            <Tooltip
+              content={
+                <FormattedMessage
+                  defaultMessage="Go to the run"
+                  description="Tooltip for the run name cell in the evaluation runs table, opening the run page in a new tab"
+                />
+              }
+              componentId="mlflow.eval-runs.run-name-cell.tooltip"
+            >
+              <Button
+                type="link"
+                target="_blank"
+                icon={<NewWindowIcon />}
+                size="small"
+                componentId="mlflow.eval-runs.run-name-cell.open-run-page"
+              />
+            </Tooltip>
+          </Link>
+        </div>
+      )}
     </div>
   );
 };

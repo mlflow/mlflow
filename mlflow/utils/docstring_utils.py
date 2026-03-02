@@ -313,6 +313,19 @@ limitations, see the
 `code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
 """
         ),
+        "extra_files": (
+            """A list containing the paths to corresponding extra files, if ``None``, no
+extra files are added to the model. Remote URIs are resolved to absolute filesystem
+paths. For example, consider the following ``extra_files`` list:
+
+.. code-block:: python
+
+    extra_files = ["s3://my-bucket/path/to/my_file1", "/local-path/to/my_file2"]
+
+In this case, the ``"my_file1"`` extra file is downloaded from S3.
+Model paths will be ["extra_files/my_file1", "extra_files/my_file2"] in the model directory.
+"""
+        ),
         # Only pyfunc flavor supports `infer_code_paths`.
         "code_paths_pyfunc": (
             """A list of local filesystem paths to Python file dependencies (or directories

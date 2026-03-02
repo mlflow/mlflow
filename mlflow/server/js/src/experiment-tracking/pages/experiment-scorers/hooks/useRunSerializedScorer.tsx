@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import { useEvaluateTraces } from '../useEvaluateTraces';
-import { EvaluateTracesParams, LLM_TEMPLATE, LLMScorer, ScheduledScorer } from '../types';
+import type { EvaluateTracesParams, LLM_TEMPLATE, LLMScorer, ScheduledScorer } from '../types';
 import { ScorerEvaluationScope } from '../constants';
 import { transformScheduledScorer } from '../utils/scorerTransformUtils';
-import { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
+import type { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 import { isObject } from 'lodash';
 import { useTemplateOptions } from '../llmScorerUtils';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
@@ -20,7 +20,9 @@ export const useRunSerializedScorer = ({
   onScorerFinished?: (event: ScorerFinishedEvent) => void;
   scope?: ScorerEvaluationScope;
 }) => {
-  const [evaluateTracesFn, { latestEvaluation, isLoading, allEvaluations }] = useEvaluateTraces({ onScorerFinished });
+  const [evaluateTracesFn, { latestEvaluation, isLoading, allEvaluations, reset }] = useEvaluateTraces({
+    onScorerFinished,
+  });
   const { displayMap } = useTemplateOptions(scope);
 
   const getEvaluationParams = useCallback(
@@ -96,5 +98,6 @@ export const useRunSerializedScorer = ({
     latestEvaluation,
     isLoading,
     allEvaluations,
+    reset,
   };
 };

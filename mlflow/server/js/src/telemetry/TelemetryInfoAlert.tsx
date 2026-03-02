@@ -1,7 +1,4 @@
-import {
-  TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_KEY,
-  TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_VERSION,
-} from '../telemetry/utils';
+import { TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_KEY, TELEMETRY_INFO_ALERT_DISMISSED_STORAGE_VERSION } from './utils';
 import { useLocalStorage } from '../shared/web-shared/hooks';
 import { Alert, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';

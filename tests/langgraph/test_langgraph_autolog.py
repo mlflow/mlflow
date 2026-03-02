@@ -6,6 +6,7 @@ import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import TokenUsageKey, TraceMetadataKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
@@ -117,12 +118,13 @@ async def test_langgraph_tracing_prebuilt(is_async, mock_litellm_cost):
     chat_spans = [s for s in traces[0].data.spans if s.span_type == SpanType.CHAT_MODEL]
     for chat_span in chat_spans:
         assert chat_span.model_name == "gpt-3.5-turbo"
-        usage = chat_span.get_attribute("mlflow.chat.tokenUsage")
-        assert chat_span.llm_cost == {
-            "input_cost": usage["input_tokens"] * 1.0,
-            "output_cost": usage["output_tokens"] * 2.0,
-            "total_cost": usage["input_tokens"] * 1.0 + usage["output_tokens"] * 2.0,
-        }
+        if not IS_TRACING_SDK_ONLY:
+            usage = chat_span.get_attribute("mlflow.chat.tokenUsage")
+            assert chat_span.llm_cost == {
+                "input_cost": usage["input_tokens"] * 1.0,
+                "output_cost": usage["output_tokens"] * 2.0,
+                "total_cost": usage["input_tokens"] * 1.0 + usage["output_tokens"] * 2.0,
+            }
 
 
 @skip_when_testing_trace_sdk

@@ -17,6 +17,7 @@ from mlflow.pydantic_ai.autolog import (
     _get_tool_attributes,
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -162,12 +163,13 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
         TokenUsageKey.TOTAL_TOKENS: 2,
     }
     assert span2.model_name == "gpt-4o"
-    # Verify cost is calculated (1 input token * 1.0 + 1 output token * 2.0)
-    assert span2.llm_cost == {
-        "input_cost": 1.0,
-        "output_cost": 2.0,
-        "total_cost": 3.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (1 input token * 1.0 + 1 output token * 2.0)
+        assert span2.llm_cost == {
+            "input_cost": 1.0,
+            "output_cost": 2.0,
+            "total_cost": 3.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 1,
@@ -212,11 +214,12 @@ async def test_agent_run_enable_disable_autolog(simple_agent, mock_litellm_cost)
         TokenUsageKey.TOTAL_TOKENS: 2,
     }
     assert span1.model_name == "gpt-4o"
-    assert span1.llm_cost == {
-        "input_cost": 1.0,
-        "output_cost": 2.0,
-        "total_cost": 3.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert span1.llm_cost == {
+            "input_cost": 1.0,
+            "output_cost": 2.0,
+            "total_cost": 3.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 1,
@@ -256,11 +259,12 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool, mock_l
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
     assert span2.model_name == "gpt-4o"
-    assert span2.llm_cost == {
-        "input_cost": 10.0,
-        "output_cost": 40.0,
-        "total_cost": 50.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert span2.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 40.0,
+            "total_cost": 50.0,
+        }
 
     span3 = spans[3]
     assert span3.span_type == SpanType.TOOL
@@ -271,11 +275,12 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool, mock_l
     assert span4.span_type == SpanType.LLM
     assert span4.parent_id == spans[1].span_id
     assert span4.model_name == "gpt-4o"
-    assert span4.llm_cost == {
-        "input_cost": 100.0,
-        "output_cost": 400.0,
-        "total_cost": 500.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert span4.llm_cost == {
+            "input_cost": 100.0,
+            "output_cost": 400.0,
+            "total_cost": 500.0,
+        }
 
     assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 10,
@@ -341,21 +346,23 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool, mock_
         TokenUsageKey.OUTPUT_TOKENS: 20,
         TokenUsageKey.TOTAL_TOKENS: 30,
     }
-    assert span1.llm_cost == {
-        "input_cost": 10.0,
-        "output_cost": 40.0,
-        "total_cost": 50.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert span1.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 40.0,
+            "total_cost": 50.0,
+        }
     assert span3.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 100,
         TokenUsageKey.OUTPUT_TOKENS: 200,
         TokenUsageKey.TOTAL_TOKENS: 300,
     }
-    assert span3.llm_cost == {
-        "input_cost": 100.0,
-        "output_cost": 400.0,
-        "total_cost": 500.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert span3.llm_cost == {
+            "input_cost": 100.0,
+            "output_cost": 400.0,
+            "total_cost": 500.0,
+        }
     assert traces[0].info.token_usage == {
         "input_tokens": 110,
         "output_tokens": 220,

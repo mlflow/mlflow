@@ -13,12 +13,10 @@ from tests.tracking.integration_test_utils import ServerThread
 
 
 @pytest.fixture
-def tracking_server(tmp_path: Path):
-    backend_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
-
+def tracking_server(db_uri: str, tmp_path: Path):
     handlers._tracking_store = None
     handlers._model_registry_store = None
-    initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
+    initialize_backend_stores(db_uri, default_artifact_root=tmp_path.as_uri())
 
     with ServerThread(app, get_safe_port()) as url:
         mlflow.set_tracking_uri(url)

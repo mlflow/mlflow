@@ -71,6 +71,18 @@ export const createTraceFilter = (field: TraceFilterKey, value: string): string 
   `${TRACE_FILTER_VIEW_TYPE}.${field} = "${value}"`;
 
 /**
+ * Creates a trace metadata filter expression string with a specific key.
+ * @param metadataKey - The metadata key (e.g., "mlflow.auth.userId")
+ * @param value - The value to match (e.g., "123")
+ * @returns Filter expression string (e.g., 'trace.metadata.\`mlflow.auth.userId\` = "123"')
+ */
+export const createTraceMetadataFilter = (metadataKey: string, value: string): string =>
+  `${TRACE_FILTER_VIEW_TYPE}.${TraceFilterKey.METADATA}.\`${metadataKey}\` = "${value}"`;
+
+/** Metadata key for the authenticated user's ID stored in gateway traces. */
+export const AUTH_USER_ID_METADATA_KEY = 'mlflow.auth.userId';
+
+/**
  * Keys for metrics on assessments view type.
  * Based on mlflow/tracing/constant.py AssessmentMetricKey
  */
@@ -135,6 +147,12 @@ export enum SpanMetricKey {
   SPAN_COUNT = 'span_count',
   /** Span latency in milliseconds */
   LATENCY = 'latency',
+  /** Input cost in USD */
+  INPUT_COST = 'input_cost',
+  /** Output cost in USD */
+  OUTPUT_COST = 'output_cost',
+  /** Total cost in USD */
+  TOTAL_COST = 'total_cost',
 }
 
 /**
@@ -207,6 +225,10 @@ export enum SpanDimensionKey {
   SPAN_TYPE = 'span_type',
   /** Span status dimension */
   SPAN_STATUS = 'span_status',
+  /** Model name dimension */
+  MODEL_NAME = 'span_model_name',
+  /** Model provider dimension */
+  MODEL_PROVIDER = 'span_model_provider',
 }
 
 /**

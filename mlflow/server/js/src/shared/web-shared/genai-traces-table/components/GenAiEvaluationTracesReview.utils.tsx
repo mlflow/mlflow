@@ -4,8 +4,8 @@ import type { ThemeType } from '@databricks/design-system';
 import { CheckCircleIcon, WarningIcon, XCircleIcon } from '@databricks/design-system';
 import type { MessageDescriptor, IntlShape } from '@databricks/i18n';
 import { defineMessage } from '@databricks/i18n';
-import { getUser } from '@databricks/web-shared/global-settings';
-import { normalizeConversation } from '@databricks/web-shared/model-trace-explorer';
+import { getUser } from '../../global-settings/getUser';
+import { normalizeConversation } from '../../model-trace-explorer/ModelTraceExplorer.utils';
 
 import type {
   AssessmentInfo,

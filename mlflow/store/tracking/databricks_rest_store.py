@@ -892,7 +892,7 @@ class DatabricksTracingRestStore(RestStore):
         """Fetch a single page of datasets from the backend."""
         params = {}
         if experiment_ids:
-            params["filter"] = f"experiment_id={experiment_ids[0]}"
+            params["filter"] = f"experiment_id='{experiment_ids[0]}'"
         if page_size:
             params["page_size"] = str(page_size)
         if page_token:

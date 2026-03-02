@@ -16,6 +16,7 @@ import { RunIcon } from './assets/RunIcon';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { useExperimentKind, isGenAIExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useCallback, useMemo } from 'react';
+import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 const RunViewHeaderIcon = () => {
   const { theme } = useDesignSystemTheme();
   return (
@@ -85,7 +86,6 @@ export const RunViewHeader = ({
       <Link to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}>
         <FormattedMessage
           defaultMessage="Displaying Runs from {numExperiments} Experiments"
-          // eslint-disable-next-line max-len
           description="Breadcrumb nav item to link to the compare-experiments page on compare runs page"
           values={{
             numExperiments: comparedExperimentIds.length,
@@ -129,8 +129,9 @@ export const RunViewHeader = ({
     navigate(`${evaluationRunsRoute}?${searchParams.toString()}`);
   }, [navigate, experiment.experimentId, runUuid]);
 
+  // Compare button - only enabled when feature flag is on
   const renderCompareButton = () => {
-    if (!shouldRouteToEvaluations) {
+    if (!shouldEnableImprovedEvalRunsComparison() || !shouldRouteToEvaluations) {
       return null;
     }
     return (

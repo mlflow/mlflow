@@ -87,6 +87,11 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
+                  id: 'tracing/token-usage-cost/index',
+                  label: 'Token Usage and Cost',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/track-users-sessions/index',
                   label: 'Track Users and Sessions',
                 },
@@ -555,9 +560,19 @@ const sidebarsGenAI: SidebarsConfig = {
               label: 'Evaluate Traces',
             },
             {
-              type: 'doc',
-              id: 'eval-monitor/running-evaluation/multi-turn',
+              type: 'category',
               label: 'Evaluate Conversations',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/running-evaluation/conversation-simulation',
+                  label: 'Conversation Simulation',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/running-evaluation/multi-turn',
+              },
             },
           ],
         },
@@ -670,6 +685,16 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/phoenix',
                       label: 'Arize Phoenix',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/trulens',
+                      label: 'TruLens',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/guardrails',
+                      label: 'Guardrails AI',
+                    },
                   ],
                   collapsed: false,
                   link: {
@@ -764,6 +789,11 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'datasets/conversation-simulation',
+              label: 'Conversation Simulation',
+            },
+            {
+              type: 'doc',
               id: 'datasets/end-to-end-workflow',
               label: 'End-to-End Workflow',
             },
@@ -818,7 +848,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Prompt Management',
+      label: 'Prompt Management & Optimization',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -937,6 +967,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'governance/ai-gateway/traffic-routing-fallbacks',
           label: 'Traffic Routing & Fallbacks',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/usage-tracking',
+          label: 'Usage Tracking',
         },
         {
           type: 'category',

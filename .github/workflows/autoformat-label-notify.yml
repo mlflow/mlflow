@@ -17,22 +17,10 @@ jobs:
     permissions:
       pull-requests: write # to post a comment on the PR
     steps:
-      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const pull_number = context.payload.pull_request.number;
-
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: pull_number,
-              body: 'Please use `/autoformat` command instead of labels.'
-            });
-
-            await github.rest.issues.removeLabel({
-              owner,
-              repo,
-              issue_number: pull_number,
-              name: 'autoformat'
-            });
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr comment "$PR" --repo "$REPO" --body 'Please use `/autoformat` command instead of labels.'
+          gh pr edit "$PR" --repo "$REPO" --remove-label autoformat
