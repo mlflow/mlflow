@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 DEFAULT_TRIAGE_SAMPLE_SIZE = 100
+MAX_EXAMPLE_TRACE_IDS = 10
 MIN_EXAMPLES = 1
 
 # Likert confidence scale — ordinal comparison for filtering/sorting

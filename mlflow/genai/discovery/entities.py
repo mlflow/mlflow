@@ -6,8 +6,6 @@ import pydantic
 
 from mlflow.genai.discovery.constants import ConfidenceLevel
 
-MAX_EXAMPLE_TRACE_IDS = 10
-
 
 @dataclass
 class Issue:

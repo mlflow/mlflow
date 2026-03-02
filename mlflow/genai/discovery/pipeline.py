@@ -16,11 +16,11 @@ from mlflow.genai.discovery.constants import (
     DEFAULT_ANALYSIS_MODEL,
     DEFAULT_JUDGE_MODEL,
     DEFAULT_TRIAGE_SAMPLE_SIZE,
+    MAX_EXAMPLE_TRACE_IDS,
     MIN_CONFIDENCE,
     MIN_EXAMPLES,
 )
 from mlflow.genai.discovery.entities import (
-    MAX_EXAMPLE_TRACE_IDS,
     DiscoverIssuesResult,
     Issue,
     _ConversationAnalysis,
