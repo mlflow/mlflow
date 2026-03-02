@@ -3,22 +3,24 @@ from __future__ import annotations
 import json
 import logging
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.constants import (
-    _DEFAULT_ANALYSIS_MODEL,
-    _DEFAULT_JUDGE_MODEL,
-    _DEFAULT_TRIAGE_SAMPLE_SIZE,
-    _MIN_CONFIDENCE,
-    _MIN_EXAMPLES,
-    _confidence_gte,
-    _confidence_max,
+    CONFIDENCE_ORDER,
+    DEFAULT_ANALYSIS_MODEL,
+    DEFAULT_JUDGE_MODEL,
+    DEFAULT_TRIAGE_SAMPLE_SIZE,
+    MIN_CONFIDENCE,
+    MIN_EXAMPLES,
 )
 from mlflow.genai.discovery.entities import (
+    MAX_EXAMPLE_TRACE_IDS,
     DiscoverIssuesResult,
     Issue,
     _ConversationAnalysis,
@@ -28,12 +30,13 @@ from mlflow.genai.discovery.utils import (
     _build_default_satisfaction_scorer,
     _build_summary,
     _cluster_analyses,
+    _extract_execution_path,
     _extract_execution_paths_for_session,
     _extract_failing_traces,
     _extract_failure_labels,
     _extract_span_errors,
+    _get_session_id,
     _group_traces_by_session,
-    _has_session_ids,
     _log_discovery_artifacts,
     _sample_traces,
     _summarize_cluster,
@@ -66,6 +69,14 @@ _NO_ISSUE_PATTERNS = frozenset(
         "no discernible issue",
     }
 )
+
+
+def confidence_gte(a: str, b: str) -> bool:
+    return CONFIDENCE_ORDER.get(a, -1) >= CONFIDENCE_ORDER.get(b, 0)
+
+
+def confidence_max(a: str, b: str) -> str:
+    return a if CONFIDENCE_ORDER.get(a, 0) >= CONFIDENCE_ORDER.get(b, 0) else b
 
 
 class _TokenCounter:
@@ -102,25 +113,23 @@ class _TokenCounter:
 
 
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:
-    from mlflow.genai.discovery.constants import _NO_ISSUE_KEYWORD
+    from mlflow.genai.discovery.constants import NO_ISSUE_KEYWORD
 
-    # Primary check: canonical keyword from the LLM prompt
-    if _NO_ISSUE_KEYWORD.lower() in issue.name.lower():
+    if NO_ISSUE_KEYWORD.lower() in issue.name.lower():
         return True
-    # Fallback: pattern matching across name, description, and root_cause
-    texts = (issue.name.lower(), issue.description.lower(), issue.root_cause.lower())
-    return any(p in text for p in _NO_ISSUE_PATTERNS for text in texts)
+    combined = f"{issue.name} {issue.description} {issue.root_cause}".lower()
+    return any(pattern in combined for pattern in _NO_ISSUE_PATTERNS)
 
 
 def _extract_assessment_rationale(trace: Trace, scorer_name: str) -> str:
-    for assessment in trace.info.assessments:
-        if (
-            isinstance(assessment, Feedback)
-            and assessment.name == scorer_name
-            and assessment.rationale
-        ):
-            return assessment.rationale
-    return ""
+    return next(
+        (
+            a.rationale
+            for a in trace.info.assessments
+            if isinstance(a, Feedback) and a.name == scorer_name and a.rationale
+        ),
+        "",
+    )
 
 
 def _collect_example_trace_ids(
@@ -131,7 +140,7 @@ def _collect_example_trace_ids(
     for idx in issue.example_indices:
         if 0 <= idx < len(analyses):
             trace_ids.extend(analyses[idx].affected_trace_ids)
-    return trace_ids
+    return trace_ids[:MAX_EXAMPLE_TRACE_IDS]
 
 
 def _recluster_singletons(
@@ -150,9 +159,9 @@ def _recluster_singletons(
         return list(singletons)
 
     singleton_labels = []
-    for s in singletons:
-        idx = s.example_indices[0]
-        singleton_labels.append(labels[idx] if idx < len(labels) else s.name)
+    for singleton in singletons:
+        idx = singleton.example_indices[0]
+        singleton_labels.append(labels[idx] if idx < len(labels) else singleton.name)
 
     new_groups = _cluster_by_llm(
         singleton_labels, max_issues, label_model, token_counter=token_counter
@@ -167,7 +176,7 @@ def _recluster_singletons(
         merged_issue = _summarize_cluster(
             merged_indices, analyses, analysis_model, token_counter=token_counter
         )
-        if _confidence_gte(merged_issue.confidence, _MIN_CONFIDENCE):
+        if confidence_gte(merged_issue.confidence, MIN_CONFIDENCE):
             result.append(merged_issue)
         else:
             result.extend(singletons[g] for g in group)
@@ -177,8 +186,6 @@ def _recluster_singletons(
 
 def _format_trace_content(trace: Trace) -> str:
     """Build a compact text representation of a trace for annotation prompts."""
-    from mlflow.genai.discovery.utils import _extract_execution_path, _extract_span_errors
-
     parts = []
     if request := trace.data.request:
         parts.append(f"Input: {str(request)[:1000]}")
@@ -208,14 +215,11 @@ def _annotate_issue_traces(
     """
 
     from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-    from mlflow.genai.discovery.constants import _TRACE_ANNOTATION_SYSTEM_PROMPT
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
+    from mlflow.genai.discovery.constants import TRACE_ANNOTATION_SYSTEM_PROMPT
+    from mlflow.genai.discovery.utils import _NUM_RETRIES, _to_litellm_model
+    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
 
-    scheme, path = _parse_model_uri(model)
-    if scheme in ("endpoints", "databricks"):
-        litellm_model = f"databricks/{path}"
-    else:
-        litellm_model = f"{scheme}/{path}"
+    litellm_model = _to_litellm_model(model)
 
     source = AssessmentSource(
         source_type=AssessmentSourceType.LLM_JUDGE,
@@ -262,16 +266,14 @@ def _annotate_issue_traces(
             f"{triage_rationale or '(not available)'}"
         )
         try:
-            from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-
             response = _invoke_litellm(
                 litellm_model=litellm_model,
                 messages=[
-                    {"role": "system", "content": _TRACE_ANNOTATION_SYSTEM_PROMPT},
+                    {"role": "system", "content": TRACE_ANNOTATION_SYSTEM_PROMPT},
                     {"role": "user", "content": user_content},
                 ],
                 tools=[],
-                num_retries=5,
+                num_retries=_NUM_RETRIES,
                 response_format=None,
                 include_response_format=False,
                 inference_params={"max_tokens": 4096, "temperature": 0},
@@ -304,20 +306,13 @@ def _annotate_issue_traces(
         return annotation
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(work_items))
-    annotations: dict[str, list[str]] = {}
     with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="annotate") as executor:
         future_to_item = {
             executor.submit(_annotate_one, issue, trace_id, rationale, sid): (issue, trace_id)
             for issue, trace_id, rationale, sid in work_items
         }
         for future in as_completed(future_to_item):
-            issue, trace_id = future_to_item[future]
-            if result := future.result():
-                annotations.setdefault(issue.name, []).append(result)
-
-    # Populate rationale_examples on each issue (up to 3 per issue)
-    for issue in issues:
-        issue.rationale_examples = annotations.get(issue.name, [])[:3]
+            future.result()
 
 
 @experimental(version="3.11.0")
@@ -329,7 +324,7 @@ def discover_issues(
     judge_model: str | None = None,
     analysis_model: str | None = None,
     embedding_model: str = "openai:/text-embedding-3-small",
-    triage_sample_size: int = _DEFAULT_TRIAGE_SAMPLE_SIZE,
+    triage_sample_size: int = DEFAULT_TRIAGE_SAMPLE_SIZE,
     validation_sample_size: int | None = None,
     max_issues: int = 20,
     filter_string: str | None = None,
@@ -357,9 +352,9 @@ def discover_issues(
             scorer during triage. A trace is considered failing if *any*
             scorer (satisfaction or additional) marks it as ``False``.
         judge_model: LLM used for scoring traces (satisfaction + issue detection).
-            Defaults to ``"openai:/gpt-5-mini"``.
+            Defaults to ``"openai:/gpt-5.2-mini"``.
         analysis_model: LLM used for analysis and cluster summarization.
-            Defaults to ``"openai:/gpt-5"``.
+            Defaults to ``"openai:/gpt-5.2"``.
         embedding_model: Embedding model for semantic clustering.
             Defaults to ``"openai:/text-embedding-3-small"``.
         triage_sample_size: Number of sessions (or traces, if no session metadata
@@ -391,20 +386,18 @@ def discover_issues(
 
             for issue in result.issues:
                 print(f"{issue.name}: {issue.frequency:.1%} of traces affected")
-                mlflow.genai.evaluate(data=traces, scorers=[issue.scorer])
     """
     pipeline_start = time.time()
     token_counter = _TokenCounter()
-    judge_model = judge_model or _DEFAULT_JUDGE_MODEL
-    analysis_model = analysis_model or _DEFAULT_ANALYSIS_MODEL
+    judge_model = judge_model or DEFAULT_JUDGE_MODEL
+    analysis_model = analysis_model or DEFAULT_ANALYSIS_MODEL
+
+    exp_id = experiment_id or _get_experiment_id()
 
     if traces is not None:
-        # Use provided traces directly — experiment_id only needed for validation
-        exp_id = experiment_id or _get_experiment_id()
         triage_traces = list(traces)
         _logger.info("Phase 1: Using %d provided traces...", len(triage_traces))
     else:
-        exp_id = experiment_id or _get_experiment_id()
         if exp_id is None:
             raise mlflow.exceptions.MlflowException(
                 "No experiment specified. Pass traces, use "
@@ -426,13 +419,12 @@ def discover_issues(
         return DiscoverIssuesResult(
             issues=[],
             triage_run_id="",
-            validation_run_id=None,
             summary="No traces to analyze.",
             total_traces_analyzed=0,
         )
 
     if satisfaction_scorer is None:
-        use_conversation = _has_session_ids(triage_traces)
+        use_conversation = any(_get_session_id(t) for t in triage_traces)
         if not use_conversation:
             _logger.info(
                 "No session IDs found in trace metadata, falling back to trace-level scorer"
@@ -461,9 +453,6 @@ def discover_issues(
     _logger.info("Phase 1: Triage scoring took %.1fs", time.time() - t0)
 
     # Aggregate judge costs from Phase 1 evaluation assessments.
-    # evaluate() copies traces into the active experiment and logs assessments
-    # there, so we search the discovery experiment for assessments matching
-    # this triage run's SOURCE_RUN_ID.
     from mlflow.tracing.constant import AssessmentMetadataKey
 
     try:
@@ -500,7 +489,6 @@ def discover_issues(
         return DiscoverIssuesResult(
             issues=[],
             triage_run_id=triage_eval.run_id,
-            validation_run_id=None,
             summary=_build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
         )
@@ -514,19 +502,16 @@ def discover_issues(
             continue
         rationales: list[str] = []
         seen_rationales: set[str] = set()
+
+        def _add_rationale(text: str, prefix: str = "") -> None:
+            if text and text not in seen_rationales:
+                seen_rationales.add(text)
+                rationales.append(f"{prefix}{text}" if prefix else text)
+
         for t in session_failing:
-            r = rationale_map[t.info.trace_id]
-            if r and r not in seen_rationales:
-                seen_rationales.add(r)
-                rationales.append(r)
-            human_rationale = _extract_assessment_rationale(t, scorer_name)
-            if human_rationale and human_rationale not in seen_rationales:
-                seen_rationales.add(human_rationale)
-                rationales.append(f"[human feedback] {human_rationale}")
-            span_errors = _extract_span_errors(t)
-            if span_errors and span_errors not in seen_rationales:
-                seen_rationales.add(span_errors)
-                rationales.append(f"[span errors] {span_errors}")
+            _add_rationale(rationale_map[t.info.trace_id])
+            _add_rationale(_extract_assessment_rationale(t, scorer_name), "[human feedback] ")
+            _add_rationale(_extract_span_errors(t), "[span errors] ")
         combined_rationale = "; ".join(rationales)
         if not combined_rationale:
             continue
@@ -601,7 +586,7 @@ def discover_issues(
     # each one so the individual items get a fair standalone assessment.
     resplit_groups: list[list[int]] = []
     for group, issue in zip(cluster_groups, summaries):
-        if not _confidence_gte(issue.confidence, _MIN_CONFIDENCE) and len(group) > 1:
+        if not confidence_gte(issue.confidence, MIN_CONFIDENCE) and len(group) > 1:
             _logger.info(
                 "Phase 3: Re-splitting incoherent cluster '%s' "
                 "(confidence=%s, %d members) into singletons",
@@ -620,11 +605,10 @@ def discover_issues(
             }
             for future in as_completed(future_to_idx):
                 resplit_summaries[future_to_idx[future]] = future.result()
-        # Replace incoherent clusters with their singleton resummarizations
         final_groups: list[list[int]] = []
         final_summaries: list[_IdentifiedIssue] = []
         for group, issue in zip(cluster_groups, summaries):
-            if not _confidence_gte(issue.confidence, _MIN_CONFIDENCE) and len(group) > 1:
+            if not confidence_gte(issue.confidence, MIN_CONFIDENCE) and len(group) > 1:
                 continue
             final_groups.append(group)
             final_summaries.append(issue)
@@ -637,8 +621,8 @@ def discover_issues(
     identified: list[_IdentifiedIssue] = [
         issue
         for issue in summaries
-        if _confidence_gte(issue.confidence, _MIN_CONFIDENCE)
-        and len(issue.example_indices) >= _MIN_EXAMPLES
+        if confidence_gte(issue.confidence, MIN_CONFIDENCE)
+        and len(issue.example_indices) >= MIN_EXAMPLES
         and not _is_non_issue(issue)
     ]
 
@@ -651,7 +635,7 @@ def discover_issues(
             existing = deduped[seen_names[key]]
             merged_indices = list(set(existing.example_indices + issue.example_indices))
             existing.example_indices = merged_indices
-            existing.confidence = _confidence_max(existing.confidence, issue.confidence)
+            existing.confidence = confidence_max(existing.confidence, issue.confidence)
         else:
             seen_names[key] = len(deduped)
             deduped.append(issue)
@@ -700,7 +684,6 @@ def discover_issues(
         return DiscoverIssuesResult(
             issues=[],
             triage_run_id=triage_eval.run_id,
-            validation_run_id=None,
             summary=_build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
         )
@@ -714,6 +697,7 @@ def discover_issues(
         for t in traces_in_session:
             trace_to_session[t.info.trace_id] = sid
 
+    now_iso = datetime.now(timezone.utc).isoformat()
     issues: list[Issue] = []
     for ident in identified:
         example_ids = _collect_example_trace_ids(ident, analyses)
@@ -722,21 +706,21 @@ def discover_issues(
         name = ident.name.removeprefix("Issue: ").removeprefix("issue: ")
         issues.append(
             Issue(
+                issue_id=str(uuid.uuid4()),
+                run_id=triage_eval.run_id,
                 name=name,
                 description=ident.description,
                 root_cause=ident.root_cause,
                 example_trace_ids=example_ids,
-                scorer=None,
                 frequency=freq,
                 confidence=ident.confidence,
-                rationale_examples=[],
+                status="open",
+                created_at=now_iso,
             )
         )
 
-    from mlflow.genai.discovery.constants import _CONFIDENCE_ORDER
-
     issues.sort(
-        key=lambda i: (i.frequency, _CONFIDENCE_ORDER.get(i.confidence, 0)),
+        key=lambda i: (i.frequency, CONFIDENCE_ORDER.get(i.confidence, 0)),
         reverse=True,
     )
 
@@ -746,18 +730,20 @@ def discover_issues(
         "Phase 4: Annotating %d traces across %d issues...", len(rationale_map), len(issues)
     )
     t0 = time.time()
-    has_sessions = _has_session_ids(triage_traces)
+    has_sessions = any(_get_session_id(t) for t in triage_traces)
+    session_first_trace: dict[str, str] | None = None
     if has_sessions:
-        session_first_trace: dict[str, str] = {}
-        for sid, traces_in_session in session_groups.items():
-            session_first_trace[sid] = traces_in_session[0].info.trace_id
+        session_first_trace = {
+            sid: traces_in_session[0].info.trace_id
+            for sid, traces_in_session in session_groups.items()
+        }
     _annotate_issue_traces(
         issues,
         rationale_map,
         trace_lookup,
         judge_model,
         trace_to_session=trace_to_session if has_sessions else None,
-        session_first_trace=session_first_trace if has_sessions else None,
+        session_first_trace=session_first_trace,
         token_counter=token_counter,
     )
     _logger.info("Phase 4: Annotation took %.1fs", time.time() - t0)
@@ -768,7 +754,6 @@ def discover_issues(
     result = DiscoverIssuesResult(
         issues=issues,
         triage_run_id=triage_eval.run_id,
-        validation_run_id=None,
         summary=summary,
         total_traces_analyzed=num_total,
     )
@@ -776,12 +761,15 @@ def discover_issues(
     # Log artifacts to the triage run
     issues_data = [
         {
+            "issue_id": issue.issue_id,
             "name": issue.name,
             "description": issue.description,
             "root_cause": issue.root_cause,
             "frequency": issue.frequency,
             "confidence": issue.confidence,
             "example_trace_ids": issue.example_trace_ids,
+            "status": issue.status,
+            "created_at": issue.created_at,
         }
         for issue in issues
     ]

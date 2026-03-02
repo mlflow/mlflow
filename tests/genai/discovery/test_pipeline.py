@@ -144,7 +144,6 @@ def test_discover_issues_full_pipeline(make_trace):
     assert result.issues[0].name == "slow_response"
     assert result.issues[0].frequency == pytest.approx(0.2)
     assert result.triage_run_id == "run-triage"
-    assert result.validation_run_id is None
 
 
 def test_discover_issues_low_confidence_issues_filtered(make_trace):
@@ -168,7 +167,7 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
     )
     triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=triage_df)
 
-    # _summarize_cluster returns issue with low confidence (below _MIN_CONFIDENCE="weak_yes")
+    # _summarize_cluster returns issue with low confidence (below MIN_CONFIDENCE="weak_yes")
     low_confidence_issue = _IdentifiedIssue(
         name="rare_issue",
         description="Happens very rarely",
@@ -480,20 +479,34 @@ def _make_litellm_response(content: str):
     return mock_response
 
 
-def test_annotate_traces_annotates_each_trace_with_feedback():
+def _make_issue(**kwargs):
+    """Helper to construct Issue with required fields."""
     from mlflow.genai.discovery.entities import Issue
+
+    defaults = {
+        "issue_id": "test-id",
+        "run_id": "test-run",
+        "name": "Test issue",
+        "description": "Test description",
+        "root_cause": "Test cause",
+        "example_trace_ids": [],
+        "frequency": 0.0,
+        "confidence": "definitely_yes",
+    }
+    defaults.update(kwargs)
+    return Issue(**defaults)
+
+
+def test_annotate_traces_annotates_each_trace_with_feedback():
     from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
     issues = [
-        Issue(
+        _make_issue(
             name="Slow responses [api]",
             description="Responses take too long",
             root_cause="Complex queries",
             example_trace_ids=["trace-1", "trace-2"],
-            scorer=None,
             frequency=0.5,
-            confidence="definitely_yes",
-            rationale_examples=[],
         ),
     ]
     rationale_map = {
@@ -518,51 +531,14 @@ def test_annotate_traces_annotates_each_trace_with_feedback():
         assert "slow response" in c.kwargs["rationale"]
 
 
-def test_annotate_traces_populates_rationale_examples():
-    from mlflow.genai.discovery.entities import Issue
-    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
-
-    issues = [
-        Issue(
-            name="Bad data [db]",
-            description="Wrong data returned",
-            root_cause="Schema mismatch",
-            example_trace_ids=["t1", "t2", "t3", "t4"],
-            scorer=None,
-            frequency=0.4,
-            confidence="definitely_yes",
-            rationale_examples=[],
-        ),
-    ]
-    rationale_map = {"t1": "r1", "t2": "r2", "t3": "r3", "t4": "r4"}
-
-    with (
-        patch(
-            "litellm.completion",
-            return_value=_make_litellm_response("Annotation text."),
-        ),
-        patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback"),
-    ):
-        _annotate_issue_traces(issues, rationale_map, {}, "openai:/gpt-5-mini")
-
-    assert len(issues[0].rationale_examples) == 3
-    assert all(ex == "Annotation text." for ex in issues[0].rationale_examples)
-
-
 def test_annotate_traces_no_work_items_returns_early():
-    from mlflow.genai.discovery.entities import Issue
     from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
     issues = [
-        Issue(
+        _make_issue(
             name="Empty issue",
             description="No traces",
             root_cause="N/A",
-            example_trace_ids=[],
-            scorer=None,
-            frequency=0.0,
-            confidence="definitely_yes",
-            rationale_examples=[],
         ),
     ]
 
@@ -573,19 +549,16 @@ def test_annotate_traces_no_work_items_returns_early():
 
 
 def test_annotate_traces_llm_failure_falls_back_to_triage_rationale():
-    from mlflow.genai.discovery.entities import Issue
     from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
     issues = [
-        Issue(
+        _make_issue(
             name="Timeout [api]",
             description="Request timed out",
             root_cause="Upstream latency",
             example_trace_ids=["t1"],
-            scorer=None,
             frequency=0.1,
             confidence="weak_yes",
-            rationale_examples=[],
         ),
     ]
     rationale_map = {"t1": "Original triage rationale"}
@@ -606,19 +579,16 @@ def test_annotate_traces_llm_failure_falls_back_to_triage_rationale():
 
 
 def test_annotate_traces_log_feedback_failure_handled_gracefully():
-    from mlflow.genai.discovery.entities import Issue
     from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
     issues = [
-        Issue(
+        _make_issue(
             name="Error [db]",
             description="DB error",
             root_cause="Connection pool",
             example_trace_ids=["t1"],
-            scorer=None,
             frequency=0.1,
             confidence="weak_yes",
-            rationale_examples=[],
         ),
     ]
 
@@ -634,33 +604,26 @@ def test_annotate_traces_log_feedback_failure_handled_gracefully():
     ):
         _annotate_issue_traces(issues, {"t1": "rationale"}, {}, "openai:/gpt-5-mini")
 
-    assert issues[0].rationale_examples == []
+    # No error raised — failure handled gracefully
 
 
 def test_annotate_traces_multiple_issues_annotated_independently():
-    from mlflow.genai.discovery.entities import Issue
     from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
     issues = [
-        Issue(
+        _make_issue(
             name="Issue A",
             description="Desc A",
             root_cause="Cause A",
             example_trace_ids=["t1"],
-            scorer=None,
             frequency=0.2,
-            confidence="definitely_yes",
-            rationale_examples=[],
         ),
-        Issue(
+        _make_issue(
             name="Issue B",
             description="Desc B",
             root_cause="Cause B",
             example_trace_ids=["t2", "t3"],
-            scorer=None,
             frequency=0.3,
-            confidence="definitely_yes",
-            rationale_examples=[],
         ),
     ]
     rationale_map = {"t1": "r1", "t2": "r2", "t3": "r3"}
@@ -678,24 +641,18 @@ def test_annotate_traces_multiple_issues_annotated_independently():
     feedback_names = [c.kwargs["name"] for c in mock_feedback.call_args_list]
     assert feedback_names.count("issue: Issue A") == 1
     assert feedback_names.count("issue: Issue B") == 2
-    assert len(issues[0].rationale_examples) == 1
-    assert len(issues[1].rationale_examples) == 2
 
 
 def test_annotate_traces_session_level_logs_on_first_trace():
-    from mlflow.genai.discovery.entities import Issue
     from mlflow.genai.discovery.pipeline import _annotate_issue_traces
 
     issues = [
-        Issue(
+        _make_issue(
             name="Slow responses [api]",
             description="Responses take too long",
             root_cause="Complex queries",
             example_trace_ids=["trace-1", "trace-2", "trace-3"],
-            scorer=None,
             frequency=0.5,
-            confidence="definitely_yes",
-            rationale_examples=[],
         ),
     ]
     rationale_map = {
@@ -703,13 +660,11 @@ def test_annotate_traces_session_level_logs_on_first_trace():
         "trace-2": "Timed out",
         "trace-3": "Also slow",
     }
-    # trace-1 and trace-2 are in session-A, trace-3 in session-B
     trace_to_session = {
         "trace-1": "session-A",
         "trace-2": "session-A",
         "trace-3": "session-B",
     }
-    # first trace per session
     session_first_trace = {
         "session-A": "trace-0",
         "session-B": "trace-3",
@@ -964,13 +919,13 @@ def test_recluster_low_confidence_merge_keeps_originals():
 
 
 def test_confidence_helpers():
-    from mlflow.genai.discovery.constants import _confidence_gte, _confidence_max
+    from mlflow.genai.discovery.pipeline import confidence_gte, confidence_max
 
-    assert _confidence_gte("definitely_yes", "weak_yes")
-    assert _confidence_gte("weak_yes", "weak_yes")
-    assert not _confidence_gte("maybe", "weak_yes")
-    assert not _confidence_gte("definitely_no", "weak_yes")
+    assert confidence_gte("definitely_yes", "weak_yes")
+    assert confidence_gte("weak_yes", "weak_yes")
+    assert not confidence_gte("maybe", "weak_yes")
+    assert not confidence_gte("definitely_no", "weak_yes")
 
-    assert _confidence_max("definitely_yes", "weak_yes") == "definitely_yes"
-    assert _confidence_max("maybe", "weak_yes") == "weak_yes"
-    assert _confidence_max("definitely_no", "maybe") == "maybe"
+    assert confidence_max("definitely_yes", "weak_yes") == "definitely_yes"
+    assert confidence_max("maybe", "weak_yes") == "weak_yes"
+    assert confidence_max("definitely_no", "maybe") == "maybe"
