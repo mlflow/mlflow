@@ -38,8 +38,7 @@ def build_otlp_headers(experiment_id: str) -> dict[str, str]:
 
     headers: dict[str, str] = {MLFLOW_EXPERIMENT_ID_HEADER: experiment_id}
 
-    token = MLFLOW_TRACKING_TOKEN.get()
-    if token:
+    if token := MLFLOW_TRACKING_TOKEN.get():
         headers["Authorization"] = f"Bearer {token}"
         return headers
 
