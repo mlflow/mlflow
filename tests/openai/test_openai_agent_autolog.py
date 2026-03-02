@@ -395,8 +395,7 @@ async def test_disable_enable_autolog():
     assert get_traces() == []
 
 
-@pytest.mark.asyncio
-async def test_autolog_disable_openai_agent_tracer():
+def test_autolog_disable_openai_agent_tracer():
     def _get_processors():
         return get_trace_provider()._multi_processor._processors
 
