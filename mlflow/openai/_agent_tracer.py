@@ -57,7 +57,8 @@ _SPAN_TYPE_MAP = {
 
 def clear_trace_processors():
     """
-    Clear other trace processors to avoid warnings.
+    Clear all trace processors (including the default OpenAI agents tracer)
+    to avoid warnings when the OpenAI API key is not set.
     https://github.com/openai/openai-agents-python/issues/1387#issuecomment-3165660183
     """
     set_trace_processors([])
