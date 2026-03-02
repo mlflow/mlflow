@@ -178,6 +178,7 @@ def build_flavor_config_from_local_checkpoint(
     Generates the flavor metadata from a Hugging Face model repository ID
     e.g. "meta-llama/Meta-Llama-3.1-405B, instead of the pipeline instance in-memory.
     """
+    import transformers
     from transformers import AutoTokenizer, pipelines
     from transformers.utils import is_torch_available
 
@@ -196,14 +197,6 @@ def build_flavor_config_from_local_checkpoint(
 
     task_metadata = pipelines.check_task(task)
     pipeline_class = task_metadata[1]["impl"].__name__
-    # pipeline.framework was removed in transformers 5.x
-    import transformers
-
-    framework = (
-        ("pt" if is_torch_available() else "tf")
-        if Version(transformers.__version__).major < 5
-        else None
-    )
 
     flavor_conf = {
         FlavorKey.TASK: task,
@@ -214,8 +207,9 @@ def build_flavor_config_from_local_checkpoint(
         FlavorKey.MODEL_BINARY: _MODEL_BINARY_FILE_NAME,
     }
 
-    if framework is not None:
-        flavor_conf[FlavorKey.FRAMEWORK] = framework
+    # pipeline.framework was removed in transformers 5.x
+    if Version(transformers.__version__).major < 5:
+        flavor_conf[FlavorKey.FRAMEWORK] = "pt" if is_torch_available() else "tf"
 
     components = {FlavorKey.TOKENIZER}
     try:
