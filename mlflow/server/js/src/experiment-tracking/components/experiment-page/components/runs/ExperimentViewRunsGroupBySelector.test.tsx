@@ -53,8 +53,6 @@ describe('ExperimentViewRunsGroupBySelector', () => {
           groupBy={groupBy}
           isLoading={false}
           runsData={runsData}
-          useGroupedValuesInCharts
-          onUseGroupedValuesInChartsChange={() => {}}
           onChange={(data) => {
             setGroupBy(data);
             onChangeListener(data);

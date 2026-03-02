@@ -12,7 +12,6 @@ import { useUpdateExperimentViewUIState } from '../../../contexts/ExperimentPage
 import type { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
 import { isRemainingRunsGroup } from '../../../utils/experimentPage.group-row-utils';
 import { RunVisibilityControlButton } from './RunVisibilityControlButton';
-import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 
 const labels = {
   visibility: {
@@ -71,7 +70,6 @@ export const RowActionsCellRenderer = React.memo(
   }) => {
     const updateUIState = useUpdateExperimentViewUIState();
     const { theme } = useDesignSystemTheme();
-    const { useGroupedValuesInCharts } = useExperimentViewRunsTableHeaderContext();
 
     const { groupParentInfo, runDateAndNestInfo, visibilityControl } = props.data;
     const { belongsToGroup } = runDateAndNestInfo || {};
@@ -84,16 +82,7 @@ export const RowActionsCellRenderer = React.memo(
     // If this is a run, use runUuid.
     const runUuidToToggle = groupParentInfo ? rowUuid : runUuid;
 
-    const isRowHidden = (() => {
-      // If "Use grouping from the runs table in charts" option is off and we're displaying a group,
-      // we should check if all runs in the group are hidden in order to determine visibility toggle.
-      if (useGroupedValuesInCharts === false && groupParentInfo) {
-        return Boolean(groupParentInfo.allRunsHidden);
-      }
-
-      // Otherwise, we should use the hidden flag from the row itself.
-      return hidden;
-    })();
+    const isRowHidden = hidden;
 
     const visibilityMessageDescriptor = isGroupRow
       ? isRowHidden
