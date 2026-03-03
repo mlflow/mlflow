@@ -250,6 +250,7 @@ def test_process_transcript_creates_spans(mock_transcript_file):
     llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
     tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
 
+    # 2 LLM spans (gaps absorbed into LLM spans) + 1 tool span
     assert len(llm_spans) == 2
     assert len(tool_spans) == 1
 
@@ -261,18 +262,85 @@ def test_process_transcript_creates_spans(mock_transcript_file):
     for llm_span in llm_spans:
         assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
-    # Verify LLM span outputs are in Anthropic response format
-    first_llm = llm_spans[0]
-    outputs = first_llm.outputs
+    # Verify the first LLM span has Anthropic format output
+    text_llm = llm_spans[0]
+    outputs = text_llm.outputs
     assert outputs["type"] == "message"
     assert outputs["role"] == "assistant"
     assert isinstance(outputs["content"], list)
 
     # Verify LLM span inputs contain messages in Anthropic format
-    inputs = first_llm.inputs
+    inputs = text_llm.inputs
     assert "messages" in inputs
     messages = inputs["messages"]
     assert any(m["role"] == "user" for m in messages)
+
+
+def test_process_transcript_llm_span_absorbs_gap(mock_transcript_file):
+    trace = process_transcript(mock_transcript_file, "test-session-123")
+
+    assert trace is not None
+
+    spans = list(trace.search_spans())
+    llm_spans = [s for s in spans if s.name == "llm"]
+
+    # First LLM span absorbs the gap (starts at root span start, not at assistant timestamp)
+    root_span = trace.data.spans[0]
+    assert llm_spans[0].start_time_ns == root_span.start_time_ns
+
+
+DUMMY_TRANSCRIPT_WITH_THINKING = [
+    {
+        "type": "user",
+        "message": {"role": "user", "content": "What is 2 + 2?"},
+        "timestamp": "2025-01-15T10:00:00.000Z",
+        "sessionId": "test-session-123",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "thinking", "thinking": "The user wants to add 2 and 2."}],
+        },
+        "timestamp": "2025-01-15T10:00:01.000Z",
+    },
+    {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "The answer is 4."}],
+        },
+        "timestamp": "2025-01-15T10:00:01.100Z",
+    },
+]
+
+
+def test_process_transcript_merges_thinking_into_llm_span(tmp_path):
+    transcript_path = tmp_path / "transcript.jsonl"
+    with open(transcript_path, "w") as f:
+        for entry in DUMMY_TRANSCRIPT_WITH_THINKING:
+            f.write(json.dumps(entry) + "\n")
+
+    trace = process_transcript(str(transcript_path), "test-session-123")
+    assert trace is not None
+
+    spans = list(trace.search_spans())
+    llm_spans = [s for s in spans if s.name == "llm"]
+
+    # Single LLM span with thinking merged in
+    assert len(llm_spans) == 1
+
+    llm_span = llm_spans[0]
+    # LLM span starts at the root span start (covers the thinking gap)
+    root_span = trace.data.spans[0]
+    assert llm_span.start_time_ns == root_span.start_time_ns
+
+    # Output includes both thinking and text content
+    output_content = llm_span.outputs["content"]
+    assert output_content[0]["type"] == "thinking"
+    assert output_content[0]["thinking"] == "The user wants to add 2 and 2."
+    assert output_content[1]["type"] == "text"
+    assert output_content[1]["text"] == "The answer is 4."
 
 
 def test_process_transcript_returns_none_for_nonexistent_file():
@@ -323,7 +391,6 @@ def test_process_transcript_tracks_token_usage(mock_transcript_file_with_usage):
 
     assert trace is not None
 
-    # Find the LLM span
     spans = list(trace.search_spans())
     llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
 
@@ -800,6 +867,7 @@ def test_process_transcript_includes_steer_messages(tmp_path):
 
     spans = list(trace.search_spans())
     llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    # 2 LLM spans: each absorbs the gap before it
     assert len(llm_spans) == 2
 
     # The second LLM span should include the steer message in its inputs

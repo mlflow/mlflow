@@ -272,10 +272,13 @@ def _get_next_timestamp_ns(transcript: list[dict[str, Any]], current_idx: int) -
     return None
 
 
-def _extract_content_and_tools(content: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
-    """Extract text content and tool uses from assistant response content."""
+def _extract_content_and_tools(
+    content: list[dict[str, Any]],
+) -> tuple[str, list[dict[str, Any]], str]:
+    """Extract text content, tool uses, and thinking text from assistant response content."""
     text_content = ""
     tool_uses = []
+    thinking_text = ""
 
     if isinstance(content, list):
         for part in content:
@@ -284,8 +287,10 @@ def _extract_content_and_tools(content: list[dict[str, Any]]) -> tuple[str, list
                     text_content += part.get(CONTENT_TYPE_TEXT, "")
                 elif part.get(MESSAGE_FIELD_TYPE) == CONTENT_TYPE_TOOL_USE:
                     tool_uses.append(part)
+                elif part.get(MESSAGE_FIELD_TYPE) == "thinking":
+                    thinking_text += part.get("thinking", "")
 
-    return text_content, tool_uses
+    return text_content, tool_uses, thinking_text
 
 
 def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict[str, Any]:
@@ -402,10 +407,31 @@ def _set_token_usage_attribute(span, usage: dict[str, Any]) -> None:
     span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
 
+def _create_inference_span(
+    parent_span, start_ns: int, end_ns: int, thinking_text: str = ""
+) -> None:
+    """Create an LLM span covering the inferred inference time before a tool call."""
+    span = mlflow.start_span_no_context(
+        name="llm",
+        parent_span=parent_span,
+        span_type=SpanType.LLM,
+        start_time_ns=start_ns,
+    )
+    if thinking_text:
+        span.set_outputs({"thinking": thinking_text})
+    span.end(end_time_ns=end_ns)
+
+
 def _create_llm_and_tool_spans(
     parent_span, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
     """Create LLM and tool spans for assistant responses with proper timing."""
+    # Track the end of the last span to fill gaps with thinking spans.
+    # Starts at the parent span's start time (user message timestamp).
+    last_span_end_ns = parent_span.start_time_ns
+    # Accumulate thinking text from thinking-only entries to attach to the next thinking span.
+    pending_thinking_text = ""
+
     for i in range(start_idx, len(transcript)):
         entry = transcript[i]
         if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_ASSISTANT:
@@ -424,18 +450,39 @@ def _create_llm_and_tool_spans(
         usage = msg.get("usage", {})
 
         # First check if we have meaningful content to create a span for
-        text_content, tool_uses = _extract_content_and_tools(content)
+        text_content, tool_uses, thinking_text = _extract_content_and_tools(content)
+
+        # Skip entries that don't produce spans (e.g. thinking-only blocks),
+        # but accumulate thinking text for the next thinking span.
+        if not (text_content and text_content.strip()) and not tool_uses:
+            if thinking_text:
+                pending_thinking_text += thinking_text
+            continue
+
+        # Fill any gap before this entry
+        has_gap = last_span_end_ns and timestamp_ns and timestamp_ns > last_span_end_ns
 
         # Only create LLM span if there's text content (no tools)
         llm_span = None
         if text_content and text_content.strip() and not tool_uses:
+            # Extend the LLM span backwards to cover any gap (inference time)
+            span_start_ns = last_span_end_ns if has_gap else timestamp_ns
+            if pending_thinking_text:
+                output_content = [
+                    {"type": "thinking", "thinking": pending_thinking_text},
+                    *content,
+                ]
+                pending_thinking_text = ""
+            else:
+                output_content = content
+
             messages = _get_input_messages(transcript, i)
 
             llm_span = mlflow.start_span_no_context(
                 name="llm",
                 parent_span=parent_span,
                 span_type=SpanType.LLM,
-                start_time_ns=timestamp_ns,
+                start_time_ns=span_start_ns,
                 inputs={
                     "model": msg.get("model", "unknown"),
                     "messages": messages,
@@ -454,10 +501,15 @@ def _create_llm_and_tool_spans(
                 {
                     "type": "message",
                     "role": "assistant",
-                    "content": content,
+                    "content": output_content,
                 }
             )
             llm_span.end(end_time_ns=timestamp_ns + duration_ns)
+            last_span_end_ns = timestamp_ns + duration_ns
+        elif has_gap:
+            # Gap before a tool span — create a thinking span (no thinking text to merge)
+            _create_inference_span(parent_span, last_span_end_ns, timestamp_ns)
+            pending_thinking_text = ""
 
         # Create tool spans with proportional timing and actual results
         if tool_uses:
@@ -483,6 +535,8 @@ def _create_llm_and_tool_spans(
 
                 tool_span.set_outputs({"result": tool_result})
                 tool_span.end(end_time_ns=tool_start_ns + tool_duration_ns)
+
+            last_span_end_ns = timestamp_ns + duration_ns
 
 
 def _finalize_trace(
