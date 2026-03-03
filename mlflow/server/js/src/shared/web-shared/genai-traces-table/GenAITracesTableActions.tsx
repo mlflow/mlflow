@@ -206,7 +206,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
               <DropdownMenu.Separator />
             </>
           )}
-          {hasExportAction && (
+          {(hasExportAction || hasRunJudgesAction) && (
             <>
               <DropdownMenu.Group>
                 <DropdownMenu.Label css={groupLabelStyles}>
@@ -227,22 +227,24 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                     })}
                   </DropdownMenu.Item>
                 )}
-                <DropdownMenu.Item
-                  componentId="mlflow.genai-traces-table.export-to-datasets"
-                  css={groupItemStyles}
-                  onClick={handleExportToDatasets}
-                >
-                  {intl.formatMessage({
-                    defaultMessage: 'Add to evaluation dataset',
-                    description: 'Add traces to evaluation dataset action',
-                  })}
-                </DropdownMenu.Item>
+                {hasExportAction && (
+                  <DropdownMenu.Item
+                    componentId="mlflow.genai-traces-table.export-to-datasets"
+                    css={groupItemStyles}
+                    onClick={handleExportToDatasets}
+                  >
+                    {intl.formatMessage({
+                      defaultMessage: 'Add to evaluation dataset',
+                      description: 'Add traces to evaluation dataset action',
+                    })}
+                  </DropdownMenu.Item>
+                )}
               </DropdownMenu.Group>
             </>
           )}
           {(hasEditTagsAction || hasDeleteAction) && (
             <>
-              {hasExportAction && <DropdownMenu.Separator />}
+              {(hasExportAction || hasRunJudgesAction) && <DropdownMenu.Separator />}
               <DropdownMenu.Group>
                 <DropdownMenu.Label css={groupLabelStyles}>
                   {intl.formatMessage({
