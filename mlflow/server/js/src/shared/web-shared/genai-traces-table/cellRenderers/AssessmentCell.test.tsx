@@ -76,8 +76,6 @@ describe('AssessmentCell — judge running spinner', () => {
         label: JUDGE_NAME,
         isLoading: true,
         tracesData: { [TRACE_ID]: {} as any },
-        jobIds: [],
-        jobStatuses: {},
       },
     });
 
@@ -91,8 +89,6 @@ describe('AssessmentCell — judge running spinner', () => {
         label: JUDGE_NAME, // "Safety" — different from the "demo" column
         isLoading: true,
         tracesData: { [TRACE_ID]: {} as any },
-        jobIds: [],
-        jobStatuses: {},
       },
     });
 
@@ -106,8 +102,6 @@ describe('AssessmentCell — judge running spinner', () => {
         label: JUDGE_NAME,
         isLoading: true,
         tracesData: { 'some-other-trace': {} as any }, // different trace
-        jobIds: [],
-        jobStatuses: {},
       },
     });
 
@@ -121,8 +115,6 @@ describe('AssessmentCell — judge running spinner', () => {
         label: JUDGE_NAME,
         isLoading: false,
         tracesData: { [TRACE_ID]: {} as any },
-        jobIds: [],
-        jobStatuses: {},
       },
     });
 

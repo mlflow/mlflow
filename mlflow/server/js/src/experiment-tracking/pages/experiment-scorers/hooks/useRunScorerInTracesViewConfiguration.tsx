@@ -34,12 +34,13 @@ import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
 import { isEmpty, isObject } from 'lodash';
 
 interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExplorerRunJudgeConfig {
-  RunJudgeModalElement: React.ReactNode;
+  evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
+  allEvaluations: Record<string, ScorerEvaluation>;
 }
 
 export const useRunScorerInTracesViewConfiguration = (
   scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
-): ModelTraceExplorerRunJudgeConfig => {
+): UseRunScorerInTracesViewConfigurationReturnType => {
   const [experimentId] = useExperimentIds();
 
   const scorerFinishSubscribers = useRef<((event: ScorerFinishedEvent) => void)[]>([]);
@@ -80,12 +81,14 @@ export const useRunScorerInTracesViewConfiguration = (
 
   return {
     renderRunJudgeModal,
-    evaluations: allEvaluations,
+    evaluations: allEvaluations as ModelTraceExplorerRunJudgeConfig['evaluations'],
     evaluateTraces,
-    subscribeToScorerFinished,
+    allEvaluations: allEvaluations ?? {},
+    subscribeToScorerFinished:
+      subscribeToScorerFinished as ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
     reset,
     scope,
-  } as UseRunScorerInTracesViewConfigurationReturnType;
+  };
 };
 
 /**
@@ -519,7 +522,7 @@ const JudgesEvaluationStatusBanner = ({
           <Alert
             key={evaluation.requestKey}
             componentId="mlflow.experiment-scorers.judges-success-banner"
-            type="success"
+            type="info"
             closable
             onClose={() => onDismiss(evaluation.requestKey)}
             message={intl.formatMessage(
