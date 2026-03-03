@@ -40,11 +40,11 @@ Users need the ability to offload span content to a cheaper trace repository (e.
   - Retrieving an archived trace **must** transparently fetch span data from the trace repository
   - Search/filter on trace metadata **must** continue to work for archived traces
   - The `search_traces` and `get_trace` APIs **must** be unaffected from the caller's perspective
-- The feature **must** support all existing repository backends (S3, GCS, Azure, local, HDFS, DBFS, etc.; may be the same as artifact storage)
+- The feature **must** support existing repository backends (S3, GCS, Azure, local; similar to the supported integrations for artifact storage)
 - The feature **should** allow three span storage modes at ingestion time:
   - `database` (default, current behavior): spans written to DB for real-time search on span-level attributes
   - `repository`: spans written by the server to the trace repository, only trace-level metadata stored in DB
-  - `direct-to-repository`: server may signal MLflow clients to upload traces directly to the repository (client credentials or pre-signed URL); analogous to client uploading run artifacts. By default the server only allows clients that can upload directly; fallback to `repository` mode (server writes to repository) for OTel or unauthenticated clients is opt-in via server config `--fallback-to-trace-root`. Only trace-level metadata stored in DB.
+  - `direct-to-repository`: server may signal MLflow clients to upload traces directly to the repository (client credentials or pre-signed URL); analogous to client uploading run artifacts. By default the server only allows clients that can upload directly; fallback to `repository` mode (server writes to repository) for OTel clients is opt-in via server config `--fallback-to-trace-root`. Only trace-level metadata stored in DB.
   - Span storage mode **must** be configured on the server only; the client **must not** be able to change or affect this configuration
 - The feature **should** record the storage location of span data in trace metadata so retrieval is transparent
 
