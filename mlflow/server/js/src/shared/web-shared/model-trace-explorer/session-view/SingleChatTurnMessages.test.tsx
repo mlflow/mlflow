@@ -100,10 +100,7 @@ describe('extractSimpleChatMessages', () => {
   });
 
   it('picks the first matching field by priority order', () => {
-    const result = extractSimpleChatMessages(
-      { query: 'from query', input: 'from input', messages: [] },
-      'response',
-    );
+    const result = extractSimpleChatMessages({ query: 'from query', input: 'from input', messages: [] }, 'response');
     expect(result).toEqual([
       { role: 'user', content: 'from query' },
       { role: 'assistant', content: 'response' },
