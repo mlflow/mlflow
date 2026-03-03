@@ -58,7 +58,7 @@ const LOW_PRIORITY_COLUMN_IDS = [
 ];
 
 // This function adjusts the hidden columns to ensure that the number of visible columns is at most DEFAULT_MAX_VISIBLE_COLUMNS.
-// If over the limit, it removes low-priority info columns first, then assessment columns.
+// If over the limit, it removes low-priority info columns first, then assessment columns, then high-priority columns.
 const adjustHiddenColumns = (hiddenColumns: string[], allColumns: TracesTableColumn[]): string[] => {
   let visibleColumns = toVisibleColumnsFromHiddenColumns(hiddenColumns, allColumns);
   if (visibleColumns.length > DEFAULT_MAX_VISIBLE_COLUMNS) {
@@ -78,18 +78,16 @@ const adjustHiddenColumns = (hiddenColumns: string[], allColumns: TracesTableCol
 
     // If still over limit, remove assessment columns from the tail
     const assessmentColumnsToKeep = Math.max(0, assessmentColumns.length - columnsToRemove);
+    columnsToRemove = Math.max(0, columnsToRemove - assessmentColumns.length);
+
+    // If still over limit, trim high-priority columns as a last resort
+    const highPriorityToKeep = Math.max(0, highPriorityColumns.length - columnsToRemove);
 
     visibleColumns = [
-      ...highPriorityColumns,
+      ...highPriorityColumns.slice(0, highPriorityToKeep),
       ...lowPriorityColumns.slice(0, lowPriorityToKeep),
       ...assessmentColumns.slice(0, assessmentColumnsToKeep),
     ];
-
-    // Final safeguard: ensure we never exceed DEFAULT_MAX_VISIBLE_COLUMNS
-    // (e.g., when high-priority columns alone exceed the limit)
-    if (visibleColumns.length > DEFAULT_MAX_VISIBLE_COLUMNS) {
-      visibleColumns = visibleColumns.slice(0, DEFAULT_MAX_VISIBLE_COLUMNS);
-    }
   }
   return toHiddenColumnsFromVisibleColumns(visibleColumns, allColumns);
 };

@@ -32,8 +32,10 @@ export const shouldEnableAssessmentsInSessions = () => {
 };
 
 /**
- * Determines if traces table state (selected columns, filters) should be persisted via URL query params,
- * enabling column selections to survive SPA navigation.
+ * Determines if the traces table UI state should be persisted.
+ * When enabled, table configuration (e.g., visible/hidden columns, filters, sort order)
+ * is stored in URL query parameters and/or localStorage so that it survives SPA navigation
+ * and page reloads.
  */
 export const shouldEnableTracesTableStatePersistence = () => {
   return true;
