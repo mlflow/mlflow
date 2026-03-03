@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { useDesignSystemTheme, LightningIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AreaChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useTraceTokenUsageChartData } from '../hooks/useTraceTokenUsageChartData';
 import {
   OverviewChartLoadingState,
@@ -27,7 +27,7 @@ export const TraceTokenUsageChart: React.FC = () => {
   const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process token usage chart data
-  const { chartData, totalTokens, totalInputTokens, totalOutputTokens, isLoading, error, hasData } =
+  const { chartData, totalTokens, totalInputTokens, totalOutputTokens, totalCachedTokens, isLoading, error, hasData } =
     useTraceTokenUsageChartData();
 
   const tooltipFormatter = useCallback(
@@ -39,6 +39,7 @@ export const TraceTokenUsageChart: React.FC = () => {
   const areaColors = {
     inputTokens: theme.colors.blue400,
     outputTokens: theme.colors.green400,
+    cachedTokens: theme.colors.yellow500,
   };
 
   if (isLoading) {
@@ -55,7 +56,11 @@ export const TraceTokenUsageChart: React.FC = () => {
         icon={<LightningIcon />}
         title={<FormattedMessage defaultMessage="Token Usage" description="Title for the token usage chart" />}
         value={formatCount(totalTokens)}
-        subtitle={`(${formatCount(totalInputTokens)} input, ${formatCount(totalOutputTokens)} output)`}
+        subtitle={
+          totalCachedTokens > 0
+            ? `(${formatCount(totalInputTokens)} input, ${formatCount(totalOutputTokens)} output, ${formatCount(totalCachedTokens)} cached)`
+            : `(${formatCount(totalInputTokens)} input, ${formatCount(totalOutputTokens)} output)`
+        }
       />
 
       {/* Chart */}
@@ -101,6 +106,16 @@ export const TraceTokenUsageChart: React.FC = () => {
                 strokeWidth={2}
                 dot={getLineDotStyle(areaColors.outputTokens)}
                 name="Output Tokens"
+              />
+              <Line
+                type="monotone"
+                dataKey="cachedTokens"
+                stroke={areaColors.cachedTokens}
+                strokeWidth={2}
+                strokeDasharray="5 3"
+                strokeOpacity={getOpacity('Cached Tokens')}
+                dot={getLineDotStyle(areaColors.cachedTokens)}
+                name="Cached Tokens"
               />
               <Legend
                 verticalAlign="bottom"

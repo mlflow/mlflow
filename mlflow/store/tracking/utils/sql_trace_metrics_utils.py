@@ -75,6 +75,14 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
         aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         dimensions={TraceMetricDimensionKey.TRACE_NAME},
     ),
+    TraceMetricKey.CACHE_READ_INPUT_TOKENS: TraceMetricsConfig(
+        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+    ),
+    TraceMetricKey.CACHE_CREATION_INPUT_TOKENS: TraceMetricsConfig(
+        aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+    ),
 }
 
 # SpanMetricKey -> TraceMetricsConfig mapping for spans

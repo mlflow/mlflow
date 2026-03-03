@@ -24,6 +24,13 @@ const createOutputTokensDataPoint = (timeBucket: string, sum: number) => ({
   values: { [AggregationType.SUM]: sum },
 });
 
+// Helper to create a cached (cache read) tokens data point
+const createCachedTokensDataPoint = (timeBucket: string, sum: number) => ({
+  metric_name: TraceMetricKey.CACHE_READ_INPUT_TOKENS,
+  dimensions: { time_bucket: timeBucket },
+  values: { [AggregationType.SUM]: sum },
+});
+
 // Helper to create a total tokens data point (no time bucket)
 const createTotalTokensDataPoint = (sum: number) => ({
   metric_name: TraceMetricKey.TOTAL_TOKENS,
@@ -80,7 +87,12 @@ describe('TraceTokenUsageChart', () => {
   };
 
   // Helper to setup MSW handler for trace metrics endpoint with routing based on metric_name
-  const setupTraceMetricsHandler = (inputDataPoints: any[], outputDataPoints: any[], totalDataPoints: any[]) => {
+  const setupTraceMetricsHandler = (
+    inputDataPoints: any[],
+    outputDataPoints: any[],
+    totalDataPoints: any[],
+    cachedDataPoints: any[] = [],
+  ) => {
     server.use(
       rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
@@ -91,6 +103,8 @@ describe('TraceTokenUsageChart', () => {
           return res(ctx.json({ data_points: outputDataPoints }));
         } else if (metricName === TraceMetricKey.TOTAL_TOKENS) {
           return res(ctx.json({ data_points: totalDataPoints }));
+        } else if (metricName === TraceMetricKey.CACHE_READ_INPUT_TOKENS) {
+          return res(ctx.json({ data_points: cachedDataPoints }));
         }
         return res(ctx.json({ data_points: [] }));
       }),
@@ -224,6 +238,37 @@ describe('TraceTokenUsageChart', () => {
       await waitFor(() => {
         expect(screen.getByText(/125\.00K input/)).toBeInTheDocument();
         expect(screen.getByText(/50\.00K output/)).toBeInTheDocument();
+      });
+    });
+
+    it('should display cached tokens in subtitle when present', async () => {
+      const mockCachedDataPoints = [
+        createCachedTokensDataPoint('2025-12-22T10:00:00Z', 10000),
+        createCachedTokensDataPoint('2025-12-22T11:00:00Z', 15000),
+      ];
+
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints, mockCachedDataPoints);
+
+      renderComponent();
+
+      // Cached: 10000 + 15000 = 25000 => 25.00K cached
+      await waitFor(() => {
+        expect(screen.getByText(/25\.00K cached/)).toBeInTheDocument();
+      });
+    });
+
+    it('should render cached tokens line when data is present', async () => {
+      const mockCachedDataPoints = [
+        createCachedTokensDataPoint('2025-12-22T10:00:00Z', 10000),
+        createCachedTokensDataPoint('2025-12-22T11:00:00Z', 15000),
+      ];
+
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints, mockCachedDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('line-Cached Tokens')).toBeInTheDocument();
       });
     });
 

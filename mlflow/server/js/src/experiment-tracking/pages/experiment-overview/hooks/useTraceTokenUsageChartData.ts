@@ -8,6 +8,7 @@ export interface TokenUsageChartDataPoint {
   name: string;
   inputTokens: number;
   outputTokens: number;
+  cachedTokens: number;
   timestampMs: number;
 }
 
@@ -20,6 +21,8 @@ export interface UseTraceTokenUsageChartDataResult {
   totalInputTokens: number;
   /** Total output tokens in the time range */
   totalOutputTokens: number;
+  /** Total cached (cache read) tokens in the time range */
+  totalCachedTokens: number;
   /** Whether data is currently being fetched */
   isLoading: boolean;
   /** Error if data fetching failed */
@@ -70,6 +73,22 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     filters,
   });
 
+  // Fetch cached (cache read) tokens over time
+  const {
+    data: cachedTokensData,
+    isLoading: isLoadingCached,
+    error: cachedError,
+  } = useTraceMetricsQuery({
+    experimentIds,
+    startTimeMs,
+    endTimeMs,
+    viewType: MetricViewType.TRACES,
+    metricName: TraceMetricKey.CACHE_READ_INPUT_TOKENS,
+    aggregations: [{ aggregation_type: AggregationType.SUM }],
+    timeIntervalSeconds,
+    filters,
+  });
+
   // Fetch total tokens (without time bucketing) for the header
   const {
     data: totalTokensData,
@@ -87,8 +106,9 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
 
   const inputDataPoints = useMemo(() => inputTokensData?.data_points || [], [inputTokensData?.data_points]);
   const outputDataPoints = useMemo(() => outputTokensData?.data_points || [], [outputTokensData?.data_points]);
-  const isLoading = isLoadingInput || isLoadingOutput || isLoadingTotal;
-  const error = inputError || outputError || totalError;
+  const cachedDataPoints = useMemo(() => cachedTokensData?.data_points || [], [cachedTokensData?.data_points]);
+  const isLoading = isLoadingInput || isLoadingOutput || isLoadingCached || isLoadingTotal;
+  const error = inputError || outputError || cachedError || totalError;
 
   // Extract total tokens from the response
   const totalTokens = totalTokensData?.data_points?.[0]?.values?.[AggregationType.SUM] || 0;
@@ -102,6 +122,10 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     () => outputDataPoints.reduce((sum, dp) => sum + (dp.values?.[AggregationType.SUM] || 0), 0),
     [outputDataPoints],
   );
+  const totalCachedTokens = useMemo(
+    () => cachedDataPoints.reduce((sum, dp) => sum + (dp.values?.[AggregationType.SUM] || 0), 0),
+    [cachedDataPoints],
+  );
 
   // Create maps of tokens by timestamp using shared utility
   const sumExtractor = useCallback(
@@ -110,6 +134,7 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
   );
   const inputTokensMap = useTimestampValueMap(inputDataPoints, sumExtractor);
   const outputTokensMap = useTimestampValueMap(outputDataPoints, sumExtractor);
+  const cachedTokensMap = useTimestampValueMap(cachedDataPoints, sumExtractor);
 
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
@@ -117,15 +142,17 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       inputTokens: inputTokensMap.get(timestampMs) || 0,
       outputTokens: outputTokensMap.get(timestampMs) || 0,
+      cachedTokens: cachedTokensMap.get(timestampMs) || 0,
       timestampMs,
     }));
-  }, [timeBuckets, inputTokensMap, outputTokensMap, timeIntervalSeconds]);
+  }, [timeBuckets, inputTokensMap, outputTokensMap, cachedTokensMap, timeIntervalSeconds]);
 
   return {
     chartData,
     totalTokens,
     totalInputTokens,
     totalOutputTokens,
+    totalCachedTokens,
     isLoading,
     error,
     hasData: inputDataPoints.length > 0 || outputDataPoints.length > 0,
