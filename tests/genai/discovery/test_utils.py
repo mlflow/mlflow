@@ -2,15 +2,12 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pytest
 
-from mlflow.genai.discovery.constants import DEFAULT_SCORER_NAME
 from mlflow.genai.discovery.entities import (
     Issue,
     _ConversationAnalysis,
 )
 from mlflow.genai.discovery.utils import (
-    _build_default_satisfaction_scorer,
     _build_summary,
     _cluster_analyses,
     _embed_texts,
@@ -305,30 +302,6 @@ def test_build_summary_with_issues():
     assert "API timeout" in summary
 
 
-# ---- _build_default_satisfaction_scorer ----
-
-
-@pytest.mark.parametrize(
-    ("use_conversation", "expected_var"),
-    [
-        (True, "{{ conversation }}"),
-        (False, "{{ inputs }}"),
-    ],
-)
-def test_build_default_satisfaction_scorer(use_conversation, expected_var):
-    with patch(
-        "mlflow.genai.discovery.utils.make_judge", return_value=MagicMock()
-    ) as mock_make_judge:
-        _build_default_satisfaction_scorer("openai:/gpt-4", use_conversation=use_conversation)
-
-    mock_make_judge.assert_called_once()
-    call_kwargs = mock_make_judge.call_args[1]
-    assert call_kwargs["name"] == DEFAULT_SCORER_NAME
-    assert call_kwargs["feedback_value_type"] is bool
-    assert call_kwargs["model"] == "openai:/gpt-4"
-    assert expected_var in call_kwargs["instructions"]
-
-
 # ---- _sample_traces ----
 
 
@@ -450,3 +423,75 @@ def test_extract_span_errors_truncation(make_trace):
     trace = make_trace(error_span=True)
     result = _extract_span_errors(trace, max_length=10)
     assert len(result) <= 10
+
+
+# ---- _test_scorer ----
+
+
+def test_test_scorer_happy_path(make_trace):
+
+    from mlflow.entities.assessment import Feedback
+    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+    from mlflow.genai.discovery.utils import _test_scorer
+
+    trace = make_trace()
+    scorer = MagicMock()
+    scorer.name = "test_scorer"
+
+    result_trace = MagicMock()
+    result_trace.info.assessments = [
+        Feedback(
+            name="test_scorer",
+            value=True,
+            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test"),
+        )
+    ]
+
+    with patch("mlflow.genai.discovery.utils.mlflow.get_trace", return_value=result_trace):
+        _test_scorer(scorer, trace)
+
+    scorer.assert_called_once_with(trace=trace)
+
+
+def test_test_scorer_no_feedback_raises(make_trace):
+    import pytest
+
+    from mlflow.genai.discovery.utils import _test_scorer
+
+    trace = make_trace()
+    scorer = MagicMock()
+    scorer.name = "test_scorer"
+
+    result_trace = MagicMock()
+    result_trace.info.assessments = []
+
+    with (
+        patch("mlflow.genai.discovery.utils.mlflow.get_trace", return_value=result_trace),
+        pytest.raises(Exception, match="produced no feedback"),
+    ):
+        _test_scorer(scorer, trace)
+
+
+def test_test_scorer_null_value_raises(make_trace):
+    import pytest
+
+    from mlflow.entities.assessment import Feedback
+    from mlflow.genai.discovery.utils import _test_scorer
+
+    trace = make_trace()
+    scorer = MagicMock()
+    scorer.name = "test_scorer"
+
+    feedback = MagicMock(spec=Feedback)
+    feedback.name = "test_scorer"
+    feedback.value = None
+    feedback.error_message = "model API error"
+
+    result_trace = MagicMock()
+    result_trace.info.assessments = [feedback]
+
+    with (
+        patch("mlflow.genai.discovery.utils.mlflow.get_trace", return_value=result_trace),
+        pytest.raises(Exception, match="model API error"),
+    ):
+        _test_scorer(scorer, trace)

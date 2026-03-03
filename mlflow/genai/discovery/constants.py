@@ -5,6 +5,7 @@ from typing import Literal
 DEFAULT_TRIAGE_SAMPLE_SIZE = 100
 MAX_EXAMPLE_TRACE_IDS = 10
 MIN_EXAMPLES = 1
+SAMPLE_RANDOM_SEED = 42
 
 # Likert confidence scale — ordinal comparison for filtering/sorting
 ConfidenceLevel = Literal["definitely_no", "weak_no", "maybe", "weak_yes", "definitely_yes"]

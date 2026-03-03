@@ -44,14 +44,6 @@ def test_discover_issues_empty_experiment():
 
 def test_discover_issues_all_traces_pass(make_trace):
     traces = [make_trace() for _ in range(5)]
-    test_df = pd.DataFrame(
-        {
-            "_issue_discovery_judge/value": [True],
-            "_issue_discovery_judge/rationale": ["ok"],
-            "trace": [traces[0]],
-        }
-    )
-    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
     result_df = pd.DataFrame(
         {
             "_issue_discovery_judge/value": [True] * 5,
@@ -64,9 +56,10 @@ def test_discover_issues_all_traces_pass(make_trace):
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._test_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            side_effect=[test_eval, triage_eval],
+            return_value=triage_eval,
         ),
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
@@ -82,15 +75,6 @@ def test_discover_issues_all_traces_pass(make_trace):
 
 def test_discover_issues_full_pipeline(make_trace):
     traces = [make_trace() for _ in range(10)]
-
-    test_df = pd.DataFrame(
-        {
-            "_issue_discovery_judge/value": [True],
-            "_issue_discovery_judge/rationale": ["ok"],
-            "trace": [traces[0]],
-        }
-    )
-    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
 
     triage_df = pd.DataFrame(
         {
@@ -112,9 +96,10 @@ def test_discover_issues_full_pipeline(make_trace):
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._test_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            side_effect=[test_eval, triage_eval],
+            return_value=triage_eval,
         ),
         patch(
             "mlflow.genai.discovery.pipeline._extract_failure_labels",
@@ -149,15 +134,6 @@ def test_discover_issues_full_pipeline(make_trace):
 def test_discover_issues_low_confidence_issues_filtered(make_trace):
     traces = [make_trace() for _ in range(5)]
 
-    test_df = pd.DataFrame(
-        {
-            "_issue_discovery_judge/value": [True],
-            "_issue_discovery_judge/rationale": ["ok"],
-            "trace": [traces[0]],
-        }
-    )
-    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
-
     triage_df = pd.DataFrame(
         {
             "_issue_discovery_judge/value": [False] * 2 + [True] * 3,
@@ -179,9 +155,10 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._test_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            side_effect=[test_eval, triage_eval],
+            return_value=triage_eval,
         ),
         patch(
             "mlflow.genai.discovery.pipeline._extract_failure_labels",
@@ -238,11 +215,6 @@ def test_discover_issues_custom_satisfaction_scorer(make_trace):
     custom_scorer.name = "custom"
     traces = [make_trace()]
 
-    test_df = pd.DataFrame(
-        {"custom/value": [True], "custom/rationale": ["ok"], "trace": [traces[0]]}
-    )
-    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
-
     result_df = pd.DataFrame(
         {
             "custom/value": [True],
@@ -255,9 +227,10 @@ def test_discover_issues_custom_satisfaction_scorer(make_trace):
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._test_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            side_effect=[test_eval, triage_eval],
+            return_value=triage_eval,
         ) as mock_eval,
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
@@ -265,10 +238,10 @@ def test_discover_issues_custom_satisfaction_scorer(make_trace):
             side_effect=_mock_start_run,
         ),
     ):
-        discover_issues(satisfaction_scorer=custom_scorer)
+        discover_issues(scorers=[custom_scorer])
 
-    assert mock_eval.call_count == 2
-    triage_call_kwargs = mock_eval.call_args_list[1][1]
+    mock_eval.assert_called_once()
+    triage_call_kwargs = mock_eval.call_args[1]
     assert triage_call_kwargs["scorers"] == [custom_scorer]
 
 
@@ -278,11 +251,6 @@ def test_discover_issues_additional_scorers(make_trace):
     extra_scorer = MagicMock()
     extra_scorer.name = "extra"
     traces = [make_trace()]
-
-    test_df = pd.DataFrame(
-        {"custom/value": [True], "custom/rationale": ["ok"], "trace": [traces[0]]}
-    )
-    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
 
     result_df = pd.DataFrame(
         {
@@ -298,9 +266,10 @@ def test_discover_issues_additional_scorers(make_trace):
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._test_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            side_effect=[test_eval, triage_eval],
+            return_value=triage_eval,
         ) as mock_eval,
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
@@ -308,13 +277,10 @@ def test_discover_issues_additional_scorers(make_trace):
             side_effect=_mock_start_run,
         ),
     ):
-        discover_issues(
-            satisfaction_scorer=custom_scorer,
-            additional_scorers=[extra_scorer],
-        )
+        discover_issues(scorers=[custom_scorer, extra_scorer])
 
-    assert mock_eval.call_count == 2
-    triage_call_kwargs = mock_eval.call_args_list[1][1]
+    mock_eval.assert_called_once()
+    triage_call_kwargs = mock_eval.call_args[1]
     assert triage_call_kwargs["scorers"] == [custom_scorer, extra_scorer]
 
 
@@ -357,15 +323,6 @@ def test_is_non_issue(name, description, root_cause, expected):
 def test_discover_issues_filters_no_issue_results(make_trace):
     traces = [make_trace() for _ in range(10)]
 
-    test_df = pd.DataFrame(
-        {
-            "_issue_discovery_judge/value": [True],
-            "_issue_discovery_judge/rationale": ["ok"],
-            "trace": [traces[0]],
-        }
-    )
-    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
-
     triage_df = pd.DataFrame(
         {
             "_issue_discovery_judge/value": [False] * 3 + [True] * 7,
@@ -386,9 +343,10 @@ def test_discover_issues_filters_no_issue_results(make_trace):
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._test_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            side_effect=[test_eval, triage_eval],
+            return_value=triage_eval,
         ),
         patch(
             "mlflow.genai.discovery.pipeline._extract_failure_labels",
@@ -416,15 +374,6 @@ def test_discover_issues_filters_no_issue_results(make_trace):
 def test_discover_issues_filters_canonical_no_issue_keyword(make_trace):
     traces = [make_trace() for _ in range(10)]
 
-    test_df = pd.DataFrame(
-        {
-            "_issue_discovery_judge/value": [True],
-            "_issue_discovery_judge/rationale": ["ok"],
-            "trace": [traces[0]],
-        }
-    )
-    test_eval = EvaluationResult(run_id="run-test", metrics={}, result_df=test_df)
-
     triage_df = pd.DataFrame(
         {
             "_issue_discovery_judge/value": [False] * 3 + [True] * 7,
@@ -445,9 +394,10 @@ def test_discover_issues_filters_canonical_no_issue_keyword(make_trace):
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline._test_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            side_effect=[test_eval, triage_eval],
+            return_value=triage_eval,
         ),
         patch(
             "mlflow.genai.discovery.pipeline._extract_failure_labels",

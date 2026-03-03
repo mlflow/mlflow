@@ -299,16 +299,9 @@ def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
     Returns:
         LiteLLM-compatible model string (e.g., 'openai/gpt-4', 'databricks/endpoints/my-endpoint')
     """
-    try:
-        scheme, path = _parse_model_uri(model_uri)
-        # MLflow's "endpoints:/my-endpoint" is a Databricks serving endpoint URI.
-        # LiteLLM expects "databricks/{endpoint-name}" for Databricks endpoints,
-        # so we normalize both "endpoints" and "databricks" schemes to "databricks".
-        if scheme in ("endpoints", "databricks"):
-            return f"databricks/{path}"
-        return f"{scheme}/{path}"
-    except Exception as e:
-        raise MlflowException(f"Failed to convert MLflow URI to LiteLLM format: {e}")
+    from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
+
+    return convert_model_uri_to_litellm(model_uri)
 
 
 def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:

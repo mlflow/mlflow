@@ -13,18 +13,17 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
     CLUSTER_SUMMARY_SYSTEM_PROMPT,
-    DEFAULT_SCORER_NAME,
-    build_satisfaction_instructions,
+    SAMPLE_RANDOM_SEED,
 )
 from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
     _IdentifiedIssue,
 )
-from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
 
 if TYPE_CHECKING:
+    from mlflow.genai.discovery.entities import Issue
     from mlflow.genai.evaluation.entities import EvaluationResult
 
 _logger = logging.getLogger(__name__)
@@ -33,13 +32,9 @@ _NUM_RETRIES = 5
 
 
 def _to_litellm_model(model_uri: str) -> str:
-    """Convert an MLflow model URI (e.g. 'openai:/gpt-5') to a litellm model string."""
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
+    from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
 
-    scheme, path = _parse_model_uri(model_uri)
-    if scheme in ("endpoints", "databricks"):
-        return f"databricks/{path}"
-    return f"{scheme}/{path}"
+    return convert_model_uri_to_litellm(model_uri)
 
 
 def _get_session_id(trace: Trace) -> str | None:
@@ -71,7 +66,7 @@ def _sample_traces(
         else:
             no_session.append(trace)
 
-    rng = random.Random(42)
+    rng = random.Random(SAMPLE_RANDOM_SEED)
 
     if sessions:
         session_ids = sorted(sessions.keys())
@@ -93,54 +88,30 @@ def _sample_traces(
     return result
 
 
-def _build_default_satisfaction_scorer(model: str | None, use_conversation: bool) -> Scorer:
-    instructions = build_satisfaction_instructions(use_conversation=use_conversation)
-    return make_judge(
-        name=DEFAULT_SCORER_NAME,
-        instructions=instructions,
-        model=model,
-        feedback_value_type=bool,
-    )
-
-
 def _test_scorer(scorer: Scorer, trace: Trace) -> None:
-    result = mlflow.genai.evaluate(data=[trace], scorers=[scorer])
-
-    if result.run_id:
-        try:
-            mlflow.MlflowClient().delete_run(result.run_id)
-        except Exception:
-            _logger.debug("Failed to delete test run %s", result.run_id)
-
-    if result.result_df is None:
-        return
-
-    value_col = f"{scorer.name}/value"
-    if value_col not in result.result_df.columns:
-        return
-
-    if result.result_df[value_col].iloc[0] is not None:
-        return
-
-    error_msg = None
-    if "trace" in result.result_df.columns:
-        result_trace = result.result_df["trace"].iloc[0]
-        if isinstance(result_trace, str):
-            result_trace = Trace.from_json(result_trace)
-        if result_trace is not None:
-            error_msg = next(
-                (
-                    a.error_message
-                    for a in result_trace.info.assessments
-                    if isinstance(a, Feedback) and a.name == scorer.name
-                ),
-                None,
-            )
-
-    raise mlflow.exceptions.MlflowException(
-        f"Scorer '{scorer.name}' failed on test trace "
-        f"{trace.info.trace_id}: {error_msg or 'unknown error (check model API logs)'}"
+    scorer(trace=trace)
+    result_trace = mlflow.get_trace(trace.info.trace_id)
+    if result_trace is None:
+        raise mlflow.exceptions.MlflowException(
+            f"Scorer '{scorer.name}' produced no feedback on test trace {trace.info.trace_id}"
+        )
+    feedback = next(
+        (
+            a
+            for a in result_trace.info.assessments
+            if isinstance(a, Feedback) and a.name == scorer.name
+        ),
+        None,
     )
+    if feedback is None:
+        raise mlflow.exceptions.MlflowException(
+            f"Scorer '{scorer.name}' produced no feedback on test trace {trace.info.trace_id}"
+        )
+    if feedback.value is None:
+        error = feedback.error_message or "unknown error (check model API logs)"
+        raise mlflow.exceptions.MlflowException(
+            f"Scorer '{scorer.name}' failed on test trace {trace.info.trace_id}: {error}"
+        )
 
 
 # Span types that represent generic LLM plumbing, not meaningful execution steps.
@@ -341,7 +312,7 @@ def _extract_failure_labels(
         for future in as_completed(future_to_idx):
             labels[future_to_idx[future]] = future.result()
 
-    return labels
+    return [label for label in labels if label is not None]
 
 
 def _cluster_analyses(
@@ -634,7 +605,7 @@ def _log_discovery_artifacts(run_id: str, artifacts: dict[str, str]) -> None:
             _logger.warning("Failed to log %s to run %s", filename, run_id, exc_info=True)
 
 
-def _build_summary(issues: list[object], total_traces: int) -> str:
+def _build_summary(issues: list[Issue], total_traces: int) -> str:
     if not issues:
         return f"## Issue Discovery Summary\n\nAnalyzed {total_traces} traces. No issues found."
 
