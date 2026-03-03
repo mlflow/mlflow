@@ -5,9 +5,8 @@ import { DatasetSourceTypes } from '../../../../types';
 import type { RunDatasetWithTags } from '../../../../types';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
-import { MLFLOW_RUN_DATASET_CONTEXT_TAG } from '../../../../constants';
 
-const createDatasetWithTags = (sourceType: string, source: string, context?: string): RunDatasetWithTags =>
+const createDatasetWithTags = (sourceType: string, source: string): RunDatasetWithTags =>
   ({
     dataset: {
       name: 'test-dataset',
@@ -15,7 +14,7 @@ const createDatasetWithTags = (sourceType: string, source: string, context?: str
       sourceType,
       source,
     },
-    tags: context ? [{ key: MLFLOW_RUN_DATASET_CONTEXT_TAG, value: context }] : [],
+    tags: [],
   }) as any;
 
 const testRunTags = {} as Record<string, { key: string; value: string }>;
@@ -35,17 +34,12 @@ const renderComponent = (datasetWithTags: RunDatasetWithTags, experimentId?: str
 };
 
 describe('ExperimentViewDatasetLink', () => {
-  test('renders link to filtered runs when experimentId is provided', () => {
-    const dataset = createDatasetWithTags(
-      DatasetSourceTypes.HTTP,
-      JSON.stringify({ url: 'https://example.com/data' }),
-      'training',
-    );
+  test('renders link to datasets tab when experimentId is provided', () => {
+    const dataset = createDatasetWithTags(DatasetSourceTypes.HTTP, JSON.stringify({ url: 'https://example.com/data' }));
     renderComponent(dataset, '123');
 
-    const link = screen.getByRole('link', { name: /View runs with dataset/i });
-    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/123/runs'));
-    expect(link).toHaveAttribute('href', expect.stringContaining('datasetsFilter='));
+    const link = screen.getByRole('link', { name: /Open dataset/i });
+    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/123/datasets'));
   });
 
   test('renders link for any source type when experimentId is provided', () => {
@@ -55,8 +49,8 @@ describe('ExperimentViewDatasetLink', () => {
     );
     renderComponent(dataset, '456');
 
-    const link = screen.getByRole('link', { name: /View runs with dataset/i });
-    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/456/runs'));
+    const link = screen.getByRole('link', { name: /Open dataset/i });
+    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/456/datasets'));
   });
 
   test('renders copy button for S3 source type without experimentId', () => {
