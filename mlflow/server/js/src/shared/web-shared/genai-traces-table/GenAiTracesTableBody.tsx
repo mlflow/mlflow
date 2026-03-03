@@ -299,6 +299,26 @@ export const GenAiTracesTableBody = React.memo(
       [table],
     );
 
+    const onToggleSessionSelection = useCallback(
+      (sessionId: string, traces: ModelTraceInfoV3[]) => {
+        const traceIds = traces.map((t) => t.trace_id);
+        const currentSelection = table.getState().rowSelection ?? {};
+        const allSelected = traceIds.every((id) => currentSelection[id]);
+        const updatedSelection: RowSelectionState = { ...currentSelection };
+
+        traceIds.forEach((id) => {
+          if (allSelected) {
+            delete updatedSelection[id];
+          } else {
+            updatedSelection[id] = true;
+          }
+        });
+
+        table.setRowSelection(updatedSelection);
+      },
+      [table],
+    );
+
     // Need to check if rowSelection is undefined, otherwise getIsAllRowsSelected throws an error
     const allRowSelected = rowSelection !== undefined && table.getIsAllRowsSelected();
     const someRowSelected = table.getIsSomeRowsSelected();
@@ -525,6 +545,7 @@ export const GenAiTracesTableBody = React.memo(
                 selectedColumns={sortedGroupedColumns}
                 expandedSessions={expandedSessions}
                 toggleSessionExpanded={toggleSessionExpanded}
+                onToggleSessionSelection={onToggleSessionSelection}
                 experimentId={experimentId}
                 getRunColor={getRunColor}
                 runUuid={runUuid}

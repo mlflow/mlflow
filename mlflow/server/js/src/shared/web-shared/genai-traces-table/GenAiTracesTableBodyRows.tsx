@@ -88,6 +88,7 @@ export const GenAiTracesTableBodyRow = React.memo(
     // eslint-disable-next-line react/no-unused-prop-types
     selectedColumns, // Prop needed to force row re-rending when selectedColumns change
     rowSelectionChangeHandler,
+    noCheckbox,
   }: {
     row: Row<EvalTraceComparisonEntry>;
     exportableTrace?: boolean;
@@ -96,42 +97,55 @@ export const GenAiTracesTableBodyRow = React.memo(
     isSelected?: boolean;
     selectedColumns: TracesTableColumn[];
     rowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>, event: unknown) => void;
+    /** When true, renders a spacer instead of a checkbox in the select cell area */
+    noCheckbox?: boolean;
   }) => {
     const cells = row.getVisibleCells();
     const intl = useIntl();
+    const { theme } = useDesignSystemTheme();
     const rowSelectHandler = rowSelectionChangeHandler
       ? (event: unknown) => rowSelectionChangeHandler(row, event)
       : row.getToggleSelectedHandler();
     return (
       <>
         <TableRow>
-          <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0 }}>
-            {enableRowSelection && (
-              <Tooltip
-                componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell-tooltip"
-                content={
-                  isComparing
-                    ? intl.formatMessage({
-                        defaultMessage: 'You cannot select rows when comparing runs',
-                        description: 'Tooltip message for the select button when comparing runs',
-                      })
-                    : !exportableTrace
+          <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0, gap: noCheckbox ? theme.spacing.xs : 0 }}>
+            {enableRowSelection &&
+              (noCheckbox ? (
+                <>
+                  <TableRowSelectCell
+                    componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell.spacer"
+                    noCheckbox
+                  />
+                  {/* Spacer matching the chevron button width in the session header */}
+                  <div css={{ width: theme.general.heightSm, flexShrink: 0 }} />
+                </>
+              ) : (
+                <Tooltip
+                  componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell-tooltip"
+                  content={
+                    isComparing
                       ? intl.formatMessage({
-                          defaultMessage:
-                            'This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.',
-                          description: 'Tooltip message for the export button when the trace is not exportable',
+                          defaultMessage: 'You cannot select rows when comparing runs',
+                          description: 'Tooltip message for the select button when comparing runs',
                         })
-                      : null
-                }
-              >
-                <TableRowSelectCell
-                  componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell"
-                  checked={isSelected && exportableTrace}
-                  onChange={rowSelectHandler}
-                  isDisabled={isComparing || !exportableTrace}
-                />
-              </Tooltip>
-            )}
+                      : !exportableTrace
+                        ? intl.formatMessage({
+                            defaultMessage:
+                              'This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.',
+                            description: 'Tooltip message for the export button when the trace is not exportable',
+                          })
+                        : null
+                  }
+                >
+                  <TableRowSelectCell
+                    componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell"
+                    checked={isSelected && exportableTrace}
+                    onChange={rowSelectHandler}
+                    isDisabled={isComparing || !exportableTrace}
+                  />
+                </Tooltip>
+              ))}
           </div>
           {cells.map((cell) => (
             <GenAiTracesTableBodyRowCell cell={cell} key={cell.id} />
