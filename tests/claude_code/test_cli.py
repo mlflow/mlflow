@@ -41,7 +41,6 @@ def test_trace_disable_with_no_config(runner):
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude", "--disable"])
         assert result.exit_code == 0
-        # Should handle gracefully even if no config exists
 
 
 def _get_hook_command_from_settings() -> str:
@@ -59,7 +58,6 @@ def _get_hook_command_from_settings() -> str:
 
 
 def test_claude_setup_with_uv_env_var(runner, monkeypatch):
-    # Set UV environment variable
     monkeypatch.setenv("UV", "/path/to/uv")
 
     with runner.isolated_filesystem():
@@ -74,7 +72,6 @@ def test_claude_setup_with_uv_env_var(runner, monkeypatch):
 
 
 def test_claude_setup_without_uv_env_var(runner, monkeypatch):
-    # Ensure UV environment variable is not set
     monkeypatch.delenv("UV", raising=False)
 
     with runner.isolated_filesystem():
