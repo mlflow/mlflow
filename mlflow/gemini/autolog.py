@@ -119,6 +119,7 @@ class TracingSession:
             # Chat instances store model in _model attribute
             if model := (self.inputs.get("model") or getattr(self.instance, "_model", None)):
                 self.span.set_attribute(SpanAttributeKey.MODEL, model)
+                self.span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "gemini")
         except Exception as e:
             _logger.debug(f"Failed to extract model for span {self.span.name}: {e}", exc_info=True)
 

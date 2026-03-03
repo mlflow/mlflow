@@ -14,7 +14,7 @@ from mlflow.bedrock.utils import parse_complete_token_usage_from_response, skip_
 from mlflow.entities import LiveSpan, SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.utils import set_span_chat_tools
+from mlflow.tracing.utils import extract_provider_from_model_string, set_span_chat_tools
 from mlflow.utils.autologging_utils import safe_patch
 
 _BEDROCK_RUNTIME_SERVICE_NAME = "bedrock-runtime"
@@ -196,6 +196,8 @@ def _patched_converse_stream(original, self, *args, **kwargs):
 
     if model_id := kwargs.get("modelId"):
         attributes[SpanAttributeKey.MODEL] = model_id
+        if provider := extract_provider_from_model_string(model_id, separator="."):
+            attributes[SpanAttributeKey.MODEL_PROVIDER] = provider
 
     span = start_span_no_context(
         name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
@@ -231,3 +233,5 @@ def _extract_and_set_model_name(span: LiveSpan, kwargs: dict[str, Any]):
     """Extract model name from kwargs and set it on the span."""
     if model_id := kwargs.get("modelId"):
         span.set_attribute(SpanAttributeKey.MODEL, model_id)
+        if provider := extract_provider_from_model_string(model_id, separator="."):
+            span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
