@@ -52,6 +52,7 @@ export const FeedbackErrorItem = ({ error }: { error: AssessmentError }) => {
             data={JSON.stringify(error.stack_trace)}
             title=""
             initialRenderMode={CodeSnippetRenderMode.TEXT}
+            initialExpanded
           />
         </Modal>
       )}
