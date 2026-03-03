@@ -6275,6 +6275,16 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     )
                     span_filters.append(association_subquery)
                     continue
+                if comparator in ("IS NULL", "IS NOT NULL"):
+                    tag_exists_subquery = session.query(SqlTraceTag.request_id).filter(
+                        SqlTraceTag.request_id == SqlTraceInfo.request_id,
+                        SqlTraceTag.key == key_name,
+                    )
+                    if comparator == "IS NULL":
+                        attribute_filters.append(~tag_exists_subquery.exists())
+                    else:
+                        attribute_filters.append(tag_exists_subquery.exists())
+                    continue
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 # Handle IS NULL / IS NOT NULL for metadata
