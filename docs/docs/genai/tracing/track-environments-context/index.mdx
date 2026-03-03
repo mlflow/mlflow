@@ -93,12 +93,10 @@ def handle_chat(request: Request, chat_request: ChatRequest):
     # Update the current trace with all context and environment metadata
     # The @mlflow.trace decorator ensures an active trace is available
     mlflow.update_current_trace(
+        session_id=session_id,
+        user=user_id,
         client_request_id=client_request_id,
         metadata={
-            # Reserved session metadata - groups traces from multi-turn conversations
-            "mlflow.trace.session": session_id,
-            # Reserved user metadata - associates traces with specific users
-            "mlflow.trace.user": user_id,
             # Override automatically populated environment metadata
             "mlflow.source.type": os.getenv(
                 "APP_ENVIRONMENT", "development"

@@ -206,12 +206,10 @@ def handle_chat(request: Request, chat_request: ChatRequest):
 
     # Update the current trace with all context and environment metadata
     mlflow.update_current_trace(
+        session_id=session_id,
+        user=user_id,
         client_request_id=client_request_id,
-        tags={
-            # Session context - groups traces from multi-turn conversations
-            "mlflow.trace.session": session_id,
-            # User context - associates traces with specific users
-            "mlflow.trace.user": user_id,
+        metadata={
             # Environment metadata - tracks deployment context
             "environment": "production",
             "app_version": os.getenv("APP_VERSION", "1.0.0"),
@@ -296,19 +294,19 @@ mlflow.set_experiment("production-genai-app")
 
 # Query traces by user
 user_traces = mlflow.search_traces(
-    filter_string="tags.`mlflow.trace.user` = 'user-jane-doe-12345'",
+    filter_string="metadata.`mlflow.trace.user` = 'user-jane-doe-12345'",
     max_results=100,
 )
 
 # Query traces by session
 session_traces = mlflow.search_traces(
-    filter_string="tags.`mlflow.trace.session` = 'session-def-456'",
+    filter_string="metadata.`mlflow.trace.session` = 'session-def-456'",
     max_results=100,
 )
 
 # Query traces by environment
 production_traces = mlflow.search_traces(
-    filter_string="tags.environment = 'production'",
+    filter_string="metadata.environment = 'production'",
     max_results=100,
 )
 ```
