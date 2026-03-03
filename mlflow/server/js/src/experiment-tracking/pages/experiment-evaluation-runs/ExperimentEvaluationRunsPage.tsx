@@ -20,6 +20,8 @@ import {
   EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   EvalRunsTableKeyedColumnPrefix,
 } from './ExperimentEvaluationRunsTable.constants';
+import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
+import { useQueryClient } from '@databricks/web-shared/query-client';
 import { FormattedMessage } from 'react-intl';
 import { useSelectedRunUuid } from '../../components/evaluations/hooks/useSelectedRunUuid';
 import { useCompareToRunUuid } from '../../components/evaluations/hooks/useCompareToRunUuid';
@@ -61,6 +63,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
     EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   );
 
+  const queryClient = useQueryClient();
   const enableImprovedComparison = shouldEnableImprovedEvalRunsComparison();
 
   // When flag is enabled, default to grouping by dataset
@@ -97,6 +100,11 @@ const ExperimentEvaluationRunsPageImpl = () => {
     enabled: true,
     filter: searchFilter,
   });
+
+  const refetchAll = useCallback(() => {
+    refetch();
+    invalidateMlflowSearchTracesCache({ queryClient });
+  }, [refetch, queryClient]);
 
   const runUuids = useMemo(() => runs?.map((run) => run.info.runUuid) ?? [], [runs]);
 
@@ -302,7 +310,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
   const renderTableControls = () => (
     <ExperimentEvaluationRunsTableControls
       runs={runs ?? []}
-      refetchRuns={refetch}
+      refetchRuns={refetchAll}
       isFetching={isFetching || isLoading}
       searchRunsError={error}
       searchFilter={searchFilter}
