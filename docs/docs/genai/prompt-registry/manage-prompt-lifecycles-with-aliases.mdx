@@ -63,7 +63,7 @@ roll-back A/B testing.
     <div class="flex-column">
       ```python
       # Set a production alias for a specific version
-      mlflow.set_prompt_alias("summarization-prompt", alias="production", version=2)
+      mlflow.genai.set_prompt_alias("summarization-prompt", alias="production", version=2)
       ```
     </div>
   </TabItem>
@@ -76,7 +76,7 @@ Attached aliases can be viewed in the prompt list page. You can click the pencil
 To load a prompt using an alias, use the `prompts:/<prompt_name>@<alias>` format as the prompt URI:
 
 ```python
-prompt = mlflow.load_prompt("prompts:/summarization-prompt@production")
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@production")
 ```
 
 ### Reserved `@latest` alias
@@ -84,5 +84,5 @@ prompt = mlflow.load_prompt("prompts:/summarization-prompt@production")
 The `@latest` alias is a reserved alias name and MLflow will automatically find the latest available version of the prompt. This is useful when you want to dynamically load the latest version of a prompt without updating the application code.
 
 ```python
-prompt = mlflow.load_prompt("prompts:/summarization-prompt@latest")
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@latest")
 ```
