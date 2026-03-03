@@ -124,9 +124,9 @@ export const TraceTokenUsageChart: React.FC = () => {
                 stroke={areaColors.cachedTokens}
                 strokeWidth={2}
                 strokeDasharray="5 3"
-                strokeOpacity={getOpacity('Cache Read Input Tokens')}
+                strokeOpacity={getOpacity('Cache Read')}
                 dot={getLineDotStyle(areaColors.cachedTokens)}
-                name="Cache Read Input Tokens"
+                name="Cache Read"
               />
               <Line
                 type="monotone"
@@ -134,9 +134,9 @@ export const TraceTokenUsageChart: React.FC = () => {
                 stroke={areaColors.cacheCreationTokens}
                 strokeWidth={2}
                 strokeDasharray="5 3"
-                strokeOpacity={getOpacity('Cache Creation Input Tokens')}
+                strokeOpacity={getOpacity('Cache Write')}
                 dot={getLineDotStyle(areaColors.cacheCreationTokens)}
-                name="Cache Creation Input Tokens"
+                name="Cache Write"
               />
               <Legend
                 verticalAlign="bottom"
