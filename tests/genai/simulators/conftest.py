@@ -11,24 +11,26 @@ def mock_trace():
 @pytest.fixture
 def simulation_mocks(mock_trace):
     """Fixture providing common mocks for conversation simulation tests."""
+    # Use a counter to return unique trace IDs for each call
+    trace_id_counter = {"count": 0}
+
+    def unique_trace_id(*args, **kwargs):
+        trace_id_counter["count"] += 1
+        return f"trace_{trace_id_counter['count']}"
+
     with (
         patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.trace") as mock_trace_decorator,
-        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
-        patch("mlflow.update_current_trace") as mock_update_trace,
+        patch("mlflow.get_last_active_trace_id", side_effect=unique_trace_id) as mock_get_trace_id,
+        patch("mlflow.set_trace_tag") as mock_set_trace_tag,
         patch(
             "mlflow.tracing.client.TracingClient",
             return_value=Mock(get_trace=lambda _: mock_trace),
         ),
     ):
-        mock_get_trace_id.return_value = "trace_123"
-        mock_trace_decorator.return_value = lambda fn: fn
-
         yield {
             "invoke": mock_invoke,
-            "trace_decorator": mock_trace_decorator,
             "get_trace_id": mock_get_trace_id,
-            "update_trace": mock_update_trace,
+            "set_trace_tag": mock_set_trace_tag,
             "trace": mock_trace,
         }
 

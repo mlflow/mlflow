@@ -27,7 +27,9 @@ class Session:
     def id(self) -> str | None:
         if not self._traces:
             return None
-        return self._traces[0].info.request_metadata.get(TraceMetadataKey.TRACE_SESSION)
+        return self._traces[0].info.request_metadata.get(
+            TraceMetadataKey.TRACE_SESSION
+        ) or self._traces[0].info.tags.get(TraceMetadataKey.TRACE_SESSION)
 
     @property
     def traces(self) -> list[Trace]:
