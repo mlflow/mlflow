@@ -29,7 +29,7 @@ Users need the ability to offload span content to a cheaper trace repository (e.
   - This configuration **must** be available as both a `mlflow server` CLI option and environment variable
   - This configuration **can** be set globally, but **must** respect per-workspace overrides (stored in the `workspaces` table; see schema changes below)
 - The feature **must** support archiving span content from the DB to the trace repository based on configurable retention policies
-  - Retention policies **must** be set globally; they **may** be overridden per workspace (not per experiment)
+  - Retention policies **must** be set globally; they **may** be overridden per workspace or per experiment
   - The archival process **must** support a time-based policy (e.g., archive traces older than N days)
   - The archival process **must** support a size-based policy (e.g., keep the latest N GB of span data in the DB)
   - The archival process **should** be triggerable via a CLI command (e.g., `mlflow traces archive`)
@@ -40,7 +40,7 @@ Users need the ability to offload span content to a cheaper trace repository (e.
   - Retrieving an archived trace **must** transparently fetch span data from the trace repository
   - Search/filter on trace metadata **must** continue to work for archived traces
   - The `search_traces` and `get_trace` APIs **must** be unaffected from the caller's perspective
-- The feature **must** support existing repository backends (S3, GCS, Azure, local; similar to the supported integrations for artifact storage)
+- The feature **must** support the following repository backends (S3, GCS, Azure, local; similar to the supported integrations for artifact storage)
 - The feature **should** allow three span storage modes at ingestion time:
   - `database` (default, current behavior): spans written to DB for real-time search on span-level attributes
   - `repository`: spans written by the server to the trace repository, only trace-level metadata stored in DB
@@ -52,7 +52,6 @@ Users need the ability to offload span content to a cheaper trace repository (e.
 
 - **Span-level attribute search on archived traces (JSON attributes):** Once span content is moved to the trace repository, SQL-based filtering that depends on the raw span payload in `spans.content` (e.g., `span.attributes.*`) will not be supported for archived traces. Column-backed span filters that use indexed span metadata (e.g., `span.type`, `span.status`, `span.duration_ns`) will continue to work as long as span rows and these columns are retained in the DB. Trace-level metadata search (timestamp, state, tags, trace metrics) will continue to work.
 - **Automatic re-ingestion from trace repository to DB:** Restoring archived span data back into the database is not in scope. Users who need full, arbitrary span-level search over archived traces should query the OTLP files directly or use an external analytics tool.
-- **Per-experiment retention policies:** Retention policies are set globally and can be overridden by workspaces. Per-experiment policy overrides are out of scope for this iteration.
 
 ## Proposal Sketch
 
