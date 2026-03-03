@@ -28,7 +28,12 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
 )
 from mlflow.genai.evaluation import context
-from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
+from mlflow.genai.evaluation.entities import (
+    EvalItem,
+    EvalResult,
+    EvaluationResult,
+    ScorerStat,
+)
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
     evaluate_session_level_scorers,
@@ -58,6 +63,21 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 _logger = logging.getLogger(__name__)
+
+
+def _merge_scorer_stats_dicts(
+    target: dict[str, ScorerStat], source: dict[str, ScorerStat]
+) -> None:
+    """Merge scorer stats from source into target dictionary.
+
+    Args:
+        target: Target dictionary to merge into (modified in-place).
+        source: Source dictionary to merge from.
+    """
+    for scorer_name, stat in source.items():
+        if scorer_name not in target:
+            target[scorer_name] = ScorerStat()
+        target[scorer_name].merge(stat)
 
 
 def _log_multi_turn_assessments_to_traces(
@@ -147,6 +167,7 @@ def run(
         # Collect results with unified progress bar
         eval_results = [None] * len(eval_items)
         multi_turn_assessments = {}
+        multi_turn_scorer_stats = {}
 
         # Create progress bar for all tasks
         progress_bar = (
@@ -183,8 +204,10 @@ def run(
                 ]
 
                 for future in as_completed(multi_turn_futures):
-                    session_result = future.result()
-                    multi_turn_assessments.update(session_result)
+                    session_assessments, session_scorer_stats = future.result()
+                    multi_turn_assessments.update(session_assessments)
+                    # Aggregate multi-turn scorer stats
+                    _merge_scorer_stats_dicts(multi_turn_scorer_stats, session_scorer_stats)
                     if progress_bar:
                         progress_bar.update(1)
         finally:
@@ -204,6 +227,9 @@ def run(
     # Refresh traces on eval_results to include all logged assessments.
     # This is done once after all assessments (single-turn and multi-turn) are logged to the traces.
     _refresh_eval_result_traces(eval_results)
+
+    # Check for scorer failures and log a summary warning
+    _log_scorer_failure_summary(eval_results, multi_turn_scorer_stats)
 
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
@@ -278,9 +304,13 @@ def _run_single(
         eval_item.trace = minimal_trace
 
     # Execute the scorers
-    assessments = _compute_eval_scores(eval_item=eval_item, scorers=scorers)
+    assessments, scorer_stats = _compute_eval_scores(eval_item=eval_item, scorers=scorers)
     assessments.extend(_get_new_expectations(eval_item))
-    eval_result = EvalResult(eval_item=eval_item, assessments=assessments)
+    eval_result = EvalResult(
+        eval_item=eval_item,
+        assessments=assessments,
+        scorer_stats=scorer_stats,
+    )
 
     tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
     validate_tags(tags)
@@ -309,7 +339,7 @@ def _compute_eval_scores(
     *,
     eval_item: EvalItem,
     scorers: list[Scorer],
-) -> list[Feedback]:
+) -> tuple[list[Feedback], dict[str, ScorerStat]]:
     """Compute the per-eval-item scores.
 
     Args:
@@ -317,10 +347,11 @@ def _compute_eval_scores(
         scorers: List of scorer instances to run.
 
     Returns:
-        List of Feedback objects from all scorers.
+        Tuple of (list of Feedback objects, scorer stats dict).
+        Scorer stats maps scorer_name -> ScorerStat.
     """
     if not scorers:
-        return []
+        return [], {}
 
     should_trace = MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
 
@@ -376,17 +407,25 @@ def _compute_eval_scores(
         max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
-        futures = [executor.submit(run_scorer, scorer) for scorer in scorers]
+        futures = {scorer.name: executor.submit(run_scorer, scorer) for scorer in scorers}
 
         try:
-            results = [future.result() for future in as_completed(futures)]
+            results = {scorer_name: future.result() for scorer_name, future in futures.items()}
         except KeyboardInterrupt:
             # Cancel pending futures
             executor.shutdown(cancel_futures=True)
             raise
 
-    # Flatten list[list[Assessment]] into a single list[Assessment]
-    return [assessment for sublist in results for assessment in sublist]
+    # Track scorer stats and collect assessments
+    scorer_stats: dict[str, ScorerStat] = {}
+    assessments = []
+    for scorer_name, feedbacks in results.items():
+        if scorer_name not in scorer_stats:
+            scorer_stats[scorer_name] = ScorerStat()
+        failed = len(feedbacks) == 1 and feedbacks[0].error is not None
+        scorer_stats[scorer_name].record_invocation(failed=failed)
+        assessments.extend(feedbacks)
+    return assessments, scorer_stats
 
 
 def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
@@ -479,3 +518,42 @@ def _should_clone_trace(trace: Trace | None, run_id: str | None) -> bool:
         trace=trace,
         run_id=run_id,
     )
+
+
+def _log_scorer_failure_summary(
+    eval_results: list[EvalResult], multi_turn_scorer_stats: dict[str, ScorerStat]
+) -> None:
+    """
+    Log a summary of scorer failures after evaluation completes.
+
+    Args:
+        eval_results: List of evaluation results with single-turn scorer stats.
+        multi_turn_scorer_stats: Aggregated stats from multi-turn scorers across all sessions.
+    """
+    # Aggregate scorer stats from all eval results (single-turn scorers)
+    aggregated_stats: dict[str, ScorerStat] = {}
+
+    for eval_result in eval_results:
+        for scorer_name, stat in eval_result.scorer_stats.items():
+            if scorer_name not in aggregated_stats:
+                aggregated_stats[scorer_name] = ScorerStat()
+            aggregated_stats[scorer_name].merge(stat)
+
+    # Merge multi-turn scorer stats into aggregated stats
+    _merge_scorer_stats_dicts(aggregated_stats, multi_turn_scorer_stats)
+
+    # Format failure details for scorers that had failures
+    failure_details = [
+        f"'{scorer_name}': {stat.failure_count}/{stat.total_count} failed"
+        for scorer_name, stat in sorted(aggregated_stats.items())
+        if stat.has_failures
+    ]
+
+    # Log warning if any failures occurred
+    if failure_details:
+        warning_msg = (
+            f"Some scorer invocations failed during evaluation. "
+            f"Failure summary: {', '.join(failure_details)}. "
+            f"Check individual trace assessments for detailed error messages."
+        )
+        _logger.warning(warning_msg)
