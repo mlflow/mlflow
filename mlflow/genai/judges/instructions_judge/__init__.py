@@ -543,7 +543,7 @@ class InstructionsJudge(Judge):
                 )
 
         if not is_fallback_to_trace_mode:
-            self._check_required_parameters(inputs, outputs, expectations, trace, conversation)
+            self._check_required_parameters(inputs, outputs, expectations, trace, session or None)
         else:
             # In fallback mode, inputs/outputs will be discovered by the agentic judge
             # via tools. But we still need to validate other required parameters.
@@ -555,7 +555,7 @@ class InstructionsJudge(Judge):
                 missing_params.append("expectations")
             if (
                 self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables
-                and conversation is None
+                and session is None
             ):
                 missing_params.append("session")
             if missing_params:
