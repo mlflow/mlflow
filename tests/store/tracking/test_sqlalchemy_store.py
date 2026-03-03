@@ -9717,6 +9717,76 @@ def test_assessment_with_error(store_and_trace_info):
     assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
 
 
+def test_start_trace_with_assessments_missing_trace_id(store):
+    """
+    Regression test for NOT NULL constraint on assessments.trace_id during trace export.
+
+    During normal trace export (MlflowV3SpanExporter), two things happen:
+
+    1. log_spans() is called incrementally as each span completes. Internally this calls
+       start_trace(), creating the trace row in the DB.
+    2. When the root span finishes, _log_trace() calls start_trace() again with the full
+       TraceInfo — including any assessments attached to the trace.
+
+    Because the trace row already exists from step 1, the second start_trace() hits an
+    IntegrityError and falls back to session.merge(). Assessments created standalone
+    (e.g. returned by custom metric functions) have trace_id=None by design. Without
+    backfilling trace_id before the merge, SQLAlchemy UPDATEs the assessment row with
+    trace_id=NULL, violating the NOT NULL constraint on assessments.trace_id.
+    """
+    exp_id = store.create_experiment("test_assessment_trace_id")
+    timestamp_ms = get_current_time_millis()
+    trace_id = f"tr-{uuid.uuid4()}"
+
+    # Step 1: log_spans() creates the trace row as spans are exported incrementally.
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=0,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"cr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    # Assessment with trace_id=None, as returned by custom metric functions.
+    assessment = Feedback(
+        name="test_feedback",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1"),
+        trace_id=None,
+        value="good",
+    )
+
+    # Step 2: _log_trace() calls start_trace() with the full TraceInfo (including
+    # assessments) after the root span finishes. The trace already exists from step 1,
+    # so this hits the IntegrityError -> session.merge() path. Before the fix, this
+    # raised sqlite3.IntegrityError because assessment.trace_id was None.
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"cr-{uuid.uuid4()}",
+            request_preview="request",
+            response_preview="response",
+            assessments=[assessment],
+        ),
+    )
+
+    assert len(result.assessments) == 1
+    assert result.assessments[0].trace_id == trace_id
+    assert result.assessments[0].name == "test_feedback"
+
+
 def test_dataset_crud_operations(store):
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
