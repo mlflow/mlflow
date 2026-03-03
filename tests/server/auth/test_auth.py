@@ -2737,3 +2737,87 @@ def test_list_users(client):
     data = response.json()
     assert "users" in data
     assert len(data["users"]) >= 3
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY": "X4vHi-vCRxqZZ4-CETv_97GCg2mC3WAp9kOz_01tygg="}],
+    indirect=True,
+)
+def test_webhook_admin_only_permissions(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+
+    # Non-admin: create webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+            json={
+                "name": "test-webhook",
+                "url": "https://example.com/webhook",
+                "events": [{"entity": "MODEL_VERSION", "action": "CREATED"}],
+            },
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Non-admin: list webhooks should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: create webhook should succeed
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+        json={
+            "name": "admin-webhook",
+            "url": "https://example.com/webhook",
+            "events": [{"entity": "MODEL_VERSION", "action": "CREATED"}],
+        },
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+    webhook_id = response.json()["webhook"]["webhook_id"]
+
+    # Non-admin: get webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Non-admin: update webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.patch(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+            json={"name": "updated-name"},
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Non-admin: test webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}/test",
+            json={},
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Non-admin: delete webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: delete webhook should succeed
+    response = requests.delete(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()

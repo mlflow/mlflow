@@ -4335,7 +4335,9 @@ Create Webhook
 | ``2.0/mlflow/webhooks`` | ``POST``    |
 +-------------------------+-------------+
 
+.. note::
 
+    When :ref:`MLflow Authentication <auth>` is enabled, this endpoint requires admin privileges.
 
 
 
@@ -4398,7 +4400,9 @@ List Webhooks
 | ``2.0/mlflow/webhooks`` | ``GET``     |
 +-------------------------+-------------+
 
+.. note::
 
+    When :ref:`MLflow Authentication <auth>` is enabled, this endpoint requires admin privileges.
 
 
 
@@ -4455,7 +4459,9 @@ Get Webhook
 | ``2.0/mlflow/webhooks/{webhook_id}`` | ``GET``     |
 +--------------------------------------+-------------+
 
+.. note::
 
+    When :ref:`MLflow Authentication <auth>` is enabled, this endpoint requires admin privileges.
 
 
 
@@ -4508,7 +4514,9 @@ Update Webhook
 | ``2.0/mlflow/webhooks/{webhook_id}`` | ``PATCH``   |
 +--------------------------------------+-------------+
 
+.. note::
 
+    When :ref:`MLflow Authentication <auth>` is enabled, this endpoint requires admin privileges.
 
 
 
@@ -4573,7 +4581,9 @@ Delete Webhook
 | ``2.0/mlflow/webhooks/{webhook_id}`` | ``DELETE``  |
 +--------------------------------------+-------------+
 
+.. note::
 
+    When :ref:`MLflow Authentication <auth>` is enabled, this endpoint requires admin privileges.
 
 
 
@@ -4610,7 +4620,9 @@ Test Webhook
 | ``2.0/mlflow/webhooks/{webhook_id}/test`` | ``POST``    |
 +-------------------------------------------+-------------+
 
+.. note::
 
+    When :ref:`MLflow Authentication <auth>` is enabled, this endpoint requires admin privileges.
 
 
 
