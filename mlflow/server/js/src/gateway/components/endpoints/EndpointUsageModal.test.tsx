@@ -1,6 +1,16 @@
 import { describe, test, expect, jest } from '@jest/globals';
+import React from 'react';
+import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { EndpointUsageModal } from './EndpointUsageModal';
+
+const renderModal = (props: React.ComponentProps<typeof EndpointUsageModal>) =>
+  renderWithDesignSystem(
+    <QueryClientProvider client={new QueryClient()}>
+      <EndpointUsageModal {...props} />
+    </QueryClientProvider>,
+  );
 
 describe('EndpointUsageModal', () => {
   const defaultProps = {
@@ -11,50 +21,46 @@ describe('EndpointUsageModal', () => {
   };
 
   test('renders modal with title when open', () => {
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
 
     expect(screen.getByText('Query endpoint')).toBeInTheDocument();
   });
 
   test('does not render modal when closed', () => {
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} open={false} />);
+    renderModal({ ...defaultProps, open: false });
 
     expect(screen.queryByText('Query endpoint')).not.toBeInTheDocument();
   });
 
-  test('renders unified APIs tab by default', () => {
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+  test('renders Try it by default in Unified APIs tab', () => {
+    renderModal(defaultProps);
 
-    expect(screen.getByText('MLflow Invocations API')).toBeInTheDocument();
-    expect(screen.getByText('OpenAI-Compatible Chat Completions API')).toBeInTheDocument();
+    expect(screen.getByText('Send request')).toBeInTheDocument();
+    expect(screen.getByText('Request')).toBeInTheDocument();
+    expect(screen.getByText('Response')).toBeInTheDocument();
   });
 
-  test('renders language selector in unified APIs tab', () => {
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-
-    // Verify language selector is rendered with both options
+  test('Unified APIs tab shows Try it, cURL, and Python view options', async () => {
+    renderModal(defaultProps);
+    // Unified APIs is selected by default; view mode selector has Try it | cURL | Python
     expect(screen.getByRole('radio', { name: /cURL/ })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Python/ })).toBeInTheDocument();
 
-    // cURL is selected by default - shows curl content for both API sections
-    expect(screen.getByRole('radio', { name: /cURL/ })).toBeChecked();
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
     const curlElements = screen.getAllByText(/curl -X POST/);
-    expect(curlElements.length).toBe(2); // MLflow Invocations and OpenAI-Compatible both show cURL
+    expect(curlElements.length).toBe(1); // Only the selected unified variant (MLflow Invocations by default) is shown
   });
 
-  test('shows code examples with endpoint name in unified APIs', () => {
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+  test('shows code examples with endpoint name in unified APIs when cURL selected', async () => {
+    renderModal(defaultProps);
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
 
-    // The endpoint name appears in multiple code examples, so use getAllByText
     const matchingElements = screen.getAllByText(/gateway\/test-endpoint\/mlflow\/invocations/);
     expect(matchingElements.length).toBeGreaterThan(0);
   });
 
   test('switches to passthrough APIs tab when clicked', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-
+    renderModal(defaultProps);
     await userEvent.click(screen.getByText('Passthrough APIs'));
 
     expect(screen.getByText('Provider')).toBeInTheDocument();
@@ -63,12 +69,10 @@ describe('EndpointUsageModal', () => {
     expect(screen.getByText('Google Gemini')).toBeInTheDocument();
   });
 
-  test('shows OpenAI passthrough example by default in passthrough tab', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-
+  test('shows OpenAI passthrough example in passthrough tab when cURL selected', async () => {
+    renderModal(defaultProps);
     await userEvent.click(screen.getByText('Passthrough APIs'));
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
 
     expect(
       screen.getByText(
@@ -79,9 +83,7 @@ describe('EndpointUsageModal', () => {
   });
 
   test('renders provider selector in passthrough tab', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+    renderModal(defaultProps);
 
     await userEvent.click(screen.getByText('Passthrough APIs'));
 
@@ -94,40 +96,36 @@ describe('EndpointUsageModal', () => {
     expect(screen.getByRole('radio', { name: /OpenAI/ })).toBeChecked();
   });
 
-  test('renders language selector in passthrough tab', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
-
+  test('passthrough tab shows Try it, cURL, Python and code when cURL selected', async () => {
+    renderModal(defaultProps);
     await userEvent.click(screen.getByText('Passthrough APIs'));
 
-    // Verify language selector is rendered with both options
     expect(screen.getByRole('radio', { name: /cURL/ })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Python/ })).toBeInTheDocument();
 
-    // cURL is selected by default and shows curl content
-    expect(screen.getByRole('radio', { name: /cURL/ })).toBeChecked();
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
     expect(screen.getByText(/curl -X POST/)).toBeInTheDocument();
   });
 
-  test('uses window.location.origin when baseUrl is not provided', () => {
+  test('uses window.location.origin when baseUrl is not provided', async () => {
     const originalLocation = window.location;
     Object.defineProperty(window, 'location', {
       value: { origin: 'http://custom-origin:8080' },
       writable: true,
     });
 
-    renderWithDesignSystem(<EndpointUsageModal open onClose={jest.fn()} endpointName="my-endpoint" />);
+    renderModal({ open: true, onClose: jest.fn(), endpointName: 'my-endpoint' });
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
 
-    // The URL should appear in multiple code examples, so use getAllByText
     const matchingElements = screen.getAllByText(/http:\/\/custom-origin:8080\/gateway\/my-endpoint/);
     expect(matchingElements.length).toBeGreaterThan(0);
 
     Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
   });
 
-  test('renders copy buttons for code examples', () => {
-    renderWithDesignSystem(<EndpointUsageModal {...defaultProps} />);
+  test('renders copy buttons for code examples when cURL selected', async () => {
+    renderModal(defaultProps);
+    await userEvent.click(screen.getByRole('radio', { name: 'cURL' }));
 
     const copyButtons = screen.getAllByRole('button');
     expect(copyButtons.length).toBeGreaterThan(0);

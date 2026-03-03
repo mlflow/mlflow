@@ -6580,7 +6580,6 @@ class MlflowClient:
         return self._tracking_client.remove_dataset_from_experiments(dataset_id, experiment_ids)
 
     # Webhook APIs
-    @experimental(version="3.3.0")
     def create_webhook(
         self,
         name: str,
@@ -6619,7 +6618,6 @@ class MlflowClient:
             status=status,
         )
 
-    @experimental(version="3.3.0")
     def get_webhook(self, webhook_id: str) -> Webhook:
         """
         Get webhook instance by ID.
@@ -6632,7 +6630,6 @@ class MlflowClient:
         """
         return self._get_registry_client().get_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def list_webhooks(
         self,
         max_results: int | None = None,
@@ -6650,7 +6647,6 @@ class MlflowClient:
         """
         return self._get_registry_client().list_webhooks(max_results, page_token)
 
-    @experimental(version="3.3.0")
     def update_webhook(
         self,
         webhook_id: str,
@@ -6693,7 +6689,6 @@ class MlflowClient:
             status=status,
         )
 
-    @experimental(version="3.3.0")
     def delete_webhook(self, webhook_id: str) -> None:
         """
         Delete a webhook.
@@ -6706,7 +6701,6 @@ class MlflowClient:
         """
         self._get_registry_client().delete_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def test_webhook(
         self, webhook_id: str, event: WebhookEventStr | WebhookEvent | None = None
     ) -> WebhookTestResult:

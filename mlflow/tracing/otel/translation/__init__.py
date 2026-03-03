@@ -11,11 +11,12 @@ import json
 import logging
 from typing import Any
 
-from mlflow.entities.span import Span
+from mlflow.entities.span import Span, SpanType
 from mlflow.tracing.constant import CostKey, SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
+from mlflow.tracing.otel.translation.langfuse import LangfuseTranslator
 from mlflow.tracing.otel.translation.livekit import LiveKitTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.spring_ai import SpringAiTranslator
@@ -35,6 +36,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     VercelAITranslator(),
     VoltAgentTranslator(),
     LiveKitTranslator(),
+    LangfuseTranslator(),
 ]
 
 # Event-based translators (for frameworks that use events for input/output)
@@ -65,6 +67,16 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     span_dict = span.to_dict()
     attributes = sanitize_attributes(span_dict.get("attributes", {}))
     events = span_dict.get("events", [])
+
+    # Override UNKNOWN (the LiveSpan default) with the translator-determined type.
+    if mlflow_type := translate_span_type_from_otel(attributes):
+        current_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
+        try:
+            current_type = json.loads(current_raw) if current_raw else None
+        except (json.JSONDecodeError, TypeError):
+            current_type = None
+        if current_type in (None, SpanType.UNKNOWN):
+            attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
 
     # Translate inputs and outputs (check both attributes and events)
     if SpanAttributeKey.INPUTS not in attributes and (

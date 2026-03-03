@@ -39,7 +39,7 @@ interface CountInfo {
 
 interface GenAITracesTableToolbarProps {
   // Experiment metadata
-  experimentId: string;
+  experimentId?: string;
 
   // Table metadata
   allColumns: TracesTableColumn[];
@@ -179,7 +179,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             isLoading={shouldDisplayLoadingState}
             isError={shouldDisplayErrorState}
           />
-          {traceActions && (
+          {traceActions && experimentId && (
             <GenAITracesTableActions
               experimentId={experimentId}
               traceActions={traceActions}

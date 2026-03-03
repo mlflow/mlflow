@@ -62,7 +62,11 @@ from tests.helper_functions import (
     pyfunc_scoring_endpoint,
     pyfunc_serve_and_score_model,
 )
-from tests.transformers.helper import CHAT_TEMPLATE, IS_NEW_FEATURE_EXTRACTION_API
+from tests.transformers.helper import (
+    CHAT_TEMPLATE,
+    IS_NEW_FEATURE_EXTRACTION_API,
+    IS_TRANSFORMERS_V5_OR_LATER,
+)
 from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVAILABLE
 
 # NB: Some pipelines under test in this suite come very close or outright exceed the
@@ -72,6 +76,11 @@ from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVA
 # runners#supported-runners-and-hardware-resources for instance specs.
 RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
+
+skip_transformers_v5_or_later = pytest.mark.skipif(
+    IS_TRANSFORMERS_V5_OR_LATER,
+    reason="Incompatible API changes in transformers 5.x",
+)
 image_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
 image_file_path = pathlib.Path(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")
 # Test that can only be run locally:
@@ -191,17 +200,16 @@ def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
 def test_pipeline_construction_from_base_vision_model(small_vision_model):
     model = {"model": small_vision_model.model, "tokenizer": small_vision_model.tokenizer}
     if IS_NEW_FEATURE_EXTRACTION_API:
-        model.update({"image_processor": small_vision_model.feature_extractor})
+        model.update({"image_processor": small_vision_model.image_processor})
     else:
         model.update({"feature_extractor": small_vision_model.feature_extractor})
     generated = _build_pipeline_from_model_input(model, task="image-classification")
     assert isinstance(generated, type(small_vision_model))
     assert isinstance(generated.tokenizer, type(small_vision_model.tokenizer))
     if IS_NEW_FEATURE_EXTRACTION_API:
-        compare_type = generated.image_processor
+        assert isinstance(generated.image_processor, type(small_vision_model.image_processor))
     else:
-        compare_type = generated.feature_extractor
-    assert isinstance(compare_type, transformers.MobileNetV2ImageProcessor)
+        assert isinstance(generated.feature_extractor, transformers.MobileNetV2ImageProcessor)
 
 
 def test_saving_with_invalid_dict_as_model(model_path):
@@ -553,7 +561,7 @@ def test_log_and_load_transformers_pipeline(small_qa_pipeline, tmp_path, should_
         )
         assert (
             reloaded_model(
-                {"question": "Who's house?", "context": "The house is owned by a man named Run."}
+                question="Who's house?", context="The house is owned by a man named Run."
             )["answer"]
             == "Run"
         )
@@ -2840,6 +2848,7 @@ def test_uri_directory_renaming_handling_components(model_path, text_classificat
     assert isinstance(prediction["label"][0], str)
 
 
+@skip_transformers_v5_or_later
 def test_pyfunc_model_log_load_with_artifacts_snapshot():
     architecture = "prajjwal1/bert-tiny"
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
@@ -2945,6 +2954,7 @@ def test_model_on_single_device():
     assert not _is_model_distributed_in_memory(mock_model)
 
 
+@skip_transformers_v5_or_later
 def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path, model_path):
     task = "translation_en_to_de"
     architecture = "t5-small"
@@ -3305,11 +3315,12 @@ def test_get_task_for_model():
             _get_task_for_model("model")
 
 
+@skip_transformers_v5_or_later
 def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, tmp_path):
     local_repo_path = tmp_path / "local_repo"
     text_generation_pipeline.save_pretrained(local_repo_path)
 
-    locally_loaded_model = transformers.AutoModelWithLMHead.from_pretrained(local_repo_path)
+    locally_loaded_model = transformers.AutoModelForCausalLM.from_pretrained(local_repo_path)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         local_repo_path, chat_template=CHAT_TEMPLATE
     )
@@ -3469,9 +3480,7 @@ HF_COMMIT_HASH_PATTERN = re.compile(r"^[a-z0-9]{40}$")
         (
             "small_vision_model",
             image_url,
-            {"feature_extractor", "image_processor"}
-            if IS_NEW_FEATURE_EXTRACTION_API
-            else {"feature_extractor"},
+            {"image_processor"} if IS_NEW_FEATURE_EXTRACTION_API else {"feature_extractor"},
         ),
         (
             "component_multi_modal",
@@ -3630,7 +3639,7 @@ def local_checkpoint_path(tmp_path):
     """
     Fixture to create a local model checkpoint for testing fine-tuning scenario.
     """
-    model = transformers.AutoModelWithLMHead.from_pretrained("distilgpt2")
+    model = transformers.AutoModelForCausalLM.from_pretrained("distilgpt2")
 
     class DummyDataset(torch.utils.data.Dataset):
         def __getitem__(self, idx):
@@ -3675,9 +3684,13 @@ def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
     flavor_conf = logged_info.flavors["transformers"]
     assert flavor_conf["source_model_name"] == local_checkpoint_path
     assert flavor_conf["task"] == "text-generation"
-    assert flavor_conf["framework"] == "pt"
+    if not IS_TRANSFORMERS_V5_OR_LATER:
+        assert flavor_conf["framework"] == "pt"
     assert flavor_conf["instance_type"] == "TextGenerationPipeline"
-    assert flavor_conf["tokenizer_type"] == "GPT2TokenizerFast"
+    expected_tokenizer_type = (
+        "GPT2Tokenizer" if IS_TRANSFORMERS_V5_OR_LATER else "GPT2TokenizerFast"
+    )
+    assert flavor_conf["tokenizer_type"] == expected_tokenizer_type
 
     # Default task signature should be used
     assert logged_info.signature.inputs == Schema([ColSpec(DataType.string)])
@@ -3714,6 +3727,7 @@ def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
     assert pred_serve["predictions"][0].startswith(query)
 
 
+@skip_transformers_v5_or_later
 def test_save_model_from_local_checkpoint_with_custom_tokenizer(model_path, local_checkpoint_path):
     # When a custom tokenizer is also saved in the checkpoint, MLflow should save and load it.
     tokenizer = transformers.AutoTokenizer.from_pretrained("distilroberta-base")

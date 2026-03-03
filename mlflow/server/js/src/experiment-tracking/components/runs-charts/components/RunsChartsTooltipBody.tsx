@@ -38,7 +38,7 @@ import { customMetricBehaviorDefs } from '../../experiment-page/utils/customMetr
 interface RunsChartsContextMenuContentDataType {
   runs: RunsChartsRunData[];
   onTogglePin?: (runUuid: string) => void;
-  onHideRun?: (runUuid: string) => void;
+  onHideRun?: (runUuid: string, isCurrentlyVisible: boolean) => void;
   getDataTraceLink?: (experimentId: string, traceUuid: string) => string;
 }
 
@@ -376,7 +376,7 @@ export const RunsChartsTooltipBody = ({
               data-testid="experiment-view-compare-runs-tooltip-visibility-button"
               size="small"
               onClick={() => {
-                onHideRun(runUuid);
+                onHideRun(runUuid, !activeRun.hidden);
                 closeContextMenu();
               }}
               icon={<VisibleIcon />}

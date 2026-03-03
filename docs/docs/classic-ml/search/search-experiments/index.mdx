@@ -36,6 +36,11 @@ Comparators for string attributes and tags:
 - `LIKE`: Case-sensitive pattern match
 - `ILIKE`: Case-insensitive pattern match
 
+Comparators for tags only:
+
+- `IS NULL`: Tag does not exist
+- `IS NOT NULL`: Tag exists
+
 Comparators for numeric attributes:
 
 - `=`: Equal
@@ -62,4 +67,10 @@ Comparators for numeric attributes:
 
 # Matches experiments with name starting with 'x' and 'group' tag value equal to 'y'
 "attributes.name LIKE 'x%' AND tags.group = 'y'"
+
+# Matches experiments that have a 'group' tag
+"tags.group IS NOT NULL"
+
+# Matches experiments that do NOT have a 'deprecated' tag
+"tags.deprecated IS NULL"
 ```

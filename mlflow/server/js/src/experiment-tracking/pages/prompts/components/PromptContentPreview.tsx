@@ -342,7 +342,7 @@ response = client.chat.completions.create(
     }
   } else if (promptType === PROMPT_TYPE_CHAT) {
     codeSnippetContent += `
-messages = prompt.format_messages(${variables.map((name) => `${name}="<${name}>"`).join(', ')})
+messages = prompt.format(${variables.map((name) => `${name}="<${name}>"`).join(', ')})
 response = client.chat.completions.create(
     messages=messages,
     model="gpt-4o-mini",

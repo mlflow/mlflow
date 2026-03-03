@@ -5,6 +5,7 @@ import type {
   ExpectationAssessment,
   FeedbackAssessment,
   ModelTrace,
+  ModelTraceLocation,
   ModelTraceSpan,
   ModelTraceInfoV3,
   RetrieverDocument,
@@ -44,6 +45,16 @@ export const DEFAULT_RUN_PLACEHOLDER_NAME = 'monitor';
 
 const SPANS_LOCATION_TAG_KEY = 'mlflow.trace.spansLocation';
 export const TRACKING_STORE_SPANS_LOCATION = 'TRACKING_STORE';
+
+/**
+ * Extracts the experiment ID from a trace location, if it is an MLflow experiment location.
+ */
+export const getExperimentIdFromTraceLocation = (location?: ModelTraceLocation): string | undefined => {
+  if (location?.type === 'MLFLOW_EXPERIMENT') {
+    return location.mlflow_experiment.experiment_id;
+  }
+  return undefined;
+};
 
 export const getRowIdFromEvaluation = (evaluation?: RunEvaluationTracesDataEntry) => {
   return evaluation?.evaluationId || '';

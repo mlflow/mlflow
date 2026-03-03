@@ -133,7 +133,7 @@ export const getColumnConfig = (
     isComparing: boolean;
     theme: ThemeType;
     intl: IntlShape;
-    experimentId: string;
+    experimentId?: string;
     onChangeEvaluationId: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
     onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
   },
@@ -263,13 +263,13 @@ export const getColumnConfig = (
           const { traceIdToTurnMap, searchQuery } = (cell.table?.options?.meta as any) ?? {};
 
           return traceInfoCellRenderer(
-            experimentId,
             isComparing,
             col.id,
             comparisonEntry,
             onChangeEvaluationId,
             intl,
             theme,
+            experimentId,
             onTraceTagsEdit,
             traceIdToTurnMap,
             searchQuery,
