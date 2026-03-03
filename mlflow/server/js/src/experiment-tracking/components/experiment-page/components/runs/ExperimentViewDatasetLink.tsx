@@ -1,7 +1,6 @@
-import { Button, CopyIcon, NewWindowIcon, Typography } from '@databricks/design-system';
+import { Button, CopyIcon, NewWindowIcon } from '@databricks/design-system';
 import type { RunDatasetWithTags } from '../../../../types';
 import { DatasetSourceTypes } from '../../../../types';
-import React from 'react';
 import { FormattedMessage } from 'react-intl';
 import { getDatasetSourceUrl } from '../../../../utils/DatasetUtils';
 import { CopyButton } from '../../../../../shared/building_blocks/CopyButton';
@@ -13,7 +12,11 @@ export interface DatasetLinkProps {
 
 export const ExperimentViewDatasetLink = ({ datasetWithTags, runTags }: DatasetLinkProps) => {
   const { dataset } = datasetWithTags;
-  if (dataset.sourceType === DatasetSourceTypes.HTTP || dataset.sourceType === DatasetSourceTypes.HUGGING_FACE) {
+  if (
+    dataset.sourceType === DatasetSourceTypes.HTTP ||
+    dataset.sourceType === DatasetSourceTypes.HUGGING_FACE ||
+    dataset.sourceType === DatasetSourceTypes.EXTERNAL
+  ) {
     const url = getDatasetSourceUrl(datasetWithTags);
     if (url) {
       return (
@@ -48,19 +51,6 @@ export const ExperimentViewDatasetLink = ({ datasetWithTags, runTags }: DatasetL
         </CopyButton>
       );
     }
-  }
-  if (dataset.sourceType === DatasetSourceTypes.EXTERNAL) {
-    return (
-      <Button
-        componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewdatasetlink.tsx_19_3"
-        icon={<NewWindowIcon />}
-      >
-        <FormattedMessage
-          defaultMessage="Go to external location"
-          description="Text for the external location link in the experiment run dataset drawer"
-        />
-      </Button>
-    );
   }
   return null;
 };

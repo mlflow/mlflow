@@ -7,7 +7,7 @@ export const getDatasetSourceUrl = (datasetWithTags: RunDatasetWithTags) => {
   const { dataset } = datasetWithTags;
   const sourceType = dataset.sourceType;
   try {
-    if (sourceType === DatasetSourceTypes.HTTP) {
+    if (sourceType === DatasetSourceTypes.HTTP || sourceType === DatasetSourceTypes.EXTERNAL) {
       const { url } = JSON.parse(dataset.source);
       return url;
     }
