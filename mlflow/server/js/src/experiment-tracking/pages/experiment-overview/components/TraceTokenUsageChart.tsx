@@ -27,8 +27,17 @@ export const TraceTokenUsageChart: React.FC = () => {
   const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process token usage chart data
-  const { chartData, totalTokens, totalInputTokens, totalOutputTokens, totalCachedTokens, isLoading, error, hasData } =
-    useTraceTokenUsageChartData();
+  const {
+    chartData,
+    totalTokens,
+    totalInputTokens,
+    totalOutputTokens,
+    totalCachedTokens,
+    totalCacheCreationTokens,
+    isLoading,
+    error,
+    hasData,
+  } = useTraceTokenUsageChartData();
 
   const tooltipFormatter = useCallback(
     (value: number, name: string) => [formatCount(value), name] as [string, string],
@@ -40,6 +49,7 @@ export const TraceTokenUsageChart: React.FC = () => {
     inputTokens: theme.colors.blue400,
     outputTokens: theme.colors.green400,
     cachedTokens: theme.colors.yellow500,
+    cacheCreationTokens: theme.colors.purple,
   };
 
   if (isLoading) {
@@ -56,11 +66,12 @@ export const TraceTokenUsageChart: React.FC = () => {
         icon={<LightningIcon />}
         title={<FormattedMessage defaultMessage="Token Usage" description="Title for the token usage chart" />}
         value={formatCount(totalTokens)}
-        subtitle={
-          totalCachedTokens > 0
-            ? `(${formatCount(totalInputTokens)} input, ${formatCount(totalOutputTokens)} output, ${formatCount(totalCachedTokens)} cached)`
-            : `(${formatCount(totalInputTokens)} input, ${formatCount(totalOutputTokens)} output)`
-        }
+        subtitle={(() => {
+          const parts = [`${formatCount(totalInputTokens)} input`, `${formatCount(totalOutputTokens)} output`];
+          if (totalCachedTokens > 0) parts.push(`${formatCount(totalCachedTokens)} cached`);
+          if (totalCacheCreationTokens > 0) parts.push(`${formatCount(totalCacheCreationTokens)} cache write`);
+          return `(${parts.join(', ')})`;
+        })()}
       />
 
       {/* Chart */}
@@ -116,6 +127,16 @@ export const TraceTokenUsageChart: React.FC = () => {
                 strokeOpacity={getOpacity('Cached Tokens')}
                 dot={getLineDotStyle(areaColors.cachedTokens)}
                 name="Cached Tokens"
+              />
+              <Line
+                type="monotone"
+                dataKey="cacheCreationTokens"
+                stroke={areaColors.cacheCreationTokens}
+                strokeWidth={2}
+                strokeDasharray="5 3"
+                strokeOpacity={getOpacity('Cache Write Tokens')}
+                dot={getLineDotStyle(areaColors.cacheCreationTokens)}
+                name="Cache Write Tokens"
               />
               <Legend
                 verticalAlign="bottom"

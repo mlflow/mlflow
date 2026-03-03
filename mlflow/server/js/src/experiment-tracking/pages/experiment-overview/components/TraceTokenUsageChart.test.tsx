@@ -31,6 +31,13 @@ const createCachedTokensDataPoint = (timeBucket: string, sum: number) => ({
   values: { [AggregationType.SUM]: sum },
 });
 
+// Helper to create a cache creation tokens data point
+const createCacheCreationTokensDataPoint = (timeBucket: string, sum: number) => ({
+  metric_name: TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
+  dimensions: { time_bucket: timeBucket },
+  values: { [AggregationType.SUM]: sum },
+});
+
 // Helper to create a total tokens data point (no time bucket)
 const createTotalTokensDataPoint = (sum: number) => ({
   metric_name: TraceMetricKey.TOTAL_TOKENS,
@@ -92,6 +99,7 @@ describe('TraceTokenUsageChart', () => {
     outputDataPoints: any[],
     totalDataPoints: any[],
     cachedDataPoints: any[] = [],
+    cacheCreationDataPoints: any[] = [],
   ) => {
     server.use(
       rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
@@ -105,6 +113,8 @@ describe('TraceTokenUsageChart', () => {
           return res(ctx.json({ data_points: totalDataPoints }));
         } else if (metricName === TraceMetricKey.CACHE_READ_INPUT_TOKENS) {
           return res(ctx.json({ data_points: cachedDataPoints }));
+        } else if (metricName === TraceMetricKey.CACHE_CREATION_INPUT_TOKENS) {
+          return res(ctx.json({ data_points: cacheCreationDataPoints }));
         }
         return res(ctx.json({ data_points: [] }));
       }),
@@ -269,6 +279,49 @@ describe('TraceTokenUsageChart', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('line-Cached Tokens')).toBeInTheDocument();
+      });
+    });
+
+    it('should display cache write tokens in subtitle when present', async () => {
+      const mockCacheCreationDataPoints = [
+        createCacheCreationTokensDataPoint('2025-12-22T10:00:00Z', 5000),
+        createCacheCreationTokensDataPoint('2025-12-22T11:00:00Z', 8000),
+      ];
+
+      setupTraceMetricsHandler(
+        mockInputDataPoints,
+        mockOutputDataPoints,
+        mockTotalDataPoints,
+        [],
+        mockCacheCreationDataPoints,
+      );
+
+      renderComponent();
+
+      // Cache creation: 5000 + 8000 = 13000 => 13.00K cache write
+      await waitFor(() => {
+        expect(screen.getByText(/13\.00K cache write/)).toBeInTheDocument();
+      });
+    });
+
+    it('should render cache write tokens line when data is present', async () => {
+      const mockCacheCreationDataPoints = [
+        createCacheCreationTokensDataPoint('2025-12-22T10:00:00Z', 5000),
+        createCacheCreationTokensDataPoint('2025-12-22T11:00:00Z', 8000),
+      ];
+
+      setupTraceMetricsHandler(
+        mockInputDataPoints,
+        mockOutputDataPoints,
+        mockTotalDataPoints,
+        [],
+        mockCacheCreationDataPoints,
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('line-Cache Write Tokens')).toBeInTheDocument();
       });
     });
 

@@ -9,6 +9,7 @@ export interface TokenUsageChartDataPoint {
   inputTokens: number;
   outputTokens: number;
   cachedTokens: number;
+  cacheCreationTokens: number;
   timestampMs: number;
 }
 
@@ -23,6 +24,8 @@ export interface UseTraceTokenUsageChartDataResult {
   totalOutputTokens: number;
   /** Total cached (cache read) tokens in the time range */
   totalCachedTokens: number;
+  /** Total cache creation tokens in the time range */
+  totalCacheCreationTokens: number;
   /** Whether data is currently being fetched */
   isLoading: boolean;
   /** Error if data fetching failed */
@@ -89,6 +92,22 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     filters,
   });
 
+  // Fetch cache creation tokens over time
+  const {
+    data: cacheCreationTokensData,
+    isLoading: isLoadingCacheCreation,
+    error: cacheCreationError,
+  } = useTraceMetricsQuery({
+    experimentIds,
+    startTimeMs,
+    endTimeMs,
+    viewType: MetricViewType.TRACES,
+    metricName: TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
+    aggregations: [{ aggregation_type: AggregationType.SUM }],
+    timeIntervalSeconds,
+    filters,
+  });
+
   // Fetch total tokens (without time bucketing) for the header
   const {
     data: totalTokensData,
@@ -107,8 +126,12 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
   const inputDataPoints = useMemo(() => inputTokensData?.data_points || [], [inputTokensData?.data_points]);
   const outputDataPoints = useMemo(() => outputTokensData?.data_points || [], [outputTokensData?.data_points]);
   const cachedDataPoints = useMemo(() => cachedTokensData?.data_points || [], [cachedTokensData?.data_points]);
-  const isLoading = isLoadingInput || isLoadingOutput || isLoadingCached || isLoadingTotal;
-  const error = inputError || outputError || cachedError || totalError;
+  const cacheCreationDataPoints = useMemo(
+    () => cacheCreationTokensData?.data_points || [],
+    [cacheCreationTokensData?.data_points],
+  );
+  const isLoading = isLoadingInput || isLoadingOutput || isLoadingCached || isLoadingCacheCreation || isLoadingTotal;
+  const error = inputError || outputError || cachedError || cacheCreationError || totalError;
 
   // Extract total tokens from the response
   const totalTokens = totalTokensData?.data_points?.[0]?.values?.[AggregationType.SUM] || 0;
@@ -126,6 +149,10 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     () => cachedDataPoints.reduce((sum, dp) => sum + (dp.values?.[AggregationType.SUM] || 0), 0),
     [cachedDataPoints],
   );
+  const totalCacheCreationTokens = useMemo(
+    () => cacheCreationDataPoints.reduce((sum, dp) => sum + (dp.values?.[AggregationType.SUM] || 0), 0),
+    [cacheCreationDataPoints],
+  );
 
   // Create maps of tokens by timestamp using shared utility
   const sumExtractor = useCallback(
@@ -135,6 +162,7 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
   const inputTokensMap = useTimestampValueMap(inputDataPoints, sumExtractor);
   const outputTokensMap = useTimestampValueMap(outputDataPoints, sumExtractor);
   const cachedTokensMap = useTimestampValueMap(cachedDataPoints, sumExtractor);
+  const cacheCreationTokensMap = useTimestampValueMap(cacheCreationDataPoints, sumExtractor);
 
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
@@ -143,9 +171,10 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
       inputTokens: inputTokensMap.get(timestampMs) || 0,
       outputTokens: outputTokensMap.get(timestampMs) || 0,
       cachedTokens: cachedTokensMap.get(timestampMs) || 0,
+      cacheCreationTokens: cacheCreationTokensMap.get(timestampMs) || 0,
       timestampMs,
     }));
-  }, [timeBuckets, inputTokensMap, outputTokensMap, cachedTokensMap, timeIntervalSeconds]);
+  }, [timeBuckets, inputTokensMap, outputTokensMap, cachedTokensMap, cacheCreationTokensMap, timeIntervalSeconds]);
 
   return {
     chartData,
@@ -153,6 +182,7 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
     totalInputTokens,
     totalOutputTokens,
     totalCachedTokens,
+    totalCacheCreationTokens,
     isLoading,
     error,
     hasData: inputDataPoints.length > 0 || outputDataPoints.length > 0,
