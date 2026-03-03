@@ -46,7 +46,8 @@ def upsert_hook(config: dict[str, Any], hook_type: str, handler_name: str) -> No
 
     python_cmd = "uv run python" if "UV" in os.environ else "python"
     hook_command = (
-        f'{python_cmd} -c "from mlflow.claude_code.hooks import {handler_name}; {handler_name}()"'
+        f"{python_cmd} -I -c \"import sys; sys.path = [p for p in sys.path if p not in ('', '.')]; "
+        f'from mlflow.claude_code.hooks import {handler_name}; {handler_name}()"'
     )
 
     mlflow_hook = {"type": "command", HOOK_FIELD_COMMAND: hook_command}
