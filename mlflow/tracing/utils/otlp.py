@@ -24,14 +24,12 @@ def build_otlp_headers(experiment_id: str) -> dict[str, str]:
     """Build OTLP exporter headers with experiment ID and auth credentials."""
     headers: dict[str, str] = {MLFLOW_EXPERIMENT_ID_HEADER: experiment_id}
 
-    if token := MLFLOW_TRACKING_TOKEN.get():
-        headers["Authorization"] = f"Bearer {token}"
-        return headers
-
     creds = read_mlflow_creds()
     if creds.username and creds.password:
-        encoded = base64.b64encode(f"{creds.username}:{creds.password}".encode()).decode()
-        headers["Authorization"] = f"Basic {encoded}"
+        basic_auth_str = f"{creds.username}:{creds.password}".encode()
+        headers["Authorization"] = f"Basic {base64.standard_b64encode(basic_auth_str).decode()}"
+    elif token := MLFLOW_TRACKING_TOKEN.get():
+        headers["Authorization"] = f"Bearer {token}"
 
     return headers
 
