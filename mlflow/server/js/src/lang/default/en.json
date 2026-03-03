@@ -2738,6 +2738,10 @@
     "defaultMessage": "Y-axis:",
     "description": "Label text for Y-axis in box plot comparison in MLflow"
   },
+  "Hk9B5H": {
+    "defaultMessage": "Delete sessions",
+    "description": "Delete sessions and all their traces action"
+  },
   "HlqAH9": {
     "defaultMessage": "Output type",
     "description": "Section header for judge output type selection"
@@ -6843,6 +6847,10 @@
     "defaultMessage": "Load model as a PyFuncModel.",
     "description": "Code comment which states how to load model using PyFuncModel"
   },
+  "kVgfHt": {
+    "defaultMessage": "Actions{count}",
+    "description": "Session actions dropdown button"
+  },
   "kW6/lu": {
     "defaultMessage": "Edit",
     "description": "Chat sessions actions dropdown group label for edit actions"
@@ -8178,6 +8186,10 @@
   "tUAhDM": {
     "defaultMessage": "Global guideline adherence",
     "description": "Evaluation results > known type of evaluation result assessment > global guideline adherence assessment. Used to indicate if the result adheres to the global guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Global guideline adherence: moderate\""
+  },
+  "tUDgmf": {
+    "defaultMessage": "Select one or more sessions to perform actions.",
+    "description": "Tooltip shown when actions button is disabled due to no session selection"
   },
   "taI4Bv": {
     "defaultMessage": "to",
