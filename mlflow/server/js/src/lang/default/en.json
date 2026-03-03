@@ -8539,6 +8539,10 @@
     "defaultMessage": "Add tags",
     "description": "Button text to add tags to a trace in the experiment traces table"
   },
+  "vIVdom": {
+    "defaultMessage": "View gateway trace",
+    "description": "Link text for navigating to the corresponding gateway trace"
+  },
   "vK1v9d": {
     "defaultMessage": "datasets used",
     "description": "Text for dataset count in the experiment run dataset drawer"
