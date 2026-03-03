@@ -50,8 +50,8 @@ Users need the ability to offload span content to a cheaper trace repository (e.
 
 ### Out of Scope
 
-- **Span-level attribute search on archived traces:** Once span content is moved to the trace repository, SQL-based filtering on individual span attributes (e.g., span type, span duration) will not be supported for archived traces. Trace-level metadata search (timestamp, state, tags, trace metrics) will continue to work.
-- **Automatic re-ingestion from trace repository to DB:** Restoring archived span data back into the database is not in scope. Users who need span-level search on archived traces should query the OTLP files directly or use an external analytics tool.
+- **Span-level attribute search on archived traces (JSON attributes):** Once span content is moved to the trace repository, SQL-based filtering that depends on the raw span payload in `spans.content` (e.g., `span.attributes.*`) will not be supported for archived traces. Column-backed span filters that use indexed span metadata (e.g., `span.type`, `span.status`, `span.duration_ns`) will continue to work as long as span rows and these columns are retained in the DB. Trace-level metadata search (timestamp, state, tags, trace metrics) will continue to work.
+- **Automatic re-ingestion from trace repository to DB:** Restoring archived span data back into the database is not in scope. Users who need full, arbitrary span-level search over archived traces should query the OTLP files directly or use an external analytics tool.
 - **Per-experiment retention policies:** Retention policies are set globally and can be overridden by workspaces. Per-experiment policy overrides are out of scope for this iteration.
 
 ## Proposal Sketch
@@ -96,8 +96,8 @@ mlflow server \
 Archival is performed **server-side**, analogous to `mlflow traces delete`. The client (CLI or Python) sends a request to the tracking server specified by `MLFLOW_TRACKING_URI`; the server executes the archival using its own configured backend store and trace repository. This is implemented with a **new REST API endpoint** (e.g. `POST /mlflow/traces/archive-traces`) that the server implements to run the archival workflow.
 
 Alternatively, if maintainers would like to avoid creating the REST endpoint, it can be implemented by
-defining a method on the AbstractStore class in mlflow/store/tracking/abstract_store.py . By default, it'd not be implemented,
-except for the SqlAlchemyStore (database). The admin then runs `mlflow traces archive` like an admin does for `mlflow gc`.
+defining a method on the AbstractStore class in mlflow/store/tracking/abstract_store.py. By default, it would not be implemented,
+except in the `SqlAlchemyStore` (database). The admin then runs `mlflow traces archive` like an admin does for `mlflow gc`.
 
 ```bash
 # Archive span data for traces older than 90 days in a specific workspace
@@ -176,9 +176,9 @@ Each `traces.pb` file contains a single `TracesData` message with all spans for 
 
 **Current OSS behavior:** In the current open-source version of MLflow, traces are always written to the database. The server persists the trace record and span content in the tracking store (e.g. `SqlAlchemyStore`); span location is `TRACKING_STORE` and full trace/span data is stored in the DB.
 
-**Existing trace artifact upload (non-OSS / V3 path):** When a trace is created (e.g. via the MLflow V3 exporter in `mlflow/tracing/export/mlflow_v3.py` or the inference-table exporter), the server creates the trace record in the tracking store and sets a tag `MLFLOW_ARTIFACT_LOCATION` on the trace with the URI where trace data should be stored. That URI is the experiment's artifact location plus `/traces/<trace_id>/artifacts/` (see `SqlAlchemyStore._get_trace_artifact_location_tag`). The **client** then uploads the full trace payload as a single JSON file named `traces.json` to that URI using the artifact repository (`ArtifactRepository.upload_trace_data` in `mlflow/store/artifact/artifact_repo.py`). The client uses `get_artifact_uri_for_trace(trace_info)` from `mlflow/tracing/utils/artifact_utils.py` to resolve the URI from the trace's tags and performs the upload; when not in proxy mode, the client therefore needs credentials for the artifact store. When the UI or API needs full trace data, the same URI is used to download `traces.json` and parse it. This path is used when the server marks the trace's span location as `ARTIFACT_REPO` (via the `mlflow.trace.spansLocation` tag), span content is read from the artifact store rather than the DB. This path is distinct from the default OSS behavior where traces are always stored in the database.
+**Existing trace artifact upload path (V3 / artifact-backed traces):** When a trace is created (e.g. via the MLflow V3 exporter in `mlflow/tracing/export/mlflow_v3.py` or the inference-table exporter), the server creates the trace record in the tracking store and sets a tag `MLFLOW_ARTIFACT_LOCATION` on the trace with the URI where trace data should be stored. That URI is the experiment's artifact location plus `/traces/<trace_id>/artifacts/` (see `SqlAlchemyStore._get_trace_artifact_location_tag`). The **client** then uploads the full trace payload as a single JSON file named `traces.json` to that URI using the artifact repository (`ArtifactRepository.upload_trace_data` in `mlflow/store/artifact/artifact_repo.py`). The client uses `get_artifact_uri_for_trace(trace_info)` from `mlflow/tracing/utils/artifact_utils.py` to resolve the URI from the trace's tags and performs the upload; when not in proxy mode, the client therefore needs credentials for the artifact store. When the UI or API needs full trace data, the same URI is used to download `traces.json` and parse it. This path is used when the server marks the trace's span location as `ARTIFACT_REPO` (via the `mlflow.trace.spansLocation` tag), so span content is read from the artifact store rather than the DB. This mechanism exists in OSS today and coexists with DB-backed span storage (e.g. spans written via `log_spans`).
 
-**Relationship to the proposed archival:** The proposed archival mechanism is separate from both: (1) the default OSS behavior (traces always written to the DB), and (2) the optional `traces.json` / artifact-repo path. Archival stores span content in OTLP protobuf format at a configurable trace repository (`--traces-destination`), which may or may not be the same as the artifact store. The proposed `traces.pb` archival is for offloading span content from the DB (e.g. after it was initially written there in OSS). These mechanisms can coexist.
+**Relationship to the proposed archival:** Today there are already two trace storage paths in OSS: (1) DB-backed spans written via `log_spans` (span content in the `spans` table), and (2) artifact-backed `traces.json` payloads uploaded by V3-style exporters to the artifact repository. The proposed archival mechanism is a third, separate path: it stores span content in OTLP protobuf format at a configurable trace repository (`--traces-destination`), which may or may not be the same as the artifact store. The proposed `traces.pb` archival is for offloading span content from the DB for traces that were initially written there via the DB-backed path. These three mechanisms can coexist.
 
 #### Database Schema Changes
 
@@ -263,10 +263,16 @@ def get_trace(self, trace_id, allow_partial=False):
     return Trace(trace_info, TraceData(spans))
 ```
 
-**Impact on `search_traces`:** Today, `search_traces` supports both trace-level filters (timestamp, state, tags, metrics) and span-level filters (`span.name`, `span.type`, `span.status`, `span.attributes.*`). Span-level filters query the `spans` table columns and `spans.content` JSON. After archival (or in `repository` or `direct-to-repository` mode), span content is no longer in the DB; span-level filters will not match archived traces. The implementation must handle this gracefully:
+**Impact on `search_traces`:** Today, `search_traces` supports both trace-level filters (timestamp, state, tags, metrics) and span-level filters (`span.name`, `span.type`, `span.status`, `span.duration_ns`, `span.attributes.*`, etc.). Span-level filters fall into two categories:
+
+- **Column-based span filters** such as `span.name`, `span.type`, `span.status`, and `span.duration_ns` filter against dedicated columns on the `spans` table. Because archival retains span rows and these metadata columns while only clearing/moving `spans.content`, these filters continue to work for archived traces.
+- **JSON-based span filters** such as `span.attributes.*` rely on data stored inside the `spans.content` JSON blob. After archival (or in `repository` or `direct-to-repository` mode), `spans.content` is no longer populated in the DB for archived traces, so these filters no longer match archived traces.
+
+The implementation must handle this gracefully:
 
 - When a query contains **only trace-level filters**, archived traces are included in results as usual.
-- When a query contains **span-level filters**, archived traces (where `mlflow.trace.spansLocation` = `TRACES_REPO`) are excluded from results. This is a natural consequence of the SQL join against the `spans` table producing no content matches for those traces.
+- When a query contains **only column-based span-level filters**, archived traces are still included in results, since the relevant span metadata remains in the DB.
+- When a query contains **any JSON-based span-level filters** (e.g. `span.attributes.*`), archived traces (where `mlflow.trace.spansLocation` = `TRACES_REPO`) are effectively excluded from results, because the SQL predicates referencing `spans.content` cannot match for those traces.
 
 For `batch_get_traces`, the implementation should partition trace IDs by `SpansLocation` tag value: batch-read DB spans for `TRACKING_STORE` traces, and fetch from the trace repository (potentially in parallel) for `TRACES_REPO` traces.
 
