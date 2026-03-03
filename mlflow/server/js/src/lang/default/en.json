@@ -559,6 +559,10 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
+  "20pGXz": {
+    "defaultMessage": "Add",
+    "description": "Add manually modal action button"
+  },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
@@ -642,6 +646,10 @@
   "2Us2jl": {
     "defaultMessage": "X axis",
     "description": "Label for X axis in Contour chart configurator in compare runs chart config modal"
+  },
+  "2XgfPm": {
+    "defaultMessage": "No records found",
+    "description": "Empty state for the evaluation dataset records table when search yields no results"
   },
   "2YEXRM": {
     "defaultMessage": "Edit",
@@ -1298,6 +1306,10 @@
     "defaultMessage": "MLflow API documentation",
     "description": "Link to the MLflow API documentation for the Trace object"
   },
+  "7RkH9i": {
+    "defaultMessage": "Add record manually",
+    "description": "Add manually modal title for dataset records"
+  },
   "7S/ozs": {
     "defaultMessage": "Context sufficient",
     "description": "Evaluation results > context sufficiency assessment > positive value label. Displayed if retrieved context is sufficient to generate the expected response."
@@ -1550,6 +1562,10 @@
     "defaultMessage": "The guidelines LLM judge determines whether the response adheres to the guidelines provided. All responses must adhere to guidelines.",
     "description": "Evaluation results > known type of evaluation result assessment > guidelines judge."
   },
+  "9ADmh+": {
+    "defaultMessage": "Manually input a single item",
+    "description": "Action card description for manually adding a record to a dataset"
+  },
   "9AfxK7": {
     "defaultMessage": "Goal",
     "description": "Column label for simulation goal"
@@ -1621,6 +1637,10 @@
   "9ZHB3D": {
     "defaultMessage": "MLflow runs:",
     "description": "A label for the associated MLflow runs in the prompt details page"
+  },
+  "9ZPBhY": {
+    "defaultMessage": "Select traces in the Traces tab, then use the \"Actions\" button to add them to a dataset",
+    "description": "Action card description for selecting traces to add to a dataset via actions button"
   },
   "9ZzOhu": {
     "defaultMessage": "API Keys",
@@ -2630,6 +2650,10 @@
     "defaultMessage": "null",
     "description": "Null value in the evaluations table."
   },
+  "H3cwTr": {
+    "defaultMessage": "Add Manually",
+    "description": "Action card title for manually adding a record to a dataset"
+  },
   "H7JwOl": {
     "defaultMessage": "Delete version",
     "description": "A label for a button to delete prompt version on the prompt details page"
@@ -3438,6 +3462,10 @@
     "defaultMessage": "Create custom code judge",
     "description": "Title for new custom code judge modal"
   },
+  "N63SVe": {
+    "defaultMessage": "Add records via code",
+    "description": "Add via code modal title for dataset records"
+  },
   "N79Rdb": {
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
     "description": "Time duration in months"
@@ -3717,6 +3745,10 @@
   "P31kXd": {
     "defaultMessage": "Cost breakdown",
     "description": "Header for span cost breakdown"
+  },
+  "P6UGCb": {
+    "defaultMessage": "For more information, visit the {docsLink}.",
+    "description": "Documentation link text in the add via code modal"
   },
   "PAUNgq": {
     "defaultMessage": "Cost Breakdown",
@@ -4273,6 +4305,10 @@
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
   },
+  "T693b6": {
+    "defaultMessage": "Cancel",
+    "description": "Add manually modal cancel button"
+  },
   "T6s9Mi": {
     "defaultMessage": "Delete API Key",
     "description": "Gateway > API key details drawer > Delete API key button"
@@ -4364,10 +4400,6 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button label within a modal for adding/editing a new runs comparison chart"
   },
-  "TnD/vL": {
-    "defaultMessage": "No records found",
-    "description": "Empty state for the evaluation dataset records table"
-  },
   "Tpj2su": {
     "defaultMessage": "Attributes",
     "description": "Label for the attributes column group in the logged model column selector"
@@ -4407,6 +4439,10 @@
   "U4s/77": {
     "defaultMessage": "Show more",
     "description": "Button to expand alert description"
+  },
+  "U7XxqM": {
+    "defaultMessage": "Use the MLflow Python SDK to add records to your dataset programmatically.",
+    "description": "Description text in the add via code modal"
   },
   "U82iv6": {
     "defaultMessage": "Registered Models",
@@ -4639,6 +4675,14 @@
   "VcNdOq": {
     "defaultMessage": "No description",
     "description": "Run page > Overview > Description section > Empty value placeholder"
+  },
+  "Vdgp7Z": {
+    "defaultMessage": "Expectations (optional)",
+    "description": "Label for the expectations JSON field in add manually modal"
+  },
+  "Vei/8N": {
+    "defaultMessage": "Inputs field is required",
+    "description": "Error when inputs field is empty in add manually modal"
   },
   "VfGJFc": {
     "defaultMessage": "Deleted traces cannot be restored. Are you sure you want to proceed?",
@@ -5002,6 +5046,10 @@
   "YEN2Ll": {
     "defaultMessage": "Used by ({count})",
     "description": "Gateway > Endpoint bindings drawer > Title"
+  },
+  "YErJq2": {
+    "defaultMessage": "MLflow Datasets documentation",
+    "description": "Link text for datasets documentation"
   },
   "YG2DsC": {
     "defaultMessage": "Collapse section",
@@ -5599,6 +5647,10 @@
     "defaultMessage": "Select a cell to display preview",
     "description": "Experiment page > table view > preview sidebar > nothing selected"
   },
+  "cAPh1z": {
+    "defaultMessage": "Expectations must be a valid JSON object",
+    "description": "Error when expectations field has invalid JSON"
+  },
   "cAujuc": {
     "defaultMessage": "Endpoints using this key ({count})",
     "description": "Gateway > Delete API key modal > Endpoints list header"
@@ -5690,6 +5742,10 @@
   "cYlLx9": {
     "defaultMessage": "Usage",
     "description": "Sidebar link for gateway usage"
+  },
+  "cfvU7K": {
+    "defaultMessage": "Enter a JSON object",
+    "description": "Hint text for the expectations JSON field"
   },
   "ckfi1K": {
     "defaultMessage": "Refresh evaluation runs",
@@ -5850,6 +5906,10 @@
   "dqfOjO": {
     "defaultMessage": "You cannot select rows when comparing runs",
     "description": "Tooltip message for the select button when comparing runs"
+  },
+  "drVq/D": {
+    "defaultMessage": "Add via Code",
+    "description": "Action card title for adding records via Python SDK"
   },
   "dt3hj5": {
     "defaultMessage": "Add tags",
@@ -6415,6 +6475,10 @@
     "defaultMessage": "+∞",
     "description": "Label displaying positive infinity symbol displayed on a plot UI element"
   },
+  "hcSOfj": {
+    "defaultMessage": "Datasets are collections of specific edge cases and underrepresented patterns used to evaluate your application.",
+    "description": "Description for the empty state when an evaluation dataset has no records"
+  },
   "hg+bcy": {
     "defaultMessage": "Enable telemetry",
     "description": "Enable telemetry settings title"
@@ -6838,6 +6902,10 @@
   "kTkJkb": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values. Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart configuration modal > unsupported string values warning"
+  },
+  "kU0qfS": {
+    "defaultMessage": "Inputs",
+    "description": "Label for the inputs JSON field in add manually modal"
   },
   "kV2Dw/": {
     "defaultMessage": "Load model as a PyFuncModel.",
@@ -7723,6 +7791,10 @@
     "defaultMessage": "Register model",
     "description": "Register model modal title to register the model for deployment"
   },
+  "qTaLBB": {
+    "defaultMessage": "Inputs must be a valid JSON object",
+    "description": "Error when inputs field has invalid JSON"
+  },
   "qTjYVU": {
     "defaultMessage": "Hide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the visible run"
@@ -8227,6 +8299,10 @@
     "defaultMessage": "Native MLflow API for model invocations. Supports seamless model switching and advanced routing.",
     "description": "MLflow invocations API description"
   },
+  "tvhwjn": {
+    "defaultMessage": "Select Traces",
+    "description": "Action card title for selecting traces to add to a dataset"
+  },
   "tx3aAM": {
     "defaultMessage": "Add tag",
     "description": "Key-value tag editor modal > Add tag button"
@@ -8242,6 +8318,10 @@
   "u13xKF": {
     "defaultMessage": "Custom judge",
     "description": "LLM judge option for creating a custom judge"
+  },
+  "u7MR0C": {
+    "defaultMessage": "Use the MLflow Python SDK",
+    "description": "Action card description for adding records via Python SDK"
   },
   "uABFy0": {
     "defaultMessage": "AI Gateway",
@@ -8667,6 +8747,10 @@
     "defaultMessage": "Recent Experiments",
     "description": "Home page experiments preview title"
   },
+  "xNlzTr": {
+    "defaultMessage": "Add items to your dataset",
+    "description": "Title for the empty state when an evaluation dataset has no records"
+  },
   "xPkIEE": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                                on the model view page"
@@ -8898,6 +8982,10 @@
   "z/CjX4": {
     "defaultMessage": "View stack trace",
     "description": "Link to view the stack trace for an assessment error"
+  },
+  "z13NbD": {
+    "defaultMessage": "Enter a JSON object",
+    "description": "Hint text for the inputs JSON field"
   },
   "z2Gyuw": {
     "defaultMessage": "MLflow Model",
