@@ -122,7 +122,7 @@ df = pd.DataFrame(
                 "context": "general",
             },
             "expectations": {
-                "expected_answer": "MLflow is an open-source platform for ML lifecycle",
+                "expected_answer": "MLflow is an open-source AI engineering platform",
                 "must_mention": ["tracking", "experiments"],
             },
             "tags": {"priority": "high"},
@@ -252,7 +252,7 @@ dataset.merge_records(
             "expectations": {
                 # Updates existing value
                 "expected_answer": (
-                    "MLflow is an open-source platform for managing the ML lifecycle"
+                    "MLflow is an open-source AI engineering platform"
                 ),
                 "must_mention_models": True,  # Adds new expectation
                 # Note: "must_mention_tracking": True is preserved

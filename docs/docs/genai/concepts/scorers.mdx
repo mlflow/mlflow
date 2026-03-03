@@ -120,7 +120,7 @@ def retrieve_context(query: str):
     time.sleep(0.5)  # Retrieval latency
     return [
         {"doc": "MLflow is an open-source platform", "score": 0.95},
-        {"doc": "It manages the ML lifecycle", "score": 0.89},
+        {"doc": "It helps build production-quality AI agents", "score": 0.89},
         {"doc": "Includes tracking and deployment", "score": 0.87},
     ]
 
@@ -135,7 +135,7 @@ def retrieve_user_history(user_id: str):
 @mlflow.trace(span_type=SpanType.LLM)
 def generate_response(query: str, context: list, history: dict):
     # Simulate LLM generation
-    return f"Based on context about '{query}': MLflow is a platform for ML lifecycle management."
+    return f"Based on context about '{query}': MLflow is an open-source AI engineering platform."
 
 
 @mlflow.trace(span_type=SpanType.AGENT)
@@ -178,7 +178,7 @@ correctness_judge = make_judge(
 feedback = correctness_judge(
     inputs={"question": "What is MLflow?"},
     outputs={
-        "response": "MLflow is an open-source platform for ML lifecycle management."
+        "response": "MLflow is an open-source AI engineering platform."
     },
 )
 print(f"Correctness: {feedback.value}")
@@ -337,10 +337,10 @@ test_data = pd.DataFrame(
         {
             "inputs": {"question": "What is MLflow?"},
             "outputs": {
-                "response": "MLflow is an open-source platform for ML lifecycle management."
+                "response": "MLflow is an open-source AI engineering platform."
             },
             "expectations": {
-                "ground_truth": "MLflow is an open-source platform for managing the ML lifecycle"
+                "ground_truth": "MLflow is an open-source AI engineering platform"
             },
         },
         {
