@@ -44,7 +44,7 @@ def test_trace_disable_with_no_config(runner):
         # Should handle gracefully even if no config exists
 
 
-def _get_hook_command_from_settings():
+def _get_hook_command_from_settings() -> str:
     settings_path = Path(".claude/settings.json")
     with open(settings_path) as f:
         config = json.load(f)
@@ -67,8 +67,10 @@ def test_claude_setup_with_uv_env_var(runner, monkeypatch):
         assert result.exit_code == 0
 
         hook_command = _get_hook_command_from_settings()
-        assert "uv run python" in hook_command
-        assert "from mlflow.claude_code.hooks import stop_hook_handler" in hook_command
+        assert hook_command == (
+            "uv run python -c "
+            '"from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()"'
+        )
 
 
 def test_claude_setup_without_uv_env_var(runner, monkeypatch):
@@ -80,7 +82,7 @@ def test_claude_setup_without_uv_env_var(runner, monkeypatch):
         assert result.exit_code == 0
 
         hook_command = _get_hook_command_from_settings()
-        # Should start with 'python' but NOT 'uv run python'
-        assert hook_command.startswith("python -c")
-        assert "uv run python" not in hook_command
-        assert "from mlflow.claude_code.hooks import stop_hook_handler" in hook_command
+        assert hook_command == (
+            "python -c "
+            '"from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()"'
+        )
