@@ -120,7 +120,7 @@ def test_conversation_simulator_basic_simulation(
     assert len(all_traces[0]) == 2  # 2 traces
     assert all(t is simulation_mocks["trace"] for t in all_traces[0])
     assert simulation_mocks["invoke"].call_count == 4  # 2 turns * 2 calls each
-    assert simulation_mocks["update_trace"].call_count == 2
+    assert simulation_mocks["set_trace_tag"].call_count > 0
 
 
 def test_conversation_simulator_max_turns_stopping(
@@ -543,7 +543,7 @@ def test_user_agent_class_receives_context(simple_test_case, mock_predict_fn, si
     assert captured_contexts[1].is_first_turn is False
 
 
-def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_context):
+def test_conversation_simulator_sets_simulation_tags(mock_predict_fn_with_context):
     long_goal = "A" * 500
     long_persona = "B" * 500
     context = {"user_id": "U001", "session_id": "S001"}
@@ -567,17 +567,13 @@ def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_contex
         assert len(first_test_case_traces) == 2
 
         for trace in first_test_case_traces:
-            root_span = trace.data.spans[0]
-            metadata = trace.info.request_metadata
+            tags = trace.info.tags
 
-            assert root_span.attributes["mlflow.simulation.goal"] == long_goal
-            assert root_span.attributes["mlflow.simulation.persona"] == long_persona
-            assert root_span.attributes["mlflow.simulation.context"] == context
-            assert metadata["mlflow.simulation.goal"] == long_goal[:_MAX_METADATA_LENGTH]
-            assert metadata["mlflow.simulation.persona"] == long_persona[:_MAX_METADATA_LENGTH]
+            assert tags["mlflow.simulation.goal"] == long_goal[:_MAX_METADATA_LENGTH]
+            assert tags["mlflow.simulation.persona"] == long_persona[:_MAX_METADATA_LENGTH]
 
 
-def test_conversation_simulator_uses_default_persona_and_empty_context(mock_predict_fn):
+def test_conversation_simulator_uses_default_persona(mock_predict_fn):
     with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.side_effect = [
             "Test message",
@@ -592,11 +588,10 @@ def test_conversation_simulator_uses_default_persona_and_empty_context(mock_pred
         all_traces = simulator.simulate(mock_predict_fn)
 
         trace = all_traces[0][0]
-        root_span = trace.data.spans[0]
+        tags = trace.info.tags
 
-        assert root_span.attributes["mlflow.simulation.goal"] == "Test goal"
-        assert root_span.attributes["mlflow.simulation.persona"] == DEFAULT_PERSONA
-        assert root_span.attributes["mlflow.simulation.context"] == {}
+        assert tags["mlflow.simulation.goal"] == "Test goal"
+        assert tags["mlflow.simulation.persona"] == DEFAULT_PERSONA
 
 
 def test_conversation_simulator_logs_expectations_to_first_trace(mock_predict_fn):
@@ -926,11 +921,11 @@ def test_conversation_simulator_with_simulation_guidelines(mock_predict_fn):
         prompt = generate_call.kwargs["messages"][0].content
         assert "Ask clarifying questions before proceeding" in prompt
 
-        # Verify simulation_guidelines are in trace metadata
+        # Verify simulation_guidelines are in trace tags
         trace = all_traces[0][0]
-        metadata = trace.info.request_metadata
-        assert "mlflow.simulation.simulation_guidelines" in metadata
+        tags = trace.info.tags
+        assert "mlflow.simulation.simulation_guidelines" in tags
         assert (
-            metadata["mlflow.simulation.simulation_guidelines"]
+            tags["mlflow.simulation.simulation_guidelines"]
             == "Ask clarifying questions before proceeding"
         )

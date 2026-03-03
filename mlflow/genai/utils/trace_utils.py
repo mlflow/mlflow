@@ -287,7 +287,9 @@ def validate_session(session: list[Trace]) -> None:
     """
     session_id_to_trace_ids: dict[str, list[str]] = {}
     for trace in session:
-        session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+        session_id = trace.info.trace_metadata.get(
+            TraceMetadataKey.TRACE_SESSION
+        ) or trace.info.tags.get(TraceMetadataKey.TRACE_SESSION)
         if session_id is None:
             raise MlflowException(
                 f"All traces in 'session' must have a session_id. "

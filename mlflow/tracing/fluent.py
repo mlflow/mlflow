@@ -1063,7 +1063,9 @@ def search_sessions(
         )
 
         for trace in traces:
-            session_id = trace.info.request_metadata.get(session_id_key)
+            session_id = trace.info.request_metadata.get(
+                session_id_key
+            ) or trace.info.tags.get(session_id_key)
             if session_id and session_id not in seen_session_ids:
                 seen_session_ids.add(session_id)
                 session_ids.append(session_id)

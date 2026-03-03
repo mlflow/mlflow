@@ -222,16 +222,18 @@ def _run_session_scorer(
 
     session_items = [EvalItem.from_trace(t) for t in traces]
 
-    # Get session_id from the first trace's metadata
+    # Get session_id from the first trace's metadata or tags
     first_session_item = get_first_trace_in_session(session_items)
-    trace_metadata = first_session_item.trace.info.trace_metadata or {}
-    session_id = trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+    trace_info = first_session_item.trace.info
+    session_id = (trace_info.trace_metadata or {}).get(
+        TraceMetadataKey.TRACE_SESSION
+    ) or (trace_info.tags or {}).get(TraceMetadataKey.TRACE_SESSION)
 
     if not session_id:
         raise MlflowException(
             "Session-level scorer requires traces with session metadata. "
-            f"Trace {first_session_item.trace.info.trace_id} is missing "
-            f"'{TraceMetadataKey.TRACE_SESSION}' in its metadata."
+            f"Trace {trace_info.trace_id} is missing "
+            f"'{TraceMetadataKey.TRACE_SESSION}' in its metadata or tags."
         )
 
     first_trace = first_session_item.trace
@@ -360,8 +362,9 @@ def _group_traces_by_session_id(
     trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
 
     for trace_info in trace_infos:
-        trace_metadata = trace_info.trace_metadata or {}
-        if session_id := trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
+        if session_id := (trace_info.trace_metadata or {}).get(
+            TraceMetadataKey.TRACE_SESSION
+        ) or (trace_info.tags or {}).get(TraceMetadataKey.TRACE_SESSION):
             if session_id not in session_groups:
                 session_groups[session_id] = []
             session_groups[session_id].append(trace_info.trace_id)
