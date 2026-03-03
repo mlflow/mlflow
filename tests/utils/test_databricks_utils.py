@@ -75,7 +75,6 @@ def test_databricks_no_creds_found():
 
 
 def test_databricks_host_creds_uses_sdk_when_enabled(monkeypatch):
-    """Test that SDK auth is used and returns early when MLFLOW_ENABLE_DB_SDK=true."""
     monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
 
@@ -101,7 +100,6 @@ def test_databricks_host_creds_uses_sdk_when_enabled(monkeypatch):
 
 
 def test_databricks_host_creds_with_oidc_env_vars(monkeypatch):
-    """Test that OIDC env vars (file-oidc auth type) work when no profile is configured."""
     monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
     monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
     monkeypatch.setenv("DATABRICKS_AUTH_TYPE", "file-oidc")
@@ -113,9 +111,7 @@ def test_databricks_host_creds_with_oidc_env_vars(monkeypatch):
     mock_client_instance = mock.MagicMock()
     mock_client_instance.config = mock_config
 
-    with mock.patch(
-        "databricks.sdk.WorkspaceClient", return_value=mock_client_instance
-    ) as mock_ws:
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_client_instance) as mock_ws:
         creds = databricks_utils.get_databricks_host_creds("databricks")
         # WorkspaceClient() should be called without profile arg to allow OIDC auth
         mock_ws.assert_called_once_with()
@@ -124,7 +120,6 @@ def test_databricks_host_creds_with_oidc_env_vars(monkeypatch):
 
 
 def test_databricks_host_creds_with_profile_uses_sdk(monkeypatch):
-    """Test that when a profile is specified, it's passed to WorkspaceClient."""
     monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
     monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "my-profile")
 
@@ -133,9 +128,7 @@ def test_databricks_host_creds_with_profile_uses_sdk(monkeypatch):
     mock_client_instance = mock.MagicMock()
     mock_client_instance.config = mock_config
 
-    with mock.patch(
-        "databricks.sdk.WorkspaceClient", return_value=mock_client_instance
-    ) as mock_ws:
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_client_instance) as mock_ws:
         creds = databricks_utils.get_databricks_host_creds("databricks")
         # When profile is set, it should be passed to WorkspaceClient
         mock_ws.assert_called_once_with(profile="my-profile")
@@ -145,15 +138,12 @@ def test_databricks_host_creds_with_profile_uses_sdk(monkeypatch):
 
 
 def test_databricks_host_creds_falls_back_when_sdk_fails(monkeypatch):
-    """When SDK auth fails, fall back to legacy providers."""
     monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
     monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
     monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
 
-    with mock.patch(
-        "databricks.sdk.WorkspaceClient", side_effect=Exception("SDK auth failed")
-    ):
+    with mock.patch("databricks.sdk.WorkspaceClient", side_effect=Exception("SDK auth failed")):
         creds = databricks_utils.get_databricks_host_creds("databricks")
         # Should fall back to legacy and use env vars
         assert creds.host == "https://test.databricks.com"

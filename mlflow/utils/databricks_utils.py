@@ -826,9 +826,6 @@ def get_databricks_host_creds(server_uri=None):
     # Fall back to legacy authentication methods when SDK auth is not enabled or fails
     config = _get_databricks_creds_config(server_uri)
 
-    if not config:
-        _fail_malformed_databricks_auth(server_uri)
-
     return MlflowHostCreds(
         config.host,
         username=config.username,
@@ -1224,13 +1221,8 @@ def _get_databricks_creds_config(tracking_uri):
         providers = [TrackingURIConfigProvider(tracking_uri)]
     elif profile:
         # If `tracking_uri` is 'databricks://<profile>'
-        # Check environment variables first (for OIDC and other env-based auth),
-        # then fall back to the specified profile. This aligns with Databricks SDK
-        # behavior where env vars take precedence.
-        providers = [
-            EnvironmentVariableConfigProvider(),
-            ProfileConfigProvider(profile),
-        ]
+        # MLflow should only read credentials from this profile
+        providers = [ProfileConfigProvider(profile)]
     else:
         providers = [
             # `EnvironmentVariableConfigProvider` should be prioritized at the highest level,
