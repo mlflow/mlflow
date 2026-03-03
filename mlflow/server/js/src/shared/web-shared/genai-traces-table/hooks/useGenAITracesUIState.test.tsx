@@ -215,4 +215,40 @@ describe('useGenAITracesUIStateColumns', () => {
 
     expect(result.current.hiddenColumns).toEqual(sort(['col4', 'col5'])); // only 3 of 5 remain visible
   });
+
+  it('hides low-priority info columns before hiding assessment columns when over the limit', () => {
+    // Simulate a realistic scenario: many info columns (including low-priority ones) + assessment columns
+    // The low-priority columns (run_name, logged_model, user, linked_prompts, tags) should be hidden
+    // before assessment columns are removed.
+    const realisticColumns = [
+      { id: INPUTS_COLUMN_ID, type: TracesTableColumnType.INPUT, label: 'Request' },
+      { id: 'trace_id', type: TracesTableColumnType.TRACE_INFO, label: 'Trace ID' },
+      { id: 'response', type: TracesTableColumnType.TRACE_INFO, label: 'Response' },
+      { id: REQUEST_TIME_COLUMN_ID, type: TracesTableColumnType.TRACE_INFO, label: 'Request Time' },
+      { id: EXECUTION_DURATION_COLUMN_ID, type: TracesTableColumnType.TRACE_INFO, label: 'Execution Time' },
+      { id: STATE_COLUMN_ID, type: TracesTableColumnType.TRACE_INFO, label: 'State' },
+      { id: 'run_name', type: TracesTableColumnType.TRACE_INFO, label: 'Run Name' }, // low priority
+      { id: 'logged_model', type: TracesTableColumnType.TRACE_INFO, label: 'Version' }, // low priority
+      { id: 'tokens', type: TracesTableColumnType.TRACE_INFO, label: 'Tokens' },
+      { id: 'user', type: TracesTableColumnType.TRACE_INFO, label: 'User' }, // low priority
+      { id: 'assessment1', type: TracesTableColumnType.ASSESSMENT, label: 'Quality' },
+      { id: 'assessment2', type: TracesTableColumnType.ASSESSMENT, label: 'Relevance' },
+    ] as TracesTableColumn[];
+
+    // Use defaultSelectedColumns that includes all columns (12 total, needs to trim to 10)
+    const { result } = renderHook(() => useGenAITracesUIStateColumns(expId, realisticColumns, (cols) => cols));
+
+    // Should hide 2 low-priority info columns, not assessment columns
+    const hidden = result.current.hiddenColumns;
+    // Assessment columns should NOT be hidden
+    expect(hidden).not.toContain('assessment1');
+    expect(hidden).not.toContain('assessment2');
+    // Exactly 2 columns should be hidden (to bring 12 down to 10)
+    expect(hidden.length).toBe(2);
+    // All hidden columns must be from the low-priority set
+    const lowPriorityIds = ['run_name', 'logged_model', 'user', 'prompt', 'tags'];
+    hidden.forEach((id) => {
+      expect(lowPriorityIds).toContain(id);
+    });
+  });
 });
