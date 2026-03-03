@@ -2302,7 +2302,7 @@ def test_environment_variables_used_during_model_logging(monkeypatch):
             # existing env var is tracked
             os.environ["TEST_API_KEY"]
             # existing env var fetched by getenv is tracked
-            os.getenv("ANOTHER_API_KEY")
+            os.environ.get("ANOTHER_API_KEY")
             # existing env var not in allowlist is not tracked
             os.environ.get("INVALID_ENV_VAR")
             # non-existing env var is not tracked
