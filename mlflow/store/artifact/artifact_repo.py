@@ -89,7 +89,7 @@ class ArtifactRepository:
         # system (whichever is smaller)
         self.thread_pool = self._create_thread_pool()
 
-        def log_artifact_handler(filename, artifact_path=None, artifact=None):
+        def log_artifact_handler(filename, artifact_path=None, artifact=None, save_options=None):
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = os.path.join(tmp_dir, filename)
                 if artifact is not None:
@@ -97,9 +97,11 @@ class ArtifactRepository:
                     from PIL import Image
 
                     if isinstance(artifact, Image.Image):
-                        artifact.save(tmp_path)
+                        # Use the new save options here
+                        artifact.save(tmp_path, **(save_options or {}))
                 self.log_artifact(tmp_path, artifact_path)
 
+        # CORRECT INITIALIZATION: The queue's constructor only takes the handler function.
         self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
 
     def __repr__(self) -> str:
@@ -137,7 +139,7 @@ class ArtifactRepository:
                 artifact.
         """
 
-    def _log_artifact_async(self, filename, artifact_path=None, artifact=None):
+    def _log_artifact_async(self, filename, artifact_path=None, artifact=None, save_options=None):
         """
         Asynchronously log a local file as an artifact, optionally taking an ``artifact_path`` to
         place it within the run's artifacts. Run artifacts can be organized into directory, so you
@@ -160,7 +162,10 @@ class ArtifactRepository:
             self._async_logging_queue.activate()
 
         return self._async_logging_queue.log_artifacts_async(
-            filename=filename, artifact_path=artifact_path, artifact=artifact
+            filename=filename,
+            artifact_path=artifact_path,
+            artifact=artifact,
+            save_options=save_options,
         )
 
     @abstractmethod

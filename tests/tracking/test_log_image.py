@@ -307,6 +307,7 @@ def test_async_log_image_flush():
         for i in range(100):
             mlflow.log_image(image1, key="dog", step=i, timestamp=i, synchronous=False)
 
+        # Use the generic artifact flush now
         mlflow.flush_artifact_async_logging()
 
         logged_path = "images/"
@@ -314,3 +315,82 @@ def test_async_log_image_flush():
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
         assert len(files) == 100 * 2
+
+
+def test_log_image_with_pil_options():
+    """Test that options in image_options are passed to PIL.Image.save."""
+    import numpy as np
+    from PIL import Image
+
+    image_data = np.random.randint(0, 256, size=(32, 32, 3), dtype=np.uint8)
+    artifact_path = "images"
+
+    with mlflow.start_run() as run:
+        # Test artifact_file mode (synchronous by default)
+        mlflow.log_image(
+            image_data,
+            artifact_file=f"{artifact_path}/test_quality.jpg",
+            image_options={"quality": 85, "optimize": True},
+        )
+
+        # Test key/step mode, explicitly making it asynchronous
+        mlflow.log_image(
+            image_data,
+            key="my_jpeg_image",
+            step=1,
+            image_options={"format": "jpeg", "quality": 90},
+            synchronous=False,
+        )
+
+        # Wait for the generic asynchronous artifact logging queue to finish.
+        # This is necessary because the key/step call above is async.
+        mlflow.flush_artifact_async_logging()
+
+    # Download and verify the artifact_file image
+    downloaded_path = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id, artifact_path=f"{artifact_path}/test_quality.jpg"
+    )
+    with Image.open(downloaded_path) as img:
+        assert img.format == "JPEG"
+
+    # Download and verify the key/step image
+    client = mlflow.MlflowClient()
+    artifacts = client.list_artifacts(run.info.run_id, path="images")
+    jpeg_artifact = next((a for a in artifacts if a.path.endswith(".jpeg")), None)
+    assert jpeg_artifact is not None, "The asynchronously logged jpeg artifact was not found."
+
+    downloaded_key_path = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id, artifact_path=jpeg_artifact.path
+    )
+    with Image.open(downloaded_key_path) as img:
+        assert img.format == "JPEG"
+
+
+def test_log_image_jpeg_quality_options_affect_file_size():
+    """
+    Tests that passing the 'quality' option for JPEG images
+    results in a smaller file size, proving the option was passed correctly.
+    """
+    import numpy as np
+
+    image_np = np.random.randint(0, 255, size=(100, 100, 3), dtype=np.uint8)
+
+    with mlflow.start_run() as run:
+        # Log without options (default quality is usually high)
+        mlflow.log_image(image_np, "image_default_quality.jpg")
+
+        # Log with very low quality
+        mlflow.log_image(image_np, "image_low_quality.jpg", image_options={"quality": 10})
+
+    client = mlflow.MlflowClient()
+
+    # Download the artifacts to check their size
+    default_path = client.download_artifacts(run.info.run_id, "image_default_quality.jpg")
+    low_quality_path = client.download_artifacts(run.info.run_id, "image_low_quality.jpg")
+
+    # The low quality image should be significantly smaller
+    default_size = os.path.getsize(default_path)
+    low_quality_size = os.path.getsize(low_quality_path)
+
+    assert low_quality_size < default_size
+    assert low_quality_size > 0
