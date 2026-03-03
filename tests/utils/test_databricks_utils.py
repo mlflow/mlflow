@@ -170,7 +170,7 @@ def test_sdk_respects_env_var_priority(monkeypatch):
         assert creds.use_databricks_sdk
 
 
-def test_sdk_respects_config_profile_env_var(tmp_path, monkeypatch):
+def test_sdk_respects_config_profile_env_var(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
     monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "my-profile")
 
