@@ -381,8 +381,8 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
             values={{
               learnMore: (
                 <Typography.Link
-                  componentId={`${COMPONENT_ID_PREFIX}.instructions-learn-more-link`}
-                  href="https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/make-judge/"
+                  componentId="mlflow.experiment-scorers.instructions-learn-more-link"
+                  href="https://mlflow.org/docs/latest/genai/eval-monitor/scorers/"
                   openInNewTab
                 >
                   <FormattedMessage defaultMessage="Learn more" description="Learn more link text" />
@@ -460,7 +460,7 @@ const GuidelinesSection: React.FC<GuidelinesSectionProps> = ({ mode, control }) 
   };
 
   const getLlmJudgeDocUrl = () => {
-    return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/';
+    return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/';
   };
 
   const isSessionLevel = evaluationScope === ScorerEvaluationScope.SESSIONS;
