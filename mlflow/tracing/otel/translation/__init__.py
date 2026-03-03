@@ -344,9 +344,15 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
     attributes = span_dict.get("attributes", {})
 
     try:
-        if SpanAttributeKey.SPAN_TYPE not in attributes:
+        current_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
+        current_type = None
+        if current_raw:
+            try:
+                current_type = json.loads(current_raw)
+            except (json.JSONDecodeError, TypeError):
+                current_type = current_raw
+        if current_type in (None, SpanType.UNKNOWN):
             if mlflow_type := translate_span_type_from_otel(attributes):
-                # Serialize to match how MLflow stores attributes
                 attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
     except Exception:
         _logger.debug("Failed to translate span type", exc_info=True)
