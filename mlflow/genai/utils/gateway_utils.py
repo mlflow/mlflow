@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
@@ -13,6 +14,19 @@ class GatewayLiteLLMConfig:
     api_base: str
     api_key: str
     model: str
+
+
+def _get_gateway_api_key() -> str:
+    """Return the API key for internal gateway requests.
+
+    When basic-auth is enabled, the server generates a random token at startup and
+    stores it in ``_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN``.  Job subprocesses inherit
+    this env var and use it as a Bearer token so the auth middleware can recognise
+    them as trusted internal callers.  When the env var is absent (auth disabled or
+    running outside the server) we fall back to a static placeholder that satisfies
+    LiteLLM's requirement for a non-empty ``api_key``.
+    """
+    return os.environ.get("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "mlflow-gateway-auth")
 
 
 def get_gateway_litellm_config(endpoint_name: str) -> GatewayLiteLLMConfig:
@@ -45,9 +59,7 @@ def get_gateway_litellm_config(endpoint_name: str) -> GatewayLiteLLMConfig:
 
     return GatewayLiteLLMConfig(
         api_base=append_to_uri_path(gateway_uri, "gateway/mlflow/v1/"),
-        # LiteLLM requires api_key when using custom api_base. Gateway handles
-        # auth in the server layer, so we pass a dummy value to satisfy LiteLLM.
-        api_key="mlflow-gateway-auth",
+        api_key=_get_gateway_api_key(),
         # Use openai/ prefix for LiteLLM to use OpenAI-compatible format.
         # LiteLLM strips the prefix, so gateway receives endpoint_name as the model.
         model=f"openai/{endpoint_name}",

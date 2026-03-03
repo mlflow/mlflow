@@ -2,6 +2,7 @@ import importlib
 import importlib.metadata
 import logging
 import os
+import secrets
 import shlex
 import signal
 import sys
@@ -448,6 +449,9 @@ def _run_server(
                 "Server will start without job execution support. "
                 "Errors will be surfaced at job invocation time."
             )
+
+    if app_name is not None and job_execution_enabled:
+        env_map["_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN"] = secrets.token_hex(32)
 
     if job_execution_enabled:
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and

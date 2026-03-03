@@ -14,7 +14,9 @@ import functools
 import importlib
 import json
 import logging
+import os
 import re
+import secrets
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
 
@@ -2711,6 +2713,11 @@ def delete_gateway_model_definition_permission():
 
 _auth_initialized = False
 
+# Env var for a random token generated at server startup. Internal gateway requests
+# from job subprocesses (which inherit the server's environment) use this token in
+# a Bearer header to authenticate without needing real user credentials.
+_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR = "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN"
+
 
 def is_auth_enabled() -> bool:
     return _auth_initialized
@@ -2915,9 +2922,11 @@ _ROUTES_NEEDING_BODY = frozenset(
 
 def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     """
-    Authenticate request using Basic Auth and return user object.
+    Authenticate request using Basic Auth or an internal Bearer token.
 
-    This mirrors the Flask authenticate_request() logic for FastAPI routes.
+    Basic Auth is the standard path for external clients. The internal Bearer token
+    path allows server-spawned job subprocesses (e.g., online scoring) to call
+    gateway endpoints without needing real user credentials.
 
     Args:
         request: The Starlette/FastAPI Request object.
@@ -2931,15 +2940,22 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     auth = request.headers["Authorization"]
     try:
         scheme, credentials = auth.split()
-        if scheme.lower() != "basic":
-            return None
-        decoded = base64.b64decode(credentials).decode("ascii")
     except Exception:
         return None
 
-    username, _, password = decoded.partition(":")
-    if store.authenticate_user(username, password):
-        return store.get_user(username)
+    if scheme.lower() == "basic":
+        try:
+            decoded = base64.b64decode(credentials).decode("ascii")
+        except Exception:
+            return None
+        username, _, password = decoded.partition(":")
+        if store.authenticate_user(username, password):
+            return store.get_user(username)
+    elif scheme.lower() == "bearer":
+        internal_token = os.environ.get(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR)
+        if internal_token and secrets.compare_digest(credentials, internal_token):
+            return store.get_user(auth_config.admin_username)
+
     return None
 
 

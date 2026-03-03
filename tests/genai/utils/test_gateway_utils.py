@@ -40,6 +40,8 @@ def test_get_gateway_litellm_config(
     else:
         monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
 
+    monkeypatch.delenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", raising=False)
+
     with mock.patch(
         "mlflow.genai.utils.gateway_utils.get_tracking_uri",
         return_value=tracking_uri or "http://default:5000",
@@ -50,6 +52,19 @@ def test_get_gateway_litellm_config(
     assert config.api_base == expected_api_base
     assert config.api_key == "mlflow-gateway-auth"
     assert config.model == f"openai/{endpoint_name}"
+
+
+def test_get_gateway_litellm_config_with_internal_token(monkeypatch):
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "secret-token-123")
+
+    with mock.patch(
+        "mlflow.genai.utils.gateway_utils.get_tracking_uri",
+        return_value="http://localhost:5000",
+    ):
+        config = get_gateway_litellm_config("chat")
+
+    assert config.api_key == "secret-token-123"
 
 
 @pytest.mark.parametrize(
