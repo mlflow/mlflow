@@ -4,8 +4,10 @@ import { ExperimentViewDatasetLink } from './ExperimentViewDatasetLink';
 import { DatasetSourceTypes } from '../../../../types';
 import type { RunDatasetWithTags } from '../../../../types';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
+import { MLFLOW_RUN_DATASET_CONTEXT_TAG } from '../../../../constants';
 
-const createDatasetWithTags = (sourceType: string, source: string): RunDatasetWithTags =>
+const createDatasetWithTags = (sourceType: string, source: string, context?: string): RunDatasetWithTags =>
   ({
     dataset: {
       name: 'test-dataset',
@@ -13,66 +15,58 @@ const createDatasetWithTags = (sourceType: string, source: string): RunDatasetWi
       sourceType,
       source,
     },
-    tags: [],
+    tags: context ? [{ key: MLFLOW_RUN_DATASET_CONTEXT_TAG, value: context }] : [],
   }) as any;
 
 const testRunTags = {} as Record<string, { key: string; value: string }>;
 
-const renderComponent = (datasetWithTags: RunDatasetWithTags) => {
+const renderComponent = (datasetWithTags: RunDatasetWithTags, experimentId?: string) => {
   return renderWithIntl(
-    <DesignSystemProvider>
-      <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} runTags={testRunTags} />
-    </DesignSystemProvider>,
+    <MemoryRouter>
+      <DesignSystemProvider>
+        <ExperimentViewDatasetLink
+          datasetWithTags={datasetWithTags}
+          runTags={testRunTags}
+          experimentId={experimentId}
+        />
+      </DesignSystemProvider>
+    </MemoryRouter>,
   );
 };
 
 describe('ExperimentViewDatasetLink', () => {
-  test('renders clickable link for HTTP source type', () => {
-    const dataset = createDatasetWithTags(DatasetSourceTypes.HTTP, JSON.stringify({ url: 'https://example.com/data' }));
-    renderComponent(dataset);
-
-    const link = screen.getByRole('link', { name: /Open dataset/i });
-    expect(link).toHaveAttribute('href', 'https://example.com/data');
-    expect(link).toHaveAttribute('target', '_blank');
-  });
-
-  test('renders clickable link for EXTERNAL source type with url', () => {
+  test('renders link to filtered runs when experimentId is provided', () => {
     const dataset = createDatasetWithTags(
-      DatasetSourceTypes.EXTERNAL,
-      JSON.stringify({ url: 'https://external.example.com/dataset' }),
+      DatasetSourceTypes.HTTP,
+      JSON.stringify({ url: 'https://example.com/data' }),
+      'training',
     );
-    renderComponent(dataset);
+    renderComponent(dataset, '123');
 
-    const link = screen.getByRole('link', { name: /Open dataset/i });
-    expect(link).toHaveAttribute('href', 'https://external.example.com/dataset');
-    expect(link).toHaveAttribute('target', '_blank');
+    const link = screen.getByRole('link', { name: /View runs with dataset/i });
+    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/123/runs'));
+    expect(link).toHaveAttribute('href', expect.stringContaining('datasetsFilter='));
   });
 
-  test('renders nothing for EXTERNAL source type without url', () => {
-    const dataset = createDatasetWithTags(DatasetSourceTypes.EXTERNAL, JSON.stringify({ other: 'value' }));
-    const { container } = renderComponent(dataset);
-    expect(container.innerHTML).toBe('');
-  });
-
-  test('renders clickable link for HUGGING_FACE source type', () => {
+  test('renders link for any source type when experimentId is provided', () => {
     const dataset = createDatasetWithTags(
       DatasetSourceTypes.HUGGING_FACE,
       JSON.stringify({ path: 'org/dataset-name' }),
     );
-    renderComponent(dataset);
+    renderComponent(dataset, '456');
 
-    const link = screen.getByRole('link', { name: /Open dataset/i });
-    expect(link).toHaveAttribute('href', 'https://huggingface.co/datasets/org/dataset-name');
+    const link = screen.getByRole('link', { name: /View runs with dataset/i });
+    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/456/runs'));
   });
 
-  test('renders copy button for S3 source type', () => {
+  test('renders copy button for S3 source type without experimentId', () => {
     const dataset = createDatasetWithTags(DatasetSourceTypes.S3, JSON.stringify({ uri: 's3://bucket/path' }));
     renderComponent(dataset);
 
     expect(screen.getByText(/Copy S3 URI to clipboard/i)).toBeInTheDocument();
   });
 
-  test('renders nothing for unknown source type', () => {
+  test('renders nothing for unknown source type without experimentId', () => {
     const dataset = createDatasetWithTags('unknown', JSON.stringify({ url: 'https://example.com' }));
     const { container } = renderComponent(dataset);
     expect(container.innerHTML).toBe('');

@@ -252,7 +252,7 @@ const ExperimentViewDatasetDrawerImpl = ({
                   )}
                 </Typography.Title>
               </div>
-              <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} runTags={tags} />
+              <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} runTags={tags} experimentId={experimentId} />
             </div>
             <div css={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
               <ExperimentViewDatasetDigest datasetWithTags={datasetWithTags} />
