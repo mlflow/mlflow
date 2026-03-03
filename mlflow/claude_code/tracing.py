@@ -48,7 +48,7 @@ MESSAGE_FIELD_TOOL_USE_RESULT = "toolUseResult"
 MESSAGE_FIELD_COMMAND_NAME = "commandName"
 MESSAGE_TYPE_QUEUE_OPERATION = "queue-operation"
 QUEUE_OPERATION_ENQUEUE = "enqueue"
-METADATA_KEY_CLAUDE_CODE_VERSION = "claude_code_version"
+METADATA_KEY_CLAUDE_CODE_VERSION = "mlflow.claude_code_version"
 
 # Custom logging level for Claude tracing
 CLAUDE_TRACING_LEVEL = logging.WARNING - 5
