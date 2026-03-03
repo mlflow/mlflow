@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from packaging.version import Version
+import warnings
 
 from mlflow import pyfunc
 from mlflow.entities.model_registry.prompt import Prompt
@@ -1697,8 +1698,7 @@ def _try_import_conversational_pipeline():
 
         return ConversationalPipeline
     except ImportError:
-        return
-
+        return    
 
 def _is_translation_pipeline(pipeline):
     try:
@@ -1744,7 +1744,16 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
 
     Returns:
         The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
-    """
+     """
+    warnings.warn(
+        "The function `mlflow.transformers.generate_signature_output` is deprecated "
+        "and will be removed in a future release. "
+        "Please use the `input_example` argument for model signature inference instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+
+
     import transformers
 
     from mlflow.transformers import signature
