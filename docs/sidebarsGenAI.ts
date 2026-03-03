@@ -418,6 +418,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/gemini_cli',
+                  label: 'Gemini CLI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/instructor',
                   label: 'Instructor',
                 },
