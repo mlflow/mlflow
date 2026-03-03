@@ -262,8 +262,6 @@ const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
   const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession } =
     useAssistant();
-  const pageContext = useAssistantPageContext();
-  const hasExperimentContext = Boolean(pageContext['experimentId']);
 
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -274,23 +272,19 @@ const ChatPanelContent = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const resizeTextarea = useCallback(() => {
+  // Auto-resize textarea to fit content
+  useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
       textarea.style.height = `${textarea.scrollHeight}px`;
     }
-  }, []);
+  }, [inputValue]);
 
   const handleSend = useCallback(() => {
     if (inputValue.trim() && !isStreaming) {
       sendMessage(inputValue.trim());
       setInputValue('');
-      // Reset textarea height after sending
-      const textarea = textareaRef.current;
-      if (textarea) {
-        textarea.style.height = 'auto';
-      }
     }
   }, [inputValue, isStreaming, sendMessage]);
 
@@ -374,10 +368,7 @@ const ChatPanelContent = () => {
               ref={textareaRef}
               placeholder="Ask a question..."
               value={inputValue}
-              onChange={(e) => {
-                setInputValue(e.target.value);
-                resizeTextarea();
-              }}
+              onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={1}
               css={{
@@ -389,11 +380,11 @@ const ChatPanelContent = () => {
                 color: theme.colors.textPrimary,
                 padding: theme.spacing.xs,
                 resize: 'none',
-                overflow: 'hidden',
+                overflowX: 'hidden',
+                overflowY: 'auto',
                 fontFamily: 'inherit',
                 lineHeight: 'inherit',
                 maxHeight: 150,
-                overflowY: 'auto',
                 '&::placeholder': {
                   color: theme.colors.textPlaceholder,
                 },
