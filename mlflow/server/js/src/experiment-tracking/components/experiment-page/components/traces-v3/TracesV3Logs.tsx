@@ -67,8 +67,13 @@ import {
   useRunJudgesOnTracesConfiguration,
 } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 
-const JudgeContextProvider = ({ children }: { children: React.ReactNode }) => {
-  const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
+const JudgeContextProvider = ({
+  children,
+  runJudgeConfiguration,
+}: {
+  children: React.ReactNode;
+  runJudgeConfiguration: ReturnType<typeof useRunScorerInTracesViewConfiguration>;
+}) => {
   return (
     <ModelTraceExplorerRunJudgesContextProvider {...runJudgeConfiguration}>
       {children}
@@ -80,14 +85,20 @@ const ContextProviders = ({
   children,
   makeHtmlFromMarkdown,
   experimentId,
+  runJudgeConfiguration,
 }: {
   makeHtmlFromMarkdown: (markdown?: string) => string;
   experimentId?: string;
   children: React.ReactNode;
+  runJudgeConfiguration?: ReturnType<typeof useRunScorerInTracesViewConfiguration>;
 }) => {
   return (
     <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
-      {isEvaluatingTracesInDetailsViewEnabled() ? <JudgeContextProvider>{children}</JudgeContextProvider> : children}
+      {isEvaluatingTracesInDetailsViewEnabled() && runJudgeConfiguration ? (
+        <JudgeContextProvider runJudgeConfiguration={runJudgeConfiguration}>{children}</JudgeContextProvider>
+      ) : (
+        children
+      )}
     </GenAiTracesMarkdownConverterProvider>
   );
 };
@@ -288,7 +299,23 @@ const TracesV3LogsImpl = React.memo(
 
     const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
 
-    const { showRunJudgesModal, RunJudgesModal } = useRunJudgesOnTracesConfiguration();
+    const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
+
+    const { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner, subscribeToScorerFinished } =
+      useRunJudgesOnTracesConfiguration(
+        runJudgeConfiguration.evaluateTraces,
+        runJudgeConfiguration.evaluations,
+        runJudgeConfiguration.subscribeToScorerFinished,
+      );
+
+    useEffect(() => {
+      if (!isEvaluatingTracesInDetailsViewEnabled()) {
+        return;
+      }
+      return subscribeToScorerFinished?.(() => {
+        invalidateMlflowSearchTracesCache({ queryClient });
+      });
+    }, [subscribeToScorerFinished, queryClient]);
 
     const traceActions: TraceActions = useMemo(() => {
       return {
@@ -395,7 +422,11 @@ const TracesV3LogsImpl = React.memo(
                 />
               </div>
             ) : (
-              <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={singleExperimentId}>
+              <ContextProviders
+                makeHtmlFromMarkdown={makeHtmlFromMarkdown}
+                experimentId={singleExperimentId}
+                runJudgeConfiguration={runJudgeConfiguration}
+              >
                 <GenAITracesTableBodyContainer
                   experimentId={singleExperimentId}
                   allColumns={allColumns}
@@ -459,6 +490,7 @@ const TracesV3LogsImpl = React.memo(
               forceGroupBySession={forceGroupBySession}
               onToggleSessionGrouping={onToggleSessionGrouping}
             />
+            {JudgesStatusBanner}
             {renderMainContent()}
           </div>
         </GenAITracesTableProvider>

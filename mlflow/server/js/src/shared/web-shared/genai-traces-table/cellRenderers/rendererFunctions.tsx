@@ -1,13 +1,22 @@
 import type { CellContext } from '@tanstack/react-table';
 import { first, isNil } from 'lodash';
-import React, { useContext } from 'react';
+import React, { useContext, useMemo } from 'react';
 import type { FormatDateOptions } from 'react-intl';
 
 import type { ThemeType } from '@databricks/design-system';
-import { ArrowRightIcon, Tag, Tooltip, Typography, useDesignSystemTheme, UserIcon } from '@databricks/design-system';
+import {
+  ArrowRightIcon,
+  Spinner,
+  Tag,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+  UserIcon,
+} from '@databricks/design-system';
 import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 import { ExpectationValuePreview } from '../../model-trace-explorer/assessments-pane/ExpectationValuePreview';
+import { useModelTraceExplorerRunJudgesContext } from '../../model-trace-explorer/contexts/RunJudgesContext';
 
 import { GenAITracesTableContext } from '../GenAITracesTableContext';
 
@@ -270,6 +279,7 @@ export const assessmentCellRenderer = (
 /**
  * Wrapper component for assessment cells that checks the context for session grouping.
  * Hides session-level assessments in regular rows when grouped by session.
+ * Shows a spinner when a judge is currently running on this trace.
  */
 export const AssessmentCell: React.FC<{
   isComparing: boolean;
@@ -279,10 +289,40 @@ export const AssessmentCell: React.FC<{
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { isGroupedBySession } = useContext(GenAITracesTableContext);
+  const { evaluations } = useModelTraceExplorerRunJudgesContext();
+
+  const traceId = comparisonEntry.currentRunValue?.traceInfo?.trace_id;
+
+  const isJudgeRunning = useMemo(() => {
+    if (!traceId || !evaluations) return false;
+    return Object.values(evaluations).some(
+      (evaluation) =>
+        evaluation.isLoading &&
+        evaluation.label === assessmentInfo.name &&
+        evaluation.tracesData &&
+        traceId in evaluation.tracesData,
+    );
+  }, [traceId, evaluations, assessmentInfo.name]);
 
   // Hide session-level assessments in regular rows when grouped by session
   if (isGroupedBySession && assessmentInfo.isSessionLevelAssessment) {
     return <NullCell />;
+  }
+
+  if (isJudgeRunning) {
+    return (
+      <Tooltip
+        componentId="mlflow.genai-traces-table.assessment-cell-judge-running"
+        content={intl.formatMessage({
+          defaultMessage: 'Judge is running…',
+          description: 'Tooltip shown in assessment cell while a judge is executing on this trace',
+        })}
+      >
+        <span css={{ display: 'inline-flex', alignItems: 'center', color: theme.colors.textSecondary }}>
+          <Spinner size="small" />
+        </span>
+      </Tooltip>
+    );
   }
 
   return assessmentCellRenderer(theme, intl, isComparing, assessmentInfo, comparisonEntry);

@@ -13,6 +13,7 @@ import {
   PlusIcon,
   Radio,
   SearchIcon,
+  Spinner,
   TableSkeleton,
   Typography,
   useDesignSystemTheme,
@@ -22,7 +23,7 @@ import ScorerModalRenderer from '../ScorerModalRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from '../constants';
 import { useRunSerializedScorer } from './useRunSerializedScorer';
 import type { ModelTraceExplorerRunJudgeConfig } from '@databricks/web-shared/model-trace-explorer';
-import type { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
+import type { ScorerEvaluation, ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 import { useTemplateOptions } from '../llmScorerUtils';
 import { EndpointSelector } from '../../../components/EndpointSelector';
 import {
@@ -80,6 +81,7 @@ export const useRunScorerInTracesViewConfiguration = (
   return {
     renderRunJudgeModal,
     evaluations: allEvaluations,
+    evaluateTraces,
     subscribeToScorerFinished,
     reset,
     scope,
@@ -88,13 +90,18 @@ export const useRunScorerInTracesViewConfiguration = (
 
 /**
  * Returns helpers for running judges on multiple selected traces from the table toolbar.
+ * Accepts `evaluateTraces` and `allEvaluations` from a shared scorer instance so that
+ * bulk evaluations are visible in `ModelTraceExplorerRunJudgesContext` (used by AssessmentCell).
  */
-export const useRunJudgesOnTracesConfiguration = (scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES) => {
-  const [experimentId] = useExperimentIds();
+export const useRunJudgesOnTracesConfiguration = (
+  evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void,
+  allEvaluations: Record<string, ScorerEvaluation> | undefined,
+  subscribeToScorerFinished: ((callback: (event: ScorerFinishedEvent) => void) => () => void) | undefined,
+  scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
+) => {
   const [pendingTraceIds, setPendingTraceIds] = useState<string[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
-
-  const { evaluateTraces } = useRunSerializedScorer({ experimentId, scope });
+  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set());
 
   const showRunJudgesModal = useCallback((traceIds: string[]) => {
     setPendingTraceIds(traceIds);
@@ -106,6 +113,20 @@ export const useRunJudgesOnTracesConfiguration = (scope: ScorerEvaluationScope =
     setPendingTraceIds([]);
   }, []);
 
+  const activeEvaluations = useMemo(
+    () => Object.values(allEvaluations ?? {}).filter((e) => !dismissedKeys.has(e.requestKey)),
+    [allEvaluations, dismissedKeys],
+  );
+
+  const dismiss = useCallback((requestKey: string) => {
+    setDismissedKeys((prev) => new Set([...prev, requestKey]));
+  }, []);
+
+  const JudgesStatusBanner =
+    activeEvaluations.length > 0 ? (
+      <JudgesEvaluationStatusBanner evaluations={activeEvaluations} onDismiss={dismiss} />
+    ) : null;
+
   const RunJudgesModal = (
     <RunJudgeModalImpl
       scope={scope}
@@ -116,7 +137,7 @@ export const useRunJudgesOnTracesConfiguration = (scope: ScorerEvaluationScope =
     />
   );
 
-  return { showRunJudgesModal, RunJudgesModal };
+  return { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner, subscribeToScorerFinished };
 };
 
 /**
@@ -426,6 +447,91 @@ const TemplateOption = ({
           </Typography.Hint>
         </div>
       </Radio>
+    </div>
+  );
+};
+
+/**
+ * A banner shown below the traces toolbar while judges are being evaluated
+ * on selected traces. Shows one row per in-flight or completed evaluation,
+ * with a spinner while loading and success/error states on completion.
+ */
+const JudgesEvaluationStatusBanner = ({
+  evaluations,
+  onDismiss,
+}: {
+  evaluations: ScorerEvaluation[];
+  onDismiss: (requestKey: string) => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+
+  return (
+    <div
+      css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, padding: `0 0 ${theme.spacing.xs}px` }}
+    >
+      {evaluations.map((evaluation) => {
+        if (evaluation.isLoading) {
+          return (
+            <Alert
+              key={evaluation.requestKey}
+              componentId="mlflow.experiment-scorers.judges-running-banner"
+              type="info"
+              closable={false}
+              message={
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                  <Spinner size="small" />
+                  <span>
+                    {intl.formatMessage(
+                      {
+                        defaultMessage: 'Running judge "{label}"…',
+                        description: 'Banner message shown while a judge is running on selected traces',
+                      },
+                      { label: evaluation.label },
+                    )}
+                  </span>
+                </div>
+              }
+            />
+          );
+        }
+
+        if (evaluation.error) {
+          return (
+            <Alert
+              key={evaluation.requestKey}
+              componentId="mlflow.experiment-scorers.judges-error-banner"
+              type="error"
+              closable
+              onClose={() => onDismiss(evaluation.requestKey)}
+              message={intl.formatMessage(
+                {
+                  defaultMessage: 'Judge "{label}" failed: {error}',
+                  description: 'Banner message shown when a judge run fails',
+                },
+                { label: evaluation.label, error: evaluation.error.message },
+              )}
+            />
+          );
+        }
+
+        return (
+          <Alert
+            key={evaluation.requestKey}
+            componentId="mlflow.experiment-scorers.judges-success-banner"
+            type="success"
+            closable
+            onClose={() => onDismiss(evaluation.requestKey)}
+            message={intl.formatMessage(
+              {
+                defaultMessage: 'Judge "{label}" completed successfully.',
+                description: 'Banner message shown when a judge run completes successfully',
+              },
+              { label: evaluation.label },
+            )}
+          />
+        );
+      })}
     </div>
   );
 };
