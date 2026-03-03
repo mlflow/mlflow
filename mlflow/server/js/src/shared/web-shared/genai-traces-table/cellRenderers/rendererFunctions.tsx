@@ -22,6 +22,7 @@ import { GenAITracesTableContext } from '../GenAITracesTableContext';
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
 import { RunName } from './RunName';
+import { Link, generatePath } from '../utils/RoutingUtils';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { SourceCellRenderer } from './Source/SourceRenderer';
 import { StackedComponents } from './StackedComponents';
@@ -969,7 +970,10 @@ export const traceInfoCellRenderer = (
       />
     );
   } else if (colId === LINKED_PROMPTS_COLUMN_ID) {
-    const formatPrompts = (promptsJson: string | undefined) => {
+    const PROMPT_VERSION_QUERY_PARAM = 'promptVersion';
+    const PROMPT_PATH = '/experiments/:experimentId/prompts/:promptName';
+
+    const formatPromptsTitle = (promptsJson: string | undefined): string | null => {
       if (!promptsJson) return null;
       try {
         const prompts = JSON.parse(promptsJson);
@@ -985,17 +989,57 @@ export const traceInfoCellRenderer = (
       return null;
     };
 
+    const renderPromptLinks = (promptsJson: string | undefined) => {
+      if (!promptsJson) return null;
+      try {
+        const prompts = JSON.parse(promptsJson);
+        if (Array.isArray(prompts) && prompts.length > 0) {
+          return prompts.map((prompt: { name: string; version: string }, index: number) => {
+            const label = `${prompt.name}/${prompt.version}`;
+            const isLast = index === prompts.length - 1;
+            if (experimentId) {
+              const basePath = generatePath(PROMPT_PATH, { experimentId, promptName: prompt.name });
+              const url = prompt.version
+                ? `${basePath}?${new URLSearchParams({ [PROMPT_VERSION_QUERY_PARAM]: prompt.version }).toString()}`
+                : basePath;
+              return (
+                <React.Fragment key={label}>
+                  <Link to={url}>{label}</Link>
+                  {!isLast && ', '}
+                </React.Fragment>
+              );
+            }
+            return (
+              <React.Fragment key={label}>
+                {label}
+                {!isLast && ', '}
+              </React.Fragment>
+            );
+          });
+        }
+      } catch (e) {
+        // Invalid JSON, return as-is
+        return promptsJson;
+      }
+      return null;
+    };
+
     const currentPrompts = currentTraceInfo?.tags?.['mlflow.linkedPrompts'];
     const otherPrompts = otherTraceInfo?.tags?.['mlflow.linkedPrompts'];
-    const formattedCurrent = formatPrompts(currentPrompts);
-    const formattedOther = formatPrompts(otherPrompts);
+    const currentTitle = formatPromptsTitle(currentPrompts);
+    const otherTitle = formatPromptsTitle(otherPrompts);
+    const renderedCurrentPrompts = renderPromptLinks(currentPrompts);
+    const renderedOtherPrompts = renderPromptLinks(otherPrompts);
 
     return (
       <StackedComponents
         first={
-          formattedCurrent ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={formattedCurrent}>
-              {formattedCurrent}
+          renderedCurrentPrompts ? (
+            <div
+              css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              title={currentTitle ?? undefined}
+            >
+              {renderedCurrentPrompts}
             </div>
           ) : (
             <NullCell isComparing={isComparing} />
@@ -1003,9 +1047,12 @@ export const traceInfoCellRenderer = (
         }
         second={
           isComparing &&
-          (formattedOther ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={formattedOther}>
-              {formattedOther}
+          (renderedOtherPrompts ? (
+            <div
+              css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              title={otherTitle ?? undefined}
+            >
+              {renderedOtherPrompts}
             </div>
           ) : (
             <NullCell isComparing={isComparing} />
