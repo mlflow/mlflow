@@ -85,6 +85,11 @@ _MODEL_PRICING: dict[str, tuple[float, float]] = {
     "claude-sonnet-4-5": (3.00, 15.00),
     "gemini-3-pro": (2.00, 12.00),
 }
+_MODEL_PROVIDER: dict[str, str] = {
+    "gpt-5.2": "openai",
+    "claude-sonnet-4-5": "anthropic",
+    "gemini-3-pro": "google",
+}
 
 
 def _compute_cost(model: str, prompt_tokens: int, completion_tokens: int) -> dict[str, float]:
@@ -295,6 +300,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
                 SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.MODEL_PROVIDER: _MODEL_PROVIDER[model],
                 SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
@@ -363,6 +369,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
                 SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.MODEL_PROVIDER: _MODEL_PROVIDER[model],
                 SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
@@ -460,6 +467,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
                 SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.MODEL_PROVIDER: _MODEL_PROVIDER[model],
                 SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
@@ -642,6 +650,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
                 SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.MODEL_PROVIDER: _MODEL_PROVIDER[model],
                 SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
