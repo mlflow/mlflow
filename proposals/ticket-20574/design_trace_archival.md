@@ -86,7 +86,7 @@ This serves a broad need. Any user running MLflow Tracing at moderate-to-large s
 mlflow server \
   --backend-store-uri postgresql://localhost/mlflow \
   --artifacts-destination s3://mlflow-artifacts/ \
-  --traces-destination s3://mlflow-traces/ \
+  --trace-archival-location s3://mlflow-traces/ \
   ...
 ```
 
@@ -177,7 +177,7 @@ Each `traces.pb` file contains a single `TracesData` message with all spans for 
 
 **Existing trace artifact upload path (V3 / artifact-backed traces):** When a trace is created (e.g. via the MLflow V3 exporter in `mlflow/tracing/export/mlflow_v3.py` or the inference-table exporter), the server creates the trace record in the tracking store and sets a tag `MLFLOW_ARTIFACT_LOCATION` on the trace with the URI where trace data should be stored. That URI is the experiment's artifact location plus `/traces/<trace_id>/artifacts/` (see `SqlAlchemyStore._get_trace_artifact_location_tag`). The **client** then uploads the full trace payload as a single JSON file named `traces.json` to that URI using the artifact repository (`ArtifactRepository.upload_trace_data` in `mlflow/store/artifact/artifact_repo.py`). The client uses `get_artifact_uri_for_trace(trace_info)` from `mlflow/tracing/utils/artifact_utils.py` to resolve the URI from the trace's tags and performs the upload; when not in proxy mode, the client therefore needs credentials for the artifact store. When the UI or API needs full trace data, the same URI is used to download `traces.json` and parse it. This path is used when the server marks the trace's span location as `ARTIFACT_REPO` (via the `mlflow.trace.spansLocation` tag), so span content is read from the artifact store rather than the DB. This mechanism exists in OSS today and coexists with DB-backed span storage (e.g. spans written via `log_spans`).
 
-**Relationship to the proposed archival:** Today there are already two trace storage paths in OSS: (1) DB-backed spans written via `log_spans` (span content in the `spans` table), and (2) artifact-backed `traces.json` payloads uploaded by V3-style exporters to the artifact repository. The proposed archival mechanism is a third, separate path: it stores span content in OTLP protobuf format at a configurable trace repository (`--traces-destination`), which may or may not be the same as the artifact store. The proposed `traces.pb` archival is for offloading span content from the DB for traces that were initially written there via the DB-backed path. These three mechanisms can coexist.
+**Relationship to the proposed archival:** Today there are already two trace storage paths in OSS: (1) DB-backed spans written via `log_spans` (span content in the `spans` table), and (2) artifact-backed `traces.json` payloads uploaded by V3-style exporters to the artifact repository. The proposed archival mechanism is a third, separate path: it stores span content in OTLP protobuf format at a configurable trace repository (`--trace-archival-location`), which may or may not be the same as the artifact store. The proposed `traces.pb` archival is for offloading span content from the DB for traces that were initially written there via the DB-backed path. These three mechanisms can coexist.
 
 #### Database Schema Changes
 
@@ -189,7 +189,7 @@ Each `traces.pb` file contains a single `TracesData` message with all spans for 
 
 Traces stay in `TRACKING_STORE` until archival completes (export to repository + clear DB content + set tag to `TRACES_REPO`). If the process crashes mid-archival, the trace remains `TRACKING_STORE` and will be selected again on the next run (re-export overwrites the file, then clear and set tag).
 
-The trace repository URI for archived traces (where to read `traces.pb`) continues to be recorded via the existing `mlflow.artifactLocation` tag when span data is in the trace repository, so retrieval can resolve the path. The **effective trace repository root** for a given trace is the workspace's `traces_destination` when set, otherwise the server's global `--traces-destination` (or default artifact root).
+The trace repository URI for archived traces (where to read `traces.pb`) continues to be recorded via the existing `mlflow.artifactLocation` tag when span data is in the trace repository, so retrieval can resolve the path. The **effective trace repository root** for a given trace is the workspace's `traces_destination` when set, otherwise the server's global `--trace-archival-location` (or default artifact root).
 
 A `content_size` column (`BIGINT`, default 0) on `spans` stores the byte length of `content` at write time so size-based archival can use `SUM(content_size)` instead of `SUM(LENGTH(content))` for efficiency (see Size-based policy below). This column is mandatory (not optional) to keep the implementation simple and avoid a fallback code path for `LENGTH(content)` aggregation.
 
@@ -207,7 +207,7 @@ ALTER TABLE workspaces
 ADD COLUMN traces_destination TEXT NULL;
 ```
 
-- **Semantics:** For a trace in a given workspace, the trace repository root used for archival and for resolving `traces.pb` paths is `workspaces.traces_destination` for that workspace if non-NULL, else the server's `--traces-destination` (or `--artifacts-destination` when traces destination is unset).
+- **Semantics:** For a trace in a given workspace, the trace repository root used for archival and for resolving `traces.pb` paths is `workspaces.traces_destination` for that workspace if non-NULL, else the server's `--trace-archival-location` (or `--artifacts-destination` when traces destination is unset).
 - **Existing workspaces:** All existing rows have `traces_destination = NULL`, so they use the global trace repository; no backfill is required.
 
 **NOTE:** traces URL resolution follows the same semantics as for artifact location on workspaces. The default, if not overridden at the workspace level, is <default traces root>/workspaces/<workspace name>.
@@ -280,11 +280,11 @@ For `batch_get_traces`, the implementation should partition trace IDs by `SpansL
 **New CLI option:**
 
 ```
---traces-destination URI             Destination URI for the trace repository (trace span data).
+--trace-archival-location URI             Destination URI for the trace repository (trace span data).
                               If not specified, traces use --default-artifact-root.
                               Can be overridden per workspace via workspaces.traces_destination.
                               Supports the same repository backends as artifacts (S3, GCS, Azure, etc.)
-                              Env var: MLFLOW_TRACES_DESTINATION
+                              Env var: MLFLOW_TRACE_ARCHIVAL_LOCATION
 
 --fallback-to-trace-root              When MLFLOW_TRACE_SPANS_STORAGE=direct-to-repository, allow fallback to
                               repository mode: if the client cannot upload traces directly (e.g. OTel client or
@@ -296,7 +296,7 @@ For `batch_get_traces`, the implementation should partition trace IDs by `SpansL
 
 | Variable                               | Description                                                                                                                                                                                                            | Default                           |
 | :------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------- |
-| `MLFLOW_TRACES_DESTINATION`            | Global destination URI for the trace repository (trace span storage). Overridable per workspace via `workspaces.traces_destination`.                                                                                   | Same as `--artifacts-destination` |
+| `MLFLOW_TRACE_ARCHIVAL_LOCATION`       | Global destination URI for the trace repository (trace span storage). Overridable per workspace via `workspaces.traces_destination`.                                                                                   | Same as `--artifacts-destination` |
 | `MLFLOW_TRACE_SPANS_STORAGE`           | Default span storage mode for new traces: `database`, `repository`, or `direct-to-repository` (server-side only; clients cannot override)                                                                              | `database`                        |
 | `MLFLOW_FALLBACK_TO_TRACE_ROOT`        | When span storage is `direct-to-repository`: if set, server falls back to writing trace data to the repository for clients that cannot upload directly (e.g. OTel); if unset, only direct-upload clients are accepted. | false (no fallback)               |
 | `MLFLOW_TRACE_ARCHIVAL_OLDER_THAN`     | Default value for archiving traces older than this duration (e.g., `90d`, `24h`) (global default, overridable via CLI)                                                                                                 | None                              |
@@ -403,7 +403,7 @@ Protobuf binary offers the best combination of size reduction, speed, standards 
 | `FileStore`          | Low      | Archive method writes to trace repository; retrieval checks trace repository location                                                                                                                            |
 | `AbstractStore`      | Low      | Add `archive_traces` abstract method                                                                                                                                                                             |
 | `mlflow traces` CLI  | Low      | Add `archive` subcommand with `--older-than`, `--max-db-size`, and workspace targeting: `--workspace <name>` or `--all-workspaces` (mirroring `mlflow gc`); fail when workspaces are enabled and neither is set. |
-| `mlflow server` CLI  | Low      | Add `--traces-destination` option                                                                                                                                                                                |
+| `mlflow server` CLI  | Low      | Add `--trace-archival-location` option                                                                                                                                                                           |
 | REST API handlers    | Low      | Add new endpoint (e.g. `POST /mlflow/traces/archive-traces`) so that archival is invoked by the client and executed server-side; handler calls tracking store's archive method.                                  |
 | Proto definitions    | Low      | Extend `SpansLocation` enum (TRACES_REPO); trace tags already expose `mlflow.trace.spansLocation` in `TraceInfoV3`                                                                                               |
 | DB migrations        | Low      | Alembic migration: add `content_size` column on `spans`; add `traces_destination` (TEXT, nullable) on `workspaces` for per-workspace trace repository override.                                                  |
@@ -439,7 +439,7 @@ Protobuf binary offers the best combination of size reduction, speed, standards 
 
 ### Two repositories: separate trace repository vs. single (artifact) repository
 
-**Current proposal:** The design allows a **separate** trace repository (e.g. `--traces-destination` / `MLFLOW_TRACES_DESTINATION`), which may be the same as or different from the default artifact root. Archived trace span data is written under this trace repository (e.g. `<traces-root>/<experiment_id>/traces/<trace_id>/artifacts/traces.pb`).
+**Current proposal:** The design allows a **separate** trace repository (e.g. `--trace-archival-location` / `MLFLOW_TRACE_ARCHIVAL_LOCATION`), which may be the same as or different from the default artifact root. Archived trace span data is written under this trace repository (e.g. `<traces-root>/<experiment_id>/traces/<trace_id>/artifacts/traces.pb`).
 
 **Alternative:** Use a **single** repository: do not support a separate traces destination. Archive trace span data into the existing artifact repository (e.g. under the experiment's `artifact_location`, in a path such as `traces/<trace_id>/artifacts/traces.pb`). Reuse the same storage backend and configuration as run artifacts.
 
@@ -453,5 +453,5 @@ Protobuf binary offers the best combination of size reduction, speed, standards 
 
 **Cons of having a separate trace repository (two repositories):**
 
-- **More configuration:** Operators must configure and maintain an additional destination (`--traces-destination` or `MLFLOW_TRACES_DESTINATION`). Two env vars / CLI options instead of one for storage.
+- **More configuration:** Operators must configure and maintain an additional destination (`--trace-archival-location` or `MLFLOW_TRACE_ARCHIVAL_LOCATION`). Two env vars / CLI options instead of one for storage.
 - **Higher implementation surface:** Code paths for writing/reading archived span data must resolve and use the trace repository; defaulting or falling back to the artifact root when traces destination is unset adds behavior to document and maintain.
