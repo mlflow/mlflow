@@ -1,3 +1,5 @@
+import inspect
+import litellm
 import logging
 import threading
 from collections import defaultdict
@@ -58,6 +60,23 @@ class MlflowCallback(BaseCallback):
         # call_id: (LiveSpan, OTel token)
         self._call_id_to_span: dict[str, SpanWithToken] = {}
         self._call_id_to_module: dict[str, Any] = {}
+
+        # DSPy initializes models using LiteLLM.
+        # This code extracts API-related attributes from the model, ensuring that any
+        # sensitive parameters explicitly set by users are redacted from trace logs.
+        self.litellm_model_attributes = (
+            (set(inspect.signature(litellm.completion).parameters.keys())
+            if hasattr(litellm, "completion") else set())
+            | (set(inspect.signature(litellm.acompletion).parameters.keys())
+            if hasattr(litellm, "acompletion") else set())
+            | (set(inspect.signature(litellm.text_completion).parameters.keys())
+            if hasattr(litellm, "text_completion") else set())
+            | (set(inspect.signature(litellm.embedding).parameters.keys())
+            if hasattr(litellm, "embedding") else set())
+        )
+        self.redacted_attributes = set(
+            filter(lambda a: "api" in a.lower(), self.litellm_model_attributes)
+        )
 
         ###### state management for optimization process ######
         # The current callback logic assumes there is no optimization running in parallel.
@@ -353,6 +372,10 @@ class MlflowCallback(BaseCallback):
         else:
             prediction_context = None
 
+        attributes = dict(
+            filter(lambda item: item[0] not in self.redacted_attributes, attributes.items())
+        )
+        
         with maybe_set_prediction_context(prediction_context):
             span = start_span_no_context(
                 name=name,
