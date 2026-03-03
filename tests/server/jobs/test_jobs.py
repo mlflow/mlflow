@@ -583,6 +583,34 @@ def test_start_job_is_atomic(tmp_path: Path, workspaces_enabled):
     assert final_job.status == JobStatus.RUNNING
 
 
+def test_exec_job_fails_job_on_unexpected_error(tmp_path: Path, workspaces_enabled):
+    """Ensure jobs transition to FAILED (not stuck in RUNNING) when _exec_job
+    encounters an unexpected error after start_job() succeeds.
+    """
+    from mlflow.server import handlers
+    from mlflow.server.jobs.utils import _exec_job
+
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
+    handlers._job_store = store
+
+    try:
+        # "no_such_job" is not in _job_name_to_fn_fullname_map, so
+        # get_job_fn_fullname() raises after start_job() transitions the job to RUNNING.
+        job = store.create_job("no_such_job", "{}")
+        workspace = job.workspace
+
+        with pytest.raises(MlflowException, match="Invalid job name"):
+            _exec_job(job.job_id, workspace, "no_such_job", {}, None)
+
+        # The job must be FAILED, not stuck in RUNNING
+        assert store.get_job(job.job_id).status == JobStatus.FAILED
+    finally:
+        handlers._job_store.engine.dispose()
+        handlers._job_store = None
+
+
 def test_cancel_job(monkeypatch, tmp_path: Path):
     with _setup_job_runner(
         monkeypatch,
