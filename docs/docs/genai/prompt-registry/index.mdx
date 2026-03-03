@@ -32,7 +32,7 @@ import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
   {
     icon: LineChart,
     title: "Lineage",
-    description: "Seamlessly integrate with MLflow's existing features such as model tracking and evaluation for end-to-end GenAI lifecycle management."
+    description: "Seamlessly integrated with MLflow's Tracing, Evaluation, and Monitoring capabilities for agent observability and quality improvement."
   },
   {
     icon: Users,
@@ -177,11 +177,9 @@ import mlflow
 import openai
 
 target_text = """
-MLflow is an open source platform for managing the end-to-end machine learning lifecycle.
-It tackles four primary functions in the ML lifecycle: Tracking experiments, packaging ML
-code for reuse, managing and deploying models, and providing a central model registry.
-MLflow currently offers these functions as four components: MLflow Tracking,
-MLflow Projects, MLflow Models, and MLflow Registry.
+MLflow is the largest open source AI engineering platform. It enables teams of all sizes
+to debug, evaluate, monitor, and optimize production-quality agents and LLM applications,
+while controlling costs and managing access to LLMs and data.
 """
 
 # Load the prompt
