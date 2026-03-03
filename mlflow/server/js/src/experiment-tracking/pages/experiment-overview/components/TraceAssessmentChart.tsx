@@ -6,6 +6,8 @@ import {
   Line,
   BarChart,
   Bar,
+  // eslint-disable-next-line import/no-deprecated -- Cell is deprecated in recharts v3 but no alternative exists for per-bar coloring
+  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -34,6 +36,25 @@ import { getLineDotStyle } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 import { useMonitoringFilters } from '../../../hooks/useMonitoringFilters';
 import { useNavigate } from '../../../../common/utils/RoutingUtils';
+
+const POSITIVE_VALUES = new Set(['yes', 'true', '1']);
+const NEGATIVE_VALUES = new Set(['no', 'false', '0']);
+
+/**
+ * Returns a sentiment-based color for an assessment value bar.
+ * Green for positive values (yes/true/1), red for negative values (no/false/0),
+ * or the default chart color for other values.
+ */
+function getAssessmentBarColor(
+  name: string,
+  theme: ReturnType<typeof useDesignSystemTheme>['theme'],
+  defaultColor: string,
+): string {
+  const normalized = name.toLowerCase().trim();
+  if (POSITIVE_VALUES.has(normalized)) return theme.colors.green500;
+  if (NEGATIVE_VALUES.has(normalized)) return theme.colors.red500;
+  return defaultColor;
+}
 
 /** Local component for chart panel with label */
 const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElement }> = ({ label, children }) => {
@@ -177,13 +198,23 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
         >
           <BarChart data={distributionChartData} layout="vertical" margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
             <XAxis type="number" allowDecimals={false} {...xAxisProps} />
-            <YAxis type="category" dataKey="name" {...yAxisProps} width={60} />
+            <YAxis
+              type="category"
+              dataKey="name"
+              {...yAxisProps}
+              tick={{ ...yAxisProps.tick, fontSize: 12 }}
+              width={80}
+            />
             <Tooltip
               content={distributionTooltipContent}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
             />
             <Legend {...scrollableLegendProps} />
-            <Bar dataKey="count" fill={chartLineColor} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="count" fill={chartLineColor} radius={[0, 4, 4, 0]}>
+              {distributionChartData.map((entry) => (
+                <Cell key={entry.name} fill={getAssessmentBarColor(entry.name, theme, chartLineColor)} />
+              ))}
+            </Bar>
           </BarChart>
         </ChartPanel>
 
