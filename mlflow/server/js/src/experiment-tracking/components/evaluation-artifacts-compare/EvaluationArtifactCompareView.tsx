@@ -219,12 +219,14 @@ const EvaluationArtifactCompareViewImpl = ({
   const isViewConfigured = !isLoading && areTablesSelected && areRunsSelected;
 
   const filteredRows = useMemo(() => {
-    const trimmedFilter = debouncedFilter.trim().toLowerCase();
-    if (!trimmedFilter) {
+    const trimmedFilterLowerCase = debouncedFilter.trim().toLowerCase();
+    if (!trimmedFilterLowerCase) {
       return tableRows;
     }
     return tableRows.filter(({ groupByCellValues }) =>
-      Object.values(groupByCellValues).some((groupByValue) => groupByValue?.toLowerCase().includes(trimmedFilter)),
+      Object.values(groupByCellValues).some((groupByValue) =>
+        groupByValue?.toLowerCase().includes(trimmedFilterLowerCase),
+      ),
     );
   }, [tableRows, debouncedFilter]);
 
