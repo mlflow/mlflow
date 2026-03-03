@@ -989,7 +989,7 @@ export const traceInfoCellRenderer = (
       return null;
     };
 
-    const renderPromptLinks = (promptsJson: string | undefined) => {
+    const renderPromptLinks = (promptsJson: string | undefined, traceExperimentId: string | undefined) => {
       if (!promptsJson) return null;
       try {
         const prompts = JSON.parse(promptsJson);
@@ -997,20 +997,20 @@ export const traceInfoCellRenderer = (
           return prompts.map((prompt: { name: string; version: string }, index: number) => {
             const label = `${prompt.name}/${prompt.version}`;
             const isLast = index === prompts.length - 1;
-            if (experimentId) {
-              const basePath = generatePath(PROMPT_PATH, { experimentId, promptName: prompt.name });
+            if (traceExperimentId) {
+              const basePath = generatePath(PROMPT_PATH, { experimentId: traceExperimentId, promptName: prompt.name });
               const url = prompt.version
                 ? `${basePath}?${new URLSearchParams({ [PROMPT_VERSION_QUERY_PARAM]: prompt.version }).toString()}`
                 : basePath;
               return (
-                <React.Fragment key={label}>
+                <React.Fragment key={index}>
                   <Link to={url}>{label}</Link>
                   {!isLast && ', '}
                 </React.Fragment>
               );
             }
             return (
-              <React.Fragment key={label}>
+              <React.Fragment key={index}>
                 {label}
                 {!isLast && ', '}
               </React.Fragment>
@@ -1028,8 +1028,10 @@ export const traceInfoCellRenderer = (
     const otherPrompts = otherTraceInfo?.tags?.['mlflow.linkedPrompts'];
     const currentTitle = formatPromptsTitle(currentPrompts);
     const otherTitle = formatPromptsTitle(otherPrompts);
-    const renderedCurrentPrompts = renderPromptLinks(currentPrompts);
-    const renderedOtherPrompts = renderPromptLinks(otherPrompts);
+    const currentExperimentId = getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location) ?? experimentId;
+    const otherExperimentId = getExperimentIdFromTraceLocation(otherTraceInfo?.trace_location) ?? experimentId;
+    const renderedCurrentPrompts = renderPromptLinks(currentPrompts, currentExperimentId);
+    const renderedOtherPrompts = renderPromptLinks(otherPrompts, otherExperimentId);
 
     return (
       <StackedComponents
