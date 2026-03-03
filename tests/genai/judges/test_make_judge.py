@@ -2160,7 +2160,6 @@ def _create_otel_trace_without_root_inputs_outputs(
 
 
 def test_fallback_to_agentic_mode_when_trace_missing_inputs_outputs(mock_invoke_judge_model):
-    """When a trace has no root span inputs/outputs, fall back to agentic judge mode."""
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
@@ -2181,7 +2180,6 @@ def test_fallback_to_agentic_mode_when_trace_missing_inputs_outputs(mock_invoke_
 
 
 def test_fallback_with_partial_data(mock_invoke_judge_model):
-    """When trace has inputs but not outputs at root, fallback triggers and includes inputs."""
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
@@ -2207,7 +2205,6 @@ def test_fallback_with_partial_data(mock_invoke_judge_model):
 
 
 def test_no_fallback_when_no_trace():
-    """Without a trace, the original error is raised (no regression)."""
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
@@ -2220,7 +2217,6 @@ def test_no_fallback_when_no_trace():
 
 
 def test_no_fallback_when_trace_has_root_data(mock_invoke_judge_model):
-    """When trace has root span data, normal (non-agentic) mode is used."""
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
@@ -2242,7 +2238,6 @@ def test_no_fallback_when_trace_has_root_data(mock_invoke_judge_model):
 
 
 def test_fallback_still_validates_expectations():
-    """In fallback mode, missing expectations still raises an error."""
     judge = make_judge(
         name="test_judge",
         instructions="Check if {{ inputs }} meets {{ expectations }}",
