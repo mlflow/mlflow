@@ -8,6 +8,26 @@ import { parseModelTraceToTree, createListFromObject } from '../ModelTraceExplor
 import { ModelTraceExplorerChatMessage } from '../right-pane/ModelTraceExplorerChatMessage';
 import { ModelTraceExplorerSummarySection } from '../summary-view/ModelTraceExplorerSummarySection';
 
+export const PREFERRED_INPUT_KEYS = ['messages', 'input', 'inputs'];
+export const PREFERRED_OUTPUT_KEYS = ['response', 'output', 'outputs', 'generations'];
+
+export const rankByKeyImportance = (preferredKeys: string[]) => {
+  return (a: { key: string }, b: { key: string }): number => {
+    const aIndex = preferredKeys.indexOf(a.key.toLowerCase());
+    const bIndex = preferredKeys.indexOf(b.key.toLowerCase());
+    // Both are preferred: sort by preference order
+    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+    // Only one is preferred: it comes first
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+    // Neither is preferred: preserve original order
+    return 0;
+  };
+};
+
+const rankInputByImportance = rankByKeyImportance(PREFERRED_INPUT_KEYS);
+const rankOutputByImportance = rankByKeyImportance(PREFERRED_OUTPUT_KEYS);
+
 export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -41,13 +61,12 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
     );
   }
 
-  // reverse to show the first param before the cutoff
   const inputList = createListFromObject(rootSpan.inputs)
     .filter((item) => item.value !== 'null')
-    .reverse();
+    .sort(rankInputByImportance);
   const outputList = createListFromObject(rootSpan.outputs)
     .filter((item) => item.value !== 'null')
-    .reverse();
+    .sort(rankOutputByImportance);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
