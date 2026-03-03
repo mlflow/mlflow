@@ -564,10 +564,7 @@ class InstructionsJudge(Judge):
                 and expectations is None
             ):
                 missing_params.append("expectations")
-            if (
-                self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables
-                and session is None
-            ):
+            if self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables and session is None:
                 missing_params.append("session")
             if missing_params:
                 missing_str = "', '".join(missing_params)
