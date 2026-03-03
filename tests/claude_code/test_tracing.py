@@ -753,3 +753,58 @@ def test_find_last_user_message_skips_consecutive_skill_injections():
     # Should skip both skill injections (entries 3 and 6) and return entry 0
     assert idx == 0
     assert transcript[idx]["message"]["content"] == "Do the thing."
+
+
+def test_process_transcript_includes_steer_messages(tmp_path):
+    transcript = [
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Tell me about Python."},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Python is a programming language."}],
+            },
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+        {
+            "type": "queue-operation",
+            "operation": "enqueue",
+            "content": "also tell me about Java",
+            "timestamp": "2025-01-15T10:00:02.000Z",
+            "sessionId": "test-steer-session",
+        },
+        {
+            "type": "queue-operation",
+            "operation": "remove",
+            "timestamp": "2025-01-15T10:00:03.000Z",
+            "sessionId": "test-steer-session",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Java is also a programming language."}],
+            },
+            "timestamp": "2025-01-15T10:00:04.000Z",
+        },
+    ]
+
+    transcript_path = tmp_path / "steer_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(entry) for entry in transcript) + "\n")
+    trace = process_transcript(str(transcript_path), "test-steer-session")
+    assert trace is not None
+
+    spans = list(trace.search_spans())
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    assert len(llm_spans) == 2
+
+    # The second LLM span should include the steer message in its inputs
+    second_llm = llm_spans[1]
+    input_messages = second_llm.inputs["messages"]
+    steer_messages = [m for m in input_messages if m.get("content") == "also tell me about Java"]
+    assert len(steer_messages) == 1
+    assert steer_messages[0]["role"] == "user"
