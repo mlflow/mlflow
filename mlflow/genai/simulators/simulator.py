@@ -722,43 +722,42 @@ class ConversationSimulator:
             **context,
         }
 
-        prev_trace_id = mlflow.get_last_active_trace_id(thread_local=True)
-        response = predict_fn(**predict_kwargs)
-        trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+        # Build tags for simulation metadata
+        trace_tags = {
+            "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
+            "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[:_MAX_METADATA_LENGTH],
+            "mlflow.simulation.turn": str(turn),
+        }
+        if simulation_guidelines:
+            guidelines_str = (
+                "\n".join(simulation_guidelines)
+                if isinstance(simulation_guidelines, list)
+                else simulation_guidelines
+            )
+            trace_tags["mlflow.simulation.simulation_guidelines"] = guidelines_str[
+                :_MAX_METADATA_LENGTH
+            ]
 
-        # If predict_fn didn't create a new trace, create one so that
-        # evaluation still works for untraced predict functions.
-        if trace_id is None or trace_id == prev_trace_id:
-            with mlflow.start_span(
-                name=getattr(predict_fn, "__name__", "predict"),
-                span_type="CHAIN",
-            ) as span:
-                span.set_inputs({input_key: input_messages})
-                span.set_outputs(response)
+        # Use configure_trace to inject session ID as metadata (immutable) and
+        # simulation info as tags, without creating a wrapper span.
+        with mlflow.configure_trace(
+            metadata={TraceMetadataKey.TRACE_SESSION: trace_session_id},
+            tags=trace_tags,
+        ):
+            prev_trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+            response = predict_fn(**predict_kwargs)
             trace_id = mlflow.get_last_active_trace_id(thread_local=True)
 
-        # Set simulation metadata as trace tags so that the predict_fn's own
-        # root span remains the trace's root span (no wrapper span).
-        if trace_id:
-            tags = {
-                TraceMetadataKey.TRACE_SESSION: trace_session_id,
-                "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
-                "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
-                    :_MAX_METADATA_LENGTH
-                ],
-                "mlflow.simulation.turn": str(turn),
-            }
-            if simulation_guidelines:
-                guidelines_str = (
-                    "\n".join(simulation_guidelines)
-                    if isinstance(simulation_guidelines, list)
-                    else simulation_guidelines
-                )
-                tags["mlflow.simulation.simulation_guidelines"] = guidelines_str[
-                    :_MAX_METADATA_LENGTH
-                ]
-            for key, value in tags.items():
-                mlflow.set_trace_tag(trace_id, key, value)
+            # If predict_fn didn't create a new trace, create one so that
+            # evaluation still works for untraced predict functions.
+            if trace_id is None or trace_id == prev_trace_id:
+                with mlflow.start_span(
+                    name=getattr(predict_fn, "__name__", "predict"),
+                    span_type="CHAIN",
+                ) as span:
+                    span.set_inputs({input_key: input_messages})
+                    span.set_outputs(response)
+                trace_id = mlflow.get_last_active_trace_id(thread_local=True)
 
         # Log expectations to the first trace of the session
         if expectations and trace_id:

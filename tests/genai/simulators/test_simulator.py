@@ -120,7 +120,7 @@ def test_conversation_simulator_basic_simulation(
     assert len(all_traces[0]) == 2  # 2 traces
     assert all(t is simulation_mocks["trace"] for t in all_traces[0])
     assert simulation_mocks["invoke"].call_count == 4  # 2 turns * 2 calls each
-    assert simulation_mocks["set_trace_tag"].call_count > 0
+    assert len(simulation_mocks["configure_calls"]) == 2  # one per turn
 
 
 def test_conversation_simulator_max_turns_stopping(
@@ -568,7 +568,12 @@ def test_conversation_simulator_sets_simulation_tags(mock_predict_fn_with_contex
 
         for trace in first_test_case_traces:
             tags = trace.info.tags
+            metadata = trace.info.trace_metadata
 
+            # Session ID should be in metadata (immutable), not tags
+            assert TraceMetadataKey.TRACE_SESSION in metadata
+
+            # Simulation info should be in tags
             assert tags["mlflow.simulation.goal"] == long_goal[:_MAX_METADATA_LENGTH]
             assert tags["mlflow.simulation.persona"] == long_persona[:_MAX_METADATA_LENGTH]
 
@@ -589,9 +594,11 @@ def test_conversation_simulator_uses_default_persona(mock_predict_fn):
 
         trace = all_traces[0][0]
         tags = trace.info.tags
+        metadata = trace.info.trace_metadata
 
         assert tags["mlflow.simulation.goal"] == "Test goal"
         assert tags["mlflow.simulation.persona"] == DEFAULT_PERSONA
+        assert TraceMetadataKey.TRACE_SESSION in metadata
 
 
 def test_conversation_simulator_logs_expectations_to_first_trace(mock_predict_fn):
@@ -921,11 +928,13 @@ def test_conversation_simulator_with_simulation_guidelines(mock_predict_fn):
         prompt = generate_call.kwargs["messages"][0].content
         assert "Ask clarifying questions before proceeding" in prompt
 
-        # Verify simulation_guidelines are in trace tags
+        # Verify simulation_guidelines are in trace tags and session ID in metadata
         trace = all_traces[0][0]
         tags = trace.info.tags
+        metadata = trace.info.trace_metadata
         assert "mlflow.simulation.simulation_guidelines" in tags
         assert (
             tags["mlflow.simulation.simulation_guidelines"]
             == "Ask clarifying questions before proceeding"
         )
+        assert TraceMetadataKey.TRACE_SESSION in metadata
