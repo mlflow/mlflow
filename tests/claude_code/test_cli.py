@@ -45,25 +45,15 @@ def test_trace_disable_with_no_config(runner):
 
 
 def _get_hook_command_from_settings():
-    """Helper to extract hook command from generated settings.json."""
     settings_path = Path(".claude/settings.json")
-    assert settings_path.exists()
-
     with open(settings_path) as f:
         config = json.load(f)
 
-    # Check that the hook structure exists
-    assert "hooks" in config
-    assert "Stop" in config["hooks"]
-    hook_groups = config["hooks"]["Stop"]
-    assert len(hook_groups) > 0
-
-    # Find the MLflow hook command
-    for group in hook_groups:
-        if "hooks" in group:
-            for hook in group["hooks"]:
-                if "command" in hook:
-                    return hook["command"]
+    if hooks := config.get("hooks"):
+        for group in hooks.get("Stop", []):
+            for hook in group.get("hooks", []):
+                if command := hook.get("command"):
+                    return command
 
     raise AssertionError("No hook command found in settings.json")
 
