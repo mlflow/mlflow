@@ -3143,12 +3143,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             ]
             sql_trace_info.request_metadata = request_metadata
             # The caller may not always specify a trace_id on each assessment when
-            # exporting traces with assessments, but it can be imputed from the trace.
+            # exporting traces with assessments, so backfill it on the SQL entity.
+            sql_assessments = []
             for a in trace_info.assessments:
-                a.trace_id = trace_id
-            sql_trace_info.assessments = [
-                SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
-            ]
+                sql_assessment = SqlAssessments.from_mlflow_entity(a)
+                if a.trace_id is None:
+                    sql_assessment.trace_id = trace_id
+                sql_assessments.append(sql_assessment)
+            sql_trace_info.assessments = sql_assessments
 
             # Parse and store token usage as trace metrics if present in metadata
             if token_usage_metadata := trace_info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE):

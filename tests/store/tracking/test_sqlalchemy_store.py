@@ -9731,7 +9731,7 @@ def test_start_trace_with_assessments_missing_trace_id(store):
     Because the trace row already exists from step 1, the second start_trace() hits an
     IntegrityError and falls back to session.merge(). Assessments created standalone
     (e.g. returned by custom metric functions) have trace_id=None by design. Without
-    backfilling trace_id before the merge, SQLAlchemy UPDATEs the assessment row with
+    backfilling trace_id before the merge, SQLAlchemy updates the assessment row with
     trace_id=NULL, violating the NOT NULL constraint on assessments.trace_id.
     """
     exp_id = store.create_experiment("test_assessment_trace_id")
