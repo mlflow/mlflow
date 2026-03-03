@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useDesignSystemTheme, PieChartIcon, type DesignSystemThemeInterface } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Sector } from 'recharts';
+import { PieChart, Pie, ResponsiveContainer, Legend, Sector, Tooltip } from 'recharts';
 import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceCostBreakdownChartData } from '../hooks/useTraceCostBreakdownChartData';
 import { useTraceCostDimension } from '../hooks/useTraceCostDimension';
@@ -94,36 +94,32 @@ export const TraceCostBreakdownChart: React.FC = () => {
   const { dimension, setDimension } = useTraceCostDimension();
   const { chartData, totalCost, isLoading, error, hasData } = useTraceCostBreakdownChartData(dimension);
   const { getChartColor } = useChartColors();
-  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
+
+  const coloredChartData = useMemo(
+    () =>
+      chartData.map((entry, index) => ({
+        ...entry,
+        fill: getChartColor(index),
+        fillOpacity: getOpacity(entry.name),
+      })),
+    [chartData, getChartColor, getOpacity],
+  );
 
   const activeShapeRenderer = useMemo(
     () => (props: unknown) => renderActiveShape(props as ActiveShapeProps, theme),
     [theme],
   );
 
-  const onPieEnter = useCallback((_: unknown, index: number) => {
-    setActiveIndex(index);
-  }, []);
-
-  const onPieLeave = useCallback(() => {
-    setActiveIndex(undefined);
-  }, []);
-
   const onLegendMouseEnter = useCallback(
     (data: { value: string | undefined }) => {
       handleLegendMouseEnter(data);
-      const index = chartData.findIndex((entry) => entry.name === data.value);
-      if (index !== -1) {
-        setActiveIndex(index);
-      }
     },
-    [handleLegendMouseEnter, chartData],
+    [handleLegendMouseEnter],
   );
 
   const onLegendMouseLeave = useCallback(() => {
     handleLegendMouseLeave();
-    setActiveIndex(undefined);
   }, [handleLegendMouseLeave]);
 
   const legendFormatter = useCallback(
@@ -179,7 +175,7 @@ export const TraceCostBreakdownChart: React.FC = () => {
           <ResponsiveContainer width="100%" height="100%">
             <PieChart style={{ overflow: 'visible' }}>
               <Pie
-                data={chartData}
+                data={coloredChartData}
                 cx="50%"
                 cy="50%"
                 innerRadius={PIE_INNER_RADIUS}
@@ -188,14 +184,8 @@ export const TraceCostBreakdownChart: React.FC = () => {
                 dataKey="value"
                 nameKey="name"
                 activeShape={activeShapeRenderer}
-                activeIndex={activeIndex}
-                onMouseEnter={onPieEnter}
-                onMouseLeave={onPieLeave}
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={getChartColor(index)} fillOpacity={getOpacity(entry.name)} />
-                ))}
-              </Pie>
+              />
+              <Tooltip content={() => null} cursor={false} />
               <Legend
                 layout="vertical"
                 align="right"
