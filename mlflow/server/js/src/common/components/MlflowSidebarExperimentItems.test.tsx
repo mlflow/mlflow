@@ -43,19 +43,19 @@ describe('MlflowSidebarExperimentItems', () => {
     expect(overviewLink).toHaveAttribute('href', expect.stringContaining('startTimeLabel=LAST_24_HOURS'));
   });
 
-  test('does not preserve query params when navigating to non-traces-related tabs', () => {
+  test('preserves query params when navigating to evaluation tabs', () => {
     renderTestComponent(['/experiments/test-123/traces?startTimeLabel=LAST_24_HOURS']);
 
-    // Find the Datasets link (non-traces-related tab)
+    // Find the Datasets link (now a traces-related tab)
     const datasetsLink = screen.getByText('Datasets').closest('a');
-    expect(datasetsLink).not.toHaveAttribute('href', expect.stringContaining('startTimeLabel'));
+    expect(datasetsLink).toHaveAttribute('href', expect.stringContaining('startTimeLabel=LAST_24_HOURS'));
   });
 
-  test('does not preserve query params when navigating from non-traces-related tab', () => {
+  test('preserves query params when navigating from evaluation tabs', () => {
     renderTestComponent(['/experiments/test-123/datasets?startTimeLabel=LAST_24_HOURS']);
 
-    // Even though we have query params, they should not be preserved when coming from Datasets
+    // Query params should be preserved when navigating from Datasets to Traces
     const tracesLink = screen.getByText('Traces').closest('a');
-    expect(tracesLink).not.toHaveAttribute('href', expect.stringContaining('startTimeLabel'));
+    expect(tracesLink).toHaveAttribute('href', expect.stringContaining('startTimeLabel=LAST_24_HOURS'));
   });
 });
