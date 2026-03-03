@@ -84,9 +84,7 @@ class GetTracesInSession(JudgeTool):
         Raises:
             MlflowException: If session ID is not found or has invalid format
         """
-        session_id = trace.info.trace_metadata.get(
-            TraceMetadataKey.TRACE_SESSION
-        ) or trace.info.tags.get(TraceMetadataKey.TRACE_SESSION)
+        session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
 
         if not session_id:
             raise MlflowException(
