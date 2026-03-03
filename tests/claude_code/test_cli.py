@@ -44,6 +44,30 @@ def test_trace_disable_with_no_config(runner):
         # Should handle gracefully even if no config exists
 
 
+def _get_hook_command_from_settings():
+    """Helper to extract hook command from generated settings.json."""
+    settings_path = Path(".claude/settings.json")
+    assert settings_path.exists()
+
+    with open(settings_path) as f:
+        config = json.load(f)
+
+    # Check that the hook structure exists
+    assert "hooks" in config
+    assert "Stop" in config["hooks"]
+    hook_groups = config["hooks"]["Stop"]
+    assert len(hook_groups) > 0
+
+    # Find the MLflow hook command
+    for group in hook_groups:
+        if "hooks" in group:
+            for hook in group["hooks"]:
+                if "command" in hook:
+                    return hook["command"]
+
+    raise AssertionError("No hook command found in settings.json")
+
+
 def test_claude_setup_with_uv_env_var(runner, monkeypatch):
     # Set UV environment variable
     monkeypatch.setenv("UV", "/path/to/uv")
@@ -52,29 +76,7 @@ def test_claude_setup_with_uv_env_var(runner, monkeypatch):
         result = runner.invoke(commands, ["claude"])
         assert result.exit_code == 0
 
-        # Read the generated settings.json
-        settings_path = Path(".claude/settings.json")
-        assert settings_path.exists()
-
-        with open(settings_path) as f:
-            config = json.load(f)
-
-        # Check that the hook command uses 'uv run python'
-        assert "hooks" in config
-        assert "Stop" in config["hooks"]
-        hook_groups = config["hooks"]["Stop"]
-        assert len(hook_groups) > 0
-
-        # Find the MLflow hook
-        hook_command = None
-        for group in hook_groups:
-            if "hooks" in group:
-                for hook in group["hooks"]:
-                    if "command" in hook:
-                        hook_command = hook["command"]
-                        break
-
-        assert hook_command is not None
+        hook_command = _get_hook_command_from_settings()
         assert "uv run python" in hook_command
         assert "from mlflow.claude_code.hooks import stop_hook_handler" in hook_command
 
@@ -87,29 +89,7 @@ def test_claude_setup_without_uv_env_var(runner, monkeypatch):
         result = runner.invoke(commands, ["claude"])
         assert result.exit_code == 0
 
-        # Read the generated settings.json
-        settings_path = Path(".claude/settings.json")
-        assert settings_path.exists()
-
-        with open(settings_path) as f:
-            config = json.load(f)
-
-        # Check that the hook command uses plain 'python'
-        assert "hooks" in config
-        assert "Stop" in config["hooks"]
-        hook_groups = config["hooks"]["Stop"]
-        assert len(hook_groups) > 0
-
-        # Find the MLflow hook
-        hook_command = None
-        for group in hook_groups:
-            if "hooks" in group:
-                for hook in group["hooks"]:
-                    if "command" in hook:
-                        hook_command = hook["command"]
-                        break
-
-        assert hook_command is not None
+        hook_command = _get_hook_command_from_settings()
         # Should start with 'python' but NOT 'uv run python'
         assert hook_command.startswith("python -c")
         assert "uv run python" not in hook_command
