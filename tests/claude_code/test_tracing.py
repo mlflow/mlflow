@@ -17,6 +17,7 @@ import mlflow
 import mlflow.claude_code.tracing as tracing_module
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
+    METADATA_KEY_CLAUDE_CODE_VERSION,
     find_last_user_message_index,
     get_hook_response,
     parse_timestamp_to_ns,
@@ -782,14 +783,14 @@ def test_process_transcript_captures_claude_code_version(tmp_path):
     trace = process_transcript(str(transcript_path), "test-version-session")
 
     assert trace is not None
-    assert trace.info.trace_metadata.get("claude_code_version") == "1.0.16"
+    assert trace.info.trace_metadata.get(METADATA_KEY_CLAUDE_CODE_VERSION) == "1.0.16"
 
 
 def test_process_transcript_no_version_field(mock_transcript_file):
     trace = process_transcript(mock_transcript_file, "test-session-no-version")
 
     assert trace is not None
-    assert "claude_code_version" not in trace.info.trace_metadata
+    assert METADATA_KEY_CLAUDE_CODE_VERSION not in trace.info.trace_metadata
 
 
 def test_process_transcript_includes_steer_messages(tmp_path):
