@@ -3142,6 +3142,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 for k, v in trace_info.trace_metadata.items()
             ]
             sql_trace_info.request_metadata = request_metadata
+            for a in trace_info.assessments:
+                a.trace_id = trace_id
             sql_trace_info.assessments = [
                 SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
             ]
