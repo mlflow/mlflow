@@ -180,7 +180,7 @@ def test_log_image_with_steps():
         # .png file for the image and .webp file for compressed image
         assert len(files) == 2
         for file in files:
-            assert file.startswith("dog%step%0")
+            assert file.startswith("dog+step+0")
             logged_path = os.path.join(run_artifact_dir, file)
             if file.endswith(".png"):
                 loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
@@ -188,7 +188,7 @@ def test_log_image_with_steps():
             elif file.endswith(".json"):
                 with open(logged_path) as f:
                     metadata = json.load(f)
-                    assert metadata["filepath"].startswith("images/dog%step%0")
+                    assert metadata["filepath"].startswith("images/dog+step+0")
                     assert metadata["key"] == "dog"
                     assert metadata["step"] == 0
                     assert metadata["timestamp"] <= get_current_time_millis()
@@ -211,7 +211,7 @@ def test_log_image_with_timestamp():
         # .png file for the image, and .webp file for compressed image
         assert len(files) == 2
         for file in files:
-            assert file.startswith("dog%step%0")
+            assert file.startswith("dog+step+0")
             logged_path = os.path.join(run_artifact_dir, file)
             if file.endswith(".png"):
                 loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
@@ -219,7 +219,7 @@ def test_log_image_with_timestamp():
             elif file.endswith(".json"):
                 with open(logged_path) as f:
                     metadata = json.load(f)
-                    assert metadata["filepath"].startswith("images/dog%step%0")
+                    assert metadata["filepath"].startswith("images/dog+step+0")
                     assert metadata["key"] == "dog"
                     assert metadata["step"] == 0
                     assert metadata["timestamp"] == 100
