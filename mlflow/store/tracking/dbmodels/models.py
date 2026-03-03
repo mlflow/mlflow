@@ -2400,7 +2400,7 @@ class SqlGatewayEndpoint(Base):
     ID of the MLflow experiment where traces for this endpoint are logged.
     Uses SET NULL on delete - if the experiment is deleted, this becomes NULL.
     """
-    usage_tracking = Column(Boolean, nullable=False, default=False)
+    usage_tracking = Column(Boolean, nullable=False, default=True)
     """
     Usage tracking: `Boolean`. Whether usage tracking is enabled for this endpoint.
     When true, traces will be logged for endpoint invocations.

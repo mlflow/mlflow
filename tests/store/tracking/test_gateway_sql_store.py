@@ -578,6 +578,31 @@ def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore)
     assert experiment.tags.get("mlflow.experiment.isGateway") == "true"
 
 
+def test_create_gateway_endpoint_usage_tracking_defaults_to_true(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="default-ut-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="default-ut-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    # Create endpoint without specifying usage_tracking
+    endpoint = store.create_gateway_endpoint(
+        name="default-ut-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    assert endpoint.usage_tracking is True
+    # An experiment should be auto-created since usage_tracking defaults to True
+    assert endpoint.experiment_id is not None
+
+
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="at least one") as exc:
         store.create_gateway_endpoint(name="empty-endpoint", model_configs=[])
