@@ -86,7 +86,7 @@ This serves a broad need. Any user running MLflow Tracing at moderate-to-large s
 # Start server with a dedicated trace repository
 mlflow server \
   --backend-store-uri postgresql://localhost/mlflow \
-  --artifact-destination s3://mlflow-artifacts/ \
+  --artifacts-destination s3://mlflow-artifacts/ \
   --traces-destination s3://mlflow-traces/ \
   ...
 ```
@@ -208,7 +208,7 @@ ALTER TABLE workspaces
 ADD COLUMN traces_destination TEXT NULL;
 ```
 
-- **Semantics:** For a trace in a given workspace, the trace repository root used for archival and for resolving `traces.pb` paths is `workspaces.traces_destination` for that workspace if non-NULL, else the server's `--traces-destination` (or `--artifact-destination` when traces destination is unset).
+- **Semantics:** For a trace in a given workspace, the trace repository root used for archival and for resolving `traces.pb` paths is `workspaces.traces_destination` for that workspace if non-NULL, else the server's `--traces-destination` (or `--artifacts-destination` when traces destination is unset).
 - **Existing workspaces:** All existing rows have `traces_destination = NULL`, so they use the global trace repository; no backfill is required.
 
 **NOTE:** traces URL resolution follows the same semantics as for artifact location on workspaces. The default, if not overridden at the workspace level, is <default traces root>/workspaces/<workspace name>.
