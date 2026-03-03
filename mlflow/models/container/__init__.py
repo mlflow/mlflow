@@ -179,8 +179,8 @@ def _install_model_dependencies_to_env(model_path, env_manager) -> list[str]:
 
 def _serve_pyfunc(model, env_manager):
     # option to disable manually nginx. The default behavior is to enable nginx.
-    disable_nginx = os.getenv(DISABLE_NGINX, "false").lower() == "true"
-    enable_mlserver = os.getenv(ENABLE_MLSERVER, "false").lower() == "true"
+    disable_nginx = os.environ.get(DISABLE_NGINX, "false").lower() == "true"
+    enable_mlserver = os.environ.get(ENABLE_MLSERVER, "false").lower() == "true"
     disable_env_creation = MLFLOW_DISABLE_ENV_CREATION.get()
 
     conf = model.flavors[pyfunc.FLAVOR_NAME]
@@ -228,7 +228,7 @@ def _serve_pyfunc(model, env_manager):
         inference_server = mlserver
         # Allows users to choose the number of workers using MLServer var env settings.
         # Default to cpu count
-        nworkers = int(os.getenv("MLSERVER_INFER_WORKERS", cpu_count))
+        nworkers = int(os.environ.get("MLSERVER_INFER_WORKERS", cpu_count))
         # Since MLServer will run without NGINX, expose the server in the `8080`
         # port, which is the assumed "public" port.
         port = DEFAULT_MLSERVER_PORT
@@ -243,7 +243,7 @@ def _serve_pyfunc(model, env_manager):
         }
     else:
         inference_server = scoring_server
-        nworkers = int(os.getenv("MLFLOW_MODELS_WORKERS", cpu_count))
+        nworkers = int(os.environ.get("MLFLOW_MODELS_WORKERS", cpu_count))
         port = DEFAULT_INFERENCE_SERVER_PORT
 
     cmd, cmd_env = inference_server.get_cmd(

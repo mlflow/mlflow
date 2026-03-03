@@ -68,8 +68,8 @@ is_running_as_server = (
     "gunicorn" in sys.modules
     or "uvicorn" in sys.modules
     or "waitress" in sys.modules
-    or os.getenv(BACKEND_STORE_URI_ENV_VAR)
-    or os.getenv(SERVE_ARTIFACTS_ENV_VAR)
+    or os.environ.get(BACKEND_STORE_URI_ENV_VAR)
+    or os.environ.get(SERVE_ARTIFACTS_ENV_VAR)
 )
 
 if is_running_as_server:
@@ -83,10 +83,10 @@ app.teardown_request(workspace_teardown_request_handler)
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
 
-if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
+if os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
-    prometheus_metrics_path = os.getenv(PROMETHEUS_EXPORTER_ENV_VAR)
+    prometheus_metrics_path = os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR)
     if not os.path.exists(prometheus_metrics_path):
         os.makedirs(prometheus_metrics_path)
     activate_prometheus_exporter(app)

@@ -113,7 +113,7 @@ def get_env_var(var_name: str, default: str = "") -> str:
         pass
 
     # Fallback to OS environment
-    value = os.getenv(var_name)
+    value = os.environ.get(var_name)
     if value is not None:
         return value
 
