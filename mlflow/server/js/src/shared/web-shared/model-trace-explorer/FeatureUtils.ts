@@ -32,7 +32,8 @@ export const shouldEnableAssessmentsInSessions = () => {
 };
 
 /**
- * Determines if assessments/scores should be shown in experiment chat sessions.
+ * Determines if traces table state (selected columns, filters) should be persisted via URL query params,
+ * enabling column selections to survive SPA navigation.
  */
 export const shouldEnableTracesTableStatePersistence = () => {
   return true;

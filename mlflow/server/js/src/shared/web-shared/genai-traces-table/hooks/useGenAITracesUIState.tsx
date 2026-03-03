@@ -84,6 +84,12 @@ const adjustHiddenColumns = (hiddenColumns: string[], allColumns: TracesTableCol
       ...lowPriorityColumns.slice(0, lowPriorityToKeep),
       ...assessmentColumns.slice(0, assessmentColumnsToKeep),
     ];
+
+    // Final safeguard: ensure we never exceed DEFAULT_MAX_VISIBLE_COLUMNS
+    // (e.g., when high-priority columns alone exceed the limit)
+    if (visibleColumns.length > DEFAULT_MAX_VISIBLE_COLUMNS) {
+      visibleColumns = visibleColumns.slice(0, DEFAULT_MAX_VISIBLE_COLUMNS);
+    }
   }
   return toHiddenColumnsFromVisibleColumns(visibleColumns, allColumns);
 };

@@ -251,4 +251,19 @@ describe('useGenAITracesUIStateColumns', () => {
       expect(lowPriorityIds).toContain(id);
     });
   });
+
+  it('caps at DEFAULT_MAX_VISIBLE_COLUMNS even when high-priority columns alone exceed limit', () => {
+    // 12 high-priority columns with no low-priority or assessment columns
+    const manyHighPriorityColumns = Array.from({ length: 12 }, (_, i) => ({
+      id: `high_priority_${i}`,
+      type: TracesTableColumnType.TRACE_INFO,
+      label: `High Priority ${i}`,
+    })) as TracesTableColumn[];
+
+    const { result } = renderHook(() => useGenAITracesUIStateColumns(expId, manyHighPriorityColumns, (cols) => cols));
+
+    // Should still be capped at 10
+    const visibleCount = manyHighPriorityColumns.length - result.current.hiddenColumns.length;
+    expect(visibleCount).toBeLessThanOrEqual(10);
+  });
 });
