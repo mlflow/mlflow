@@ -887,9 +887,8 @@ def flush_trace_async_logging(terminate=False) -> None:
     """
     try:
         trace_exporter = _get_trace_exporter()
-        if not hasattr(trace_exporter, "_async_queue"):
-            return
-        trace_exporter._async_queue.flush(terminate=terminate)
+        if hasattr(trace_exporter, "_async_queue"):
+            trace_exporter._async_queue.flush(terminate=terminate)
     except Exception as e:
         _logger.error(f"Failed to flush trace async logging: {e}")
 
