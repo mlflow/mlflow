@@ -32,7 +32,7 @@ export const TraceTokenUsageChart: React.FC = () => {
     totalTokens,
     totalInputTokens,
     totalOutputTokens,
-    totalCachedTokens,
+    totalCacheReadTokens,
     totalCacheCreationTokens,
     isLoading,
     error,
@@ -48,7 +48,7 @@ export const TraceTokenUsageChart: React.FC = () => {
   const areaColors = {
     inputTokens: theme.colors.blue400,
     outputTokens: theme.colors.green400,
-    cachedTokens: theme.colors.yellow500,
+    cacheReadTokens: theme.colors.yellow500,
     cacheCreationTokens: theme.colors.purple,
   };
 
@@ -68,7 +68,7 @@ export const TraceTokenUsageChart: React.FC = () => {
         value={formatCount(totalTokens)}
         subtitle={(() => {
           const parts = [`${formatCount(totalInputTokens)} input`, `${formatCount(totalOutputTokens)} output`];
-          if (totalCachedTokens > 0) parts.push(`${formatCount(totalCachedTokens)} cache read`);
+          if (totalCacheReadTokens > 0) parts.push(`${formatCount(totalCacheReadTokens)} cache read`);
           if (totalCacheCreationTokens > 0) parts.push(`${formatCount(totalCacheCreationTokens)} cache write`);
           return `(${parts.join(', ')})`;
         })()}
@@ -120,12 +120,12 @@ export const TraceTokenUsageChart: React.FC = () => {
               />
               <Line
                 type="monotone"
-                dataKey="cachedTokens"
-                stroke={areaColors.cachedTokens}
+                dataKey="cacheReadTokens"
+                stroke={areaColors.cacheReadTokens}
                 strokeWidth={2}
                 strokeDasharray="5 3"
                 strokeOpacity={getOpacity('Cache Read')}
-                dot={getLineDotStyle(areaColors.cachedTokens)}
+                dot={getLineDotStyle(areaColors.cacheReadTokens)}
                 name="Cache Read"
               />
               <Line

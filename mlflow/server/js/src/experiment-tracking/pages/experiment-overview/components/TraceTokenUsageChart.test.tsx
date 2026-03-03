@@ -24,8 +24,8 @@ const createOutputTokensDataPoint = (timeBucket: string, sum: number) => ({
   values: { [AggregationType.SUM]: sum },
 });
 
-// Helper to create a cached (cache read) tokens data point
-const createCachedTokensDataPoint = (timeBucket: string, sum: number) => ({
+// Helper to create a cache read tokens data point
+const createCacheReadTokensDataPoint = (timeBucket: string, sum: number) => ({
   metric_name: TraceMetricKey.CACHE_READ_INPUT_TOKENS,
   dimensions: { time_bucket: timeBucket },
   values: { [AggregationType.SUM]: sum },
@@ -98,7 +98,7 @@ describe('TraceTokenUsageChart', () => {
     inputDataPoints: any[],
     outputDataPoints: any[],
     totalDataPoints: any[],
-    cachedDataPoints: any[] = [],
+    cacheReadDataPoints: any[] = [],
     cacheCreationDataPoints: any[] = [],
   ) => {
     server.use(
@@ -112,7 +112,7 @@ describe('TraceTokenUsageChart', () => {
         } else if (metricName === TraceMetricKey.TOTAL_TOKENS) {
           return res(ctx.json({ data_points: totalDataPoints }));
         } else if (metricName === TraceMetricKey.CACHE_READ_INPUT_TOKENS) {
-          return res(ctx.json({ data_points: cachedDataPoints }));
+          return res(ctx.json({ data_points: cacheReadDataPoints }));
         } else if (metricName === TraceMetricKey.CACHE_CREATION_INPUT_TOKENS) {
           return res(ctx.json({ data_points: cacheCreationDataPoints }));
         }
@@ -252,12 +252,12 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should display cache read tokens in subtitle when present', async () => {
-      const mockCachedDataPoints = [
-        createCachedTokensDataPoint('2025-12-22T10:00:00Z', 10000),
-        createCachedTokensDataPoint('2025-12-22T11:00:00Z', 15000),
+      const mockCacheReadDataPoints = [
+        createCacheReadTokensDataPoint('2025-12-22T10:00:00Z', 10000),
+        createCacheReadTokensDataPoint('2025-12-22T11:00:00Z', 15000),
       ];
 
-      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints, mockCachedDataPoints);
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints, mockCacheReadDataPoints);
 
       renderComponent();
 
@@ -268,12 +268,12 @@ describe('TraceTokenUsageChart', () => {
     });
 
     it('should render cache read tokens line when data is present', async () => {
-      const mockCachedDataPoints = [
-        createCachedTokensDataPoint('2025-12-22T10:00:00Z', 10000),
-        createCachedTokensDataPoint('2025-12-22T11:00:00Z', 15000),
+      const mockCacheReadDataPoints = [
+        createCacheReadTokensDataPoint('2025-12-22T10:00:00Z', 10000),
+        createCacheReadTokensDataPoint('2025-12-22T11:00:00Z', 15000),
       ];
 
-      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints, mockCachedDataPoints);
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints, mockCacheReadDataPoints);
 
       renderComponent();
 
