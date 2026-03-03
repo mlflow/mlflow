@@ -61,12 +61,16 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
     );
   }
 
+  // Sort by importance then reverse — the component expands upwards,
+  // so the last item in the array is the one visible above the fold.
   const inputList = createListFromObject(rootSpan.inputs)
     .filter((item) => item.value !== 'null')
-    .sort(rankInputByImportance);
+    .sort(rankInputByImportance)
+    .reverse();
   const outputList = createListFromObject(rootSpan.outputs)
     .filter((item) => item.value !== 'null')
-    .sort(rankOutputByImportance);
+    .sort(rankOutputByImportance)
+    .reverse();
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
