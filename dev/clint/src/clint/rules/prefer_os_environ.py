@@ -7,6 +7,7 @@ from clint.resolver import Resolver
 from clint.rules.base import Rule
 
 
+# See https://github.com/astral-sh/ruff/issues/3608
 class PreferOsEnviron(Rule):
     def __init__(self, func: Literal["getenv", "putenv"]) -> None:
         self.func = func
