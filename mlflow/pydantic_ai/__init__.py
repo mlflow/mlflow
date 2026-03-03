@@ -4,6 +4,7 @@ import logging
 import typing
 
 from mlflow.pydantic_ai.autolog import (
+    patched_agent_init,
     patched_async_class_call,
     patched_async_stream_call,
     patched_class_call,
@@ -104,6 +105,22 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
             class_map["pydantic_ai.Tool"] = ["run"]
     except ImportError:
         pass
+
+    # Patch Agent.__init__ to auto-enable instrument=True so LLM spans
+    # are captured without requiring users to explicitly set it
+    try:
+        from pydantic_ai import Agent
+
+        original_init = Agent.__init__
+
+        @functools.wraps(original_init)
+        def patched_init(self, *args, **kwargs):
+            return patched_agent_init(original_init, self, *args, **kwargs)
+
+        patch = _wrap_patch(Agent, "__init__", patched_init)
+        _store_patch(FLAVOR_NAME, patch)
+    except (ImportError, AttributeError) as e:
+        _logger.error("Error patching Agent.__init__: %s", e)
 
     for cls_path, methods in class_map.items():
         module_name, class_name = cls_path.rsplit(".", 1)
