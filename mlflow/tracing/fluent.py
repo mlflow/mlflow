@@ -1270,6 +1270,8 @@ def _set_last_active_trace_id(trace_id: str):
 def update_current_trace(
     tags: dict[str, str] | None = None,
     metadata: dict[str, str] | None = None,
+    session_id: str | None = None,
+    user: str | None = None,
     client_request_id: str | None = None,
     request_preview: str | None = None,
     response_preview: str | None = None,
@@ -1285,6 +1287,10 @@ def update_current_trace(
         metadata: A dictionary of metadata to update the trace with. Metadata cannot be updated
             once the trace is logged. It is suitable for recording immutable values like the
             git hash of the application version that produced the trace.
+        session_id: Session ID to associate with the trace. Stored as metadata under the
+            ``mlflow.trace.session`` key.
+        user: User identifier to associate with the trace. Stored as metadata under the
+            ``mlflow.trace.user`` key.
         client_request_id: Client supplied request ID to associate with the trace. This is
             useful for linking the trace back to a specific request in your application or
             external system. If None, the client request ID is not updated.
@@ -1322,16 +1328,14 @@ def update_current_trace(
             with mlflow.start_span("span"):
                 mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
 
-        Updating source information of the trace. These keys are reserved ones and MLflow populate
-        them from environment information by default. You can override them if needed. Please refer
-        to the MLflow Tracing documentation for the full list of reserved metadata keys.
+        Updating user, session, and source information of the trace:
 
         .. code-block:: python
 
             mlflow.update_current_trace(
+                session_id="session-4f855da00427",
+                user="user-id-cc156f29bcfb",
                 metadata={
-                    "mlflow.trace.session": "session-4f855da00427",
-                    "mlflow.trace.user": "user-id-cc156f29bcfb",
                     "mlflow.source.name": "inference.py",
                     "mlflow.source.git.commit": "1234567890",
                     "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
@@ -1394,6 +1398,10 @@ def update_current_trace(
     tags = tags or {}
     metadata = metadata or {}
 
+    if session_id is not None:
+        metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+    if user is not None:
+        metadata[TraceMetadataKey.TRACE_USER] = user
     if model_id:
         metadata[TraceMetadataKey.MODEL_ID] = model_id
 
