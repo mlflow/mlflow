@@ -51,10 +51,6 @@
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
   },
-  "+NSi44": {
-    "defaultMessage": "Step 1: Install MLflow",
-    "description": "Step 1 title for custom judge creation"
-  },
   "+Njd07": {
     "defaultMessage": "No sessions found",
     "description": "Title for the empty sessions list in the select sessions modal"
@@ -715,6 +711,10 @@
     "defaultMessage": "Add new tag",
     "description": "Experiment tracking > experiment page > runs > add new tag button"
   },
+  "35bW7o": {
+    "defaultMessage": "Step 2: Run the judge",
+    "description": "Step 2 title for custom code judge creation"
+  },
   "36g3aR": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
@@ -1290,6 +1290,10 @@
     "defaultMessage": "Tags",
     "description": "Column title text for model version tags in model version table"
   },
+  "7O0x9Q": {
+    "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
+    "description": "Step 1 description for defining judge function"
+  },
   "7PCvDy": {
     "defaultMessage": "OK",
     "description": "Confirmation button text on the model version stage transition request/approval modal"
@@ -1757,10 +1761,6 @@
   "AGWpnl": {
     "defaultMessage": "Add tags",
     "description": "Tag assignment modal > Title of the add tags modal"
-  },
-  "AHRvpU": {
-    "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
-    "description": "Step 3 description for running the judge"
   },
   "AHaom4": {
     "defaultMessage": "No assessments available",
@@ -2949,10 +2949,6 @@
   "JYVQuV": {
     "defaultMessage": "Run ID",
     "description": "Run page > Overview > Run ID section label"
-  },
-  "JZuU8B": {
-    "defaultMessage": "Step 2: Define your judge function",
-    "description": "Step 2 title for custom judge creation"
   },
   "JaanQY": {
     "defaultMessage": "Tools",
@@ -5059,10 +5055,6 @@
     "defaultMessage": "Auto-refresh",
     "description": "String for the auto-refresh button that refreshes the runs list automatically"
   },
-  "Yb0kNG": {
-    "defaultMessage": "Install or upgrade MLflow to ensure you have the latest judge functionality.",
-    "description": "Step 1 description for installing MLflow"
-  },
   "Yd5ANL": {
     "defaultMessage": "PASS",
     "description": "Header label for pass/fail assessment type for the pass rate"
@@ -5102,6 +5094,10 @@
   "YrYgo5": {
     "defaultMessage": "Select an endpoint to view logs",
     "description": "No endpoint selected message for logs tab"
+  },
+  "YrlNKi": {
+    "defaultMessage": "Follow these steps to create a custom code judge using your own code. {link}",
+    "description": "Brief instructions for custom code judge creation"
   },
   "YuYnxd": {
     "defaultMessage": "Delete",
@@ -6375,10 +6371,6 @@
     "defaultMessage": "View full dashboard",
     "description": "Link to view full usage dashboard"
   },
-  "hR2Zvd": {
-    "defaultMessage": "Create a custom judge function using the {decorator} decorator. Implement your scoring logic in the function body. {link}",
-    "description": "Step 2 description for defining judge function"
-  },
   "hT5ZGW": {
     "defaultMessage": "Remove message",
     "description": "Button to remove a chat message row"
@@ -6827,10 +6819,6 @@
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search runs from the experiments table"
   },
-  "kJJqpX": {
-    "defaultMessage": "Follow these steps to create a custom judge using your own code. {link}",
-    "description": "Brief instructions for custom judge functions"
-  },
   "kNTkr+": {
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
@@ -7146,6 +7134,10 @@
   "mZtok7": {
     "defaultMessage": "Linked prompts",
     "description": "Label for the linked prompts view tab in the model trace explorer"
+  },
+  "mba0x8": {
+    "defaultMessage": "Step 1: Define your judge function",
+    "description": "Step 1 title for custom code judge creation"
   },
   "md81Lo": {
     "defaultMessage": "Error",
@@ -8271,6 +8263,10 @@
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > retrieval grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
   },
+  "uW5+ph": {
+    "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
+    "description": "Step 2 description for running the judge"
+  },
   "uX2XCM": {
     "defaultMessage": "Edit Model Configuration",
     "description": "Title for the edit model config modal"
@@ -8934,10 +8930,6 @@
   "zC/uKl": {
     "defaultMessage": "Auto-refresh",
     "description": "Run page > Charts tab > Auto-refresh toggle button"
-  },
-  "zDEFn7": {
-    "defaultMessage": "Step 3: Run the judge",
-    "description": "Step 3 title for custom judge creation"
   },
   "zE5aGj": {
     "defaultMessage": "Guidelines",
