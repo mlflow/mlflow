@@ -81,6 +81,9 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
                 (TraceMetadataKey.TRACE_USER, SpanAttributeKey.USER_ID),
                 (TraceMetadataKey.TRACE_SESSION, SpanAttributeKey.SESSION_ID),
             ):
-                if value := trace.info.trace_metadata.get(meta_key):
+                if value := (
+                    trace.info.trace_metadata.get(meta_key)
+                    or trace.info.tags.get(meta_key)
+                ):
                     with _bypass_attribute_guard(mlflow_span._span):
                         mlflow_span._span.set_attribute(attr_key, value)

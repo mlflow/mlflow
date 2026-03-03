@@ -173,7 +173,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
             # Preserve session metadata from the original trace
             source_data = {"trace_id": trace.info.trace_id}
-            if session_id := trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
+            if session_id := (
+                trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+                or trace.info.tags.get(TraceMetadataKey.TRACE_SESSION)
+            ):
                 source_data["session_id"] = session_id
 
             record_dict = {
