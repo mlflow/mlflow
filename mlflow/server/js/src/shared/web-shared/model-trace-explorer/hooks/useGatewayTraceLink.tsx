@@ -22,16 +22,16 @@ export const useGatewayTraceLink = (linkedTraceId: string | undefined): string |
   });
 
   return useMemo(() => {
-    if (!linkedTraceId || !data) {
+    if (!linkedTraceId || !data?.trace) {
       return undefined;
     }
 
     let experimentId: string | undefined;
 
-    if (isV3ModelTraceInfo(data)) {
+    if (isV3ModelTraceInfo(data?.trace?.trace_info)) {
       // V3 format: trace info at root with trace_location
-      if (data.trace_location?.type === 'MLFLOW_EXPERIMENT') {
-        experimentId = data.trace_location.mlflow_experiment?.experiment_id;
+      if (data?.trace?.trace_info?.trace_location?.type === 'MLFLOW_EXPERIMENT') {
+        experimentId = data?.trace?.trace_info?.trace_location.mlflow_experiment?.experiment_id;
       }
     } else {
       // V2 format: nested under data.trace.trace_info
@@ -43,5 +43,5 @@ export const useGatewayTraceLink = (linkedTraceId: string | undefined): string |
     }
 
     return `${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${linkedTraceId}`;
-  }, [linkedTraceId, data]);
+  }, [linkedTraceId, data?.trace]);
 };
