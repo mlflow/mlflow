@@ -392,8 +392,12 @@ def _exec_job(
                 )
                 try:
                     job_store.fail_job(job_id, repr(exc))
-                except Exception:
-                    pass
+                except Exception as fail_exc:
+                    _logger.error(
+                        f"Job {job_id} ({job_name}) failed to transition to FAILED state via "
+                        f"fail_job: {fail_exc!r}",
+                        exc_info=True,
+                    )
             raise
         finally:
             if lock is not None:
