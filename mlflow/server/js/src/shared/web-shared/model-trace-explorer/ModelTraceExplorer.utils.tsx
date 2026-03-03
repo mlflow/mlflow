@@ -1115,6 +1115,8 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
       default:
         const chatMessages = normalizeOpenAIFormats(input);
         if (chatMessages) return chatMessages;
+        const geminiFallbackMessages = normalizeGeminiChatInput(input) ?? normalizeGeminiChatOutput(input);
+        if (geminiFallbackMessages) return geminiFallbackMessages;
         break;
     }
 
