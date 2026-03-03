@@ -44,6 +44,7 @@ export const FeedbackErrorItem = ({ error }: { error: AssessmentError }) => {
           }
           visible={isModalVisible}
           componentId="shared.model-trace-explorer.feedback-error-stack-trace-modal"
+          size="wide"
           footer={null}
           onCancel={() => setIsModalVisible(false)}
         >
