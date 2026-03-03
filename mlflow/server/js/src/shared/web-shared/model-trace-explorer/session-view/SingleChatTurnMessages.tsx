@@ -3,10 +3,50 @@ import { useMemo } from 'react';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import type { ModelTrace } from '../ModelTrace.types';
+import type { ModelTrace, ModelTraceChatMessage } from '../ModelTrace.types';
 import { parseModelTraceToTree, createListFromObject } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerChatMessage } from '../right-pane/ModelTraceExplorerChatMessage';
 import { ModelTraceExplorerSummarySection } from '../summary-view/ModelTraceExplorerSummarySection';
+
+const QUERY_FIELD_NAMES = ['query', 'input', 'message', 'question', 'prompt', 'content'];
+
+/**
+ * When standard chat message parsing fails, try to extract a simple
+ * user/assistant pair from raw inputs/outputs. This handles frameworks
+ * like LangGraph where inputs contain `{ query: "...", thread: {...} }`
+ * and outputs are a plain string.
+ */
+export function extractSimpleChatMessages(
+  inputs: Record<string, unknown> | string | undefined | null,
+  outputs: Record<string, unknown> | string | undefined | null,
+): ModelTraceChatMessage[] | null {
+  // The assistant response must be a plain string
+  if (typeof outputs !== 'string' || !outputs) {
+    return null;
+  }
+
+  let userContent: string | undefined;
+
+  if (typeof inputs === 'string' && inputs) {
+    userContent = inputs;
+  } else if (inputs && typeof inputs === 'object') {
+    for (const field of QUERY_FIELD_NAMES) {
+      if (typeof inputs[field] === 'string' && inputs[field]) {
+        userContent = inputs[field];
+        break;
+      }
+    }
+  }
+
+  if (!userContent) {
+    return null;
+  }
+
+  return [
+    { role: 'user', content: userContent },
+    { role: 'assistant', content: outputs },
+  ];
+}
 
 export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
   const { theme } = useDesignSystemTheme();
@@ -26,6 +66,27 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
     return (
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
         {displayedMessages?.map((message, index) => (
+          <ModelTraceExplorerChatMessage
+            key={index}
+            message={message}
+            css={{
+              maxWidth: '80%',
+              alignSelf: message.role === 'user' ? 'flex-start' : 'flex-end',
+              borderWidth: 2,
+              borderRadius: theme.borders.borderRadiusMd,
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // Fallback: try to extract a simple user/assistant pair from raw inputs/outputs
+  const simpleChatMessages = extractSimpleChatMessages(rootSpan.inputs, rootSpan.outputs);
+  if (simpleChatMessages) {
+    return (
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+        {simpleChatMessages.map((message, index) => (
           <ModelTraceExplorerChatMessage
             key={index}
             message={message}
