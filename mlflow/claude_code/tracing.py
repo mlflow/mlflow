@@ -492,6 +492,7 @@ def _finalize_trace(
     session_id: str | None,
     end_time_ns: int | None = None,
     usage: dict[str, Any] | None = None,
+    claude_code_version: str | None = None,
 ) -> mlflow.entities.Trace:
     try:
         # Set trace previews and metadata for UI display
@@ -507,6 +508,8 @@ def _finalize_trace(
             }
             if session_id:
                 metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+            if claude_code_version:
+                metadata["claude_code_version"] = claude_code_version
 
             # Set token usage directly on trace metadata so it survives
             # even if span-level aggregation doesn't pick it up
@@ -611,6 +614,9 @@ def process_transcript(
             MESSAGE_FIELD_CONTENT, ""
         )
 
+        # Extract Claude Code version from the first JSONL entry (CLI-only)
+        claude_code_version = transcript[0].get("version")
+
         if not session_id:
             session_id = f"claude-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
@@ -644,6 +650,7 @@ def process_transcript(
             final_response,
             session_id,
             conv_end_ns,
+            claude_code_version=claude_code_version,
         )
 
     except Exception as e:

@@ -755,6 +755,43 @@ def test_find_last_user_message_skips_consecutive_skill_injections():
     assert transcript[idx]["message"]["content"] == "Do the thing."
 
 
+def test_process_transcript_captures_claude_code_version(tmp_path):
+    transcript = [
+        {
+            "type": "system",
+            "version": "1.0.16",
+            "timestamp": "2025-01-15T09:59:59.000Z",
+        },
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Hello!"},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Hi there!"}],
+            },
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+    ]
+
+    transcript_path = tmp_path / "version_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(entry) for entry in transcript) + "\n")
+    trace = process_transcript(str(transcript_path), "test-version-session")
+
+    assert trace is not None
+    assert trace.info.trace_metadata.get("claude_code_version") == "1.0.16"
+
+
+def test_process_transcript_no_version_field(mock_transcript_file):
+    trace = process_transcript(mock_transcript_file, "test-session-no-version")
+
+    assert trace is not None
+    assert "claude_code_version" not in trace.info.trace_metadata
+
+
 def test_process_transcript_includes_steer_messages(tmp_path):
     transcript = [
         {
