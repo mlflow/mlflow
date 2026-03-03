@@ -16,7 +16,7 @@ import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-ren
 import { ModelTraceExplorerChatMessageHeader } from './ModelTraceExplorerChatMessageHeader';
 import { CONTENT_TRUNCATION_LIMIT } from './ModelTraceExplorerChatRenderer.utils';
 import { ModelTraceExplorerToolCallMessage } from './ModelTraceExplorerToolCallMessage';
-import { CodeSnippetRenderMode, type ModelTraceChatMessage } from '../ModelTrace.types';
+import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
 
 const tryGetJsonContent = (content: string) => {
@@ -136,6 +136,32 @@ function ModelTraceExplorerReasoningSection({ reasoning }: { reasoning: string }
   );
 }
 
+function ModelTraceExplorerAudioPlayer({ audioParts }: { audioParts: ModelTraceInputAudio[] }) {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <>
+      {audioParts.map((audio, index) => (
+        <div
+          key={index}
+          css={{
+            padding: theme.spacing.sm,
+            paddingTop: 0,
+          }}
+        >
+          <audio
+            controls
+            css={{ width: '100%', maxWidth: 500 }}
+            src={`data:audio/${audio.format};base64,${audio.data}`}
+          >
+            <track kind="captions" srcLang="en" src="" default />
+          </audio>
+        </div>
+      ))}
+    </>
+  );
+}
+
 export function ModelTraceExplorerChatMessage({
   message,
   className,
@@ -181,6 +207,9 @@ export function ModelTraceExplorerChatMessage({
           message.tool_calls.map((toolCall) => (
             <ModelTraceExplorerToolCallMessage key={toolCall.id} toolCall={toolCall} />
           ))}
+        {message.audioParts && message.audioParts.length > 0 && (
+          <ModelTraceExplorerAudioPlayer audioParts={message.audioParts} />
+        )}
         <ModelTraceExplorerChatMessageContent
           content={displayedContent}
           shouldDisplayCodeSnippet={shouldDisplayCodeSnippet}

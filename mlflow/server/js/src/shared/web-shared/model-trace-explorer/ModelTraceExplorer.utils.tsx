@@ -39,6 +39,7 @@ import type {
   RetrieverDocument,
   ModelTraceEvent,
   ModelTraceLocation,
+  ModelTraceInputAudio,
 } from './ModelTrace.types';
 import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
@@ -1136,14 +1137,24 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
           const url = part?.image_url?.url;
           return url ? `![](${url})` : '[image]';
         case 'input_audio':
-          // raw encoded audio content is not displayed in the UI
-          return '[audio]';
+          // Audio parts are rendered as <audio> elements by the component,
+          // so they are excluded from the markdown string
+          return undefined;
       }
     })
     .filter((part) => part !== undefined);
 
   // Join with double line breaks for better visual separation
   return contentParts.join('\n\n');
+};
+
+const extractAudioParts = (content?: ModelTraceContentType | null): ModelTraceInputAudio[] => {
+  if (isNil(content) || isString(content)) {
+    return [];
+  }
+  return content
+    .filter((part) => part.type === 'input_audio')
+    .map((part) => (part as { type: 'input_audio'; input_audio: ModelTraceInputAudio }).input_audio);
 };
 
 export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): ModelTraceChatMessage | null => {
@@ -1155,10 +1166,13 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
     return null;
   }
 
+  const audioParts = extractAudioParts(message.content);
+
   return {
     ...message,
     content: formatChatContent(message.content),
     tool_calls: message.tool_calls?.map(prettyPrintToolCall),
+    ...(audioParts.length > 0 ? { audioParts } : {}),
   };
 };
 
