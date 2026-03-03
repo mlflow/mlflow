@@ -14,7 +14,11 @@ import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 
 import { ModelTraceExplorerChatMessageHeader } from './ModelTraceExplorerChatMessageHeader';
-import { CONTENT_TRUNCATION_LIMIT } from './ModelTraceExplorerChatRenderer.utils';
+import {
+  CONTENT_TRUNCATION_LIMIT,
+  getDisplayLength,
+  truncatePreservingImages,
+} from './ModelTraceExplorerChatRenderer.utils';
 import { ModelTraceExplorerToolCallMessage } from './ModelTraceExplorerToolCallMessage';
 import { CodeSnippetRenderMode, type ModelTraceChatMessage } from '../ModelTrace.types';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
@@ -152,9 +156,10 @@ export function ModelTraceExplorerChatMessage({
   const shouldDisplayCodeSnippet = isJson && (message.role === 'tool' || message.role === 'function');
   // if the content is JSON, truncation will be handled by the code
   // snippet. otherwise, we need to truncate the content manually.
-  const isExpandable = !shouldDisplayCodeSnippet && content.length > CONTENT_TRUNCATION_LIMIT;
+  const isExpandable = !shouldDisplayCodeSnippet && getDisplayLength(content) > CONTENT_TRUNCATION_LIMIT;
 
-  const displayedContent = isExpandable && !expanded ? `${content.slice(0, CONTENT_TRUNCATION_LIMIT)}...` : content;
+  const displayedContent =
+    isExpandable && !expanded ? truncatePreservingImages(content, CONTENT_TRUNCATION_LIMIT) : content;
 
   return (
     <div
