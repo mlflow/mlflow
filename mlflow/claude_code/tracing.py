@@ -46,6 +46,8 @@ MESSAGE_FIELD_MESSAGE = "message"
 MESSAGE_FIELD_TIMESTAMP = "timestamp"
 MESSAGE_FIELD_TOOL_USE_RESULT = "toolUseResult"
 MESSAGE_FIELD_COMMAND_NAME = "commandName"
+MESSAGE_TYPE_QUEUE_OPERATION = "queue-operation"
+QUEUE_OPERATION_ENQUEUE = "enqueue"
 
 # Custom logging level for Claude tracing
 CLAUDE_TRACING_LEVEL = logging.WARNING - 5
@@ -360,6 +362,15 @@ def _get_input_messages(transcript: list[dict[str, Any]], current_idx: int) -> l
                 )
             if has_text:
                 break
+
+        # Include steer messages (queue-operation enqueue) as user messages
+        if (
+            entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_QUEUE_OPERATION
+            and entry.get("operation") == QUEUE_OPERATION_ENQUEUE
+            and (steer_content := entry.get(MESSAGE_FIELD_CONTENT))
+        ):
+            messages.append({"role": "user", "content": steer_content})
+            continue
 
         if msg.get("role") and msg.get(MESSAGE_FIELD_CONTENT):
             messages.append(msg)
