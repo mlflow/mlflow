@@ -114,7 +114,7 @@ Token:  ········
 
 #### Alternative: Databricks Unified Authentication
 
-If you prefer to use environment variables or other Databricks authentication methods (Azure CLI, OIDC, OAuth M2M, Azure Managed Identity), MLflow supports all [Databricks unified authentication](https://docs.databricks.com/aws/en/dev-tools/auth/unified-auth) methods when `MLFLOW_ENABLE_DB_SDK` is enabled (this is the default).
+If you prefer to use environment variables or other Databricks authentication methods (Azure CLI, OIDC, OAuth M2M, Azure Managed Identity), MLflow supports all [Databricks unified authentication](https://docs.databricks.com/en/dev-tools/auth/index.html#unified-authentication) methods when `MLFLOW_ENABLE_DB_SDK` is enabled (this is the default).
 
 Simply set the appropriate environment variables for your authentication method:
 
@@ -136,8 +136,6 @@ export DATABRICKS_CLIENT_ID="your-client-id"
 export DATABRICKS_OIDC_TOKEN_FILE="/path/to/token"
 export MLFLOW_TRACKING_URI="databricks"
 ```
-
-See the [Databricks unified authentication documentation](https://docs.databricks.com/en/dev-tools/auth/index.html#unified-authentication) for all supported authentication methods.
 
 #### Connect MLflow Session to Databricks Workspace
 

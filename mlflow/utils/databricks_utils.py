@@ -880,7 +880,10 @@ def get_databricks_workspace_client_config(server_uri: str, scopes: list[str] | 
         config = TrackingURIConfigProvider(server_uri).get_config()
         return WorkspaceClient(host=config.host, token=config.token, **kwargs).config
 
-    return WorkspaceClient(profile=profile, **kwargs).config
+    # Only pass profile if explicitly set to avoid breaking env-based auth (OIDC, Azure CLI, etc.)
+    if profile:
+        kwargs["profile"] = profile
+    return WorkspaceClient(**kwargs).config
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")
