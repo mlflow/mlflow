@@ -148,14 +148,14 @@ const ExperimentViewDatasetDrawerImpl = ({
                 }}
               >
                 {runData.datasets.map((dataset) => (
-                  <Typography.Link
-                    componentId="mlflow.dataset_drawer.dataset_link"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     aria-label={`${dataset.dataset.name} (${dataset.dataset.digest})`}
                     key={`${dataset.dataset.name}-${dataset.dataset.digest}`}
                     css={{
                       display: 'flex',
                       whiteSpace: 'nowrap',
-                      textDecoration: 'none',
                       cursor: 'pointer',
                       flexDirection: 'column',
                       justifyContent: 'center',
@@ -176,9 +176,15 @@ const ExperimentViewDatasetDrawerImpl = ({
                       setSelectedDatasetWithRun({ datasetWithTags: dataset, runData: runData });
                       setIsOpen(true);
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        setSelectedDatasetWithRun({ datasetWithTags: dataset, runData: runData });
+                        setIsOpen(true);
+                      }
+                    }}
                   >
                     <ExperimentViewDatasetWithContext datasetWithTags={dataset} displayTextAsLink={false} />
-                  </Typography.Link>
+                  </div>
                 ))}
               </div>
             </div>
