@@ -17,10 +17,13 @@ from mlflow.entities import (
     RunInputs,
     RunStatus,
     RunTag,
+    TraceState,
+    trace_location,
 )
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.search_utils import SearchTraceUtils, SearchUtils
 
 
 @pytest.mark.parametrize(
@@ -692,3 +695,76 @@ def test_like_pattern_with_plus_character(tmp_path):
 
     exps = mlflow.search_experiments(filter_string='name LIKE "jamie-foo C+%"')
     assert len(exps) == 1
+
+
+def test_search_trace_utils_filter_tag_is_null():
+    loc = trace_location.TraceLocation.from_experiment_id("0")
+    trace1 = TraceInfo(
+        trace_id="t1",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={"env": "prod", "region": "us"},
+    )
+    trace2 = TraceInfo(
+        trace_id="t2",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={"env": "staging"},
+    )
+    trace3 = TraceInfo(
+        trace_id="t3",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={},
+    )
+    traces = [trace1, trace2, trace3]
+
+    result = SearchTraceUtils.filter(traces, "tag.region IS NULL")
+    assert {t.trace_id for t in result} == {"t2", "t3"}
+
+    result = SearchTraceUtils.filter(traces, "tag.region IS NOT NULL")
+    assert {t.trace_id for t in result} == {"t1"}
+
+    result = SearchTraceUtils.filter(traces, "tag.env IS NULL")
+    assert {t.trace_id for t in result} == {"t3"}
+
+    result = SearchTraceUtils.filter(traces, "tag.env IS NOT NULL")
+    assert {t.trace_id for t in result} == {"t1", "t2"}
+
+    result = SearchTraceUtils.filter(traces, 'tag.region IS NULL AND tag.env = "staging"')
+    assert {t.trace_id for t in result} == {"t2"}
+
+
+def test_search_trace_utils_filter_metadata_is_null():
+    loc = trace_location.TraceLocation.from_experiment_id("0")
+    trace1 = TraceInfo(
+        trace_id="t1",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={"user": "alice", "session": "s1"},
+    )
+    trace2 = TraceInfo(
+        trace_id="t2",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={"user": "bob"},
+    )
+    trace3 = TraceInfo(
+        trace_id="t3",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={},
+    )
+    traces = [trace1, trace2, trace3]
+
+    result = SearchTraceUtils.filter(traces, "metadata.session IS NULL")
+    assert {t.trace_id for t in result} == {"t2", "t3"}
+
+    result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
+    assert {t.trace_id for t in result} == {"t1"}
