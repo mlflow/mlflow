@@ -1268,6 +1268,7 @@ class SearchModelUtils(SearchUtils):
     NUMERIC_ATTRIBUTES = {"creation_timestamp", "last_updated_timestamp"}
     VALID_SEARCH_ATTRIBUTE_KEYS = {"name"}
     VALID_ORDER_BY_KEYS_REGISTERED_MODELS = {"name", "creation_timestamp", "last_updated_timestamp"}
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
 
     @classmethod
     def _does_registered_model_match_clauses(cls, model, sed):
@@ -1463,6 +1464,7 @@ class SearchModelVersionUtils(SearchUtils):
         "last_updated_timestamp",
     }
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IN"}
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
 
     @classmethod
     def _does_model_version_match_clauses(cls, mv, sed):
@@ -2327,6 +2329,7 @@ class SearchEvaluationDatasetsUtils(SearchUtils):
     }
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "created_time", "last_update_time"}
     NUMERIC_ATTRIBUTES = {"created_time", "last_update_time"}
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
 
     @classmethod
     def _invalid_statement_token(cls, token):
@@ -2405,6 +2408,8 @@ class SearchLoggedModelsUtils(SearchUtils):
         "status",
         "source_run_id",
     } | NUMERIC_ATTRIBUTES
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
+    VALID_PARAM_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
     VALID_ORDER_BY_ATTRIBUTE_KEYS = VALID_SEARCH_ATTRIBUTE_KEYS
 
     @classmethod
