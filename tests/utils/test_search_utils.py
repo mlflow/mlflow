@@ -700,16 +700,25 @@ def test_like_pattern_with_plus_character(tmp_path):
 def test_search_trace_utils_filter_tag_is_null():
     loc = trace_location.TraceLocation.from_experiment_id("0")
     trace1 = TraceInfo(
-        trace_id="t1", trace_location=loc, request_time=0,
-        state=TraceState.OK, tags={"env": "prod", "region": "us"},
+        trace_id="t1",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={"env": "prod", "region": "us"},
     )
     trace2 = TraceInfo(
-        trace_id="t2", trace_location=loc, request_time=0,
-        state=TraceState.OK, tags={"env": "staging"},
+        trace_id="t2",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={"env": "staging"},
     )
     trace3 = TraceInfo(
-        trace_id="t3", trace_location=loc, request_time=0,
-        state=TraceState.OK, tags={},
+        trace_id="t3",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        tags={},
     )
     traces = [trace1, trace2, trace3]
 
@@ -732,16 +741,25 @@ def test_search_trace_utils_filter_tag_is_null():
 def test_search_trace_utils_filter_metadata_is_null():
     loc = trace_location.TraceLocation.from_experiment_id("0")
     trace1 = TraceInfo(
-        trace_id="t1", trace_location=loc, request_time=0,
-        state=TraceState.OK, trace_metadata={"user": "alice", "session": "s1"},
+        trace_id="t1",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={"user": "alice", "session": "s1"},
     )
     trace2 = TraceInfo(
-        trace_id="t2", trace_location=loc, request_time=0,
-        state=TraceState.OK, trace_metadata={"user": "bob"},
+        trace_id="t2",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={"user": "bob"},
     )
     trace3 = TraceInfo(
-        trace_id="t3", trace_location=loc, request_time=0,
-        state=TraceState.OK, trace_metadata={},
+        trace_id="t3",
+        trace_location=loc,
+        request_time=0,
+        state=TraceState.OK,
+        trace_metadata={},
     )
     traces = [trace1, trace2, trace3]
 
