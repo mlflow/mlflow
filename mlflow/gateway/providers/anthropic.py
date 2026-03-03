@@ -199,13 +199,16 @@ class AnthropicAdapter(ProviderAdapter):
 
         message = convert_message_to_mlflow_chat(resp)
 
-        # For OpenAI compatibility, collapse a list of pure-text content parts into a
-        # plain string. Clients like LiteLLM expect `content` to be a string (not a
-        # list) in a standard chat.completion response. We only do this when there are
-        # no tool_calls so that mixed text+tool-use responses are handled correctly.
-        if isinstance(message.content, list) and not message.tool_calls:
-            if all(isinstance(part, TextContentPart) for part in message.content):
-                message.content = "".join(part.text for part in message.content)
+        # Normalize content to OpenAI wire format: `content` must be a str or null,
+        # never a list. Anthropic returns a list of content blocks; we collapse all
+        # TextContentPart entries into a single string. Non-text parts (images, etc.)
+        # are dropped here since they have no OpenAI chat.completion equivalent.
+        # For tool-call-only responses the list will be empty, so content becomes None.
+        if isinstance(message.content, list):
+            text = "".join(
+                part.text for part in message.content if isinstance(part, TextContentPart)
+            )
+            message.content = text or None
 
         return chat.ResponsePayload(
             id=resp["id"],
