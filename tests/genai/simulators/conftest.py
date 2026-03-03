@@ -6,7 +6,10 @@ import pytest
 
 @pytest.fixture
 def mock_trace():
-    return Mock()
+    trace = Mock()
+    trace.info.trace_metadata = {}
+    trace.info.tags = {}
+    return trace
 
 
 @pytest.fixture
@@ -23,9 +26,15 @@ def simulation_mocks(mock_trace):
     captured_configure_calls = []
 
     @contextmanager
-    def mock_configure_trace(metadata=None, tags=None):
-        captured_configure_calls.append({"metadata": metadata, "tags": tags})
+    def mock_configure_trace(session_id=None, user=None, metadata=None, tags=None):
+        captured_configure_calls.append(
+            {"session_id": session_id, "user": user, "metadata": metadata, "tags": tags}
+        )
         # Apply metadata/tags to the mock trace so tests can assert on them
+        if session_id is not None:
+            mock_trace.info.trace_metadata["mlflow.trace.session"] = session_id
+        if user is not None:
+            mock_trace.info.trace_metadata["mlflow.trace.user"] = user
         if metadata:
             mock_trace.info.trace_metadata.update(metadata)
         if tags:
