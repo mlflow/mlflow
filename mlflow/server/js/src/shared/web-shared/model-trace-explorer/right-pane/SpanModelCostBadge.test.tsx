@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -8,11 +8,23 @@ import { IntlProvider } from '@databricks/i18n';
 import { SpanModelCostBadge } from './SpanModelCostBadge';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
+import { BrowserRouter } from '../RoutingUtils';
+
+jest.mock('../hooks/useGatewayTraceLink', () => ({
+  useGatewayTraceLink: (traceId: string | undefined) => {
+    if (traceId === 'gw-trace-123') {
+      return '/experiments/exp-456/traces?selectedEvaluationId=gw-trace-123';
+    }
+    return undefined;
+  },
+}));
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
-  <IntlProvider locale="en">
-    <DesignSystemProvider>{children}</DesignSystemProvider>
-  </IntlProvider>
+  <BrowserRouter>
+    <IntlProvider locale="en">
+      <DesignSystemProvider>{children}</DesignSystemProvider>
+    </IntlProvider>
+  </BrowserRouter>
 );
 
 const createMockSpanNode = (overrides: Partial<ModelTraceSpanNode> = {}): ModelTraceSpanNode => ({
@@ -120,5 +132,22 @@ describe('SpanModelCostBadge', () => {
     expect(screen.getByText('Total')).toBeInTheDocument();
     expect(screen.getByText('$0.001234')).toBeInTheDocument();
     expect(screen.getByText('$0.002345')).toBeInTheDocument();
+  });
+
+  it('renders gateway trace link when linkedGatewayTraceId is present', () => {
+    const span = createMockSpanNode({ linkedGatewayTraceId: 'gw-trace-123' });
+    render(<SpanModelCostBadge activeSpan={span} />, { wrapper: Wrapper });
+
+    expect(screen.getByText('View gateway trace')).toBeInTheDocument();
+    const link = screen.getByText('View gateway trace').closest('a');
+    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/exp-456/traces'));
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
+  it('does not render gateway trace link when linkedGatewayTraceId is not present', () => {
+    const span = createMockSpanNode({ modelName: 'gpt-4' });
+    render(<SpanModelCostBadge activeSpan={span} />, { wrapper: Wrapper });
+
+    expect(screen.queryByText('View gateway trace')).not.toBeInTheDocument();
   });
 });

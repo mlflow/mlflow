@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 
-import { HoverCard, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { HoverCard, NewWindowIcon, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTraceSpanNode, SpanCostInfo } from '../ModelTrace.types';
 import { formatCostUSD } from '../CostUtils';
+import { useGatewayTraceLink } from '../hooks/useGatewayTraceLink';
+import { Link } from '../RoutingUtils';
 
 const SpanCostHoverCard = ({ cost }: { cost: SpanCostInfo }) => {
   const { theme } = useDesignSystemTheme();
@@ -112,10 +114,11 @@ const SpanCostHoverCard = ({ cost }: { cost: SpanCostInfo }) => {
 export const SpanModelCostBadge = ({ activeSpan }: { activeSpan: ModelTraceSpanNode }) => {
   const { theme } = useDesignSystemTheme();
 
-  const { modelName, cost } = activeSpan;
+  const { modelName, cost, linkedGatewayTraceId } = activeSpan;
+  const gatewayTraceHref = useGatewayTraceLink(linkedGatewayTraceId);
 
-  // Don't render anything if there's no model or cost info
-  if (!modelName && !cost) {
+  // Don't render anything if there's no model, cost, or gateway trace link
+  if (!modelName && !cost && !gatewayTraceHref) {
     return null;
   }
 
@@ -142,6 +145,17 @@ export const SpanModelCostBadge = ({ activeSpan }: { activeSpan: ModelTraceSpanN
         </div>
       )}
       {cost && <SpanCostHoverCard cost={cost} />}
+      {gatewayTraceHref && (
+        <Link to={gatewayTraceHref} target="_blank" rel="noreferrer">
+          <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <FormattedMessage
+              defaultMessage="View gateway trace"
+              description="Link text for navigating to the corresponding gateway trace"
+            />
+            <NewWindowIcon css={{ fontSize: 12 }} />
+          </span>
+        </Link>
+      )}
     </div>
   );
 };

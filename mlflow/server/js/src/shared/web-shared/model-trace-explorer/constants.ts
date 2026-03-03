@@ -25,7 +25,7 @@ export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
 export const ASSESSMENT_SESSION_METADATA_KEY = 'mlflow.trace.session';
 
 // Span attribute key for linked gateway trace
-export const SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID = 'mlflow.gateway.linkedTraceId';
+export const SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY = 'mlflow.gateway.linkedTraceId';
 
 // Key used in assessment metadata to indicate which document (by index) the assessment references
 export const MLFLOW_SPAN_OUTPUT_KEY = 'span_output_key';
