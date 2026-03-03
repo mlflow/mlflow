@@ -112,11 +112,7 @@ export const ExperimentSingleChatConversation = ({
             {shouldEnableAssessmentsInSessions() && (
               <>
                 <Spacer size="sm" />
-                <SingleChatTurnAssessments
-                  trace={trace}
-                  getAssessmentTitle={getAssessmentTitle}
-                  onAddAssessmentsClick={setSelectedTrace ? () => setSelectedTrace(trace) : undefined}
-                />
+                <SingleChatTurnAssessments trace={trace} getAssessmentTitle={getAssessmentTitle} />
               </>
             )}
           </div>
