@@ -164,6 +164,7 @@ mlflow.config.set_system_metrics_node_id
 mlflow.config.set_system_metrics_samples_before_logging
 mlflow.config.set_system_metrics_sampling_interval
 mlflow.config.set_tracking_uri
+mlflow.configure_trace
 mlflow.create_experiment
 mlflow.create_external_model
 mlflow.create_workspace
