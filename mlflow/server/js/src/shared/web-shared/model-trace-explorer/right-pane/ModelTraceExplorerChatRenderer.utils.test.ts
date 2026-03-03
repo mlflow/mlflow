@@ -3,6 +3,7 @@ import {
   getDisplayLength,
   truncatePreservingImages,
 } from './ModelTraceExplorerChatRenderer.utils';
+import { describe, it, expect } from '@jest/globals';
 
 describe('getDisplayLength', () => {
   it('returns the length of plain text', () => {

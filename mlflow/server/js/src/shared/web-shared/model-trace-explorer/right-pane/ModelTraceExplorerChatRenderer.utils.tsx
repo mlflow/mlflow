@@ -5,7 +5,19 @@ const MARKDOWN_IMAGE_REGEX = /!\[[^\]]*\]\([^)]+\)/g;
 
 // Returns content length excluding markdown image blocks.
 export const getDisplayLength = (content: string): number => {
-  return content.replace(MARKDOWN_IMAGE_REGEX, '').length;
+  let displayLength = 0;
+  let lastIndex = 0;
+
+  const regex = new RegExp(MARKDOWN_IMAGE_REGEX.source, 'g');
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(content)) !== null) {
+    displayLength += match.index - lastIndex;
+    lastIndex = match.index + match[0].length;
+  }
+
+  displayLength += content.length - lastIndex;
+  return displayLength;
 };
 
 // Truncates content without breaking markdown image syntax.
@@ -15,7 +27,7 @@ export const truncatePreservingImages = (content: string, limit: number): string
   let lastIndex = 0;
 
   const regex = new RegExp(MARKDOWN_IMAGE_REGEX.source, 'g');
-  let match;
+  let match: RegExpExecArray | null;
 
   while ((match = regex.exec(content)) !== null) {
     const textBefore = content.slice(lastIndex, match.index);
