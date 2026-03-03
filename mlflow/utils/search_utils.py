@@ -176,8 +176,8 @@ class SearchUtils:
     DESC_OPERATOR = "desc"
     VALID_ORDER_BY_TAGS = [ASC_OPERATOR, DESC_OPERATOR]
     VALID_METRIC_COMPARATORS = {">", ">=", "!=", "=", "<", "<="}
-    VALID_PARAM_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
-    VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
+    VALID_PARAM_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IS NULL", "IS NOT NULL"}
+    VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IS NULL", "IS NOT NULL"}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
     VALID_DATASET_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
@@ -492,18 +492,16 @@ class SearchUtils:
     @classmethod
     def _validate_comparison(cls, tokens):
         base_error_string = "Invalid comparison clause"
+        if len(tokens) == 2:
+            comparator = tokens[1].value.upper()
+            if comparator in ("IS NULL", "IS NOT NULL"):
+                if not isinstance(tokens[0], Identifier):
+                    raise MlflowException(
+                        f"{base_error_string}. Expected 'Identifier' found '{tokens[0]}'",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                return
         if len(tokens) != 3:
-            # Provide a clear error for IS NULL / IS NOT NULL which are only
-            # supported in experiment and trace search
-            if (
-                len(tokens) == 2
-                and tokens[1].ttype == TokenType.Keyword
-                and tokens[1].value.upper() in ("IS NULL", "IS NOT NULL")
-            ):
-                raise MlflowException(
-                    f"Invalid clause(s) in filter string: '{tokens[0]} {tokens[1]}'",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
             raise MlflowException(
                 f"{base_error_string}. Expected 3 tokens found {len(tokens)}",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -531,6 +529,23 @@ class SearchUtils:
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
+
+        # Handle IS NULL / IS NOT NULL (2 tokens: identifier + comparator, no value)
+        if len(stripped_comparison) == 2:
+            comparator = stripped_comparison[1].value.upper()
+            comp = cls._get_identifier(
+                stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS
+            )
+            if comp["type"] not in (cls._TAG_IDENTIFIER, cls._PARAM_IDENTIFIER):
+                raise MlflowException(
+                    "IS NULL / IS NOT NULL is only supported for tags and params, "
+                    f"not for '{comp['type']}' '{comp['key']}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            comp["comparator"] = comparator
+            comp["value"] = None
+            return comp
+
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
@@ -704,6 +719,9 @@ class SearchUtils:
             raise MlflowException(
                 f"Invalid search expression type '{key_type}'", error_code=INVALID_PARAMETER_VALUE
             )
+        if comparator in ("IS NULL", "IS NOT NULL"):
+            return (lhs is None) if comparator == "IS NULL" else (lhs is not None)
+
         if lhs is None:
             return False
 
