@@ -28,7 +28,6 @@ from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
-    extract_provider_from_model_string,
     maybe_set_prediction_context,
     set_span_chat_tools,
 )
