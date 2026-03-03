@@ -2,7 +2,6 @@ import sys
 
 from mlflow.entities import Run
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.tracing.display.display_handler import _is_jupyter
 from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WORKSPACE_URL
 from mlflow.utils.uri import is_databricks_uri
@@ -131,7 +130,10 @@ open the \033[93m\033[1mTraces\033[0m tab in the Run page in the MLflow UI.\n\n"
         return
 
     uri = _resolve_evaluation_results_url(store, run)
-    if _is_jupyter():
+    # Lazy import to avoid circular dependency
+    from mlflow.tracking.context.jupyter_notebook_context import _is_in_jupyter_notebook
+
+    if _is_in_jupyter_notebook():
         from IPython.display import HTML, display
 
         display(HTML(_EVAL_OUTPUT_HTML.format(eval_results_url=uri)))
