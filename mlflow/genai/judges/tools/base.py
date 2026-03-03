@@ -8,6 +8,7 @@ to enhance their evaluation capabilities.
 from abc import ABC, abstractmethod
 from typing import Any
 
+from mlflow.entities.trace import Trace
 from mlflow.types.llm import ToolDefinition
 from mlflow.utils.annotations import experimental
 
@@ -41,12 +42,12 @@ class JudgeTool(ABC):
         """
 
     @abstractmethod
-    def invoke(self, trace_id: str, **kwargs) -> Any:
+    def invoke(self, trace: Trace, **kwargs) -> Any:
         """
-        Invoke the tool with the provided trace ID and arguments.
+        Invoke the tool with the provided trace and arguments.
 
         Args:
-            trace_id: The ID of the MLflow trace to analyze
+            trace: The MLflow trace object to analyze
             kwargs: Additional keyword arguments for the tool
 
         Returns:

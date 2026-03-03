@@ -1,5 +1,3 @@
-from unittest import mock
-
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
@@ -21,8 +19,7 @@ def test_get_trace_info_tool_get_definition():
     assert definition.function.name == "get_trace_info"
     assert "metadata about the trace" in definition.function.description
     assert definition.function.parameters.type == "object"
-    assert "trace_id" in definition.function.parameters.properties
-    assert definition.function.parameters.required == ["trace_id"]
+    assert len(definition.function.parameters.required) == 0
     assert definition.type == "function"
 
 
@@ -38,16 +35,16 @@ def test_get_trace_info_tool_invoke_success():
     )
     trace = Trace(info=trace_info, data=None)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id=trace_info.trace_id)
+    result = tool.invoke(trace)
 
-    assert isinstance(result, dict)
-    assert result["trace_id"] == "test-trace-123"
-    assert result["execution_duration_ms"] == 250
-    assert "assessments" not in result
+    assert result is trace_info
+    assert result.trace_id == "test-trace-123"
+    assert result.request_time == 1234567890
+    assert result.execution_duration == 250
+    assert result.state == TraceState.OK
 
 
-def test_get_trace_info_tool_invoke_returns_dict_without_assessments():
+def test_get_trace_info_tool_invoke_returns_trace_info():
     tool = GetTraceInfoTool()
 
     trace_info = TraceInfo(
@@ -59,12 +56,9 @@ def test_get_trace_info_tool_invoke_returns_dict_without_assessments():
     )
     trace = Trace(info=trace_info, data=None)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="test-trace-simple")
-
-    assert isinstance(result, dict)
-    assert result["trace_id"] == "test-trace-simple"
-    assert "assessments" not in result
+    result = tool.invoke(trace)
+    assert result is trace_info
+    assert result.trace_id == "test-trace-simple"
 
 
 def test_get_trace_info_tool_invoke_different_states():
@@ -79,10 +73,8 @@ def test_get_trace_info_tool_invoke_different_states():
     )
     trace = Trace(info=trace_info, data=None)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id=trace_info.trace_id)
+    result = tool.invoke(trace)
 
-    assert isinstance(result, dict)
-    assert result["trace_id"] == "test-trace-456"
-    assert result["state"] == "ERROR"
-    assert "assessments" not in result
+    assert result is trace_info
+    assert result.trace_id == "test-trace-456"
+    assert result.state == TraceState.ERROR

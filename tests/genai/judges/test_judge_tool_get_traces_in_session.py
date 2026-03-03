@@ -28,8 +28,7 @@ def test_get_traces_in_session_tool_get_definition() -> None:
     assert "session" in definition.function.description.lower()
     assert "multi-turn evaluation" in definition.function.description.lower()
     assert definition.function.parameters.type == "object"
-    assert "trace_id" in definition.function.parameters.properties
-    assert definition.function.parameters.required == ["trace_id"]
+    assert len(definition.function.parameters.required) == 0
     assert definition.type == "function"
 
     params = definition.function.parameters.properties
@@ -56,13 +55,11 @@ def create_mock_trace(session_id: str | None = None) -> Trace:
 
 
 def test_get_traces_in_session_tool_invoke_success() -> None:
-    with (
-        patch("mlflow.get_trace", return_value=create_mock_trace("session-123")),
-        patch(
-            "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
-        ) as mock_search_tool_class,
-    ):
+    with patch(
+        "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
+    ) as mock_search_tool_class:
         tool = GetTracesInSession()
+        current_trace = create_mock_trace("session-123")
 
         mock_search_tool = MagicMock()
         mock_result = [
@@ -88,7 +85,7 @@ def test_get_traces_in_session_tool_invoke_success() -> None:
         mock_search_tool.invoke.return_value = mock_result
         mock_search_tool_class.return_value = mock_search_tool
 
-        result = tool.invoke(trace_id="current-trace")
+        result = tool.invoke(current_trace)
 
         assert len(result) == 2
         assert all(isinstance(ti, JudgeToolTraceInfo) for ti in result)
@@ -97,7 +94,7 @@ def test_get_traces_in_session_tool_invoke_success() -> None:
         assert result[1].trace_id == "trace-2"
 
         mock_search_tool.invoke.assert_called_once_with(
-            trace_id="current-trace",
+            trace=current_trace,
             filter_string=(
                 f"metadata.`{TraceMetadataKey.TRACE_SESSION}` = 'session-123' "
                 "AND trace.timestamp < 1234567890"
@@ -108,22 +105,20 @@ def test_get_traces_in_session_tool_invoke_success() -> None:
 
 
 def test_get_traces_in_session_tool_invoke_custom_parameters() -> None:
-    with (
-        patch("mlflow.get_trace", return_value=create_mock_trace("session-456")),
-        patch(
-            "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
-        ) as mock_search_tool_class,
-    ):
+    with patch(
+        "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
+    ) as mock_search_tool_class:
         tool = GetTracesInSession()
+        current_trace = create_mock_trace("session-456")
 
         mock_search_tool = MagicMock()
         mock_search_tool.invoke.return_value = []
         mock_search_tool_class.return_value = mock_search_tool
 
-        tool.invoke(trace_id="current-trace", max_results=50, order_by=["timestamp DESC"])
+        tool.invoke(current_trace, max_results=50, order_by=["timestamp DESC"])
 
         mock_search_tool.invoke.assert_called_once_with(
-            trace_id="current-trace",
+            trace=current_trace,
             filter_string=(
                 f"metadata.`{TraceMetadataKey.TRACE_SESSION}` = 'session-456' "
                 "AND trace.timestamp < 1234567890"
@@ -137,11 +132,8 @@ def test_get_traces_in_session_tool_invoke_no_session_id() -> None:
     tool = GetTracesInSession()
     current_trace = create_mock_trace(session_id=None)
 
-    with patch("mlflow.get_trace", return_value=current_trace):
-        with pytest.raises(
-            MlflowException, match="No session ID found in trace metadata"
-        ) as exc_info:
-            tool.invoke(trace_id="current-trace")
+    with pytest.raises(MlflowException, match="No session ID found in trace metadata") as exc_info:
+        tool.invoke(current_trace)
 
     assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
@@ -150,27 +142,24 @@ def test_get_traces_in_session_tool_invoke_invalid_session_id() -> None:
     tool = GetTracesInSession()
     current_trace = create_mock_trace("session@123!invalid")
 
-    with patch("mlflow.get_trace", return_value=current_trace):
-        with pytest.raises(MlflowException, match="Invalid session ID format") as exc_info:
-            tool.invoke(trace_id="current-trace")
+    with pytest.raises(MlflowException, match="Invalid session ID format") as exc_info:
+        tool.invoke(current_trace)
 
     assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_get_traces_in_session_tool_invoke_empty_result() -> None:
-    with (
-        patch("mlflow.get_trace", return_value=create_mock_trace("session-123")),
-        patch(
-            "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
-        ) as mock_search_tool_class,
-    ):
+    with patch(
+        "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
+    ) as mock_search_tool_class:
         tool = GetTracesInSession()
+        current_trace = create_mock_trace("session-123")
 
         mock_search_tool = MagicMock()
         mock_search_tool.invoke.return_value = []
         mock_search_tool_class.return_value = mock_search_tool
 
-        result = tool.invoke(trace_id="current-trace")
+        result = tool.invoke(current_trace)
 
         assert result == []
         assert len(result) == 0

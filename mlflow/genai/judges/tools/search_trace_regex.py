@@ -9,7 +9,7 @@ with case-insensitive matching.
 import re
 from dataclasses import dataclass
 
-import mlflow
+from mlflow.entities.trace import Trace
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
@@ -67,10 +67,6 @@ class SearchTraceRegexTool(JudgeTool):
                 parameters=ToolParamsSchema(
                     type="object",
                     properties={
-                        "trace_id": {
-                            "type": "string",
-                            "description": "The ID of the MLflow trace to search through",
-                        },
                         "pattern": {
                             "type": "string",
                             "description": (
@@ -93,7 +89,7 @@ class SearchTraceRegexTool(JudgeTool):
                             "default": 100,
                         },
                     },
-                    required=["trace_id", "pattern"],
+                    required=["pattern"],
                 ),
             ),
             type="function",
@@ -101,7 +97,7 @@ class SearchTraceRegexTool(JudgeTool):
 
     def invoke(
         self,
-        trace_id: str,
+        trace: Trace,
         pattern: str,
         max_matches: int = 50,
         surrounding_content_length: int = 100,
@@ -110,7 +106,7 @@ class SearchTraceRegexTool(JudgeTool):
         Search through the trace using a regex pattern.
 
         Args:
-            trace_id: The ID of the MLflow trace to search through
+            trace: The MLflow trace object to search through
             pattern: Regular expression pattern to search for
             max_matches: Maximum number of matches to return
             surrounding_content_length: Number of characters to include before and after each
@@ -119,7 +115,6 @@ class SearchTraceRegexTool(JudgeTool):
         Returns:
             SearchTraceRegexResult containing the search results
         """
-        trace = mlflow.get_trace(trace_id)
         try:
             regex = re.compile(pattern, re.IGNORECASE)
         except re.error as e:

@@ -9,7 +9,7 @@ import logging
 from typing import Any
 
 import mlflow
-from mlflow.entities import SpanType
+from mlflow.entities import SpanType, Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
@@ -35,12 +35,13 @@ class JudgeToolRegistry:
         """
         self._tools[tool.name] = tool
 
-    def invoke(self, tool_call: Any) -> Any:
+    def invoke(self, tool_call: Any, trace: Trace) -> Any:
         """
-        Invoke a tool using a ToolCall instance.
+        Invoke a tool using a ToolCall instance and trace.
 
         Args:
             tool_call: The ToolCall containing function name and arguments
+            trace: The MLflow trace object to analyze
 
         Returns:
             The result of the tool execution
@@ -71,7 +72,7 @@ class JudgeToolRegistry:
                 tool_func = mlflow.trace(name=tool.name, span_type=SpanType.TOOL)(tool.invoke)
             else:
                 tool_func = tool.invoke
-            result = tool_func(**arguments)
+            result = tool_func(trace, **arguments)
             _logger.debug(f"Tool '{function_name}' returned: {result}")
             return result
         except TypeError as e:
@@ -105,17 +106,18 @@ def register_judge_tool(tool: JudgeTool) -> None:
 
 
 @experimental(version="3.4.0")
-def invoke_judge_tool(tool_call: Any) -> Any:
+def invoke_judge_tool(tool_call: Any, trace: Trace) -> Any:
     """
-    Invoke a judge tool using a ToolCall instance.
+    Invoke a judge tool using a ToolCall instance and trace.
 
     Args:
         tool_call: The ToolCall containing function name and arguments
+        trace: The MLflow trace object to analyze
 
     Returns:
         The result of the tool execution
     """
-    return _judge_tool_registry.invoke(tool_call)
+    return _judge_tool_registry.invoke(tool_call, trace)
 
 
 @experimental(version="3.4.0")

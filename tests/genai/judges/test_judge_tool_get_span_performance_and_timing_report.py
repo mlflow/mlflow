@@ -1,5 +1,3 @@
-from unittest import mock
-
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -27,8 +25,7 @@ def test_get_span_timing_report_tool_get_definition():
     assert definition.function.name == "get_span_performance_and_timing_report"
     assert "Generate a comprehensive span timing report" in definition.function.description
     assert definition.function.parameters.type == "object"
-    assert "trace_id" in definition.function.parameters.properties
-    assert definition.function.parameters.required == ["trace_id"]
+    assert definition.function.parameters.required == []
     assert definition.type == "function"
 
 
@@ -65,8 +62,7 @@ def test_get_span_timing_report_tool_invoke_success():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     assert isinstance(result, str)
     assert "SPAN TIMING REPORT FOR TRACE: trace-123" in result
@@ -93,8 +89,7 @@ def test_get_span_timing_report_tool_invoke_no_spans():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     assert result == "No spans found in trace"
 
@@ -102,8 +97,7 @@ def test_get_span_timing_report_tool_invoke_no_spans():
 def test_get_span_timing_report_tool_invoke_none_trace():
     tool = GetSpanPerformanceAndTimingReportTool()
 
-    with mock.patch("mlflow.get_trace", return_value=None):
-        result = tool.invoke(trace_id="nonexistent")
+    result = tool.invoke(None)
 
     assert result == "No spans found in trace"
 
@@ -161,8 +155,7 @@ def test_get_span_timing_report_tool_invoke_complex_hierarchy():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     assert isinstance(result, str)
     assert "Total Spans: 4" in result
@@ -217,8 +210,7 @@ def test_get_span_timing_report_tool_invoke_concurrent_operations():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     assert isinstance(result, str)
     assert "CONCURRENT OPERATIONS:" in result
@@ -261,8 +253,7 @@ def test_get_span_timing_report_tool_invoke_span_types():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     assert isinstance(result, str)
     assert "SUMMARY BY TYPE:" in result
@@ -316,8 +307,7 @@ def test_get_span_timing_report_tool_invoke_top_spans_ranking():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     assert isinstance(result, str)
     assert "TOP 10 SPANS BY SELF DURATION" in result
@@ -358,8 +348,7 @@ def test_get_span_timing_report_tool_invoke_long_span_names():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     assert isinstance(result, str)
     assert "this_is_a_very_long_span_na..." in result
@@ -408,8 +397,7 @@ def test_get_span_timing_report_tool_self_duration_calculation():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     lines = result.split("\n")
     for line in lines:
@@ -427,8 +415,7 @@ def test_get_span_timing_report_tool_empty_trace_data():
     tool = GetSpanPerformanceAndTimingReportTool()
 
     trace = Trace(info=None, data=None)
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="empty-trace")
+    result = tool.invoke(trace)
 
     assert result == "No spans found in trace"
 
@@ -468,8 +455,7 @@ def test_get_span_timing_report_tool_concurrent_pairs_limit():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     concurrent_count = result.count("concurrent-")
     assert concurrent_count <= 2 * tool.MAX_CONCURRENT_PAIRS + 10
@@ -526,8 +512,7 @@ def test_truncation_in_multiple_report_sections():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     for name, should_truncate in test_names:
         if should_truncate:
@@ -591,8 +576,7 @@ def test_truncation_preserves_table_formatting():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     lines = result.split("\n")
     table_lines = []
@@ -670,8 +654,7 @@ def test_truncation_in_concurrent_spans_section():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     if "CONCURRENT OPERATIONS:" in result and "No significant concurrent" not in result:
         truncated1 = long_name1[:27] + "..."
@@ -744,8 +727,7 @@ def test_min_overlap_threshold_enforcement():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     assert tool.MIN_OVERLAP_THRESHOLD_S == 0.01
     if "CONCURRENT OPERATIONS:" in result:
@@ -795,8 +777,7 @@ def test_top_spans_count_limit():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     assert tool.TOP_SPANS_COUNT == 10
     lines = result.split("\n")
@@ -855,8 +836,7 @@ def test_max_concurrent_pairs_exact_limit():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123")
+    result = tool.invoke(trace)
 
     assert tool.MAX_CONCURRENT_PAIRS == 20
     lines = result.split("\n")

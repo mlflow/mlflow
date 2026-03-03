@@ -5,6 +5,10 @@ import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools import (
     JudgeToolRegistry,
@@ -41,7 +45,7 @@ class MockTool(JudgeTool):
             type="function",
         )
 
-    def invoke(self, **kwargs) -> str:
+    def invoke(self, trace: Trace, **kwargs) -> str:
         return f"mock_result_with_{len(kwargs)}_args"
 
 
@@ -67,13 +71,22 @@ def test_registry_invoke_tool_success(tracing_enabled, monkeypatch):
     mock_tool = MockTool()
     registry.register(mock_tool)
 
+    trace_info = TraceInfo(
+        trace_id="test-trace-id",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        state=TraceState.OK,
+        execution_duration=100,
+    )
+    trace = Trace(info=trace_info, data=None)
+
     tool_call = ToolCall(
         function=FunctionToolCallArguments(
             name="mock_tool", arguments=json.dumps({"param": "value"})
         )
     )
 
-    result = registry.invoke(tool_call)
+    result = registry.invoke(tool_call, trace)
     assert result == "mock_result_with_1_args"
 
     if tracing_enabled:
@@ -88,12 +101,21 @@ def test_registry_invoke_tool_success(tracing_enabled, monkeypatch):
 def test_registry_invoke_tool_not_found():
     registry = JudgeToolRegistry()
 
+    trace_info = TraceInfo(
+        trace_id="test-trace-id",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        state=TraceState.OK,
+        execution_duration=100,
+    )
+    trace = Trace(info=trace_info, data=None)
+
     tool_call = ToolCall(
         function=FunctionToolCallArguments(name="nonexistent_tool", arguments=json.dumps({}))
     )
 
     with pytest.raises(MlflowException, match="Tool 'nonexistent_tool' not found in registry"):
-        registry.invoke(tool_call)
+        registry.invoke(tool_call, trace)
 
 
 def test_registry_invoke_tool_invalid_json():
@@ -101,12 +123,21 @@ def test_registry_invoke_tool_invalid_json():
     mock_tool = MockTool()
     registry.register(mock_tool)
 
+    trace_info = TraceInfo(
+        trace_id="test-trace-id",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        state=TraceState.OK,
+        execution_duration=100,
+    )
+    trace = Trace(info=trace_info, data=None)
+
     tool_call = ToolCall(
         function=FunctionToolCallArguments(name="mock_tool", arguments="invalid json {{")
     )
 
     with pytest.raises(MlflowException, match="Invalid JSON arguments for tool 'mock_tool'"):
-        registry.invoke(tool_call)
+        registry.invoke(tool_call, trace)
 
 
 def test_registry_invoke_tool_invalid_arguments():
@@ -120,18 +151,27 @@ def test_registry_invoke_tool_invalid_arguments():
         def get_definition(self) -> ToolDefinition:
             return ToolDefinition(function={}, type="function")
 
-        def invoke(self, required_param: str) -> str:
+        def invoke(self, trace: Trace, required_param: str) -> str:
             return f"result_{required_param}"
 
     strict_tool = StrictTool()
     registry.register(strict_tool)
+
+    trace_info = TraceInfo(
+        trace_id="test-trace-id",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        state=TraceState.OK,
+        execution_duration=100,
+    )
+    trace = Trace(info=trace_info, data=None)
 
     tool_call = ToolCall(
         function=FunctionToolCallArguments(name="strict_tool", arguments=json.dumps({}))
     )
 
     with pytest.raises(MlflowException, match="Invalid arguments for tool 'strict_tool'"):
-        registry.invoke(tool_call)
+        registry.invoke(tool_call, trace)
 
 
 def test_global_functions_work(restore_global_registry):
@@ -142,11 +182,20 @@ def test_global_functions_work(restore_global_registry):
     tool_names = [t.name for t in tools]
     assert "mock_tool" in tool_names
 
+    trace_info = TraceInfo(
+        trace_id="test-trace-id",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        state=TraceState.OK,
+        execution_duration=100,
+    )
+    trace = Trace(info=trace_info, data=None)
+
     tool_call = ToolCall(
         function=FunctionToolCallArguments(name="mock_tool", arguments=json.dumps({}))
     )
 
-    result = invoke_judge_tool(tool_call)
+    result = invoke_judge_tool(tool_call, trace)
     assert result == "mock_result_with_0_args"
 
 

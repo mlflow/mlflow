@@ -41,8 +41,7 @@ def test_search_traces_tool_get_definition() -> None:
     assert definition.function.name == "_search_traces"
     assert "Search for traces within the same MLflow experiment" in definition.function.description
     assert definition.function.parameters.type == "object"
-    assert "trace_id" in definition.function.parameters.properties
-    assert definition.function.parameters.required == ["trace_id"]
+    assert definition.function.parameters.required == []
     assert definition.type == "function"
 
     properties = definition.function.parameters.properties
@@ -159,8 +158,7 @@ def test_get_experiment_id_success() -> None:
     )
     trace = Trace(info=trace_info, data=None)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        experiment_id = _get_experiment_id("trace-1")
+    experiment_id = _get_experiment_id(trace)
 
     assert experiment_id == "exp-123"
 
@@ -174,9 +172,8 @@ def test_get_experiment_id_no_trace_location() -> None:
     )
     trace = Trace(info=trace_info, data=None)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        with pytest.raises(MlflowException, match="Current trace has no trace location"):
-            _get_experiment_id("trace-1")
+    with pytest.raises(MlflowException, match="Current trace has no trace location"):
+        _get_experiment_id(trace)
 
 
 def test_get_experiment_id_not_mlflow_experiment() -> None:
@@ -189,9 +186,8 @@ def test_get_experiment_id_not_mlflow_experiment() -> None:
     )
     trace = Trace(info=trace_info, data=None)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        with pytest.raises(MlflowException, match="Current trace is not from an MLflow experiment"):
-            _get_experiment_id("trace-1")
+    with pytest.raises(MlflowException, match="Current trace is not from an MLflow experiment"):
+        _get_experiment_id(trace)
 
 
 def test_get_experiment_id_no_experiment_id() -> None:
@@ -204,9 +200,8 @@ def test_get_experiment_id_no_experiment_id() -> None:
     )
     trace = Trace(info=trace_info, data=None)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        with pytest.raises(MlflowException, match="Current trace has no experiment_id"):
-            _get_experiment_id("trace-1")
+    with pytest.raises(MlflowException, match="Current trace has no experiment_id"):
+        _get_experiment_id(trace)
 
 
 @pytest.fixture
@@ -287,13 +282,8 @@ def test_search_traces_tool_invoke_success(
 ) -> None:
     tool = SearchTracesTool()
 
-    with (
-        mock.patch("mlflow.get_trace", return_value=mock_trace),
-        mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search,
-    ):
-        result = tool.invoke(
-            trace_id="trace-current", filter_string='attributes.status = "OK"', max_results=10
-        )
+    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search:
+        result = tool.invoke(mock_trace, filter_string='attributes.status = "OK"', max_results=10)
 
         mock_search.assert_called_once_with(
             locations=["exp-456"],
@@ -323,13 +313,8 @@ def test_search_traces_tool_invoke_with_order_by(
 ) -> None:
     tool = SearchTracesTool()
 
-    with (
-        mock.patch("mlflow.get_trace", return_value=mock_trace),
-        mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search,
-    ):
-        result = tool.invoke(
-            trace_id="trace-current", order_by=["timestamp DESC", "trace_id ASC"], max_results=5
-        )
+    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search:
+        result = tool.invoke(mock_trace, order_by=["timestamp DESC", "trace_id ASC"], max_results=5)
 
         mock_search.assert_called_once_with(
             locations=["exp-456"],
@@ -347,11 +332,8 @@ def test_search_traces_tool_invoke_default_order_by(
 ) -> None:
     tool = SearchTracesTool()
 
-    with (
-        mock.patch("mlflow.get_trace", return_value=mock_trace),
-        mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search,
-    ):
-        result = tool.invoke(trace_id="trace-current")
+    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search:
+        result = tool.invoke(mock_trace)
 
         mock_search.assert_called_once()
         call_kwargs = mock_search.call_args[1]
@@ -366,11 +348,8 @@ def test_search_traces_tool_invoke_empty_results(mock_trace: Trace) -> None:
     tool = SearchTracesTool()
     empty_list: list[Trace] = []
 
-    with (
-        mock.patch("mlflow.get_trace", return_value=mock_trace),
-        mock.patch("mlflow.search_traces", return_value=empty_list),
-    ):
-        result = tool.invoke(trace_id="trace-current")
+    with mock.patch("mlflow.search_traces", return_value=empty_list):
+        result = tool.invoke(mock_trace)
 
     assert len(result) == 0
     assert result == []
@@ -379,12 +358,9 @@ def test_search_traces_tool_invoke_empty_results(mock_trace: Trace) -> None:
 def test_search_traces_tool_invoke_search_fails(mock_trace: Trace) -> None:
     tool = SearchTracesTool()
 
-    with (
-        mock.patch("mlflow.get_trace", return_value=mock_trace),
-        mock.patch("mlflow.search_traces", side_effect=Exception("Search failed")),
-    ):
+    with mock.patch("mlflow.search_traces", side_effect=Exception("Search failed")):
         with pytest.raises(MlflowException, match="Failed to search traces"):
-            tool.invoke(trace_id="trace-current")
+            tool.invoke(mock_trace)
 
 
 def test_search_traces_tool_invoke_invalid_trace_json(mock_trace: Trace) -> None:
@@ -410,11 +386,8 @@ def test_search_traces_tool_invoke_invalid_trace_json(mock_trace: Trace) -> None
 
     invalid_list = [invalid_trace1, invalid_trace2]
 
-    with (
-        mock.patch("mlflow.get_trace", return_value=mock_trace),
-        mock.patch("mlflow.search_traces", return_value=invalid_list),
-    ):
-        result = tool.invoke(trace_id="trace-current")
+    with mock.patch("mlflow.search_traces", return_value=invalid_list):
+        result = tool.invoke(mock_trace)
 
     # Both traces should fail to process due to missing data
     assert len(result) == 0
@@ -463,11 +436,8 @@ def test_search_traces_tool_invoke_partial_failure(mock_trace: Trace) -> None:
 
     partial_list = [invalid_trace1, valid_trace2]
 
-    with (
-        mock.patch("mlflow.get_trace", return_value=mock_trace),
-        mock.patch("mlflow.search_traces", return_value=partial_list),
-    ):
-        result = tool.invoke(trace_id="trace-current")
+    with mock.patch("mlflow.search_traces", return_value=partial_list):
+        result = tool.invoke(mock_trace)
 
     # Only the valid trace should be in results
     assert len(result) == 1
@@ -479,11 +449,8 @@ def test_search_traces_tool_invoke_no_filter(
 ) -> None:
     tool = SearchTracesTool()
 
-    with (
-        mock.patch("mlflow.get_trace", return_value=mock_trace),
-        mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search,
-    ):
-        result = tool.invoke(trace_id="trace-current", filter_string=None)
+    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search:
+        result = tool.invoke(mock_trace, filter_string=None)
 
         assert mock_search.call_args[1]["filter_string"] is None
 

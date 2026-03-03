@@ -1,5 +1,3 @@
-from unittest import mock
-
 import pytest
 
 from mlflow.entities.span import Span
@@ -28,8 +26,7 @@ def test_get_span_tool_get_definition():
     assert definition.function.name == "get_span"
     assert "Retrieve a specific span by its ID" in definition.function.description
     assert definition.function.parameters.type == "object"
-    assert "trace_id" in definition.function.parameters.properties
-    assert definition.function.parameters.required == ["trace_id", "span_id"]
+    assert definition.function.parameters.required == ["span_id"]
     assert definition.type == "function"
 
 
@@ -55,8 +52,7 @@ def test_get_span_tool_invoke_success():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123", span_id=span.span_id)
+    result = tool.invoke(trace, span.span_id)
 
     assert isinstance(result, SpanResult)
     assert result.span_id == span.span_id
@@ -87,8 +83,7 @@ def test_get_span_tool_invoke_span_not_found():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123", span_id="nonexistent-span")
+    result = tool.invoke(trace, "nonexistent-span")
 
     assert isinstance(result, SpanResult)
     assert result.span_id is None
@@ -109,8 +104,7 @@ def test_get_span_tool_invoke_no_spans():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(trace_id="trace-123", span_id="span-123")
+    result = tool.invoke(trace, "span-123")
 
     assert isinstance(result, SpanResult)
     assert result.span_id is None
@@ -143,10 +137,7 @@ def test_get_span_tool_invoke_with_attributes_filter():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        result = tool.invoke(
-            trace_id="trace-123", span_id=span.span_id, attributes_to_fetch=["key1", "key3"]
-        )
+    result = tool.invoke(trace, span.span_id, attributes_to_fetch=["key1", "key3"])
 
     assert isinstance(result, SpanResult)
     assert result.span_id == span.span_id
@@ -184,34 +175,24 @@ def test_get_span_tool_invoke_with_pagination():
     max_iterations = 100
     iterations = 0
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        while iterations < max_iterations:
-            result = tool.invoke(
-                trace_id="trace-123",
-                span_id=span.span_id,
-                max_content_length=1000,
-                page_token=page_token,
-            )
+    while iterations < max_iterations:
+        result = tool.invoke(trace, span.span_id, max_content_length=1000, page_token=page_token)
 
-            assert isinstance(result, SpanResult)
-            assert result.span_id == span.span_id
-            assert result.content is not None
-            assert result.error is None
+        assert isinstance(result, SpanResult)
+        assert result.span_id == span.span_id
+        assert result.content is not None
+        assert result.error is None
 
-            all_content += result.content
+        all_content += result.content
 
-            if result.page_token is None:
-                break
+        if result.page_token is None:
+            break
 
-            page_token = result.page_token
-            iterations += 1
+        page_token = result.page_token
+        iterations += 1
 
-        # Verify the paginated content matches a complete fetch
-        complete_result = tool.invoke(
-            trace_id="trace-123",
-            span_id=span.span_id,
-            max_content_length=len(all_content) + 1000,
-        )
+    # Verify the paginated content matches a complete fetch
+    complete_result = tool.invoke(trace, span.span_id, max_content_length=len(all_content) + 1000)
     assert all_content == complete_result.content
 
 
@@ -239,15 +220,14 @@ def test_get_span_tool_invoke_invalid_page_token():
     )
     trace = Trace(info=trace_info, data=trace_data)
 
-    with mock.patch("mlflow.get_trace", return_value=trace):
-        # Test with invalid string token - should raise exception
-        with pytest.raises(
-            MlflowException, match="Invalid page_token 'invalid': must be a valid integer"
-        ):
-            tool.invoke(trace_id="trace-123", span_id=span.span_id, page_token="invalid")
+    # Test with invalid string token - should raise exception
+    with pytest.raises(
+        MlflowException, match="Invalid page_token 'invalid': must be a valid integer"
+    ):
+        tool.invoke(trace, span.span_id, page_token="invalid")
 
-        # Test with non-string invalid token - should raise exception
-        with pytest.raises(
-            MlflowException, match="Invalid page_token '\\[\\]': must be a valid integer"
-        ):
-            tool.invoke(trace_id="trace-123", span_id=span.span_id, page_token=[])
+    # Test with non-string invalid token - should raise exception
+    with pytest.raises(
+        MlflowException, match="Invalid page_token '\\[\\]': must be a valid integer"
+    ):
+        tool.invoke(trace, span.span_id, page_token=[])
