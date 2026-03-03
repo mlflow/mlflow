@@ -39,7 +39,7 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import set_span_chat_tools
+from mlflow.tracing.utils import extract_provider_from_model_string, set_span_chat_tools
 
 _logger = logging.getLogger(__name__)
 
@@ -339,6 +339,9 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             attr[SpanAttributeKey.MODEL] = metadata.model_name
             if params_str := metadata.model_dump_json(exclude_unset=True):
                 attr["invocation_params"] = json.loads(params_str)
+        # LlamaIndex LLM class names map directly to providers
+        # e.g., OpenAI, Anthropic, Gemini, Bedrock, etc.
+        attr[SpanAttributeKey.MODEL_PROVIDER] = instance.__class__.__name__.lower()
         return attr
 
     @_get_instance_attributes.register
@@ -346,6 +349,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         return {
             "model_name": instance.model_name,
             SpanAttributeKey.MODEL: instance.model_name,
+            SpanAttributeKey.MODEL_PROVIDER: instance.__class__.__name__.lower(),
             "embed_batch_size": instance.embed_batch_size,
         }
 
@@ -479,6 +483,9 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     def _extract_and_set_model_name(self, span: LiveSpan, model_dict: dict[str, Any] | None):
         if model_dict and (model := model_dict.get("model")):
             span.set_attribute(SpanAttributeKey.MODEL, model)
+            if isinstance(model, str):
+                if provider := extract_provider_from_model_string(model):
+                    span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
     def _extract_token_usage(self, response: ChatResponse | CompletionResponse) -> dict[str, int]:
         if raw := response.raw:

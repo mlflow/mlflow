@@ -10,6 +10,7 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import with_active_span
+from mlflow.tracing.utils import extract_provider_from_model_string
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -102,6 +103,10 @@ def _set_span_attributes(span: LiveSpan, instance):
             span.set_attributes({k: v for k, v in model_attrs.items() if v is not None})
             if model_name := getattr(instance, "model_name", None):
                 span.set_attribute(SpanAttributeKey.MODEL, model_name)
+                # Pydantic AI model_name uses "provider:model" format
+                # e.g., "openai:gpt-4o", "anthropic:claude-3-5-haiku"
+                if provider := extract_provider_from_model_string(model_name, separator=":"):
+                    span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
     except Exception as e:
         _logger.warning("Failed saving InstrumentedModel attributes: %s", e)
 
