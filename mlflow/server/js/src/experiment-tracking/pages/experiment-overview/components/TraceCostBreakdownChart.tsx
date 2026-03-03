@@ -33,6 +33,11 @@ const renderActiveShape = (props: ActiveShapeProps, theme: DesignSystemThemeInte
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, name, value, percentage } = props;
   const { sx, sy, mx, my, ex, ey, textAnchor, cos } = calculatePieActiveShapeGeometry(props, theme);
 
+  // Clamp label Y so it stays within the chart area (top and bottom)
+  const maxLabelY = cy * 2 - theme.spacing.md * 2;
+  const labelY = Math.max(theme.spacing.md, Math.min(maxLabelY, ey));
+  const labelX = ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs;
+
   return (
     <g>
       {/* Main pie sector */}
@@ -56,13 +61,13 @@ const renderActiveShape = (props: ActiveShapeProps, theme: DesignSystemThemeInte
         fill={fill}
       />
       {/* Connecting line: radial segment -> horizontal segment */}
-      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
+      <path d={`M${sx},${sy}L${mx},${my}L${ex},${labelY}`} stroke={fill} fill="none" />
       {/* Dot at line end */}
-      <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
+      <circle cx={ex} cy={labelY} r={2} fill={fill} stroke="none" />
       {/* Model name label */}
       <text
-        x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
-        y={ey}
+        x={labelX}
+        y={labelY}
         textAnchor={textAnchor}
         fill={theme.colors.textPrimary}
         fontSize={theme.typography.fontSizeSm}
@@ -70,25 +75,15 @@ const renderActiveShape = (props: ActiveShapeProps, theme: DesignSystemThemeInte
       >
         {name}
       </text>
-      {/* Cost label */}
+      {/* Cost and percentage label */}
       <text
-        x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
-        y={ey + theme.spacing.lg}
+        x={labelX}
+        y={labelY + theme.spacing.md}
         textAnchor={textAnchor}
         fill={theme.colors.textSecondary}
         fontSize={theme.typography.fontSizeSm}
       >
-        {formatCostUSD(value)}
-      </text>
-      {/* Percentage label */}
-      <text
-        x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
-        y={ey + theme.spacing.lg * 2}
-        textAnchor={textAnchor}
-        fill={theme.colors.textSecondary}
-        fontSize={theme.typography.fontSizeSm}
-      >
-        {percentage.toFixed(2)}%
+        {formatCostUSD(value)}, {percentage.toFixed(2)}%
       </text>
     </g>
   );
