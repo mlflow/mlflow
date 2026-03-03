@@ -846,6 +846,10 @@
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular prompt version.",
     "description": "Description for the edit aliases modal on the registered prompt details page"
   },
+  "4H11jY": {
+    "defaultMessage": "Add a custom expectation to this trace.",
+    "description": "Hint message prompting user to add a new expectation to a trace"
+  },
   "4HKr3y": {
     "defaultMessage": "Attributes",
     "description": "Header for attribute columns in the evaluation runs table column configuration"
@@ -953,10 +957,6 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
-  },
-  "5IeFBG": {
-    "defaultMessage": "Session scorers{count, plural, =0 {} other { (#)}}",
-    "description": "Section title in a side panel that displays session-level scorers"
   },
   "5Mzn2b": {
     "defaultMessage": "Creator",
@@ -3338,10 +3338,6 @@
     "defaultMessage": "Calls",
     "description": "Column header for call count"
   },
-  "MNLhKO": {
-    "defaultMessage": "Add custom feedback to this trace.",
-    "description": "Hint message prompting user to add new feedback"
-  },
   "MQ4Voz": {
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
     "description": "Evaluation review > input section > title"
@@ -3820,6 +3816,10 @@
   "PuXTcZ": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Workspace landing page title"
+  },
+  "PvgihY": {
+    "defaultMessage": "Session assessments{count, plural, =0 {} other { (#)}}",
+    "description": "Section title in a side panel that displays session-level assessments"
   },
   "PwQiIn": {
     "defaultMessage": "Actions{count}",
@@ -5115,6 +5115,10 @@
     "defaultMessage": "Confirm",
     "description": "A label for the confirmation button in the modal displayed when the experiment type could not be inferred"
   },
+  "Yy18iD": {
+    "defaultMessage": "Add a custom expectation to this session.",
+    "description": "Hint message prompting user to add a new expectation to a session"
+  },
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the compare button when enabled"
@@ -5806,10 +5810,6 @@
   "dTLq6E": {
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
-  },
-  "dTjHiD": {
-    "defaultMessage": "Add a custom expectation to this trace.",
-    "description": "Hint message prompting user to add a new expectation"
   },
   "dUY9eq": {
     "defaultMessage": "Edit description",
@@ -7867,6 +7867,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "rPEyUh": {
+    "defaultMessage": "Add custom feedback to this trace.",
+    "description": "Hint message prompting user to add new feedback to a trace"
+  },
   "rPbiUM": {
     "defaultMessage": "Labeling sessions",
     "description": "Label for the labeling sessions tab in the MLflow experiment navbar"
@@ -8878,6 +8882,10 @@
   "yrsFOP": {
     "defaultMessage": "Datasets",
     "description": "Title for the datasets section on the run details page"
+  },
+  "yv5FMp": {
+    "defaultMessage": "Add custom feedback to this session.",
+    "description": "Hint message prompting user to add new feedback to a session"
   },
   "yyjAgE": {
     "defaultMessage": "Output for the trace",
