@@ -53,6 +53,6 @@ describe('getDatasetSourceUrl', () => {
 
   test('returns null for EXTERNAL source with no url field', () => {
     const dataset = createDatasetWithTags(DatasetSourceTypes.EXTERNAL, JSON.stringify({ other: 'value' }));
-    expect(getDatasetSourceUrl(dataset)).toBeUndefined();
+    expect(getDatasetSourceUrl(dataset)).toBeNull();
   });
 });

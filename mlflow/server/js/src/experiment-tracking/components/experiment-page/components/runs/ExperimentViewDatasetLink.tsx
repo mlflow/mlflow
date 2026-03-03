@@ -46,7 +46,7 @@ export const ExperimentViewDatasetLink = ({ datasetWithTags, runTags }: DatasetL
         >
           <FormattedMessage
             defaultMessage="Copy S3 URI to clipboard"
-            description="Text for the HTTP/HF location link in the experiment run dataset drawer"
+            description="Text for the S3 URI copy button in the experiment run dataset drawer"
           />
         </CopyButton>
       );
