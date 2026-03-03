@@ -919,7 +919,7 @@ def _get_pip_install_mlflow():
     returns "pip install -e {MLFLOW_HOME} 1>&2", otherwise
     "pip install mlflow=={mlflow.__version__} 1>&2".
     """
-    if mlflow_home := os.getenv("MLFLOW_HOME"):  # dev version
+    if mlflow_home := os.environ.get("MLFLOW_HOME"):  # dev version
         return f"pip install -e {mlflow_home} 1>&2"
     else:
         return f"pip install mlflow=={VERSION} 1>&2"
