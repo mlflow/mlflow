@@ -2781,6 +2781,13 @@ def test_webhook_admin_only_permissions(client, monkeypatch):
     response.raise_for_status()
     webhook_id = response.json()["webhook"]["webhook_id"]
 
+    # Admin: list webhooks should succeed
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
     # Non-admin: get webhook should be forbidden
     with User(user1, password1, monkeypatch):
         response = requests.get(
@@ -2788,6 +2795,13 @@ def test_webhook_admin_only_permissions(client, monkeypatch):
             auth=(user1, password1),
         )
         assert response.status_code == 403
+
+    # Admin: get webhook should succeed
+    response = requests.get(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
 
     # Non-admin: update webhook should be forbidden
     with User(user1, password1, monkeypatch):
@@ -2798,6 +2812,14 @@ def test_webhook_admin_only_permissions(client, monkeypatch):
         )
         assert response.status_code == 403
 
+    # Admin: update webhook should succeed
+    response = requests.patch(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+        json={"name": "updated-name"},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
     # Non-admin: test webhook should be forbidden
     with User(user1, password1, monkeypatch):
         response = requests.post(
@@ -2806,6 +2828,14 @@ def test_webhook_admin_only_permissions(client, monkeypatch):
             auth=(user1, password1),
         )
         assert response.status_code == 403
+
+    # Admin: test webhook should succeed
+    response = requests.post(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}/test",
+        json={},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
 
     # Non-admin: delete webhook should be forbidden
     with User(user1, password1, monkeypatch):
