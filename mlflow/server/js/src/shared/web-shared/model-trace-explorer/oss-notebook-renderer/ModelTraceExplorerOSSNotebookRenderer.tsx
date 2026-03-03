@@ -12,15 +12,13 @@ import { FormattedMessage } from '@databricks/i18n';
 import type { ModelTrace } from '../ModelTrace.types';
 import { ModelTraceExplorer } from '../ModelTraceExplorer';
 import { getTraceArtifact } from './mlflow-fetch-utils';
-import { getActiveWorkspace } from '@mlflow/mlflow/src/workspaces/utils/WorkspaceUtils';
 
 const MLFLOW_DOCS_URI = 'https://mlflow.org/docs/latest/llms/tracing/index.html?ref=jupyter-notebook-widget';
 
-const getMlflowUILinkForTrace = (traceId: string, experimentId: string) => {
+const getMlflowUILinkForTrace = (traceId: string, experimentId: string, workspace: string | null) => {
   const queryParams = new URLSearchParams();
   queryParams.append('selectedEvaluationId', traceId);
   queryParams.append('compareRunsMode', 'TRACES');
-  const workspace = getActiveWorkspace();
   if (workspace) {
     queryParams.append('workspace', workspace);
   }
@@ -30,6 +28,7 @@ const getMlflowUILinkForTrace = (traceId: string, experimentId: string) => {
 export const ModelTraceExplorerOSSNotebookRenderer = () => {
   const traceIds = useMemo(() => new URLSearchParams(window.location.search).getAll('trace_id'), []);
   const experimentIds = useMemo(() => new URLSearchParams(window.location.search).getAll('experiment_id'), []);
+  const workspace = useMemo(() => new URLSearchParams(window.location.search).get('workspace'), []);
 
   const [activeTraceIndex, setActiveTraceIndex] = useState(traceIds.length > 0 ? 0 : null);
   const [traceData, setTraceData] = useState<ModelTrace | null>(null);
@@ -159,7 +158,7 @@ export const ModelTraceExplorerOSSNotebookRenderer = () => {
         </div>
         <Typography.Link
           componentId="mlflow.notebook.trace-ui-see-in-mlflow-link"
-          href={getMlflowUILinkForTrace(traceIds[activeTraceIndex], experimentIds[activeTraceIndex])}
+          href={getMlflowUILinkForTrace(traceIds[activeTraceIndex], experimentIds[activeTraceIndex], workspace)}
           openInNewTab
           title="View in MLflow UI"
         >
