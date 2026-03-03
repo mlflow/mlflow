@@ -15,10 +15,12 @@ from mlflow.genai.discovery.constants import (
     CONFIDENCE_ORDER,
     DEFAULT_ANALYSIS_MODEL,
     DEFAULT_JUDGE_MODEL,
+    DEFAULT_SCORER_NAME,
     DEFAULT_TRIAGE_SAMPLE_SIZE,
     MAX_EXAMPLE_TRACE_IDS,
     MIN_CONFIDENCE,
     MIN_EXAMPLES,
+    build_satisfaction_instructions,
 )
 from mlflow.genai.discovery.entities import (
     DiscoverIssuesResult,
@@ -27,7 +29,6 @@ from mlflow.genai.discovery.entities import (
     _IdentifiedIssue,
 )
 from mlflow.genai.discovery.utils import (
-    _build_default_satisfaction_scorer,
     _build_summary,
     _cluster_analyses,
     _extract_execution_path,
@@ -42,6 +43,7 @@ from mlflow.genai.discovery.utils import (
     _summarize_cluster,
     _test_scorer,
 )
+from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
@@ -319,13 +321,11 @@ def _annotate_issue_traces(
 def discover_issues(
     experiment_id: str | None = None,
     traces: list[Trace] | None = None,
-    satisfaction_scorer: Scorer | None = None,
-    additional_scorers: list[Scorer] | None = None,
+    scorers: list[Scorer] | None = None,
     judge_model: str | None = None,
     analysis_model: str | None = None,
     embedding_model: str = "openai:/text-embedding-3-small",
     triage_sample_size: int = DEFAULT_TRIAGE_SAMPLE_SIZE,
-    validation_sample_size: int | None = None,
     max_issues: int = 20,
     filter_string: str | None = None,
 ) -> DiscoverIssuesResult:
@@ -333,9 +333,9 @@ def discover_issues(
     Discover quality and operational issues in traces.
 
     Runs a multi-phase pipeline:
-    1. **Triage**: Scores traces for user satisfaction using the satisfaction
-       scorer (and any additional scorers). Traces marked as failing by any
-       scorer proceed to analysis.
+    1. **Triage**: Scores traces using the provided scorers (or a default
+       satisfaction judge). Traces marked as failing by any scorer proceed
+       to analysis.
     2. **Analysis**: Builds per-session analyses from triage rationales and
        human feedback assessments.
     3. **Cluster & Identify**: Embedding-based clustering of analyses into
@@ -346,11 +346,9 @@ def discover_issues(
             Ignored when ``traces`` is provided.
         traces: Traces to analyze directly. When provided, skips sampling
             and uses these traces as the input to the pipeline.
-        satisfaction_scorer: Custom scorer for triage. Defaults to a built-in
-            conversation-level satisfaction judge.
-        additional_scorers: Extra scorers to run alongside the satisfaction
-            scorer during triage. A trace is considered failing if *any*
-            scorer (satisfaction or additional) marks it as ``False``.
+        scorers: Scorers to run during triage. A trace is considered failing
+            if *any* scorer marks it as ``False``. When ``None``, a default
+            conversation-level satisfaction judge is used.
         judge_model: LLM used for scoring traces (satisfaction + issue detection).
             Defaults to ``"openai:/gpt-5-mini"``.
         analysis_model: LLM used for analysis and cluster summarization.
@@ -360,8 +358,6 @@ def discover_issues(
         triage_sample_size: Number of sessions (or traces, if no session metadata
             exists) to randomly sample for the triage phase. Ignored when
             ``traces`` is provided.
-        validation_sample_size: Reserved for future use (scorer generation and
-            validation phases are not yet implemented).
         max_issues: Maximum distinct issues to identify.
         filter_string: Filter string passed to ``search_traces``.
             Ignored when ``traces`` is provided.
@@ -423,24 +419,30 @@ def discover_issues(
             total_traces_analyzed=0,
         )
 
-    if satisfaction_scorer is None:
+    if scorers is None:
         use_conversation = any(_get_session_id(t) for t in triage_traces)
         if not use_conversation:
             _logger.info(
                 "No session IDs found in trace metadata, falling back to trace-level scorer"
             )
-        satisfaction_scorer = _build_default_satisfaction_scorer(judge_model, use_conversation)
+        instructions = build_satisfaction_instructions(use_conversation=use_conversation)
+        default_scorer = make_judge(
+            name=DEFAULT_SCORER_NAME,
+            instructions=instructions,
+            model=judge_model,
+            feedback_value_type=bool,
+        )
         _logger.info(
             "Using %s-based satisfaction scorer",
             "session (conversation)" if use_conversation else "trace",
         )
+        scorers = [default_scorer]
 
-    scorer_name = satisfaction_scorer.name
-    all_scorers = [satisfaction_scorer] + (additional_scorers or [])
+    scorer_name = scorers[0].name
 
     _logger.info("Phase 1: Testing scorer on one trace...")
     t0 = time.time()
-    _test_scorer(satisfaction_scorer, triage_traces[0])
+    _test_scorer(scorers[0], triage_traces[0])
     _logger.info("Phase 1: Test scorer took %.1fs", time.time() - t0)
 
     _logger.info("Phase 1: Scoring %d traces...", len(triage_traces))
@@ -448,7 +450,7 @@ def discover_issues(
     with mlflow.start_run(run_name="discover_issues - triage"):
         triage_eval = mlflow.genai.evaluate(
             data=triage_traces,
-            scorers=all_scorers,
+            scorers=scorers,
         )
     _logger.info("Phase 1: Triage scoring took %.1fs", time.time() - t0)
 
@@ -474,7 +476,7 @@ def discover_issues(
     except Exception:
         _logger.debug("Failed to aggregate Phase 1 judge costs", exc_info=True)
 
-    scorer_names = [s.name for s in all_scorers]
+    scorer_names = [s.name for s in scorers]
     failing_traces, rationale_map = _extract_failing_traces(
         triage_eval, scorer_names, original_traces=triage_traces
     )
