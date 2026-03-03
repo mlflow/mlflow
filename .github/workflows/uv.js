@@ -36,10 +36,20 @@ function getTimestamp() {
   return new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
 }
 
-module.exports = async ({ github, context }) => {
-  // Note: We intentionally avoid early exits to maximize test coverage on PRs
-  // This allows testing the entire workflow except git push and PR creation
+function generatePrBody(uvLockOutput, runUrl) {
+  return `This PR was created automatically to update \`uv.lock\`.
 
+### \`uv lock\` output
+
+\`\`\`
+${uvLockOutput.trim()}
+\`\`\`
+
+Created by: ${runUrl}
+`;
+}
+
+module.exports = async ({ github, context }) => {
   const uvLockOutput = execWithOutput("uv", ["lock", "--upgrade"]);
   console.log(`uv lock output:\n${uvLockOutput}`);
 
@@ -47,18 +57,16 @@ module.exports = async ({ github, context }) => {
   const gitStatus = execWithOutput("git", ["status", "--porcelain", "uv.lock"]);
   const hasChanges = gitStatus.trim() !== "";
 
-  const branchName = `uv-lock-update-${getTimestamp()}`;
-  exec("git", ["config", "user.name", "mlflow-app[bot]"]);
-  exec("git", ["config", "user.email", "mlflow-app[bot]@users.noreply.github.com"]);
-  exec("git", ["checkout", "-b", branchName]);
-  // `git add` succeeds even if there are no changes
-  exec("git", ["add", "uv.lock"]);
-  // `--allow-empty` in case `uv.lock` is unchanged
-  exec("git", ["commit", "-s", "--allow-empty", "-m", "Update uv.lock"]);
-  // `--dry-run` to avoid actual push but verify it would succeed
   const isPr = context.eventName === "pull_request";
-  const args = isPr ? ["--dry-run"] : [];
-  exec("git", ["push", ...args, "origin", branchName]);
+  if (isPr) {
+    console.log("In pull request mode, exiting early");
+    return;
+  }
+
+  if (!hasChanges) {
+    console.log("No changes to uv.lock, exiting early");
+    return;
+  }
 
   // Search for existing PR
   const PR_TITLE = "Update `uv.lock`";
@@ -68,35 +76,48 @@ module.exports = async ({ github, context }) => {
     per_page: 1,
   });
 
-  if (isPr) {
-    console.log("In pull request mode, not pushing changes or creating a new PR");
-    return;
-  } else if (searchResults.total_count > 0) {
-    console.log(`An open PR already exists: ${searchResults.items[0].html_url}`);
-    return;
-  } else if (!hasChanges) {
-    console.log("No changes to uv.lock, not creating a PR");
+  const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+
+  exec("git", ["config", "user.name", "mlflow-app[bot]"]);
+  exec("git", ["config", "user.email", "mlflow-app[bot]@users.noreply.github.com"]);
+  exec("git", ["add", "uv.lock"]);
+  exec("git", ["commit", "-s", "-m", "Update uv.lock"]);
+
+  if (searchResults.total_count > 0) {
+    // Existing PR found - update it
+    const existingPr = searchResults.items[0];
+    console.log(`An open PR already exists: ${existingPr.html_url}`);
+
+    const { data: prDetails } = await github.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: existingPr.number,
+    });
+    const existingBranch = prDetails.head.ref;
+
+    exec("git", ["push", "--force", "origin", `HEAD:${existingBranch}`]);
+    console.log(`Force pushed changes to existing branch: ${existingBranch}`);
+
+    await github.rest.pulls.update({
+      owner,
+      repo,
+      pull_number: existingPr.number,
+      body: generatePrBody(uvLockOutput, runUrl),
+    });
+    console.log("Updated PR description");
     return;
   }
 
-  // Create PR
-  const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+  // Create new PR
+  const branchName = `uv-lock-update-${getTimestamp()}`;
+  exec("git", ["push", "origin", `HEAD:${branchName}`]);
   const { data: pr } = await github.rest.pulls.create({
     owner,
     repo,
     title: PR_TITLE,
     head: branchName,
     base: "master",
-    body: `This PR was created automatically to update \`uv.lock\`.
-
-### \`uv lock\` output
-
-\`\`\`
-${uvLockOutput.trim()}
-\`\`\`
-
-Created by: ${runUrl}
-`,
+    body: generatePrBody(uvLockOutput, runUrl),
   });
   console.log(`Created PR: ${pr.html_url}`);
 

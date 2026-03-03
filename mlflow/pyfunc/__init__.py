@@ -1485,8 +1485,9 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 
     tmp_model_dir = tempfile.mkdtemp(dir=root_model_cache_dir)
     # mkdtemp creates a directory with permission 0o700
-    # change it to be 0o770 to ensure it can be seen in spark UDF
-    os.chmod(tmp_model_dir, 0o770)
+    # For Spark UDFs, we need to make it accessible to other processes
+    # Use 0o750 (owner: rwx, group: r-x, others: None) instead of 0o770
+    os.chmod(tmp_model_dir, 0o750)
     return tmp_model_dir
 
 
@@ -2889,10 +2890,15 @@ def save_model(
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
             **python_function** flavor.
         python_model:
-            An instance of a subclass of :class:`~PythonModel` or a callable object with a single
-            argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library. The python_model can also be a file path to the PythonModel
-            which defines the model from code artifact rather than serializing the model object.
+            A file path to the PythonModel
+            which defines the model from code artifact,
+            (recommended), see https://mlflow.org/docs/latest/ml/model/models-from-code/
+            for details;
+            or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
+            argument (see the examples below), the passed-in object is serialized using the
+            CloudPickle library, it requires exercising caution because these formats rely on
+            Python's object serialization mechanism, which can execute arbitrary code during
+            deserialization.
             Any dependencies of the class should be included in one of the
             following locations:
 
@@ -3035,6 +3041,20 @@ def save_model(
         auth_policy: {{ auth_policy }}
         kwargs: Extra keyword arguments.
     """
+    if (
+        python_model is not None
+        and not isinstance(python_model, (Path, str))
+        and not is_in_databricks_runtime()
+    ):
+        _logger.warning(
+            "Passing a Python object as `python_model` causes it to be serialized "
+            "using CloudPickle, "
+            "it requires exercising caution as Python object serialization mechanisms may "
+            "execute arbitrary code during deserialization."
+            "Consider using a file path (str or Path) instead. See "
+            "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details."
+        )
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
     _validate_and_prepare_target_save_path(path)
@@ -3424,10 +3444,15 @@ def log_model(
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         python_model:
-            An instance of a subclass of :class:`~PythonModel` or a callable object with a single
-            argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library. The python_model can also be a file path to the PythonModel
-            which defines the model from code artifact rather than serializing the model object.
+            A file path to the PythonModel
+            which defines the model from code artifact,
+            (recommended), see https://mlflow.org/docs/latest/ml/model/models-from-code/
+            for details;
+            or an instance of a subclass of :class:`~PythonModel` or a callable object with a single
+            argument (see the examples below), the passed-in object is serialized using the
+            CloudPickle library, it requires exercising caution because these formats rely on
+            Python's object serialization mechanism, which can execute arbitrary code during
+            deserialization.
             Any dependencies of the class should be included in one of the
             following locations:
 

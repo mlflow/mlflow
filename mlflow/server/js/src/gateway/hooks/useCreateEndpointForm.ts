@@ -7,6 +7,7 @@ import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
 import type { ProviderModel, Endpoint } from '../types';
 import type { SecretMode } from '../components/model-configuration/types';
+import { isValidEndpointName } from '../utils/gatewayUtils';
 
 export interface CreateEndpointFormData {
   name: string;
@@ -20,6 +21,8 @@ export interface CreateEndpointFormData {
     secretFields: Record<string, string>;
     configFields: Record<string, string>;
   };
+  usageTracking: boolean;
+  experimentId: string;
 }
 
 export interface UseCreateEndpointFormOptions {
@@ -57,6 +60,8 @@ export function useCreateEndpointForm({
         secretFields: {},
         configFields: {},
       },
+      usageTracking: true,
+      experimentId: '',
     },
   });
 
@@ -95,7 +100,7 @@ export function useCreateEndpointForm({
       let secretId = values.existingSecretId;
 
       if (values.secretMode === 'new') {
-        const authConfig: Record<string, string> = { ...values.newSecret.configFields };
+        const authConfig = { ...values.newSecret.configFields } satisfies Record<string, string>;
         if (values.newSecret.authMode) {
           authConfig['auth_mode'] = values.newSecret.authMode;
         }
@@ -128,6 +133,7 @@ export function useCreateEndpointForm({
             weight: 1.0,
           },
         ],
+        usage_tracking: values.usageTracking,
       });
 
       onSuccess?.(endpointResponse.endpoint);
@@ -176,11 +182,21 @@ export function useCreateEndpointForm({
 
   const handleNameBlur = () => {
     const name = form.getValues('name');
-    if (name && existingEndpoints?.some((e) => e.name === name)) {
-      form.setError('name', {
-        type: 'manual',
-        message: 'An endpoint with this name already exists',
-      });
+    if (name) {
+      if (!isValidEndpointName(name)) {
+        form.setError('name', {
+          type: 'manual',
+          message:
+            'Name can only contain letters, numbers, underscores, hyphens, and dots. Spaces and special characters are not allowed.',
+        });
+        return;
+      }
+      if (existingEndpoints?.some((e) => e.name === name)) {
+        form.setError('name', {
+          type: 'manual',
+          message: 'An endpoint with this name already exists',
+        });
+      }
     }
   };
 

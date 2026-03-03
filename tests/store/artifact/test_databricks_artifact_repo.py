@@ -1068,9 +1068,7 @@ def test_databricks_download_file_in_parallel_when_necessary(
     databricks_artifact_repo, file_size, is_parallel_download
 ):
     remote_file_path = "file_1.txt"
-    list_artifacts_result = (
-        [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
-    )
+    list_artifacts_result = [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)]
     with (
         mock.patch(
             f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts",

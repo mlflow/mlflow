@@ -6,7 +6,10 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from mlflow.entities.trace import Trace
-from mlflow.genai.judges.constants import _RATIONALE_FIELD_DESCRIPTION, _RESULT_FIELD_DESCRIPTION
+from mlflow.genai.judges.constants import (
+    _RATIONALE_FIELD_DESCRIPTION,
+    _RESULT_FIELD_DESCRIPTION,
+)
 from mlflow.genai.judges.utils import get_default_optimizer
 from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.telemetry.events import AlignJudgeEvent
@@ -67,6 +70,13 @@ class Judge(Scorer):
     def instructions(self) -> str:
         """
         Plain text instructions of what this judge evaluates.
+        """
+
+    @property
+    @abstractmethod
+    def feedback_value_type(self) -> Any:
+        """
+        Type of the feedback value.
         """
 
     @abstractmethod

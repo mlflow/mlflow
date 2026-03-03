@@ -1,6 +1,8 @@
 import logging
 import warnings
 
+import pytest
+
 import mlflow
 from mlflow.tracing.utils.warning import suppress_warning
 
@@ -34,6 +36,20 @@ def test_suppress_token_detach_warning(caplog):
     assert caplog.records[2].levelname == "DEBUG"
 
 
+def _filter_request_id_warnings(
+    warnings_list: list[warnings.WarningMessage],
+) -> list[warnings.WarningMessage]:
+    """Filter warnings to only include FutureWarning about request_id deprecation."""
+    return [
+        w
+        for w in warnings_list
+        if issubclass(w.category, FutureWarning)
+        and "request_id" in str(w.message)
+        and "deprecated" in str(w.message).lower()
+        and "trace_id" in str(w.message)
+    ]
+
+
 @skip_when_testing_trace_sdk
 def test_request_id_backward_compatible():
     client = mlflow.MlflowClient()
@@ -49,11 +65,8 @@ def test_request_id_backward_compatible():
             parent_id=parent_span.span_id,
         )
 
-        assert len(w) == 1
-        assert issubclass(w[0].category, FutureWarning)
-        assert "request_id" in str(w[0].message)
-        assert "deprecated" in str(w[0].message).lower()
-        assert "trace_id" in str(w[0].message)
+        request_id_warnings = _filter_request_id_warnings(w)
+        assert len(request_id_warnings) == 1
         assert child_span.trace_id == parent_span.trace_id
 
     with warnings.catch_warnings(record=True) as w:
@@ -62,9 +75,8 @@ def test_request_id_backward_compatible():
         client.end_span(request_id=parent_span.trace_id, span_id=child_span.span_id)
         client.end_trace(request_id=parent_span.trace_id)
 
-        assert len(w) == 2
-        assert all(issubclass(warn.category, FutureWarning) for warn in w)
-        assert all("request_id" in str(warn.message) for warn in w)
+        request_id_warnings = _filter_request_id_warnings(w)
+        assert len(request_id_warnings) == 2
 
     # Valid usage without request_id -> no warning
     with warnings.catch_warnings(record=True) as w:
@@ -72,16 +84,18 @@ def test_request_id_backward_compatible():
 
         trace = mlflow.get_trace(parent_span.trace_id)
 
-        assert len(w) == 0
+        request_id_warnings = _filter_request_id_warnings(w)
+        assert len(request_id_warnings) == 0
         assert trace.info.trace_id == parent_span.trace_id
 
     with warnings.catch_warnings(record=True):
         warnings.simplefilter("always")
 
-        try:
+        with pytest.raises(
+            ValueError,
+            match=r".*",
+            check=lambda e: (
+                "Cannot specify both" in str(e) and "request_id" in str(e) and "trace_id" in str(e)
+            ),
+        ):
             client.get_trace(request_id="abc", trace_id="def")
-            assert False, "Should have raised ValueError"
-        except ValueError as e:
-            assert "Cannot specify both" in str(e)
-            assert "request_id" in str(e)
-            assert "trace_id" in str(e)

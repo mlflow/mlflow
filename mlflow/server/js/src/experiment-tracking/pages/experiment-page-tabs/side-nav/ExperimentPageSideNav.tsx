@@ -5,6 +5,7 @@ import { useExperimentEvaluationRunsData } from '../../../components/experiment-
 import type { ExperimentPageSideNavSectionKey } from './constants';
 import { COLLAPSED_CLASS_NAME, FULL_WIDTH_CLASS_NAME, useExperimentPageSideNavConfig } from './constants';
 import { ExperimentPageSideNavSection } from './ExperimentPageSideNavSection';
+import { ExperimentPageSideNavAssistantButton } from './ExperimentPageSideNavAssistantButton';
 import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 
 const SIDE_NAV_WIDTH = 160;
@@ -70,14 +71,19 @@ export const ExperimentPageSideNav = ({
           : {}),
       }}
     >
-      {Object.entries(sideNavConfig).map(([sectionKey, items]) => (
-        <ExperimentPageSideNavSection
-          key={sectionKey}
-          activeTab={activeTab}
-          sectionKey={sectionKey as ExperimentPageSideNavSectionKey}
-          items={items}
-        />
-      ))}
+      <div css={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+        <div>
+          {Object.entries(sideNavConfig).map(([sectionKey, items]) => (
+            <ExperimentPageSideNavSection
+              key={sectionKey}
+              activeTab={activeTab}
+              sectionKey={sectionKey as ExperimentPageSideNavSectionKey}
+              items={items}
+            />
+          ))}
+        </div>
+        <ExperimentPageSideNavAssistantButton />
+      </div>
     </div>
   );
 };

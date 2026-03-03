@@ -14,6 +14,8 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create an assessment value data point (for time series)
 const createAssessmentDataPoint = (timeBucket: string, avgValue: number) => ({
@@ -46,7 +48,7 @@ describe('TraceAssessmentChart', () => {
 
   // Context props reused across tests
   const defaultContextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -78,20 +80,22 @@ describe('TraceAssessmentChart', () => {
     const contextProps = { ...defaultContextProps, ...contextOverrides };
     const queryClient = createQueryClient();
     return renderWithIntl(
-      <QueryClientProvider client={queryClient}>
-        <DesignSystemProvider>
-          <OverviewChartProvider {...contextProps}>
-            <TraceAssessmentChart {...defaultProps} {...componentProps} />
-          </OverviewChartProvider>
-        </DesignSystemProvider>
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <OverviewChartProvider {...contextProps}>
+              <TraceAssessmentChart {...defaultProps} {...componentProps} />
+            </OverviewChartProvider>
+          </DesignSystemProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
   };
 
   // Helper to setup MSW handler for the trace metrics endpoint
   const setupTraceMetricsHandler = (dataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
         return res(ctx.json({ data_points: dataPoints }));
       }),
     );
@@ -100,7 +104,7 @@ describe('TraceAssessmentChart', () => {
   // Helper to setup MSW handler that returns different responses based on metric_name
   const setupTraceMetricsHandlerWithDistribution = (timeSeriesData: any[], distributionData: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
         if (body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
           return res(ctx.json({ data_points: distributionData }));
@@ -119,7 +123,7 @@ describe('TraceAssessmentChart', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -134,7 +138,7 @@ describe('TraceAssessmentChart', () => {
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
         }),
       );
@@ -165,10 +169,10 @@ describe('TraceAssessmentChart', () => {
       createAssessmentDataPoint('2025-12-22T11:00:00Z', 0.82),
     ];
 
-    it('should render chart with all time buckets', async () => {
+    it('should render chart with all time buckets when avgValue is provided', async () => {
       setupTraceMetricsHandler(mockDataPoints);
 
-      renderComponent();
+      renderComponent({ avgValue: 0.78 });
 
       await waitFor(() => {
         expect(screen.getByTestId('line-chart')).toBeInTheDocument();
@@ -188,15 +192,27 @@ describe('TraceAssessmentChart', () => {
       });
     });
 
-    it('should display chart section labels', async () => {
+    it('should display both chart section labels when avgValue is provided', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent({ avgValue: 0.78 });
+
+      await waitFor(() => {
+        expect(screen.getByText('Total aggregate scores')).toBeInTheDocument();
+        expect(screen.getByText('Moving average over time')).toBeInTheDocument();
+      });
+    });
+
+    it('should only display distribution chart label when avgValue is not provided', async () => {
       setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
       await waitFor(() => {
         expect(screen.getByText('Total aggregate scores')).toBeInTheDocument();
-        expect(screen.getByText('Moving average over time')).toBeInTheDocument();
       });
+
+      expect(screen.queryByText('Moving average over time')).not.toBeInTheDocument();
     });
 
     it('should display average value when provided via prop', async () => {
@@ -222,23 +238,38 @@ describe('TraceAssessmentChart', () => {
       });
     });
 
-    it('should NOT render reference line when avgValue is not provided', async () => {
+    it('should NOT render moving average chart when avgValue is not provided', async () => {
       setupTraceMetricsHandler(mockDataPoints);
 
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('line-chart')).toBeInTheDocument();
+        // Only distribution chart should be shown
+        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
       });
 
+      // Moving average chart should not be rendered
+      expect(screen.queryByTestId('line-chart')).not.toBeInTheDocument();
       expect(screen.queryByTestId('reference-line')).not.toBeInTheDocument();
+      expect(screen.queryByText('Moving average over time')).not.toBeInTheDocument();
     });
 
-    it('should fill missing time buckets with zeros', async () => {
+    it('should render both charts when avgValue is provided', async () => {
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent({ avgValue: 0.78 });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+        expect(screen.getByTestId('line-chart')).toBeInTheDocument();
+      });
+    });
+
+    it('should fill missing time buckets with zeros when avgValue is provided', async () => {
       // Only provide data for one time bucket
       setupTraceMetricsHandler([createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)]);
 
-      renderComponent();
+      renderComponent({ avgValue: 0.8 });
 
       // Chart should still show all 3 time buckets
       await waitFor(() => {
@@ -252,7 +283,7 @@ describe('TraceAssessmentChart', () => {
       let capturedTimeSeriesRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           // Only capture the time series request (ASSESSMENT_VALUE metric)
           if (body.metric_name === AssessmentMetricKey.ASSESSMENT_VALUE) {
@@ -301,7 +332,7 @@ describe('TraceAssessmentChart', () => {
     it('should accept custom lineColor', async () => {
       setupTraceMetricsHandler([createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)]);
 
-      renderComponent({ lineColor: '#FF0000' });
+      renderComponent({ lineColor: '#FF0000', avgValue: 0.8 });
 
       await waitFor(() => {
         expect(screen.getByTestId('line-chart')).toBeInTheDocument();
@@ -420,12 +451,12 @@ describe('TraceAssessmentChart', () => {
       });
     });
 
-    it('should render both bar chart and line chart', async () => {
+    it('should render both bar chart and line chart when avgValue is provided', async () => {
       const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
       const distributionData = [createDistributionDataPoint('0.8', 10)];
 
       setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
-      renderComponent();
+      renderComponent({ avgValue: 0.8 });
 
       await waitFor(() => {
         expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
@@ -433,24 +464,38 @@ describe('TraceAssessmentChart', () => {
       });
     });
 
+    it('should render only bar chart when avgValue is not provided', async () => {
+      const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
+      const distributionData = [createDistributionDataPoint('pass', 10), createDistributionDataPoint('fail', 5)];
+
+      setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
+      renderComponent(); // No avgValue = string type assessment
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByTestId('line-chart')).not.toBeInTheDocument();
+    });
+
     it('should display "Total aggregate scores" label for bar chart', async () => {
       const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
       const distributionData = [createDistributionDataPoint('0.8', 10)];
 
       setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
-      renderComponent();
+      renderComponent({ avgValue: 0.8 });
 
       await waitFor(() => {
         expect(screen.getByText('Total aggregate scores')).toBeInTheDocument();
       });
     });
 
-    it('should display "Moving average over time" label for line chart', async () => {
+    it('should display "Moving average over time" label for line chart when avgValue is provided', async () => {
       const timeSeriesData = [createAssessmentDataPoint('2025-12-22T10:00:00Z', 0.8)];
       const distributionData = [createDistributionDataPoint('0.8', 10)];
 
       setupTraceMetricsHandlerWithDistribution(timeSeriesData, distributionData);
-      renderComponent();
+      renderComponent({ avgValue: 0.8 });
 
       await waitFor(() => {
         expect(screen.getByText('Moving average over time')).toBeInTheDocument();

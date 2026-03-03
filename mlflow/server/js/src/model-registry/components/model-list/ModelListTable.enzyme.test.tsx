@@ -7,6 +7,9 @@ import type { ModelListTableProps } from './ModelListTable';
 import { ModelListTable } from './ModelListTable';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
+
 import { Stages } from '../../constants';
 import Utils from '../../../common/utils/Utils';
 import { withNextModelsUIContext } from '../../hooks/useNextModelsUI';
@@ -165,33 +168,5 @@ describe('ModelListTable', () => {
     const wrapperHtml = wrapper.html();
     expect(wrapperHtml).toContain('Error fetching models');
     expect(wrapperHtml).toContain(errMsg);
-  });
-
-  test('should display aliases column instead of stage in new models UI', async () => {
-    jest.mocked(shouldShowModelsNextUI).mockImplementation(() => true);
-    const TestComponent = withNextModelsUIContext(() => (
-      <MemoryRouter>
-        <DesignSystemProvider>
-          <ModelListTable {...minimalProps} />
-          <ModelsNextUIToggleSwitch />
-        </DesignSystemProvider>
-      </MemoryRouter>
-    ));
-    renderWithIntl(<TestComponent />);
-
-    // Assert stage columns being invisible and aliased versions column being present
-    expect(screen.queryByRole('columnheader', { name: 'Staging' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Production' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Aliased versions' })).toBeInTheDocument();
-
-    // Flip the "Next models UI" switch
-    await userEvent.click(screen.getByRole('switch'));
-    await userEvent.click(screen.getByText('Disable'));
-
-    // Assert stages column being visible and aliased versions column being absent
-    expect(screen.queryByRole('columnheader', { name: 'Staging' })).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Production' })).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Aliases' })).not.toBeInTheDocument();
-    jest.resetModules();
   });
 });

@@ -37,7 +37,7 @@ Uses GitHub's GraphQL API to fetch only unresolved review thread comments from a
 
    The script automatically reads the GitHub token from:
 
-   - `GITHUB_TOKEN` or `GH_TOKEN` environment variables, or
+   - `GH_TOKEN` environment variable, or
    - `gh auth token` command if environment variables are not set
 
 ## Example Output

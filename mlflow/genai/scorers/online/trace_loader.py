@@ -58,7 +58,7 @@ class OnlineTraceLoader:
             f"trace.timestamp_ms >= {start_time_ms} AND trace.timestamp_ms <= {end_time_ms}"
         )
         combined_filter = f"{time_filter} AND {filter_string}" if filter_string else time_filter
-        _logger.info(f"Fetching traces with filter: {combined_filter}")
+        _logger.debug(f"Fetching traces with filter: {combined_filter}")
 
         all_trace_infos = []
         page_token = None
@@ -94,7 +94,7 @@ class OnlineTraceLoader:
 
             page_token = token
 
-        _logger.info(
+        _logger.debug(
             f"Fetched {len(all_trace_infos)} trace infos in range [{start_time_ms}, {end_time_ms}]"
         )
 

@@ -18,6 +18,10 @@ class MockJudge(Judge):
     def instructions(self) -> str:
         return f"Mock judge implementation: {self.name}"
 
+    @property
+    def feedback_value_type(self):
+        return bool
+
     def get_input_fields(self) -> list[JudgeField]:
         """Get input fields for mock judge."""
         return [

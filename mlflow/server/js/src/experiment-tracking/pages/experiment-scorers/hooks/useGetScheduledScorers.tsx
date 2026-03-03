@@ -1,8 +1,10 @@
+import type { UseQueryOptions } from '@databricks/web-shared/query-client';
 import { useQuery, type UseQueryResult } from '@databricks/web-shared/query-client';
 import { UnknownError, type PredefinedError } from '@databricks/web-shared/errors';
 import type { ScheduledScorer, ScorerConfig } from '../types';
 import { convertMLflowScorerToConfig, transformScorerConfig } from '../utils/scorerTransformUtils';
-import { listScheduledScorers, ListScorersResponse } from '../api';
+import type { ListScorersResponse } from '../api';
+import { getOnlineScoringConfigs, listScheduledScorers } from '../api';
 
 // Define response types
 export type GetScheduledScorersResponse = {
@@ -17,8 +19,10 @@ export interface ScheduledScorersResponse {
   scheduledScorers: ScheduledScorer[];
 }
 
+/* eslint-disable react-hooks/rules-of-hooks */
 export function useGetScheduledScorers(
   experimentId?: string,
+  options?: UseQueryOptions<ScheduledScorersResponse, PredefinedError>,
 ): UseQueryResult<ScheduledScorersResponse, PredefinedError> {
   return useQuery<ScheduledScorersResponse, PredefinedError>({
     queryKey: ['mlflow', 'scheduled-scorers', experimentId],
@@ -28,16 +32,56 @@ export function useGetScheduledScorers(
       }
       const response: ListScorersResponse = await listScheduledScorers(experimentId);
 
+      // Convert to ScorerConfig format first
+      const scorerConfigs = response.scorers?.map(convertMLflowScorerToConfig) || [];
+
+      // Get scorer IDs to fetch online configs
+      const scorerIds = response.scorers?.map((scorer) => scorer.scorer_id).filter(Boolean) || [];
+
+      // Fetch online scoring configs if there are scorers
+      const onlineConfigs: Record<string, { sample_rate: number; filter_string?: string }> = {};
+      if (scorerIds.length > 0) {
+        try {
+          const configsResponse = await getOnlineScoringConfigs(scorerIds);
+          // Backend returns an array of configs, convert to object keyed by scorer_id
+          const configsArray = configsResponse.configs || [];
+          for (const config of configsArray) {
+            if (config.scorer_id) {
+              onlineConfigs[config.scorer_id] = config;
+            }
+          }
+        } catch {
+          // If fetching online configs fails, continue without them
+          // The UI will show default values
+        }
+      }
+
+      // Merge online configs into scorer configs
+      const scorerConfigsWithOnlineConfig = scorerConfigs.map((config, index) => {
+        const scorerId = response.scorers?.[index]?.scorer_id;
+        const onlineConfig = scorerId ? onlineConfigs[scorerId] : undefined;
+        if (onlineConfig) {
+          return {
+            ...config,
+            sample_rate: onlineConfig.sample_rate,
+            filter_string: onlineConfig.filter_string,
+          };
+        }
+        return config;
+      });
+
       // Transform the response to match ScheduledScorersResponse
-      const scheduledScorers = response.scorers?.map(convertMLflowScorerToConfig).map(transformScorerConfig) || [];
+      const scheduledScorers = scorerConfigsWithOnlineConfig.map(transformScorerConfig);
 
       return {
         experimentId: experimentId,
         scheduledScorers,
       };
     },
-    enabled: !!experimentId,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: true,
+    ...options,
+    enabled: Boolean(experimentId) && (options?.enabled ?? true),
   });
 }
+/* eslint-enable react-hooks/rules-of-hooks */

@@ -33,11 +33,12 @@ import { ExperimentViewNoPermissionsError } from './components/ExperimentViewNoP
 import { ErrorViewV2 } from '../../../common/components/ErrorViewV2';
 import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import { ExperimentViewHeaderKindSelector } from './components/header/ExperimentViewHeaderKindSelector';
-import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
+import { useExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useUpdateExperimentKind } from './hooks/useUpdateExperimentKind';
 import { canModifyExperiment } from './utils/experimentPage.common-utils';
 import { useInferExperimentKind } from './hooks/useInferExperimentKind';
 import { ExperimentViewInferredKindModal } from './components/header/ExperimentViewInferredKindModal';
+import { shouldEnableWorkflowBasedNavigation } from '../../../common/utils/FeatureUtils';
 
 export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) => {
   const dispatch = useDispatch<ThunkDispatch>();
@@ -113,7 +114,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
     return dispatch(getExperimentApi(experimentIds[0]));
   });
 
-  const experimentKind = getExperimentKindFromTags(first(experiments)?.tags);
+  const experimentKind = useExperimentKind(first(experiments)?.tags);
   const firstExperimentId = first(experiments)?.experimentId;
 
   const {
@@ -160,8 +161,13 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
   const isLoading = isLoadingExperiment || !experiments[0];
 
   const canUpdateExperimentKind = true;
+  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 
-  if (inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE && canUpdateExperimentKind) {
+  if (
+    !enableWorkflowBasedNavigation &&
+    inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE &&
+    canUpdateExperimentKind
+  ) {
     return (
       <ExperimentViewInferredKindModal
         onConfirm={(kind) => {
@@ -191,7 +197,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
           uiState={uiState}
           setEditing={setEditing}
           experimentKindSelector={
-            !isComparingExperiments && firstExperimentId ? (
+            !enableWorkflowBasedNavigation && !isComparingExperiments && firstExperimentId ? (
               <ExperimentViewHeaderKindSelector
                 value={experimentKind}
                 inferredExperimentKind={inferredExperimentKind}

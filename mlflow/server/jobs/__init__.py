@@ -20,6 +20,8 @@ _SUPPORTED_JOB_FUNCTION_LIST = [
     # Putting all supported job function fullname in the list
     "mlflow.genai.scorers.job.invoke_scorer_job",
     "mlflow.genai.scorers.job.run_online_trace_scorer_job",
+    "mlflow.genai.scorers.job.run_online_session_scorer_job",
+    "mlflow.genai.optimize.job.optimize_prompts_job",
 ]
 
 if supported_job_function_list_env := os.environ.get("_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST"):
@@ -30,6 +32,8 @@ _ALLOWED_JOB_NAME_LIST = [
     # Putting all allowed job function static name in the list
     "invoke_scorer",
     "run_online_trace_scorer",
+    "run_online_session_scorer",
+    "optimize_prompts",
 ]
 
 if allowed_job_name_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_NAME_LIST"):
@@ -174,7 +178,13 @@ def submit_job(
             "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'true' to enable it."
         )
 
-    _check_requirements()
+    try:
+        _check_requirements()
+    except MlflowException as e:
+        raise MlflowException(
+            f"Requirement not satisfied for running the job: {e.message}. "
+            "Please address the issue and restart the MLflow server."
+        ) from e
 
     if not (isinstance(function, FunctionType) and "." not in function.__qualname__):
         raise MlflowException("The job function must be a python global function.")
@@ -204,11 +214,13 @@ def submit_job(
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     job = job_store.create_job(fn_meta.name, serialized_params, timeout)
+    workspace = job.workspace
 
     # enqueue job
     huey_instance = _get_or_init_huey_instance(fn_meta.name)
     huey_instance.submit_task(
         job.job_id,
+        workspace,
         fn_meta.name,
         params,
         timeout,

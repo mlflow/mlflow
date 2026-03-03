@@ -4,25 +4,26 @@ import {
   Typography,
   Button,
   PlayCircleFillIcon,
-  LoadingState,
   ChevronLeftIcon,
   ChevronRightIcon,
   Alert,
   Tooltip,
+  Spinner,
+  StopCircleFillIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { SimplifiedModelTraceExplorer } from '@databricks/web-shared/model-trace-explorer';
 import type { Assessment, ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import { COMPONENT_ID_PREFIX, BUTTON_VARIANT, type ButtonVariant, ScorerEvaluationScope } from './constants';
-import { EvaluateTracesParams } from './types';
 import { SampleScorerTracesToEvaluatePicker } from './SampleScorerTracesToEvaluatePicker';
 import { useFormContext } from 'react-hook-form';
-import { ScorerFormData } from './utils/scorerTransformUtils';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { ExperimentSingleChatConversation } from '../experiment-chat-sessions/single-chat-view/ExperimentSingleChatConversation';
-import { SimplifiedAssessmentView } from '../../../shared/web-shared/model-trace-explorer/right-pane/SimplifiedAssessmentView';
+import { SimplifiedAssessmentView } from '@databricks/web-shared/model-trace-explorer';
 import { compact } from 'lodash';
-import { isSessionJudgeEvaluationResult, JudgeEvaluationResult } from './useEvaluateTraces.common';
+import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import { isSessionJudgeEvaluationResult } from './useEvaluateTraces.common';
 
 /**
  * Run scorer button component.
@@ -73,11 +74,12 @@ interface SampleScorerOutputPanelRendererProps {
   currentEvalResult?: JudgeEvaluationResult;
   assessments: Assessment[] | undefined;
   handleRunScorer: () => Promise<void>;
+  handleCancel: () => void;
   handlePrevious: () => void;
   handleNext: () => void;
   totalTraces: number;
-  itemsToEvaluate: Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>;
-  onItemsToEvaluateChange: (itemsToEvaluate: Pick<EvaluateTracesParams, 'itemCount' | 'itemIds'>) => void;
+  selectedItemIds: string[];
+  onSelectedItemIdsChange: (selectedItemIds: string[]) => void;
 }
 
 const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererProps> = ({
@@ -89,11 +91,12 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
   currentEvalResult,
   assessments,
   handleRunScorer,
+  handleCancel,
   handlePrevious,
   handleNext,
   totalTraces,
-  itemsToEvaluate,
-  onItemsToEvaluateChange,
+  selectedItemIds,
+  onSelectedItemIdsChange,
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -164,10 +167,6 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
           <FormattedMessage defaultMessage="Sample judge output" description="Title for sample judge output panel" />
         </Typography.Text>
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-          <SampleScorerTracesToEvaluatePicker
-            itemsToEvaluate={itemsToEvaluate}
-            onItemsToEvaluateChange={onItemsToEvaluateChange}
-          />
           {!isInitialScreen && (
             <Tooltip
               componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_178"
@@ -293,38 +292,61 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
               padding: theme.spacing.lg,
             }}
           >
-            {isLoading && (
-              <div css={{ marginBottom: theme.spacing.md }}>
-                <LoadingState />
-              </div>
+            {isLoading ? (
+              <>
+                <Typography.Text size="lg" color="secondary" bold css={{ margin: 0, marginBottom: theme.spacing.xs }}>
+                  <FormattedMessage
+                    defaultMessage="Evaluating {isTraces, select, true {traces} other {sessions}}..."
+                    description="Status text while evaluating traces or sessions"
+                    values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
+                  />
+                </Typography.Text>
+                <Spinner size="default" css={{ marginBottom: theme.spacing.md }} />
+                <Button
+                  componentId="codegen_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_cancel"
+                  icon={<StopCircleFillIcon />}
+                  onClick={handleCancel}
+                >
+                  <FormattedMessage defaultMessage="Cancel" description="Button text for canceling evaluation" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Typography.Text size="lg" color="secondary" bold css={{ margin: 0, marginBottom: theme.spacing.xs }}>
+                  <FormattedMessage
+                    defaultMessage="Run judge on {isTraces, select, true {traces} other {sessions}}"
+                    description="Title for running judge on traces or sessions"
+                    values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
+                  />
+                </Typography.Text>
+                <Typography.Text color="secondary" css={{ margin: 0, marginBottom: theme.spacing.md }}>
+                  <FormattedMessage
+                    defaultMessage="Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}"
+                    description="Description for running judge on traces or sessions"
+                    values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
+                  />
+                </Typography.Text>
+                <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+                  <SampleScorerTracesToEvaluatePicker
+                    selectedItemIds={selectedItemIds}
+                    onSelectedItemIdsChange={onSelectedItemIdsChange}
+                  />
+                  <Tooltip
+                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_316"
+                    content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
+                  >
+                    <span>
+                      <RunScorerButton
+                        variant={BUTTON_VARIANT.RUN}
+                        onClick={handleRunScorer}
+                        loading={false}
+                        disabled={isRunScorerDisabled}
+                      />
+                    </span>
+                  </Tooltip>
+                </div>
+              </>
             )}
-            <Typography.Text size="lg" color="secondary" bold css={{ margin: 0, marginBottom: theme.spacing.xs }}>
-              <FormattedMessage
-                defaultMessage="Run judge on {isTraces, select, true {traces} other {sessions}}"
-                description="Title for running judge on traces or sessions"
-                values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
-              />
-            </Typography.Text>
-            <Typography.Text color="secondary" css={{ margin: 0, marginBottom: theme.spacing.md }}>
-              <FormattedMessage
-                defaultMessage="Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}"
-                description="Description for running judge on traces or sessions"
-                values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
-              />
-            </Typography.Text>
-            <Tooltip
-              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_316"
-              content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
-            >
-              <span>
-                <RunScorerButton
-                  variant={BUTTON_VARIANT.RUN}
-                  onClick={handleRunScorer}
-                  loading={isLoading}
-                  disabled={isRunScorerDisabled}
-                />
-              </span>
-            </Tooltip>
           </div>
         )}
       </div>

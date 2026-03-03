@@ -6,7 +6,7 @@ import {
   encodeTraceIdToBase64,
   decodeIdFromBase64,
   deduplicateSpanNamesInPlace,
-  mapArgsToObject
+  mapArgsToObject,
 } from '../../../src/core/utils';
 import { createTestSpan } from '../../helper';
 import { LiveSpan } from '../../../src/core/entities/span';
@@ -18,18 +18,18 @@ describe('utils', () => {
       {
         description: 'small nanosecond values',
         input: 123456789,
-        expected: [0, 123456789]
+        expected: [0, 123456789],
       },
       {
         description: 'values exactly at 1 second',
         input: 1_000_000_000,
-        expected: [1, 0]
+        expected: [1, 0],
       },
       {
         description: 'zero',
         input: 0,
-        expected: [0, 0]
-      }
+        expected: [0, 0],
+      },
     ])('should convert $description correctly', ({ input, expected }) => {
       const result = convertNanoSecondsToHrTime(input);
       expect(result).toEqual(expected);
@@ -98,7 +98,7 @@ describe('utils', () => {
       ['standard 16-character hex span ID', '0123456789abcdef', 'ASNFZ4mrze8='],
       ['short span IDs with zero padding', 'abc', 'AAAAAAAACrw='],
       ['all zeros', '0000000000000000', 'AAAAAAAAAAA='],
-      ['all F characters', 'ffffffffffffffff', '//////////8=']
+      ['all F characters', 'ffffffffffffffff', '//////////8='],
     ])('should encode %s', (description, spanId, expected) => {
       const result = encodeSpanIdToBase64(spanId);
       expect(result).toBe(expected);
@@ -182,7 +182,7 @@ describe('utils', () => {
         '0123456789abcdef',
         '0000000000000000',
         'ffffffffffffffff',
-        'deadbeef12345678'
+        'deadbeef12345678',
       ];
 
       testSpanIds.forEach((spanId) => {
@@ -197,7 +197,7 @@ describe('utils', () => {
         '0123456789abcdef0123456789abcdef',
         '00000000000000000000000000000000',
         'ffffffffffffffffffffffffffffffff',
-        'deadbeef12345678deadbeef12345678'
+        'deadbeef12345678deadbeef12345678',
       ];
 
       testTraceIds.forEach((traceId) => {
@@ -309,7 +309,7 @@ describe('deduplicateSpanNamesInPlace', () => {
       createTestSpan('red'),
       createTestSpan('green'),
       createTestSpan('blue'),
-      createTestSpan('red')
+      createTestSpan('red'),
     ];
     deduplicateSpanNamesInPlace(spans);
 
@@ -348,25 +348,25 @@ describe('mapArgsToObject', () => {
         return a + b;
       },
       args: [5, 10],
-      expected: { a: 5, b: 10 }
+      expected: { a: 5, b: 10 },
     },
     {
       description: 'arrow functions',
       func: (x: number, y: number) => x * y,
       args: [3, 4],
-      expected: { x: 3, y: 4 }
+      expected: { x: 3, y: 4 },
     },
     {
       description: 'single parameter functions',
       func: (value: number) => value * 2,
       args: [7],
-      expected: { value: 7 }
+      expected: { value: 7 },
     },
     {
       description: 'functions with no parameters',
       func: () => 42,
       args: [],
-      expected: {}
+      expected: {},
     },
     {
       description: 'functions with default parameters',
@@ -374,7 +374,7 @@ describe('mapArgsToObject', () => {
         return greeting + ' ' + name;
       },
       args: ['World'],
-      expected: { name: 'World' }
+      expected: { name: 'World' },
     },
     {
       description: 'functions with type annotations',
@@ -382,7 +382,7 @@ describe('mapArgsToObject', () => {
         return { id, name, active };
       },
       args: [123, 'John', true],
-      expected: { id: 123, name: 'John', active: true }
+      expected: { id: 123, name: 'John', active: true },
     },
     {
       description: 'anonymous functions',
@@ -390,7 +390,7 @@ describe('mapArgsToObject', () => {
         return first + second;
       },
       args: ['hello', 42],
-      expected: { first: 'hello', second: 42 }
+      expected: { first: 'hello', second: 42 },
     },
     {
       description: 'fewer arguments than parameters',
@@ -398,7 +398,7 @@ describe('mapArgsToObject', () => {
         return a + b + c;
       },
       args: [1, 2],
-      expected: { a: 1, b: 2 }
+      expected: { a: 1, b: 2 },
     },
     {
       description: 'more arguments than parameters',
@@ -406,7 +406,7 @@ describe('mapArgsToObject', () => {
         return a + b;
       },
       args: [1, 2, 3, 4],
-      expected: { a: 1, b: 2 }
+      expected: { a: 1, b: 2 },
     },
     {
       description: 'complex argument types (objects, arrays)',
@@ -414,7 +414,7 @@ describe('mapArgsToObject', () => {
         return { obj, arr, str };
       },
       args: [{ key: 'value' }, [1, 2, 3], 'test'],
-      expected: { obj: { key: 'value' }, arr: [1, 2, 3], str: 'test' }
+      expected: { obj: { key: 'value' }, arr: [1, 2, 3], str: 'test' },
     },
     {
       description: 'null and undefined arguments',
@@ -423,7 +423,7 @@ describe('mapArgsToObject', () => {
         return a + b + c;
       },
       args: [null, undefined, 'value'],
-      expected: { a: null, b: undefined, c: 'value' }
+      expected: { a: null, b: undefined, c: 'value' },
     },
     {
       description: 'functions with destructured parameters gracefully',
@@ -431,33 +431,33 @@ describe('mapArgsToObject', () => {
         return prop + normal;
       },
       args: [{ prop: 'value' }, 'normal'],
-      expected: { normal: { prop: 'value' } }
+      expected: { normal: { prop: 'value' } },
     },
     {
       description: 'fallback to args array when parameter extraction fails',
       // eslint-disable-next-line @typescript-eslint/no-implied-eval
       func: new Function('return arguments[0] + arguments[1];'),
       args: [1, 2],
-      expected: { args: [1, 2] }
+      expected: { args: [1, 2] },
     },
     {
       description: 'empty object for no parameters and no arguments',
       func: () => {},
       args: [],
-      expected: {}
+      expected: {},
     },
     {
       description: 'edge case with only whitespace parameters',
       func: () => {},
       args: [],
-      expected: {}
+      expected: {},
     },
     {
       description: 'functions with object destructuring parameters (JS/TS kwarg-only pattern)',
       func: ({ a, b }: { a: number; b: number }) => a + b,
       args: [{ a: 5, b: 10 }],
-      expected: { args: [{ a: 5, b: 10 }] }
-    }
+      expected: { args: [{ a: 5, b: 10 }] },
+    },
   ])('should handle $description', ({ func, args, expected }) => {
     const result = mapArgsToObject(func, args);
     expect(result).toEqual(expected);

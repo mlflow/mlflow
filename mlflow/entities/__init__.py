@@ -21,6 +21,13 @@ from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+    GatewayBudgetPolicy,
+)
 from mlflow.entities.gateway_endpoint import (
     FallbackConfig,
     FallbackStrategy,
@@ -54,6 +61,7 @@ from mlflow.entities.run_outputs import RunOutputs
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.scorer import ScorerVersion
+from mlflow.entities.session import Session
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
@@ -76,6 +84,7 @@ from mlflow.entities.webhook import (
     WebhookStatus,
     WebhookTestResult,
 )
+from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 
 __all__ = [
     "Experiment",
@@ -107,6 +116,7 @@ __all__ = [
     "Trace",
     "TraceData",
     "TraceInfo",
+    "Session",
     "TraceLocation",
     "TraceLocationType",
     "MlflowExperimentLocation",
@@ -135,8 +145,13 @@ __all__ = [
     "DatasetRecordSource",
     "DatasetRecordSourceType",
     "EntityAssociationType",
+    "BudgetAction",
+    "BudgetDurationUnit",
+    "BudgetTargetScope",
+    "BudgetUnit",
     "FallbackConfig",
     "FallbackStrategy",
+    "GatewayBudgetPolicy",
     "GatewayEndpoint",
     "GatewayEndpointBinding",
     "GatewayEndpointModelConfig",
@@ -151,6 +166,8 @@ __all__ = [
     "WebhookEvent",
     "WebhookStatus",
     "WebhookTestResult",
+    "Workspace",
+    "WorkspaceDeletionMode",
 ]
 
 

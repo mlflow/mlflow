@@ -2,13 +2,7 @@
  * MLflow Tracing wrapper for the @google/genai Gemini SDK.
  */
 
-import {
-  withSpan,
-  SpanAttributeKey,
-  SpanType,
-  type TokenUsage,
-  type LiveSpan
-} from 'mlflow-tracing';
+import { withSpan, SpanAttributeKey, SpanType, type TokenUsage, type LiveSpan } from '@mlflow/core';
 
 const SUPPORTED_MODULES = ['models'];
 const SUPPORTED_METHODS = ['generateContent'];
@@ -43,7 +37,7 @@ export function tracedGemini<T = any>(geminiClient: T): T {
       }
 
       return original as T;
-    }
+    },
   });
 
   return tracedClient as T;
@@ -91,7 +85,7 @@ function wrapWithTracing(fn: Function, methodName: string): Function {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       },
-      { name: methodName, spanType }
+      { name: methodName, spanType },
     );
   };
 }
@@ -121,7 +115,7 @@ function extractTokenUsage(response: any): TokenUsage | undefined {
     return {
       input_tokens: input,
       output_tokens: output,
-      total_tokens: total
+      total_tokens: total,
     };
   }
 

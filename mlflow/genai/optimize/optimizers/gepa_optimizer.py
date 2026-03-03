@@ -1,14 +1,24 @@
-import importlib.metadata
+import json
+import logging
+import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from packaging.version import Version
-
+import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import gepa
+
+_logger = logging.getLogger(__name__)
+
+# Artifact path and file name constants
+PROMPT_CANDIDATES_DIR = "prompt_candidates"
+EVAL_RESULTS_FILE = "eval_results.json"
+SCORES_FILE = "scores.json"
 
 
 @experimental(version="3.5.0")
@@ -124,20 +134,40 @@ class GepaPromptOptimizer(BasePromptOptimizer):
         """
         from mlflow.metrics.genai.model_utils import _parse_model_uri
 
+        if not train_data:
+            raise MlflowException.invalid_parameter_value(
+                "GEPA optimizer requires `train_data` to be provided."
+            )
+
         try:
             import gepa
         except ImportError as e:
             raise ImportError(
-                "GEPA is not installed. Please install it with: `pip install gepa`"
+                "GEPA >= 0.0.26 is required. Please install it with: `pip install 'gepa>=0.0.26'`"
             ) from e
 
         provider, model = _parse_model_uri(self.reflection_model)
 
         class MlflowGEPAAdapter(gepa.GEPAAdapter):
-            def __init__(self, eval_function, prompts_dict):
+            """
+            MLflow optimization adapter for GEPA optimization
+
+            Args:
+                eval_function: Function that evaluates candidate prompts on a dataset.
+                prompts_dict: Dictionary mapping prompt names to their templates.
+                tracking_enabled: Whether to log traces/metrics/params/artifacts during
+                    optimization.
+                full_dataset_size: Size of the full training dataset, used to distinguish
+                    full validation passes from minibatch evaluations.
+            """
+
+            def __init__(self, eval_function, prompts_dict, tracking_enabled, full_dataset_size):
                 self.eval_function = eval_function
                 self.prompts_dict = prompts_dict
                 self.prompt_names = list(prompts_dict.keys())
+                self.tracking_enabled = tracking_enabled
+                self.full_dataset_size = full_dataset_size
+                self.validation_iteration = 0
 
             def evaluate(
                 self,
@@ -161,10 +191,103 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 outputs = [result.outputs for result in eval_results]
                 scores = [result.score for result in eval_results]
                 trajectories = eval_results if capture_traces else None
+                objective_scores = [result.individual_scores for result in eval_results]
+
+                # Track validation candidates only during full dataset validation
+                # (not during minibatch evaluation in reflective mutation)
+                is_full_validation = not capture_traces and len(batch) == self.full_dataset_size
+                if is_full_validation and self.tracking_enabled:
+                    self._log_validation_candidate(candidate, eval_results)
 
                 return gepa.EvaluationBatch(
-                    outputs=outputs, scores=scores, trajectories=trajectories
+                    outputs=outputs,
+                    scores=scores,
+                    trajectories=trajectories,
+                    objective_scores=objective_scores if any(objective_scores) else None,
                 )
+
+            def _log_validation_candidate(
+                self,
+                candidate: dict[str, str],
+                eval_results: list[EvaluationResultRecord],
+            ) -> None:
+                """
+                Log validation candidate prompts and scores as MLflow artifacts.
+
+                Args:
+                    candidate: The candidate prompts being validated
+                    eval_results: Evaluation results containing scores
+                """
+                if not self.tracking_enabled:
+                    return
+
+                iteration = self.validation_iteration
+                self.validation_iteration += 1
+
+                # Compute aggregate score across all records
+                aggregate_score = (
+                    sum(r.score for r in eval_results) / len(eval_results) if eval_results else 0.0
+                )
+
+                # Collect all scorer names
+                scorer_names = set()
+                for result in eval_results:
+                    scorer_names |= result.individual_scores.keys()
+
+                # Build the evaluation results table and log to MLflow as a table artifact
+                eval_results_table = {
+                    "inputs": [r.inputs for r in eval_results],
+                    "output": [r.outputs for r in eval_results],
+                    "expectation": [r.expectations for r in eval_results],
+                    "aggregate_score": [r.score for r in eval_results],
+                }
+                for scorer_name in scorer_names:
+                    eval_results_table[scorer_name] = [
+                        r.individual_scores.get(scorer_name) for r in eval_results
+                    ]
+
+                iteration_dir = f"{PROMPT_CANDIDATES_DIR}/iteration_{iteration}"
+                mlflow.log_table(
+                    data=eval_results_table,
+                    artifact_file=f"{iteration_dir}/{EVAL_RESULTS_FILE}",
+                )
+
+                # Compute per-scorer average scores
+                per_scorer_scores = {}
+                for scorer_name in scorer_names:
+                    scores = [
+                        r.individual_scores[scorer_name]
+                        for r in eval_results
+                        if scorer_name in r.individual_scores
+                    ]
+                    if scores:
+                        per_scorer_scores[scorer_name] = sum(scores) / len(scores)
+
+                # Log per-scorer metrics for time progression visualization
+                mlflow.log_metrics(
+                    {"eval_score": aggregate_score}
+                    | {f"eval_score.{name}": score for name, score in per_scorer_scores.items()},
+                    step=iteration,
+                )
+
+                # Log scores summary as JSON artifact
+                scores_data = {
+                    "aggregate": aggregate_score,
+                    "per_scorer": per_scorer_scores,
+                }
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    tmp_path = Path(tmp_dir)
+                    scores_path = tmp_path / SCORES_FILE
+                    with open(scores_path, "w") as f:
+                        json.dump(scores_data, f, indent=2)
+                    mlflow.log_artifact(scores_path, artifact_path=iteration_dir)
+
+                    # Write each prompt as a separate text file
+                    for prompt_name, prompt_text in candidate.items():
+                        prompt_path = tmp_path / f"{prompt_name}.txt"
+                        with open(prompt_path, "w") as f:
+                            f.write(prompt_text)
+                        mlflow.log_artifact(prompt_path, artifact_path=iteration_dir)
 
             def make_reflective_dataset(
                 self,
@@ -221,7 +344,9 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
                 return reflective_datasets
 
-        adapter = MlflowGEPAAdapter(eval_fn, target_prompts)
+        adapter = MlflowGEPAAdapter(
+            eval_fn, target_prompts, enable_tracking, full_dataset_size=len(train_data)
+        )
 
         kwargs = self.gepa_kwargs | {
             "seed_candidate": target_prompts,
@@ -233,20 +358,27 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             "use_mlflow": enable_tracking,
         }
 
-        if Version(importlib.metadata.version("gepa")) < Version("0.0.18"):
-            kwargs.pop("use_mlflow")
         gepa_result = gepa.optimize(**kwargs)
 
         optimized_prompts = gepa_result.best_candidate
-        initial_score, final_score = self._extract_eval_scores(gepa_result)
+        (
+            initial_eval_score,
+            final_eval_score,
+            initial_eval_score_per_scorer,
+            final_eval_score_per_scorer,
+        ) = self._extract_eval_scores(gepa_result)
 
         return PromptOptimizerOutput(
             optimized_prompts=optimized_prompts,
-            initial_eval_score=initial_score,
-            final_eval_score=final_score,
+            initial_eval_score=initial_eval_score,
+            final_eval_score=final_eval_score,
+            initial_eval_score_per_scorer=initial_eval_score_per_scorer,
+            final_eval_score_per_scorer=final_eval_score_per_scorer,
         )
 
-    def _extract_eval_scores(self, result: "gepa.GEPAResult") -> tuple[float | None, float | None]:
+    def _extract_eval_scores(
+        self, result: "gepa.GEPAResult"
+    ) -> tuple[float | None, float | None, dict[str, float], dict[str, float]]:
         """
         Extract initial and final evaluation scores from GEPA result.
 
@@ -254,16 +386,36 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             result: GEPA optimization result
 
         Returns:
-            Tuple of (initial_score, final_score), both can be None if unavailable
+            Tuple of (initial_eval_score, final_eval_score,
+                      initial_eval_score_per_scorer, final_eval_score_per_scorer).
+            Aggregated scores can be None if unavailable.
         """
-        final_score = None
-        initial_score = None
+        final_eval_score = None
+        initial_eval_score = None
+        initial_eval_score_per_scorer: dict[str, float] = {}
+        final_eval_score_per_scorer: dict[str, float] = {}
 
         scores = result.val_aggregate_scores
         if scores and len(scores) > 0:
             # The first score is the initial baseline score
-            initial_score = scores[0]
+            initial_eval_score = scores[0]
             # The highest score is the final optimized score
-            final_score = max(scores)
+            final_eval_score = max(scores)
 
-        return initial_score, final_score
+        # Extract per-scorer scores from val_aggregate_subscores
+        subscores = getattr(result, "val_aggregate_subscores", None)
+        if subscores and len(subscores) > 0:
+            # The first subscore dict is the initial baseline per-scorer scores
+            initial_eval_score_per_scorer = subscores[0] or {}
+            # Find the per-scorer scores corresponding to the best aggregate score
+            if scores and len(scores) > 0:
+                best_idx = scores.index(max(scores))
+                if best_idx < len(subscores) and subscores[best_idx]:
+                    final_eval_score_per_scorer = subscores[best_idx]
+
+        return (
+            initial_eval_score,
+            final_eval_score,
+            initial_eval_score_per_scorer,
+            final_eval_score_per_scorer,
+        )

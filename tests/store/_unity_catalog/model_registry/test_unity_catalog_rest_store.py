@@ -1015,7 +1015,6 @@ def test_create_model_version_succeeds_when_logged_model_not_found(store, local_
                 temp_credentials=aws_temp_creds,
                 storage_location=storage_location,
                 source=source,
-                model_id="nonexistent_model_id",
             ),
         ) as request_mock,
         mock.patch(
@@ -1030,7 +1029,7 @@ def test_create_model_version_succeeds_when_logged_model_not_found(store, local_
             name=model_name,
             source=source,
             version=version,
-            model_id="nonexistent_model_id",
+            model_id=None,
         )
 
 
@@ -1052,7 +1051,7 @@ def test_create_model_version_succeeds_when_logged_model_not_found(store, local_
             ),
             {
                 "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": "key_id",
+                "SSEKMSKeyId": "some:arn:test:key/key_id",
             },
         ),
     ],
@@ -1137,7 +1136,7 @@ def test_create_model_version_with_sse_kms_client(
             ),
             {
                 "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": "key_id",
+                "SSEKMSKeyId": "some:arn:test:key/key_id",
             },
         ),
     ],

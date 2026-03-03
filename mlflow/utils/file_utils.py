@@ -792,8 +792,9 @@ def get_or_create_nfs_tmp_dir():
     else:
         tmp_nfs_dir = tempfile.mkdtemp(dir=nfs_root_dir)
         # mkdtemp creates a directory with permission 0o700
-        # change it to be 0o777 to ensure it can be seen in spark UDF
-        os.chmod(tmp_nfs_dir, 0o777)
+        # For Spark UDFs, we need to make it accessible to other processes
+        # Use 0o750 (owner: rwx, group: r-x, others: None) instead of 0o777
+        os.chmod(tmp_nfs_dir, 0o750)
         atexit.register(shutil.rmtree, tmp_nfs_dir, ignore_errors=True)
 
     return tmp_nfs_dir
@@ -1027,7 +1028,9 @@ def check_tarfile_security(archive_path: str) -> None:
     with tarfile.open(archive_path, "r") as tar:
         symlink_set = set()
         for m in tar.getmembers():
-            path = posixpath.normpath(m.name)
+            # Normalize backslashes to forward slashes before path validation to prevent
+            # bypass on Windows where backslashes are treated as directory separators.
+            path = posixpath.normpath(m.name.replace("\\", "/"))
             if m.issym():
                 symlink_set.add(path)
             else:
@@ -1044,6 +1047,8 @@ def check_tarfile_security(archive_path: str) -> None:
                     )
         for m in tar.getmembers():
             if not m.issym():
+                path = posixpath.normpath(m.name.replace("\\", "/"))
+                path_parts = path.split("/")
                 for prefix_len in range(1, len(path_parts) + 1):
                     prefix_path = "/".join(path_parts[:prefix_len])
                     if prefix_path in symlink_set:

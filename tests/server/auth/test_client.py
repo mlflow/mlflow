@@ -19,6 +19,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.server.auth import auth_config
 from mlflow.server.auth.client import AuthServiceClient
 from mlflow.utils.os import is_windows
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 from tests.server.auth.auth_test_utils import (
@@ -273,6 +274,7 @@ def test_client_create_registered_model_permission(client, monkeypatch):
         rmp = client.create_registered_model_permission(name, username, PERMISSION)
     assert rmp.name == name
     assert rmp.permission == PERMISSION
+    assert rmp.workspace == DEFAULT_WORKSPACE_NAME
 
     with assert_unauthenticated():
         client.create_registered_model_permission(name, username, PERMISSION)
@@ -290,6 +292,7 @@ def test_client_get_registered_model_permission(client, monkeypatch):
         rmp = client.get_registered_model_permission(name, username)
     assert rmp.name == name
     assert rmp.permission == PERMISSION
+    assert rmp.workspace == DEFAULT_WORKSPACE_NAME
 
     with assert_unauthenticated():
         client.get_registered_model_permission(name, username)
@@ -308,6 +311,7 @@ def test_client_update_registered_model_permission(client, monkeypatch):
         rmp = client.get_registered_model_permission(name, username)
     assert rmp.name == name
     assert rmp.permission == NEW_PERMISSION
+    assert rmp.workspace == DEFAULT_WORKSPACE_NAME
 
     with assert_unauthenticated():
         client.update_registered_model_permission(name, username, PERMISSION)
@@ -323,10 +327,14 @@ def test_client_delete_registered_model_permission(client, monkeypatch):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.create_registered_model_permission(name, username, PERMISSION)
         client.delete_registered_model_permission(name, username)
+        expected_message = (
+            "Registered model permission with "
+            f"workspace={DEFAULT_WORKSPACE_NAME}, name={name} "
+            f"and username={username} not found"
+        )
         with pytest.raises(
             MlflowException,
-            match=rf"Registered model permission with name={name} "
-            rf"and username={username} not found",
+            match=expected_message,
         ) as exception_context:
             client.get_registered_model_permission(name, username)
         assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)

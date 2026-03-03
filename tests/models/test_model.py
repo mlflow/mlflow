@@ -24,6 +24,7 @@ from mlflow.models.utils import _read_example, _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
+from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
@@ -287,6 +288,27 @@ def test_model_log_with_databricks_runtime():
 
     loaded_model = Model.load(model.model_uri)
     assert loaded_model.databricks_runtime == dbr_version
+
+
+def test_model_log_with_databricks_runtime_gpu():
+    dbr_version = "client.8.1-gpu"
+    with mlflow.start_run():
+        with mock.patch(
+            "mlflow.models.model.get_databricks_runtime_version", return_value=dbr_version
+        ) as mock_get_dbr_version:
+            model = Model.log("path", TestFlavor, signature=None, input_example=None)
+            mock_get_dbr_version.assert_called()
+
+    # Verify the GPU suffix is preserved in the MLmodel file
+    loaded_model = Model.load(model.model_uri)
+    assert loaded_model.databricks_runtime == dbr_version
+
+    # Verify that the version can be parsed correctly and is_gpu_image is True
+    parsed_version = DatabricksRuntimeVersion.parse(loaded_model.databricks_runtime)
+    assert parsed_version.is_client_image is True
+    assert parsed_version.major == 8
+    assert parsed_version.minor == 1
+    assert parsed_version.is_gpu_image is True
 
 
 def test_model_log_with_input_example_succeeds():

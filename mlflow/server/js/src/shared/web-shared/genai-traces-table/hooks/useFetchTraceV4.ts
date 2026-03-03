@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 
-import { useQuery, useQueryClient, type UseQueryOptions } from '@databricks/web-shared/query-client';
+import { type UseQueryOptions, useQuery, useQueryClient } from '../../query-client/queryClient';
 
-import { type ModelTraceInfoV3, TracesServiceV4 } from '../../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
+import { TracesServiceV4 } from '../../model-trace-explorer/api';
 import type { TraceV3 } from '../types';
 
 const FETCH_TRACE_V4_QUERY_KEY = 'FETCH_TRACE_V4_QUERY_KEY';

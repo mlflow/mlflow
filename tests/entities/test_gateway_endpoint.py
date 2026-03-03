@@ -252,7 +252,7 @@ def test_endpoint_with_multiple_model_mappings():
 def test_endpoint_binding_creation_full():
     binding = GatewayEndpointBinding(
         endpoint_id="endpoint-456",
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="job-789",
         created_at=1234567890000,
         last_updated_at=1234567890000,
@@ -261,7 +261,7 @@ def test_endpoint_binding_creation_full():
     )
 
     assert binding.endpoint_id == "endpoint-456"
-    assert binding.resource_type == GatewayResourceType.SCORER_JOB
+    assert binding.resource_type == GatewayResourceType.SCORER
     assert binding.resource_id == "job-789"
     assert binding.created_at == 1234567890000
     assert binding.last_updated_at == 1234567890000
@@ -272,7 +272,7 @@ def test_endpoint_binding_creation_full():
 def test_endpoint_binding_creation_minimal():
     binding = GatewayEndpointBinding(
         endpoint_id="endpoint-minimal",
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="job-minimal",
         created_at=1234567890000,
         last_updated_at=1234567890000,
@@ -285,27 +285,27 @@ def test_endpoint_binding_creation_minimal():
 def test_endpoint_binding_resource_type_enum():
     binding = GatewayEndpointBinding(
         endpoint_id="endpoint-1",
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="job-enum",
         created_at=1234567890000,
         last_updated_at=1234567890000,
     )
 
-    assert binding.resource_type == GatewayResourceType.SCORER_JOB
-    assert binding.resource_type.value == "scorer_job"
+    assert binding.resource_type == GatewayResourceType.SCORER
+    assert binding.resource_type.value == "scorer"
     assert isinstance(binding.resource_type, GatewayResourceType)
 
 
 def test_resource_type_enum():
-    assert GatewayResourceType.SCORER_JOB == "scorer_job"
-    assert GatewayResourceType.SCORER_JOB.value == "scorer_job"
-    assert isinstance(GatewayResourceType.SCORER_JOB, str)
+    assert GatewayResourceType.SCORER == "scorer"
+    assert GatewayResourceType.SCORER.value == "scorer"
+    assert isinstance(GatewayResourceType.SCORER, str)
 
 
 def test_resource_type_enum_usage():
-    rt = GatewayResourceType.SCORER_JOB
-    assert rt == "scorer_job"
-    assert rt.value == "scorer_job"
+    rt = GatewayResourceType.SCORER
+    assert rt == "scorer"
+    assert rt.value == "scorer"
     assert isinstance(rt, str)
 
 
@@ -388,7 +388,7 @@ def test_endpoint_proto_round_trip():
 def test_endpoint_binding_proto_round_trip():
     binding = GatewayEndpointBinding(
         endpoint_id="endpoint-proto",
-        resource_type=GatewayResourceType.SCORER_JOB,
+        resource_type=GatewayResourceType.SCORER,
         resource_id="job-proto",
         created_at=1234567890000,
         last_updated_at=1234567891000,

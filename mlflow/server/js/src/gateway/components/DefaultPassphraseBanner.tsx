@@ -15,7 +15,7 @@ export const DefaultPassphraseBanner = () => {
   }
 
   return (
-    <div css={{ padding: `0 ${theme.spacing.md}px`, paddingTop: theme.spacing.md }}>
+    <div css={{ padding: `0 ${theme.spacing.md}px`, paddingTop: theme.spacing.md, paddingBottom: theme.spacing.md }}>
       <Alert
         componentId="mlflow.gateway.default-passphrase-warning"
         type="warning"

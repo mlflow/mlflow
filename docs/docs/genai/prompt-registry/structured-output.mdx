@@ -3,6 +3,10 @@ title: Structured Output
 description: Learn how to define structured output schemas for your prompts to ensure consistent and validated responses from language models.
 ---
 
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { PenLine, Code, FlaskConical } from "lucide-react";
+
 # Structured Output
 
 MLflow Prompt Registry supports defining structured output schemas for your prompts, ensuring that language model responses follow a consistent format and can be validated. This feature is particularly useful for applications that need to parse and process model outputs programmatically.
@@ -226,8 +230,26 @@ result = chain.invoke({"question": "What is MLflow?"})
 
 ## Next Steps
 
-- **[Create and Edit Prompts](/genai/prompt-registry/create-and-edit-prompts)** to learn the basics of prompt management
-- **[Use Prompts in Apps](/genai/prompt-registry/use-prompts-in-apps)** to see how to integrate prompts into your applications
-- **[Evaluate Prompts](/genai/prompt-registry/evaluate-prompts)** to learn how to assess prompt performance
-
-Structured output is a powerful feature that can significantly improve the reliability and maintainability of your GenAI applications by ensuring consistent data formats and enabling better integration with downstream systems.
+<TilesGrid>
+  <TileCard
+    icon={PenLine}
+    title="Create and Edit Prompts"
+    description="Learn the basics of prompt management in MLflow"
+    href="/genai/prompt-registry/create-and-edit-prompts"
+    linkText="Manage prompts →"
+  />
+  <TileCard
+    icon={Code}
+    title="Use Prompts in Apps"
+    description="See how to integrate prompts into your applications"
+    href="/genai/prompt-registry/use-prompts-in-apps"
+    linkText="Integrate prompts →"
+  />
+  <TileCard
+    icon={FlaskConical}
+    title="Evaluate Prompts"
+    description="Learn how to assess prompt performance with evaluations"
+    href="/genai/prompt-registry/evaluate-prompts"
+    linkText="Evaluate prompts →"
+  />
+</TilesGrid>

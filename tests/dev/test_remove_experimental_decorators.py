@@ -107,3 +107,30 @@ def regular_func():
     pass
 """
     )
+
+
+def test_script_with_cutoff_days_argument(tmp_path: Path) -> None:
+    test_file = tmp_path / "test.py"
+    test_file.write_text("""
+@experimental(version="1.0.0")
+def func():
+    pass
+""")
+
+    # Test with a very large cutoff (should not remove anything)
+    output = subprocess.check_output(
+        [sys.executable, SCRIPT_PATH, "--cutoff-days", "9999", "--dry-run", test_file], text=True
+    )
+    assert "Would remove" not in output
+
+    # Test with default cutoff (180 days, should remove old decorators)
+    output = subprocess.check_output(
+        [sys.executable, SCRIPT_PATH, "--dry-run", test_file], text=True
+    )
+    assert "Would remove" in output
+
+    # Test with explicit cutoff of 180 days
+    output = subprocess.check_output(
+        [sys.executable, SCRIPT_PATH, "--cutoff-days", "180", "--dry-run", test_file], text=True
+    )
+    assert "Would remove" in output

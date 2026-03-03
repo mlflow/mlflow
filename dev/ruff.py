@@ -3,7 +3,7 @@ import re
 import subprocess
 import sys
 
-RUFF = [sys.executable, "-m", "ruff", "check"]
+RUFF = [sys.executable, "-m", "ruff", "check", "--output-format=concise"]
 MESSAGE_REGEX = re.compile(r"^.+:\d+:\d+: ([A-Z0-9]+) (\[\*\] )?.+$")
 
 
@@ -25,7 +25,7 @@ def transform(stdout: str, is_maintainer: bool) -> str:
     return "\n".join(transformed)
 
 
-def main():
+def main() -> None:
     if "NO_FIX" in os.environ:
         with subprocess.Popen(
             [

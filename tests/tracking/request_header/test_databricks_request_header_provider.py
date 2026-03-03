@@ -56,7 +56,6 @@ def test_databricks_request_header_provider_request_headers(
         mock.patch("mlflow.utils.databricks_utils.get_job_run_id") as job_run_id_mock,
         mock.patch("mlflow.utils.databricks_utils.get_job_type") as job_type_mock,
         mock.patch("mlflow.utils.databricks_utils.get_cluster_id") as cluster_id_mock,
-        mock.patch("mlflow.utils.databricks_utils.get_command_run_id") as command_run_id_mock,
         mock.patch("mlflow.utils.databricks_utils.get_workload_id") as workload_id_mock,
         mock.patch("mlflow.utils.databricks_utils.get_workload_class") as workload_class_mock,
     ):
@@ -80,11 +79,6 @@ def test_databricks_request_header_provider_request_headers(
             assert request_headers["cluster_id"] == cluster_id_mock.return_value
         else:
             assert "cluster_id" not in request_headers
-
-        if command_run_id_mock.return_value is not None:
-            assert request_headers["command_run_id"] == command_run_id_mock.return_value
-        else:
-            assert "command_run_id" not in request_headers
 
         if workload_id_mock.return_value is not None:
             assert request_headers["workload_id"] == workload_id_mock.return_value

@@ -20,6 +20,7 @@ from mlflow.server.jobs import (
     get_job,
 )
 from mlflow.server.jobs.utils import _launch_job_runner
+from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 
 
 def _get_mlflow_repo_home():
@@ -64,6 +65,10 @@ def _setup_job_runner(
         _ALLOWED_JOB_NAME_LIST.clear()
         _ALLOWED_JOB_NAME_LIST.extend(allowed_job_names)
 
+        # Pre-initialize the database before launching the job runner subprocess
+        # to prevent race conditions during concurrent Alembic migrations
+        SqlAlchemyJobStore(backend_store_uri)
+
         with _launch_job_runner_for_test() as job_runner_proc:
             time.sleep(10)
             yield job_runner_proc
@@ -76,6 +81,18 @@ def _setup_job_runner(
             # close all db connections and drops connection pool
             handlers._job_store.engine.dispose()
         handlers._job_store = None
+
+
+def wait_for_process_exit(pid: int, timeout: float = 5) -> None:
+    """Poll until a process is no longer alive, or fail the test."""
+    from mlflow.server.jobs.utils import is_process_alive
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not is_process_alive(pid):
+            return
+        time.sleep(0.1)
+    pytest.fail(f"Process {pid} still alive after {timeout}s")
 
 
 def wait_job_finalize(job_id, timeout=60):

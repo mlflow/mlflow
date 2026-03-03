@@ -1,4 +1,4 @@
-import { create } from '@databricks/web-shared/zustand';
+import { create } from '../../zustand/index';
 
 import type { Assessment } from '../ModelTrace.types';
 

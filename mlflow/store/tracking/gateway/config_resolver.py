@@ -39,7 +39,7 @@ def get_resource_endpoint_configs(
     backends.
 
     Args:
-        resource_type: Type of resource (e.g., "scorer_job").
+        resource_type: Type of resource (e.g., "scorer").
         resource_id: Unique identifier for the resource instance.
         store: Optional SqlAlchemyStore instance. If not provided, the current
             tracking store is used.
@@ -63,7 +63,7 @@ def get_resource_endpoint_configs(
 
     with store.ManagedSessionMaker() as session:
         sql_bindings = (
-            session.query(SqlGatewayEndpointBinding)
+            store._get_query(session, SqlGatewayEndpointBinding)
             .filter(
                 SqlGatewayEndpointBinding.resource_type == resource_type,
                 SqlGatewayEndpointBinding.resource_id == resource_id,
@@ -238,4 +238,5 @@ def get_endpoint_config(
             models=model_configs,
             routing_strategy=endpoint_entity.routing_strategy,
             fallback_config=endpoint_entity.fallback_config,
+            experiment_id=endpoint_entity.experiment_id,
         )

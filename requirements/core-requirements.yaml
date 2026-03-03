@@ -47,7 +47,7 @@ cryptography:
 
 gunicorn:
   pip_release: gunicorn
-  max_major_version: 23
+  max_major_version: 25
   markers: "platform_system != 'Windows'"
 
 waitress:
@@ -59,10 +59,14 @@ scikit-learn:
   pip_release: scikit-learn
   max_major_version: 1
 
+skops:
+  pip_release: skops
+  max_major_version: 0
+
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 22
+  max_major_version: 23
 
 matplotlib:
   pip_release: matplotlib
@@ -74,5 +78,5 @@ graphene:
 
 huey:
   pip_release: huey
-  minimum: "2.5.0"
+  minimum: "2.5.4"
   max_major_version: 2

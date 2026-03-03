@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
 from typing_extensions import Self
@@ -40,7 +40,7 @@ class GitHubClient:
             raise RuntimeError("GitHubClient must be used as async context manager")
         async with self._session.get(endpoint, params=params) as resp:
             resp.raise_for_status()
-            return await resp.json()
+            return cast(dict[str, Any], await resp.json())
 
     async def _get_text(self, endpoint: str, accept: str) -> str:
         if self._session is None:
@@ -75,7 +75,7 @@ class GitHubClient:
             json=payload,
         ) as resp:
             resp.raise_for_status()
-            return await resp.json()
+            return cast(dict[str, Any], await resp.json())
 
     async def get_raw(self, endpoint: str) -> aiohttp.ClientResponse:
         """Get raw response for streaming."""

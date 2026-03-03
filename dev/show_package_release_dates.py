@@ -3,38 +3,47 @@ import json
 import subprocess
 import sys
 import traceback
+from collections.abc import Sequence
 
 import aiohttp
+from pydantic import BaseModel
+
+
+class ReleaseFile(BaseModel):
+    upload_time: str
+
+
+class PyPIResponse(BaseModel):
+    releases: dict[str, list[ReleaseFile]]
 
 
 def get_distributions() -> list[tuple[str, str]]:
-    res = subprocess.check_output(
-        [sys.executable, "-m", "pip", "list", "--format", "json"], text=True
-    )
+    res = subprocess.check_output([sys.executable, "-m", "pip", "list", "--format", "json"])
     return [(pkg["name"], pkg["version"]) for pkg in json.loads(res)]
 
 
-async def get_release_date(session: aiohttp.ClientSession, package: str, version: str) -> str:
+def extract_upload_time(response: PyPIResponse, version: str) -> str | None:
+    for f in response.releases.get(version, []):
+        return f.upload_time.replace("T", " ")
+    return None
+
+
+async def get_release_date(
+    session: aiohttp.ClientSession, package: str, version: str
+) -> str | None:
     try:
         async with session.get(f"https://pypi.python.org/pypi/{package}/json", timeout=10) as resp:
-            if resp.status != 200:
-                return ""
-
+            resp.raise_for_status()
             resp_json = await resp.json()
-            matched = [
-                dist_files for ver, dist_files in resp_json["releases"].items() if ver == version
-            ]
-            if not matched or not matched[0]:
-                return ""
+            response = PyPIResponse.model_validate(resp_json)
+            return extract_upload_time(response, version)
 
-            upload_time = matched[0][0]["upload_time"]
-            return upload_time.replace("T", " ")  # return year-month-day hour:minute:second
     except Exception:
         traceback.print_exc()
-        return ""
+        return None
 
 
-def get_longest_string_length(array: list[str]) -> int:
+def get_longest_string_length(array: Sequence[str]) -> int:
     return len(max(array, key=len))
 
 
@@ -42,8 +51,9 @@ async def main() -> None:
     distributions = get_distributions()
     async with aiohttp.ClientSession() as session:
         tasks = [get_release_date(session, pkg, ver) for pkg, ver in distributions]
-        release_dates = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks)
 
+    release_dates = [r or "" for r in results]
     packages, versions = list(zip(*distributions))
     package_length = get_longest_string_length(packages)
     version_length = get_longest_string_length(versions)

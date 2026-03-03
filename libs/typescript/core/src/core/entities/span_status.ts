@@ -19,7 +19,7 @@ export enum SpanStatusCode {
   /** The operation completed successfully */
   OK = 'STATUS_CODE_OK',
   /** The operation encountered an error */
-  ERROR = 'STATUS_CODE_ERROR'
+  ERROR = 'STATUS_CODE_ERROR',
 }
 
 /**
@@ -69,7 +69,7 @@ export class SpanStatus {
 
     return {
       code: otelStatusCode,
-      message: this.description
+      message: this.description,
     };
   }
 
@@ -102,7 +102,7 @@ export class SpanStatus {
   toJson(): Record<string, string | SpanStatusCode> {
     return {
       status_code: this.statusCode,
-      description: this.description
+      description: this.description,
     };
   }
 }

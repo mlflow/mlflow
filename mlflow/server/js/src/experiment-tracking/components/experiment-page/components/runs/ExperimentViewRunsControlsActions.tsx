@@ -13,6 +13,7 @@ import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPag
 import type { RunInfoEntity } from '../../../../types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { ExperimentViewRunsControlsActionsSelectTags } from './ExperimentViewRunsControlsActionsSelectTags';
+import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 
 export type ExperimentViewRunsControlsActionsProps = {
   viewState: ExperimentPageViewState;
@@ -32,6 +33,9 @@ export const ExperimentViewRunsControlsActions = React.memo(
 
     const navigate = useNavigate();
     const { theme } = useDesignSystemTheme();
+
+    // Register selected runs with the Assistant context
+    useRegisterSelectedIds('selectedRunIds', runsSelected);
 
     const [showDeleteRunModal, setShowDeleteRunModal] = useState(false);
     const [showRestoreRunModal, setShowRestoreRunModal] = useState(false);
@@ -92,7 +96,6 @@ export const ExperimentViewRunsControlsActions = React.memo(
             >
               <FormattedMessage
                 defaultMessage="Delete"
-                // eslint-disable-next-line max-len
                 description="String for the delete button to delete a particular experiment run"
               />
             </Button>
@@ -106,7 +109,6 @@ export const ExperimentViewRunsControlsActions = React.memo(
             >
               <FormattedMessage
                 defaultMessage="Restore"
-                // eslint-disable-next-line max-len
                 description="String for the restore button to undo the experiments that were deleted"
               />
             </Button>
@@ -121,7 +123,6 @@ export const ExperimentViewRunsControlsActions = React.memo(
             >
               <FormattedMessage
                 defaultMessage="Compare"
-                // eslint-disable-next-line max-len
                 description="String for the compare button to compare experiment runs to find an ideal model"
               />
             </Button>

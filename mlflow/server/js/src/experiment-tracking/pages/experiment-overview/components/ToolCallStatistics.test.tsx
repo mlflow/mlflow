@@ -15,6 +15,7 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create a count data point grouped by status
 const createCountByStatusDataPoint = (status: string, count: number) => ({
@@ -39,7 +40,7 @@ describe('ToolCallStatistics', () => {
   const timeBuckets = [startTimeMs, startTimeMs + 3600000, endTimeMs];
 
   const contextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -73,7 +74,7 @@ describe('ToolCallStatistics', () => {
   // Helper to setup MSW handler that returns different responses based on metric_name
   const setupTraceMetricsHandler = (countDataPoints: any[], latencyDataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
         if (body.metric_name === SpanMetricKey.LATENCY) {
           return res(ctx.json({ data_points: latencyDataPoints }));
@@ -92,7 +93,7 @@ describe('ToolCallStatistics', () => {
   describe('loading state', () => {
     it('should render loading skeletons while data is being fetched', () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -233,7 +234,7 @@ describe('ToolCallStatistics', () => {
   describe('error state', () => {
     it('should render error state when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error: 'API Error' }));
         }),
       );
@@ -247,7 +248,7 @@ describe('ToolCallStatistics', () => {
 
     it('should render error state when counts API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           if (body.metric_name === SpanMetricKey.LATENCY) {
             return res(ctx.json({ data_points: [createLatencyDataPoint(100)] }));
@@ -265,7 +266,7 @@ describe('ToolCallStatistics', () => {
 
     it('should render error state when latency API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           if (body.metric_name === SpanMetricKey.LATENCY) {
             return res(ctx.status(500), ctx.json({ error: 'Latency API Error' }));
@@ -287,7 +288,7 @@ describe('ToolCallStatistics', () => {
       let capturedCountsBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           if (body.metric_name === SpanMetricKey.SPAN_COUNT) {
             capturedCountsBody = body;
@@ -316,7 +317,7 @@ describe('ToolCallStatistics', () => {
       let capturedLatencyBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           if (body.metric_name === SpanMetricKey.LATENCY) {
             capturedLatencyBody = body;
@@ -344,7 +345,7 @@ describe('ToolCallStatistics', () => {
       let capturedBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           if (!capturedBody) {
             capturedBody = body;

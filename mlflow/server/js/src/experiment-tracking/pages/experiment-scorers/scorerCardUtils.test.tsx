@@ -14,7 +14,7 @@ describe('scorerCardUtils', () => {
           type: 'llm',
           sampleRate: 75,
           filterString: 'status == "success"',
-          llmTemplate: 'Correctness',
+          llmTemplate: 'Safety',
           guidelines: ['Be objective', 'Consider context', 'Rate consistently'],
         };
 
@@ -23,18 +23,19 @@ describe('scorerCardUtils', () => {
 
         // Assert
         expect(result).toEqual({
-          llmTemplate: 'Correctness',
+          llmTemplate: 'Safety',
           name: 'Test LLM Scorer',
           sampleRate: 75,
           code: '',
           scorerType: 'llm',
           guidelines: 'Be objective\nConsider context\nRate consistently',
-          instructions: TEMPLATE_INSTRUCTIONS_MAP['Correctness'],
+          instructions: TEMPLATE_INSTRUCTIONS_MAP['Safety'],
           filterString: 'status == "success"',
           model: '',
           disableMonitoring: undefined,
           isInstructionsJudge: undefined,
           evaluationScope: ScorerEvaluationScope.TRACES,
+          outputTypeKind: 'default',
         });
       });
 
@@ -90,6 +91,9 @@ describe('scorerCardUtils', () => {
           filterString: '',
           model: '',
           evaluationScope: ScorerEvaluationScope.TRACES,
+          disableMonitoring: undefined,
+          isInstructionsJudge: undefined,
+          outputTypeKind: 'default',
         });
       });
 

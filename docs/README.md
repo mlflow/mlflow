@@ -15,8 +15,8 @@ This README covers information about the main MLflow documentation. The API refe
 
 ## Installation
 
-```
-$ npm install
+```shell
+npm install
 ```
 
 ## Local Development
@@ -25,8 +25,8 @@ $ npm install
 
 2. Run the development server:
 
-```
-$ npm start
+```shell
+npm start
 ```
 
 This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.

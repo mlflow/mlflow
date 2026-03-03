@@ -21,7 +21,7 @@ import { getTableRowByCellText } from '@databricks/design-system/test-utils/rtl'
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
-jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
+jest.setTimeout(60000); // increase timeout due to heavier use of tables, modals and forms
 
 describe('PromptsDetailsPage', () => {
   const server = setupServer(
@@ -104,6 +104,7 @@ describe('PromptsDetailsPage', () => {
 
     await userEvent.click(within(rowForVersion3).getByLabelText('Select as baseline version'));
     await userEvent.click(within(rowForVersion2).getByLabelText('Select as compared version'));
+    await userEvent.click(screen.getByRole('radio', { name: 'Text' }));
 
     // Mocked data contains following content for versions:
     // Version 1: content of prompt version 1

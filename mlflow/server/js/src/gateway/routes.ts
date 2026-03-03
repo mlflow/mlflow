@@ -3,10 +3,13 @@ import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtil
 export enum GatewayPageId {
   gatewayPage = 'mlflow.gateway',
   apiKeysPage = 'mlflow.gateway.api-keys',
+  usagePage = 'mlflow.gateway.usage',
   createEndpointPage = 'mlflow.gateway.create',
   endpointDetailsPage = 'mlflow.gateway.endpoint-details',
 }
 
+// following same pattern as other routes files
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class GatewayRoutePaths {
   static get gatewayPage() {
     return createMLflowRoutePath('/gateway');
@@ -14,6 +17,10 @@ export class GatewayRoutePaths {
 
   static get apiKeysPage() {
     return createMLflowRoutePath('/gateway/api-keys');
+  }
+
+  static get usagePage() {
+    return createMLflowRoutePath('/gateway/usage');
   }
 
   static get createEndpointPage() {
@@ -25,6 +32,8 @@ export class GatewayRoutePaths {
   }
 }
 
+// following same pattern as other routes files
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class GatewayRoutes {
   static get gatewayPageRoute() {
     return GatewayRoutePaths.gatewayPage;
@@ -34,12 +43,26 @@ class GatewayRoutes {
     return GatewayRoutePaths.apiKeysPage;
   }
 
+  static get usagePageRoute() {
+    return GatewayRoutePaths.usagePage;
+  }
+
   static get createEndpointPageRoute() {
     return GatewayRoutePaths.createEndpointPage;
   }
 
-  static getEndpointDetailsRoute(endpointId: string) {
-    return generatePath(GatewayRoutePaths.endpointDetailsPage, { endpointId });
+  static getEndpointDetailsRoute(endpointId: string, options?: { tab?: string; startTime?: string; endTime?: string }) {
+    const path = generatePath(GatewayRoutePaths.endpointDetailsPage, { endpointId });
+    if (!options) return path;
+    const params = new URLSearchParams();
+    if (options.tab) params.set('tab', options.tab);
+    if (options.startTime && options.endTime) {
+      params.set('startTimeLabel', 'CUSTOM');
+      params.set('startTime', options.startTime);
+      params.set('endTime', options.endTime);
+    }
+    const query = params.toString();
+    return query ? `${path}?${query}` : path;
   }
 }
 

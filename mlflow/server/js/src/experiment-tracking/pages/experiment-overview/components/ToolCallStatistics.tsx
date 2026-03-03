@@ -41,19 +41,19 @@ export const ToolCallStatistics: React.FC = () => {
         isLoading={isLoading}
       />
       <StatCard
-        icon={<CheckCircleIcon />}
-        iconColor={theme.colors.green600}
-        iconBgColor={theme.colors.green100}
-        value={`${successRate.toFixed(2)}%`}
-        label={<FormattedMessage defaultMessage="Success Rate" description="Label for success rate statistic" />}
-        isLoading={isLoading}
-      />
-      <StatCard
         icon={<ClockIcon />}
         iconColor={theme.colors.yellow600}
         iconBgColor={theme.colors.yellow100}
         value={formatLatency(avgLatency)}
         label={<FormattedMessage defaultMessage="Avg Latency" description="Label for average latency statistic" />}
+        isLoading={isLoading}
+      />
+      <StatCard
+        icon={<CheckCircleIcon />}
+        iconColor={theme.colors.green600}
+        iconBgColor={theme.colors.green100}
+        value={`${successRate.toFixed(2)}%`}
+        label={<FormattedMessage defaultMessage="Success Rate" description="Label for success rate statistic" />}
         isLoading={isLoading}
       />
       <StatCard

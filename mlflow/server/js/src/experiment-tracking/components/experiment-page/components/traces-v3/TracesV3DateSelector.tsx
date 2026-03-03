@@ -25,25 +25,40 @@ import { isNil } from 'lodash';
 import { RangePicker } from '@databricks/design-system/development';
 import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import { useQueryClient, useIsFetching } from '@databricks/web-shared/query-client';
+import { shouldEnableTracesTableStatePersistence } from '@databricks/web-shared/model-trace-explorer';
 
 export interface DateRange {
   startDate: string;
   endDate: string;
 }
 
+type TracesV3DateSelectorRefreshButtonComponentId =
+  | 'mlflow.experiment-evaluation-monitoring.refresh-date-button'
+  | 'mlflow.experiment.overview.refresh-button';
+
 interface TracesV3DateSelectorProps {
   /** Optional list of time label keys to exclude from the dropdown */
   excludeOptions?: string[];
+  /** Optional custom componentId for the refresh button */
+  refreshButtonComponentId?: TracesV3DateSelectorRefreshButtonComponentId;
 }
 
+const DEFAULT_REFRESH_BUTTON_COMPONENT_ID: TracesV3DateSelectorRefreshButtonComponentId =
+  'mlflow.experiment-evaluation-monitoring.refresh-date-button';
+
 // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-export const TracesV3DateSelector = React.memo(({ excludeOptions }: TracesV3DateSelectorProps) => {
+export const TracesV3DateSelector = React.memo(function TracesV3DateSelector({
+  excludeOptions,
+  refreshButtonComponentId = DEFAULT_REFRESH_BUTTON_COMPONENT_ID,
+}: TracesV3DateSelectorProps) {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const queryClient = useQueryClient();
   const isFetching = useIsFetching({ queryKey: [SEARCH_MLFLOW_TRACES_QUERY_KEY] });
 
-  const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
+  const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters({
+    persist: shouldEnableTracesTableStatePersistence(),
+  });
 
   const namedDateFilters = useMemo(() => {
     const filters = getNamedDateFilters(intl);
@@ -166,11 +181,10 @@ export const TracesV3DateSelector = React.memo(({ excludeOptions }: TracesV3Date
       >
         <Button
           type="link"
-          componentId="mlflow.experiment-evaluation-monitoring.refresh-date-button"
+          componentId={refreshButtonComponentId}
           disabled={Boolean(isFetching)}
           onClick={() => {
             monitoringConfig.refresh();
-            invalidateMlflowSearchTracesCache({ queryClient });
           }}
         >
           <RefreshIcon />

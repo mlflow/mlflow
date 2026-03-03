@@ -22,6 +22,7 @@ class _Trace:
     info: TraceInfo
     span_dict: dict[str, LiveSpan] = field(default_factory=dict)
     prompts: list[PromptVersion] = field(default_factory=list)
+    is_remote_trace: bool = False
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
@@ -47,6 +48,7 @@ class ManagerTrace:
 
     trace: Trace
     prompts: Sequence[PromptVersion]
+    is_remote_trace: bool = False
 
 
 class InMemoryTraceManager:
@@ -73,18 +75,21 @@ class InMemoryTraceManager:
         self._otel_id_to_mlflow_trace_id: dict[int, str] = {}
         self._lock = threading.RLock()  # Lock for _traces
 
-    def register_trace(self, otel_trace_id: int, trace_info: TraceInfo):
+    def register_trace(self, otel_trace_id: int, trace_info: TraceInfo, is_remote_trace=False):
         """
         Register a new trace info object to the in-memory trace registry.
 
         Args:
             otel_trace_id: The OpenTelemetry trace ID for the new trace.
             trace_info: The trace info object to be stored.
+            is_remote_trace: Whether the trace is a remote trace. For a distributed trace, it is
+                registered in both client side and remote server side, for remote server side
+                registration, the 'is_remote_trace' flag is set to True.
         """
         # Check for a new timeout setting whenever a new trace is created.
         self._check_timeout_update()
         with self._lock:
-            self._traces[trace_info.trace_id] = _Trace(trace_info)
+            self._traces[trace_info.trace_id] = _Trace(trace_info, is_remote_trace=is_remote_trace)
             self._otel_id_to_mlflow_trace_id[otel_trace_id] = trace_info.trace_id
 
     def register_span(self, span: LiveSpan):
@@ -181,7 +186,9 @@ class InMemoryTraceManager:
             if internal_trace is None:
                 return None
             return ManagerTrace(
-                trace=internal_trace.to_mlflow_trace(), prompts=internal_trace.prompts
+                trace=internal_trace.to_mlflow_trace(),
+                prompts=internal_trace.prompts,
+                is_remote_trace=internal_trace.is_remote_trace,
             )
 
     def _check_timeout_update(self):

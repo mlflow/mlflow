@@ -1,12 +1,15 @@
 import { useMemo, useCallback } from 'react';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
+import type { ChartZoomState } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, useTimestampValueMap, useChartZoom } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface RequestsChartDataPoint {
   name: string;
   count: number;
+  /** Raw timestamp in milliseconds for navigation */
+  timestampMs: number;
 }
 
 export interface UseTraceRequestsChartDataResult {
@@ -14,7 +17,7 @@ export interface UseTraceRequestsChartDataResult {
   chartData: RequestsChartDataPoint[];
   /** Total number of requests in the time range */
   totalRequests: number;
-  /** Average requests per time bucket */
+  /** Average requests per time bucket (uses zoomed range if zoomed) */
   avgRequests: number;
   /** Whether data is currently being fetched */
   isLoading: boolean;
@@ -22,6 +25,8 @@ export interface UseTraceRequestsChartDataResult {
   error: unknown;
   /** Whether there are any data points */
   hasData: boolean;
+  /** Zoom state and handlers */
+  zoom: ChartZoomState<RequestsChartDataPoint>;
 }
 
 /**
@@ -32,20 +37,22 @@ export interface UseTraceRequestsChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
+    useOverviewChartContext();
   // Fetch trace count metrics grouped by time bucket
   const {
     data: traceCountData,
     isLoading,
     error,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.TRACE_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     timeIntervalSeconds,
+    filters,
   });
 
   const traceCountDataPoints = useMemo(() => traceCountData?.data_points || [], [traceCountData?.data_points]);
@@ -71,15 +78,28 @@ export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
     return timeBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       count: countByTimestamp.get(timestampMs) || 0,
+      timestampMs,
     }));
   }, [timeBuckets, countByTimestamp, timeIntervalSeconds]);
+
+  // Zoom functionality
+  const zoom = useChartZoom(chartData, 'name');
+
+  // Calculate average for zoomed data when zoomed, otherwise use overall average
+  const displayAvgRequests = useMemo(() => {
+    if (!zoom.isZoomed) return avgRequests;
+    if (zoom.zoomedData.length === 0) return 0;
+    const total = zoom.zoomedData.reduce((sum, d) => sum + d.count, 0);
+    return total / zoom.zoomedData.length;
+  }, [zoom.isZoomed, zoom.zoomedData, avgRequests]);
 
   return {
     chartData,
     totalRequests,
-    avgRequests,
+    avgRequests: displayAvgRequests,
     isLoading,
     error,
     hasData: traceCountDataPoints.length > 0,
+    zoom,
   };
 }

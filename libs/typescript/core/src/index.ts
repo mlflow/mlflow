@@ -5,7 +5,7 @@ import {
   updateCurrentTrace,
   startSpan,
   trace,
-  withSpan
+  withSpan,
 } from './core/api';
 import { flushTraces } from './core/provider';
 import { MlflowClient } from './clients';
@@ -19,7 +19,7 @@ export {
   startSpan,
   trace,
   withSpan,
-  MlflowClient
+  MlflowClient,
 };
 
 // Export entities

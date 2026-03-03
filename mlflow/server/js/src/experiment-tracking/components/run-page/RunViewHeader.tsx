@@ -10,11 +10,13 @@ import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelBu
 import type { UseGetRunQueryResponseExperiment, UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
 import type { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { Button, Icon, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, Icon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { useNavigate } from '../../../common/utils/RoutingUtils';
 import { RunIcon } from './assets/RunIcon';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { EXPERIMENT_KIND_TAG_KEY } from '../../utils/ExperimentKindUtils';
-import { useMemo } from 'react';
+import { useExperimentKind, isGenAIExperimentKind } from '../../utils/ExperimentKindUtils';
+import { useCallback, useMemo } from 'react';
+import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 const RunViewHeaderIcon = () => {
   const { theme } = useDesignSystemTheme();
   return (
@@ -66,13 +68,13 @@ export const RunViewHeader = ({
   isLoading?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const experimentKind = useExperimentKind(experiment.tags);
 
   const shouldRouteToEvaluations = useMemo(() => {
-    const isGenAIExperiment =
-      experiment.tags?.find((tag) => tag.key === EXPERIMENT_KIND_TAG_KEY)?.value === ExperimentKind.GENAI_DEVELOPMENT;
+    const isGenAIExperiment = experimentKind ? isGenAIExperimentKind(experimentKind) : false;
     const hasModelOutputs = runOutputs && runOutputs.modelOutputs ? runOutputs.modelOutputs.length > 0 : false;
     return isGenAIExperiment && !hasModelOutputs;
-  }, [experiment, runOutputs]);
+  }, [experimentKind, runOutputs]);
 
   const experimentPageTabRoute = Routes.getExperimentPageTabRoute(
     experiment.experimentId ?? '',
@@ -84,7 +86,6 @@ export const RunViewHeader = ({
       <Link to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}>
         <FormattedMessage
           defaultMessage="Displaying Runs from {numExperiments} Experiments"
-          // eslint-disable-next-line max-len
           description="Breadcrumb nav item to link to the compare-experiments page on compare runs page"
           values={{
             numExperiments: comparedExperimentIds.length,
@@ -117,6 +118,39 @@ export const RunViewHeader = ({
     );
   }
 
+  const navigate = useNavigate();
+
+  const handleCompareClick = useCallback(() => {
+    const evaluationRunsRoute = Routes.getExperimentPageTabRoute(
+      experiment.experimentId ?? '',
+      ExperimentPageTabName.EvaluationRuns,
+    );
+    const searchParams = new URLSearchParams({ selectedRunUuid: runUuid });
+    navigate(`${evaluationRunsRoute}?${searchParams.toString()}`);
+  }, [navigate, experiment.experimentId, runUuid]);
+
+  // Compare button - only enabled when feature flag is on
+  const renderCompareButton = () => {
+    if (!shouldEnableImprovedEvalRunsComparison() || !shouldRouteToEvaluations) {
+      return null;
+    }
+    return (
+      <Tooltip
+        componentId="mlflow.run-view.compare-button.tooltip"
+        content={
+          <FormattedMessage
+            defaultMessage="Compare this run with other evaluation runs"
+            description="Tooltip for the compare button on the run detail page"
+          />
+        }
+      >
+        <Button componentId="mlflow.run-view.compare-button" onClick={handleCompareClick}>
+          <FormattedMessage defaultMessage="Compare" description="Compare button on run detail page" />
+        </Button>
+      </Tooltip>
+    );
+  };
+
   const renderRegisterModelButton = () => {
     return (
       <RunViewHeaderRegisterModelButton
@@ -141,6 +175,8 @@ export const RunViewHeader = ({
         breadcrumbs={breadcrumbs}
         /* prettier-ignore */
       >
+        {renderCompareButton()}
+        {renderRegisterModelButton()}
         <OverflowMenu
           menu={[
             {
@@ -163,8 +199,6 @@ export const RunViewHeader = ({
               : []),
           ]}
         />
-
-        {renderRegisterModelButton()}
       </PageHeader>
       <RunViewModeSwitch runTags={runTags} />
     </div>

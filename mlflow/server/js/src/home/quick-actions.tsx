@@ -1,4 +1,4 @@
-import { BeakerIcon, ModelsIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
+import { BeakerIcon, CloudModelIcon, ModelsIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import type { HomeQuickActionDefinition } from './types';
 
@@ -68,5 +68,18 @@ export const homeQuickActions: HomeQuickActionDefinition[] = [
       />
     ),
     link: 'https://mlflow.org/docs/latest/genai/prompt-registry/',
+  },
+  {
+    id: 'gateway',
+    icon: CloudModelIcon,
+    componentId: 'mlflow.home.quick_action.gateway',
+    title: <FormattedMessage defaultMessage="AI Gateway" description="Home page quick action title for AI Gateway" />,
+    description: (
+      <FormattedMessage
+        defaultMessage="Unified interface for accessing multiple LLM providers."
+        description="Home page quick action description for AI Gateway"
+      />
+    ),
+    link: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/',
   },
 ];

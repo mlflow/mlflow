@@ -48,7 +48,7 @@ Evaluating traces is also a useful trick for offline evaluation. Instead of runn
 First, install the required packages by running the following command:
 
 ```bash
-pip install --upgrade mlflow>=3.3 openai
+pip install --upgrade 'mlflow[genai]>=3.3' openai
 ```
 
 MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
@@ -271,8 +271,9 @@ Using the <APILink fn="mlflow.log_feedback" /> API, you can record end-user feed
 
 ```python
 # Decorate the endpoint with MLflow tracing
-@mlflow.trace(span_type="LLM")
+# Framework route decorator should be outermost, @mlflow.trace should be inner
 @app.post("/chat", response_model=ChatResponse)
+@mlflow.trace(span_type="LLM")
 async def chat(request: ChatRequest):
     """
     Chat endpoint that answers user questions and returns response with MLflow trace ID.

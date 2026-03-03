@@ -3,7 +3,7 @@ import argparse
 from packaging.version import Version
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--version", help="Release version to validate, e.g., '1.2.3'", required=True
@@ -11,7 +11,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
     version = Version(args.version)
     msg = (

@@ -42,6 +42,7 @@ import { setModelVersionAliasesApi } from '../../../model-registry/actions';
 import { ExperimentPageTabName } from '../../constants';
 import { PromptFilteredTracesView } from './components/PromptFilteredTracesView';
 import { ForkHorizontalIcon } from '@databricks/design-system';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -99,9 +100,14 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
     setTracesMode,
     switchSides,
     viewState,
+    selectedVersion,
     setSelectedVersion,
     setComparedVersion,
   } = usePromptDetailsPageViewState(promptDetailsData);
+
+  useRegisterAssistantContext('promptName', promptName);
+  useRegisterAssistantContext('promptVersion', selectedVersion);
+  useRegisterAssistantContext('comparedPromptVersion', viewState.comparedVersion);
 
   const { mode } = viewState;
 
@@ -112,9 +118,7 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
     !isEmptyVersions &&
     [PromptVersionsTableMode.PREVIEW, PromptVersionsTableMode.COMPARE, PromptVersionsTableMode.TRACES].includes(mode);
 
-  const selectedVersionEntity = promptDetailsData?.versions.find(
-    ({ version }) => version === viewState.selectedVersion,
-  );
+  const selectedVersionEntity = promptDetailsData?.versions.find(({ version }) => version === selectedVersion);
 
   const comparedVersionEntity = promptDetailsData?.versions.find(
     ({ version }) => version === viewState.comparedVersion,
@@ -261,7 +265,7 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
             isLoading={isLoading}
             registeredPrompt={promptDetailsData?.prompt}
             promptVersions={promptDetailsData?.versions}
-            selectedVersion={viewState.selectedVersion}
+            selectedVersion={selectedVersion}
             comparedVersion={viewState.comparedVersion}
             showEditAliasesModal={showEditAliasesModal}
             aliasesByVersion={aliasesByVersion}

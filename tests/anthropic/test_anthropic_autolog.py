@@ -10,7 +10,8 @@ from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 
 import mlflow.anthropic
 from mlflow.entities.span import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -173,7 +174,7 @@ def _call_anthropic(request: dict[str, Any], mock_response: Message, is_async: b
             return client.messages.create(**request)
 
 
-def test_messages_autolog(is_async):
+def test_messages_autolog(is_async, mock_litellm_cost):
     mlflow.anthropic.autolog()
 
     _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
@@ -190,6 +191,8 @@ def test_messages_autolog(is_async):
     span.outputs["usage"] = {
         key: span.outputs["usage"][key] for key in ["input_tokens", "output_tokens"]
     }
+    # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
+    span.outputs.pop("container", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -197,7 +200,16 @@ def test_messages_autolog(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 10,
@@ -258,6 +270,7 @@ def test_messages_autolog_multi_modal(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     assert traces[0].info.token_usage == {
@@ -267,7 +280,7 @@ def test_messages_autolog_multi_modal(is_async):
     }
 
 
-def test_messages_autolog_tool_calling(is_async):
+def test_messages_autolog_tool_calling(is_async, mock_litellm_cost):
     mlflow.anthropic.autolog()
 
     _call_anthropic(
@@ -283,6 +296,14 @@ def test_messages_autolog_tool_calling(is_async):
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(exclude_unset=False)
+
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
 
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
@@ -331,6 +352,7 @@ def test_messages_autolog_tool_calling(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
 
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
@@ -342,7 +364,7 @@ def test_messages_autolog_tool_calling(is_async):
 
 
 @pytest.mark.skipif(not _is_thinking_supported, reason="Thinking block is not supported")
-def test_messages_autolog_with_thinking(is_async):
+def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     mlflow.anthropic.autolog()
 
     _call_anthropic(
@@ -363,6 +385,8 @@ def test_messages_autolog_with_thinking(is_async):
     span.outputs["usage"] = {
         key: span.outputs["usage"][key] for key in ["input_tokens", "output_tokens"]
     }
+    # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
+    span.outputs.pop("container", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -370,10 +394,65 @@ def test_messages_autolog_with_thinking(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 10,
         "output_tokens": 18,
         "total_tokens": 28,
+    }
+
+
+DUMMY_CREATE_MESSAGE_WITH_CACHE_RESPONSE = Message(
+    id="test_id",
+    content=[TextBlock(text="cached answer", type="text", citations=None)],
+    model="test_model",
+    role="assistant",
+    stop_reason="end_turn",
+    stop_sequence=None,
+    type="message",
+    usage=Usage(
+        input_tokens=50,
+        output_tokens=20,
+        cache_creation_input_tokens=15,
+        cache_read_input_tokens=25,
+    ),
+)
+
+
+def test_messages_autolog_with_cached_tokens(is_async, mock_litellm_cost):
+    mlflow.anthropic.autolog()
+
+    _call_anthropic(
+        DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_WITH_CACHE_RESPONSE, is_async
+    )
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
+    }
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
     }

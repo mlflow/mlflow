@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Button, PageWrapper, Spacer, ParagraphSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { PredefinedError } from '@databricks/web-shared/errors';
 import invariant from 'invariant';
-import { useNavigate, useParams, Outlet, matchPath, useLocation } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useParams, Outlet, useLocation, matchPath } from '../../../common/utils/RoutingUtils';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { useExperimentReduxStoreCompat } from '../../hooks/useExperimentReduxStoreCompat';
 import { ExperimentPageHeaderWithDescription } from '../../components/experiment-page/components/ExperimentPageHeaderWithDescription';
@@ -11,10 +11,12 @@ import { ExperimentKind, ExperimentPageTabName } from '../../constants';
 import {
   shouldEnableExperimentPageSideTabs,
   shouldEnableExperimentOverviewTab,
+  shouldEnableWorkflowBasedNavigation,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { useIsFileStore } from '../../hooks/useServerInfo';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
-import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
+import { useExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useInferExperimentKind } from '../../components/experiment-page/hooks/useInferExperimentKind';
 import { ExperimentViewInferredKindModal } from '../../components/experiment-page/components/header/ExperimentViewInferredKindModal';
 import Routes, { RoutePaths } from '../../routes';
@@ -27,6 +29,7 @@ const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
+  const isFileStore = useIsFileStore();
 
   const { tabName: activeTabByRoute } = useGetExperimentPageActiveTabByRoute();
   const activeTab = activeTabByRoute ?? coerceToEnum(ExperimentPageTabName, tabName, ExperimentPageTabName.Models);
@@ -60,9 +63,11 @@ const ExperimentPageTabsImpl = () => {
   const experimentTags = experiment && 'tags' in experiment ? experiment?.tags : [];
   const canUpdateExperimentKind = true;
 
-  const experimentKind = getExperimentKindFromTags(experimentTags);
+  const experimentKind = useExperimentKind(experimentTags);
   // We won't try to infer the experiment kind if it's already set, but we also wait for experiment to load
   const isExperimentKindInferenceEnabled = Boolean(experiment && !experimentKind);
+  const shouldShowExperimentPageSideTabs = shouldEnableExperimentPageSideTabs();
+  const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 
   const {
     inferredExperimentKind,
@@ -79,10 +84,13 @@ const ExperimentPageTabsImpl = () => {
 
   // Check if the user landed on the experiment page without a specific tab (sub-route)...
   const { pathname } = useLocation();
+  // With query param-based workspace routing, pathname no longer contains workspace prefix
   const matchedExperimentPageWithoutTab = Boolean(matchPath(RoutePaths.experimentPage, pathname));
-  // ...if true, we want to navigate to the appropriate tab based on the experiment kind
+  // ...if true, we want to navigate to the appropriate tab based on the experiment kind.
+  // However, if experiment kind inference is enabled (no kind tag exists), we should
+  // let the inference process handle navigation instead to avoid race conditions.
   useNavigateToExperimentPageTab({
-    enabled: matchedExperimentPageWithoutTab,
+    enabled: matchedExperimentPageWithoutTab && !isExperimentKindInferenceEnabled,
     experimentId,
   });
 
@@ -98,7 +106,11 @@ const ExperimentPageTabsImpl = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experimentId, inferredExperimentPageTab]);
 
-  if (inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE && canUpdateExperimentKind) {
+  if (
+    !enableWorkflowBasedNavigation &&
+    inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE &&
+    canUpdateExperimentKind
+  ) {
     return (
       <ExperimentViewInferredKindModal
         onConfirm={(kind) => {
@@ -108,10 +120,12 @@ const ExperimentPageTabsImpl = () => {
               onSettled: () => {
                 dismiss();
                 if (kind === ExperimentKind.GENAI_DEVELOPMENT) {
-                  // If the experiment kind is GENAI_DEVELOPMENT, navigate to Overview tab if enabled, otherwise Traces
-                  const targetTab = shouldEnableExperimentOverviewTab()
-                    ? ExperimentPageTabName.Overview
-                    : ExperimentPageTabName.Traces;
+                  // If the experiment kind is GENAI_DEVELOPMENT, navigate to Overview tab if enabled
+                  // and not using FileStore backend, otherwise Traces
+                  const targetTab =
+                    shouldEnableExperimentOverviewTab() && isFileStore === false
+                      ? ExperimentPageTabName.Overview
+                      : ExperimentPageTabName.Traces;
                   navigate(Routes.getExperimentPageTabRoute(experimentId, targetTab), {
                     replace: true,
                   });
@@ -139,6 +153,15 @@ const ExperimentPageTabsImpl = () => {
     </React.Suspense>
   );
 
+  const contentWrapperCss = {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    padding: theme.spacing.sm,
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+  };
+
   return (
     <>
       <ExperimentPageHeaderWithDescription
@@ -149,23 +172,25 @@ const ExperimentPageTabsImpl = () => {
         inferredExperimentKind={inferredExperimentKind}
         refetchExperiment={refetchExperiment}
         experimentKindSelector={
-          <ExperimentViewHeaderKindSelector
-            value={experimentKind}
-            inferredExperimentKind={inferredExperimentKind}
-            onChange={(kind) => updateExperimentKind({ experimentId, kind })}
-            isUpdating={updatingExperimentKind || inferringExperimentType}
-            key={inferredExperimentKind}
-            readOnly={!canUpdateExperimentKind}
-          />
+          !enableWorkflowBasedNavigation ? (
+            <ExperimentViewHeaderKindSelector
+              value={experimentKind}
+              inferredExperimentKind={inferredExperimentKind}
+              onChange={(kind) => updateExperimentKind({ experimentId, kind })}
+              isUpdating={updatingExperimentKind || inferringExperimentType}
+              key={inferredExperimentKind}
+              readOnly={!canUpdateExperimentKind}
+            />
+          ) : null
         }
       />
-      {!shouldEnableExperimentPageSideTabs() && (
+      {!shouldShowExperimentPageSideTabs && (
         <>
           <ExperimentPageSubTabSelector experimentId={experimentId} activeTab={activeTab} />
           <Spacer size="sm" shrinks={false} />
         </>
       )}
-      {shouldEnableExperimentPageSideTabs() ? (
+      {shouldShowExperimentPageSideTabs && !enableWorkflowBasedNavigation ? (
         <div css={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}>
           {loadingExperiment || inferringExperimentType ? (
             <ExperimentPageSideNavSkeleton />
@@ -175,21 +200,10 @@ const ExperimentPageTabsImpl = () => {
               activeTab={activeTab}
             />
           )}
-          <div
-            css={{
-              display: 'flex',
-              flexDirection: 'column',
-              padding: theme.spacing.sm,
-              flex: 1,
-              minWidth: 0,
-              minHeight: 0,
-            }}
-          >
-            {outletComponent}
-          </div>
+          <div css={contentWrapperCss}>{outletComponent}</div>
         </div>
       ) : (
-        outletComponent
+        <div css={contentWrapperCss}>{outletComponent}</div>
       )}
     </>
   );

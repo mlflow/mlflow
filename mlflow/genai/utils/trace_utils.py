@@ -20,6 +20,7 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.genai.utils.prompts.available_tools_extraction import (
@@ -191,6 +192,15 @@ def _get_exception_from_span(span: Span) -> str | None:
     return exception_type
 
 
+def _extract_tool_name_from_span(span: Span) -> str:
+    inputs = span.attributes.get(SpanAttributeKey.INPUTS)
+    if isinstance(inputs, dict):
+        call_data = inputs.get("call")
+        if isinstance(call_data, dict) and "tool_name" in call_data:
+            return call_data["tool_name"]
+    return span.name
+
+
 def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
     """
     Extract tool call information from TOOL type spans in a trace.
@@ -218,7 +228,7 @@ def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
 
     for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
         tool_info = FunctionCall(
-            name=tool_span.name,
+            name=_extract_tool_name_from_span(tool_span),
             arguments=tool_span.inputs or None,
             outputs=tool_span.outputs or None,
             exception=_get_exception_from_span(tool_span),
@@ -503,7 +513,7 @@ def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Cal
             f"{MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT.get()} seconds."
         )
         predict_fn = _wrap_async_predict_fn(predict_fn)
-    if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get():
+    if not MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION.get() and sample_input:
         with (
             NoOpTracerPatcher() as counter,
             # Enable auto-tracing before checking if the predict_fn produces traces, so that
@@ -699,7 +709,9 @@ def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[
 
     for retrieval_span in top_level_retrieval_spans:
         try:
-            contexts = [_parse_chunk(chunk) for chunk in retrieval_span.outputs or []]
+            outputs = retrieval_span.outputs
+            outputs = json.loads(outputs) if isinstance(outputs, str) else outputs
+            contexts = [_parse_chunk(chunk) for chunk in outputs or []]
             retrieved[retrieval_span.span_id] = [c for c in contexts if c is not None]
         except Exception as e:
             _logger.debug(
@@ -760,7 +772,11 @@ def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     return doc
 
 
-def clean_up_extra_traces(traces: list[Trace], eval_start_time: int) -> list[Trace]:
+def clean_up_extra_traces(
+    traces: list[Trace],
+    eval_start_time: int,
+    input_trace_ids: set[str] | None = None,
+) -> list[Trace]:
     """
     Clean up noisy traces generated outside predict function.
 
@@ -772,6 +788,8 @@ def clean_up_extra_traces(traces: list[Trace], eval_start_time: int) -> list[Tra
     Args:
         traces: List of traces to clean up.
         eval_start_time: The start time of the evaluation run.
+        input_trace_ids: Set of trace IDs that were passed in the input DataFrame.
+            These traces should never be deleted.
 
     Returns:
         List of traces that are kept after cleaning up extra traces.
@@ -782,7 +800,7 @@ def clean_up_extra_traces(traces: list[Trace], eval_start_time: int) -> list[Tra
         extra_trace_ids = [
             trace.info.trace_id
             for trace in traces
-            if not _should_keep_trace(trace, eval_start_time)
+            if not _should_keep_trace(trace, eval_start_time, input_trace_ids)
         ]
         if extra_trace_ids:
             _logger.debug(
@@ -806,7 +824,15 @@ def clean_up_extra_traces(traces: list[Trace], eval_start_time: int) -> list[Tra
         )
 
 
-def _should_keep_trace(trace: Trace, eval_start_time: int) -> bool:
+def _should_keep_trace(
+    trace: Trace,
+    eval_start_time: int,
+    input_trace_ids: set[str] | None = None,
+) -> bool:
+    # Never delete traces that were explicitly passed in the input DataFrame.
+    if input_trace_ids and trace.info.trace_id in input_trace_ids:
+        return True
+
     # We should not delete traces that are generated before the evaluation run started.
     if trace.info.timestamp_ms < eval_start_time:
         return True
@@ -1097,9 +1123,7 @@ def _try_extract_available_tools_with_llm(
     """
     if model is None:
         if is_databricks_uri(mlflow.get_tracking_uri()):
-            # TODO: Add support for Databricks tool extraction with LLM fallback.
-            _logger.warning("Databricks is not supported for tool extraction with LLM fallback.")
-            return []
+            model = _DATABRICKS_DEFAULT_JUDGE_MODEL
         else:
             model = "openai:/gpt-4.1-mini"
 

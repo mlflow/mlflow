@@ -78,9 +78,7 @@ class TelemetryClient {
     });
   }
 
-  /**
-   * Log a telemetry event
-   */
+  // Log a telemetry event
   public async logEvent(record: any): Promise<void> {
     const isReady = await this.ready;
     if (!isReady || !this.port) {
@@ -108,6 +106,8 @@ class TelemetryClient {
         componentType: record.componentType,
         componentSubType: record.componentSubType,
         eventType: record.eventType,
+        // Include value for events, this only happens when valueHasNoPii=true
+        ...(record.value !== undefined && { value: String(record.value) }),
       },
     };
 

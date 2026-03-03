@@ -42,7 +42,7 @@ import { useMarkdownConverter } from '../utils/MarkdownUtils';
 
 export const isAssessmentPassing = (
   assessmentInfo: AssessmentInfo,
-  assessmentValue?: string | number | boolean | null,
+  assessmentValue?: string | number | boolean | string[] | null,
 ) => {
   if (!isNil(assessmentValue)) {
     if (assessmentInfo.dtype === 'pass-fail') {

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { fetchAPI, getAjaxUrl } from '../utils/FetchUtils';
-import { QueryFunctionContext, useQuery, UseQueryOptions } from '../utils/reactQueryHooks';
+import type { QueryFunctionContext, UseQueryOptions } from '../utils/reactQueryHooks';
+import { useQuery } from '../utils/reactQueryHooks';
 
 const GET_JOB_DATA_QUERY_KEY = 'GET_TRACKING_SERVER_JOB_STATUS';
 

@@ -278,11 +278,17 @@ export function NavigableCombobox<T = string>({
 
   setInputValueRef.current = comboboxState.setInputValue;
 
+  // Sync the input display text when the external `value` prop changes.
+  // This is needed because `initialInputValue` only sets the value on mount,
+  // so we need to update the displayed text when the value is changed externally
+  // (e.g., when the parent resets the form or updates the selection programmatically).
+  // We use a ref for setInputValue to avoid including it in the dependency array.
+  const isOpen = comboboxState.isOpen;
   useEffect(() => {
-    if (!comboboxState.isOpen) {
-      comboboxState.setInputValue(selectedDisplayName);
+    if (!isOpen) {
+      setInputValueRef.current?.(selectedDisplayName);
     }
-  }, [selectedDisplayName, comboboxState]);
+  }, [selectedDisplayName, isOpen]);
 
   const handleNavigate = useCallback((targetViewId: string, e: React.MouseEvent) => {
     e.preventDefault();

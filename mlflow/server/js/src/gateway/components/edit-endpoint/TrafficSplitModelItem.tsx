@@ -39,6 +39,9 @@ export const TrafficSplitModelItem = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [isExpanded, setIsExpanded] = useState(!model.provider && !model.modelName);
+  const [localWeightInput, setLocalWeightInput] = useState<string | null>(null);
+
+  const weightInputValue = localWeightInput ?? (model.weight === 0 ? '' : String(model.weight));
 
   const { existingSecrets, isLoadingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } =
     useApiKeyConfiguration({
@@ -70,13 +73,13 @@ export const TrafficSplitModelItem = ({
         padding: theme.spacing.md,
         border: `2px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusMd,
-        backgroundColor: theme.colors.white,
+        backgroundColor: theme.colors.backgroundPrimary,
       }}
     >
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flex: 1 }}>
           <Button
-            componentId={`${componentIdPrefix}.expand.${index}`}
+            componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_TrafficSplitModelItem.tsx_79"
             icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
             onClick={() => setIsExpanded(!isExpanded)}
             size="small"
@@ -98,14 +101,14 @@ export const TrafficSplitModelItem = ({
           )}
         </div>
         <Tooltip
-          componentId={`${componentIdPrefix}.remove-tooltip.${index}`}
+          componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_TrafficSplitModelItem.tsx_101"
           content={intl.formatMessage({
             defaultMessage: 'Remove model',
             description: 'Tooltip for remove traffic split model button',
           })}
         >
           <Button
-            componentId={`${componentIdPrefix}.remove.${index}`}
+            componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_TrafficSplitModelItem.tsx_108"
             icon={<TrashIcon />}
             onClick={() => onRemove(index)}
           />
@@ -158,12 +161,16 @@ export const TrafficSplitModelItem = ({
             </FormUI.Label>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
               <GatewayInput
-                componentId={`${componentIdPrefix}.weight.${index}`}
+                componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_TrafficSplitModelItem.tsx_161"
                 type="number"
-                min={1}
+                min={0}
                 max={100}
-                value={model.weight}
-                onChange={(e) => onWeightChange(index, parseInt(e.target.value, 10) || 0)}
+                value={weightInputValue}
+                onChange={(e) => {
+                  setLocalWeightInput(e.target.value);
+                  const parsed = parseInt(e.target.value, 10);
+                  onWeightChange(index, Number.isNaN(parsed) ? 0 : parsed);
+                }}
                 css={{ width: '100%' }}
               />
               <span css={{ color: theme.colors.textSecondary }}>%</span>

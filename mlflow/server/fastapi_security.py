@@ -13,6 +13,7 @@ from mlflow.server.security_utils import (
     CORS_BLOCKED_MSG,
     HEALTH_ENDPOINTS,
     INVALID_HOST_MSG,
+    LOCALHOST_ORIGIN_PATTERNS,
     get_allowed_hosts_from_env,
     get_allowed_origins_from_env,
     get_default_allowed_hosts,
@@ -175,10 +176,13 @@ def init_fastapi_security(app: FastAPI) -> None:
             expose_headers=["*"],
         )
     else:
+        # Use CORSBlockingMiddleware for blocking CORS requests on the server side,
+        # and CORSMiddleware for responding to OPTIONS requests.
         app.add_middleware(CORSBlockingMiddleware, allowed_origins=allowed_origins)
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
+            allow_origins=allowed_origins,
+            allow_origin_regex="|".join(LOCALHOST_ORIGIN_PATTERNS),
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
             allow_headers=["*"],

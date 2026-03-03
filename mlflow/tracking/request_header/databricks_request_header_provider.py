@@ -25,9 +25,6 @@ class DatabricksRequestHeaderProvider(RequestHeaderProvider):
             request_headers["job_type"] = databricks_utils.get_job_type()
         if databricks_utils.is_in_cluster():
             request_headers["cluster_id"] = databricks_utils.get_cluster_id()
-        command_run_id = databricks_utils.get_command_run_id()
-        if command_run_id is not None:
-            request_headers["command_run_id"] = command_run_id
         workload_id = databricks_utils.get_workload_id()
         workload_class = databricks_utils.get_workload_class()
         if workload_id is not None:

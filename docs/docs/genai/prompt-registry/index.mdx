@@ -8,10 +8,13 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import { GitBranch, Tag, LineChart, Users } from "lucide-react";
+import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
 
 # Prompt Registry
 
 **MLflow Prompt Registry** is a powerful tool that streamlines prompt engineering and management in your Generative AI (GenAI) applications. It enables you to version, track, and reuse prompts across your organization, helping maintain consistency and improving collaboration in prompt development.
+
+<GenAIDemoCard />
 
 ## Key Benefits
 
@@ -268,6 +271,42 @@ chat_template = [
     {"role": "user", "content": "{{ question }}"},
 ]
 ```
+
+#### Jinja2 Prompts
+
+For advanced templating needs, MLflow supports [Jinja2](https://jinja.palletsprojects.com/) templates with conditionals, loops, and filters. Jinja2 prompts are automatically detected when the template contains control flow syntax (`{% %}`):
+
+```python
+import mlflow
+
+# Jinja2 template with conditionals and loops
+jinja_template = """\
+Hello {% if name %}{{ name }}{% else %}Guest{% endif %}!
+
+{% if items %}
+Here are your items:
+{% for item in items %}
+- {{ item }}
+{% endfor %}
+{% endif %}
+"""
+
+# Register the Jinja2 prompt
+prompt = mlflow.genai.register_prompt(
+    name="greeting-prompt",
+    template=jinja_template,
+)
+
+# Format with variables
+result = prompt.format(name="Alice", items=["Book", "Pen", "Notebook"])
+```
+
+:::note
+
+- Templates with only `{{ variable }}` syntax are treated as **text prompts** and use simple string substitution
+- Templates containing `{% %}` control flow syntax are treated as **Jinja2 prompts** and support the full Jinja2 feature set
+- Jinja2 rendering uses `SandboxedEnvironment` by default for security. Pass `use_jinja_sandbox=False` to `format()` if you need unrestricted Jinja2 features
+  :::
 
 ### Response Format
 

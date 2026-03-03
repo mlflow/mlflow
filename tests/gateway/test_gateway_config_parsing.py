@@ -7,6 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AnthropicConfig,
     EndpointConfig,
+    LiteLLMConfig,
     OpenAIConfig,
     _load_gateway_config,
     _resolve_api_key_from_input,
@@ -87,6 +88,9 @@ def test_api_key_parsing_env(tmp_path, monkeypatch):
 
     assert _resolve_api_key_from_input(string_key) == string_key
 
+    # File-based resolution requires the flag to be enabled
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
+
     conf_path = tmp_path.joinpath("mykey.conf")
     file_key = "Here is my key that sits safely in a file"
 
@@ -99,7 +103,8 @@ def test_api_key_input_exceeding_maximum_filename_length():
     assert _resolve_api_key_from_input("a" * 256) == "a" * 256
 
 
-def test_api_key_parsing_file(tmp_path):
+def test_api_key_parsing_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
     key_path = tmp_path.joinpath("api.key")
     config = {
         "endpoints": [
@@ -183,7 +188,7 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
     routes = [r.to_endpoint() for r in loaded.endpoints]
 
     for config in loaded.endpoints:
-        route = [x for x in routes if x.name == config.name][0]
+        route = next(x for x in routes if x.name == config.name)
         assert route.endpoint_type == config.endpoint_type
         assert route.model.name == config.model.name
         assert route.model.provider == config.model.provider
@@ -422,3 +427,17 @@ def test_duplicate_routes_in_config(tmp_path):
         MlflowException, match="Duplicate names found in endpoint / route configurations"
     ):
         _load_gateway_config(conf_path)
+
+
+def test_litellm_config_removes_auth_mode():
+    config = LiteLLMConfig(
+        litellm_provider="bedrock",
+        litellm_auth_config={
+            "auth_mode": "access_keys",
+            "aws_region_name": "us-west-2",
+            "api_key": "test-key",
+        },
+    )
+    assert "auth_mode" not in config.litellm_auth_config
+    assert config.litellm_auth_config["aws_region_name"] == "us-west-2"
+    assert config.litellm_auth_config["api_key"] == "test-key"

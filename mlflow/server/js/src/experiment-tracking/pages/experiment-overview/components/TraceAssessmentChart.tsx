@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { CheckCircleIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import {
@@ -20,10 +20,20 @@ import {
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
-  useChartTooltipStyle,
+  ScrollableTooltip,
   useChartXAxisProps,
-  useChartLegendFormatter,
+  useChartYAxisProps,
+  useScrollableLegendProps,
+  DEFAULT_CHART_CONTENT_HEIGHT,
+  getTracesFilteredUrl,
+  getTracesFilteredByTimeRangeUrl,
+  createAssessmentExistsFilter,
+  createAssessmentEqualsFilter,
 } from './OverviewChartComponents';
+import { getLineDotStyle } from '../utils/chartUtils';
+import { useOverviewChartContext } from '../OverviewChartContext';
+import { useMonitoringFilters } from '../../../hooks/useMonitoringFilters';
+import { useNavigate } from '../../../../common/utils/RoutingUtils';
 
 /** Local component for chart panel with label */
 const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElement }> = ({ label, children }) => {
@@ -33,7 +43,7 @@ const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElemen
       <Typography.Text color="secondary" size="sm">
         {label}
       </Typography.Text>
-      <div css={{ height: 200, marginTop: theme.spacing.sm }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         <ResponsiveContainer width="100%" height="100%">
           {children}
         </ResponsiveContainer>
@@ -47,18 +57,78 @@ export interface TraceAssessmentChartProps {
   assessmentName: string;
   /** Optional color for the line chart. Defaults to green. */
   lineColor?: string;
-  /** Optional pre-computed average value (to avoid redundant queries) */
+  /** Optional pre-computed average value (to avoid redundant queries). If undefined, moving average chart is hidden. */
   avgValue?: number;
 }
 
 export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ assessmentName, lineColor, avgValue }) => {
   const { theme } = useDesignSystemTheme();
-  const tooltipStyle = useChartTooltipStyle();
   const xAxisProps = useChartXAxisProps();
-  const legendFormatter = useChartLegendFormatter();
+  const yAxisProps = useChartYAxisProps();
+  const scrollableLegendProps = useScrollableLegendProps();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
+  const [monitoringFilters] = useMonitoringFilters();
+  const navigate = useNavigate();
 
   // Use provided color or default to green
   const chartLineColor = lineColor || theme.colors.green500;
+
+  const distributionTooltipFormatter = useCallback((value: number) => [value, 'count'] as [number, string], []);
+
+  // Handle click on tooltip link to navigate to traces filtered by this assessment score
+  const handleViewTraces = useCallback(
+    (scoreValue: string | undefined) => {
+      if (!scoreValue) return;
+      const url = getTracesFilteredUrl(experimentIds[0], monitoringFilters, [
+        createAssessmentEqualsFilter(assessmentName, scoreValue),
+      ]);
+      navigate(url);
+    },
+    [experimentIds, assessmentName, monitoringFilters, navigate],
+  );
+
+  const timeSeriestooltipFormatter = useCallback(
+    (value: number) => [value.toFixed(2), assessmentName] as [string, string],
+    [assessmentName],
+  );
+
+  // Handle click on time series tooltip link to navigate to traces filtered by time AND assessment exists
+  const handleViewTimeSeriesTraces = useCallback(
+    (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
+      if (dataPoint?.timestampMs === undefined) return;
+      const url = getTracesFilteredByTimeRangeUrl(experimentIds[0], dataPoint.timestampMs, timeIntervalSeconds, [
+        createAssessmentExistsFilter(assessmentName),
+      ]);
+      navigate(url);
+    },
+    [experimentIds, timeIntervalSeconds, assessmentName, navigate],
+  );
+
+  const timeSeriestooltipContent = (
+    <ScrollableTooltip
+      formatter={timeSeriestooltipFormatter}
+      linkConfig={{
+        componentId: 'mlflow.overview.quality.assessment_timeseries.view_traces_link',
+        onLinkClick: handleViewTimeSeriesTraces,
+      }}
+    />
+  );
+
+  const distributionTooltipContent = (
+    <ScrollableTooltip
+      formatter={distributionTooltipFormatter}
+      linkConfig={{
+        componentId: 'mlflow.overview.quality.assessment.view_traces_link',
+        linkText: (
+          <FormattedMessage
+            defaultMessage="View traces with this score"
+            description="Link text to navigate to traces filtered by assessment score"
+          />
+        ),
+        onLinkClick: handleViewTraces,
+      }}
+    />
+  );
 
   // Fetch and process all chart data using the custom hook
   const { timeSeriesChartData, distributionChartData, isLoading, error, hasData } =
@@ -94,9 +164,9 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
         }
       />
 
-      {/* Two charts side by side */}
+      {/* Charts side by side: distribution always shown, moving average only for numeric assessments */}
       <div css={{ display: 'flex', gap: theme.spacing.lg, marginTop: theme.spacing.sm }}>
-        {/* Left: Distribution bar chart */}
+        {/* Left: Distribution bar chart (always shown) */}
         <ChartPanel
           label={
             <FormattedMessage
@@ -105,47 +175,45 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
             />
           }
         >
-          <BarChart data={distributionChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-            <XAxis dataKey="name" {...xAxisProps} />
-            <YAxis allowDecimals={false} {...xAxisProps} />
+          <BarChart data={distributionChartData} layout="vertical" margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+            <XAxis type="number" allowDecimals={false} {...xAxisProps} />
+            <YAxis type="category" dataKey="name" {...yAxisProps} width={60} />
             <Tooltip
-              contentStyle={tooltipStyle}
+              content={distributionTooltipContent}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [value, 'count']}
             />
-            <Legend formatter={legendFormatter} />
-            <Bar dataKey="count" fill={chartLineColor} radius={[4, 4, 0, 0]} />
+            <Legend {...scrollableLegendProps} />
+            <Bar dataKey="count" fill={chartLineColor} radius={[0, 4, 4, 0]} />
           </BarChart>
         </ChartPanel>
 
-        {/* Right: Time series line chart */}
-        <ChartPanel
-          label={
-            <FormattedMessage
-              defaultMessage="Moving average over time"
-              description="Label for assessment score over time chart"
-            />
-          }
-        >
-          <LineChart data={timeSeriesChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-            <XAxis dataKey="name" {...xAxisProps} />
-            <YAxis hide />
-            <Tooltip
-              contentStyle={tooltipStyle}
-              cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
-              formatter={(value: number) => [value.toFixed(2), assessmentName]}
-            />
-            <Legend formatter={legendFormatter} />
-            <Line
-              type="monotone"
-              dataKey="value"
-              name={assessmentName}
-              stroke={chartLineColor}
-              strokeWidth={2}
-              dot={false}
-              legendType="plainline"
-            />
-            {avgValue !== undefined && (
+        {/* Right: Time series line chart (only for numeric assessments with avgValue) */}
+        {avgValue !== undefined && (
+          <ChartPanel
+            label={
+              <FormattedMessage
+                defaultMessage="Moving average over time"
+                description="Label for assessment score over time chart"
+              />
+            }
+          >
+            <LineChart data={timeSeriesChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+              <XAxis dataKey="name" {...xAxisProps} />
+              <YAxis {...yAxisProps} />
+              <Tooltip
+                content={timeSeriestooltipContent}
+                cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+              />
+              <Legend {...scrollableLegendProps} />
+              <Line
+                type="monotone"
+                dataKey="value"
+                name={assessmentName}
+                stroke={chartLineColor}
+                strokeWidth={2}
+                dot={getLineDotStyle(chartLineColor)}
+                legendType="plainline"
+              />
               <ReferenceLine
                 y={avgValue}
                 stroke={theme.colors.textSecondary}
@@ -157,9 +225,9 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
                   fontSize: 10,
                 }}
               />
-            )}
-          </LineChart>
-        </ChartPanel>
+            </LineChart>
+          </ChartPanel>
+        )}
       </div>
     </OverviewChartContainer>
   );

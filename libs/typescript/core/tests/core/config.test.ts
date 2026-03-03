@@ -27,7 +27,7 @@ describe('Config', () => {
         process.env.MLFLOW_EXPERIMENT_ID = 'env-experiment-id';
 
         expect(() => init({ experimentId: 'config-experiment-id' })).toThrow(
-          'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable'
+          'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable',
         );
       });
 
@@ -35,7 +35,7 @@ describe('Config', () => {
         process.env.MLFLOW_TRACKING_URI = 'http://env-tracking-host:5000';
 
         expect(() => init({ trackingUri: 'http://explicit-host:5000' })).toThrow(
-          'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable'
+          'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable',
         );
       });
     });
@@ -43,7 +43,7 @@ describe('Config', () => {
     it('should initialize with MLflow tracking server configuration', () => {
       const config = {
         trackingUri: 'http://localhost:5000',
-        experimentId: '123456789'
+        experimentId: '123456789',
       };
 
       init(config);
@@ -57,29 +57,29 @@ describe('Config', () => {
     it('should throw error if trackingUri is missing', () => {
       const config = {
         trackingUri: '',
-        experimentId: '123456789'
+        experimentId: '123456789',
       };
 
       expect(() => init(config)).toThrow(
-        'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable'
+        'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable',
       );
     });
 
     it('should throw error if experimentId is missing', () => {
       const config = {
         trackingUri: 'http://localhost:5000',
-        experimentId: ''
+        experimentId: '',
       };
 
       expect(() => init(config)).toThrow(
-        'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable'
+        'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable',
       );
     });
 
     it('should throw error if trackingUri is not a string', () => {
       const config = {
         trackingUri: 123 as any,
-        experimentId: '123456789'
+        experimentId: '123456789',
       };
 
       expect(() => init(config)).toThrow('trackingUri must be a string');
@@ -88,7 +88,7 @@ describe('Config', () => {
     it('should throw error if experimentId is not a string', () => {
       const config = {
         trackingUri: 'http://localhost:5000',
-        experimentId: 123 as any
+        experimentId: 123 as any,
       };
 
       expect(() => init(config)).toThrow('experimentId must be a string');
@@ -97,18 +97,18 @@ describe('Config', () => {
     it('should throw error for malformed trackingUri', () => {
       const config = {
         trackingUri: 'not-a-valid-uri',
-        experimentId: '123456789'
+        experimentId: '123456789',
       };
 
       expect(() => init(config)).toThrow(
-        "Invalid trackingUri: 'not-a-valid-uri'. Must be a valid HTTP or HTTPS URL, or 'databricks' / 'databricks://<profile>'."
+        "Invalid trackingUri: 'not-a-valid-uri'. Must be a valid HTTP or HTTPS URL, or 'databricks' / 'databricks://<profile>'.",
       );
     });
 
     it.skip('should throw error if getConfig is called without init', () => {
       // Skip this test as it interferes with other tests due to module state
       expect(() => getConfig()).toThrow(
-        'The MLflow Tracing client is not configured. Please call init() with host and experimentId before using tracing functions.'
+        'The MLflow Tracing client is not configured. Please call init() with host and experimentId before using tracing functions.',
       );
     });
 
@@ -130,7 +130,7 @@ describe('Config', () => {
         const config = {
           trackingUri: 'databricks',
           experimentId: '123456789',
-          databricksConfigPath: '/nonexistent/path/.databrickscfg'
+          databricksConfigPath: '/nonexistent/path/.databrickscfg',
         };
 
         expect(() => init(config)).toThrow('Databricks host not found');
@@ -146,7 +146,7 @@ token = dapi123456789abcdef`;
         const config = {
           trackingUri: 'databricks',
           experimentId: '123456789',
-          databricksConfigPath: configPath
+          databricksConfigPath: configPath,
         };
 
         init(config);
@@ -169,7 +169,7 @@ token = dev-token`;
         const config = {
           trackingUri: 'databricks://dev',
           experimentId: '123456789',
-          databricksConfigPath: configPath
+          databricksConfigPath: configPath,
         };
 
         init(config);
@@ -184,7 +184,7 @@ token = dev-token`;
 
         const config = {
           trackingUri: 'databricks',
-          experimentId: '123456789'
+          experimentId: '123456789',
         };
 
         init(config);
@@ -202,7 +202,7 @@ token = dev-token`;
           trackingUri: 'databricks',
           experimentId: '123456789',
           host: 'https://override-workspace.databricks.com',
-          databricksToken: 'override-token'
+          databricksToken: 'override-token',
         };
 
         init(config);
@@ -224,7 +224,7 @@ token = dapi123456789abcdef`;
         const config = {
           trackingUri: 'databricks',
           experimentId: '123456789',
-          databricksConfigPath: configPath
+          databricksConfigPath: configPath,
         };
 
         init(config);
@@ -244,7 +244,7 @@ token = dapi123456789abcdef`;
         const config = {
           trackingUri: 'databricks://',
           experimentId: '123456789',
-          databricksConfigPath: configPath
+          databricksConfigPath: configPath,
         };
 
         init(config);

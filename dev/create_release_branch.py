@@ -5,7 +5,7 @@ import subprocess
 from packaging.version import Version
 
 
-def main(new_version: str, remote: str, dry_run=False):
+def main(new_version: str, remote: str, dry_run: bool = False) -> None:
     version = Version(new_version)
     release_branch = f"branch-{version.major}.{version.minor}"
     exists_on_remote = (

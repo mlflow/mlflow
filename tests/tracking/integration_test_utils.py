@@ -129,7 +129,7 @@ class ServerThread(Thread):
         self.port = port
         self.url = f"http://{self.host}:{port}"
         self.health_url = f"{self.url}/health"
-        config = uvicorn.Config(app, host=self.host, port=self.port, log_level="error")
+        config = uvicorn.Config(app, host=self.host, port=self.port, log_level="error", ws="none")
         self.server = uvicorn.Server(config)
 
     def run(self) -> None:

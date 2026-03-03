@@ -6,7 +6,7 @@ import type {
   ModelTraceSpanNode,
   RawModelTraceChatMessage,
 } from './ModelTrace.types';
-import { ModelSpanType } from './ModelTrace.types';
+import { ModelSpanType, type ModelTraceSpanV3 } from './ModelTrace.types';
 import {
   MOCK_CHAT_SPAN,
   MOCK_CHAT_TOOL_CALL_SPAN,
@@ -21,7 +21,6 @@ import {
   MOCK_TRACE_INFO_V3,
   MOCK_V3_SPANS,
   MOCK_V3_TRACE,
-  MOCK_ASSESSMENT,
 } from './ModelTraceExplorer.test-utils';
 import {
   parseModelTraceToTree,
@@ -40,6 +39,7 @@ import {
   decodeSpanId,
   getDefaultActiveTab,
   getTotalTokens,
+  getTraceCost,
   convertOtelAttributesToMap,
   isSessionLevelAssessment,
 } from './ModelTraceExplorer.utils';
@@ -161,110 +161,6 @@ describe('parseTraceToTree', () => {
     expect(rootNode?.children?.[0].key).toBe('child1');
     expect(rootNode?.children?.[1].key).toBe('child2');
     expect(rootNode?.children?.[2].key).toBe('child3');
-  });
-});
-
-describe('parseModelTraceToTreeWithMultipleRoots', () => {
-  it('should return empty array if the trace has no spans', () => {
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots({
-      ...MOCK_V3_TRACE,
-      data: {
-        spans: [],
-      },
-    });
-
-    expect(rootNodes).toEqual([]);
-  });
-
-  it('should return a single root node for a complete trace', () => {
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
-
-    expect(rootNodes).toHaveLength(1);
-    expect(rootNodes[0]).toEqual(
-      expect.objectContaining({
-        key: 'a96bcf7b57a48b3d',
-        children: [
-          expect.objectContaining({
-            key: '31323334',
-            children: [
-              expect.objectContaining({
-                key: '3132333435',
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
-  });
-
-  it('should return multiple root nodes for in-progress traces with multiple top-level spans', () => {
-    // Simulate an in-progress trace where root span hasn't been emitted yet
-    const inProgressTrace = {
-      ...MOCK_V3_TRACE,
-      data: {
-        spans: [
-          // Two spans without parent_span_id - simulating multiple roots
-          {
-            ...MOCK_V3_SPANS[1],
-            parent_span_id: '',
-          },
-          {
-            ...MOCK_V3_SPANS[2],
-            parent_span_id: '',
-          },
-        ],
-      },
-    };
-
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots(inProgressTrace);
-
-    expect(rootNodes).toHaveLength(2);
-    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: '31323334' }));
-    expect(rootNodes[1]).toEqual(expect.objectContaining({ key: '3132333435' }));
-  });
-
-  it('should treat orphaned spans as top-level nodes', () => {
-    const traceWithOrphan = {
-      ...MOCK_V3_TRACE,
-      data: {
-        spans: [
-          MOCK_V3_SPANS[0],
-          {
-            ...MOCK_V3_SPANS[1],
-            parent_span_id: 'bm9uLWV4aXN0ZW50',
-          },
-        ],
-      },
-    };
-
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots(traceWithOrphan);
-
-    expect(rootNodes).toHaveLength(2);
-    expect(rootNodes[0].key).toBe('a96bcf7b57a48b3d');
-    expect(rootNodes[1].key).toBe('31323334');
-  });
-
-  it('should handle traces with only the root span', () => {
-    const singleSpanTrace = {
-      ...MOCK_V3_TRACE,
-      data: { spans: [MOCK_V3_SPANS[0]] },
-    };
-
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots(singleSpanTrace);
-
-    expect(rootNodes).toHaveLength(1);
-    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: 'a96bcf7b57a48b3d' }));
-  });
-
-  it('should calculate span times relative to global start time', () => {
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
-
-    expect(rootNodes[0].start).toBe(0);
-    expect(rootNodes[0].end).toBeGreaterThan(0);
-
-    const childSpan = rootNodes[0].children?.[0];
-    expect(childSpan?.start).toBe(0);
-    expect(childSpan?.end).toBeGreaterThan(0);
   });
 });
 
@@ -543,6 +439,51 @@ describe('normalizeConversation', () => {
       normalizeConversation({ messages: [{ role: 'assistant', tool_calls: [{ id: 'hello', type: 'yay' }] }] }),
     ).toBeNull();
   });
+
+  it('normalizes OpenAI Responses API output without explicit messageFormat', () => {
+    const responsesOutput = {
+      object: 'response',
+      output: [
+        {
+          type: 'function_call',
+          id: 'fc_1',
+          call_id: 'call_1',
+          name: 'my_tool',
+          arguments: '{"key": "value"}',
+        },
+        {
+          type: 'function_call_output',
+          call_id: 'call_1',
+          output: 'tool result',
+        },
+        {
+          type: 'message',
+          id: 'msg_1',
+          content: [{ type: 'output_text', text: 'Hello from assistant' }],
+          role: 'assistant',
+        },
+      ],
+    };
+
+    const result = normalizeConversation(responsesOutput);
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(3);
+    expect(result![0]).toEqual(
+      expect.objectContaining({
+        role: 'assistant',
+        tool_calls: [
+          expect.objectContaining({
+            id: 'call_1',
+            function: expect.objectContaining({ name: 'my_tool' }),
+          }),
+        ],
+      }),
+    );
+    expect(result![1]).toEqual(
+      expect.objectContaining({ role: 'tool', tool_call_id: 'call_1', content: 'tool result' }),
+    );
+    expect(result![2]).toEqual(expect.objectContaining({ role: 'assistant', content: 'Hello from assistant' }));
+  });
 });
 
 describe('isModelTraceChatTool', () => {
@@ -809,6 +750,59 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.children?.[1].key).toBe('child3');
     expect(normalized.children?.[2].key).toBe('child1');
   });
+
+  it('should extract model name from mlflow.llm.model attribute', () => {
+    const spanWithModel: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.model': 'gpt-4o-mini',
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithModel, 0, 0, [], {}, '');
+    expect(normalized.modelName).toBe('gpt-4o-mini');
+  });
+
+  it('should extract cost from mlflow.llm.cost attribute', () => {
+    const spanWithCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.cost': JSON.stringify({
+          input_cost: 0.001,
+          output_cost: 0.002,
+          total_cost: 0.003,
+        }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toEqual({
+      input_cost: 0.001,
+      output_cost: 0.002,
+      total_cost: 0.003,
+    });
+  });
+
+  it('should return undefined cost when mlflow.llm.cost is malformed', () => {
+    const spanWithMalformedCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.cost': JSON.stringify({ invalid: 'format' }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithMalformedCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toBeUndefined();
+  });
+
+  it('should return undefined model and cost when attributes are not present', () => {
+    const normalized = normalizeNewSpanData(MOCK_V3_SPANS[0], 0, 0, [], {}, '');
+    expect(normalized.modelName).toBeUndefined();
+    expect(normalized.cost).toBeUndefined();
+  });
 });
 
 describe('isRawModelTraceChatMessage', () => {
@@ -996,6 +990,14 @@ describe('isModelTrace', () => {
 });
 
 describe('getDefaultActiveTab', () => {
+  it('should return events if the node has exception events', () => {
+    const spanWithException: ModelTraceSpanNode = {
+      ...MOCK_CHAT_SPAN,
+      events: [{ name: 'exception', timestamp: 0, attributes: {} }],
+    };
+    expect(getDefaultActiveTab(spanWithException)).toBe('events');
+  });
+
   it('should return chat if the node has chat messages', () => {
     expect(getDefaultActiveTab(MOCK_CHAT_SPAN)).toBe('chat');
   });
@@ -1058,6 +1060,57 @@ describe('getTotalTokens', () => {
     expect(
       getTotalTokens({ ...MOCK_TRACE_INFO_V3, trace_metadata: { 'mlflow.trace.tokenUsage': 'invalid' } }),
     ).toBeNull();
+  });
+});
+
+describe('getTraceCost', () => {
+  it('should return the cost breakdown from the trace metadata', () => {
+    const traceInfoWithCost = {
+      ...MOCK_TRACE_INFO_V3,
+      trace_metadata: {
+        ...MOCK_TRACE_INFO_V3.trace_metadata,
+        'mlflow.trace.cost': '{"input_cost": 0.001, "output_cost": 0.002, "total_cost": 0.003}',
+      },
+    };
+    expect(getTraceCost(traceInfoWithCost)).toEqual({
+      input_cost: 0.001,
+      output_cost: 0.002,
+      total_cost: 0.003,
+    });
+  });
+
+  it('should return empty object if cost metadata is not present', () => {
+    expect(getTraceCost(MOCK_TRACE_INFO_V3)).toEqual({});
+  });
+
+  it('should return empty object if trace metadata is not present', () => {
+    expect(getTraceCost({ ...MOCK_TRACE_INFO_V3, trace_metadata: undefined })).toEqual({});
+  });
+
+  it('should return undefined if cost metadata is invalid JSON', () => {
+    const traceInfoWithInvalidCost = {
+      ...MOCK_TRACE_INFO_V3,
+      trace_metadata: {
+        ...MOCK_TRACE_INFO_V3.trace_metadata,
+        'mlflow.trace.cost': 'invalid',
+      },
+    };
+    expect(getTraceCost(traceInfoWithInvalidCost)).toBeUndefined();
+  });
+
+  it('should handle cost metadata with very small values', () => {
+    const traceInfoWithSmallCost = {
+      ...MOCK_TRACE_INFO_V3,
+      trace_metadata: {
+        ...MOCK_TRACE_INFO_V3.trace_metadata,
+        'mlflow.trace.cost': '{"input_cost": 0.000022, "output_cost": 0.000028, "total_cost": 0.00005}',
+      },
+    };
+    expect(getTraceCost(traceInfoWithSmallCost)).toEqual({
+      input_cost: 0.000022,
+      output_cost: 0.000028,
+      total_cost: 0.00005,
+    });
   });
 });
 

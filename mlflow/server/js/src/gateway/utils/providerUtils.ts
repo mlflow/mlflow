@@ -7,25 +7,17 @@ export interface ProviderGroup {
   providers: string[];
 }
 
-export const PROVIDER_GROUPS: Record<string, Omit<ProviderGroup, 'providers'>> = {
+export const PROVIDER_GROUPS = {
   openai_azure: {
     groupId: 'openai_azure',
     displayName: 'OpenAI / Azure OpenAI',
     defaultProvider: 'openai',
-  },
-  vertex_ai: {
-    groupId: 'vertex_ai',
-    displayName: 'Google Vertex AI',
-    defaultProvider: 'vertex_ai',
   },
 };
 
 export function getProviderGroupId(provider: string): string | null {
   if (provider === 'openai' || provider === 'azure') {
     return 'openai_azure';
-  }
-  if (provider === 'vertex_ai' || provider.startsWith('vertex_ai-')) {
-    return 'vertex_ai';
   }
   return null;
 }
@@ -40,9 +32,9 @@ export function buildProviderGroups(providers: string[]): {
   for (const provider of providers) {
     const groupId = getProviderGroupId(provider);
     if (groupId) {
-      const existing = groupedProviders.get(groupId) ?? [];
+      const existing = groupedProviders.get(groupId as keyof typeof PROVIDER_GROUPS) ?? [];
       existing.push(provider);
-      groupedProviders.set(groupId, existing);
+      groupedProviders.set(groupId as keyof typeof PROVIDER_GROUPS, existing);
     } else {
       ungroupedProviders.push(provider);
     }
@@ -67,23 +59,10 @@ export function buildProviderGroups(providers: string[]): {
     });
   }
 
-  const vertexProviders = groupedProviders.get('vertex_ai');
-  if (vertexProviders && vertexProviders.length > 0) {
-    vertexProviders.sort((a, b) => {
-      if (a === 'vertex_ai') return -1;
-      if (b === 'vertex_ai') return 1;
-      return a.localeCompare(b);
-    });
-    groups.push({
-      ...PROVIDER_GROUPS['vertex_ai'],
-      providers: vertexProviders,
-    });
-  }
-
   return { groups, ungroupedProviders };
 }
 
-const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+const PROVIDER_DISPLAY_NAMES = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   bedrock: 'Amazon Bedrock',
@@ -104,42 +83,18 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   deepinfra: 'DeepInfra',
   nvidia_nim: 'NVIDIA NIM',
   cerebras: 'Cerebras',
-};
-
-const VERTEX_AI_VARIANT_NAMES: Record<string, string> = {
-  'vertex_ai-anthropic': 'Vertex AI (Anthropic)',
-  'vertex_ai-llama3': 'Vertex AI (Llama 3)',
-  'vertex_ai-mistral': 'Vertex AI (Mistral)',
-  'vertex_ai-ai21': 'Vertex AI (AI21)',
-  'vertex_ai-codey': 'Vertex AI (Codey)',
-  'vertex_ai-image-models': 'Vertex AI (Image)',
-  'vertex_ai-code-text-models': 'Vertex AI (Code)',
-  'vertex_ai-text-models': 'Vertex AI (Text)',
-  'vertex_ai-chat-models': 'Vertex AI (Chat)',
-  'vertex_ai-embedding-models': 'Vertex AI (Embedding)',
-  'vertex_ai-vision-models': 'Vertex AI (Vision)',
-};
+} satisfies Record<string, string>;
 
 export function formatProviderName(provider: string): string {
-  if (PROVIDER_DISPLAY_NAMES[provider]) {
-    return PROVIDER_DISPLAY_NAMES[provider];
-  }
-
-  if (VERTEX_AI_VARIANT_NAMES[provider]) {
-    return VERTEX_AI_VARIANT_NAMES[provider];
-  }
-
-  if (provider.startsWith('vertex_ai-')) {
-    const variant = provider.replace('vertex_ai-', '');
-    const formattedVariant = variant.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-    return `Vertex AI (${formattedVariant})`;
+  if (provider in PROVIDER_DISPLAY_NAMES) {
+    return PROVIDER_DISPLAY_NAMES[provider as keyof typeof PROVIDER_DISPLAY_NAMES];
   }
 
   return provider.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function formatAuthMethodName(authMethod: string): string {
-  const formatMap: Record<string, string> = {
+  const formatMap = {
     auth_token: 'Auth Token',
     api_key: 'API Key',
     access_key: 'Access Key',
@@ -150,12 +105,17 @@ export function formatAuthMethodName(authMethod: string): string {
     bearer_token: 'Bearer Token',
     basic_auth: 'Basic Auth',
     pat: 'Personal Access Token',
-  };
-  return formatMap[authMethod] ?? authMethod.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  } satisfies Record<string, string>;
+
+  if (authMethod in formatMap) {
+    return formatMap[authMethod as keyof typeof formatMap];
+  }
+
+  return authMethod.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function formatCredentialFieldName(fieldName: string): string {
-  const formatMap: Record<string, string> = {
+  const formatMap = {
     api_key: 'API Key',
     aws_access_key_id: 'AWS Access Key ID',
     aws_secret_access_key: 'AWS Secret Access Key',
@@ -173,16 +133,25 @@ export function formatCredentialFieldName(fieldName: string): string {
     vertex_location: 'Location',
     databricks_token: 'Databricks Token',
     databricks_host: 'Databricks Host',
-  };
-  return formatMap[fieldName] ?? fieldName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  } satisfies Record<string, string>;
+
+  if (fieldName in formatMap) {
+    return formatMap[fieldName as keyof typeof formatMap];
+  }
+
+  return fieldName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-const PROVIDER_FIELD_ORDER: Record<string, string[]> = {
+const PROVIDER_FIELD_ORDER = {
   databricks: ['client_id', 'client_secret', 'api_base'],
-};
+} satisfies Record<string, string[]>;
 
 export function sortFieldsByProvider<T extends { name: string }>(fields: T[], provider: string): T[] {
-  const fieldOrder = PROVIDER_FIELD_ORDER[provider];
+  if (!(provider in PROVIDER_FIELD_ORDER)) {
+    return fields;
+  }
+
+  const fieldOrder = PROVIDER_FIELD_ORDER[provider as keyof typeof PROVIDER_FIELD_ORDER];
   if (!fieldOrder) {
     return fields;
   }

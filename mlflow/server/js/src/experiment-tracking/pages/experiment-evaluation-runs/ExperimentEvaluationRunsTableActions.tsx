@@ -1,7 +1,7 @@
 import { Button, ChevronDownIcon, DropdownMenu, Modal } from '@databricks/design-system';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { useCallback, useMemo, useState } from 'react';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 import { useDeleteRuns } from '../../components/experiment-page/hooks/useDeleteRuns';
 import { ErrorWrapper } from '@mlflow/mlflow/src/common/utils/ErrorWrapper';
 
@@ -12,15 +12,16 @@ export const ExperimentEvaluationRunsTableActions = ({
   onCompare,
   selectedRunUuid,
   compareToRunUuid,
+  enableImprovedComparison,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
   refetchRuns: () => void;
-  onCompare: (runUuid1: string, runUuid2: string) => void;
+  onCompare?: (runUuid1: string, runUuid2: string) => void;
   selectedRunUuid?: string;
   compareToRunUuid?: string;
+  enableImprovedComparison?: boolean;
 }) => {
-  const intl = useIntl();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   const selectedRunUuids = useMemo(
@@ -43,8 +44,9 @@ export const ExperimentEvaluationRunsTableActions = ({
     mutate({ runUuids: selectedRunUuids });
   }, [mutate, selectedRunUuids]);
 
+  // Original Compare logic (used when flag is OFF)
   const handleCompare = useCallback(() => {
-    if (selectedRunUuids.length === 2) {
+    if (selectedRunUuids.length === 2 && onCompare) {
       onCompare(selectedRunUuids[0], selectedRunUuids[1]);
     }
   }, [onCompare, selectedRunUuids]);
@@ -61,6 +63,7 @@ export const ExperimentEvaluationRunsTableActions = ({
   }, [selectedRunUuid, compareToRunUuid, selectedRunUuids]);
 
   const isCompareDisabled = !isCompareEnabled || isAlreadyComparingSelectedRuns;
+
   const noRunsSelected = selectedRunUuids.length === 0;
 
   return (
@@ -77,19 +80,22 @@ export const ExperimentEvaluationRunsTableActions = ({
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content>
-          <DropdownMenu.Item
-            componentId="mlflow.eval-runs.actions.compare"
-            onClick={handleCompare}
-            disabled={isCompareDisabled}
-            disabledReason={
-              <FormattedMessage
-                defaultMessage="Please select 2 runs to compare"
-                description="Tooltip for disabled compare action in evaluation runs table actions"
-              />
-            }
-          >
-            <FormattedMessage defaultMessage="Compare" description="Compare evaluation runs action" />
-          </DropdownMenu.Item>
+          {/* Original Compare option in dropdown (when flag is OFF) */}
+          {!enableImprovedComparison && (
+            <DropdownMenu.Item
+              componentId="mlflow.eval-runs.actions.compare"
+              onClick={handleCompare}
+              disabled={isCompareDisabled}
+              disabledReason={
+                <FormattedMessage
+                  defaultMessage="Please select 2 runs to compare"
+                  description="Tooltip for disabled compare action in evaluation runs table actions"
+                />
+              }
+            >
+              <FormattedMessage defaultMessage="Compare" description="Compare evaluation runs action" />
+            </DropdownMenu.Item>
+          )}
           <DropdownMenu.Item componentId="mlflow.eval-runs.actions.delete" onClick={() => setDeleteModalVisible(true)}>
             <FormattedMessage defaultMessage="Delete runs" description="Delete evaluation runs action" />
           </DropdownMenu.Item>

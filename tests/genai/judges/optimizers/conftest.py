@@ -40,6 +40,11 @@ class MockJudge(Judge):
         """Get the model for this judge."""
         return self._model
 
+    @property
+    def feedback_value_type(self) -> Any:
+        """Get the type of the feedback value."""
+        return str
+
     def __call__(self, inputs, outputs, expectations=None, trace=None):
         # Simple mock implementation
         return "pass" if "good" in str(outputs).lower() else "fail"
@@ -650,3 +655,22 @@ class MockDSPyLM(dspy.BaseLM):
     @property
     def context_calls(self):
         return self._context_calls
+
+
+def create_mock_judge_invocator():
+    """
+    Create a mock judge invocator.
+
+    Returns a callable that mocks invoke_judge_model, returning deterministic
+    feedback based on the outputs parameter.
+    """
+
+    def mock_invoke_judge_model(**kwargs):
+        """Mock judge evaluation that returns deterministic pass/fail based on outputs."""
+        outputs_str = str(kwargs.get("outputs", ""))
+        # Return "pass" for even-numbered examples (0, 2, 4) and "fail" for odd ones
+        is_even = "0" in outputs_str or "2" in outputs_str or "4" in outputs_str
+        result_value = "pass" if is_even else "fail"
+        return Feedback(value=result_value, rationale="Mock evaluation")
+
+    return mock_invoke_judge_model

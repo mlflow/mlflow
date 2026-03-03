@@ -66,7 +66,7 @@ export const EndpointRow = ({ endpoint, bindings, visibleColumns, onViewBindings
           <TimeAgo date={new Date(endpoint.created_at)} />
         </TableCell>
       )}
-      <TableCell css={{ flex: 0, minWidth: 48, maxWidth: 48 }}>
+      <TableCell css={{ flex: 0, minWidth: 96, maxWidth: 96 }}>
         <Button
           componentId="mlflow.gateway.endpoints-list.delete-button"
           type="primary"

@@ -58,6 +58,7 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: A sequence of OpenTelemetry ReadableSpan objects passed from
                 a span processor. All spans (root and non-root) are exported.
         """
+
         if self._should_export_spans_incrementally:
             self._export_spans_incrementally(spans)
 
@@ -134,6 +135,14 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
                 continue
 
+            if manager_trace.is_remote_trace and not self._should_export_spans_incrementally:
+                _logger.warning(
+                    f"Current MLflow server does not support ingesting the span {span.name} "
+                    "that is created in a remote process. Please upgrade the server version and "
+                    "use SQL backend to do distributed tracing."
+                )
+                continue
+
             trace = manager_trace.trace
             _set_last_active_trace_id(trace.info.request_id)
 
@@ -198,7 +207,10 @@ class MlflowV3SpanExporter(SpanExporter):
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
-            _logger.warning(f"Failed to send trace to MLflow backend: {e}")
+            _logger.warning(
+                f"Failed to send trace to MLflow backend: {e}",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
 
         try:
             # Always run prompt linking asynchronously since (1) prompt linking API calls

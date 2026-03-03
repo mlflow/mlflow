@@ -14,6 +14,7 @@ from mlflow.telemetry.client import (
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
     TelemetryClient,
+    _is_localhost_uri,
     get_telemetry_client,
 )
 from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent
@@ -57,7 +58,9 @@ def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_reques
     # Add record and wait for processing
     mock_telemetry_client.add_record(record)
     mock_telemetry_client.flush()
-    received_record = [req for req in mock_requests if req["data"]["event_name"] == "test_event"][0]
+    received_record = next(
+        req for req in mock_requests if req["data"]["event_name"] == "test_event"
+    )
 
     assert "data" in received_record
     assert "partition-key" in received_record
@@ -412,7 +415,7 @@ def test_telemetry_info_inclusion(mock_telemetry_client: TelemetryClient, mock_r
     mock_telemetry_client.flush()
 
     # Verify telemetry info is included
-    data = [req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event"][0]
+    data = next(req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event")
 
     # Check that telemetry info fields are present
     assert mock_telemetry_client.info.items() <= data.items()
@@ -968,3 +971,74 @@ def test_fetch_config_after_first_record():
             telemetry_client._config_thread.join(timeout=1)
             assert telemetry_client._is_config_fetched is True
         mock_requests_get.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://localhost",
+        "http://localhost:5000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:5000/api/2.0/mlflow",
+        "http://[::1]",
+    ],
+)
+def test_is_localhost_uri_returns_true_for_localhost(uri):
+    assert _is_localhost_uri(uri)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://example.com",
+        "http://example.com:5000",
+        "https://mlflow.example.com",
+        "http://192.168.1.1",
+        "http://192.168.1.1:5000",
+        "http://10.0.0.1:5000",
+        "https://my-tracking-server.com/api/2.0/mlflow",
+    ],
+)
+def test_is_localhost_uri_returns_false_for_remote(uri):
+    assert _is_localhost_uri(uri) is False
+
+
+def test_is_localhost_uri_returns_none_for_empty_hostname():
+    assert _is_localhost_uri("file:///tmp/mlruns") is None
+
+
+def test_is_localhost_uri_returns_none_on_parse_error():
+    # urlparse doesn't raise on most inputs, but we test the fallback behavior
+    # by mocking urlparse to raise
+    with mock.patch("urllib.parse.urlparse", side_effect=ValueError("Invalid URI")):
+        assert _is_localhost_uri("http://localhost") is None
+
+
+def test_is_workspace_enabled_included_in_telemetry_info(
+    mock_telemetry_client: TelemetryClient, mock_requests, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_WORKSPACE", "my-workspace")
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    data = next(req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event")
+    assert data["ws_enabled"] is True
+
+
+def test_is_workspace_disabled_included_in_telemetry_info(
+    mock_telemetry_client: TelemetryClient, mock_requests, monkeypatch
+):
+    monkeypatch.delenv("MLFLOW_WORKSPACE", raising=False)
+    record = Record(
+        event_name="test_event",
+        timestamp_ns=time.time_ns(),
+        status=Status.SUCCESS,
+    )
+    mock_telemetry_client.add_record(record)
+    mock_telemetry_client.flush()
+    data = next(req["data"] for req in mock_requests if req["data"]["event_name"] == "test_event")
+    assert data["ws_enabled"] is False

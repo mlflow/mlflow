@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from mlflow.entities._job_status import JobStatus
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import (
@@ -17,11 +18,15 @@ from mlflow.server.jobs import (
     submit_job,
 )
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.server.jobs.helpers import (
     _get_mlflow_repo_home,
     _launch_job_runner_for_test,
     _setup_job_runner,
+    wait_for_process_exit,
     wait_job_finalize,
 )
 
@@ -29,6 +34,20 @@ from tests.server.jobs.helpers import (
 pytestmark = [
     pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
 ]
+
+
+@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+def workspaces_enabled(request, monkeypatch):
+    """
+    Run every test in this module with workspaces disabled and enabled to cover both code paths.
+    """
+    enabled = request.param
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true" if enabled else "false")
+    if enabled:
+        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+            yield enabled
+    else:
+        yield enabled
 
 
 @job(name="basic_job_fun", max_workers=1)
@@ -396,8 +415,6 @@ def sleep_fun(sleep_secs, tmp_dir):
 
 
 def test_job_timeout(monkeypatch, tmp_path):
-    from mlflow.server.jobs.utils import is_process_alive
-
     with _setup_job_runner(
         monkeypatch,
         tmp_path,
@@ -416,8 +433,7 @@ def test_job_timeout(monkeypatch, tmp_path):
         ).job_id
         wait_job_finalize(job_id)
         pid = int((job_tmp_path / "pid").read_text())
-        # assert timeout job process is killed.
-        assert not is_process_alive(pid)
+        wait_for_process_exit(pid)
 
         assert_job_result(job_id, JobStatus.TIMEOUT, None)
 
@@ -504,7 +520,7 @@ def test_submit_job_bad_call(monkeypatch, tmp_path):
 
 
 @job(
-    name="check_python_env_fn",
+    name="python_env_checker",
     max_workers=1,
     python_version="3.11.9",
     pip_requirements=["openai==1.108.2", "pytest<9"],
@@ -512,10 +528,17 @@ def test_submit_job_bad_call(monkeypatch, tmp_path):
 def check_python_env_fn():
     import openai
 
+    from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_NAME_ENV_VAR
     from mlflow.utils import PYTHON_VERSION
 
     assert PYTHON_VERSION == "3.11.9"
     assert openai.__version__ == "1.108.2"
+
+    assert os.environ.get(MLFLOW_SERVER_JOB_NAME_ENV_VAR) == "python_env_checker"
+    assert (
+        os.environ.get("_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME")
+        == "tests.server.jobs.test_jobs.check_python_env_fn"
+    )
 
 
 def test_job_with_python_env(monkeypatch, tmp_path):
@@ -525,7 +548,7 @@ def test_job_with_python_env(monkeypatch, tmp_path):
         monkeypatch,
         tmp_path,
         supported_job_functions=["tests.server.jobs.test_jobs.check_python_env_fn"],
-        allowed_job_names=["check_python_env_fn"],
+        allowed_job_names=["python_env_checker"],
     ):
         job_id = submit_job(check_python_env_fn, params={}).job_id
         wait_job_finalize(job_id, timeout=600)
@@ -533,9 +556,10 @@ def test_job_with_python_env(monkeypatch, tmp_path):
         assert job.status == JobStatus.SUCCEEDED
 
 
-def test_start_job_is_atomic(tmp_path: Path):
+def test_start_job_is_atomic(tmp_path: Path, workspaces_enabled):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
-    store = SqlAlchemyJobStore(backend_store_uri)
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
 
     job = store.create_job("test.function", '{"param": "value"}')
     assert job.status == JobStatus.PENDING
@@ -561,8 +585,6 @@ def test_start_job_is_atomic(tmp_path: Path):
 
 
 def test_cancel_job(monkeypatch, tmp_path: Path):
-    from mlflow.server.jobs.utils import is_process_alive
-
     with _setup_job_runner(
         monkeypatch,
         tmp_path,
@@ -579,10 +601,8 @@ def test_cancel_job(monkeypatch, tmp_path: Path):
 
         cancel_job(job_id)
 
-        time.sleep(5)  # wait for job process being actually killed
         pid = int((job_tmp_path / "pid").read_text())
-        # assert canceled job process is killed.
-        assert not is_process_alive(pid)
+        wait_for_process_exit(pid, timeout=10)
 
         assert get_job(job_id).status == JobStatus.CANCELED
 

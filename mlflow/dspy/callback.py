@@ -9,7 +9,12 @@ from dspy.utils.callback import BaseCallback
 
 import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
-from mlflow.dspy.util import log_dspy_lm_state, log_dspy_module_params, save_dspy_module_state
+from mlflow.dspy.util import (
+    log_dspy_lm_state,
+    log_dspy_module_params,
+    sanitize_params,
+    save_dspy_module_state,
+)
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
@@ -144,6 +149,7 @@ class MlflowCallback(BaseCallback):
                         usage_data[TokenUsageKey.OUTPUT_TOKENS] += usage.get("completion_tokens", 0)
                         usage_data[TokenUsageKey.TOTAL_TOKENS] += usage.get("total_tokens", 0)
                     attributes[SpanAttributeKey.CHAT_USAGE] = usage_data
+                    # TODO: the span may not contain model name so we cannot calculate cost
         self._end_span(call_id, outputs, exception, attributes)
 
     @skip_if_trace_disabled
@@ -152,17 +158,14 @@ class MlflowCallback(BaseCallback):
             SpanType.CHAT_MODEL if getattr(instance, "model_type", None) == "chat" else SpanType.LLM
         )
 
-        filtered_kwargs = {
-            key: value
-            for key, value in instance.kwargs.items()
-            if key not in {"api_key", "api_base"}
-        }
+        filtered_kwargs = sanitize_params(instance.kwargs)
         attributes = {
             **filtered_kwargs,
             "model": instance.model,
             "model_type": instance.model_type,
             "cache": instance.cache,
             SpanAttributeKey.MESSAGE_FORMAT: "dspy",
+            SpanAttributeKey.MODEL: instance.model,
         }
 
         inputs = self._unpack_kwargs(inputs)

@@ -290,7 +290,19 @@ class ArtifactRepository:
 
         # Submit download tasks
         futures = {}
-        if self._is_directory(artifact_path):
+        if artifact_path in ("", None):
+            root_listing = self.list_artifacts(artifact_path)
+            if not root_listing:
+                _logger.info(
+                    "No artifacts found to download at %s. Returning destination path.",
+                    self.artifact_uri,
+                )
+                return dst_path
+            is_dir = True
+        else:
+            is_dir = self._is_directory(artifact_path)
+
+        if is_dir:
             for file_info in self._iter_artifacts_recursive(artifact_path):
                 if file_info.is_dir:  # Empty directory
                     os.makedirs(os.path.join(dst_path, file_info.path), exist_ok=True)
@@ -466,6 +478,27 @@ class MultipartUploadMixin(ABC):
             artifact_path: Directory within the run's artifact directory in which to upload the
                 artifact.
 
+        """
+
+
+class MultipartDownloadMixin(ABC):
+    """
+    Mixin that defines the API for artifact repositories that support multipart
+    download (MPD), i.e. generating presigned URLs for direct download from
+    cloud storage via the MPD flow.
+    """
+
+    @abstractmethod
+    def get_download_presigned_url(self, artifact_path, expiration=300):
+        """
+        Generate a presigned URL for downloading an artifact directly from cloud storage.
+
+        Args:
+            artifact_path: Relative path to the artifact within the artifact URI.
+            expiration: Time in seconds for the presigned URL to remain valid (default: 300).
+
+        Returns:
+            PresignedDownloadUrlResponse containing the presigned URL, headers, and file size.
         """
 
 

@@ -1,0 +1,25 @@
+---
+sidebar_label: Langflow
+---
+
+import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OTelIntegrationCard";
+import OTelIngest from "@site/docs/genai/tracing/opentelemetry/ingest-shared.mdx";
+
+# Tracing Langflow
+
+<OTelIntegrationCard name="Langflow" logoPath="/images/logos/langflow.svg" />
+
+<OTelIngest />
+
+## Enable OpenTelemetry in Langflow via Traceloop
+
+```bash
+export TRACELOOP_BASE_URL=http://localhost:5000
+export TRACELOOP_HEADERS=x-mlflow-experiment-id=123
+```
+
+Refer to the [Langflow Traceloop documentation](https://docs.langflow.org/integrations-instana-traceloop) for setting up tracing in Langflow and specify OTLP HTTP exporter with above environment variables.
+
+## Reference
+
+For complete step-by-step instructions on sending traces to MLflow from OpenTelemetry compatible frameworks, see the [Collect OpenTelemetry Traces into MLflow](/genai/tracing/opentelemetry/ingest).

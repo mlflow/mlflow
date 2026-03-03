@@ -5,6 +5,9 @@ import click
 
 import mlflow
 from mlflow.entities import ViewType
+from mlflow.exceptions import MlflowException
+from mlflow.mcp.decorator import mlflow_mcp
+from mlflow.protos import databricks_pb2
 from mlflow.tracking import _get_store, fluent
 from mlflow.utils.data_utils import is_uri
 from mlflow.utils.string_utils import _create_table
@@ -28,6 +31,7 @@ def commands():
 
 
 @commands.command()
+@mlflow_mcp(tool_name="create_experiment")
 @click.option("--experiment-name", "-n", type=click.STRING, required=True)
 @click.option(
     "--artifact-location",
@@ -55,6 +59,7 @@ def create(experiment_name, artifact_location):
 
 
 @commands.command("search")
+@mlflow_mcp(tool_name="search_experiments")
 @click.option(
     "--view",
     "-v",
@@ -89,16 +94,28 @@ def search_experiments(view, max_results):
 
 
 @commands.command("get")
-@EXPERIMENT_ID
+@mlflow_mcp(tool_name="get_experiment")
+@click.option(
+    "--experiment-id",
+    "-x",
+    type=click.STRING,
+    help="ID of the experiment to retrieve.",
+)
+@click.option(
+    "--experiment-name",
+    "-n",
+    type=click.STRING,
+    help="Name of the experiment to retrieve.",
+)
 @click.option(
     "--output",
     type=click.Choice(["json", "table"]),
     default="table",
     help="Output format: 'table' (default) or 'json'.",
 )
-def get_experiment(experiment_id, output):
+def get_experiment(experiment_id, experiment_name, output):
     """
-    Get details of an experiment by ID.
+    Get details of an experiment by ID or name.
 
     Displays experiment information including name, artifact location, lifecycle stage,
     tags, creation time, and last update time.
@@ -108,17 +125,37 @@ def get_experiment(experiment_id, output):
 
     .. code-block:: bash
 
-        # Get experiment in table format (default)
+        # Get experiment by ID in table format (default)
         mlflow experiments get --experiment-id 1
 
-        # Get experiment in JSON format
-        mlflow experiments get --experiment-id 1 --output json
+        # Get experiment by name
+        mlflow experiments get --experiment-name "My Experiment"
 
-        # Using short option
+        # Get experiment in JSON format
+        mlflow experiments get --experiment-name "My Experiment" --output json
+
+        # Using short options
         mlflow experiments get -x 0
+        mlflow experiments get -n "Default"
     """
+    # Validate mutual exclusivity
+    if (experiment_id is not None and experiment_name is not None) or (
+        experiment_id is None and experiment_name is None
+    ):
+        raise click.UsageError("Must specify exactly one of --experiment-id or --experiment-name.")
+
     store = _get_store()
-    experiment = store.get_experiment(experiment_id)
+
+    # Retrieve experiment by ID or name
+    if experiment_id is not None:
+        experiment = store.get_experiment(experiment_id)
+    else:
+        experiment = store.get_experiment_by_name(experiment_name)
+        if experiment is None:
+            raise MlflowException(
+                f"Experiment with name '{experiment_name}' does not exist.",
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST,
+            )
 
     if output == "json":
         experiment_dict = dict(experiment)
@@ -145,6 +182,7 @@ def get_experiment(experiment_id, output):
 
 
 @commands.command("delete")
+@mlflow_mcp(tool_name="delete_experiment")
 @EXPERIMENT_ID
 def delete_experiment(experiment_id):
     """
@@ -168,6 +206,7 @@ def delete_experiment(experiment_id):
 
 
 @commands.command("restore")
+@mlflow_mcp(tool_name="restore_experiment")
 @EXPERIMENT_ID
 def restore_experiment(experiment_id):
     """
@@ -181,6 +220,7 @@ def restore_experiment(experiment_id):
 
 
 @commands.command("rename")
+@mlflow_mcp(tool_name="rename_experiment")
 @EXPERIMENT_ID
 @click.option("--new-name", type=click.STRING, required=True)
 def rename_experiment(experiment_id, new_name):

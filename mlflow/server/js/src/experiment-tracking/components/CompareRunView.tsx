@@ -149,7 +149,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     return (
       <FormattedMessage
         defaultMessage="Displaying Runs from {numExperiments} Experiments"
-        // eslint-disable-next-line max-len
         description="Breadcrumb nav item to link to compare-experiments page on compare runs page"
         values={{ numExperiments }}
       />
@@ -187,7 +186,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     return this.hasMultipleExperiments() ? (
       <FormattedMessage
         defaultMessage="Comparing {numRuns} Runs from {numExperiments} Experiments"
-        // eslint-disable-next-line max-len
         description="Breadcrumb title for compare runs page with multiple experiments"
         values={{
           numRuns: this.props.runInfos.length,
@@ -436,7 +434,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     const diffOnlyLabel = this.props.intl.formatMessage({
       defaultMessage: 'Show diff only',
       description:
-        // eslint-disable-next-line max-len
         'Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page',
     });
 
@@ -454,7 +451,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
               tab={
                 <FormattedMessage
                   defaultMessage="Parallel Coordinates Plot"
-                  // eslint-disable-next-line max-len
                   description="Tab pane title for parallel coordinate plots on the compare runs page"
                 />
               }
@@ -568,7 +564,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
                   <th scope="row" className="data-value">
                     <FormattedMessage
                       defaultMessage="Experiment Name:"
-                      // eslint-disable-next-line max-len
                       description="Row title for the experiment IDs of runs on the experiment compare runs page"
                     />
                   </th>
@@ -627,7 +622,6 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     };
   }
 
-  // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list: any,
     colWidth: any,

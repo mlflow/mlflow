@@ -7,6 +7,7 @@ import type { ExperimentPageTabName } from './constants';
  */
 export enum PageId {
   home = 'mlflow.home',
+  workspacesPage = 'mlflow.workspaces',
   settingsPage = 'mlflow.settings',
   promptsPage = 'mlflow.prompts',
   promptDetailsPage = 'mlflow.prompts.details',
@@ -49,7 +50,7 @@ export class RoutePaths {
   }
   // Child routes for experiment page:
   static get experimentPageTabOverview() {
-    return createMLflowRoutePath('/experiments/:experimentId/overview');
+    return createMLflowRoutePath('/experiments/:experimentId/overview/:overviewTab?');
   }
   static get experimentPageTabRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/runs');
@@ -304,6 +305,7 @@ class Routes {
    * Routes for prompts management.
    * Featured exclusively in open source MLflow.
    */
+
   static get promptsPageRoute() {
     return RoutePaths.promptsPage;
   }

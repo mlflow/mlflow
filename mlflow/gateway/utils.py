@@ -4,7 +4,7 @@ import json
 import logging
 import posixpath
 import re
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Iterator
 from urllib.parse import urlparse
 
 from fastapi import HTTPException
@@ -18,15 +18,37 @@ from mlflow.utils.uri import append_to_uri_path
 _logger = logging.getLogger(__name__)
 _gateway_uri: str | None = None
 
+DATABRICKS_SERVING_ENDPOINTS_PATH = "/serving-endpoints"
+
+
+def normalize_databricks_base_url(base_url: str | None) -> str | None:
+    """
+    Normalize Databricks base URL to include /serving-endpoints if not present.
+
+    Args:
+        base_url: The base URL to normalize (e.g., "https://my-workspace.databricks.com")
+
+    Returns:
+        The normalized URL with /serving-endpoints appended if needed, or None if input is None.
+    """
+    if not base_url:
+        return base_url
+
+    base_url = base_url.rstrip("/")
+    if DATABRICKS_SERVING_ENDPOINTS_PATH in base_url:
+        return base_url
+
+    return f"{base_url}{DATABRICKS_SERVING_ENDPOINTS_PATH}"
+
 
 def is_valid_endpoint_name(name: str) -> bool:
     """
     Check whether a string contains any URL reserved characters, spaces, or characters other
-    than alphanumeric, underscore, hyphen, and dot.
+    than ASCII alphanumeric, underscore, hyphen, and dot.
 
     Returns True if the string doesn't contain any of these characters.
     """
-    return bool(re.fullmatch(r"[\w\-\.]+", name))
+    return bool(re.fullmatch(r"[a-zA-Z0-9_\-\.]+", name))
 
 
 def check_configuration_route_name_collisions(config):
@@ -245,9 +267,129 @@ def strip_sse_prefix(s: str) -> str:
     return re.sub(r"^data:\s+", "", s)
 
 
+def parse_sse_lines(chunk: bytes | str) -> Iterator[dict[str, Any]]:
+    """
+    Parse SSE-formatted data from a chunk of bytes or string.
+    Note that this function assumes that the chunk is complete,
+    and incomplete chunks need to be handled by handle_incomplete_chunks.
+
+    Handles the standard SSE format:
+    - Lines prefixed with "data:"
+    - [DONE] markers (skipped)
+    - Multi-line chunks (split by newlines)
+
+    Args:
+        chunk: Bytes or string containing SSE data.
+
+    Yields:
+        Parsed JSON data dictionaries from the SSE data lines.
+        Yields nothing if chunk is empty, invalid, or contains only [DONE].
+    """
+    if isinstance(chunk, bytes):
+        try:
+            chunk_str = chunk.decode("utf-8")
+        except UnicodeDecodeError:
+            return
+    else:
+        chunk_str = chunk
+
+    chunk_str = chunk_str.strip()
+    if not chunk_str:
+        return
+
+    for line in chunk_str.split("\n"):
+        line = line.strip()
+        if not line or line.startswith("event:"):
+            continue
+
+        if not line.startswith("data:"):
+            continue
+
+        data_str = line[5:].strip()
+        if not data_str or data_str == "[DONE]":
+            continue
+
+        try:
+            yield json.loads(data_str)
+        except json.JSONDecodeError:
+            continue
+
+
+async def stream_sse_data(
+    stream: AsyncGenerator[bytes, Any],
+) -> AsyncGenerator[dict[str, Any], None]:
+    """
+    Wrap a streaming response and yield parsed SSE data dictionaries.
+
+    This is a higher-level utility that combines handle_incomplete_chunks()
+    with SSE parsing. Use this for processing SSE streams where you want
+    direct access to the parsed JSON data.
+
+    Args:
+        stream: Async generator yielding raw bytes from an SSE stream.
+
+    Yields:
+        Parsed JSON dictionaries from SSE data lines. Skips [DONE] markers
+        and empty/invalid lines.
+    """
+    async for chunk in handle_incomplete_chunks(stream):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+
+        data_str = strip_sse_prefix(chunk.decode("utf-8"))
+        if data_str == "[DONE]":
+            continue
+
+        try:
+            yield json.loads(data_str)
+        except json.JSONDecodeError:
+            continue
+
+
 def to_sse_chunk(data: str) -> str:
     # https://html.spec.whatwg.org/multipage/server-sent-events.html
     return f"data: {data}\n\n"
+
+
+def to_sse_error_chunk(error: Exception) -> str:
+    """Create an SSE-formatted error chunk."""
+    error_data = {
+        "error": {
+            "message": str(error),
+            "type": type(error).__name__,
+        }
+    }
+    return to_sse_chunk(json.dumps(error_data))
+
+
+async def safe_stream(
+    stream: AsyncGenerator[str | bytes, None],
+    as_bytes: bool = False,
+) -> AsyncGenerator[bytes | str, None]:
+    """
+    Wrap a streaming generator with exception handling.
+
+    When streaming responses, if an error occurs mid-stream after HTTP headers
+    have been sent, we can't raise an HTTPException. Instead, this wrapper
+    catches exceptions and yields an error chunk so the client can receive
+    the error information.
+
+    Args:
+        stream: The async generator to wrap.
+        as_bytes: If True, encode the error chunk as bytes. Use this when the
+            stream yields bytes (e.g., passthrough endpoints).
+
+    Yields:
+        Chunks from the stream, or an error chunk if an exception occurs.
+    """
+    try:
+        async for chunk in stream:
+            yield chunk
+    except Exception as e:
+        _logger.exception("Error during streaming response")
+        error_chunk = to_sse_error_chunk(e)
+        yield error_chunk.encode("utf-8") if as_bytes else error_chunk
 
 
 def _find_boundary(buffer: bytes) -> int:
@@ -272,13 +414,16 @@ async def handle_incomplete_chunks(
             yield buffer[:boundary]
             buffer = buffer[boundary + 1 :]
 
+    if buffer != b"":
+        yield buffer
+
 
 async def make_streaming_response(resp):
     from starlette.responses import StreamingResponse
 
     if isinstance(resp, AsyncGenerator):
         return StreamingResponse(
-            (to_sse_chunk(d.json()) async for d in resp),
+            (to_sse_chunk(d.model_dump_json()) async for d in resp),
             media_type="text/event-stream",
         )
     else:

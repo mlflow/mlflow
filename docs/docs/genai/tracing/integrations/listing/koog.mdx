@@ -1,0 +1,20 @@
+---
+sidebar_label: Koog
+---
+
+import { OTelIntegrationCard } from "@site/src/components/TracingIntegrations/OTelIntegrationCard";
+import OTelIngest from "@site/docs/genai/tracing/opentelemetry/ingest-shared.mdx";
+
+# Tracing Koog
+
+<OTelIntegrationCard name="Koog" logoPath="/images/logos/koog.png" />
+
+<OTelIngest />
+
+## Enable OpenTelemetry in Koog
+
+Refer to the [Koog OpenTelemetry Support documentation](https://docs.koog.ai/opentelemetry-support/) for setting up tracing in Koog and specify OTLP HTTP exporter with above environment variables.
+
+## Reference
+
+For complete step-by-step instructions on sending traces to MLflow from OpenTelemetry compatible frameworks, see the [Collect OpenTelemetry Traces into MLflow](/genai/tracing/opentelemetry/ingest).

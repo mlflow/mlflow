@@ -3,7 +3,8 @@ import { IntlProvider } from '@databricks/i18n';
 import { FormProvider, useForm } from 'react-hook-form';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
 import { useEvaluateTraces } from './useEvaluateTraces';
-import { TraceJudgeEvaluationResult, type JudgeEvaluationResult } from './useEvaluateTraces.common';
+import type { TraceJudgeEvaluationResult } from './useEvaluateTraces.common';
+import { type JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
@@ -49,9 +50,16 @@ function createMockEvalResult(traceId: string): TraceJudgeEvaluationResult {
 interface TestWrapperProps {
   defaultValues?: Partial<ScorerFormData>;
   onScorerFinished?: () => void;
+  selectedItemIds?: string[];
+  onSelectedItemIdsChange?: (itemIds: string[]) => void;
 }
 
-function TestWrapper({ defaultValues, onScorerFinished }: TestWrapperProps) {
+function TestWrapper({
+  defaultValues,
+  onScorerFinished,
+  selectedItemIds = [],
+  onSelectedItemIdsChange = jest.fn(),
+}: TestWrapperProps) {
   const form = useForm<ScorerFormData>({
     defaultValues: {
       name: 'Test Scorer',
@@ -59,7 +67,7 @@ function TestWrapper({ defaultValues, onScorerFinished }: TestWrapperProps) {
       llmTemplate: LLM_TEMPLATE.CUSTOM,
       sampleRate: 100,
       scorerType: 'llm',
-      model: 'provider:/some-model',
+      model: 'gateway:/some-model',
       ...defaultValues,
     },
   });
@@ -71,6 +79,8 @@ function TestWrapper({ defaultValues, onScorerFinished }: TestWrapperProps) {
           control={form.control}
           experimentId={experimentId}
           onScorerFinished={onScorerFinished}
+          selectedItemIds={selectedItemIds}
+          onSelectedItemIdsChange={onSelectedItemIdsChange}
         />
       </FormProvider>
     </IntlProvider>
@@ -87,7 +97,7 @@ describe('SampleScorerOutputPanelContainer', () => {
     mockedUseEvaluateTraces.mockReturnValue([
       mockEvaluateTraces,
       {
-        data: null,
+        latestEvaluation: null,
         isLoading: false,
         error: null,
         reset: jest.fn(),
@@ -108,11 +118,12 @@ describe('SampleScorerOutputPanelContainer', () => {
       expect(mockedRenderer).toHaveBeenCalledWith(
         expect.objectContaining({
           isLoading: false,
-          isRunScorerDisabled: false,
+          // Button is disabled initially because no traces are selected
+          isRunScorerDisabled: true,
           error: null,
           currentEvalResultIndex: 0,
           totalTraces: 0,
-          itemsToEvaluate: { itemCount: 1, itemIds: [] },
+          selectedItemIds: [],
         }),
         expect.anything(),
       );
@@ -124,7 +135,7 @@ describe('SampleScorerOutputPanelContainer', () => {
       mockedUseEvaluateTraces.mockReturnValue([
         mockEvaluateTraces,
         {
-          data: mockResults,
+          latestEvaluation: mockResults,
           isLoading: false,
           error: null,
           reset: jest.fn(),
@@ -147,7 +158,7 @@ describe('SampleScorerOutputPanelContainer', () => {
       mockedUseEvaluateTraces.mockReturnValue([
         mockEvaluateTraces,
         {
-          data: null,
+          latestEvaluation: null,
           isLoading: true,
           error: null,
           reset: jest.fn(),
@@ -170,7 +181,7 @@ describe('SampleScorerOutputPanelContainer', () => {
       mockedUseEvaluateTraces.mockReturnValue([
         mockEvaluateTraces,
         {
-          data: null,
+          latestEvaluation: null,
           isLoading: false,
           error: mockError,
           reset: jest.fn(),
@@ -198,7 +209,6 @@ describe('SampleScorerOutputPanelContainer', () => {
 
       expect(mockEvaluateTraces).toHaveBeenCalledWith({
         evaluationScope: ScorerEvaluationScope.TRACES,
-        itemCount: 1,
         itemIds: [],
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' }],
         judgeInstructions: 'Test instructions',
@@ -266,7 +276,7 @@ describe('SampleScorerOutputPanelContainer', () => {
       mockedUseEvaluateTraces.mockReturnValue([
         mockEvaluateTraces,
         {
-          data: null,
+          latestEvaluation: null,
           isLoading: false,
           error: null,
           reset: jest.fn(),

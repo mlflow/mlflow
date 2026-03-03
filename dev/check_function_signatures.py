@@ -251,7 +251,7 @@ def _is_private(n: str) -> bool:
 
 
 class FunctionSignatureExtractor(ast.NodeVisitor):
-    def __init__(self):
+    def __init__(self) -> None:
         self.functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
         self.stack: list[ast.ClassDef] = []
 
@@ -319,7 +319,7 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
             continue
 
         # Ignore private modules
-        if any(part.startswith("_") for part in file_path.parts):
+        if any(part.startswith("_") and part != "__init__.py" for part in file_path.parts):
             continue
 
         base_content = get_file_content_at_revision(file_path, base_branch)
@@ -371,7 +371,7 @@ def parse_args() -> Args:
     return Args(base_branch=args.base_branch)
 
 
-def main():
+def main() -> None:
     args = parse_args()
     errors = compare_signatures(args.base_branch)
     for error in errors:

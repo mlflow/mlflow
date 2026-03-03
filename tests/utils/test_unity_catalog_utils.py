@@ -320,13 +320,13 @@ def test_registered_model_and_registered_model_search_equality():
                 encryption_details=EncryptionDetails(
                     sse_encryption_details=SseEncryptionDetails(
                         algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
-                        aws_kms_key_arn="some:arn:test:key/key_id",
+                        aws_kms_key_arn="arn:aws:kms:us-west-2:111111111111:key/test-key-id",
                     )
                 )
             ),
             {
                 "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": "key_id",
+                "SSEKMSKeyId": "arn:aws:kms:us-west-2:111111111111:key/test-key-id",
             },
         ),
         (

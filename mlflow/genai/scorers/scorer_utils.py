@@ -181,6 +181,9 @@ def extract_model_from_serialized_scorer(serialized_data: dict[str, Any]) -> str
         return ij_data.get("model")
     if bs_data := serialized_data.get(BUILTIN_SCORER_PYDANTIC_DATA):
         return bs_data.get("model")
+    if mem_data := serialized_data.get("memory_augmented_judge_data"):
+        base_judge = mem_data.get("base_judge", {})
+        return extract_model_from_serialized_scorer(base_judge)
     return None
 
 
@@ -192,7 +195,59 @@ def update_model_in_serialized_scorer(
         result[INSTRUCTIONS_JUDGE_PYDANTIC_DATA] = {**ij_data, "model": new_model}
     elif bs_data := result.get(BUILTIN_SCORER_PYDANTIC_DATA):
         result[BUILTIN_SCORER_PYDANTIC_DATA] = {**bs_data, "model": new_model}
+    elif mem_data := result.get("memory_augmented_judge_data"):
+        result["memory_augmented_judge_data"] = {
+            **mem_data,
+            "base_judge": update_model_in_serialized_scorer(
+                mem_data.get("base_judge", {}), new_model
+            ),
+        }
     return result
+
+
+def validate_scorer_name(name: str | None) -> None:
+    """
+    Validate the scorer name.
+
+    Args:
+        name: The scorer name to validate.
+
+    Raises:
+        MlflowException: If the name is invalid.
+    """
+    if name is None:
+        raise MlflowException.invalid_parameter_value("Scorer name cannot be None.")
+    if not isinstance(name, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer name must be a string, got {type(name).__name__}."
+        )
+    if not name.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Scorer name cannot be empty or contain only whitespace."
+        )
+
+
+def validate_scorer_model(model: str | None) -> None:
+    """
+    Validate the scorer model string if present.
+
+    Args:
+        model: The model string to validate.
+
+    Raises:
+        MlflowException: If the model is invalid.
+    """
+    if model is None:
+        return
+
+    if not isinstance(model, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Scorer model must be a string, got {type(model).__name__}."
+        )
+    if not model.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Scorer model cannot be empty or contain only whitespace."
+        )
 
 
 def parse_tool_call_expectations(

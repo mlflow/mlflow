@@ -91,6 +91,7 @@ def test_autolog_lm():
     assert spans[0].attributes["model_type"] == "chat"
     assert spans[0].attributes["temperature"] == 0.0
     assert spans[0].attributes["max_tokens"] == 1000
+    assert spans[0].model_name == "dummy"
 
 
 def test_autolog_cot():
@@ -158,6 +159,7 @@ def test_autolog_cot():
         "temperature": 0.7,
     }
     assert len(spans[3].outputs) == 3
+    assert spans[3].model_name == "dummy"
     # Output parser will run per completion output (n=3)
     for i in range(3):
         assert spans[4 + i].name == "ChatAdapter.parse"
@@ -276,6 +278,11 @@ def test_autolog_react():
     ]
 
     assert spans[3].span_type == SpanType.CHAT_MODEL
+    assert spans[3].model_name == "dummy"
+    assert spans[8].span_type == SpanType.CHAT_MODEL
+    assert spans[8].model_name == "dummy"
+    assert spans[13].span_type == SpanType.CHAT_MODEL
+    assert spans[13].model_name == "dummy"
 
 
 def test_autolog_retriever():

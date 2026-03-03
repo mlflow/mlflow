@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, Mock, patch
 
+import dspy
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -7,10 +8,12 @@ from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
     AgentEvalLM,
     agreement_metric,
+    append_input_fields_section,
     construct_dspy_lm,
     convert_litellm_to_mlflow_uri,
     convert_mlflow_uri_to_litellm,
     create_dspy_signature,
+    format_demos_as_examples,
     trace_to_dspy_example,
 )
 from mlflow.genai.utils.trace_utils import (
@@ -79,8 +82,16 @@ def test_trace_to_dspy_example_human_vs_llm_priority(
             ["trace", "inputs", "outputs"],
         ),
         ("trace_with_expectations", ["expectations"], ["expectations"]),
-        ("trace_with_expectations", ["inputs", "expectations"], ["inputs", "expectations"]),
-        ("trace_with_expectations", ["outputs", "expectations"], ["outputs", "expectations"]),
+        (
+            "trace_with_expectations",
+            ["inputs", "expectations"],
+            ["inputs", "expectations"],
+        ),
+        (
+            "trace_with_expectations",
+            ["outputs", "expectations"],
+            ["outputs", "expectations"],
+        ),
         (
             "trace_with_expectations",
             ["inputs", "outputs", "expectations"],
@@ -148,7 +159,10 @@ def test_trace_to_dspy_example_success(request, trace_fixture, required_fields, 
         ("sample_trace_with_assessment", ["inputs", "expectations"]),
         ("sample_trace_with_assessment", ["outputs", "expectations"]),
         ("sample_trace_with_assessment", ["inputs", "outputs", "expectations"]),
-        ("sample_trace_with_assessment", ["trace", "inputs", "outputs", "expectations"]),
+        (
+            "sample_trace_with_assessment",
+            ["trace", "inputs", "outputs", "expectations"],
+        ),
     ],
 )
 def test_trace_to_dspy_example_missing_required_fields(request, trace_fixture, required_fields):
@@ -308,8 +322,6 @@ def test_mlflow_to_litellm_uri_round_trip_conversion(mlflow_uri):
     ],
 )
 def test_construct_dspy_lm_utility_method(model, expected_type):
-    import dspy
-
     result = construct_dspy_lm(model)
 
     if expected_type == "AgentEvalLM":
@@ -343,3 +355,117 @@ def test_agent_eval_lm_uses_optimizer_session_name():
             session_name="mlflow-judge-optimizer-v1.0.0",
             use_case="judge_alignment",
         )
+
+
+@pytest.mark.parametrize(
+    ("instructions", "field_names", "should_append"),
+    [
+        # Fields already present - should NOT append
+        (
+            "Evaluate {{inputs}} and {{outputs}} for quality",
+            ["inputs", "outputs"],
+            False,
+        ),
+        # Fields NOT present - should append
+        (
+            "Evaluate the response for quality",
+            ["inputs", "outputs"],
+            True,
+        ),
+        # No fields defined - should NOT append
+        (
+            "Some instructions",
+            [],
+            False,
+        ),
+        # Plain field names present but not mustached - should append
+        (
+            "Check the inputs and outputs carefully",
+            ["inputs", "outputs"],
+            True,
+        ),
+    ],
+)
+def test_append_input_fields_section(instructions, field_names, should_append):
+    class TestJudge(MockJudge):
+        def __init__(self, fields):
+            super().__init__(name="test_judge")
+            self._fields = fields
+
+        def get_input_fields(self):
+            return [JudgeField(name=f, description=f"The {f}") for f in self._fields]
+
+    judge = TestJudge(field_names)
+    result = append_input_fields_section(instructions, judge)
+
+    if should_append:
+        assert result != instructions
+        assert "Inputs for assessment:" in result
+        for field in field_names:
+            assert f"{{{{ {field} }}}}" in result
+    else:
+        assert result == instructions
+
+
+def test_format_demos_empty_list(mock_judge):
+    result = format_demos_as_examples([], mock_judge)
+    assert result == ""
+
+
+def test_format_demos_multiple_demos(mock_judge):
+    long_input = "x" * 600
+    demos = [
+        dspy.Example(inputs="Q1", outputs="A1", result="pass", rationale="Good"),
+        dspy.Example(inputs="Q2", outputs="A2", result="fail", rationale="Bad"),
+        dspy.Example(inputs=long_input, outputs="short", result="pass", rationale="Test"),
+    ]
+
+    result = format_demos_as_examples(demos, mock_judge)
+
+    assert "Example 1:" in result
+    assert "Example 2:" in result
+    assert "Example 3:" in result
+    assert "inputs: Q1" in result
+    assert "inputs: Q2" in result
+    # Long values should NOT be truncated
+    assert long_input in result
+
+
+def test_format_demos_respects_judge_fields():
+    class CustomFieldsJudge(MockJudge):
+        def get_input_fields(self):
+            return [
+                JudgeField(name="query", description="The query"),
+                JudgeField(name="context", description="The context"),
+            ]
+
+        def get_output_fields(self):
+            return [JudgeField(name="verdict", description="The verdict")]
+
+    judge = CustomFieldsJudge(name="custom_judge")
+    demo = dspy.Example(
+        query="What is AI?",
+        context="AI is artificial intelligence",
+        verdict="pass",
+        extra_field="should not appear",  # Not in judge fields
+    )
+
+    result = format_demos_as_examples([demo], judge)
+
+    assert "query: What is AI?" in result
+    assert "context: AI is artificial intelligence" in result
+    assert "verdict: pass" in result
+    assert "extra_field" not in result
+
+
+def test_format_demos_raises_on_invalid_demo(mock_judge):
+    class NonDictDemo:
+        pass
+
+    demos = [
+        dspy.Example(inputs="Q1", outputs="A1", result="pass", rationale="Good"),
+        NonDictDemo(),  # Invalid demo - should raise exception
+    ]
+
+    with pytest.raises(MlflowException, match="Demo at index 1 cannot be converted to dict"):
+        format_demos_as_examples(demos, mock_judge)

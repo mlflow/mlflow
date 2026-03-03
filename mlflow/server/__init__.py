@@ -3,6 +3,7 @@ import importlib.metadata
 import logging
 import os
 import shlex
+import signal
 import sys
 import tempfile
 import textwrap
@@ -49,6 +50,10 @@ from mlflow.server.handlers import (
     post_ui_telemetry_handler,
     upload_artifact_handler,
 )
+from mlflow.server.workspace_helpers import (
+    workspace_before_request_handler,
+    workspace_teardown_request_handler,
+)
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
@@ -71,6 +76,9 @@ if is_running_as_server:
     from mlflow.server import security
 
     security.init_security_middleware(app)
+
+app.before_request(workspace_before_request_handler)
+app.teardown_request(workspace_teardown_request_handler)
 
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
@@ -426,7 +434,22 @@ def _run_server(
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
 
+    # Check if job execution can be enabled (requirements met)
+    job_execution_enabled = False
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        from mlflow.server.jobs.utils import _check_requirements
+
+        try:
+            _check_requirements(file_store_path)
+            job_execution_enabled = True
+        except Exception as e:
+            _logger.warning(
+                f"MLflow job execution requirements not met ({e!s}). "
+                "Server will start without job execution support. "
+                "Errors will be surfaced at job invocation time."
+            )
+
+    if job_execution_enabled:
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
         # huey job runner (huey_consumer).
         env_map[HUEY_STORAGE_PATH_ENV_VAR] = (
@@ -435,23 +458,26 @@ def _run_server(
             else tempfile.mkdtemp()
         )
 
-    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        from mlflow.server.jobs.utils import _check_requirements
-
-        try:
-            _check_requirements(file_store_path)
-        except Exception as e:
-            raise MlflowException(
-                f"MLflow job runner requirements checking failed (root error: {e!s}). "
-                "If you don't need MLflow job runner, you can disable it by setting "
-                "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'false'."
-            )
-
     server_proc = _exec_cmd(
-        full_command, extra_env=env_map, capture_output=False, synchronous=False
+        full_command,
+        extra_env=env_map,
+        capture_output=False,
+        synchronous=False,
     )
 
-    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+    def _forward_signal(signum, _frame):
+        """Forward signals to the child server process to enable graceful shutdown."""
+        if server_proc.poll() is not None:
+            return
+        try:
+            server_proc.send_signal(signum)
+        except ProcessLookupError:
+            pass
+
+    signal.signal(signal.SIGTERM, _forward_signal)
+    signal.signal(signal.SIGINT, _forward_signal)
+
+    if job_execution_enabled:
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
         from mlflow.server.jobs.utils import _launch_job_runner
 

@@ -230,9 +230,7 @@ def test_download_file_in_parallel_when_necessary(
 ):
     repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
     remote_file_path = "file_1.txt"
-    list_artifacts_result = (
-        [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)] if file_size else []
-    )
+    list_artifacts_result = [FileInfo(path=remote_file_path, is_dir=False, file_size=file_size)]
     with (
         mock.patch(
             f"{S3_ARTIFACT_REPOSITORY}.list_artifacts",
@@ -284,10 +282,8 @@ def test_refresh_credentials():
             session_token="my-session-1",
             credential_refresh_def=credential_refresh_def,
         )
-        try:
+        with pytest.raises(requests.HTTPError, match=r".*", check=lambda e: e == err):
             repo._download_from_cloud("file_1.txt", "local_path")
-        except requests.HTTPError as e:
-            assert e == err
 
         mock_get_s3_client.assert_any_call(
             addressing_style=None,

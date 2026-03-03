@@ -58,8 +58,8 @@ def test_metrics_export(
                     data_points.extend(metric.data.data_points)
 
     assert len(data_points) == 3
-    data_points.sort(key=lambda dp: dp.sum)
-    llm_metric, chain_metric, tool_metric = data_points
+    data_points.sort(key=lambda dp: dp.attributes["span_type"])
+    chain_metric, llm_metric, tool_metric = data_points
 
     # LLM span (child) - 250ms
     llm_metric_attrs = dict(llm_metric.attributes)

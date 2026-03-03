@@ -7,6 +7,7 @@ meaning of these tags.
 
 MLFLOW_EXPERIMENT_SOURCE_ID = "mlflow.experiment.sourceId"
 MLFLOW_EXPERIMENT_SOURCE_TYPE = "mlflow.experiment.sourceType"
+MLFLOW_EXPERIMENT_IS_GATEWAY = "mlflow.experiment.isGateway"
 MLFLOW_RUN_NAME = "mlflow.runName"
 MLFLOW_RUN_NOTE = "mlflow.note.content"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
@@ -90,6 +91,8 @@ LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"
 # For online scoring checkpoint tracking
 MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT = "mlflow.latestOnlineScoring.trace.checkpoint"
 
+# For online scoring session checkpoint tracking
+MLFLOW_LATEST_ONLINE_SCORING_SESSION_CHECKPOINT = "mlflow.latestOnlineScoring.session.checkpoint"
 
 # A set of tags that cannot be updated by the user
 IMMUTABLE_TAGS = {MLFLOW_USER, MLFLOW_ARTIFACT_LOCATION}
