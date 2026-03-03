@@ -37,17 +37,6 @@ const createActiveShapeRenderer = (theme: DesignSystemThemeInterface['theme']) =
 
   return (
     <g>
-      {/* Model name in donut center */}
-      <text
-        x={cx}
-        y={cy}
-        textAnchor="middle"
-        fill={theme.colors.textPrimary}
-        fontSize={theme.typography.fontSizeSm}
-        fontWeight={500}
-      >
-        {name}
-      </text>
       {/* Main pie sector */}
       <Sector
         cx={cx}
@@ -72,10 +61,21 @@ const createActiveShapeRenderer = (theme: DesignSystemThemeInterface['theme']) =
       <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
       {/* Dot at line end */}
       <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
-      {/* Cost label */}
+      {/* Model name label */}
       <text
         x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
         y={ey}
+        textAnchor={textAnchor}
+        fill={theme.colors.textPrimary}
+        fontSize={theme.typography.fontSizeSm}
+        fontWeight={500}
+      >
+        {name}
+      </text>
+      {/* Cost label */}
+      <text
+        x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
+        y={ey + theme.spacing.md}
         textAnchor={textAnchor}
         fill={theme.colors.textSecondary}
         fontSize={theme.typography.fontSizeSm}
@@ -85,7 +85,7 @@ const createActiveShapeRenderer = (theme: DesignSystemThemeInterface['theme']) =
       {/* Percentage label */}
       <text
         x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
-        y={ey + theme.spacing.md}
+        y={ey + theme.spacing.md * 2}
         textAnchor={textAnchor}
         fill={theme.colors.textSecondary}
         fontSize={theme.typography.fontSizeSm}
