@@ -3142,6 +3142,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 for k, v in trace_info.trace_metadata.items()
             ]
             sql_trace_info.request_metadata = request_metadata
+            # The caller may not always specify a trace_id on each assessment when
+            # exporting traces with assessments, but it can be imputed from the trace.
             for a in trace_info.assessments:
                 a.trace_id = trace_id
             sql_trace_info.assessments = [
