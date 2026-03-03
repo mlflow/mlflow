@@ -2905,3 +2905,65 @@ def test_configure_trace_tags_only():
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.tags["t"] == "v"
+
+
+def test_configure_trace_session_id_and_user():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(session_id="sess-123", user="user@example.com"):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.trace_metadata["mlflow.trace.session"] == "sess-123"
+    assert trace.info.trace_metadata["mlflow.trace.user"] == "user@example.com"
+
+
+def test_configure_trace_session_id_with_metadata():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(
+        session_id="sess-456",
+        user="alice",
+        metadata={"custom_key": "custom_value"},
+    ):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.trace_metadata["mlflow.trace.session"] == "sess-456"
+    assert trace.info.trace_metadata["mlflow.trace.user"] == "alice"
+    assert trace.info.trace_metadata["custom_key"] == "custom_value"
+
+
+def test_update_current_trace_with_session_id_and_user():
+    @mlflow.trace
+    def my_func():
+        mlflow.update_current_trace(session_id="sess-789", user="bob")
+        return "hello"
+
+    my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.trace_metadata["mlflow.trace.session"] == "sess-789"
+    assert trace.info.trace_metadata["mlflow.trace.user"] == "bob"
+
+
+def test_update_current_trace_session_id_with_metadata():
+    @mlflow.trace
+    def my_func():
+        mlflow.update_current_trace(
+            session_id="sess-abc",
+            user="carol",
+            metadata={"env": "staging"},
+        )
+        return "hello"
+
+    my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.trace_metadata["mlflow.trace.session"] == "sess-abc"
+    assert trace.info.trace_metadata["mlflow.trace.user"] == "carol"
+    assert trace.info.trace_metadata["env"] == "staging"
