@@ -1113,7 +1113,8 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (voltAgentMessages) return voltAgentMessages;
         break;
       default:
-        const chatMessages = normalizeOpenAIFormats(input);
+        const chatMessages =
+          normalizeOpenAIFormats(input) ?? normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
         if (chatMessages) return chatMessages;
         break;
     }

@@ -30,6 +30,12 @@ export function extractSimpleChatMessages(
   if (typeof inputs === 'string' && inputs) {
     userContent = inputs;
   } else if (inputs && typeof inputs === 'object') {
+    const hasMessages =
+      'messages' in inputs ||
+      Object.values(inputs).some((v) => v && typeof v === 'object' && !Array.isArray(v) && 'messages' in v);
+    if (!hasMessages) {
+      return null;
+    }
     for (const field of QUERY_FIELD_NAMES) {
       if (typeof inputs[field] === 'string' && inputs[field]) {
         userContent = inputs[field];
@@ -57,10 +63,18 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
     return null;
   }
 
-  // if they exist, slice from the last user message
+  // For the session view, show only the last user message and the final assistant
+  // response (skip tool calls, tool results, and intermediate assistant messages).
   const chatMessages = rootSpan.chatMessages;
-  const displayedMessages =
-    chatMessages?.slice(chatMessages?.findLastIndex((message) => message.role === 'user')) ?? [];
+  const lastUserIdx = chatMessages?.findLastIndex((message) => message.role === 'user') ?? -1;
+  const displayedMessages = chatMessages
+    ? [
+        ...(lastUserIdx >= 0 ? [chatMessages[lastUserIdx]] : []),
+        ...chatMessages
+          .slice(lastUserIdx + 1)
+          .filter((m) => m.role === 'assistant' && m.content && !m.tool_calls?.length),
+      ].slice(-2)
+    : [];
 
   if (displayedMessages.length !== 0) {
     return (

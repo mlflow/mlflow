@@ -70,11 +70,15 @@ describe('extractSimpleChatMessages', () => {
   });
 
   it('returns null when output is not a string', () => {
-    expect(extractSimpleChatMessages({ query: 'test' }, { result: 'object output' })).toBeNull();
+    expect(extractSimpleChatMessages({ query: 'test', messages: [] }, { result: 'object output' })).toBeNull();
   });
 
   it('returns null when output is empty string', () => {
-    expect(extractSimpleChatMessages({ query: 'test' }, '')).toBeNull();
+    expect(extractSimpleChatMessages({ query: 'test', messages: [] }, '')).toBeNull();
+  });
+
+  it('returns null when object input has no messages key', () => {
+    expect(extractSimpleChatMessages({ query: 'test', config: {} }, 'response')).toBeNull();
   });
 
   it('returns null when no recognizable query field in inputs', () => {
@@ -87,7 +91,7 @@ describe('extractSimpleChatMessages', () => {
 
   it('recognizes all supported query field names', () => {
     for (const field of ['query', 'input', 'message', 'question', 'prompt', 'content']) {
-      const result = extractSimpleChatMessages({ [field]: 'user text' }, 'assistant text');
+      const result = extractSimpleChatMessages({ [field]: 'user text', messages: [] }, 'assistant text');
       expect(result).toEqual([
         { role: 'user', content: 'user text' },
         { role: 'assistant', content: 'assistant text' },
@@ -96,7 +100,10 @@ describe('extractSimpleChatMessages', () => {
   });
 
   it('picks the first matching field by priority order', () => {
-    const result = extractSimpleChatMessages({ query: 'from query', input: 'from input' }, 'response');
+    const result = extractSimpleChatMessages(
+      { query: 'from query', input: 'from input', messages: [] },
+      'response',
+    );
     expect(result).toEqual([
       { role: 'user', content: 'from query' },
       { role: 'assistant', content: 'response' },
@@ -122,7 +129,7 @@ describe('SingleChatTurnMessages', () => {
   });
 
   it('renders chat bubbles for simple string input field and string output', () => {
-    const span = createSpan({ input: 'Tell me about tracing' }, 'Tracing helps you debug.');
+    const span = createSpan({ input: 'Tell me about tracing', messages: [] }, 'Tracing helps you debug.');
 
     render(
       <TestWrapper>
