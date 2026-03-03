@@ -334,9 +334,7 @@ class TogetherAIProvider(BaseProvider):
             payload=payload,
         )
 
-    async def _stream_request(
-        self, path: str, payload: dict[str, Any]
-    ) -> AsyncGenerator[bytes, None]:
+    def _stream_request(self, path: str, payload: dict[str, Any]) -> AsyncGenerator[bytes, None]:
         return send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
@@ -374,7 +372,7 @@ class TogetherAIProvider(BaseProvider):
                 ),
             )
 
-        stream = await self._stream_request(
+        stream = self._stream_request(
             path="completions",
             payload=TogetherAIAdapter.completions_streaming_to_model(payload, self.config),
         )
@@ -420,7 +418,7 @@ class TogetherAIProvider(BaseProvider):
 
         payload = jsonable_encoder(payload, exclude_none=True)
 
-        stream = await self._stream_request(
+        stream = self._stream_request(
             path="chat/completions",
             payload=TogetherAIAdapter.chat_streaming_to_model(payload, self.config),
         )

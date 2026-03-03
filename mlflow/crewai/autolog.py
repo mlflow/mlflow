@@ -107,6 +107,74 @@ def _parse_usage(instance: Any) -> dict[str, int] | None:
     }
 
 
+def patched_native_tool_call(original, self, *args, **kwargs):
+    config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
+
+    if not config.log_traces:
+        return original(self, *args, **kwargs)
+
+    tool_calls = args[0] if args else kwargs.get("tool_calls", [])
+    tool_name = _extract_native_tool_name(tool_calls)
+    if not tool_name:
+        return original(self, *args, **kwargs)
+
+    tool_args = _extract_native_tool_args(tool_calls)
+
+    with mlflow.start_span(name=tool_name, span_type=SpanType.TOOL) as span:
+        span.set_inputs({"tool_name": tool_name, "tool_args": tool_args})
+
+        msgs_before = len(self.messages)
+        result = original(self, *args, **kwargs)
+
+        # Extract tool result from the "tool" message appended by the original method
+        for msg in self.messages[msgs_before:]:
+            if isinstance(msg, dict) and msg.get("role") == "tool":
+                span.set_outputs({"result": msg.get("content")})
+                break
+
+        return result
+
+
+def _extract_native_tool_name(tool_calls):
+    if not tool_calls:
+        return None
+    tool_call = tool_calls[0]
+    if hasattr(tool_call, "function"):
+        return tool_call.function.name
+    elif hasattr(tool_call, "function_call") and tool_call.function_call:
+        return tool_call.function_call.name
+    elif hasattr(tool_call, "name") and hasattr(tool_call, "input"):
+        return tool_call.name
+    elif isinstance(tool_call, dict):
+        func_info = tool_call.get("function", {})
+        return func_info.get("name", "") or tool_call.get("name", "")
+    return None
+
+
+def _extract_native_tool_args(tool_calls):
+    if not tool_calls:
+        return {}
+    tool_call = tool_calls[0]
+    if hasattr(tool_call, "function"):
+        args = tool_call.function.arguments
+    elif hasattr(tool_call, "function_call") and tool_call.function_call:
+        args = dict(tool_call.function_call.args) if tool_call.function_call.args else {}
+    elif hasattr(tool_call, "input"):
+        args = tool_call.input
+    elif isinstance(tool_call, dict):
+        func_info = tool_call.get("function", {})
+        args = func_info.get("arguments", "{}") or tool_call.get("input", {})
+    else:
+        return {}
+
+    if isinstance(args, str):
+        try:
+            return json.loads(args)
+        except json.JSONDecodeError:
+            return {}
+    return args
+
+
 def _resolve_standalone_span(original, kwargs) -> tuple[str, SpanType]:
     name = original.__name__
     if name == "execute_tool_and_check_finality":

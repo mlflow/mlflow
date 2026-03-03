@@ -45,6 +45,41 @@ def handle():
     return {"ok": True}
 ```
 
+## AI Gateway Integration
+
+When an agent calls an [MLflow AI Gateway](/genai/governance/ai-gateway/) endpoint with usage tracking enabled, the gateway automatically creates a trace for each request. If the agent also sends a `traceparent` header, the gateway will create a lightweight span under the agent's trace that links to the full gateway trace and includes token usage.
+
+This means you get two complementary views:
+
+- **Gateway experiment** — full trace with request/response payloads and token usage
+- **Agent experiment** — agent trace with a child `gateway/<endpoint_name>` span containing a link to the gateway trace and token usage (no duplicated payloads)
+
+To enable this, pass the `traceparent` header when calling the gateway from within an active span:
+
+```python
+import mlflow
+import requests
+from mlflow.tracing import get_tracing_context_headers_for_http_request
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:5000/gateway/openai/v1",
+    api_key="dummy",
+)
+
+with mlflow.start_span("my-agent"):
+    headers = get_tracing_context_headers_for_http_request()
+    response = client.chat.completions.create(
+        model="my-endpoint",
+        messages=[{"role": "user", "content": "Hello!"}],
+        extra_headers=headers,
+    )
+```
+
+:::note
+The gateway endpoint must have [usage tracking](/genai/governance/ai-gateway/usage-tracking) enabled for both the gateway trace and the distributed span to be created.
+:::
+
 ## Limitation in Databricks
 
 If you set up MLflow tracking to Databricks, to make distributed tracing work, the trace destination must be set to Unity Catalog. Please refer to [Store MLflow traces in Unity Catalog](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog) for details.

@@ -11,6 +11,7 @@ from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadCredential,
 )
+from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.environment_variables import (
     MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE,
     MLFLOW_S3_ENDPOINT_URL,
@@ -27,6 +28,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
+    MultipartDownloadMixin,
     MultipartUploadMixin,
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
@@ -135,7 +137,7 @@ def _get_s3_client(
     )
 
 
-class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
+class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartDownloadMixin):
     """
     Stores artifacts on Amazon S3.
 
@@ -157,8 +159,9 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE: S3 addressing style ('path' or 'virtual')
 
     Note:
-        This class inherits from both ArtifactRepository and MultipartUploadMixin,
-        providing full artifact management capabilities including efficient large file uploads.
+        This class inherits from ArtifactRepository, MultipartUploadMixin, and
+        MultipartDownloadMixin, providing full artifact management capabilities
+        including efficient large file uploads and multipart downloads.
     """
 
     def __init__(
@@ -184,6 +187,8 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 Used with STS tokens or IAM roles.
             tracking_uri: Optional URI for the MLflow tracking server.
                 If None, uses the current tracking URI context.
+            registry_uri: Optional URI for the MLflow model registry.
+                If None, uses the current registry URI context.
         """
         super().__init__(artifact_uri, tracking_uri, registry_uri)
         self._access_key_id = access_key_id
@@ -564,3 +569,31 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             UploadId=upload_id,
             **self._bucket_owner_params,
         )
+
+    def get_download_presigned_url(self, artifact_path, expiration=300):
+        """Generate a presigned URL for downloading an artifact directly from S3."""
+        from botocore.exceptions import ClientError
+
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        key = posixpath.join(dest_path, artifact_path) if artifact_path else dest_path
+        s3_client = self._get_s3_client()
+
+        try:
+            head_response = s3_client.head_object(
+                Bucket=bucket, Key=key, **self._bucket_owner_params
+            )
+        except ClientError as error:
+            error_code = error.response["Error"]["Code"]
+            mlflow_error_code = BOTO_TO_MLFLOW_ERROR.get(error_code, INTERNAL_ERROR)
+            raise MlflowException(
+                error.response["Error"]["Message"],
+                error_code=mlflow_error_code,
+            )
+        file_size = head_response.get("ContentLength")
+
+        url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key, **self._bucket_owner_params},
+            ExpiresIn=expiration,
+        )
+        return PresignedDownloadUrlResponse(url=url, headers={}, file_size=file_size)

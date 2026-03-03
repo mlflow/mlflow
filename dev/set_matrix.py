@@ -192,13 +192,6 @@ def read_yaml(location, if_error=None):
         raise
 
 
-def uploaded_recently(dist: dict[str, Any]) -> bool:
-    if ut := dist.get("upload_time_iso_8601"):
-        delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut.replace("Z", "+00:00"))
-        return delta.days < 1
-    return False
-
-
 def get_released_versions(package_name: str) -> list[Version]:
     data = pypi_json(package_name)
     versions: list[Version] = []
@@ -232,14 +225,10 @@ def get_latest_micro_versions(versions):
     """
     Returns the latest micro version in each minor version.
     """
-    seen = set()
-    latest_micro_versions = []
+    by_minor = {}
     for ver in sorted(versions, reverse=True):
-        major_and_minor = ver.release[:2]
-        if major_and_minor not in seen:
-            seen.add(major_and_minor)
-            latest_micro_versions.append(ver)
-    return latest_micro_versions
+        by_minor.setdefault(ver.release[:2], ver)
+    return list(by_minor.values())
 
 
 def filter_versions(
@@ -274,17 +263,7 @@ def filter_versions(
     def _check_min(v: Version) -> bool:
         return v >= min_ver
 
-    return list(
-        functools.reduce(
-            lambda vers, f: filter(f, vers),
-            [
-                _is_supported,
-                _check_max,
-                _check_min,
-            ],
-            versions,
-        )
-    )
+    return [v for v in versions if _check_min(v) and _check_max(v) and _is_supported(v)]
 
 
 FLAVOR_FILE_PATTERN = re.compile(r"^(mlflow|tests)/(.+?)(_autolog(ging)?)?(\.py|/)")
@@ -302,25 +281,35 @@ def get_changed_flavors(changed_files, flavors):
     return changed_flavors
 
 
+def _find_matches(spec: dict[str, T], version: str) -> Iterator[T]:
+    """
+    Args:
+        spec: A dictionary with key as version specifier and value as the corresponding value.
+            For example, {"< 1.0.0": "numpy<2.0", ">= 1.0.0": "numpy>=2.0"}.
+        version: The version to match against the specifiers.
+
+    Returns:
+        An iterator of values that match the version.
+    """
+    for specifier, val in spec.items():
+        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
+        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+            yield val
+
+
 def get_matched_requirements(requirements, version=None):
     if not isinstance(requirements, dict):
         raise TypeError(
             f"Invalid object type for `requirements`: '{type(requirements)}'. Must be dict."
         )
-
     reqs = set()
-    for specifier, packages in requirements.items():
-        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
-        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
-            reqs = reqs.union(packages)
+    for packages in _find_matches(requirements, version):
+        reqs.update(packages)
     return sorted(reqs)
 
 
 def get_java_version(java: dict[str, str] | None, version: str) -> str:
-    if java and (match := next(_find_matches(java, version), None)):
-        return match
-
-    return "17"
+    return _get_spec_value(java, version, "17")
 
 
 @functools.lru_cache(maxsize=128)
@@ -392,20 +381,10 @@ def infer_python_version(package: str, version: str, repo_url: str | None = None
     return candidates[0]
 
 
-def _find_matches(spec: dict[str, T], version: str) -> Iterator[T]:
-    """
-    Args:
-        spec: A dictionary with key as version specifier and value as the corresponding value.
-            For example, {"< 1.0.0": "numpy<2.0", ">= 1.0.0": "numpy>=2.0"}.
-        version: The version to match against the specifiers.
-
-    Returns:
-        An iterator of values that match the version.
-    """
-    for specifier, val in spec.items():
-        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
-        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
-            yield val
+def _get_spec_value(spec: dict[str, str] | None, version: str, default: str) -> str:
+    if spec and (match := next(_find_matches(spec, version), None)):
+        return match
+    return default
 
 
 def get_python_version(
@@ -418,10 +397,7 @@ def get_python_version(
 
 
 def get_runs_on(runs_on: dict[str, str] | None, version: str) -> str:
-    if runs_on and (match := next(_find_matches(runs_on, version), None)):
-        return match
-
-    return "ubuntu-latest"
+    return _get_spec_value(runs_on, version, "ubuntu-latest")
 
 
 def remove_comments(s):
@@ -433,15 +409,12 @@ def make_pip_install_command(packages):
 
 
 def divider(title, length=None):
-    length = shutil.get_terminal_size(fallback=(80, 24))[0] if length is None else length
-    rest = length - len(title) - 2
-    left = rest // 2 if rest % 2 else (rest + 1) // 2
-    return "\n{} {} {}\n".format("=" * left, title, "=" * (rest - left))
+    length = length or shutil.get_terminal_size(fallback=(80, 24))[0]
+    return "\n" + f" {title} ".center(length, "=") + "\n"
 
 
 def split_by_comma(x):
-    stripped = x.strip()
-    return list(map(str.strip, stripped.split(","))) if stripped != "" else []
+    return [s for item in x.split(",") if (s := item.strip())]
 
 
 def parse_args(args):
@@ -528,14 +501,7 @@ def validate_test_coverage(flavor: str, config: FlavorConfig):
             continue
 
         # Consolidate multi-line commands with "\" to a single line
-        commands = []
-        curr = ""
-        for cmd in cfg.run.split("\n"):
-            if cmd.endswith("\\"):
-                curr += cmd.rstrip("\\")
-            else:
-                commands.append(curr + cmd)
-                curr = ""
+        commands = cfg.run.replace("\\\n", "").split("\n")
 
         # Parse pytest commands to get the executed test files
         for cmd in commands:

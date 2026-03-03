@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import json
 import logging
@@ -9,7 +11,7 @@ import uuid
 import warnings
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, NamedTuple, TypedDict
+from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
 
 from mlflow.entities import (
     Assessment,
@@ -124,6 +126,9 @@ from mlflow.utils.validation import (
 )
 from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
 
+if TYPE_CHECKING:
+    from mlflow.entities.model_registry.prompt_version import PromptVersion
+
 _logger = logging.getLogger(__name__)
 
 
@@ -220,9 +225,8 @@ class FileStore(AbstractStore):
             "The filesystem tracking backend (e.g., './mlruns') is deprecated as of "
             "February 2026. Consider transitioning to a database backend (e.g., "
             "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
-            "See https://github.com/mlflow/mlflow/issues/18534 for more details and migration "
-            "guidance. For migrating existing data, "
-            "https://github.com/mlflow/mlflow-export-import can be used.",
+            "See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
+            "for migration guidance.",
             FutureWarning,
             stacklevel=2,
         )
@@ -2880,6 +2884,20 @@ class FileStore(AbstractStore):
         """
         raise MlflowException(
             "Linking traces to runs is not supported in FileStore. "
+            "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
+            error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+        )
+
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
+        """
+        raise MlflowException(
+            "Linking prompts to traces is not supported in FileStore. "
             "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
             error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
         )

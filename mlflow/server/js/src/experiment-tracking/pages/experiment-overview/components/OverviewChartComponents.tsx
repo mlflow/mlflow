@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTelemetry';
 import { useNavigate } from '../../../../common/utils/RoutingUtils';
+import { OverviewChartContext } from '../OverviewChartContext';
 import Routes from '../../../routes';
 import { ExperimentPageTabName } from '../../../constants';
 import {
@@ -68,7 +69,7 @@ interface OverviewChartCardProps {
 /**
  * Common wrapper for overview chart cards with consistent styling
  */
-export const OverviewChartCard: React.FC<OverviewChartCardProps> = ({ children, height = DEFAULT_CHART_HEIGHT }) => {
+const OverviewChartCard: React.FC<OverviewChartCardProps> = ({ children, height = DEFAULT_CHART_HEIGHT }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -323,6 +324,7 @@ interface ScrollableTooltipProps {
 export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
+  const { hideTooltipLinks, tooltipLinkUrlBuilder, tooltipLinkText } = useContext(OverviewChartContext) ?? {};
 
   if (!active || !payload?.length) {
     return null;
@@ -333,17 +335,19 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
   const hasCustomLinkClick = linkConfig?.onLinkClick !== undefined;
   const hasTimeBasedNavigation =
     linkConfig?.experimentId && linkConfig?.timeIntervalSeconds && dataPoint?.timestampMs !== undefined;
-  const showLink = linkConfig && (hasCustomLinkClick || hasTimeBasedNavigation);
+  const showLink = !hideTooltipLinks && linkConfig && (hasCustomLinkClick || hasTimeBasedNavigation);
 
   const handleLinkClick = () => {
     if (hasCustomLinkClick) {
       linkConfig.onLinkClick!(label, dataPoint);
     } else if (hasTimeBasedNavigation) {
-      const url = getTracesFilteredByTimeRangeUrl(
-        linkConfig.experimentId!,
-        dataPoint.timestampMs!,
-        linkConfig.timeIntervalSeconds!,
-      );
+      const url = tooltipLinkUrlBuilder
+        ? tooltipLinkUrlBuilder(linkConfig.experimentId!, dataPoint.timestampMs!, linkConfig.timeIntervalSeconds!)
+        : getTracesFilteredByTimeRangeUrl(
+            linkConfig.experimentId!,
+            dataPoint.timestampMs!,
+            linkConfig.timeIntervalSeconds!,
+          );
       navigate(url);
     }
   };
@@ -412,7 +416,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
           }}
         >
           <Typography.Link
-            componentId={linkConfig.componentId}
+            componentId={linkConfig?.componentId ?? 'mlflow.overview.usage.traces.view_traces_link'}
             onClick={handleLinkClick}
             css={{
               cursor: 'pointer',
@@ -421,7 +425,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
               gap: theme.spacing.xs,
             }}
           >
-            {linkConfig.linkText ?? (
+            {linkConfig?.linkText ?? tooltipLinkText ?? (
               <FormattedMessage
                 defaultMessage="View traces for this period"
                 description="Link text to navigate to traces tab filtered by the selected time period"

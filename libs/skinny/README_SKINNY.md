@@ -25,7 +25,7 @@ MLflow is an open-source developer platform to build AI/LLM applications and mod
 
 [![Python SDK](https://img.shields.io/pypi/v/mlflow)](https://pypi.org/project/mlflow/)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/mlflow)](https://pepy.tech/projects/mlflow)
-[![License](https://img.shields.io/github/license/mlflow/mlflow)](https://github.com/mlflow/mlflow/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/mlflow/mlflow)](https://github.com/mlflow/mlflow/blob/master/LICENSE.txt)
 <a href="https://twitter.com/intent/follow?screen_name=mlflow" target="_blank">
 <img src="https://img.shields.io/twitter/follow/mlflow?logo=X&color=%20%23f5f5f5"
       alt="follow on X(Twitter)"></a>
@@ -331,6 +331,8 @@ MLflow is currently maintained by the following core members with significant co
 - [Gabriel Fu](https://github.com/gabrielfu)
 - [Harutaka Kawamura](https://github.com/harupy)
 - [Joel Robin P](https://github.com/joelrobin18)
+- [Matt Prahl](https://github.com/mprahl)
+- [Pat Sukprasert](https://github.com/PattaraS)
 - [Serena Ruan](https://github.com/serena-ruan)
 - [Tomu Hirata](https://github.com/TomeHirata)
 - [Weichen Xu](https://github.com/WeichenXu123)

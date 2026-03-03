@@ -27,7 +27,7 @@ export const TraceErrorsChart: React.FC = () => {
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
-  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
   const navigate = useNavigate();
 
   // Fetch and process errors chart data
@@ -45,12 +45,12 @@ export const TraceErrorsChart: React.FC = () => {
   const handleViewTraces = useCallback(
     (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
       if (dataPoint?.timestampMs === undefined) return;
-      const url = getTracesFilteredByTimeRangeUrl(experimentId, dataPoint.timestampMs, timeIntervalSeconds, [
+      const url = getTracesFilteredByTimeRangeUrl(experimentIds[0], dataPoint.timestampMs, timeIntervalSeconds, [
         createSpanStatusEqualsFilter('ERROR'),
       ]);
       navigate(url);
     },
-    [experimentId, timeIntervalSeconds, navigate],
+    [experimentIds, timeIntervalSeconds, navigate],
   );
 
   if (isLoading) {

@@ -2062,3 +2062,35 @@ def test_delete_prompt_model_config():
     # Verify model config was deleted
     prompt = mlflow.genai.load_prompt("test_delete_config", version=1)
     assert prompt.model_config is None
+
+
+def test_concurrent_prompt_linking_to_run_and_trace():
+    mlflow.genai.register_prompt(name="test", template="Run prompt: {{x}}")
+
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = mlflow.MlflowClient()
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+        @mlflow.trace
+        def traced_function():
+            mlflow.genai.load_prompt("test", version=1)
+
+        traced_function()
+
+    # Verify the prompt was linked to the run
+    run_data = client.get_run(run_id)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
+    assert linked_prompts_tag is not None
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert any(p["name"] == "test" for p in linked_prompts)
+
+    # Verify the prompt was linked to the trace
+    trace_id = mlflow.get_last_active_trace_id()
+    trace = mlflow.get_trace(trace_id)
+    trace_linked_prompts = trace.info.tags.get(TraceTagKey.LINKED_PROMPTS)
+    assert trace_linked_prompts is not None
+    trace_prompts = json.loads(trace_linked_prompts)
+    assert any(p["name"] == "test" for p in trace_prompts)

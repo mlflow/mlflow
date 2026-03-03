@@ -33,6 +33,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        is-merge-queue:
+          - ${{ github.event_name == 'merge_group' }}
+        exclude:
+          - os: macos-latest
+            is-merge-queue: true
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     permissions:

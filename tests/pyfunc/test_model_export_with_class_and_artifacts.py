@@ -227,7 +227,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     pyfunc_artifact_path = "pyfunc_model"
     with (
         mlflow.start_run(),
-        mock.patch("warnings.warn") as mock_warning,
+        mock.patch("mlflow.pyfunc._logger.warning") as mock_warning,
     ):
         pyfunc_model_info = mlflow.pyfunc.log_model(
             name=pyfunc_artifact_path,
@@ -1425,7 +1425,6 @@ def test_python_model_with_type_hint_errors_with_different_signature():
                 python_model=AnnotatedPythonModel(),
                 signature=signature,
             )
-        warn_mock.assert_called_once()
         assert (
             "Provided signature does not match the signature inferred from"
             in warn_mock.call_args[0][0]

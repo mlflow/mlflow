@@ -36,7 +36,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
-  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
   const navigate = useNavigate();
 
   const chartLineColor = lineColor || theme.colors.red500;
@@ -53,13 +53,13 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
   const handleViewTraces = useCallback(
     (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
       if (dataPoint?.timestampMs === undefined) return;
-      const url = getTracesFilteredByTimeRangeUrl(experimentId, dataPoint.timestampMs, timeIntervalSeconds, [
+      const url = getTracesFilteredByTimeRangeUrl(experimentIds[0], dataPoint.timestampMs, timeIntervalSeconds, [
         createSpanNameEqualsFilter(toolName),
         createSpanStatusEqualsFilter('ERROR'),
       ]);
       navigate(url);
     },
-    [experimentId, timeIntervalSeconds, toolName, navigate],
+    [experimentIds, timeIntervalSeconds, toolName, navigate],
   );
 
   if (isLoading) {

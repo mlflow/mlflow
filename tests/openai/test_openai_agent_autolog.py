@@ -12,6 +12,8 @@ except ImportError:
 
 from agents import Agent, Runner, function_tool, set_default_openai_client, trace
 from agents.tracing import set_trace_processors
+from agents.tracing.processors import default_processor
+from agents.tracing.setup import get_trace_provider
 from openai.types.responses.function_tool import FunctionTool
 from openai.types.responses.response import Response
 from openai.types.responses.response_output_item import (
@@ -22,9 +24,17 @@ from openai.types.responses.response_output_text import ResponseOutputText
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.openai._agent_tracer import MlflowOpenAgentTracingProcessor
 from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces, purge_traces
+
+
+@pytest.fixture(autouse=True)
+def restore_default_trace_processors():
+    yield
+    # Restore the default OpenAI agents tracer after each test
+    set_trace_processors([default_processor()])
 
 
 def set_dummy_client(expected_responses):
@@ -38,12 +48,6 @@ def set_dummy_client(expected_responses):
     async_client.responses.create = _mocked_create
 
     set_default_openai_client(async_client)
-
-
-@pytest.fixture(autouse=True)
-def disable_default_tracing():
-    # Disable default OpenAI tracer
-    set_trace_processors([])
 
 
 @pytest.mark.asyncio
@@ -389,3 +393,24 @@ async def test_disable_enable_autolog():
     await Runner.run(agent, messages)
 
     assert get_traces() == []
+
+
+def test_autolog_disable_openai_agent_tracer():
+    def _get_processors():
+        return get_trace_provider()._multi_processor._processors
+
+    # Verify default processor exists before autolog
+    assert any(not isinstance(p, MlflowOpenAgentTracingProcessor) for p in _get_processors())
+
+    # When disable_openai_agent_tracer=False, the default OpenAI tracer should be preserved
+    mlflow.openai.autolog(disable_openai_agent_tracer=False)
+    processors = _get_processors()
+    assert len(processors) >= 2
+    assert any(isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors)
+    assert any(not isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors)
+
+    # By default, autolog should clear the OpenAI agents tracer
+    mlflow.openai.autolog()
+    processors = _get_processors()
+    assert len(processors) == 1
+    assert isinstance(processors[0], MlflowOpenAgentTracingProcessor)

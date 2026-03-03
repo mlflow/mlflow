@@ -55,7 +55,7 @@ export const ModelSelect = ({
       </FormUI.Label>
       <Input
         id={componentIdPrefix}
-        componentId={componentIdPrefix}
+        componentId="codegen_mlflow_app_src_oss_gateway_components_create-endpoint_ModelSelect.tsx_58"
         placeholder={
           !provider
             ? intl.formatMessage({
@@ -113,7 +113,7 @@ const ModelCapabilities = memo(function ModelCapabilities({ model }: { model: Pr
       }}
     >
       {capabilities.map((cap) => (
-        <Tag key={cap} componentId={`mlflow.gateway.model-select.capability.${cap.toLowerCase()}`}>
+        <Tag key={cap} componentId="codegen_mlflow_app_src_oss_gateway_components_create-endpoint_ModelSelect.tsx_116">
           {cap}
         </Tag>
       ))}

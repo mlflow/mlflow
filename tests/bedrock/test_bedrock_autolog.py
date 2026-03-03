@@ -12,6 +12,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -898,14 +899,15 @@ def test_bedrock_autolog_converse_stream(
 
     # Validate token usage against parameterized expected values
     _assert_token_usage_matches(span, expected_usage)
-    # Verify cost is calculated (input_tokens * 1.0 + output_tokens * 2.0)
-    expected_cost = {
-        "input_cost": float(expected_usage["input_tokens"]),
-        "output_cost": float(expected_usage["output_tokens"]) * 2.0,
-        "total_cost": float(expected_usage["input_tokens"])
-        + float(expected_usage["output_tokens"]) * 2.0,
-    }
-    assert span.llm_cost == expected_cost
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (input_tokens * 1.0 + output_tokens * 2.0)
+        expected_cost = {
+            "input_cost": float(expected_usage["input_tokens"]),
+            "output_cost": float(expected_usage["output_tokens"]) * 2.0,
+            "total_cost": float(expected_usage["input_tokens"])
+            + float(expected_usage["output_tokens"]) * 2.0,
+        }
+        assert span.llm_cost == expected_cost
 
 
 def _event_stream(raw_response, chunk_size=10):

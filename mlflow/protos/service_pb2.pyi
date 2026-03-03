@@ -82,6 +82,32 @@ class GatewayModelLinkageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper)
     LINKAGE_TYPE_UNSPECIFIED: _ClassVar[GatewayModelLinkageType]
     PRIMARY: _ClassVar[GatewayModelLinkageType]
     FALLBACK: _ClassVar[GatewayModelLinkageType]
+
+class BudgetDurationUnit(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DURATION_UNIT_UNSPECIFIED: _ClassVar[BudgetDurationUnit]
+    MINUTES: _ClassVar[BudgetDurationUnit]
+    HOURS: _ClassVar[BudgetDurationUnit]
+    DAYS: _ClassVar[BudgetDurationUnit]
+    WEEKS: _ClassVar[BudgetDurationUnit]
+    MONTHS: _ClassVar[BudgetDurationUnit]
+
+class BudgetTargetScope(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TARGET_SCOPE_UNSPECIFIED: _ClassVar[BudgetTargetScope]
+    GLOBAL: _ClassVar[BudgetTargetScope]
+    WORKSPACE: _ClassVar[BudgetTargetScope]
+
+class BudgetAction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BUDGET_ACTION_UNSPECIFIED: _ClassVar[BudgetAction]
+    ALERT: _ClassVar[BudgetAction]
+    REJECT: _ClassVar[BudgetAction]
+
+class BudgetUnit(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BUDGET_UNIT_UNSPECIFIED: _ClassVar[BudgetUnit]
+    USD: _ClassVar[BudgetUnit]
 ACTIVE_ONLY: ViewType
 DELETED_ONLY: ViewType
 ALL: ViewType
@@ -119,6 +145,20 @@ SEQUENTIAL: FallbackStrategy
 LINKAGE_TYPE_UNSPECIFIED: GatewayModelLinkageType
 PRIMARY: GatewayModelLinkageType
 FALLBACK: GatewayModelLinkageType
+DURATION_UNIT_UNSPECIFIED: BudgetDurationUnit
+MINUTES: BudgetDurationUnit
+HOURS: BudgetDurationUnit
+DAYS: BudgetDurationUnit
+WEEKS: BudgetDurationUnit
+MONTHS: BudgetDurationUnit
+TARGET_SCOPE_UNSPECIFIED: BudgetTargetScope
+GLOBAL: BudgetTargetScope
+WORKSPACE: BudgetTargetScope
+BUDGET_ACTION_UNSPECIFIED: BudgetAction
+ALERT: BudgetAction
+REJECT: BudgetAction
+BUDGET_UNIT_UNSPECIFIED: BudgetUnit
+USD: BudgetUnit
 
 class Metric(_message.Message):
     __slots__ = ("key", "value", "timestamp", "step", "dataset_name", "dataset_digest", "model_id", "run_id")
@@ -2263,6 +2303,115 @@ class DeleteGatewayEndpointTag(_message.Message):
     key: str
     def __init__(self, endpoint_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
 
+class GatewayBudgetPolicy(_message.Message):
+    __slots__ = ("budget_policy_id", "budget_unit", "budget_amount", "duration_unit", "duration_value", "target_scope", "budget_action", "created_by", "created_at", "last_updated_by", "last_updated_at")
+    BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_UNIT_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_AMOUNT_FIELD_NUMBER: _ClassVar[int]
+    DURATION_UNIT_FIELD_NUMBER: _ClassVar[int]
+    DURATION_VALUE_FIELD_NUMBER: _ClassVar[int]
+    TARGET_SCOPE_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ACTION_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    budget_policy_id: str
+    budget_unit: BudgetUnit
+    budget_amount: float
+    duration_unit: BudgetDurationUnit
+    duration_value: int
+    target_scope: BudgetTargetScope
+    budget_action: BudgetAction
+    created_by: str
+    created_at: int
+    last_updated_by: str
+    last_updated_at: int
+    def __init__(self, budget_policy_id: _Optional[str] = ..., budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration_unit: _Optional[_Union[BudgetDurationUnit, str]] = ..., duration_value: _Optional[int] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_by: _Optional[str] = ..., last_updated_at: _Optional[int] = ...) -> None: ...
+
+class CreateGatewayBudgetPolicy(_message.Message):
+    __slots__ = ("budget_unit", "budget_amount", "duration_unit", "duration_value", "target_scope", "budget_action", "created_by")
+    class Response(_message.Message):
+        __slots__ = ("budget_policy",)
+        BUDGET_POLICY_FIELD_NUMBER: _ClassVar[int]
+        budget_policy: GatewayBudgetPolicy
+        def __init__(self, budget_policy: _Optional[_Union[GatewayBudgetPolicy, _Mapping]] = ...) -> None: ...
+    BUDGET_UNIT_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_AMOUNT_FIELD_NUMBER: _ClassVar[int]
+    DURATION_UNIT_FIELD_NUMBER: _ClassVar[int]
+    DURATION_VALUE_FIELD_NUMBER: _ClassVar[int]
+    TARGET_SCOPE_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ACTION_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    budget_unit: BudgetUnit
+    budget_amount: float
+    duration_unit: BudgetDurationUnit
+    duration_value: int
+    target_scope: BudgetTargetScope
+    budget_action: BudgetAction
+    created_by: str
+    def __init__(self, budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration_unit: _Optional[_Union[BudgetDurationUnit, str]] = ..., duration_value: _Optional[int] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., created_by: _Optional[str] = ...) -> None: ...
+
+class GetGatewayBudgetPolicy(_message.Message):
+    __slots__ = ("budget_policy_id",)
+    class Response(_message.Message):
+        __slots__ = ("budget_policy",)
+        BUDGET_POLICY_FIELD_NUMBER: _ClassVar[int]
+        budget_policy: GatewayBudgetPolicy
+        def __init__(self, budget_policy: _Optional[_Union[GatewayBudgetPolicy, _Mapping]] = ...) -> None: ...
+    BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    budget_policy_id: str
+    def __init__(self, budget_policy_id: _Optional[str] = ...) -> None: ...
+
+class UpdateGatewayBudgetPolicy(_message.Message):
+    __slots__ = ("budget_policy_id", "budget_unit", "budget_amount", "duration_unit", "duration_value", "target_scope", "budget_action", "updated_by")
+    class Response(_message.Message):
+        __slots__ = ("budget_policy",)
+        BUDGET_POLICY_FIELD_NUMBER: _ClassVar[int]
+        budget_policy: GatewayBudgetPolicy
+        def __init__(self, budget_policy: _Optional[_Union[GatewayBudgetPolicy, _Mapping]] = ...) -> None: ...
+    BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_UNIT_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_AMOUNT_FIELD_NUMBER: _ClassVar[int]
+    DURATION_UNIT_FIELD_NUMBER: _ClassVar[int]
+    DURATION_VALUE_FIELD_NUMBER: _ClassVar[int]
+    TARGET_SCOPE_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ACTION_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    budget_policy_id: str
+    budget_unit: BudgetUnit
+    budget_amount: float
+    duration_unit: BudgetDurationUnit
+    duration_value: int
+    target_scope: BudgetTargetScope
+    budget_action: BudgetAction
+    updated_by: str
+    def __init__(self, budget_policy_id: _Optional[str] = ..., budget_unit: _Optional[_Union[BudgetUnit, str]] = ..., budget_amount: _Optional[float] = ..., duration_unit: _Optional[_Union[BudgetDurationUnit, str]] = ..., duration_value: _Optional[int] = ..., target_scope: _Optional[_Union[BudgetTargetScope, str]] = ..., budget_action: _Optional[_Union[BudgetAction, str]] = ..., updated_by: _Optional[str] = ...) -> None: ...
+
+class DeleteGatewayBudgetPolicy(_message.Message):
+    __slots__ = ("budget_policy_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    budget_policy_id: str
+    def __init__(self, budget_policy_id: _Optional[str] = ...) -> None: ...
+
+class ListGatewayBudgetPolicies(_message.Message):
+    __slots__ = ("max_results", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("budget_policies", "next_page_token")
+        BUDGET_POLICIES_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        budget_policies: _containers.RepeatedCompositeFieldContainer[GatewayBudgetPolicy]
+        next_page_token: str
+        def __init__(self, budget_policies: _Optional[_Iterable[_Union[GatewayBudgetPolicy, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    max_results: int
+    page_token: str
+    def __init__(self, max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
 class GetSecretsConfig(_message.Message):
     __slots__ = ()
     class Response(_message.Message):
@@ -2330,6 +2479,75 @@ class DeletePromptOptimizationJob(_message.Message):
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
     job_id: str
     def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class Workspace(_message.Message):
+    __slots__ = ("name", "description", "default_artifact_root")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    description: str
+    default_artifact_root: str
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ...) -> None: ...
+
+class ListWorkspaces(_message.Message):
+    __slots__ = ()
+    class Response(_message.Message):
+        __slots__ = ("workspaces",)
+        WORKSPACES_FIELD_NUMBER: _ClassVar[int]
+        workspaces: _containers.RepeatedCompositeFieldContainer[Workspace]
+        def __init__(self, workspaces: _Optional[_Iterable[_Union[Workspace, _Mapping]]] = ...) -> None: ...
+    def __init__(self) -> None: ...
+
+class CreateWorkspace(_message.Message):
+    __slots__ = ("name", "description", "default_artifact_root")
+    class Response(_message.Message):
+        __slots__ = ("workspace",)
+        WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+        workspace: Workspace
+        def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    description: str
+    default_artifact_root: str
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ...) -> None: ...
+
+class GetWorkspace(_message.Message):
+    __slots__ = ("workspace_name",)
+    class Response(_message.Message):
+        __slots__ = ("workspace",)
+        WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+        workspace: Workspace
+        def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
+    WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    workspace_name: str
+    def __init__(self, workspace_name: _Optional[str] = ...) -> None: ...
+
+class UpdateWorkspace(_message.Message):
+    __slots__ = ("workspace_name", "description", "default_artifact_root")
+    class Response(_message.Message):
+        __slots__ = ("workspace",)
+        WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+        workspace: Workspace
+        def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
+    WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ARTIFACT_ROOT_FIELD_NUMBER: _ClassVar[int]
+    workspace_name: str
+    description: str
+    default_artifact_root: str
+    def __init__(self, workspace_name: _Optional[str] = ..., description: _Optional[str] = ..., default_artifact_root: _Optional[str] = ...) -> None: ...
+
+class DeleteWorkspace(_message.Message):
+    __slots__ = ("workspace_name",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    workspace_name: str
+    def __init__(self, workspace_name: _Optional[str] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 

@@ -66,7 +66,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
-  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
   const [monitoringFilters] = useMonitoringFilters();
   const navigate = useNavigate();
 
@@ -79,12 +79,12 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
   const handleViewTraces = useCallback(
     (scoreValue: string | undefined) => {
       if (!scoreValue) return;
-      const url = getTracesFilteredUrl(experimentId, monitoringFilters, [
+      const url = getTracesFilteredUrl(experimentIds[0], monitoringFilters, [
         createAssessmentEqualsFilter(assessmentName, scoreValue),
       ]);
       navigate(url);
     },
-    [experimentId, assessmentName, monitoringFilters, navigate],
+    [experimentIds, assessmentName, monitoringFilters, navigate],
   );
 
   const timeSeriestooltipFormatter = useCallback(
@@ -96,12 +96,12 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
   const handleViewTimeSeriesTraces = useCallback(
     (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
       if (dataPoint?.timestampMs === undefined) return;
-      const url = getTracesFilteredByTimeRangeUrl(experimentId, dataPoint.timestampMs, timeIntervalSeconds, [
+      const url = getTracesFilteredByTimeRangeUrl(experimentIds[0], dataPoint.timestampMs, timeIntervalSeconds, [
         createAssessmentExistsFilter(assessmentName),
       ]);
       navigate(url);
     },
-    [experimentId, timeIntervalSeconds, assessmentName, navigate],
+    [experimentIds, timeIntervalSeconds, assessmentName, navigate],
   );
 
   const timeSeriestooltipContent = (

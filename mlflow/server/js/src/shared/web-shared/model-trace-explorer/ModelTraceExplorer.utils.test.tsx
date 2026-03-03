@@ -21,7 +21,6 @@ import {
   MOCK_TRACE_INFO_V3,
   MOCK_V3_SPANS,
   MOCK_V3_TRACE,
-  MOCK_ASSESSMENT,
 } from './ModelTraceExplorer.test-utils';
 import {
   parseModelTraceToTree,
@@ -162,110 +161,6 @@ describe('parseTraceToTree', () => {
     expect(rootNode?.children?.[0].key).toBe('child1');
     expect(rootNode?.children?.[1].key).toBe('child2');
     expect(rootNode?.children?.[2].key).toBe('child3');
-  });
-});
-
-describe('parseModelTraceToTreeWithMultipleRoots', () => {
-  it('should return empty array if the trace has no spans', () => {
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots({
-      ...MOCK_V3_TRACE,
-      data: {
-        spans: [],
-      },
-    });
-
-    expect(rootNodes).toEqual([]);
-  });
-
-  it('should return a single root node for a complete trace', () => {
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
-
-    expect(rootNodes).toHaveLength(1);
-    expect(rootNodes[0]).toEqual(
-      expect.objectContaining({
-        key: 'a96bcf7b57a48b3d',
-        children: [
-          expect.objectContaining({
-            key: '31323334',
-            children: [
-              expect.objectContaining({
-                key: '3132333435',
-              }),
-            ],
-          }),
-        ],
-      }),
-    );
-  });
-
-  it('should return multiple root nodes for in-progress traces with multiple top-level spans', () => {
-    // Simulate an in-progress trace where root span hasn't been emitted yet
-    const inProgressTrace = {
-      ...MOCK_V3_TRACE,
-      data: {
-        spans: [
-          // Two spans without parent_span_id - simulating multiple roots
-          {
-            ...MOCK_V3_SPANS[1],
-            parent_span_id: '',
-          },
-          {
-            ...MOCK_V3_SPANS[2],
-            parent_span_id: '',
-          },
-        ],
-      },
-    };
-
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots(inProgressTrace);
-
-    expect(rootNodes).toHaveLength(2);
-    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: '31323334' }));
-    expect(rootNodes[1]).toEqual(expect.objectContaining({ key: '3132333435' }));
-  });
-
-  it('should treat orphaned spans as top-level nodes', () => {
-    const traceWithOrphan = {
-      ...MOCK_V3_TRACE,
-      data: {
-        spans: [
-          MOCK_V3_SPANS[0],
-          {
-            ...MOCK_V3_SPANS[1],
-            parent_span_id: 'bm9uLWV4aXN0ZW50',
-          },
-        ],
-      },
-    };
-
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots(traceWithOrphan);
-
-    expect(rootNodes).toHaveLength(2);
-    expect(rootNodes[0].key).toBe('a96bcf7b57a48b3d');
-    expect(rootNodes[1].key).toBe('31323334');
-  });
-
-  it('should handle traces with only the root span', () => {
-    const singleSpanTrace = {
-      ...MOCK_V3_TRACE,
-      data: { spans: [MOCK_V3_SPANS[0]] },
-    };
-
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots(singleSpanTrace);
-
-    expect(rootNodes).toHaveLength(1);
-    expect(rootNodes[0]).toEqual(expect.objectContaining({ key: 'a96bcf7b57a48b3d' }));
-  });
-
-  it('should calculate span times relative to global start time', () => {
-    const rootNodes = parseModelTraceToTreeWithMultipleRoots(MOCK_V3_TRACE);
-
-    expect(rootNodes[0].start).toBe(0);
-    expect(rootNodes[0].end).toBeGreaterThan(0);
-
-    const childSpan = rootNodes[0].children?.[0];
-    expect(childSpan?.start).toBe(0);
-    expect(childSpan?.end).toBeGreaterThan(0);
   });
 });
 
@@ -543,6 +438,51 @@ describe('normalizeConversation', () => {
     expect(
       normalizeConversation({ messages: [{ role: 'assistant', tool_calls: [{ id: 'hello', type: 'yay' }] }] }),
     ).toBeNull();
+  });
+
+  it('normalizes OpenAI Responses API output without explicit messageFormat', () => {
+    const responsesOutput = {
+      object: 'response',
+      output: [
+        {
+          type: 'function_call',
+          id: 'fc_1',
+          call_id: 'call_1',
+          name: 'my_tool',
+          arguments: '{"key": "value"}',
+        },
+        {
+          type: 'function_call_output',
+          call_id: 'call_1',
+          output: 'tool result',
+        },
+        {
+          type: 'message',
+          id: 'msg_1',
+          content: [{ type: 'output_text', text: 'Hello from assistant' }],
+          role: 'assistant',
+        },
+      ],
+    };
+
+    const result = normalizeConversation(responsesOutput);
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(3);
+    expect(result![0]).toEqual(
+      expect.objectContaining({
+        role: 'assistant',
+        tool_calls: [
+          expect.objectContaining({
+            id: 'call_1',
+            function: expect.objectContaining({ name: 'my_tool' }),
+          }),
+        ],
+      }),
+    );
+    expect(result![1]).toEqual(
+      expect.objectContaining({ role: 'tool', tool_call_id: 'call_1', content: 'tool result' }),
+    );
+    expect(result![2]).toEqual(expect.objectContaining({ role: 'assistant', content: 'Hello from assistant' }));
   });
 });
 

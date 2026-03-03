@@ -3,6 +3,15 @@
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
 
+import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
+
+// Returns the current workspaces enabled state from the cached server features.
+// This is synchronous and returns the cached value (false if not yet loaded).
+// For React components, prefer using the useWorkspacesEnabled hook instead.
+export const shouldEnableWorkspaces = () => getWorkspacesEnabledSync();
+
+export const shouldEnableWorkspacePermissions = () => shouldEnableWorkspaces();
+
 export const shouldEnableRunDetailsPageAutoRefresh = () => true;
 
 /**
@@ -146,9 +155,6 @@ export const shouldEnableExperimentPageSideTabs = () => {
   return true;
 };
 
-/**
- * Determines if the Overview tab is enabled on the experiment page
- */
 export const shouldEnableExperimentOverviewTab = () => {
   return true;
 };
@@ -158,7 +164,7 @@ export const shouldEnableExperimentOverviewTab = () => {
  * This enables the workflow type selector and nested navigation items in the main sidebar.
  */
 export const shouldEnableWorkflowBasedNavigation = () => {
-  return false;
+  return true;
 };
 
 /**
@@ -167,4 +173,8 @@ export const shouldEnableWorkflowBasedNavigation = () => {
  */
 export const shouldEnableImprovedEvalRunsComparison = () => {
   return false;
+};
+
+export const isScorerModelSelectionEnabled = () => {
+  return true;
 };

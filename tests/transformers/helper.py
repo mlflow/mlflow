@@ -9,11 +9,13 @@ from mlflow.transformers import _PEFT_PIPELINE_ERROR_MSG, _try_import_conversati
 from mlflow.utils.logging_utils import suppress_logs
 
 from tests.helper_functions import flaky
+from tests.transformers.version import (
+    IS_NEW_FEATURE_EXTRACTION_API,
+    IS_TRANSFORMERS_V5_OR_LATER,
+    transformers_version,
+)
 
 _logger = logging.getLogger(__name__)
-
-transformers_version = Version(transformers.__version__)
-IS_NEW_FEATURE_EXTRACTION_API = transformers_version >= Version("4.27.0")
 
 CHAT_TEMPLATE = "{% for message in messages %}{{ message.content }}{{ eos_token }}{% endfor %}"
 
@@ -41,15 +43,23 @@ def load_small_qa_pipeline():
 @flaky()
 def load_small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
-    feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
-        architecture, low_cpu_mem_usage=True
-    )
     model = transformers.MobileNetV2ForImageClassification.from_pretrained(
         architecture, low_cpu_mem_usage=True
     )
-    return transformers.pipeline(
-        task="image-classification", model=model, feature_extractor=feature_extractor
-    )
+    if IS_NEW_FEATURE_EXTRACTION_API:
+        image_processor = transformers.AutoImageProcessor.from_pretrained(
+            architecture, low_cpu_mem_usage=True
+        )
+        return transformers.pipeline(
+            task="image-classification", model=model, image_processor=image_processor
+        )
+    else:
+        feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
+            architecture, low_cpu_mem_usage=True
+        )
+        return transformers.pipeline(
+            task="image-classification", model=model, feature_extractor=feature_extractor
+        )
 
 
 @prefetch
@@ -86,7 +96,7 @@ def load_small_conversational_model():
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             "microsoft/DialoGPT-small", low_cpu_mem_usage=True
         )
-        model = transformers.AutoModelWithLMHead.from_pretrained(
+        model = transformers.AutoModelForCausalLM.from_pretrained(
             "satvikag/chatbot", low_cpu_mem_usage=True
         )
         return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
@@ -104,6 +114,9 @@ def load_fill_mask_pipeline():
 @prefetch
 @flaky()
 def load_text2text_generation_pipeline():
+    if IS_TRANSFORMERS_V5_OR_LATER:
+        _logger.info("Skipping text2text-generation pipeline prefetch: removed in transformers 5.x")
+        return None
     task = "text2text-generation"
     architecture = "mrm8488/t5-small-finetuned-common_gen"
     model = transformers.T5ForConditionalGeneration.from_pretrained(architecture)
@@ -116,7 +129,7 @@ def load_text2text_generation_pipeline():
 def load_text_generation_pipeline():
     task = "text-generation"
     architecture = "distilgpt2"
-    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
+    model = transformers.AutoModelForCausalLM.from_pretrained(architecture)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         architecture, chat_template=CHAT_TEMPLATE
     )
@@ -126,6 +139,9 @@ def load_text_generation_pipeline():
 @prefetch
 @flaky()
 def load_translation_pipeline():
+    if IS_TRANSFORMERS_V5_OR_LATER:
+        _logger.info("Skipping translation pipeline prefetch: removed in transformers 5.x")
+        return None
     return transformers.pipeline(
         task="translation_en_to_de",
         model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
@@ -136,6 +152,9 @@ def load_translation_pipeline():
 @prefetch
 @flaky()
 def load_summarizer_pipeline():
+    if IS_TRANSFORMERS_V5_OR_LATER:
+        _logger.info("Skipping summarizer pipeline prefetch: removed in transformers 5.x")
+        return None
     task = "summarization"
     architecture = "sshleifer/distilbart-cnn-6-6"
     model = transformers.BartForConditionalGeneration.from_pretrained(architecture)
@@ -211,7 +230,7 @@ def load_whisper_pipeline():
     tokenizer = transformers.WhisperTokenizer.from_pretrained(architecture)
     feature_extractor = transformers.WhisperFeatureExtractor.from_pretrained(architecture)
     model.generation_config.alignment_heads = [[2, 2], [3, 0], [3, 2], [3, 3], [3, 4], [3, 5]]
-    if Version(transformers.__version__) > Version("4.49.0"):
+    if transformers_version > Version("4.49.0"):
         # forced_decoder_ids is not allowed
         # ref: https://github.com/huggingface/transformers/blob/6a2627918d84f25422b931507a8fb9146106ca20/src/transformers/generation/utils.py#L1083
         model.generation_config.forced_decoder_ids = None

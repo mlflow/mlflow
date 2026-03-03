@@ -17,12 +17,16 @@ import {
 } from './OverviewChartComponents';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
-export const TraceRequestsChart: React.FC = () => {
+interface TraceRequestsChartProps {
+  title?: React.ReactNode;
+}
+
+export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ title }) => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const zoomSelectionProps = useChartZoomSelectionProps();
-  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process requests chart data (includes zoom state)
   const { totalRequests, avgRequests, isLoading, error, hasData, zoom } = useTraceRequestsChartData();
@@ -37,13 +41,13 @@ export const TraceRequestsChart: React.FC = () => {
       <ScrollableTooltip
         formatter={tooltipFormatter}
         linkConfig={{
-          experimentId,
+          experimentId: experimentIds[0],
           timeIntervalSeconds,
           componentId: 'mlflow.overview.usage.traces.view_traces_link',
         }}
       />
     ),
-    [experimentId, timeIntervalSeconds, tooltipFormatter],
+    [experimentIds, timeIntervalSeconds, tooltipFormatter],
   );
 
   if (isLoading) {
@@ -59,7 +63,7 @@ export const TraceRequestsChart: React.FC = () => {
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <OverviewChartHeader
           icon={<ChartLineIcon />}
-          title={<FormattedMessage defaultMessage="Traces" description="Title for the traces chart" />}
+          title={title ?? <FormattedMessage defaultMessage="Traces" description="Title for the traces chart" />}
           value={totalRequests.toLocaleString()}
         />
         {isZoomed && (

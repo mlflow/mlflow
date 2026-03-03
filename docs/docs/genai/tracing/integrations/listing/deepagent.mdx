@@ -102,31 +102,9 @@ Browse to the MLflow UI at http://localhost:5000 (or your MLflow server URL) to 
 - Internal LLM calls
 - Subagent spawning (if applicable)
 
-## Token Usage Tracking
+## Tracking Token Usage and Cost
 
-MLflow automatically tracks token usage for all LLM calls within your Deep Agent workflow. The token usage for each LLM call is logged in the `mlflow.chat.tokenUsage` span attribute, and the total usage across the entire trace is logged in the `mlflow.trace.tokenUsage` metadata field.
-
-```python
-import mlflow
-
-mlflow.langchain.autolog()
-
-# Execute the agent
-result = agent.invoke(
-    {"messages": [{"role": "user", "content": "Summarize recent AI news"}]}
-)
-
-# Get the trace object
-last_trace_id = mlflow.get_last_active_trace_id()
-trace = mlflow.get_trace(trace_id=last_trace_id)
-
-# Print the total token usage
-total_usage = trace.info.token_usage
-print("== Total token usage: ==")
-print(f"  Input tokens: {total_usage['input_tokens']}")
-print(f"  Output tokens: {total_usage['output_tokens']}")
-print(f"  Total tokens: {total_usage['total_tokens']}")
-```
+MLflow automatically tracks token usage and cost for Deep Agent. The token usage for each LLM call will be logged in each Trace/Span and the aggregated cost and time trend are displayed in the built-in dashboard. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
 
 ## Disable Auto-Tracing
 

@@ -23,6 +23,7 @@ deny_unsafe_checkout contains msg if {
 	# "on.push" becomes "true.push" which is why below statements use "true"
 	# instead of "on".
 	input["true"].pull_request_target
+	not safe_pull_request_target_workflow
 	some job in input.jobs
 	some step in job.steps
 	startswith(step.uses, "actions/checkout@")
@@ -31,6 +32,12 @@ deny_unsafe_checkout contains msg if {
 		"Explicit checkout in a pull_request_target workflow is unsafe. ",
 		"See https://securitylab.github.com/resources/github-actions-preventing-pwn-requests for more information.",
 	])
+}
+
+# Workflows that are safe to use pull_request_target with explicit checkout
+# because they restrict execution to trusted authors via author_association.
+safe_pull_request_target_workflow if {
+	input.name == "UI Preview"
 }
 
 deny_unnecessary_github_token contains msg if {
@@ -149,6 +156,18 @@ deny_scheduled_workflow_without_repo_check contains msg if {
 	input["true"].schedule
 	not any_job_has_repo_check(input.jobs)
 	msg := "Scheduled workflows must have at least one job with 'if: github.repository == ...' condition"
+}
+
+deny_push_without_branches contains msg if {
+	"push" in object.keys(input["true"])
+	not is_object(input["true"].push)
+	msg := "Push trigger must have a branches filter to avoid running on every branch."
+}
+
+deny_push_without_branches contains msg if {
+	is_object(input["true"].push)
+	not input["true"].push.branches
+	msg := "Push trigger must have a branches filter to avoid running on every branch."
 }
 
 ###########################   RULE HELPERS   ##################################

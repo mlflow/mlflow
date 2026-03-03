@@ -334,6 +334,7 @@ class Method:
         request: list[str],
         response: list[str],
         title: str | None,
+        api_version: str | None = None,
     ) -> None:
         self.id = _gen_id(full_path)
         self.name = name
@@ -344,7 +345,7 @@ class Method:
         self.response = _gen_id(response)
         self.request_message: Message | None = None
         self.response_message: Message | None = None
-        self.api_version: str | None = None
+        self.api_version: str | None = api_version
         self.title = title
 
     @classmethod
@@ -354,6 +355,11 @@ class Method:
             rpc_options = m["rpc_options"]
             if rpc_options["visibility"] != "public":
                 continue
+            since_major = rpc_options.get("since_major")
+            since_minor = rpc_options.get("since_minor")
+            method_api_version = None
+            if since_major is not None and since_minor is not None:
+                method_api_version = f"{since_major}.{since_minor}"
             all_instances.append(
                 cls(
                     full_path=m["full_path"],
@@ -364,6 +370,7 @@ class Method:
                     request=m["request_full_path"],
                     response=m["response_full_path"],
                     title=rpc_options.get("rpc_doc_title"),
+                    api_version=method_api_version,
                 )
             )
         return all_instances
@@ -515,7 +522,6 @@ class API:
             for method in service.methods:
                 request_set = False
                 response_set = False
-                method.api_version = self.api_version
                 for message in self.messages:
                     if message.id == method.request and not request_set:
                         method.request_message = message
@@ -532,6 +538,9 @@ class API:
                     _logger.warning(f"Request not set {method} for {self}")
                 if not response_set:
                     _logger.warning(f"Response not set {method} for {self}")
+                # Use per-method api_version from proto "since" when set, else API default
+                if method.api_version is None:
+                    method.api_version = self.api_version
 
     def set_all(
         self, proto_file_list: list[dict[str, Any]], service_order: list[str] | None = None

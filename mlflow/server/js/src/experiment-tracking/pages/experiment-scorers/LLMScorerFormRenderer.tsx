@@ -21,6 +21,7 @@ import {
 import { HighlightedTextArea } from './HighlightedTextArea';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
+import { isScorerModelSelectionEnabled } from '../../../common/utils/FeatureUtils';
 import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
 import { LLM_TEMPLATE, isGuidelinesTemplate, type JudgeOutputTypeKind, type JudgePrimitiveOutputType } from './types';
@@ -44,6 +45,7 @@ export interface LLMScorerFormData {
   model: string;
   disableMonitoring?: boolean;
   isInstructionsJudge?: boolean;
+  isMemoryAugmented?: boolean;
   evaluationScope?: ScorerEvaluationScope;
   outputTypeKind?: JudgeOutputTypeKind;
   categoricalOptions?: string;
@@ -110,7 +112,7 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
         render={({ field }) => (
           <div css={{ marginTop: '8px' }} onClick={stopPropagationClick}>
             <DialogCombobox
-              componentId={`${COMPONENT_ID_PREFIX}.built-in-scorer-select`}
+              componentId="mlflow.experiment-scorers.built-in-scorer-select"
               id="mlflow-experiment-scorers-built-in-scorer"
               value={field.value ? [field.value] : []}
             >
@@ -207,7 +209,7 @@ const NameSection: React.FC<NameSectionProps> = ({ mode, control }) => {
         render={({ field }) => (
           <Input
             {...field}
-            componentId={`${COMPONENT_ID_PREFIX}.name-input`}
+            componentId="mlflow.experiment-scorers.name-input"
             id="mlflow-experiment-scorers-name"
             disabled={mode !== SCORER_FORM_MODE.CREATE}
             placeholder="Custom"
@@ -242,6 +244,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
   };
 
   const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' }) ?? false;
+  const isMemoryAugmented = watch('isMemoryAugmented') ?? false;
 
   // Hide instructions section for built-in judges that don't support editing
   // These templates use Python-specific variables not available in the UI
@@ -249,13 +252,15 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
     return null;
   }
 
-  const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY;
+  // Memory-augmented judges have instructions that include distilled guidelines
+  // from alignment — these should not be edited through the UI.
+  const isReadOnly = mode === SCORER_FORM_MODE.DISPLAY || isMemoryAugmented;
   const isSessionLevelScorer = scope === ScorerEvaluationScope.SESSIONS;
 
   const traceLevelTemplateVariables = (
     <>
       <DropdownMenu.Item
-        componentId={`${COMPONENT_ID_PREFIX}.add-variable-inputs`}
+        componentId="mlflow.experiment-scorers.add-variable-inputs"
         onClick={(e) => {
           e.stopPropagation();
           appendVariable('{{ inputs }}');
@@ -267,7 +272,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
         </DropdownMenu.HintRow>
       </DropdownMenu.Item>
       <DropdownMenu.Item
-        componentId={`${COMPONENT_ID_PREFIX}.add-variable-outputs`}
+        componentId="mlflow.experiment-scorers.add-variable-outputs"
         onClick={(e) => {
           e.stopPropagation();
           appendVariable('{{ outputs }}');
@@ -279,7 +284,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
         </DropdownMenu.HintRow>
       </DropdownMenu.Item>
       <DropdownMenu.Item
-        componentId={`${COMPONENT_ID_PREFIX}.add-variable-trace`}
+        componentId="mlflow.experiment-scorers.add-variable-trace"
         onClick={(e) => {
           e.stopPropagation();
           appendVariable('{{ trace }}');
@@ -314,7 +319,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
   const sessionLevelTemplateVariables = (
     <>
       <DropdownMenu.Item
-        componentId={`${COMPONENT_ID_PREFIX}.add-variable-conversation`}
+        componentId="mlflow.experiment-scorers.add-variable-conversation"
         onClick={(e) => {
           e.stopPropagation();
           appendVariable('{{ conversation }}');
@@ -329,7 +334,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
         </DropdownMenu.HintRow>
       </DropdownMenu.Item>
       <DropdownMenu.Item
-        componentId={`${COMPONENT_ID_PREFIX}.add-variable-expectations`}
+        componentId="mlflow.experiment-scorers.add-variable-expectations"
         onClick={(e) => {
           e.stopPropagation();
           appendVariable('{{ expectations }}');
@@ -358,10 +363,10 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <Button
-                componentId={`${COMPONENT_ID_PREFIX}.add-variable-button`}
+                componentId="mlflow.experiment-scorers.add-variable-button"
                 size="small"
                 endIcon={<ChevronDownIcon />}
-                disabled={mode === SCORER_FORM_MODE.DISPLAY || !isInstructionsJudge}
+                disabled={isReadOnly || !isInstructionsJudge}
                 onClick={stopPropagationClick}
               >
                 <FormattedMessage defaultMessage="Add variable" description="Button text for adding variables" />
@@ -377,7 +382,7 @@ const InstructionsSection: React.FC<InstructionsSectionProps> = ({ mode, control
             values={{
               learnMore: (
                 <Typography.Link
-                  componentId={`${COMPONENT_ID_PREFIX}.instructions-learn-more-link`}
+                  componentId="mlflow.experiment-scorers.instructions-learn-more-link"
                   href="https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/make-judge/"
                   openInNewTab
                 >

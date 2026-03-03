@@ -7,6 +7,13 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
   schedule:
     # Run this action daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -117,24 +124,6 @@ jobs:
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - name: Check diff
-        id: check-diff
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep "Dockerfile\|\.dockerignore" || true);
-          DOCKER_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
-          echo -e "CHANGED_FILES:\nCHANGED_FILES"
-          echo "DOCKER_CHANGED: $DOCKER_CHANGED"
-          echo "docker_changed=$DOCKER_CHANGED" >> $GITHUB_OUTPUT
-
-      - name: Run docker tests
-        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.docker_changed == 'true' }}
-        run: |
-          docker build -t mlflow_test_build . && docker images | grep mlflow_test_build
-
       - name: Show disk usage
         run: |
           df -h

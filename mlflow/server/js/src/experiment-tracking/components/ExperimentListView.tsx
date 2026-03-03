@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Interpolation, Theme } from '@emotion/react';
 import {
+  BeakerIcon,
   Button,
   TableFilterLayout,
   TableFilterInput,
@@ -27,8 +28,15 @@ import { useUpdateExperimentTags } from './experiment-page/hooks/useUpdateExperi
 import { useSearchFilter } from './experiment-page/hooks/useSearchFilter';
 import { TagFilter, useTagsFilter } from './experiment-page/hooks/useTagsFilter';
 import { ExperimentListViewTagsFilter } from './experiment-page/components/ExperimentListViewTagsFilter';
+import { shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
+import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
+import { useSearchParams } from '../../common/utils/RoutingUtils';
 
 export const ExperimentListView = () => {
+  const [searchParams] = useSearchParams();
+  const workspacesEnabled = shouldEnableWorkspaces();
+  const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
+
   const [searchFilter, setSearchFilter] = useSearchFilter();
   const { tagsFilter, setTagsFilter, isTagsFilterOpen, setIsTagsFilterOpen } = useTagsFilter();
 
@@ -83,6 +91,10 @@ export const ExperimentListView = () => {
     .filter(([_, value]) => value)
     .map(([key, _]) => key);
 
+  const isEmptyState = !isLoading && !error && !experiments?.length && !searchFilter && !tagsFilter.length;
+  // creation is disabled if workspaces are enabled and a workspace is not selected
+  const showCreationButtons = !isEmptyState && (!workspacesEnabled || workspaceFromUrl !== null);
+
   const pushExperimentRoute = () => {
     const route = Routes.getCompareExperimentsPageRoute(checkedKeys);
     navigate(route);
@@ -92,44 +104,60 @@ export const ExperimentListView = () => {
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
       <Header
-        title={<FormattedMessage defaultMessage="Experiments" description="Header title for the experiments page" />}
+        title={
+          <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <span
+              css={{
+                display: 'flex',
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                padding: theme.spacing.sm,
+              }}
+            >
+              <BeakerIcon />
+            </span>
+            <FormattedMessage defaultMessage="Experiments" description="Header title for the experiments page" />
+          </span>
+        }
         buttons={
-          <>
-            <Button
-              componentId="mlflow.experiment_list_view.new_experiment_button"
-              type="primary"
-              onClick={handleCreateExperiment}
-              data-testid="create-experiment-button"
-            >
-              <FormattedMessage
-                defaultMessage="Create"
-                description="Label for the create experiment action on the experiments list page"
-              />
-            </Button>
-            <Button
-              componentId="mlflow.experiment_list_view.compare_experiments_button"
-              onClick={pushExperimentRoute}
-              data-testid="compare-experiment-button"
-              disabled={checkedKeys.length < 2}
-            >
-              <FormattedMessage
-                defaultMessage="Compare"
-                description="Label for the compare experiments action on the experiments list page"
-              />
-            </Button>
-            <Button
-              componentId="mlflow.experiment_list_view.bulk_delete_button"
-              onClick={() => setShowBulkDeleteExperimentModal(true)}
-              data-testid="delete-experiments-button"
-              disabled={checkedKeys.length < 1}
-              danger
-            >
-              <FormattedMessage
-                defaultMessage="Delete"
-                description="Label for the delete experiments action on the experiments list page"
-              />
-            </Button>
-          </>
+          showCreationButtons ? (
+            <>
+              <Button
+                componentId="mlflow.experiment_list_view.new_experiment_button"
+                type="primary"
+                onClick={handleCreateExperiment}
+                data-testid="create-experiment-button"
+              >
+                <FormattedMessage
+                  defaultMessage="Create"
+                  description="Label for the create experiment action on the experiments list page"
+                />
+              </Button>
+              <Button
+                componentId="mlflow.experiment_list_view.compare_experiments_button"
+                onClick={pushExperimentRoute}
+                data-testid="compare-experiment-button"
+                disabled={checkedKeys.length < 2}
+              >
+                <FormattedMessage
+                  defaultMessage="Compare"
+                  description="Label for the compare experiments action on the experiments list page"
+                />
+              </Button>
+              <Button
+                componentId="mlflow.experiment_list_view.bulk_delete_button"
+                onClick={() => setShowBulkDeleteExperimentModal(true)}
+                data-testid="delete-experiments-button"
+                disabled={checkedKeys.length < 1}
+                danger
+              >
+                <FormattedMessage
+                  defaultMessage="Delete"
+                  description="Label for the delete experiments action on the experiments list page"
+                />
+              </Button>
+            </>
+          ) : undefined
         }
       />
       <Spacer shrinks={false} />
@@ -156,7 +184,7 @@ export const ExperimentListView = () => {
           <TableFilterInput
             data-testid="search-experiment-input"
             placeholder={intl.formatMessage({
-              defaultMessage: 'Filter experiments by name',
+              defaultMessage: 'Search experiments',
               description: 'Placeholder text inside experiments search bar',
             })}
             componentId="mlflow.experiment_list_view.search"
@@ -174,12 +202,11 @@ export const ExperimentListView = () => {
             <Popover.Trigger asChild>
               <Button
                 componentId="mlflow.experiment_list_view.tag_filter.trigger"
-                icon={<FilterIcon />}
                 endIcon={<ChevronDownIcon />}
                 type={tagsFilter.length > 0 ? 'primary' : undefined}
               >
                 <FormattedMessage
-                  defaultMessage="Tag filter"
+                  defaultMessage="Tag"
                   description="Button to open the tags filter popover in the experiments page"
                 />
               </Button>
@@ -204,6 +231,7 @@ export const ExperimentListView = () => {
           }}
           sortingProps={{ sorting, setSorting }}
           onEditTags={showEditExperimentTagsModal}
+          onCreateExperiment={handleCreateExperiment}
         />
       </div>
       <CreateExperimentModal

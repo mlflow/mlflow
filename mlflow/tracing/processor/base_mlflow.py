@@ -28,6 +28,7 @@ from mlflow.tracing.utils import (
     maybe_get_dependencies_schemas,
     maybe_get_logged_model_id,
     maybe_get_request_id,
+    should_compute_cost_client_side,
     update_trace_state_from_span_conditionally,
 )
 from mlflow.tracing.utils.environment import resolve_env_metadata
@@ -178,12 +179,12 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
             }
         )
 
+        spans = trace.span_dict.values()
         # Aggregate token usage information from all spans
-        if usage := aggregate_usage_from_spans(trace.span_dict.values()):
+        if usage := aggregate_usage_from_spans(spans):
             trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
-        # Aggregate cost information from all spans
-        if cost := aggregate_cost_from_spans(trace.span_dict.values()):
+        if should_compute_cost_client_side() and (cost := aggregate_cost_from_spans(spans)):
             trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
 
     def _truncate_metadata(self, value: str | None) -> str:

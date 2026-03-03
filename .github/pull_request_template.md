@@ -2,8 +2,9 @@
 
 ### Related Issues/PRs
 
-<!-- Uncomment 'Resolve' if this PR can close the linked items. -->
-<!-- Resolve --> #xxx
+<!-- 🚨 Choose either "Closes" (auto-close on merge) or "Relates to" (reference only). 🚨 -->
+
+Closes | Relates to #issue_number
 
 ### What changes are proposed in this pull request?
 

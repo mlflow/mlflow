@@ -13,6 +13,8 @@ from mlflow.entities import LoggedModelOutput
 
 _logger = logging.getLogger(__name__)
 
+EXCLUDE_LM_PARAMS = {"api_key", "api_base", "azure_ad_token", "client_secret", "azure_password"}
+
 
 def save_dspy_module_state(program, file_name: str = "model.json"):
     """
@@ -79,11 +81,7 @@ def log_dspy_lm_state():
 
         lm = dspy.settings.lm
 
-        lm_attributes = {
-            key: value
-            for key, value in getattr(lm, "kwargs", {}).items()
-            if key not in {"api_key", "api_base"}
-        }
+        lm_attributes = sanitize_params(getattr(lm, "kwargs", {}))
 
         for attr in ["model", "model_type", "cache", "temperature", "max_tokens"]:
             value = getattr(lm, attr, None)
@@ -151,3 +149,10 @@ def log_dummy_model_outputs():
         mlflow.log_outputs(models=[LoggedModelOutput(model_id=logged_model.model_id, step=0)])
     except Exception as e:
         _logger.debug(f"Failed to log a dummy DSPy model outputs: {e}")
+
+
+def sanitize_params(params: dict[str, Any]) -> dict[str, Any]:
+    """
+    Sanitize the parameters by removing the sensitive parameters.
+    """
+    return {k: v for k, v in params.items() if k not in EXCLUDE_LM_PARAMS}

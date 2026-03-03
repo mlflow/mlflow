@@ -1,7 +1,7 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 
 import { ExperimentSourceTypeIcon } from './ExperimentSourceTypeIcon';
-import type { ModelTraceInfoV3 } from '../../../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../../model-trace-explorer/ModelTrace.types';
 import MlflowUtils from '../../utils/MlflowUtils';
 import { NullCell } from '../NullCell';
 

@@ -35,11 +35,10 @@ export const useSearchEvaluationDatasets = ({
         page_token: pageParam,
       };
 
-      return (await fetchAPI(
-        getAjaxUrl('ajax-api/3.0/mlflow/datasets/search'),
-        'POST',
-        requestBody,
-      )) as SearchEvaluationDatasetsResponse;
+      return (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/datasets/search'), {
+        method: 'POST',
+        body: requestBody,
+      })) as SearchEvaluationDatasetsResponse;
     },
     cacheTime: 0,
     refetchOnWindowFocus: false,
