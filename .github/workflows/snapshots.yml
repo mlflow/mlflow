@@ -10,8 +10,6 @@ on:
       - ".github/workflows/snapshots.yml"
       - ".github/scripts/src/snapshots.ts"
 
-permissions:
-  contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true

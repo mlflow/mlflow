@@ -21,8 +21,6 @@ on:
       - requirements/skinny-requirements.yaml
       - requirements/core-requirements.yaml
 
-permissions:
-  contents: read
 env:
   MLFLOW_HOME: ${{ github.workspace }}
 

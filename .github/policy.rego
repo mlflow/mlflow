@@ -12,22 +12,9 @@ deny_jobs_without_permissions contains msg if {
 	)
 }
 
-deny_missing_top_level_permissions contains msg if {
-	# Only check workflow files (not composite actions)
-	# Composite actions have 'runs' instead of 'jobs'
-	input.jobs
-	not input.permissions
-	msg := "Workflow must have top-level 'permissions: contents: read'."
-}
-
-deny_wrong_top_level_permissions contains msg if {
-	# Only check workflow files (not composite actions)
-	input.jobs
-	input.permissions != {"contents": "read"}
-	msg := sprintf(
-		"Top-level permissions must be exactly 'contents: read', got: %v",
-		[input.permissions],
-	)
+deny_top_level_permissions contains msg if {
+	input.permissions
+	msg := "Do not use top-level permissions. Set permissions on the job level."
 }
 
 deny_unsafe_checkout contains msg if {

@@ -5,8 +5,6 @@ on:
   issue_comment:
     types: [created]
 
-permissions:
-  contents: read
 defaults:
   run:
     shell: bash

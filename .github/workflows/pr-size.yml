@@ -8,8 +8,6 @@ on:
       - ready_for_review
       - review_requested
 
-permissions:
-  contents: read
 defaults:
   run:
     shell: bash

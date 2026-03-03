@@ -6,8 +6,6 @@ on:
     # Run this workflow daily at 19:00 UTC (6 hours after cross-version-tests.yml workflow)
     - cron: "0 19 * * *"
 
-permissions:
-  contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true

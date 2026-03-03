@@ -9,8 +9,6 @@ on:
       - .github/workflows/triage.py
       - .github/workflows/triage.md
 
-permissions:
-  contents: read
 defaults:
   run:
     shell: bash

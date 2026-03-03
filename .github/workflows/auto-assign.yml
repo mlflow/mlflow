@@ -10,8 +10,6 @@ on:
       - .github/workflows/auto-assign.yml
       - .github/workflows/auto-assign.js
 
-permissions:
-  contents: read
 defaults:
   run:
     shell: bash

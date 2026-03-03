@@ -6,8 +6,6 @@ on:
       - published
       - edited
 
-permissions:
-  contents: read
 defaults:
   run:
     shell: bash

@@ -6,8 +6,6 @@ on:
     paths:
       - .github/workflows/copilot-setup-steps.yml
 
-permissions:
-  contents: read
 defaults:
   run:
     shell: bash
