@@ -136,6 +136,15 @@ function ModelTraceExplorerReasoningSection({ reasoning }: { reasoning: string }
   );
 }
 
+function getAudioMimeType(format: string): string {
+  switch (format) {
+    case 'mp3':
+      return 'audio/mpeg';
+    default:
+      return `audio/${format}`;
+  }
+}
+
 function ModelTraceExplorerAudioPlayer({ audioParts }: { audioParts: ModelTraceInputAudio[] }) {
   const { theme } = useDesignSystemTheme();
 
@@ -149,13 +158,12 @@ function ModelTraceExplorerAudioPlayer({ audioParts }: { audioParts: ModelTraceI
             paddingTop: 0,
           }}
         >
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <audio
             controls
             css={{ width: '100%', maxWidth: 500 }}
-            src={`data:audio/${audio.format};base64,${audio.data}`}
-          >
-            <track kind="captions" srcLang="en" src="" default />
-          </audio>
+            src={`data:${getAudioMimeType(audio.format)};base64,${audio.data}`}
+          />
         </div>
       ))}
     </>

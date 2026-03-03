@@ -1153,8 +1153,14 @@ const extractAudioParts = (content?: ModelTraceContentType | null): ModelTraceIn
     return [];
   }
   return content
-    .filter((part) => part.type === 'input_audio')
-    .map((part) => (part as { type: 'input_audio'; input_audio: ModelTraceInputAudio }).input_audio);
+    .filter(
+      (part): part is { type: 'input_audio'; input_audio: ModelTraceInputAudio } =>
+        part.type === 'input_audio' &&
+        isObject((part as any).input_audio) &&
+        isString(((part as any).input_audio as any).data) &&
+        isString(((part as any).input_audio as any).format),
+    )
+    .map((part) => part.input_audio);
 };
 
 export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): ModelTraceChatMessage | null => {
