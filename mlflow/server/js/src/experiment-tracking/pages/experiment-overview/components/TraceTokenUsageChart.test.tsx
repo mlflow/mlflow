@@ -199,11 +199,11 @@ describe('TraceTokenUsageChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toBeInTheDocument();
+        expect(screen.getByTestId('composed-chart')).toBeInTheDocument();
       });
 
       // Verify the area chart has all time buckets (3 buckets for 2-hour range with 1hr interval)
-      expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+      expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
     });
 
     it('should display both input and output token areas', async () => {
@@ -251,7 +251,7 @@ describe('TraceTokenUsageChart', () => {
       });
     });
 
-    it('should display cached tokens in subtitle when present', async () => {
+    it('should display cache read tokens in subtitle when present', async () => {
       const mockCachedDataPoints = [
         createCachedTokensDataPoint('2025-12-22T10:00:00Z', 10000),
         createCachedTokensDataPoint('2025-12-22T11:00:00Z', 15000),
@@ -261,13 +261,13 @@ describe('TraceTokenUsageChart', () => {
 
       renderComponent();
 
-      // Cached: 10000 + 15000 = 25000 => 25.00K cached
+      // Cached: 10000 + 15000 = 25000 => 25.00K cache read
       await waitFor(() => {
-        expect(screen.getByText(/25\.00K cached/)).toBeInTheDocument();
+        expect(screen.getByText(/25\.00K cache read/)).toBeInTheDocument();
       });
     });
 
-    it('should render cached tokens line when data is present', async () => {
+    it('should render cache read tokens line when data is present', async () => {
       const mockCachedDataPoints = [
         createCachedTokensDataPoint('2025-12-22T10:00:00Z', 10000),
         createCachedTokensDataPoint('2025-12-22T11:00:00Z', 15000),
@@ -278,11 +278,11 @@ describe('TraceTokenUsageChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('line-Cached Tokens')).toBeInTheDocument();
+        expect(screen.getByTestId('line-Cache Read Input Tokens')).toBeInTheDocument();
       });
     });
 
-    it('should display cache write tokens in subtitle when present', async () => {
+    it('should display cache creation tokens in subtitle when present', async () => {
       const mockCacheCreationDataPoints = [
         createCacheCreationTokensDataPoint('2025-12-22T10:00:00Z', 5000),
         createCacheCreationTokensDataPoint('2025-12-22T11:00:00Z', 8000),
@@ -304,7 +304,7 @@ describe('TraceTokenUsageChart', () => {
       });
     });
 
-    it('should render cache write tokens line when data is present', async () => {
+    it('should render cache creation tokens line when data is present', async () => {
       const mockCacheCreationDataPoints = [
         createCacheCreationTokensDataPoint('2025-12-22T10:00:00Z', 5000),
         createCacheCreationTokensDataPoint('2025-12-22T11:00:00Z', 8000),
@@ -321,7 +321,7 @@ describe('TraceTokenUsageChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('line-Cache Write Tokens')).toBeInTheDocument();
+        expect(screen.getByTestId('line-Cache Creation Input Tokens')).toBeInTheDocument();
       });
     });
 
@@ -484,7 +484,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should still render with all 3 time buckets
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
 
@@ -499,7 +499,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should still render the chart with all time buckets
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
 
       // Should display 0 when total tokens is not available
@@ -529,7 +529,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should still render the chart with all generated time buckets (all with 0 values)
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
 
@@ -544,7 +544,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should render chart with all 3 time buckets (missing ones filled with 0)
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
 
@@ -564,7 +564,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should render chart with all 3 time buckets
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
   });

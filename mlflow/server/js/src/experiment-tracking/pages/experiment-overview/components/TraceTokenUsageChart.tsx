@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { useDesignSystemTheme, LightningIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { AreaChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useTraceTokenUsageChartData } from '../hooks/useTraceTokenUsageChartData';
 import {
   OverviewChartLoadingState,
@@ -68,7 +68,7 @@ export const TraceTokenUsageChart: React.FC = () => {
         value={formatCount(totalTokens)}
         subtitle={(() => {
           const parts = [`${formatCount(totalInputTokens)} input`, `${formatCount(totalOutputTokens)} output`];
-          if (totalCachedTokens > 0) parts.push(`${formatCount(totalCachedTokens)} cached`);
+          if (totalCachedTokens > 0) parts.push(`${formatCount(totalCachedTokens)} cache read`);
           if (totalCacheCreationTokens > 0) parts.push(`${formatCount(totalCacheCreationTokens)} cache write`);
           return `(${parts.join(', ')})`;
         })()}
@@ -78,7 +78,7 @@ export const TraceTokenUsageChart: React.FC = () => {
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
@@ -124,9 +124,9 @@ export const TraceTokenUsageChart: React.FC = () => {
                 stroke={areaColors.cachedTokens}
                 strokeWidth={2}
                 strokeDasharray="5 3"
-                strokeOpacity={getOpacity('Cached Tokens')}
+                strokeOpacity={getOpacity('Cache Read Input Tokens')}
                 dot={getLineDotStyle(areaColors.cachedTokens)}
-                name="Cached Tokens"
+                name="Cache Read Input Tokens"
               />
               <Line
                 type="monotone"
@@ -134,9 +134,9 @@ export const TraceTokenUsageChart: React.FC = () => {
                 stroke={areaColors.cacheCreationTokens}
                 strokeWidth={2}
                 strokeDasharray="5 3"
-                strokeOpacity={getOpacity('Cache Write Tokens')}
+                strokeOpacity={getOpacity('Cache Creation Input Tokens')}
                 dot={getLineDotStyle(areaColors.cacheCreationTokens)}
-                name="Cache Write Tokens"
+                name="Cache Creation Input Tokens"
               />
               <Legend
                 verticalAlign="bottom"
@@ -145,7 +145,7 @@ export const TraceTokenUsageChart: React.FC = () => {
                 onMouseLeave={handleLegendMouseLeave}
                 {...scrollableLegendProps}
               />
-            </AreaChart>
+            </ComposedChart>
           </ResponsiveContainer>
         ) : (
           <OverviewChartEmptyState />
