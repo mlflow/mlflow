@@ -759,17 +759,20 @@ def test_find_last_user_message_skips_consecutive_skill_injections():
 def test_process_transcript_captures_claude_code_version(tmp_path):
     transcript = [
         {
-            "type": "system",
-            "version": "1.0.16",
+            "type": "queue-operation",
+            "operation": "dequeue",
             "timestamp": "2025-01-15T09:59:59.000Z",
+            "sessionId": "test-version-session",
         },
         {
             "type": "user",
+            "version": "2.1.34",
             "message": {"role": "user", "content": "Hello!"},
             "timestamp": "2025-01-15T10:00:00.000Z",
         },
         {
             "type": "assistant",
+            "version": "2.1.34",
             "message": {
                 "role": "assistant",
                 "content": [{"type": "text", "text": "Hi there!"}],
@@ -783,7 +786,7 @@ def test_process_transcript_captures_claude_code_version(tmp_path):
     trace = process_transcript(str(transcript_path), "test-version-session")
 
     assert trace is not None
-    assert trace.info.trace_metadata.get(METADATA_KEY_CLAUDE_CODE_VERSION) == "1.0.16"
+    assert trace.info.trace_metadata.get(METADATA_KEY_CLAUDE_CODE_VERSION) == "2.1.34"
 
 
 def test_process_transcript_no_version_field(mock_transcript_file):

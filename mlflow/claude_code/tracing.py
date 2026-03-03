@@ -615,8 +615,12 @@ def process_transcript(
             MESSAGE_FIELD_CONTENT, ""
         )
 
-        # Extract Claude Code version from the first JSONL entry (CLI-only)
-        claude_code_version = transcript[0].get("version")
+        # Extract Claude Code version from transcript entries (CLI-only).
+        # The first entry is often a queue-operation without a version field,
+        # so scan until we find one.
+        claude_code_version = next(
+            (entry.get("version") for entry in transcript if "version" in entry), None
+        )
 
         if not session_id:
             session_id = f"claude-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
