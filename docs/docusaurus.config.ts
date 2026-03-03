@@ -151,6 +151,10 @@ const config: Config = {
           position: 'right',
         },
         {
+          type: 'custom-databricksDocsLink',
+          position: 'right',
+        },
+        {
           href: 'https://github.com/mlflow/mlflow',
           label: 'GitHub',
           position: 'right',

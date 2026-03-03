@@ -426,6 +426,12 @@ html[data-genai-theme='true'] {
   opacity: 0.5;
 }
 
+.databricks-docs-link {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
 .github-link {
   display: flex;
   align-items: center;
