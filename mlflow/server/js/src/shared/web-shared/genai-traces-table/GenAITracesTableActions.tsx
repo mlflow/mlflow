@@ -2,7 +2,7 @@ import type { RowSelectionState } from '@tanstack/react-table';
 import { compact, isNil } from 'lodash';
 import { useCallback, useContext, useMemo, useState } from 'react';
 
-import { Button, Tooltip, DropdownMenu, ChevronDownIcon } from '@databricks/design-system';
+import { Button, Tooltip, DropdownMenu, ChevronDownIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 
 import { GenAITracesTableContext } from './GenAITracesTableContext';
@@ -87,6 +87,7 @@ interface TraceActionsDropdownProps {
 const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   const { experimentId, selectedTraces, traceActions, setRowSelection, sqlWarehouseId } = props;
   const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const isComparisonDrawerEnabled = shouldUseUnifiedModelTraceComparisonUI();
@@ -133,6 +134,14 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   const noTracesSelected = selectedTraces.length === 0;
   const noActionsAvailable = !hasExportAction && !hasEditTagsAction && !hasDeleteAction;
   const canCompare = selectedTraces.length >= 2 && selectedTraces.length < 4;
+
+  const groupLabelStyles = {
+    color: theme.colors.textSecondary,
+  };
+
+  const groupItemStyles = {
+    paddingLeft: theme.spacing.lg,
+  };
 
   if (noActionsAvailable) {
     return null;
@@ -193,7 +202,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
           {hasExportAction && (
             <>
               <DropdownMenu.Group>
-                <DropdownMenu.Label>
+                <DropdownMenu.Label css={groupLabelStyles}>
                   {intl.formatMessage({
                     defaultMessage: 'Use for evaluation',
                     description: 'Trace actions dropdown group label',
@@ -201,6 +210,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                 </DropdownMenu.Label>
                 <DropdownMenu.Item
                   componentId="mlflow.genai-traces-table.export-to-datasets"
+                  css={groupItemStyles}
                   onClick={handleExportToDatasets}
                 >
                   {intl.formatMessage({
@@ -215,7 +225,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
             <>
               {hasExportAction && <DropdownMenu.Separator />}
               <DropdownMenu.Group>
-                <DropdownMenu.Label>
+                <DropdownMenu.Label css={groupLabelStyles}>
                   {intl.formatMessage({
                     defaultMessage: 'Edit',
                     description: 'Trace actions dropdown group label',
@@ -224,6 +234,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                 {hasEditTagsAction && (
                   <DropdownMenu.Item
                     componentId="mlflow.genai-traces-table.edit-tags"
+                    css={groupItemStyles}
                     onClick={handleEditTags}
                     disabled={isEditTagsDisabled}
                   >
@@ -236,6 +247,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                 {hasDeleteAction && (
                   <DropdownMenu.Item
                     componentId="mlflow.genai-traces-table.delete-traces"
+                    css={groupItemStyles}
                     onClick={handleDeleteTraces}
                     disabled={traceActions?.deleteTracesAction?.isDisabled}
                     disabledReason={traceActions?.deleteTracesAction?.disabledReason}
