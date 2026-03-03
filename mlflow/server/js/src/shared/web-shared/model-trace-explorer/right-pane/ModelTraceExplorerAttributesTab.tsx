@@ -23,9 +23,7 @@ export function ModelTraceExplorerAttributesTab({
   const containsAttributes = keys(attributes).length > 0;
   const isActiveMatchSpan = !isNil(activeMatch) && activeMatch.span.key === activeSpan.key;
 
-  const linkedTraceId = !Array.isArray(attributes)
-    ? attributes?.[SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID]
-    : undefined;
+  const linkedTraceId = !Array.isArray(attributes) ? attributes?.[SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID] : undefined;
   const gatewayTraceHref = useGatewayTraceLink(isString(linkedTraceId) ? linkedTraceId : undefined);
 
   if (!containsAttributes || isNil(attributes)) {
