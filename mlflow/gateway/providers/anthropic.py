@@ -193,8 +193,19 @@ class AnthropicAdapter(ProviderAdapter):
         # }
         # ```
         from mlflow.anthropic.chat import convert_message_to_mlflow_chat
+        from mlflow.types.chat import TextContentPart
 
         stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
+
+        message = convert_message_to_mlflow_chat(resp)
+
+        # For OpenAI compatibility, collapse a list of pure-text content parts into a
+        # plain string. Clients like LiteLLM expect `content` to be a string (not a
+        # list) in a standard chat.completion response. We only do this when there are
+        # no tool_calls so that mixed text+tool-use responses are handled correctly.
+        if isinstance(message.content, list) and not message.tool_calls:
+            if all(isinstance(part, TextContentPart) for part in message.content):
+                message.content = "".join(part.text for part in message.content)
 
         return chat.ResponsePayload(
             id=resp["id"],
@@ -204,11 +215,7 @@ class AnthropicAdapter(ProviderAdapter):
             choices=[
                 chat.Choice(
                     index=0,
-                    # TODO: Remove this casting once
-                    # https://github.com/mlflow/mlflow/pull/14160 is merged
-                    message=chat.ResponseMessage(
-                        **convert_message_to_mlflow_chat(resp).model_dump()
-                    ),
+                    message=chat.ResponseMessage(**message.model_dump()),
                     finish_reason=stop_reason,
                 )
             ],
