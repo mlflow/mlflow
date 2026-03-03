@@ -68,7 +68,7 @@ export const useRunScorerInTracesViewConfiguration = (
         <RunJudgeModalImpl
           scope={scope}
           visible={visible}
-          itemId={itemId}
+          itemIds={[itemId]}
           evaluateTraces={evaluateTraces}
           onClose={onClose}
         />
@@ -87,16 +87,49 @@ export const useRunScorerInTracesViewConfiguration = (
 };
 
 /**
- * Dropdown for selecting a judge to run against a trace.
+ * Returns helpers for running judges on multiple selected traces from the table toolbar.
+ */
+export const useRunJudgesOnTracesConfiguration = (scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES) => {
+  const [experimentId] = useExperimentIds();
+  const [pendingTraceIds, setPendingTraceIds] = useState<string[]>([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+
+  const { evaluateTraces } = useRunSerializedScorer({ experimentId, scope });
+
+  const showRunJudgesModal = useCallback((traceIds: string[]) => {
+    setPendingTraceIds(traceIds);
+    setIsModalVisible(true);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setIsModalVisible(false);
+    setPendingTraceIds([]);
+  }, []);
+
+  const RunJudgesModal = (
+    <RunJudgeModalImpl
+      scope={scope}
+      visible={isModalVisible}
+      itemIds={pendingTraceIds}
+      evaluateTraces={evaluateTraces}
+      onClose={handleClose}
+    />
+  );
+
+  return { showRunJudgesModal, RunJudgesModal };
+};
+
+/**
+ * Dropdown for selecting a judge to run against one or more traces.
  */
 const RunJudgeModalImpl = ({
-  itemId,
+  itemIds,
   evaluateTraces,
   visible,
   onClose,
   scope = ScorerEvaluationScope.TRACES,
 }: {
-  itemId: string;
+  itemIds: string[];
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
   visible: boolean;
   onClose: () => void;
@@ -143,7 +176,7 @@ const RunJudgeModalImpl = ({
     }
     setError(undefined);
     try {
-      evaluateTraces(selectedJudge, [itemId], currentEndpointName);
+      evaluateTraces(selectedJudge, itemIds, currentEndpointName);
       onClose();
     } catch (error) {
       setError(error as Error);
@@ -164,6 +197,12 @@ const RunJudgeModalImpl = ({
             <FormattedMessage
               defaultMessage="Run judge on session"
               description="Title for run judge modal in sessions view"
+            />
+          ) : itemIds.length > 1 ? (
+            <FormattedMessage
+              defaultMessage="Run judge on {count} traces"
+              description="Title for run judge modal when running on multiple traces"
+              values={{ count: itemIds.length }}
             />
           ) : (
             <FormattedMessage
@@ -310,7 +349,7 @@ const RunJudgeModalImpl = ({
           mode={SCORER_FORM_MODE.CREATE}
           initialScorerType="llm"
           initialScope={scope}
-          initialItemId={itemId}
+          initialItemId={itemIds[0]}
         />
       )}
     </>

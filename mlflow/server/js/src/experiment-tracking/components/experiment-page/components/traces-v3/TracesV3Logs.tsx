@@ -62,7 +62,10 @@ import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
-import { useRunScorerInTracesViewConfiguration } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
+import {
+  useRunScorerInTracesViewConfiguration,
+  useRunJudgesOnTracesConfiguration,
+} from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 
 const JudgeContextProvider = ({ children }: { children: React.ReactNode }) => {
   const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
@@ -285,6 +288,8 @@ const TracesV3LogsImpl = React.memo(
 
     const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
 
+    const { showRunJudgesModal, RunJudgesModal } = useRunJudgesOnTracesConfiguration();
+
     const traceActions: TraceActions = useMemo(() => {
       return {
         deleteTracesAction,
@@ -299,6 +304,12 @@ const TracesV3LogsImpl = React.memo(
               showEditTagsModalForTrace,
               EditTagsModal,
             },
+        ...(isEvaluatingTracesInDetailsViewEnabled() && {
+          runJudgesAction: {
+            showRunJudgesModal,
+            RunJudgesModal,
+          },
+        }),
       };
     }, [
       deleteTracesAction,
@@ -306,6 +317,8 @@ const TracesV3LogsImpl = React.memo(
       EditTagsModalUnified,
       showEditTagsModalForTrace,
       EditTagsModal,
+      showRunJudgesModal,
+      RunJudgesModal,
     ]);
 
     const countInfo = useMemo(() => {
