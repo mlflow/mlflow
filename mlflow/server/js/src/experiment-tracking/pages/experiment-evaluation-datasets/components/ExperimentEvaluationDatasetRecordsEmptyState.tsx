@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  BracketsCurlyIcon,
+  CodeIcon,
+  ListBorderIcon,
+  Tag,
+  Typography,
+  UploadIcon,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link, useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
@@ -9,44 +17,72 @@ import { AddViaCodeModal } from './AddViaCodeModal';
 const ActionCard = ({
   title,
   description,
+  icon,
   onClick,
+  disabled,
 }: {
   title: React.ReactNode;
   description: React.ReactNode;
+  icon: React.ReactNode;
   onClick?: () => void;
+  disabled?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          onClick?.();
-        }
-      }}
+      role={disabled ? undefined : 'button'}
+      tabIndex={disabled ? undefined : 0}
+      onClick={disabled ? undefined : onClick}
+      onKeyDown={
+        disabled
+          ? undefined
+          : (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                onClick?.();
+              }
+            }
+      }
       css={{
         display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing.xs,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing.md,
         padding: theme.spacing.md,
         border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusMd,
-        cursor: 'pointer',
-        flex: 1,
-        minWidth: 180,
-        '&:hover': {
-          borderColor: theme.colors.actionDefaultBorderHover,
-          backgroundColor: theme.colors.actionDefaultBackgroundHover,
-        },
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        ...(!disabled && {
+          '&:hover': {
+            borderColor: theme.colors.actionDefaultBorderHover,
+            backgroundColor: theme.colors.actionDefaultBackgroundHover,
+          },
+        }),
       }}
     >
-      <Typography.Text bold>{title}</Typography.Text>
-      <Typography.Text color="secondary" size="sm">
-        {description}
-      </Typography.Text>
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: theme.colors.actionTertiaryTextDefault,
+          backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+          borderRadius: theme.borders.borderRadiusMd,
+          width: 32,
+          height: 32,
+          minWidth: 32,
+          fontSize: 16,
+        }}
+      >
+        {icon}
+      </div>
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, alignItems: 'flex-start', textAlign: 'left' }}>
+        <Typography.Text bold>{title}</Typography.Text>
+        <Typography.Text color="secondary" size="sm">
+          {description}
+        </Typography.Text>
+      </div>
     </div>
   );
 };
@@ -92,13 +128,14 @@ export const ExperimentEvaluationDatasetRecordsEmptyState = ({
       <div
         css={{
           display: 'flex',
+          flexDirection: 'column',
           gap: theme.spacing.md,
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          maxWidth: 700,
+          maxWidth: 500,
+          width: '100%',
         }}
       >
         <ActionCard
+          icon={<BracketsCurlyIcon />}
           title={
             <FormattedMessage
               defaultMessage="Add Manually"
@@ -114,6 +151,7 @@ export const ExperimentEvaluationDatasetRecordsEmptyState = ({
           onClick={() => setAddManuallyVisible(true)}
         />
         <ActionCard
+          icon={<CodeIcon />}
           title={
             <FormattedMessage
               defaultMessage="Add via Code"
@@ -129,8 +167,9 @@ export const ExperimentEvaluationDatasetRecordsEmptyState = ({
           onClick={() => setAddViaCodeVisible(true)}
         />
         {tracesRoute && (
-          <Link to={tracesRoute} css={{ flex: 1, minWidth: 180, textDecoration: 'none' }}>
+          <Link to={tracesRoute} css={{ textDecoration: 'none' }}>
             <ActionCard
+              icon={<ListBorderIcon />}
               title={
                 <FormattedMessage
                   defaultMessage="Select Traces"
@@ -146,6 +185,30 @@ export const ExperimentEvaluationDatasetRecordsEmptyState = ({
             />
           </Link>
         )}
+        <ActionCard
+          icon={<UploadIcon />}
+          disabled
+          title={
+            <>
+              <FormattedMessage
+                defaultMessage="Upload CSV"
+                description="Action card title for uploading a CSV file to a dataset"
+              />{' '}
+              <Tag componentId="mlflow.dataset.upload-csv-coming-soon">
+                <FormattedMessage
+                  defaultMessage="Coming soon"
+                  description="Tag label indicating the upload CSV feature is not yet available"
+                />
+              </Tag>
+            </>
+          }
+          description={
+            <FormattedMessage
+              defaultMessage="Import dataset items from a CSV file"
+              description="Action card description for uploading a CSV file to a dataset"
+            />
+          }
+        />
       </div>
       <AddManuallyModal
         visible={addManuallyVisible}
