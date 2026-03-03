@@ -2884,6 +2884,16 @@ def test_tracing_context_injects_metadata_and_tags():
     assert "session" not in trace.info.request_metadata
 
 
+def test_configure_trace_no_wrapper_span():
+    with mlflow.configure_trace(metadata={"k": "v"}):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    # Only the one span from @mlflow.trace, no wrapper
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "my_func"
+
+
 def test_tracing_context_nesting_merges():
     with mlflow.tracing.context(
         metadata={"outer_key": "outer_val", "shared": "outer"},
