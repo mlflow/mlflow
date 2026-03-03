@@ -6737,6 +6737,58 @@ def test_search_traces_with_metadata_is_not_null_filter(store: SqlAlchemyStore):
     assert trace_ids == {trace1_id}
 
 
+def test_search_traces_with_tag_is_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_tag_is_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, tags={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, tags={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, tags={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.region IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.env IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='tag.region IS NULL AND tag.env = "staging"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id}
+
+
+def test_search_traces_with_tag_is_not_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_tag_is_not_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, tags={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, tags={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, tags={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.region IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.env IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='tag.region IS NOT NULL AND tag.env = "production"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+
 @pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
 def test_search_traces_with_metadata_rlike_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_metadata_rlike")
