@@ -75,7 +75,7 @@ const createActiveShapeRenderer = (theme: DesignSystemThemeInterface['theme']) =
       {/* Cost label */}
       <text
         x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
-        y={ey + theme.spacing.md}
+        y={ey + theme.spacing.lg}
         textAnchor={textAnchor}
         fill={theme.colors.textSecondary}
         fontSize={theme.typography.fontSizeSm}
@@ -85,7 +85,7 @@ const createActiveShapeRenderer = (theme: DesignSystemThemeInterface['theme']) =
       {/* Percentage label */}
       <text
         x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
-        y={ey + theme.spacing.md * 2}
+        y={ey + theme.spacing.lg * 2}
         textAnchor={textAnchor}
         fill={theme.colors.textSecondary}
         fontSize={theme.typography.fontSizeSm}
