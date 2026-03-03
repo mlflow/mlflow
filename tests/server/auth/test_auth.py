@@ -12,6 +12,7 @@ from pathlib import Path
 import jwt
 import pytest
 import requests
+from cryptography.fernet import Fernet
 
 import mlflow
 from mlflow import MlflowClient
@@ -2741,7 +2742,7 @@ def test_list_users(client):
 
 @pytest.mark.parametrize(
     "client",
-    [{"MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY": "X4vHi-vCRxqZZ4-CETv_97GCg2mC3WAp9kOz_01tygg="}],
+    [{"MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY": Fernet.generate_key().decode("utf-8")}],
     indirect=True,
 )
 def test_webhook_admin_only_permissions(client, monkeypatch):
