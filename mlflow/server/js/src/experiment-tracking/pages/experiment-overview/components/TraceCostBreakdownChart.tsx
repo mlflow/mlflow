@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useDesignSystemTheme, PieChartIcon, type DesignSystemThemeInterface } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { PieChart, Pie, ResponsiveContainer, Legend, Sector, Tooltip } from 'recharts';
@@ -89,13 +89,51 @@ const renderActiveShape = (props: ActiveShapeProps, theme: DesignSystemThemeInte
   );
 };
 
+interface ShapeProps extends ActiveShapeProps {
+  isActive: boolean;
+  index: number;
+  fillOpacity?: number;
+}
+
+/**
+ * Creates a shape renderer that shows active styling for:
+ * - Pie slice hover (via Tooltip's isActive)
+ * - Legend hover (via legendActiveIndex)
+ */
+const createShapeRenderer =
+  (theme: DesignSystemThemeInterface['theme'], legendActiveIndex: number | undefined) =>
+  (props: ShapeProps): React.ReactElement => {
+    const isActive = props.isActive || legendActiveIndex === props.index;
+
+    if (isActive) {
+      return renderActiveShape(props, theme);
+    }
+
+    return (
+      <Sector
+        cx={props.cx}
+        cy={props.cy}
+        innerRadius={props.innerRadius}
+        outerRadius={props.outerRadius}
+        startAngle={props.startAngle}
+        endAngle={props.endAngle}
+        fill={props.fill}
+        fillOpacity={props.fillOpacity}
+      />
+    );
+  };
+
 export const TraceCostBreakdownChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const { dimension, setDimension } = useTraceCostDimension();
   const { chartData, totalCost, isLoading, error, hasData } = useTraceCostBreakdownChartData(dimension);
   const { getChartColor } = useChartColors();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
+  const [legendActiveIndex, setLegendActiveIndex] = useState<number | undefined>(undefined);
 
+  const shapeRenderer = useMemo(() => createShapeRenderer(theme, legendActiveIndex), [theme, legendActiveIndex]);
+
+  // Add fill colors and opacity directly to data
   const coloredChartData = useMemo(
     () =>
       chartData.map((entry, index) => ({
@@ -106,20 +144,20 @@ export const TraceCostBreakdownChart: React.FC = () => {
     [chartData, getChartColor, getOpacity],
   );
 
-  const activeShapeRenderer = useMemo(
-    () => (props: unknown) => renderActiveShape(props as ActiveShapeProps, theme),
-    [theme],
-  );
-
   const onLegendMouseEnter = useCallback(
     (data: { value: string | undefined }) => {
       handleLegendMouseEnter(data);
+      const index = chartData.findIndex((entry) => entry.name === data.value);
+      if (index !== -1) {
+        setLegendActiveIndex(index);
+      }
     },
-    [handleLegendMouseEnter],
+    [handleLegendMouseEnter, chartData],
   );
 
   const onLegendMouseLeave = useCallback(() => {
     handleLegendMouseLeave();
+    setLegendActiveIndex(undefined);
   }, [handleLegendMouseLeave]);
 
   const legendFormatter = useCallback(
@@ -183,8 +221,9 @@ export const TraceCostBreakdownChart: React.FC = () => {
                 paddingAngle={PIE_PADDING_ANGLE}
                 dataKey="value"
                 nameKey="name"
-                activeShape={activeShapeRenderer}
+                shape={shapeRenderer}
               />
+              {/* Tooltip enables internal active state tracking for pie hover (recharts 3.x) */}
               <Tooltip content={() => null} cursor={false} />
               <Legend
                 layout="vertical"
