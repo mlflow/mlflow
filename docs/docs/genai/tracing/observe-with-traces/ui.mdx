@@ -73,6 +73,8 @@ response = client.chat.completions.create(
 )
 ```
 
+![Image content rendered inline in the trace viewer](/images/llms/tracing/trace-image-content.png)
+
 ### Audio
 
 When traced LLM calls include audio content parts (using the `input_audio` type), the trace UI renders an inline audio player so you can play back the audio directly. Supported formats are **WAV** and **MP3**.
@@ -106,6 +108,8 @@ response = client.chat.completions.create(
     ],
 )
 ```
+
+![Audio content rendered with an inline player in the trace viewer](/images/llms/tracing/trace-audio-player.png)
 
 ### Manual Tracing with Multimodal Content
 
