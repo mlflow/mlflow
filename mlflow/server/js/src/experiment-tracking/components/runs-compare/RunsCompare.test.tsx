@@ -1105,7 +1105,7 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
     // - a group contains aggregated "metric_1" data indicating history
     // - a group contains aggregated "metric_2" data not indicating any history
     // - a remaining runs group header contains aggregated "metric_3" data indicating history
-    // - a run (belonging to the remaining group) contains "metric_3" data indicating history
+    // - an ungrouped run (put into the remaining group) contains "metric_3" data indicating history
     createComponentMock({
       groupBy: 'metric_1',
       comparedRuns: [
