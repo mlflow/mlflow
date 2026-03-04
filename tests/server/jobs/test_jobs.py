@@ -9,6 +9,7 @@ import pytest
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
+from mlflow.server import handlers
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import (
     TransientError,
@@ -17,6 +18,7 @@ from mlflow.server.jobs import (
     job,
     submit_job,
 )
+from mlflow.server.jobs.utils import _exec_job
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -584,9 +586,6 @@ def test_start_job_is_atomic(tmp_path: Path, workspaces_enabled):
 
 
 def test_exec_job_fails_job_on_unexpected_error(tmp_path: Path, workspaces_enabled):
-    from mlflow.server import handlers
-    from mlflow.server.jobs.utils import _exec_job
-
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
     store = store_cls(backend_store_uri)
