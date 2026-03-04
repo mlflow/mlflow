@@ -204,41 +204,36 @@ def test_update_issue_nonexistent(store):
 def test_search_issues_no_filters(store):
     exp_id = store.create_experiment("test")
 
-    # Create 3 issues with different frequencies
+    # Create 3 issues
     issue1 = store.create_issue(
         experiment_id=exp_id,
         name="Issue 1",
-        description="High frequency",
-        frequency=0.9,
+        description="First issue",
         status="draft",
     )
 
     issue2 = store.create_issue(
         experiment_id=exp_id,
         name="Issue 2",
-        description="Medium frequency",
-        frequency=0.5,
+        description="Second issue",
         status="draft",
     )
 
     issue3 = store.create_issue(
         experiment_id=exp_id,
         name="Issue 3",
-        description="Low frequency",
-        frequency=0.2,
+        description="Third issue",
         status="draft",
     )
 
-    # Search without filters should return all issues ordered by frequency DESC
+    # Search without filters should return all issues ordered by created_timestamp DESC
     result = store.search_issues()
 
     assert len(result) == 3
-    assert result[0].issue_id == issue1.issue_id
-    assert result[0].frequency == 0.9
+    # Most recent first
+    assert result[0].issue_id == issue3.issue_id
     assert result[1].issue_id == issue2.issue_id
-    assert result[1].frequency == 0.5
-    assert result[2].issue_id == issue3.issue_id
-    assert result[2].frequency == 0.2
+    assert result[2].issue_id == issue1.issue_id
     assert result.token is None
 
 
@@ -251,7 +246,6 @@ def test_search_issues_by_experiment_id(store):
         experiment_id=exp_id1,
         name="Exp1 Issue",
         description="In experiment 1",
-        frequency=0.8,
         status="draft",
     )
 
@@ -259,7 +253,6 @@ def test_search_issues_by_experiment_id(store):
         experiment_id=exp_id2,
         name="Exp2 Issue",
         description="In experiment 2",
-        frequency=0.7,
         status="draft",
     )
 
@@ -272,7 +265,97 @@ def test_search_issues_by_experiment_id(store):
     assert result.token is None
 
 
-def test_search_issues_by_run_id(store):
+def test_search_issues_pagination(store):
+    exp_id = store.create_experiment("test")
+
+    # Create 5 issues
+    created_issues = [
+        store.create_issue(
+            experiment_id=exp_id,
+            name=f"Issue {i}",
+            description=f"Description {i}",
+            status="draft",
+        )
+        for i in range(5)
+    ]
+
+    # First page: get 2 results (most recent first)
+    page1 = store.search_issues(max_results=2)
+
+    assert len(page1) == 2
+    assert page1[0].issue_id == created_issues[4].issue_id  # Most recent
+    assert page1[1].issue_id == created_issues[3].issue_id
+    assert page1.token is not None
+
+    # Second page: get next 2 results
+    page2 = store.search_issues(max_results=2, page_token=page1.token)
+
+    assert len(page2) == 2
+    assert page2[0].issue_id == created_issues[2].issue_id
+    assert page2[1].issue_id == created_issues[1].issue_id
+    assert page2.token is not None
+
+    # Third page: get last result
+    page3 = store.search_issues(max_results=2, page_token=page2.token)
+
+    assert len(page3) == 1
+    assert page3[0].issue_id == created_issues[0].issue_id  # Oldest
+    assert page3.token is None
+
+
+def test_search_issues_empty_results(store):
+    exp_id1 = store.create_experiment("test1")
+    exp_id2 = store.create_experiment("test2")
+
+    # Create an issue in exp_id1
+    store.create_issue(
+        experiment_id=exp_id1,
+        name="Test Issue",
+        description="Test",
+        status="draft",
+    )
+
+    # Search in different experiment should return no results
+    result = store.search_issues(experiment_id=exp_id2)
+
+    assert len(result) == 0
+    assert result.token is None
+
+
+def test_search_issues_filter_by_status(store):
+    exp_id = store.create_experiment("test")
+
+    # Create issues with different statuses
+    store.create_issue(
+        experiment_id=exp_id,
+        name="Draft Issue",
+        description="In draft",
+        status="draft",
+    )
+
+    issue_accepted = store.create_issue(
+        experiment_id=exp_id,
+        name="Accepted Issue",
+        description="Accepted",
+        status="accepted",
+    )
+
+    store.create_issue(
+        experiment_id=exp_id,
+        name="Rejected Issue",
+        description="Rejected",
+        status="rejected",
+    )
+
+    # Filter by status using filter_string
+    result = store.search_issues(filter_string="status = 'accepted'")
+
+    assert len(result) == 1
+    assert result[0].issue_id == issue_accepted.issue_id
+    assert result[0].status == "accepted"
+
+
+def test_search_issues_filter_by_source_run_id(store):
     exp_id = store.create_experiment("test")
 
     run1 = store.create_run(
@@ -294,69 +377,29 @@ def test_search_issues_by_run_id(store):
     # Create issues for different runs
     issue1 = store.create_issue(
         experiment_id=exp_id,
-        run_id=run1.info.run_id,
         name="Run1 Issue",
         description="From run 1",
-        frequency=0.6,
         status="draft",
+        source_run_id=run1.info.run_id,
     )
 
     store.create_issue(
         experiment_id=exp_id,
-        run_id=run2.info.run_id,
         name="Run2 Issue",
         description="From run 2",
-        frequency=0.5,
         status="draft",
+        source_run_id=run2.info.run_id,
     )
 
-    # Search by run_id should only return issues from that run
-    result = store.search_issues(run_id=run1.info.run_id)
+    # Filter by source_run_id using filter_string
+    result = store.search_issues(filter_string=f"source_run_id = '{run1.info.run_id}'")
 
     assert len(result) == 1
     assert result[0].issue_id == issue1.issue_id
-    assert result[0].run_id == run1.info.run_id
-    assert result.token is None
+    assert result[0].source_run_id == run1.info.run_id
 
 
-def test_search_issues_by_status(store):
-    exp_id = store.create_experiment("test")
-
-    # Create issues with different statuses
-    store.create_issue(
-        experiment_id=exp_id,
-        name="Draft Issue",
-        description="In draft",
-        frequency=0.8,
-        status="draft",
-    )
-
-    issue2 = store.create_issue(
-        experiment_id=exp_id,
-        name="Accepted Issue",
-        description="Accepted",
-        frequency=0.7,
-        status="accepted",
-    )
-
-    store.create_issue(
-        experiment_id=exp_id,
-        name="Rejected Issue",
-        description="Rejected",
-        frequency=0.6,
-        status="rejected",
-    )
-
-    # Search by status should only return issues with that status
-    result = store.search_issues(status="accepted")
-
-    assert len(result) == 1
-    assert result[0].issue_id == issue2.issue_id
-    assert result[0].status == "accepted"
-    assert result.token is None
-
-
-def test_search_issues_combined_filters(store):
+def test_search_issues_filter_combined_with_experiment_id(store):
     exp_id1 = store.create_experiment("test1")
     exp_id2 = store.create_experiment("test2")
 
@@ -365,7 +408,6 @@ def test_search_issues_combined_filters(store):
         experiment_id=exp_id1,
         name="Exp1 Draft",
         description="Draft in exp1",
-        frequency=0.9,
         status="draft",
     )
 
@@ -373,7 +415,6 @@ def test_search_issues_combined_filters(store):
         experiment_id=exp_id1,
         name="Exp1 Accepted",
         description="Accepted in exp1",
-        frequency=0.8,
         status="accepted",
     )
 
@@ -381,124 +422,109 @@ def test_search_issues_combined_filters(store):
         experiment_id=exp_id2,
         name="Exp2 Draft",
         description="Draft in exp2",
-        frequency=0.7,
         status="draft",
     )
 
-    # Search with combined filters
-    result = store.search_issues(experiment_id=exp_id1, status="draft")
+    # Filter by experiment_id and status
+    result = store.search_issues(experiment_id=exp_id1, filter_string="status = 'draft'")
 
     assert len(result) == 1
     assert result[0].issue_id == issue1.issue_id
     assert result[0].experiment_id == exp_id1
     assert result[0].status == "draft"
-    assert result.token is None
 
 
-def test_search_issues_pagination(store):
+def test_search_issues_filter_invalid_field(store):
     exp_id = store.create_experiment("test")
 
-    # Create 5 issues
-    created_issues = [
-        store.create_issue(
-            experiment_id=exp_id,
-            name=f"Issue {i}",
-            description=f"Description {i}",
-            frequency=0.9 - (i * 0.1),  # 0.9, 0.8, 0.7, 0.6, 0.5
-            status="draft",
-        )
-        for i in range(5)
-    ]
-
-    # First page: get 2 results
-    page1 = store.search_issues(max_results=2)
-
-    assert len(page1) == 2
-    assert page1[0].issue_id == created_issues[0].issue_id
-    assert page1[1].issue_id == created_issues[1].issue_id
-    assert page1.token is not None
-
-    # Second page: get next 2 results
-    page2 = store.search_issues(max_results=2, page_token=page1.token)
-
-    assert len(page2) == 2
-    assert page2[0].issue_id == created_issues[2].issue_id
-    assert page2[1].issue_id == created_issues[3].issue_id
-    assert page2.token is not None
-
-    # Third page: get last result
-    page3 = store.search_issues(max_results=2, page_token=page2.token)
-
-    assert len(page3) == 1
-    assert page3[0].issue_id == created_issues[4].issue_id
-    assert page3.token is None
-
-
-def test_search_issues_empty_results(store):
-    exp_id = store.create_experiment("test")
-
-    # Create an issue
     store.create_issue(
         experiment_id=exp_id,
         name="Test Issue",
         description="Test",
-        frequency=0.5,
         status="draft",
     )
 
-    # Search with non-matching filter
-    result = store.search_issues(status="accepted")
-
-    assert len(result) == 0
-    assert result.token is None
+    # Filter by invalid field should raise error
+    with pytest.raises(MlflowException, match=r"Invalid filter field 'invalid_field'"):
+        store.search_issues(filter_string="invalid_field = 'value'")
 
 
-def test_search_issues_with_null_frequency(store):
+def test_search_issues_filter_inequality(store):
     exp_id = store.create_experiment("test")
 
-    # Create issues with various frequencies and NULL
-    issue1 = store.create_issue(
+    # Create issues with different statuses
+    store.create_issue(
         experiment_id=exp_id,
-        name="High frequency",
-        description="High frequency issue",
-        frequency=0.9,
+        name="Draft Issue",
+        description="In draft",
         status="draft",
     )
 
-    issue2 = store.create_issue(
+    issue_accepted = store.create_issue(
         experiment_id=exp_id,
-        name="No frequency",
-        description="Issue without frequency",
-        status="draft",
+        name="Accepted Issue",
+        description="Accepted",
+        status="accepted",
     )
 
-    issue3 = store.create_issue(
+    # Filter by status != 'draft' should return non-draft issues
+    result = store.search_issues(filter_string="status != 'draft'")
+
+    assert len(result) == 1
+    assert result[0].issue_id == issue_accepted.issue_id
+    assert result[0].status == "accepted"
+
+
+def test_search_issues_filter_and_operator(store):
+    exp_id = store.create_experiment("test")
+
+    run1 = store.create_run(
         experiment_id=exp_id,
-        name="Medium frequency",
-        description="Medium frequency issue",
-        frequency=0.5,
-        status="draft",
+        user_id="user",
+        start_time=0,
+        run_name="run1",
+        tags=[],
     )
 
-    issue4 = store.create_issue(
+    run2 = store.create_run(
         experiment_id=exp_id,
-        name="Another no frequency",
-        description="Another issue without frequency",
-        status="draft",
+        user_id="user",
+        start_time=0,
+        run_name="run2",
+        tags=[],
     )
 
-    # Search should return issues sorted by frequency DESC (with NULLs last),
-    # then by created_timestamp DESC
-    result = store.search_issues()
+    # Create issues with different combinations
+    store.create_issue(
+        experiment_id=exp_id,
+        name="Draft Run1",
+        description="Draft from run1",
+        status="draft",
+        source_run_id=run1.info.run_id,
+    )
 
-    assert len(result) == 4
-    # Issues with frequency should come first, sorted by frequency DESC
-    assert result[0].issue_id == issue1.issue_id
-    assert result[0].frequency == 0.9
-    assert result[1].issue_id == issue3.issue_id
-    assert result[1].frequency == 0.5
-    # Issues with NULL frequency should come last, sorted by created_timestamp DESC
-    assert result[2].issue_id == issue4.issue_id
-    assert result[2].frequency is None
-    assert result[3].issue_id == issue2.issue_id
-    assert result[3].frequency is None
+    issue_accepted_run1 = store.create_issue(
+        experiment_id=exp_id,
+        name="Accepted Run1",
+        description="Accepted from run1",
+        status="accepted",
+        source_run_id=run1.info.run_id,
+    )
+
+    store.create_issue(
+        experiment_id=exp_id,
+        name="Accepted Run2",
+        description="Accepted from run2",
+        status="accepted",
+        source_run_id=run2.info.run_id,
+    )
+
+    # Filter with AND: status = 'accepted' AND source_run_id = run1
+    result = store.search_issues(
+        filter_string=f"status = 'accepted' AND source_run_id = '{run1.info.run_id}'"
+    )
+
+    assert len(result) == 1
+    assert result[0].issue_id == issue_accepted_run1.issue_id
+    assert result[0].status == "accepted"
+    assert result[0].source_run_id == run1.info.run_id
