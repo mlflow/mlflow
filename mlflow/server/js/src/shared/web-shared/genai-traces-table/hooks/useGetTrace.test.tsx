@@ -199,6 +199,39 @@ describe('useGetTrace', () => {
       });
     });
 
+    test('should stop polling when actual span count exceeds expected (distributed tracing)', async () => {
+      // In distributed tracing, sizeStats.num_spans only counts spans from the originating process,
+      // so the actual span count can exceed the expected count when spans from other services arrive.
+      const traceWithExtraSpans: ModelTrace = {
+        data: {
+          spans: [{ name: 'client-root' }, { name: 'server-handler' }, { name: 'db-query' }] as any,
+        },
+        info: {
+          trace_id: 'trace-id-123',
+          trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+          request_time: '1625247600000',
+          state: 'OK',
+          trace_metadata: {
+            'mlflow.trace.sizeStats': JSON.stringify({ num_spans: 2 }), // Only 2 expected, but 3 actual spans
+          },
+          tags: {},
+        } as ModelTraceInfoV3,
+      };
+
+      const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(traceWithExtraSpans);
+      const { result } = renderHook(() => useGetTrace(mockGetTrace, traceWithExtraSpans.info, true), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+
+      // Advance timers to ensure no additional polling calls are made
+      jest.advanceTimersByTime(3000);
+
+      // Should have been called only once — polling stops immediately when actual >= expected
+      expect(mockGetTrace).toHaveBeenCalledTimes(1);
+    });
+
     test('should not poll when trace state is ERROR', async () => {
       const traceWithErrorState: ModelTrace = {
         data: { spans: [] },
