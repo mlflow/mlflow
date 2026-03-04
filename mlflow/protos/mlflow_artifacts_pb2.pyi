@@ -116,6 +116,26 @@ class MultipartUploadPart(_message.Message):
     url: str
     def __init__(self, part_number: _Optional[int] = ..., etag: _Optional[str] = ..., url: _Optional[str] = ...) -> None: ...
 
+class GetPresignedDownloadUrl(_message.Message):
+    __slots__ = ()
+    class Response(_message.Message):
+        __slots__ = ("url", "headers", "file_size")
+        class HeadersEntry(_message.Message):
+            __slots__ = ("key", "value")
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: str
+            value: str
+            def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+        URL_FIELD_NUMBER: _ClassVar[int]
+        HEADERS_FIELD_NUMBER: _ClassVar[int]
+        FILE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        url: str
+        headers: _containers.ScalarMap[str, str]
+        file_size: int
+        def __init__(self, url: _Optional[str] = ..., headers: _Optional[_Mapping[str, str]] = ..., file_size: _Optional[int] = ...) -> None: ...
+    def __init__(self) -> None: ...
+
 class MlflowArtifactsService(_service.service): ...
 
 class MlflowArtifactsService_Stub(MlflowArtifactsService): ...

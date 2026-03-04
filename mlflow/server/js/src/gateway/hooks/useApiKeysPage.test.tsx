@@ -1,7 +1,7 @@
 import { describe, afterEach, test, jest, expect, beforeEach } from '@jest/globals';
 import { renderHook, cleanup, act } from '@testing-library/react';
 import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { useApiKeysPage } from './useApiKeysPage';
 import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../types';
 
@@ -39,7 +39,7 @@ const mockEndpoints: Endpoint[] = [
 ];
 
 const mockBindings: EndpointBinding[] = [
-  { endpoint_id: 'ep-1', resource_type: 'scorer_job', resource_id: 'job-1', created_at: 1000 },
+  { endpoint_id: 'ep-1', resource_type: 'scorer', resource_id: 'job-1', created_at: 1000, display_name: 'Test Scorer' },
 ];
 
 const mockModelDefinitions: ModelDefinition[] = [

@@ -149,6 +149,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    **kwargs,
 ):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
@@ -245,6 +246,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        kwargs: Extra arguments to pass to the Spark model ``save`` method.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -714,6 +716,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    **kwargs,
 ):
     """
     Save a Spark MLlib Model to a local path.
@@ -739,6 +742,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        kwargs: {{ kwargs }}
 
     .. code-block:: python
         :caption: Example

@@ -38,20 +38,14 @@ export const normalizeOpenAIChatInput = (obj: any): ModelTraceChatMessage[] | nu
 // normalize the OpenAI chat response format (object with 'choices' key)
 export const normalizeOpenAIChatResponse = (obj: any): ModelTraceChatMessage[] | null => {
   if (isModelTraceChoices(obj)) {
-    return obj.map((choice) => ({
-      ...choice.message,
-      tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-    }));
+    return compact(obj.map((choice) => prettyPrintChatMessage(choice.message)));
   }
 
   if (!isModelTraceChatResponse(obj)) {
     return null;
   }
 
-  return obj.choices.map((choice) => ({
-    ...choice.message,
-    tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-  }));
+  return compact(obj.choices.map((choice) => prettyPrintChatMessage(choice.message)));
 };
 
 const isOpenAIResponsesInputMessage = (obj: unknown): obj is OpenAIResponsesInputMessage => {
@@ -151,8 +145,18 @@ export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessa
     return message && [message];
   }
 
-  if (isArray(input) && input.every(isOpenAIResponsesInputMessage)) {
-    return compact(input.flatMap(normalizeOpenAIResponsesInputMessage));
+  if (
+    isArray(input) &&
+    // openai inputs can consititute of output items such as function calls and function call outputs
+    input.every((message: unknown) => isOpenAIResponsesInputMessage(message) || isOpenAIResponsesOutputItem(message))
+  ) {
+    return compact(
+      input.flatMap((message: unknown) =>
+        isOpenAIResponsesInputMessage(message)
+          ? normalizeOpenAIResponsesInputMessage(message as OpenAIResponsesInputMessage)
+          : normalizeOpenAIResponsesOutputItem(message as OpenAIResponsesOutputItem),
+      ),
+    );
   }
 
   return null;

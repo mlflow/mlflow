@@ -11,7 +11,7 @@ from mlflow.bedrock import FLAVOR_NAME
 from mlflow.bedrock.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.bedrock.stream import ConverseStreamWrapper, InvokeModelStreamWrapper
 from mlflow.bedrock.utils import parse_complete_token_usage_from_response, skip_if_trace_disabled
-from mlflow.entities import SpanType
+from mlflow.entities import LiveSpan, SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import set_span_chat_tools
@@ -91,6 +91,8 @@ def _patched_invoke_model(original, self, *args, **kwargs):
         # NB: Bedrock client doesn't accept any positional arguments
         span.set_inputs(kwargs)
 
+        _extract_and_set_model_name(span, kwargs)
+
         result = original(self, *args, **kwargs)
 
         result["body"] = _buffer_stream(result["body"])
@@ -119,6 +121,8 @@ def _patched_invoke_model_with_response_stream(original, self, *args, **kwargs):
         span_type=SpanType.LLM,
         inputs=kwargs,
     )
+
+    _extract_and_set_model_name(span, kwargs)
 
     result = original(self, *args, **kwargs)
 
@@ -168,6 +172,9 @@ def _patched_converse(original, self, *args, **kwargs):
         # NB: Bedrock client doesn't accept any positional arguments
         span.set_inputs(kwargs)
         span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "bedrock")
+
+        _extract_and_set_model_name(span, kwargs)
+
         _set_tool_attributes(span, kwargs)
 
         result = original(self, *args, **kwargs)
@@ -185,11 +192,16 @@ def _patched_converse_stream(original, self, *args, **kwargs):
     # NB: Do not use fluent API to create a span for streaming response. If we do so,
     # the span context will remain active until the stream is fully exhausted, which
     # can lead to super hard-to-debug issues.
+    attributes = {SpanAttributeKey.MESSAGE_FORMAT: "bedrock"}
+
+    if model_id := kwargs.get("modelId"):
+        attributes[SpanAttributeKey.MODEL] = model_id
+
     span = start_span_no_context(
         name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
         span_type=SpanType.CHAT_MODEL,
         inputs=kwargs,
-        attributes={SpanAttributeKey.MESSAGE_FORMAT: "bedrock"},
+        attributes=attributes,
     )
     _set_tool_attributes(span, kwargs)
 
@@ -213,3 +225,9 @@ def _set_tool_attributes(span, kwargs):
             set_span_chat_tools(span, tools)
         except Exception as e:
             _logger.debug(f"Failed to set tools for {span}. Error: {e}")
+
+
+def _extract_and_set_model_name(span: LiveSpan, kwargs: dict[str, Any]):
+    """Extract model name from kwargs and set it on the span."""
+    if model_id := kwargs.get("modelId"):
+        span.set_attribute(SpanAttributeKey.MODEL, model_id)

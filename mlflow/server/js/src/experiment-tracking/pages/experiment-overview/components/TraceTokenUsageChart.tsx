@@ -15,7 +15,8 @@ import {
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { formatCount, useLegendHighlight } from '../utils/chartUtils';
+import { formatCount, useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export const TraceTokenUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -23,6 +24,7 @@ export const TraceTokenUsageChart: React.FC = () => {
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight(0.8, 0.2);
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process token usage chart data
   const { chartData, totalTokens, totalInputTokens, totalOutputTokens, isLoading, error, hasData } =
@@ -64,7 +66,16 @@ export const TraceTokenUsageChart: React.FC = () => {
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
+                content={
+                  <ScrollableTooltip
+                    formatter={tooltipFormatter}
+                    linkConfig={{
+                      experimentId: experimentIds[0],
+                      timeIntervalSeconds,
+                      componentId: 'mlflow.overview.usage.token_usage.view_traces_link',
+                    }}
+                  />
+                }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Area
@@ -76,6 +87,7 @@ export const TraceTokenUsageChart: React.FC = () => {
                 strokeOpacity={getOpacity('Input Tokens')}
                 fillOpacity={getOpacity('Input Tokens')}
                 strokeWidth={2}
+                dot={getLineDotStyle(areaColors.inputTokens)}
                 name="Input Tokens"
               />
               <Area
@@ -87,6 +99,7 @@ export const TraceTokenUsageChart: React.FC = () => {
                 strokeOpacity={getOpacity('Output Tokens')}
                 fillOpacity={getOpacity('Output Tokens')}
                 strokeWidth={2}
+                dot={getLineDotStyle(areaColors.outputTokens)}
                 name="Output Tokens"
               />
               <Legend

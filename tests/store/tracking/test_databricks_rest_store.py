@@ -73,10 +73,14 @@ def create_mock_spans(diff_trace_id=False):
     mock_span1 = mock.MagicMock(spec=Span)
     mock_span1.trace_id = "trace123"
     mock_span1.to_otel_proto.return_value = otel_span1
+    mock_span1._span = mock.MagicMock()
+    mock_span1._span.resource = None
 
     mock_span2 = mock.MagicMock(spec=Span)
     mock_span2.trace_id = "trace456" if diff_trace_id else "trace123"
     mock_span2.to_otel_proto.return_value = otel_span2
+    mock_span2._span = mock.MagicMock()
+    mock_span2._span.resource = None
 
     return [mock_span1, mock_span2]
 
@@ -1294,13 +1298,17 @@ def test_link_traces_to_run_with_mixed_v3_v4_trace_ids_handles_both():
         assert mock_http.call_count == 2
 
         # Verify V3 call
-        v3_call = [call for call in mock_http.call_args_list if "2.0" in call.kwargs["endpoint"]][0]
+        v3_call = next(
+            call for call in mock_http.call_args_list if "2.0" in call.kwargs["endpoint"]
+        )
         assert v3_call.kwargs["endpoint"] == "/api/2.0/mlflow/traces/link-to-run"
         assert v3_call.kwargs["json"]["trace_ids"] == [v3_trace_id]
         assert v3_call.kwargs["json"]["run_id"] == run_id
 
         # Verify V4 call
-        v4_call = [call for call in mock_http.call_args_list if "4.0" in call.kwargs["endpoint"]][0]
+        v4_call = next(
+            call for call in mock_http.call_args_list if "4.0" in call.kwargs["endpoint"]
+        )
         expected_v4_endpoint = f"/api/4.0/mlflow/traces/{location}/link-to-run/batchCreate"
         assert v4_call.kwargs["endpoint"] == expected_v4_endpoint
         assert v4_call.kwargs["json"]["trace_ids"] == ["trace456"]
@@ -1509,8 +1517,8 @@ def test_search_datasets_basic():
         endpoint = call_args[1]["endpoint"]
         assert call_args[1]["method"] == "GET"
         assert "/api/2.0/managed-evals/datasets" in endpoint
-        # URL encoding: = becomes %3D
-        assert "experiment_id%3Dexp_1" in endpoint or "experiment_id=exp_1" in endpoint
+        # URL encoding: = becomes %3D, ' becomes %27
+        assert "experiment_id%3D%27exp_1%27" in endpoint or "experiment_id='exp_1'" in endpoint
         # Verify max_results is passed as page_size
         assert "page_size=100" in endpoint
 

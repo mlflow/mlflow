@@ -48,6 +48,9 @@ def get_metric_class(metric_name: str):
     """
     Get DeepEval metric class by name.
 
+    For metrics in the registry, uses the registered classpath. For unknown metrics,
+    attempts to dynamically import from deepeval.metrics.<MetricName>Metric.
+
     Args:
         metric_name: Name of the metric (e.g., "AnswerRelevancy", "Faithfulness")
 
@@ -55,22 +58,27 @@ def get_metric_class(metric_name: str):
         The DeepEval metric class
 
     Raises:
-        MlflowException: If the metric name is not recognized or deepeval is not installed
+        MlflowException: If the metric cannot be imported or deepeval is not installed
     """
-    if metric_name not in _METRIC_REGISTRY:
-        available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
-        raise MlflowException.invalid_parameter_value(
-            f"Unknown metric: '{metric_name}'. Available metrics: {available_metrics}"
-        )
-
-    classpath, _ = _METRIC_REGISTRY[metric_name]
-    module_path, class_name = classpath.rsplit(".", 1)
+    if metric_name in _METRIC_REGISTRY:
+        classpath, _ = _METRIC_REGISTRY[metric_name]
+        module_path, class_name = classpath.rsplit(".", 1)
+    else:
+        # Attempt dynamic import for metrics not in registry
+        module_path = "deepeval.metrics"
+        class_name = f"{metric_name}Metric"
 
     try:
         module = __import__(module_path, fromlist=[class_name])
         return getattr(module, class_name)
     except ImportError as e:
         raise MlflowException.invalid_parameter_value(DEEPEVAL_NOT_INSTALLED_ERROR_MESSAGE) from e
+    except AttributeError:
+        available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
+        raise MlflowException.invalid_parameter_value(
+            f"Unknown metric: '{metric_name}'. Could not import '{class_name}' from "
+            f"'{module_path}'. Available pre-configured metrics: {available_metrics}"
+        )
 
 
 def is_deterministic_metric(metric_name: str) -> bool:

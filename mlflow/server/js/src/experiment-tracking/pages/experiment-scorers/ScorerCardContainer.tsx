@@ -9,6 +9,7 @@ import { DeleteScorerModalRenderer } from './DeleteScorerModalRenderer';
 import ScorerCardRenderer from './ScorerCardRenderer';
 import ScorerModalRenderer from './ScorerModalRenderer';
 import { SCORER_FORM_MODE } from './constants';
+import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 
 interface ScorerCardContainerProps {
   scorer: ScheduledScorer;
@@ -18,6 +19,9 @@ interface ScorerCardContainerProps {
 const ScorerCardContainer: React.FC<ScorerCardContainerProps> = ({ scorer, experimentId }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeModal, setActiveModal] = useState<'delete' | 'edit' | null>(null);
+
+  // Register scorer context when card is expanded
+  useRegisterAssistantContext('selectedScorerName', isExpanded ? scorer.name : undefined);
 
   // Hook for deleting scorer
   const deleteScorerMutation = useDeleteScheduledScorerMutation();

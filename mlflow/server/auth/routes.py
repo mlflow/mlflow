@@ -8,6 +8,8 @@ GET_USER = _get_rest_path("/mlflow/users/get")
 UPDATE_USER_PASSWORD = _get_rest_path("/mlflow/users/update-password")
 UPDATE_USER_ADMIN = _get_rest_path("/mlflow/users/update-admin")
 DELETE_USER = _get_rest_path("/mlflow/users/delete")
+LIST_USERS = _get_rest_path("/mlflow/users/list")
+AJAX_LIST_USERS = _get_ajax_path("/mlflow/users/list")
 CREATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/create")
 GET_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/get")
 UPDATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/update")
@@ -20,6 +22,10 @@ CREATE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/create", 
 GET_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/get", version=3)
 UPDATE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/update", version=3)
 DELETE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/delete", version=3)
+LIST_WORKSPACE_PERMISSIONS = _get_rest_path(
+    "/mlflow/workspaces/<workspace_name>/permissions", version=3
+)
+LIST_USER_WORKSPACE_PERMISSIONS = _get_rest_path("/mlflow/workspace-permissions", version=3)
 
 # Flask routes (not part of Protobuf API)
 GET_ARTIFACT = _add_static_prefix("/get-artifact")

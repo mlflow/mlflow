@@ -34,7 +34,7 @@ from mlflow.genai.evaluation.session_utils import (
     evaluate_session_level_scorers,
     group_traces_by_session,
 )
-from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
+from mlflow.genai.evaluation.telemetry import emit_metric_usage_event
 from mlflow.genai.evaluation.utils import (
     PGBAR_FORMAT,
     is_none_or_nan,
@@ -210,9 +210,9 @@ def run(
     mlflow.log_metrics(aggregated_metrics)
 
     try:
-        emit_custom_metric_event(scorers, len(eval_items), aggregated_metrics)
+        emit_metric_usage_event(scorers, len(eval_items), len(session_groups), aggregated_metrics)
     except Exception as e:
-        _logger.debug(f"Failed to emit custom metric usage event: {e}", exc_info=True)
+        _logger.debug(f"Failed to emit metric usage event: {e}", exc_info=True)
 
     # Search for all traces in the run. We need to fetch the traces from backend here to include
     # all traces in the result.
@@ -418,11 +418,11 @@ def _log_assessments(
                 AssessmentMetadataKey.SOURCE_RUN_ID: run_id,
             }
 
-        # NB: Root span ID is necessarily to show assessment results in DBX eval UI.
-        if root_span := trace.data._get_root_span():
-            assessment.span_id = root_span.span_id
-        else:
-            _logger.debug(f"No root span found for trace {trace.info.trace_id}")
+        if not assessment.span_id:
+            if root_span := trace.data._get_root_span():
+                assessment.span_id = root_span.span_id
+            else:
+                _logger.debug(f"No root span found for trace {trace.info.trace_id}")
 
         mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
 

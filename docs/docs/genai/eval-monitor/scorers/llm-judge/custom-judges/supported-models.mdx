@@ -1,0 +1,65 @@
+# Supported Models
+
+When no model is specified, MLflow uses a default based on your environment:
+
+- **Databricks**: `"databricks"` (a [Databricks-hosted model](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/scorers#select-the-llm-that-powers-the-judge) designed for GenAI quality assessments)
+- **Other environments**: `"openai:/gpt-4o-mini"`
+
+You can also explicitly specify a model from any of the following sources:
+
+## AI Gateway Endpoints
+
+[AI Gateway](/genai/governance/ai-gateway/) endpoints are the recommended way to configure judge models, especially when creating judges from the UI. Benefits include:
+
+- **Run judges directly from the UI** - Test and execute judges without leaving the browser
+- **Centralized API key management** - No need to configure API keys locally
+- **Traffic routing and fallbacks** - Configure load balancing and provider fallbacks
+
+To use AI Gateway endpoints, select the endpoint from the UI dropdown or specify the endpoint name from the SDK with the `gateway:/` prefix, e.g., `gateway:/my-chat-endpoint`.
+
+## Direct Model Providers
+
+MLflow also supports calling model providers directly:
+
+- OpenAI / Azure OpenAI
+- Anthropic
+- Amazon Bedrock
+- Cohere
+- Together AI
+- Any other providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers), such as Google Gemini, xAI, Mistral, and more.
+
+:::warning
+Judges configured with direct model providers require API keys to be set locally (e.g., `OPENAI_API_KEY`) and **cannot be run from the UI**. Use AI Gateway endpoints if you want to run the judges from the UI.
+:::
+
+To use LiteLLM integrated models, install LiteLLM by running `pip install litellm` and specify the provider and model name in the same format as natively supported providers, e.g., `gemini:/gemini-2.0-flash`.
+
+## Databricks-Hosted Models
+
+When using MLflow in Databricks, you can use Databricks-hosted models using the following formats:
+
+- **`"databricks"`** (default): a [default Databricks-hosted model](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/scorers#select-the-llm-that-powers-the-judge) designed for GenAI quality assessments.
+- **`"databricks:/<model-name>"`**: Other Databricks-hosted models of your choice (e.g., `databricks:/databricks-gpt-5-mini`, `databricks:/databricks-claude-sonnet-4-5`). For a full list, see [LiteLLM Models](https://models.litellm.ai/) and select "databricks" as the provider.
+- **`"databricks:/<endpoint-name>"`** or **`"endpoints:/<endpoint-name>"`**: Custom model endpoints on Databricks (e.g., `databricks:/my-endpoint`).
+
+## Choosing the Right LLM for Your Judge
+
+The choice of LLM model significantly impacts judge performance and cost. Here's guidance based on your development stage and use case:
+
+### Early Development Stage (Inner Loop)
+
+- **Recommended**: Start with powerful models like GPT-4o or Claude Opus
+- **Why**: When you're beginning your agent development journey, you typically lack:
+  - Use-case-specific grading criteria
+  - Labeled data for optimization
+- **Benefits**: More intelligent models can deeply explore traces, identify patterns, and help you understand common issues in your system
+- **Trade-off**: Higher cost, but lower evaluation volume during development makes this acceptable
+
+### Production & Scaling Stage
+
+- **Recommended**: Transition to smaller models (GPT-4o-mini, Claude Haiku) with smarter optimizers
+- **Why**: As you move toward production:
+  - You've collected labeled data and established grading criteria
+  - Cost becomes a critical factor at scale
+  - You can align smaller judges using more powerful optimizers
+- **Approach**: Use a smaller judge model paired with a powerful optimizer model (e.g., GPT-4o-mini judge aligned using Claude Opus optimizer)

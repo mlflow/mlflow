@@ -15,7 +15,7 @@ import {
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import { formatLatency, useLegendHighlight, useChartColors } from '../utils/chartUtils';
+import { formatLatency, useLegendHighlight, useChartColors, getLineDotStyle } from '../utils/chartUtils';
 
 /**
  * Chart showing average latency comparison for each tool over time as a line chart.
@@ -76,7 +76,7 @@ export const ToolLatencyChart: React.FC = () => {
                   stroke={getChartColor(index)}
                   strokeWidth={2}
                   strokeOpacity={getOpacity(toolName)}
-                  dot={false}
+                  dot={getLineDotStyle(getChartColor(index))}
                 />
               ))}
               <Legend

@@ -14,7 +14,13 @@ import {
   useChartYAxisProps,
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
+  getTracesFilteredByTimeRangeUrl,
+  createSpanNameEqualsFilter,
+  createSpanStatusEqualsFilter,
 } from './OverviewChartComponents';
+import { getLineDotStyle } from '../utils/chartUtils';
+import { useOverviewChartContext } from '../OverviewChartContext';
+import { useNavigate } from '../../../../common/utils/RoutingUtils';
 
 export interface ToolErrorRateChartProps {
   /** The name of the tool to display */
@@ -30,6 +36,8 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
+  const navigate = useNavigate();
 
   const chartLineColor = lineColor || theme.colors.red500;
 
@@ -39,6 +47,19 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
   const tooltipFormatter = useCallback(
     (value: number) => [`${value.toFixed(2)}%`, 'Error Rate'] as [string, string],
     [],
+  );
+
+  // Handle click on tooltip link to navigate to traces filtered by span name and error status
+  const handleViewTraces = useCallback(
+    (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
+      if (dataPoint?.timestampMs === undefined) return;
+      const url = getTracesFilteredByTimeRangeUrl(experimentIds[0], dataPoint.timestampMs, timeIntervalSeconds, [
+        createSpanNameEqualsFilter(toolName),
+        createSpanStatusEqualsFilter('ERROR'),
+      ]);
+      navigate(url);
+    },
+    [experimentIds, timeIntervalSeconds, toolName, navigate],
   );
 
   if (isLoading) {
@@ -75,7 +96,21 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
             <XAxis dataKey="name" {...xAxisProps} />
             <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} {...yAxisProps} />
             <Tooltip
-              content={<ScrollableTooltip formatter={tooltipFormatter} />}
+              content={
+                <ScrollableTooltip
+                  formatter={tooltipFormatter}
+                  linkConfig={{
+                    componentId: 'mlflow.overview.tools.error_rate.view_traces_link',
+                    linkText: (
+                      <FormattedMessage
+                        defaultMessage="View error traces for this tool"
+                        description="Link text to navigate to traces filtered by tool name and error status"
+                      />
+                    ),
+                    onLinkClick: handleViewTraces,
+                  }}
+                />
+              }
               cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
             />
             <Legend iconType="plainline" {...scrollableLegendProps} />
@@ -85,7 +120,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
               name="Error Rate"
               stroke={chartLineColor}
               strokeWidth={2}
-              dot={false}
+              dot={getLineDotStyle(chartLineColor)}
             />
           </LineChart>
         </ResponsiveContainer>

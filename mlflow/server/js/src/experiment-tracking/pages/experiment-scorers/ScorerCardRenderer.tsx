@@ -139,7 +139,7 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
                 alignItems: 'center',
               }}
             >
-              {!scorer.disableMonitoring && !isNil(scorer.sampleRate) && (
+              {!isNil(scorer.sampleRate) && (
                 <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                   <Typography.Hint>
                     <FormattedMessage defaultMessage="Sample rate:" description="Sample rate label for scorer" />
@@ -153,10 +153,10 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
                   </Typography.Hint>
                 </div>
               )}
-              {!scorer.disableMonitoring && !isNil(scorer.sampleRate) && scorer.filterString && (
+              {!isNil(scorer.sampleRate) && scorer.filterString && (
                 <CircleIcon css={{ color: theme.colors.textSecondary, fontSize: '6px' }} />
               )}
-              {!scorer.disableMonitoring && scorer.filterString && (
+              {scorer.filterString && (
                 <Typography.Hint>
                   <FormattedMessage
                     defaultMessage="Filter: {filterString}"
@@ -178,15 +178,13 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
           ) : null}
         </div>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          {!scorer.disableMonitoring && (
-            <Tag
-              componentId={`${COMPONENT_ID_PREFIX}.scorer-status-tag`}
-              color={getStatusTag(scorer, intl).color}
-              icon={getStatusTag(scorer, intl).icon}
-            >
-              {getStatusTag(scorer, intl).text}
-            </Tag>
-          )}
+          <Tag
+            componentId="mlflow.experiment-scorers.scorer-status-tag"
+            color={getStatusTag(scorer, intl).color}
+            icon={getStatusTag(scorer, intl).icon}
+          >
+            {getStatusTag(scorer, intl).text}
+          </Tag>
           <Button
             componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_179"
             size="small"

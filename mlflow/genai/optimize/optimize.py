@@ -216,6 +216,7 @@ def optimize_prompts(
         raise MlflowException("Only text prompts can be optimized")
 
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
+    target_prompts_model_config = {prompt.name: prompt.model_config for prompt in target_prompts}
 
     with (
         prompt_optimization_autolog(
@@ -232,7 +233,11 @@ def optimize_prompts(
         )
 
         optimized_prompts = [
-            register_prompt(name=prompt_name, template=prompt)
+            register_prompt(
+                name=prompt_name,
+                template=prompt,
+                model_config=target_prompts_model_config.get(prompt_name),
+            )
             for prompt_name, prompt in optimizer_output.optimized_prompts.items()
         ]
 
@@ -244,13 +249,16 @@ def optimize_prompts(
         optimizer_name=optimizer.__class__.__name__,
         initial_eval_score=optimizer_output.initial_eval_score,
         final_eval_score=optimizer_output.final_eval_score,
+        initial_eval_score_per_scorer=optimizer_output.initial_eval_score_per_scorer,
+        final_eval_score_per_scorer=optimizer_output.final_eval_score_per_scorer,
     )
 
 
 def _build_eval_fn(
     predict_fn: Callable[..., Any],
     metric_fn: Callable[
-        [dict[str, Any], dict[str, Any], dict[str, Any], Trace | None], tuple[float, dict[str, str]]
+        [dict[str, Any], dict[str, Any], dict[str, Any], Trace | None],
+        tuple[float, dict[str, str], dict[str, float]],
     ]
     | None,
 ) -> Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]:
@@ -299,14 +307,14 @@ def _build_eval_fn(
                     program_outputs = f"Failed to invoke the predict_fn with {inputs}: {e}"
 
             trace = mlflow.get_trace(eval_request_id, silent=True)
-
             if metric_fn is not None:
-                score, rationales = metric_fn(
+                score, rationales, individual_scores = metric_fn(
                     inputs=inputs, outputs=program_outputs, expectations=expectations, trace=trace
                 )
             else:
                 score = None
                 rationales = {}
+                individual_scores = {}
 
             return EvaluationResultRecord(
                 inputs=inputs,
@@ -315,6 +323,7 @@ def _build_eval_fn(
                 score=score,
                 trace=trace,
                 rationales=rationales,
+                individual_scores=individual_scores,
             )
 
         try:

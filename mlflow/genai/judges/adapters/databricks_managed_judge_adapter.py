@@ -30,6 +30,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
 )
+from mlflow.genai.utils.message_utils import serialize_messages_to_databricks_prompts
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.version import VERSION
 
@@ -240,44 +241,11 @@ def create_litellm_message_from_databricks_response(
     )
 
 
-def serialize_messages_to_databricks_prompts(
-    messages: list[Any],
-) -> tuple[str, str | None]:
-    """
-    Serialize litellm Messages to user_prompt and system_prompt for Databricks.
-
-    This is needed because call_chat_completions only accepts string prompts.
-
-    Args:
-        messages: List of litellm Message objects.
-
-    Returns:
-        Tuple of (user_prompt, system_prompt).
-    """
-    system_prompt = None
-    user_parts = []
-
-    for msg in messages:
-        if msg.role == "system":
-            system_prompt = msg.content
-        elif msg.role == "user":
-            user_parts.append(msg.content)
-        elif msg.role == "assistant":
-            if msg.tool_calls:
-                user_parts.append("Assistant: [Called tools]")
-            elif msg.content:
-                user_parts.append(f"Assistant: {msg.content}")
-        elif msg.role == "tool":
-            user_parts.append(f"Tool {msg.name}: {msg.content}")
-
-    user_prompt = "\n\n".join(user_parts)
-    return user_prompt, system_prompt
-
-
 def _run_databricks_agentic_loop(
     messages: list["litellm.Message"],
     trace: "Trace | None",
     on_final_answer: Callable[[str | None], T],
+    use_case: str | None = None,
 ) -> T:
     """
     Run an agentic loop with Databricks chat completions.
@@ -317,8 +285,22 @@ def _run_databricks_agentic_loop(
             user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
 
             llm_result = call_chat_completions(
-                user_prompt, system_prompt or "", tools=tools, model=_DATABRICKS_AGENTIC_JUDGE_MODEL
+                user_prompt,
+                system_prompt or "",
+                tools=tools,
+                model=_DATABRICKS_AGENTIC_JUDGE_MODEL,
+                use_case=use_case,
             )
+
+            # Surface API errors from the response before checking output_json,
+            # so users see the actual error (e.g. "Model context limit exceeded")
+            # instead of a misleading "Empty response" message.
+            error_code = getattr(llm_result, "error_code", None)
+            error_message = getattr(llm_result, "error_message", None)
+            if error_code or error_message:
+                raise MlflowException(
+                    f"Databricks judge API error (code={error_code}): {error_message}"
+                )
 
             output_json = llm_result.output_json
             if not output_json:
@@ -379,7 +361,7 @@ def _invoke_databricks_default_judge(
         def parse_judge_response(content: str | None) -> Feedback:
             return _parse_databricks_judge_response(content, assessment_name, trace)
 
-        return _run_databricks_agentic_loop(messages, trace, parse_judge_response)
+        return _run_databricks_agentic_loop(messages, trace, parse_judge_response, use_case)
 
     except Exception as e:
         _logger.debug(f"Failed to invoke Databricks judge: {e}", exc_info=True)

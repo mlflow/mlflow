@@ -126,12 +126,24 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None, token=None
             detach_span_from_context(token)
 
 
+def _is_workflow_handler(result):
+    """Check if the result is a WorkflowHandler from llama-index-workflows >= 2.0."""
+    try:
+        from workflows.handler import WorkflowHandler
+
+        return isinstance(result, WorkflowHandler)
+    except (ImportError, ModuleNotFoundError):
+        return False
+
+
 class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def __init__(self):
         super().__init__()
         self._span_id_to_token = {}
         self._stream_resolver = StreamResolver()
         self._pending_spans: dict[str, _LlamaSpan] = {}
+        # Track workflow spans that are pending completion (WorkflowHandler returned)
+        self._pending_workflow_span_ids: set[str] = set()
 
     @classmethod
     def class_name(cls) -> str:
@@ -197,7 +209,15 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             span = llama_span._mlflow_span
             token = self._span_id_to_token.pop(span.span_id, None)
 
-            if self._stream_resolver.is_streaming_result(result):
+            if _is_workflow_handler(result):
+                # In llama-index-workflows >= 2.0, Workflow.run() is synchronous and returns
+                # a WorkflowHandler instead of the actual result. Keep the span open so child
+                # step spans can properly link to it, and close it when a StopEvent is received.
+                self._pending_workflow_span_ids.add(id_)
+                if token:
+                    detach_span_from_context(token)
+                return None  # Keep the span in open_spans
+            elif self._stream_resolver.is_streaming_result(result):
                 # If the result is a generator, we keep the span in progress for streaming
                 # and end it when the generator is exhausted.
                 is_pended = self._stream_resolver.register_stream_span(span, result)
@@ -211,9 +231,32 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                     _end_span(span=span, outputs=result, token=token)
             else:
                 _end_span(span=span, outputs=result, token=token)
+
+            # If a child step returns a StopEvent, close the parent workflow span
+            self._try_close_workflow_span(llama_span.parent_id, result)
+
             return llama_span
         except BaseException as e:
             _logger.debug(f"Failed to end a span: {e}", exc_info=True)
+
+    def _try_close_workflow_span(self, parent_id: str | None, result: Any):
+        """Close a pending workflow span when a child step returns a StopEvent."""
+        if not parent_id or parent_id not in self._pending_workflow_span_ids:
+            return
+
+        try:
+            from llama_index.core.workflow import StopEvent
+
+            if not isinstance(result, StopEvent):
+                return
+        except ImportError:
+            return
+
+        self._pending_workflow_span_ids.discard(parent_id)
+        with self.lock:
+            workflow_llama_span = self.open_spans.pop(parent_id, None)
+        if workflow_llama_span:
+            _end_span(span=workflow_llama_span._mlflow_span, outputs=result.result)
 
     def resolve_pending_stream_span(self, span: LiveSpan, event: Any):
         """End the pending streaming span(s)"""
@@ -293,6 +336,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         attr = {SpanAttributeKey.MESSAGE_FORMAT: "llamaindex"}
         if metadata := instance.metadata:
             attr["model_name"] = metadata.model_name
+            attr[SpanAttributeKey.MODEL] = metadata.model_name
             if params_str := metadata.model_dump_json(exclude_unset=True):
                 attr["invocation_params"] = json.loads(params_str)
         return attr
@@ -301,6 +345,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def _(self, instance: BaseEmbedding):
         return {
             "model_name": instance.model_name,
+            SpanAttributeKey.MODEL: instance.model_name,
             "embed_batch_size": instance.embed_batch_size,
         }
 
@@ -361,6 +406,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: EmbeddingStartEvent, span: LiveSpan):
         span.set_attribute("model_dict", event.model_dict)
+        self._extract_and_set_model_name(span, event.model_dict)
 
     @_handle_event.register
     def _(self, event: LLMPredictStartEvent, span: LiveSpan):
@@ -387,6 +433,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     def _(self, event: LLMCompletionStartEvent, span: LiveSpan):
         span.set_attribute("prompt", event.prompt)
         span.set_attribute("model_dict", event.model_dict)
+        self._extract_and_set_model_name(span, event.model_dict)
 
     @_handle_event.register
     def _(self, event: LLMCompletionEndEvent, span: LiveSpan):
@@ -399,6 +446,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     def _(self, event: LLMChatStartEvent, span: LiveSpan):
         span.set_attribute(SpanAttributeKey.SPAN_TYPE, SpanType.CHAT_MODEL)
         span.set_attribute("model_dict", event.model_dict)
+        self._extract_and_set_model_name(span, event.model_dict)
 
     @_handle_event.register
     def _(self, event: LLMChatEndEvent, span: LiveSpan):
@@ -427,6 +475,10 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         streaming after it exit. Therefore, we need to resolve the span here.
         """
         self._span_handler.resolve_pending_stream_span(span, event)
+
+    def _extract_and_set_model_name(self, span: LiveSpan, model_dict: dict[str, Any] | None):
+        if model_dict and (model := model_dict.get("model")):
+            span.set_attribute(SpanAttributeKey.MODEL, model)
 
     def _extract_token_usage(self, response: ChatResponse | CompletionResponse) -> dict[str, int]:
         if raw := response.raw:

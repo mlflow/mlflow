@@ -9,7 +9,7 @@ import { setupServer } from 'msw/node';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider } from '../query-client/queryClient';
 
 import type { ModelTrace, ModelTraceInfo, ModelTraceSpanV2 } from './ModelTrace.types';
 import { ModelTraceExplorer } from './ModelTraceExplorer';
@@ -359,7 +359,7 @@ describe('ModelTraceExplorer', () => {
 
     expect(screen.getByTestId('assessments-pane')).toBeInTheDocument();
 
-    const createButton = screen.getByText('Add new assessment');
+    const createButton = screen.getByText('Add feedback');
     await userEvent.click(createButton);
 
     // expect that the default assessment input type is boolean

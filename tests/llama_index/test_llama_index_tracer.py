@@ -34,6 +34,7 @@ from mlflow.llama_index.tracer import (
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
@@ -56,7 +57,7 @@ def set_handlers():
 
 
 @pytest.mark.parametrize("is_async", [True, False])
-def test_trace_llm_complete(is_async):
+def test_trace_llm_complete(is_async, mock_litellm_cost):
     # By default llama-index uses "gpt-3.5-turbo" model that only has chat interface,
     # and llama-index redirects completion call to chat endpoint. We use non-chat
     # model here to test trace for completion.
@@ -97,12 +98,21 @@ def test_trace_llm_complete(is_async):
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
+    assert spans[0].model_name == model_name
 
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 5,
         TokenUsageKey.OUTPUT_TOKENS: 7,
         TokenUsageKey.TOTAL_TOKENS: 12,
     }
+
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated
+        assert spans[0].llm_cost == {
+            "input_cost": 5.0,
+            "output_cost": 14.0,
+            "total_cost": 19.0,
+        }
 
 
 def test_trace_llm_complete_stream():
@@ -150,6 +160,7 @@ def test_trace_llm_complete_stream():
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
+    assert spans[0].model_name == model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -173,7 +184,7 @@ def _get_llm_input_content_json(content):
 
 
 @pytest.mark.parametrize("is_async", [True, False])
-def test_trace_llm_chat(is_async):
+def test_trace_llm_chat(is_async, mock_litellm_cost):
     llm = OpenAI()
     message = ChatMessage(role="system", content="Hello")
 
@@ -189,6 +200,7 @@ def test_trace_llm_chat(is_async):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.achat" if is_async else "OpenAI.chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
+    assert spans[0].model_name == llm.metadata.model_name
 
     content_json = _get_llm_input_content_json("Hello")
     assert spans[0].inputs == {
@@ -231,6 +243,13 @@ def test_trace_llm_chat(is_async):
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
+    assert spans[0].model_name == llm.metadata.model_name
+    if not IS_TRACING_SDK_ONLY:
+        assert spans[0].llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -304,6 +323,7 @@ def test_trace_llm_chat_multi_modal(image_block, expected_image_url):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].span_type == SpanType.CHAT_MODEL
+    assert spans[0].model_name == llm.metadata.model_name
 
 
 def test_trace_llm_chat_stream():
@@ -328,6 +348,7 @@ def test_trace_llm_chat_stream():
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
+    assert spans[0].model_name == llm.metadata.model_name
 
     content_json = _get_llm_input_content_json("Hello")
     assert spans[0].inputs == {
@@ -371,6 +392,7 @@ def test_trace_llm_chat_stream():
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
+    assert spans[0].model_name == llm.metadata.model_name
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -405,6 +427,7 @@ def test_trace_llm_error(monkeypatch, is_stream):
     assert spans[0].span_type == SpanType.CHAT_MODEL
     assert spans[0].inputs == {"messages": [message.model_dump()]}
     assert spans[0].outputs is None
+    assert spans[0].model_name == llm.metadata.model_name
     events = traces[0].data.spans[0].events
     assert len(events) == 1
     assert events[0].attributes["exception.message"] == "Connection error."
@@ -450,12 +473,14 @@ def test_trace_retriever(multi_index, is_async):
     assert spans[2].inputs == {"query": "apple"}
     assert len(spans[2].outputs) == 1536  # embedding size
     assert spans[2].attributes["model_name"] == Settings.embed_model.model_name
+    assert spans[2].model_name == Settings.embed_model.model_name
 
     assert "Embedding" in spans[3].name
     assert spans[3].span_type == SpanType.EMBEDDING
     assert spans[3].inputs == {"query": "apple"}
     assert len(spans[3].outputs) == 1536  # embedding size
     assert spans[3].attributes["model_name"] == Settings.embed_model.model_name
+    assert spans[3].model_name == Settings.embed_model.model_name
 
 
 @pytest.mark.parametrize("is_stream", [False, True])
@@ -588,6 +613,8 @@ def test_trace_agent():
             "type": "function",
         }
     ]
+    assert llm_spans[0].model_name == llm.metadata.model_name
+    assert llm_spans[1].model_name == llm.metadata.model_name
 
 
 @pytest.mark.parametrize("is_stream", [False, True])
@@ -736,8 +763,15 @@ async def test_tracer_parallel_workflow():
         assert s.status.status_code == SpanStatusCode.OK
 
     root_span = traces[0].data.spans[0]
-    assert root_span.inputs == {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
-    assert root_span.outputs == "apple, banana, grape, orange"
+    expected_inputs = {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
+    # assert that the inputs are a superset of the expected inputs.
+    # this is to make the test resilient to framework changes which may add additional inputs.
+    assert all(root_span.inputs.get(k) == v for k, v in expected_inputs.items())
+    # in llama-index < 0.14, outputs are a string
+    if isinstance(root_span.outputs, str):
+        assert root_span.outputs == "apple, banana, grape, orange"
+    else:
+        assert root_span.outputs["result"] == "apple, banana, grape, orange"
 
 
 @pytest.mark.skipif(
@@ -804,8 +838,11 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     assert all(s.status.status_code == SpanStatusCode.OK for s in spans)
 
     workflow_span = spans[0]
-    assert workflow_span.inputs == {"kwargs": {"inputs": inputs}}
-    assert workflow_span.outputs == result
+    assert all(workflow_span.inputs.get(k) == v for k, v in {"kwargs": {"inputs": inputs}}.items())
+    if isinstance(workflow_span.outputs, str):
+        assert workflow_span.outputs == result
+    else:
+        assert workflow_span.outputs["result"] == result
 
     inner_worker_spans = [s for s in spans if s.name.startswith("custom_inner_span_worker")]
     assert len(inner_worker_spans) == len(inputs)

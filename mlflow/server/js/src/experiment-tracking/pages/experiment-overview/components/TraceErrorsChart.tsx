@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { useDesignSystemTheme, DangerIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
+import { useNavigate } from '../../../../common/utils/RoutingUtils';
 import { useTraceErrorsChartData } from '../hooks/useTraceErrorsChartData';
 import {
   OverviewChartLoadingState,
@@ -14,8 +15,11 @@ import {
   useChartYAxisProps,
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
+  getTracesFilteredByTimeRangeUrl,
+  createSpanStatusEqualsFilter,
 } from './OverviewChartComponents';
-import { useLegendHighlight } from '../utils/chartUtils';
+import { useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
+import { useOverviewChartContext } from '../OverviewChartContext';
 
 export const TraceErrorsChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
@@ -23,6 +27,8 @@ export const TraceErrorsChart: React.FC = () => {
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
+  const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
+  const navigate = useNavigate();
 
   // Fetch and process errors chart data
   const { chartData, totalErrors, overallErrorRate, avgErrorRate, isLoading, error, hasData } =
@@ -34,6 +40,18 @@ export const TraceErrorsChart: React.FC = () => {
     }
     return [`${value.toFixed(1)}%`, name] as [string, string];
   }, []);
+
+  // Handle click on tooltip link to navigate to traces filtered by error status
+  const handleViewTraces = useCallback(
+    (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
+      if (dataPoint?.timestampMs === undefined) return;
+      const url = getTracesFilteredByTimeRangeUrl(experimentIds[0], dataPoint.timestampMs, timeIntervalSeconds, [
+        createSpanStatusEqualsFilter('ERROR'),
+      ]);
+      navigate(url);
+    },
+    [experimentIds, timeIntervalSeconds, navigate],
+  );
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -67,7 +85,15 @@ export const TraceErrorsChart: React.FC = () => {
                 {...yAxisProps}
               />
               <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
+                content={
+                  <ScrollableTooltip
+                    formatter={tooltipFormatter}
+                    linkConfig={{
+                      componentId: 'mlflow.overview.usage.errors.view_traces_link',
+                      onLinkClick: handleViewTraces,
+                    }}
+                  />
+                }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
               />
               <Bar
@@ -99,7 +125,7 @@ export const TraceErrorsChart: React.FC = () => {
                 dataKey="errorRate"
                 stroke={theme.colors.yellow500}
                 strokeWidth={2}
-                dot={false}
+                dot={getLineDotStyle(theme.colors.yellow500)}
                 name="Error Rate"
                 strokeOpacity={getOpacity('Error Rate')}
                 legendType="plainline"

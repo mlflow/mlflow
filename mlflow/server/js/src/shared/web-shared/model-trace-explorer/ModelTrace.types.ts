@@ -1,4 +1,4 @@
-import type { TimelineTreeNode } from './timeline-tree';
+import type { TimelineTreeNode } from './timeline-tree/TimelineTree.types';
 
 export const MLFLOW_TRACE_SCHEMA_VERSION_KEY = 'mlflow.trace_schema.version';
 
@@ -276,6 +276,15 @@ export type ModelTraceStatus =
   | ModelTraceStatusInProgress;
 
 /**
+ * Cost information for a span in USD.
+ */
+export interface SpanCostInfo {
+  input_cost: number;
+  output_cost: number;
+  total_cost: number;
+}
+
+/**
  * Represents a single node in the model trace tree.
  */
 export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpan, 'attributes' | 'type' | 'events'> {
@@ -288,6 +297,8 @@ export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpa
   chatTools?: ModelTraceChatTool[];
   parentId?: string | null;
   traceId: string;
+  modelName?: string;
+  cost?: SpanCostInfo;
 }
 
 export type ModelTraceExplorerTab = 'chat' | 'content' | 'attributes' | 'events';
@@ -341,7 +352,7 @@ type ModelTraceImageContentPart = {
   image_url: ModelTraceImageUrl;
 };
 
-type ModelTraceInputAudio = {
+export type ModelTraceInputAudio = {
   data: string;
   format: 'wav' | 'mp3';
 };
@@ -366,6 +377,7 @@ export type ModelTraceChatMessage = {
   tool_calls?: ModelTraceToolCall[];
   tool_call_id?: string;
   reasoning?: string | null;
+  audioParts?: ModelTraceInputAudio[];
 };
 
 // The actual chat message schema of mlflow contains string, null and content part list.

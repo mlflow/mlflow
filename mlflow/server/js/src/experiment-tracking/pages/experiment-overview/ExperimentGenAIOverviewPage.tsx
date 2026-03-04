@@ -1,16 +1,23 @@
 import { useEffect, useState, useMemo } from 'react';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { useIsFileStore } from '../../hooks/useServerInfo';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
-import { useMonitoringFilters, getAbsoluteStartEndTime } from '../../hooks/useMonitoringFilters';
+import {
+  useMonitoringFilters,
+  getAbsoluteStartEndTime,
+  DEFAULT_START_TIME_LABEL,
+} from '../../hooks/useMonitoringFilters';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { LazyTraceRequestsChart } from './components/LazyTraceRequestsChart';
 import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
 import { LazyTraceTokenStatsChart } from './components/LazyTraceTokenStatsChart';
+import { LazyTraceCostBreakdownChart } from './components/LazyTraceCostBreakdownChart';
+import { LazyTraceCostOverTimeChart } from './components/LazyTraceCostOverTimeChart';
 import { AssessmentChartsSection } from './components/AssessmentChartsSection';
 import { ToolCallStatistics } from './components/ToolCallStatistics';
 import { ToolCallChartsSection } from './components/ToolCallChartsSection';
@@ -19,7 +26,8 @@ import { LazyToolLatencyChart } from './components/LazyToolLatencyChart';
 import { LazyToolPerformanceSummary } from './components/LazyToolPerformanceSummary';
 import { TabContentContainer, ChartGrid } from './components/OverviewLayoutComponents';
 import { TimeUnitSelector } from './components/TimeUnitSelector';
-import { TimeUnit, TIME_UNIT_SECONDS, calculateDefaultTimeUnit, isTimeUnitValid } from './utils/timeUtils';
+import type { TimeUnit } from './utils/timeUtils';
+import { TIME_UNIT_SECONDS, calculateDefaultTimeUnit, isTimeUnitValid } from './utils/timeUtils';
 import { generateTimeBuckets } from './utils/chartUtils';
 import { OverviewChartProvider } from './OverviewChartContext';
 import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
@@ -29,12 +37,22 @@ const ExperimentGenAIOverviewPageImpl = () => {
   const { theme } = useDesignSystemTheme();
   const [activeTab, setActiveTab] = useOverviewTab();
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
+  const isFileStore = useIsFileStore();
 
   invariant(experimentId, 'Experiment ID must be defined');
 
   // Get the current time range from monitoring filters
-  const [monitoringFilters] = useMonitoringFilters();
+  const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
   const monitoringConfig = useMonitoringConfig();
+
+  // 'ALL' is excluded from the date selector on this page since charts require
+  // start_time_ms and end_time_ms. If the user navigates here with ?startTimeLabel=ALL,
+  // reset to the default time range.
+  useEffect(() => {
+    if (monitoringFilters.startTimeLabel === 'ALL') {
+      setMonitoringFilters({ startTimeLabel: DEFAULT_START_TIME_LABEL }, true);
+    }
+  }, [monitoringFilters.startTimeLabel, setMonitoringFilters]);
 
   // Use getAbsoluteStartEndTime to properly compute time range from labels
   const { startTime, endTime } = useMemo(
@@ -77,6 +95,19 @@ const ExperimentGenAIOverviewPageImpl = () => {
         overflow: 'hidden',
       }}
     >
+      {isFileStore && (
+        <Alert
+          componentId="mlflow.experiment.overview.filestore-warning"
+          type="warning"
+          css={{ marginBottom: theme.spacing.sm }}
+          message={
+            <FormattedMessage
+              defaultMessage="The Overview tab requires a SQL-based tracking store for full functionality, file-based backend is not supported."
+              description="Warning banner shown on the Overview tab when using FileStore backend"
+            />
+          }
+        />
+      )}
       <Tabs.Root
         componentId="mlflow.experiment.overview.tabs"
         value={activeTab}
@@ -134,7 +165,7 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </div>
 
         <OverviewChartProvider
-          experimentId={experimentId}
+          experimentIds={[experimentId]}
           startTimeMs={startTimeMs}
           endTimeMs={endTimeMs}
           timeIntervalSeconds={timeIntervalSeconds}
@@ -155,6 +186,12 @@ const ExperimentGenAIOverviewPageImpl = () => {
               <ChartGrid>
                 <LazyTraceTokenUsageChart />
                 <LazyTraceTokenStatsChart />
+              </ChartGrid>
+
+              {/* Cost Breakdown and Cost Over Time charts - side by side */}
+              <ChartGrid>
+                <LazyTraceCostBreakdownChart />
+                <LazyTraceCostOverTimeChart />
               </ChartGrid>
             </TabContentContainer>
           </Tabs.Content>

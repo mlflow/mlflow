@@ -1,8 +1,10 @@
+import type { UseQueryOptions } from '@databricks/web-shared/query-client';
 import { useQuery, type UseQueryResult } from '@databricks/web-shared/query-client';
 import { UnknownError, type PredefinedError } from '@databricks/web-shared/errors';
 import type { ScheduledScorer, ScorerConfig } from '../types';
 import { convertMLflowScorerToConfig, transformScorerConfig } from '../utils/scorerTransformUtils';
-import { listScheduledScorers, getOnlineScoringConfigs, ListScorersResponse } from '../api';
+import type { ListScorersResponse } from '../api';
+import { getOnlineScoringConfigs, listScheduledScorers } from '../api';
 
 // Define response types
 export type GetScheduledScorersResponse = {
@@ -17,8 +19,10 @@ export interface ScheduledScorersResponse {
   scheduledScorers: ScheduledScorer[];
 }
 
+/* eslint-disable react-hooks/rules-of-hooks */
 export function useGetScheduledScorers(
   experimentId?: string,
+  options?: UseQueryOptions<ScheduledScorersResponse, PredefinedError>,
 ): UseQueryResult<ScheduledScorersResponse, PredefinedError> {
   return useQuery<ScheduledScorersResponse, PredefinedError>({
     queryKey: ['mlflow', 'scheduled-scorers', experimentId],
@@ -74,8 +78,10 @@ export function useGetScheduledScorers(
         scheduledScorers,
       };
     },
-    enabled: !!experimentId,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: true,
+    ...options,
+    enabled: Boolean(experimentId) && (options?.enabled ?? true),
   });
 }
+/* eslint-enable react-hooks/rules-of-hooks */

@@ -132,7 +132,7 @@ export const FallbackModelItem = ({
             <DragIcon css={{ color: theme.colors.textSecondary }} />
           </div>
           <Button
-            componentId={`${componentIdPrefix}.expand.${index}`}
+            componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_FallbackModelItem.tsx_135"
             icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
             onClick={() => setIsExpanded(!isExpanded)}
             size="small"
@@ -151,14 +151,14 @@ export const FallbackModelItem = ({
           )}
         </div>
         <Tooltip
-          componentId={`${componentIdPrefix}.remove-tooltip.${index}`}
+          componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_FallbackModelItem.tsx_154"
           content={intl.formatMessage({
             defaultMessage: 'Remove fallback model',
             description: 'Tooltip for remove fallback model button',
           })}
         >
           <Button
-            componentId={`${componentIdPrefix}.remove.${index}`}
+            componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_FallbackModelItem.tsx_161"
             icon={<TrashIcon />}
             onClick={() => onRemove(index)}
           />

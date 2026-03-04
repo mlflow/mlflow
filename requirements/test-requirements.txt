@@ -40,3 +40,7 @@ dspy
 gepa
 # required for testing docker compose
 testcontainers
+# required for testing cost tracking
+litellm
+# required for testing claude_code tracing
+claude-agent-sdk

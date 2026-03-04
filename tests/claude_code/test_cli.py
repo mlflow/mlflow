@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 from click.testing import CliRunner
 
@@ -38,4 +41,45 @@ def test_trace_disable_with_no_config(runner):
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude", "--disable"])
         assert result.exit_code == 0
-        # Should handle gracefully even if no config exists
+
+
+def _get_hook_command_from_settings() -> str:
+    settings_path = Path(".claude/settings.json")
+    with open(settings_path) as f:
+        config = json.load(f)
+
+    if hooks := config.get("hooks"):
+        for group in hooks.get("Stop", []):
+            for hook in group.get("hooks", []):
+                if command := hook.get("command"):
+                    return command
+
+    raise AssertionError("No hook command found in settings.json")
+
+
+def test_claude_setup_with_uv_env_var(runner, monkeypatch):
+    monkeypatch.setenv("UV", "/path/to/uv")
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(commands, ["claude"])
+        assert result.exit_code == 0
+
+        hook_command = _get_hook_command_from_settings()
+        assert hook_command == (
+            "uv run python -c "
+            '"from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()"'
+        )
+
+
+def test_claude_setup_without_uv_env_var(runner, monkeypatch):
+    monkeypatch.delenv("UV", raising=False)
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(commands, ["claude"])
+        assert result.exit_code == 0
+
+        hook_command = _get_hook_command_from_settings()
+        assert hook_command == (
+            "python -c "
+            '"from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()"'
+        )

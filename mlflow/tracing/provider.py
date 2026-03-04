@@ -13,14 +13,13 @@ import json
 import logging
 import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, ParamSpec, TypeVar
 
 from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.context.contextvars_context import ContextVarsRuntimeContext
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
-from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
 from mlflow.entities.trace_location import (
@@ -37,6 +36,7 @@ from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import TraceDestination, UserTraceDestinationRegistry
+from mlflow.tracing.sampling import _MlflowSampler
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import (
@@ -56,7 +56,6 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R = TypeVar("R")
-
 
 # A trace destination specified by the user via the `set_destination` function.
 _MLFLOW_TRACE_USER_DESTINATION = UserTraceDestinationRegistry()
@@ -470,20 +469,26 @@ def _initialize_tracer_provider(disabled=False):
 
     # NB: If otel resource env vars are set explicitly, don't create an empty resource
     # so that they are propagated to otel spans.
-    otel_service_name = os.getenv("OTEL_SERVICE_NAME")
-    otel_resource_attributes = os.getenv("OTEL_RESOURCE_ATTRIBUTES")
+    otel_service_name = os.environ.get("OTEL_SERVICE_NAME")
+    otel_resource_attributes = os.environ.get("OTEL_RESOURCE_ATTRIBUTES")
     resource = None
+    sdk_attributes = {
+        "telemetry.sdk.language": "python",
+        "telemetry.sdk.name": "mlflow",
+        "telemetry.sdk.version": mlflow.__version__,
+    }
     if not otel_service_name and not otel_resource_attributes:
         # Setting an empty resource to avoid triggering resource aggregation, which causes
         # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
         # Add telemetry resource: https://opentelemetry.io/docs/specs/semconv/resource/#telemetry-sdk
-        resource = Resource(
-            {
-                "telemetry.sdk.language": "python",
-                "telemetry.sdk.name": "mlflow",
-                "telemetry.sdk.version": mlflow.__version__,
-            }
+        resource = Resource(sdk_attributes)
+    else:
+        # Update the env var to let otel initialize the resource with MLflow's SDK attributes
+        attributes = {**_parse_otel_resource_attributes(otel_resource_attributes), **sdk_attributes}
+        os.environ["OTEL_RESOURCE_ATTRIBUTES"] = ",".join(
+            [f"{k}={v}" for k, v in attributes.items()]
         )
+
     tracer_provider = TracerProvider(resource=resource, sampler=_get_trace_sampler())
     for processor in processors:
         tracer_provider.add_span_processor(processor)
@@ -491,12 +496,30 @@ def _initialize_tracer_provider(disabled=False):
     provider.set(tracer_provider)
 
 
-def _get_trace_sampler() -> TraceIdRatioBased | None:
+def _parse_otel_resource_attributes(otel_resource_attributes: str | None) -> dict[str, Any]:
+    """
+    Parse the otel resource attributes from a comma separated key-value pairs string.
+    """
+    attributes = {}
+    if not otel_resource_attributes:
+        return attributes
+
+    try:
+        for item in otel_resource_attributes.split(","):
+            key, value = item.split("=", maxsplit=1)
+            attributes[key.strip()] = value.strip()
+    except Exception:
+        _logger.debug("Failed to parse otel resource attributes, skipping", exc_info=True)
+        return {}
+    return attributes
+
+
+def _get_trace_sampler() -> _MlflowSampler | None:
     """
     Get the sampler configuration based on environment variable.
 
     Returns:
-        TraceIdRatioBased sampler or None for default sampling.
+        _MlflowSampler or None for default sampling.
     """
     sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
     if sampling_ratio is not None:
@@ -506,7 +529,7 @@ def _get_trace_sampler() -> TraceIdRatioBased | None:
                 "Ignoring the invalid value and using default sampling (1.0)."
             )
             return None
-        return TraceIdRatioBased(sampling_ratio)
+        return _MlflowSampler(sampling_ratio)
     return None
 
 
@@ -538,6 +561,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             exporter = DatabricksUCTableSpanExporter(tracking_uri=mlflow.get_tracking_uri())
             processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
             processors.append(processor)
+            _logger.debug("Added DatabricksUCTableSpanProcessor based on trace destination")
 
         elif isinstance(trace_destination, MlflowExperimentLocation):
             if is_in_databricks_model_serving_environment():
@@ -549,10 +573,12 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
                 )
             processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
             processors.append(processor)
+            _logger.debug("Added MlflowSpanProcessor based on trace destination")
 
         # Trace destination has highest precedence; definitely ignore defaults
         # Ignore OTLP (unless dual export is set and we should use OTLP)
         if not (should_use_otlp_exporter() and MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()):
+            _logger.debug("Rely on trace destination for tracing")
             return processors
 
     # If no explicit trace destination OR we passed the dual exporter check, honor OTLP
@@ -570,6 +596,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
         )
         processors.append(otel_processor)
+        _logger.debug("Added OtelSpanProcessor")
 
         # We have now added the OTLP processor.
         # If dual export is not set, return.
@@ -584,6 +611,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     if is_in_databricks_model_serving_environment():
         if not is_mlflow_tracing_enabled_in_model_serving():
             # May still return an OTLP processor from above, or nothing at all.
+            _logger.debug("Mlflow tracing is not enabled in model serving")
             return processors
 
         from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
@@ -592,9 +620,11 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         exporter = InferenceTableSpanExporter()
         processor = InferenceTableSpanProcessor(exporter)
         processors.append(processor)
+        _logger.debug("Added InferenceTableSpanProcessor")
     else:
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
         processors.append(processor)
+        _logger.debug("Added MLflow span processors")
 
     return processors
 

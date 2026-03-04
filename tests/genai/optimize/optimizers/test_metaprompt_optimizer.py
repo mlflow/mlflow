@@ -461,3 +461,33 @@ def test_build_few_shot_meta_prompt_with_guidelines(sample_target_prompts):
     assert "TEMPLATE VARIABLES:" in meta_prompt
     assert "EVALUATION EXAMPLES" in meta_prompt  # Now includes score in header
     assert "Current Score:" in meta_prompt
+
+
+def test_compute_per_scorer_scores():
+    optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
+    # Test with multiple results having individual scores
+    eval_results = [
+        EvaluationResultRecord(
+            inputs={"q": "1"},
+            outputs="a",
+            expectations="a",
+            score=0.8,
+            trace=Mock(),
+            rationales={},
+            individual_scores={"Correctness": 0.9, "Safety": 0.7},
+        ),
+        EvaluationResultRecord(
+            inputs={"q": "2"},
+            outputs="b",
+            expectations="b",
+            score=0.6,
+            trace=Mock(),
+            rationales={},
+            individual_scores={"Correctness": 0.7, "Safety": 0.5},
+        ),
+    ]
+
+    per_scorer = optimizer._compute_per_scorer_scores(eval_results)
+
+    assert per_scorer == {"Correctness": 0.8, "Safety": 0.6}  # Average of each scorer

@@ -1,7 +1,17 @@
 import { isNil } from 'lodash';
 import { useState } from 'react';
 
-import { useDesignSystemTheme, Typography, Button, PlusIcon, Tooltip, DangerIcon } from '@databricks/design-system';
+import {
+  useDesignSystemTheme,
+  Typography,
+  Button,
+  PlusIcon,
+  Tooltip,
+  DangerIcon,
+  TableSkeleton,
+  StopCircleFillIcon,
+} from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import { getAssessmentDisplayName } from './AssessmentsPane.utils';
@@ -13,11 +23,17 @@ export const FeedbackGroup = ({
   valuesMap,
   traceId,
   activeSpanId,
+  feedbackTypeTag,
+  loading,
+  onCancelLoading,
 }: {
   name: string;
   valuesMap: { [value: string]: FeedbackAssessment[] };
   traceId: string;
   activeSpanId?: string;
+  feedbackTypeTag?: React.ReactNode;
+  loading?: boolean;
+  onCancelLoading?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const displayName = getAssessmentDisplayName(name);
@@ -39,6 +55,7 @@ export const FeedbackGroup = ({
         gap: theme.spacing.sm,
       }}
     >
+      {feedbackTypeTag}
       <div
         css={{
           display: 'flex',
@@ -67,6 +84,24 @@ export const FeedbackGroup = ({
       {Object.entries(valuesMap).map(([jsonValue, feedbacks]) => (
         <FeedbackValueGroup jsonValue={jsonValue} feedbacks={feedbacks} key={jsonValue} />
       ))}
+      {loading && (
+        <>
+          <TableSkeleton lines={2} />
+          {onCancelLoading && (
+            <Button
+              componentId="shared.model-trace-explorer.cancel-evaluation-in-group"
+              size="small"
+              icon={<StopCircleFillIcon />}
+              onClick={onCancelLoading}
+            >
+              <FormattedMessage
+                defaultMessage="Cancel judge"
+                description="Button text for canceling judge evaluation"
+              />
+            </Button>
+          )}
+        </>
+      )}
       {showCreateForm && (
         <AssessmentCreateForm
           assessmentName={name}

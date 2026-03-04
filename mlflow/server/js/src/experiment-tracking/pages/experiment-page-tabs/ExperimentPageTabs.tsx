@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Button, PageWrapper, Spacer, ParagraphSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { PredefinedError } from '@databricks/web-shared/errors';
 import invariant from 'invariant';
-import { useNavigate, useParams, Outlet, matchPath, useLocation } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useParams, Outlet, useLocation, matchPath } from '../../../common/utils/RoutingUtils';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { useExperimentReduxStoreCompat } from '../../hooks/useExperimentReduxStoreCompat';
 import { ExperimentPageHeaderWithDescription } from '../../components/experiment-page/components/ExperimentPageHeaderWithDescription';
@@ -13,6 +13,7 @@ import {
   shouldEnableExperimentOverviewTab,
   shouldEnableWorkflowBasedNavigation,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { useIsFileStore } from '../../hooks/useServerInfo';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
 import { useExperimentKind } from '../../utils/ExperimentKindUtils';
@@ -28,6 +29,7 @@ const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
+  const isFileStore = useIsFileStore();
 
   const { tabName: activeTabByRoute } = useGetExperimentPageActiveTabByRoute();
   const activeTab = activeTabByRoute ?? coerceToEnum(ExperimentPageTabName, tabName, ExperimentPageTabName.Models);
@@ -82,6 +84,7 @@ const ExperimentPageTabsImpl = () => {
 
   // Check if the user landed on the experiment page without a specific tab (sub-route)...
   const { pathname } = useLocation();
+  // With query param-based workspace routing, pathname no longer contains workspace prefix
   const matchedExperimentPageWithoutTab = Boolean(matchPath(RoutePaths.experimentPage, pathname));
   // ...if true, we want to navigate to the appropriate tab based on the experiment kind.
   // However, if experiment kind inference is enabled (no kind tag exists), we should
@@ -117,10 +120,12 @@ const ExperimentPageTabsImpl = () => {
               onSettled: () => {
                 dismiss();
                 if (kind === ExperimentKind.GENAI_DEVELOPMENT) {
-                  // If the experiment kind is GENAI_DEVELOPMENT, navigate to Overview tab if enabled, otherwise Traces
-                  const targetTab = shouldEnableExperimentOverviewTab()
-                    ? ExperimentPageTabName.Overview
-                    : ExperimentPageTabName.Traces;
+                  // If the experiment kind is GENAI_DEVELOPMENT, navigate to Overview tab if enabled
+                  // and not using FileStore backend, otherwise Traces
+                  const targetTab =
+                    shouldEnableExperimentOverviewTab() && isFileStore === false
+                      ? ExperimentPageTabName.Overview
+                      : ExperimentPageTabName.Traces;
                   navigate(Routes.getExperimentPageTabRoute(experimentId, targetTab), {
                     replace: true,
                   });

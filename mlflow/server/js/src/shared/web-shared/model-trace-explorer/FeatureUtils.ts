@@ -34,7 +34,7 @@ export const shouldEnableAssessmentsInSessions = () => {
 /**
  * Determines if assessments/scores should be shown in experiment chat sessions.
  */
-export const shoudlEnableURLPersistenceForSortAndColumns = () => {
+export const shouldEnableTracesTableStatePersistence = () => {
   return false;
 };
 
@@ -49,5 +49,12 @@ export const shouldUseUnifiedModelTraceComparisonUI = () => {
   if (!shouldUseModelTraceExplorerDrawerUI()) {
     return false;
   }
+  return true;
+};
+
+/**
+ * Determines if running scorers from trace details drawer is enabled
+ */
+export const isEvaluatingTracesInDetailsViewEnabled = () => {
   return true;
 };

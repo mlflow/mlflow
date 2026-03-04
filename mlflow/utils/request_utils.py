@@ -231,7 +231,7 @@ def _get_http_response_with_retries(
 
     # the environment variable is hardcoded here to avoid importing mlflow.
     # however, documentation is available in environment_variables.py
-    env_value = os.getenv("MLFLOW_ALLOW_HTTP_REDIRECTS", "true").lower() in ["true", "1"]
+    env_value = os.environ.get("MLFLOW_ALLOW_HTTP_REDIRECTS", "true").lower() in ["true", "1"]
     allow_redirects = env_value if allow_redirects is None else allow_redirects
 
     return session.request(method, url, allow_redirects=allow_redirects, **kwargs)

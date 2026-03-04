@@ -1,6 +1,7 @@
 """Hook management for Claude Code integration with MLflow."""
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -43,8 +44,9 @@ def upsert_hook(config: dict[str, Any], hook_type: str, handler_name: str) -> No
     if hook_type not in config[HOOK_FIELD_HOOKS]:
         config[HOOK_FIELD_HOOKS][hook_type] = []
 
+    python_cmd = "uv run python" if "UV" in os.environ else "python"
     hook_command = (
-        f'python -c "from mlflow.claude_code.hooks import {handler_name}; {handler_name}()"'
+        f'{python_cmd} -c "from mlflow.claude_code.hooks import {handler_name}; {handler_name}()"'
     )
 
     mlflow_hook = {"type": "command", HOOK_FIELD_COMMAND: hook_command}

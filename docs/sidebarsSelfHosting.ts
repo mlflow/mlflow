@@ -36,6 +36,37 @@ const sidebarsSelfHosting: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Workspaces',
+      items: [
+        {
+          type: 'doc',
+          id: 'workspaces/index',
+          label: 'Overview',
+        },
+        {
+          type: 'doc',
+          id: 'workspaces/getting-started',
+          label: 'Getting Started',
+        },
+        {
+          type: 'doc',
+          id: 'workspaces/configuration',
+          label: 'Configuration',
+        },
+        {
+          type: 'doc',
+          id: 'workspaces/workspace-providers',
+          label: 'Workspace Providers',
+        },
+        {
+          type: 'doc',
+          id: 'workspaces/permissions',
+          label: 'Permissions',
+        },
+      ],
+    },
+    {
+      type: 'category',
       label: 'Security',
       items: [
         {
@@ -64,6 +95,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
       type: 'doc',
       id: 'migration',
       label: 'Upgrade',
+    },
+    {
+      type: 'doc',
+      id: 'migrate-from-file-store',
+      label: 'Migrate from File Store',
     },
     {
       type: 'doc',

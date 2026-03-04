@@ -15,6 +15,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -30,6 +31,13 @@ _USER_METADATA = {
     "cached_content_token_count": 0,
 }
 
+_USER_METADATA_WITH_CACHE = {
+    "prompt_token_count": 50,
+    "candidates_token_count": 20,
+    "total_token_count": 70,
+    "cached_content_token_count": 30,
+}
+
 
 def _get_candidate(content):
     candidate = {
@@ -43,10 +51,10 @@ def _get_candidate(content):
     return genai.types.Candidate(**candidate)
 
 
-def _generate_content_response(content):
+def _generate_content_response(content, usage_metadata=None):
     res = {
         "candidates": [_get_candidate(content)],
-        "usage_metadata": _USER_METADATA,
+        "usage_metadata": usage_metadata or _USER_METADATA,
         "automatic_function_calling_history": [],
     }
 
@@ -141,7 +149,7 @@ def _create_chat_and_send_message(is_async: bool, message: str):
         return chat.send_message(message)
 
 
-def test_generate_content_enable_disable_autolog(is_async):
+def test_generate_content_enable_disable_autolog(is_async, mock_litellm_cost):
     cls = "AsyncModels" if is_async else "Models"
     with (
         patch(
@@ -165,6 +173,7 @@ def test_generate_content_enable_disable_autolog(is_async):
             "config": None,
         }
         assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
+        assert span.model_name == "gemini-1.5-flash"
 
         span1 = traces[0].data.spans[1]
         assert span1.name == f"{cls}._generate_content"
@@ -180,12 +189,22 @@ def test_generate_content_enable_disable_autolog(is_async):
             TokenUsageKey.INPUT_TOKENS: 6,
             TokenUsageKey.OUTPUT_TOKENS: 6,
             TokenUsageKey.TOTAL_TOKENS: 12,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
         }
+
+        if not IS_TRACING_SDK_ONLY:
+            # Verify cost is calculated (6 input tokens * 1.0 + 6 output tokens * 2.0)
+            assert span.llm_cost == {
+                "input_cost": 6.0,
+                "output_cost": 12.0,
+                "total_cost": 18.0,
+            }
 
         assert traces[0].info.token_usage == {
             "input_tokens": 6,
             "output_tokens": 6,
             "total_tokens": 12,
+            "cache_read_input_tokens": 0,
         }
 
         mlflow.gemini.autolog(disable=True)
@@ -224,7 +243,7 @@ def test_generate_content_tracing_with_error(is_async):
     assert traces[0].data.spans[1].status.description == "Exception: dummy error"
 
 
-def test_generate_content_image_autolog():
+def test_generate_content_image_autolog(mock_litellm_cost):
     image = base64.b64encode(b"image").decode("utf-8")
     request = [
         genai.types.Part.from_bytes(mime_type="image/jpeg", data=image),
@@ -254,6 +273,7 @@ def test_generate_content_image_autolog():
     }
     assert span.inputs["contents"][1] == "Caption this image"
     assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
+    assert span.model_name == "gemini-1.5-flash"
 
     span1 = traces[0].data.spans[1]
     assert span1.name == f"{cls}._generate_content"
@@ -272,16 +292,24 @@ def test_generate_content_image_autolog():
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
+    if not IS_TRACING_SDK_ONLY:
+        assert span.llm_cost == {
+            "input_cost": 6.0,
+            "output_cost": 12.0,
+            "total_cost": 18.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 6,
         "output_tokens": 6,
         "total_tokens": 12,
+        "cache_read_input_tokens": 0,
     }
 
 
-def test_generate_content_tool_calling_autolog(is_async):
+def test_generate_content_tool_calling_autolog(is_async, mock_litellm_cost):
     tool_call_content = {
         "parts": [
             {
@@ -335,6 +363,7 @@ def test_generate_content_tool_calling_autolog(is_async):
     )
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == TOOL_ATTRIBUTE
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
+    assert span.model_name == "gemini-1.5-flash"
 
     span1 = traces[0].data.spans[1]
     assert span1.name == f"{cls}._generate_content"
@@ -351,16 +380,24 @@ def test_generate_content_tool_calling_autolog(is_async):
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
+    if not IS_TRACING_SDK_ONLY:
+        assert span.llm_cost == {
+            "input_cost": 6.0,
+            "output_cost": 12.0,
+            "total_cost": 18.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 6,
         "output_tokens": 6,
         "total_tokens": 12,
+        "cache_read_input_tokens": 0,
     }
 
 
-def test_generate_content_tool_calling_chat_history_autolog(is_async):
+def test_generate_content_tool_calling_chat_history_autolog(is_async, mock_litellm_cost):
     question_content = genai.types.Content(
         **{
             "parts": [
@@ -448,6 +485,7 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async):
     assert span.inputs["model"] == "gemini-1.5-flash"
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
+    assert span.model_name == "gemini-1.5-flash"
 
     span1 = traces[0].data.spans[1]
     assert span1.name == f"{cls}._generate_content"
@@ -466,12 +504,20 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async):
         TokenUsageKey.INPUT_TOKENS: 6,
         TokenUsageKey.OUTPUT_TOKENS: 6,
         TokenUsageKey.TOTAL_TOKENS: 12,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
     }
+    if not IS_TRACING_SDK_ONLY:
+        assert span.llm_cost == {
+            "input_cost": 6.0,
+            "output_cost": 12.0,
+            "total_cost": 18.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 6,
         "output_tokens": 6,
         "total_tokens": 12,
+        "cache_read_input_tokens": 0,
     }
 
 
@@ -492,6 +538,7 @@ def test_chat_session_autolog(is_async):
         assert span.span_type == SpanType.CHAT_MODEL
         assert span.inputs == {"message": "test content"}
         assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
+        assert span.model_name == "gemini-1.5-flash"
 
         mlflow.gemini.autolog(disable=True)
         _create_chat_and_send_message(is_async, "test content")
@@ -516,6 +563,7 @@ def test_count_tokens_autolog():
         assert span.span_type == SpanType.LLM
         assert span.inputs == {"contents": "test content", "model": "gemini-1.5-flash"}
         assert span.outputs == _DUMMY_COUNT_TOKENS_RESPONSE
+        assert span.model_name == "gemini-1.5-flash"
 
         mlflow.gemini.autolog(disable=True)
         client = genai.Client(api_key="dummy")
@@ -541,6 +589,7 @@ def test_embed_content_autolog():
         assert span.span_type == SpanType.EMBEDDING
         assert span.inputs == {"content": "Hello World", "model": "text-embedding-004"}
         assert span.outputs == _DUMMY_EMBEDDING_RESPONSE
+        assert span.model_name == "text-embedding-004"
 
         mlflow.gemini.autolog(disable=True)
         client.models.embed_content(model="text-embedding-004", content="Hello World")
@@ -548,3 +597,31 @@ def test_embed_content_autolog():
         # No new trace should be created
         traces = get_traces()
         assert len(traces) == 1
+
+
+def test_generate_content_cached_tokens(is_async, mock_litellm_cost):
+    cached_response = _generate_content_response(_CONTENT, _USER_METADATA_WITH_CACHE)
+
+    if is_async:
+
+        async def _generate_content(self, model, contents, config):
+            return cached_response
+    else:
+
+        def _generate_content(self, model, contents, config):
+            return cached_response
+
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(f"google.genai.models.{cls}._generate_content", new=_generate_content):
+        mlflow.gemini.autolog()
+        _call_generate_content(is_async, "test content")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
+    }

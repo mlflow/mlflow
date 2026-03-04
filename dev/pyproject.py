@@ -337,7 +337,6 @@ def build(package_type: PackageType) -> None:
                     # Required by the mlflow.projects module, when running projects against
                     # a remote Kubernetes cluster
                     "kubernetes",
-                    "virtualenv",
                     # Required for exporting metrics from the MLflow server to Prometheus
                     # as part of the MLflow server monitoring add-on
                     "prometheus-flask-exporter",
@@ -465,6 +464,7 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "server/auth/db/migrations/alembic.ini",
             "models/notebook_resources/**/*",
             "ai_commands/**/*.md",
+            "assistant/skills/**/*",
         ]
     }
 

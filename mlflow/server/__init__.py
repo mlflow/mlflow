@@ -3,6 +3,7 @@ import importlib.metadata
 import logging
 import os
 import shlex
+import signal
 import sys
 import tempfile
 import textwrap
@@ -49,6 +50,10 @@ from mlflow.server.handlers import (
     post_ui_telemetry_handler,
     upload_artifact_handler,
 )
+from mlflow.server.workspace_helpers import (
+    workspace_before_request_handler,
+    workspace_teardown_request_handler,
+)
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
@@ -63,8 +68,8 @@ is_running_as_server = (
     "gunicorn" in sys.modules
     or "uvicorn" in sys.modules
     or "waitress" in sys.modules
-    or os.getenv(BACKEND_STORE_URI_ENV_VAR)
-    or os.getenv(SERVE_ARTIFACTS_ENV_VAR)
+    or os.environ.get(BACKEND_STORE_URI_ENV_VAR)
+    or os.environ.get(SERVE_ARTIFACTS_ENV_VAR)
 )
 
 if is_running_as_server:
@@ -72,13 +77,16 @@ if is_running_as_server:
 
     security.init_security_middleware(app)
 
+app.before_request(workspace_before_request_handler)
+app.teardown_request(workspace_teardown_request_handler)
+
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
 
-if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
+if os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
-    prometheus_metrics_path = os.getenv(PROMETHEUS_EXPORTER_ENV_VAR)
+    prometheus_metrics_path = os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR)
     if not os.path.exists(prometheus_metrics_path):
         os.makedirs(prometheus_metrics_path)
     activate_prometheus_exporter(app)
@@ -451,8 +459,23 @@ def _run_server(
         )
 
     server_proc = _exec_cmd(
-        full_command, extra_env=env_map, capture_output=False, synchronous=False
+        full_command,
+        extra_env=env_map,
+        capture_output=False,
+        synchronous=False,
     )
+
+    def _forward_signal(signum, _frame):
+        """Forward signals to the child server process to enable graceful shutdown."""
+        if server_proc.poll() is not None:
+            return
+        try:
+            server_proc.send_signal(signum)
+        except ProcessLookupError:
+            pass
+
+    signal.signal(signal.SIGTERM, _forward_signal)
+    signal.signal(signal.SIGINT, _forward_signal)
 
     if job_execution_enabled:
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI

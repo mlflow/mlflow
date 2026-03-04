@@ -24,6 +24,7 @@ jobs:
       - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         id: get-ref
         with:
+          retries: 3
           result-encoding: string
           script: |
             const runner = require('./.github/workflows/cross-version-test-runner.js');

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   TableRow,
   TableCell,
@@ -17,6 +17,9 @@ import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils'
 import type { RunGroupByGroupingValue } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { RunGroupingMode } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { FormattedMessage } from 'react-intl';
+import { useNavigate } from '../../../common/utils/RoutingUtils';
+import Routes from '../../routes';
+import { RunPageTabName } from '../../constants';
 
 type TracesViewTableRowProps = {
   row: Row<RunEntityOrGroupData>;
@@ -26,6 +29,8 @@ type TracesViewTableRowProps = {
   isExpanded: boolean;
   columns: EvalRunsTableColumnDef[];
   isHidden: boolean;
+  isGrouped?: boolean;
+  enableImprovedComparison?: boolean;
 };
 
 const GroupTag = ({ groupKey, groupValue }: { groupKey: string; groupValue: string }): React.ReactElement => {
@@ -65,8 +70,20 @@ const GroupLabel = ({ groupValues }: { groupValues: RunGroupByGroupingValue }): 
 
 export const ExperimentEvaluationRunsTableRow = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-  ({ row, isActive }: TracesViewTableRowProps) => {
+  ({ row, isActive, isGrouped, enableImprovedComparison }: TracesViewTableRowProps) => {
     const { theme } = useDesignSystemTheme();
+    const navigate = useNavigate();
+
+    // Row click navigation - only enabled when feature flag is on
+    const handleRowClick = useCallback(() => {
+      if (!enableImprovedComparison) {
+        return;
+      }
+      if ('info' in row.original) {
+        const { experimentId, runUuid } = row.original.info;
+        navigate(Routes.getRunPageTabRoute(experimentId, runUuid, RunPageTabName.EVALUATIONS));
+      }
+    }, [enableImprovedComparison, navigate, row.original]);
 
     if ('groupValues' in row.original) {
       return (
@@ -95,8 +112,17 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
       );
     }
 
+    // Row click navigation and indent for grouped rows - only enabled when feature flag is on
     return (
-      <TableRow key={row.id} className="eval-runs-table-row">
+      <TableRow
+        key={row.id}
+        className="eval-runs-table-row"
+        onClick={enableImprovedComparison ? handleRowClick : undefined}
+        css={{
+          cursor: enableImprovedComparison ? 'pointer' : undefined,
+          marginLeft: enableImprovedComparison && isGrouped && row.depth > 0 ? theme.spacing.lg : undefined,
+        }}
+      >
         {row.getVisibleCells().map((cell) => (
           <TableCell
             key={cell.id}
@@ -120,7 +146,9 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
       prev.isSelected === next.isSelected &&
       prev.columns === next.columns &&
       prev.isExpanded === next.isExpanded &&
-      prev.isHidden === next.isHidden
+      prev.isHidden === next.isHidden &&
+      prev.isGrouped === next.isGrouped &&
+      prev.enableImprovedComparison === next.enableImprovedComparison
     );
   },
 );

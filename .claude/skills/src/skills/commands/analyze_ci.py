@@ -6,8 +6,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import re
 import sys
+import tempfile
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
@@ -129,6 +131,7 @@ def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> str:
 
 PR_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/pull/(\d+)")
 JOB_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)/job/(\d+)")
+RUN_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)")
 
 
 async def get_failed_jobs_from_pr(
@@ -164,6 +167,14 @@ async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[Job]:
             job_id = int(match.group(3))
             job = await client.get_job(owner, repo, job_id)
             jobs.append(job)
+        elif match := RUN_URL_PATTERN.search(url):
+            repo_full = match.group(1)
+            owner, repo = repo_full.split("/")
+            run_id = int(match.group(2))
+            run_jobs = [
+                j async for j in client.get_jobs(owner, repo, run_id) if j.conclusion == "failure"
+            ]
+            jobs.extend(run_jobs)
         elif match := PR_URL_PATTERN.search(url):
             repo_full = match.group(1)
             owner, repo = repo_full.split("/")
@@ -172,6 +183,7 @@ async def resolve_urls(client: GitHubClient, urls: list[str]) -> list[Job]:
         else:
             log(f"Error: Invalid URL: {url}")
             log("Expected PR URL (github.com/owner/repo/pull/123)")
+            log("Or workflow run URL (github.com/owner/repo/actions/runs/123)")
             log("Or job URL (github.com/owner/repo/actions/runs/123/job/456)")
             sys.exit(1)
 
@@ -234,26 +246,29 @@ async def analyze_single_job(job: JobLogs) -> AnalysisResult:
     formatted_logs = format_single_job_for_analysis(job)
     prompt = f"Analyze this CI failure:\n\n{formatted_logs}"
 
-    options = ClaudeAgentOptions(
-        system_prompt=ANALYZE_SYSTEM_PROMPT,
-        max_turns=1,
-        model="haiku",
-    )
+    # Use an isolated temp directory to avoid conflicts with the parent Claude session
+    with tempfile.TemporaryDirectory() as tmpdir:
+        options = ClaudeAgentOptions(
+            system_prompt=ANALYZE_SYSTEM_PROMPT,
+            max_turns=1,
+            model="haiku",
+            cwd=tmpdir,
+        )
 
-    text_parts: list[str] = []
-    total_cost_usd: float | None = None
-    usage: dict[str, Any] | None = None
+        text_parts: list[str] = []
+        total_cost_usd: float | None = None
+        usage: dict[str, Any] | None = None
 
-    async for message in query(prompt=prompt, options=options):
-        match message:
-            case AssistantMessage(content=content):
-                for block in content:
-                    match block:
-                        case TextBlock(text=text):
-                            text_parts.append(text)
-            case ResultMessage(total_cost_usd=cost, usage=u):
-                total_cost_usd = cost
-                usage = u
+        async for message in query(prompt=prompt, options=options):
+            match message:
+                case AssistantMessage(content=content):
+                    for block in content:
+                        match block:
+                            case TextBlock(text=text):
+                                text_parts.append(text)
+                case ResultMessage(total_cost_usd=cost, usage=u):
+                    total_cost_usd = cost
+                    usage = u
 
     return AnalysisResult(
         text="".join(text_parts),
@@ -306,10 +321,13 @@ async def cmd_analyze_async(urls: list[str], debug: bool = False) -> None:
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser("analyze-ci", help="Analyze failed CI jobs")
-    parser.add_argument("urls", nargs="+", help="PR URL or job URL(s)")
+    parser.add_argument("urls", nargs="+", help="PR URL, workflow run URL, or job URL(s)")
     parser.add_argument("--debug", action="store_true", help="Show token/cost info")
     parser.set_defaults(func=run)
 
 
 def run(args: argparse.Namespace) -> None:
+    # Unset CLAUDECODE so that claude_agent_sdk doesn't refuse to start
+    # when this skill is invoked from within a Claude Code session.
+    os.environ.pop("CLAUDECODE", None)
     asyncio.run(cmd_analyze_async(args.urls, args.debug))

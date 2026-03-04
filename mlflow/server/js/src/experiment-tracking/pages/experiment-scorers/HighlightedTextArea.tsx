@@ -1,8 +1,6 @@
 import React, { useRef, useCallback, useEffect, useState, useMemo } from 'react';
 import { useDesignSystemTheme } from '@databricks/design-system';
-
-// Pattern for template variables like {{ inputs }}, {{ outputs }}, etc.
-const TEMPLATE_VARIABLE_PATTERN = /(\{\{\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\}\})/g;
+import { TEMPLATE_VARIABLE_PATTERN } from './utils/templateUtils';
 
 interface HighlightedTextAreaProps {
   value: string;
@@ -146,6 +144,10 @@ export const HighlightedTextArea: React.FC<HighlightedTextAreaProps> = ({
         }}
       >
         {highlightedContent}
+        {/* Textareas render a trailing newline as a visible blank line (for the
+            cursor), but pre-wrap divs do not. Add a space so the backdrop
+            matches the textarea's content height. */}
+        {value?.endsWith('\n') && ' '}
       </div>
 
       {/* Transparent textarea on top for input */}

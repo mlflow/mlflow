@@ -11,11 +11,13 @@ from pydantic import BaseModel, ValidationError
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import PromptModelConfig, PromptVersion
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
 from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY, PROMPT_TYPE_TEXT
 from mlflow.prompt.registry_utils import PromptCache, PromptCacheKey
 from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
+from mlflow.tracking import fluent
 
 
 def join_thread_by_name_prefix(prefix: str):
@@ -63,6 +65,9 @@ def test_crud_prompts(tmp_path):
         tags={"model": "my-model"},
     )
 
+    # Wait for background prompt linking thread to complete
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
     prompt = mlflow.genai.load_prompt("prompt_1", version=1)
     assert prompt.name == "prompt_1"
     assert prompt.template == "Hi, {title} {name}! How are you today?"
@@ -70,12 +75,15 @@ def test_crud_prompts(tmp_path):
     # Currently, the tags from register_prompt become version tags
     assert prompt.tags == {"model": "my-model"}
 
+    # Wait for background prompt linking thread from load_prompt
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
     # Check prompt-level tags separately (if needed for test completeness)
     from mlflow import MlflowClient
 
     client = MlflowClient()
     prompt_entity = client.get_prompt("prompt_1")
-    assert prompt_entity.tags == {"model": "my-model"}
+    assert prompt_entity.tags == {"model": "my-model", "_mlflow_experiment_ids": ",0,"}
 
     mlflow.genai.register_prompt(
         name="prompt_1",
@@ -461,12 +469,20 @@ def test_register_prompt_with_nested_variables():
 
 def test_set_and_delete_prompt_tag_genai():
     mlflow.genai.register_prompt(name="tag_prompt", template="Hi")
+
+    # Wait for background prompt linking thread to complete
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
     mlflow.genai.set_prompt_tag("tag_prompt", "env", "prod")
     mlflow.genai.set_prompt_version_tag("tag_prompt", 1, "env", "prod")
-    assert mlflow.genai.get_prompt_tags("tag_prompt") == {"env": "prod"}
+    assert mlflow.genai.get_prompt_tags("tag_prompt") == {
+        "env": "prod",
+        "_mlflow_experiment_ids": ",0,",
+    }
     assert mlflow.genai.load_prompt("tag_prompt", version=1).tags == {"env": "prod"}
     mlflow.genai.delete_prompt_tag("tag_prompt", "env")
-    assert "env" not in mlflow.genai.get_prompt_tags("tag_prompt")
+    # After deleting 'env' tag, only the experiment IDs tag should remain
+    assert mlflow.genai.get_prompt_tags("tag_prompt") == {"_mlflow_experiment_ids": ",0,"}
     mlflow.genai.delete_prompt_version_tag("tag_prompt", 1, "env")
     assert "env" not in mlflow.genai.load_prompt("tag_prompt", version=1).tags
 
@@ -1661,6 +1677,48 @@ def test_link_prompt_to_experiment_no_duplicate():
     assert experiment.experiment_id in prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY)
 
 
+def test_prompt_links_to_default_experiment():
+
+    # Reset experiment state to ensure we're using the Default experiment
+    fluent._active_experiment_id = None
+    MLFLOW_EXPERIMENT_ID.unset()
+
+    # Register a prompt without setting an experiment - should use Default (ID "0")
+    mlflow.genai.register_prompt(name="default_exp_prompt", template="Hello {{name}}!")
+
+    # Wait for the links to be established
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    # Verify the prompt was linked to the Default experiment
+    client = MlflowClient()
+    default_experiment = client.get_experiment("0")
+    prompt_info = client.get_prompt("default_exp_prompt")
+    experiment_ids_tag = prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY, "")
+
+    assert default_experiment.experiment_id in experiment_ids_tag, (
+        f"Expected Default experiment ID '{default_experiment.experiment_id}' "
+        f"in prompt tags, but got: {experiment_ids_tag!r}"
+    )
+
+    # Also test that load_prompt links to Default experiment
+    fluent._active_experiment_id = None
+    MLFLOW_EXPERIMENT_ID.unset()
+
+    mlflow.genai.register_prompt(name="default_exp_load_prompt", template="Test {{x}}!")
+    # Don't wait after register, wait after load
+    mlflow.genai.load_prompt("default_exp_load_prompt", version=1)
+
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    prompt_info = client.get_prompt("default_exp_load_prompt")
+    experiment_ids_tag = prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY, "")
+
+    assert default_experiment.experiment_id in experiment_ids_tag, (
+        f"Expected Default experiment ID '{default_experiment.experiment_id}' "
+        f"in prompt tags after load_prompt, but got: {experiment_ids_tag!r}"
+    )
+
+
 def test_search_prompts_by_experiment_id():
     experiment = mlflow.set_experiment("test_search_by_exp")
 
@@ -2004,3 +2062,35 @@ def test_delete_prompt_model_config():
     # Verify model config was deleted
     prompt = mlflow.genai.load_prompt("test_delete_config", version=1)
     assert prompt.model_config is None
+
+
+def test_concurrent_prompt_linking_to_run_and_trace():
+    mlflow.genai.register_prompt(name="test", template="Run prompt: {{x}}")
+
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = mlflow.MlflowClient()
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+        @mlflow.trace
+        def traced_function():
+            mlflow.genai.load_prompt("test", version=1)
+
+        traced_function()
+
+    # Verify the prompt was linked to the run
+    run_data = client.get_run(run_id)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
+    assert linked_prompts_tag is not None
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert any(p["name"] == "test" for p in linked_prompts)
+
+    # Verify the prompt was linked to the trace
+    trace_id = mlflow.get_last_active_trace_id()
+    trace = mlflow.get_trace(trace_id)
+    trace_linked_prompts = trace.info.tags.get(TraceTagKey.LINKED_PROMPTS)
+    assert trace_linked_prompts is not None
+    trace_prompts = json.loads(trace_linked_prompts)
+    assert any(p["name"] == "test" for p in trace_prompts)
