@@ -8,11 +8,11 @@ MLflow Tracing captures and renders images and audio from multimodal AI models. 
 
 MLflow's trace schema uses the [OpenAI chat message format](https://platform.openai.com/docs/guides/vision) to represent multimodal content. Each content part has a `type` field that determines how it is stored and rendered.
 
-| Content Type | `type` value   | Encoding                      | UI Rendering        |
-| ------------ | -------------- | ----------------------------- | ------------------- |
-| Text         | `text`         | UTF-8 string                  | Markdown            |
-| Image        | `image_url`    | HTTP(S) URL or base64 data URI | Inline image        |
-| Audio        | `input_audio`  | Base64-encoded WAV or MP3     | Inline audio player |
+| Content Type | `type` value  | Encoding                       | UI Rendering        |
+| ------------ | ------------- | ------------------------------ | ------------------- |
+| Text         | `text`        | UTF-8 string                   | Markdown            |
+| Image        | `image_url`   | HTTP(S) URL or base64 data URI | Inline image        |
+| Audio        | `input_audio` | Base64-encoded WAV or MP3      | Inline audio player |
 
 ### Images
 
@@ -35,12 +35,12 @@ Audio content is rendered with an inline audio player in the **Chat** tab of the
 
 When using [auto-instrumentation](/genai/tracing/app-instrumentation/automatic), multimodal content is captured automatically — no extra code is needed. MLflow normalizes provider-specific formats into the standard schema described above.
 
-| Framework  | Images | Audio | Notes                                              |
-| ---------- | :----: | :---: | -------------------------------------------------- |
-| OpenAI     | ✓      | ✓     | Chat Completions and Responses API                 |
-| Anthropic  | ✓      | ✗     | Native image blocks normalized to `image_url`      |
-| Bedrock    | ✓      | ✗     | Image bytes converted to data URIs                 |
-| LangChain  | ✓      | ✗     | Passes `image_url` content parts through           |
+| Framework | Images | Audio | Notes                                         |
+| --------- | :----: | :---: | --------------------------------------------- |
+| OpenAI    |   ✓    |   ✓   | Chat Completions and Responses API            |
+| Anthropic |   ✓    |   ✗   | Native image blocks normalized to `image_url` |
+| Bedrock   |   ✓    |   ✗   | Image bytes converted to data URIs            |
+| LangChain |   ✓    |   ✗   | Passes `image_url` content parts through      |
 
 ### OpenAI — Image (URL)
 
