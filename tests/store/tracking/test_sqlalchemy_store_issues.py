@@ -497,3 +497,100 @@ def test_search_issues_filter_and_operator(store):
     assert result[0].issue_id == issue_accepted_run1.issue_id
     assert result[0].status == IssueStatus.ACCEPTED
     assert result[0].source_run_id == run1.info.run_id
+
+
+def test_search_traces_by_issue_id(store):
+    exp_id = store.create_experiment("test")
+
+    # Create traces
+    timestamp_ms = get_current_time_millis()
+    trace1 = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    trace2 = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms + 100,
+            execution_duration=200,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    trace3 = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms + 200,
+            execution_duration=300,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    # Create issue with trace1 and trace2
+    issue1 = store.create_issue(
+        experiment_id=exp_id,
+        name="High latency",
+        description="API calls are slow",
+        status=IssueStatus.PENDING,
+        trace_ids=[trace1.request_id, trace2.request_id],
+    )
+
+    # Create another issue with only trace3
+    issue2 = store.create_issue(
+        experiment_id=exp_id,
+        name="Authentication failure",
+        description="Auth errors",
+        status=IssueStatus.PENDING,
+        trace_ids=[trace3.request_id],
+    )
+
+    # Search traces by issue1 ID
+    traces, _ = store.search_traces(
+        experiment_ids=[exp_id],
+        filter_string=f"issue.id = '{issue1.issue_id}'",
+    )
+
+    # Should return trace1 and trace2
+    assert len(traces) == 2
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1.request_id, trace2.request_id}
+
+    # Search traces by issue2 ID
+    traces, _ = store.search_traces(
+        experiment_ids=[exp_id],
+        filter_string=f"issue.id = '{issue2.issue_id}'",
+    )
+
+    # Should return only trace3
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3.request_id
+
+    # Search for non-existent issue should return no traces
+    traces, _ = store.search_traces(
+        experiment_ids=[exp_id],
+        filter_string="issue.id = 'non-existent-issue'",
+    )
+    assert len(traces) == 0

@@ -1723,6 +1723,7 @@ class SearchTraceUtils(SearchUtils):
     _SPAN_IDENTIFIER = "span"
     _FEEDBACK_IDENTIFIER = "feedback"
     _EXPECTATION_IDENTIFIER = "expectation"
+    _ISSUE_IDENTIFIER = "issue"
 
     # These are aliases for the base identifiers
     # e.g. trace.status is equivalent to attribute.status
@@ -1739,6 +1740,7 @@ class SearchTraceUtils(SearchUtils):
         _SPAN_IDENTIFIER,
         _FEEDBACK_IDENTIFIER,
         _EXPECTATION_IDENTIFIER,
+        _ISSUE_IDENTIFIER,
     }
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
 
@@ -1746,6 +1748,10 @@ class SearchTraceUtils(SearchUtils):
     _SUPPORTED_SPAN_ATTRIBUTES = {"name", "type", "status"}
     _SPAN_CONTENT_KEY = "content"
     VALID_SPAN_CONTENT_COMPARATORS = {"LIKE", "ILIKE"}
+
+    # Supported issue attributes
+    _SUPPORTED_ISSUE_ATTRIBUTES = {"id"}
+    VALID_ISSUE_COMPARATORS = {"="}
 
     SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {
         "name",
@@ -1942,6 +1948,25 @@ class SearchTraceUtils(SearchUtils):
             return True
         return False
 
+    @classmethod
+    def is_issue(cls, key_type, key_name, comparator):
+        if key_type == cls._ISSUE_IDENTIFIER:
+            if key_name not in cls._SUPPORTED_ISSUE_ATTRIBUTES:
+                supported_attrs = ", ".join(sorted(cls._SUPPORTED_ISSUE_ATTRIBUTES))
+                raise MlflowException(
+                    f"Invalid issue attribute '{key_name}'. "
+                    f"Supported attributes: {supported_attrs}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if comparator not in cls.VALID_ISSUE_COMPARATORS:
+                raise MlflowException(
+                    f"issue.{key_name} comparator '{comparator}' not one of "
+                    f"'{cls.VALID_ISSUE_COMPARATORS}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            return True
+        return False
+
     @staticmethod
     def _get_sql_json_comparison_func(
         comparator: str, dialect: str
@@ -2102,6 +2127,17 @@ class SearchTraceUtils(SearchUtils):
                 raise MlflowException(
                     "Expected a quoted string value for "
                     f"{identifier_type} (e.g. 'my-value'). Got value "
+                    f"{token.value}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif identifier_type == cls._ISSUE_IDENTIFIER:
+            # Issue values are simple strings (issue IDs)
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value for "
+                    f"{identifier_type} (e.g. 'iss-123'). Got value "
                     f"{token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
