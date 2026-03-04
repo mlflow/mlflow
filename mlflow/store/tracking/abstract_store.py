@@ -609,7 +609,6 @@ class AbstractStore(GatewayStoreMixin):
         confidence: str | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
-        trace_ids: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
         """
@@ -623,7 +622,6 @@ class AbstractStore(GatewayStoreMixin):
             confidence: Optional confidence level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional MLflow run ID that discovered this issue.
-            trace_ids: Optional list of trace IDs associated with this issue.
             created_by: Optional identifier for who created this issue.
 
         Returns:

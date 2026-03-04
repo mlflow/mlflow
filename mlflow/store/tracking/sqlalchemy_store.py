@@ -51,10 +51,8 @@ from mlflow.entities import (
     _DatasetSummary,
 )
 from mlflow.entities.assessment import (
-    AssessmentSource,
     ExpectationValue,
     FeedbackValue,
-    IssueReference,
 )
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.gateway_endpoint import GatewayResourceType
@@ -5783,7 +5781,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         confidence: str | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
-        trace_ids: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
         """
@@ -5797,7 +5794,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             confidence: Optional confidence level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional run ID that discovered this issue.
-            trace_ids: Optional list of trace IDs associated with this issue.
             created_by: Optional identifier for who created this issue.
 
         Returns:
@@ -5836,28 +5832,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
             session.add(sql_issue)
-
-            # Create assessment records for each trace_id
-            if trace_ids:
-                for trace_id in trace_ids:
-                    # Validate trace exists
-                    self._validate_trace_accessible(session, trace_id)
-
-                    # Create IssueReference assessment
-                    issue_ref = IssueReference(
-                        issue_id=issue_id,
-                        issue_name=name,
-                        source=AssessmentSource(source_type="CODE", source_id="issue_discovery"),
-                        trace_id=trace_id,
-                        run_id=source_run_id,
-                        create_time_ms=current_time,
-                        last_update_time_ms=current_time,
-                    )
-
-                    # Convert to SqlAssessments using from_mlflow_entity
-                    sql_assessment = SqlAssessments.from_mlflow_entity(issue_ref)
-                    session.add(sql_assessment)
-
             session.commit()
 
             # Return Issue entity
