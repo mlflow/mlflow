@@ -108,7 +108,12 @@ export const AssessmentsPane = ({
         sessionId={sessionId}
       />
       <Spacer size="sm" shrinks={false} />
-      <AssessmentsPaneExpectationsSection expectations={expectations} activeSpanId={activeSpanId} traceId={traceId} />
+      <AssessmentsPaneExpectationsSection
+        expectations={expectations}
+        activeSpanId={activeSpanId}
+        traceId={traceId}
+        sessionId={sessionId}
+      />
     </div>
   );
 };
