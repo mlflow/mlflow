@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, useTimestampValueMap, getEffectiveTimeBuckets } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface TokenUsageChartDataPoint {
@@ -111,15 +111,20 @@ export function useTraceTokenUsageChartData(): UseTraceTokenUsageChartDataResult
   const inputTokensMap = useTimestampValueMap(inputDataPoints, sumExtractor);
   const outputTokensMap = useTimestampValueMap(outputDataPoints, sumExtractor);
 
+  const effectiveBuckets = useMemo(
+    () => getEffectiveTimeBuckets(timeBuckets, inputTokensMap, outputTokensMap),
+    [timeBuckets, inputTokensMap, outputTokensMap],
+  );
+
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => ({
+    return effectiveBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       inputTokens: inputTokensMap.get(timestampMs) || 0,
       outputTokens: outputTokensMap.get(timestampMs) || 0,
       timestampMs,
     }));
-  }, [timeBuckets, inputTokensMap, outputTokensMap, timeIntervalSeconds]);
+  }, [effectiveBuckets, inputTokensMap, outputTokensMap, timeIntervalSeconds]);
 
   return {
     chartData,

@@ -187,7 +187,7 @@ export function generateTimeBuckets(
   endTimeMs: number | undefined,
   timeIntervalSeconds: number,
 ): number[] {
-  if (!startTimeMs || !endTimeMs || timeIntervalSeconds <= 0) {
+  if (isNil(startTimeMs) || isNil(endTimeMs) || timeIntervalSeconds <= 0) {
     return [];
   }
 
@@ -202,6 +202,25 @@ export function generateTimeBuckets(
   }
 
   return buckets;
+}
+
+/**
+ * Returns pre-generated timeBuckets when available, otherwise derives sorted
+ * unique timestamps from the keys of the provided lookup maps. This allows
+ * charts to render server-returned data when no pre-generated buckets exist
+ * (e.g. when the "ALL" time range is selected).
+ */
+export function getEffectiveTimeBuckets(timeBuckets: number[], ...maps: Map<number, unknown>[]): number[] {
+  if (timeBuckets.length > 0) {
+    return timeBuckets;
+  }
+  const timestamps = new Set<number>();
+  for (const map of maps) {
+    for (const key of map.keys()) {
+      timestamps.add(key);
+    }
+  }
+  return Array.from(timestamps).sort((a, b) => a - b);
 }
 
 /**

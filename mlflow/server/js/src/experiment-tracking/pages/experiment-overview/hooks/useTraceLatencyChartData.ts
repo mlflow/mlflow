@@ -9,7 +9,7 @@ import {
   getPercentileKey,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, useTimestampValueMap, getEffectiveTimeBuckets } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface LatencyChartDataPoint {
@@ -96,9 +96,14 @@ export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
   );
   const latencyByTimestamp = useTimestampValueMap(latencyDataPoints, latencyExtractor);
 
+  const effectiveBuckets = useMemo(
+    () => getEffectiveTimeBuckets(timeBuckets, latencyByTimestamp),
+    [timeBuckets, latencyByTimestamp],
+  );
+
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => {
+    return effectiveBuckets.map((timestampMs) => {
       const latency = latencyByTimestamp.get(timestampMs);
       return {
         name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
@@ -108,7 +113,7 @@ export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
         timestampMs,
       };
     });
-  }, [timeBuckets, latencyByTimestamp, timeIntervalSeconds]);
+  }, [effectiveBuckets, latencyByTimestamp, timeIntervalSeconds]);
 
   return {
     chartData,

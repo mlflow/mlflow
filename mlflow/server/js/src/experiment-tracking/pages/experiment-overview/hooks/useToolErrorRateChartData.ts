@@ -11,7 +11,7 @@ import {
   createSpanFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, getEffectiveTimeBuckets } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface ToolErrorRateDataPoint {
@@ -102,14 +102,19 @@ export function useToolErrorRateChartData({
     return rateMap;
   }, [dataPoints]);
 
+  const effectiveBuckets = useMemo(
+    () => getEffectiveTimeBuckets(timeBuckets, errorRateByTimestamp),
+    [timeBuckets, errorRateByTimestamp],
+  );
+
   // Build chart data with all time buckets
   const chartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => ({
+    return effectiveBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       errorRate: errorRateByTimestamp.get(timestampMs) || 0,
       timestampMs,
     }));
-  }, [timeBuckets, errorRateByTimestamp, timeIntervalSeconds]);
+  }, [effectiveBuckets, errorRateByTimestamp, timeIntervalSeconds]);
 
   // Check if we have actual data
   const hasData = dataPoints.length > 0;
