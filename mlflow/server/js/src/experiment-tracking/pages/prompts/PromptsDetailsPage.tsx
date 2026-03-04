@@ -276,7 +276,7 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
           />
         </div>
         {showPreviewPane && (
-          <div css={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div css={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <div css={{ borderLeft: `1px solid ${theme.colors.border}`, flex: 1, overflow: 'hidden', display: 'flex' }}>
               {mode === PromptVersionsTableMode.PREVIEW && (
                 <PromptContentPreview
