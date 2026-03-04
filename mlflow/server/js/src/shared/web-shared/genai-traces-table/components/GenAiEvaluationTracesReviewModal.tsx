@@ -240,7 +240,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
               {/* prettier-ignore */}
               <ModelTraceExplorerModalBody
                 traceData={currentTraceQueryResult.data}
-                showLoadingState={shouldUseModelTraceExplorerDrawerUI() && (currentTraceQueryResult.isLoading)}
               />
             </div>
           ) : (
@@ -307,7 +306,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
         selectNextEval={selectNextEval}
         selectPreviousEval={selectPreviousEval}
         renderModalTitle={renderModalTitle}
-        isLoading={currentTraceQueryResult.isLoading}
       >
         {content}
         {renderExportTracesToDatasetsModal?.({
@@ -329,7 +327,6 @@ const ModalWrapper = ({
   renderModalTitle,
   handleClose,
   children,
-  isLoading,
 }: {
   children: React.ReactNode;
   selectPreviousEval: () => void;
@@ -338,7 +335,6 @@ const ModalWrapper = ({
   isNextAvailable: boolean;
   renderModalTitle: () => React.ReactNode;
   handleClose: () => void;
-  isLoading?: boolean;
 }) => {
   const { theme, classNamePrefix } = useDesignSystemTheme();
   const useRadixModal = false;
@@ -442,10 +438,8 @@ const ModalWrapper = ({
 // prettier-ignore
 const ModelTraceExplorerModalBody = ({
   traceData,
-  showLoadingState,
 }: {
   traceData: ModelTrace;
-  showLoadingState: boolean;
 }) => {
   return (
     <ModelTraceExplorer
