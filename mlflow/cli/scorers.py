@@ -220,6 +220,14 @@ def register_llm_judge(
                 f"--extra-headers must be valid JSON: {e}",
                 param_hint="--extra-headers",
             ) from e
+        for key, value in parsed_extra_headers.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                raise click.BadParameter(
+                    f"--extra-headers keys and values must all be strings, "
+                    f"got key={key!r} (type: {type(key).__name__}), "
+                    f"value={value!r} (type: {type(value).__name__}).",
+                    param_hint="--extra-headers",
+                )
 
     judge = make_judge(
         name=name,

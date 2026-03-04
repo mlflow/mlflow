@@ -3702,6 +3702,9 @@ def test_make_judge_with_extra_headers():
     repr_str = repr(judge)
     assert "extra_headers=" in repr_str
     assert "X-Api-Key" in repr_str
+    # Header values must not be exposed in repr (security)
+    assert "secret" not in repr_str
+    assert "org-123" not in repr_str
 
 
 def test_make_judge_with_base_url_and_extra_headers():

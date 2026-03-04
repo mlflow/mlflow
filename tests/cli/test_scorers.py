@@ -750,3 +750,23 @@ def test_create_judge_extra_headers_not_dict(runner: CliRunner, experiment: str)
 
     assert result.exit_code != 0
     assert "must be a JSON object" in result.output
+
+
+def test_create_judge_extra_headers_non_string_values(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "non_string_headers_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--extra-headers",
+            '{"Authorization": 123}',
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "must all be strings" in result.output

@@ -1125,3 +1125,29 @@ def test_invoke_judge_model_non_databricks_no_telemetry(model_uri: str, mock_res
 
     assert feedback.name == "test_assessment"
     assert feedback.value == "yes"
+
+
+@pytest.mark.parametrize(
+    ("extra_kwargs"),
+    [
+        {"base_url": "http://proxy:8080"},
+        {"extra_headers": {"Authorization": "Bearer token"}},
+        {"base_url": "http://proxy:8080", "extra_headers": {"Authorization": "Bearer token"}},
+    ],
+)
+def test_invoke_judge_model_base_url_and_extra_headers_not_supported_for_endpoints(extra_kwargs):
+    with (
+        pytest.raises(
+            MlflowException, match="not supported for Databricks model serving endpoints"
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
+            return_value=False,
+        ),
+    ):
+        invoke_judge_model(
+            model_uri="endpoints:/my-endpoint",
+            prompt="Evaluate this",
+            assessment_name="test",
+            **extra_kwargs,
+        )

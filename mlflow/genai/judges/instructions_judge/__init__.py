@@ -631,7 +631,9 @@ class InstructionsJudge(Judge):
             f", inference_params={self._inference_params}" if self._inference_params else ""
         )
         base_url_str = f", base_url='{self._base_url}'" if self._base_url else ""
-        extra_headers_str = f", extra_headers={self._extra_headers}" if self._extra_headers else ""
+        extra_headers_str = (
+            f", extra_headers={list(self._extra_headers.keys())}" if self._extra_headers else ""
+        )
         return (
             f"InstructionsJudge(name='{self.name}', model='{self._model}', "
             f"instructions='{instructions_preview}', "
