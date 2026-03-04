@@ -278,7 +278,7 @@ describe('TraceTokenUsageChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('line-Cache Read')).toBeInTheDocument();
+        expect(screen.getByTestId('line-(Cache Read)')).toBeInTheDocument();
       });
     });
 
@@ -321,7 +321,7 @@ describe('TraceTokenUsageChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('line-Cache Write')).toBeInTheDocument();
+        expect(screen.getByTestId('line-(Cache Write)')).toBeInTheDocument();
       });
     });
 

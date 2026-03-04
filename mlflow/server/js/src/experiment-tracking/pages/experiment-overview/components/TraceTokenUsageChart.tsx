@@ -106,6 +106,26 @@ export const TraceTokenUsageChart: React.FC = () => {
                 dot={getLineDotStyle(areaColors.inputTokens)}
                 name="Input Tokens"
               />
+              <Line
+                type="monotone"
+                dataKey="cacheReadTokens"
+                stroke={areaColors.cacheReadTokens}
+                strokeWidth={2}
+                strokeDasharray="5 3"
+                strokeOpacity={getOpacity('(Cache Read)')}
+                dot={getLineDotStyle(areaColors.cacheReadTokens)}
+                name="(Cache Read)"
+              />
+              <Line
+                type="monotone"
+                dataKey="cacheCreationTokens"
+                stroke={areaColors.cacheCreationTokens}
+                strokeWidth={2}
+                strokeDasharray="5 3"
+                strokeOpacity={getOpacity('(Cache Write)')}
+                dot={getLineDotStyle(areaColors.cacheCreationTokens)}
+                name="(Cache Write)"
+              />
               <Area
                 type="monotone"
                 dataKey="outputTokens"
@@ -117,26 +137,6 @@ export const TraceTokenUsageChart: React.FC = () => {
                 strokeWidth={2}
                 dot={getLineDotStyle(areaColors.outputTokens)}
                 name="Output Tokens"
-              />
-              <Line
-                type="monotone"
-                dataKey="cacheReadTokens"
-                stroke={areaColors.cacheReadTokens}
-                strokeWidth={2}
-                strokeDasharray="5 3"
-                strokeOpacity={getOpacity('Cache Read')}
-                dot={getLineDotStyle(areaColors.cacheReadTokens)}
-                name="Cache Read"
-              />
-              <Line
-                type="monotone"
-                dataKey="cacheCreationTokens"
-                stroke={areaColors.cacheCreationTokens}
-                strokeWidth={2}
-                strokeDasharray="5 3"
-                strokeOpacity={getOpacity('Cache Write')}
-                dot={getLineDotStyle(areaColors.cacheCreationTokens)}
-                name="Cache Write"
               />
               <Legend
                 verticalAlign="bottom"
