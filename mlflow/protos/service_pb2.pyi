@@ -4,6 +4,7 @@ import datasets_pb2 as _datasets_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
+import issues_pb2 as _issues_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
 import prompt_optimization_pb2 as _prompt_optimization_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
@@ -89,6 +90,7 @@ class BudgetDurationUnit(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     MINUTES: _ClassVar[BudgetDurationUnit]
     HOURS: _ClassVar[BudgetDurationUnit]
     DAYS: _ClassVar[BudgetDurationUnit]
+    WEEKS: _ClassVar[BudgetDurationUnit]
     MONTHS: _ClassVar[BudgetDurationUnit]
 
 class BudgetTargetScope(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -148,6 +150,7 @@ DURATION_UNIT_UNSPECIFIED: BudgetDurationUnit
 MINUTES: BudgetDurationUnit
 HOURS: BudgetDurationUnit
 DAYS: BudgetDurationUnit
+WEEKS: BudgetDurationUnit
 MONTHS: BudgetDurationUnit
 TARGET_SCOPE_UNSPECIFIED: BudgetTargetScope
 GLOBAL: BudgetTargetScope

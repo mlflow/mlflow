@@ -2797,7 +2797,7 @@ class SqlGatewayBudgetPolicy(Base):
     """
     duration_unit = Column(String(32), nullable=False)
     """
-    Duration unit for the fixed window: `String` (MINUTES, HOURS, DAYS, MONTHS).
+    Duration unit for the fixed window: `String` (MINUTES, HOURS, DAYS, WEEKS, MONTHS).
     """
     duration_value = Column(Integer, nullable=False)
     """

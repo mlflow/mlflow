@@ -18,6 +18,7 @@ class BudgetDurationUnit(str, Enum):
     MINUTES = "MINUTES"
     HOURS = "HOURS"
     DAYS = "DAYS"
+    WEEKS = "WEEKS"
     MONTHS = "MONTHS"
 
     @classmethod
@@ -93,7 +94,7 @@ class GatewayBudgetPolicy(_MlflowObject):
         budget_policy_id: Unique identifier for this budget policy.
         budget_unit: Budget measurement unit (e.g. USD).
         budget_amount: Budget limit amount.
-        duration_unit: Unit of time window (MINUTES, HOURS, DAYS, MONTHS).
+        duration_unit: Unit of time window (MINUTES, HOURS, DAYS, WEEKS, MONTHS).
         duration_value: Length of the window in units of duration_unit.
         target_scope: Scope of the budget (GLOBAL or WORKSPACE).
         budget_action: Action when budget is exceeded (ALERT, REJECT).

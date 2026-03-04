@@ -3142,9 +3142,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 for k, v in trace_info.trace_metadata.items()
             ]
             sql_trace_info.request_metadata = request_metadata
-            sql_trace_info.assessments = [
-                SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
-            ]
+            # The caller may not always specify a trace_id on each assessment when
+            # exporting traces with assessments, so backfill it on the SQL entity.
+            sql_assessments = []
+            for a in trace_info.assessments:
+                sql_assessment = SqlAssessments.from_mlflow_entity(a)
+                if a.trace_id is None:
+                    sql_assessment.trace_id = trace_id
+                sql_assessments.append(sql_assessment)
+            sql_trace_info.assessments = sql_assessments
 
             # Parse and store token usage as trace metrics if present in metadata
             if token_usage_metadata := trace_info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE):
@@ -6274,6 +6280,16 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                         .subquery()
                     )
                     span_filters.append(association_subquery)
+                    continue
+                if comparator in ("IS NULL", "IS NOT NULL"):
+                    tag_exists_subquery = session.query(SqlTraceTag.request_id).filter(
+                        SqlTraceTag.request_id == SqlTraceInfo.request_id,
+                        SqlTraceTag.key == key_name,
+                    )
+                    if comparator == "IS NULL":
+                        attribute_filters.append(~tag_exists_subquery.exists())
+                    else:
+                        attribute_filters.append(tag_exists_subquery.exists())
                     continue
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
