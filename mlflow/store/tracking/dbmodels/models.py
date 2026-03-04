@@ -1148,7 +1148,8 @@ class SqlIssue(Base):
     """
     root_causes = Column(Text, nullable=True)
     """
-    Root causes analysis stored as JSON array: `Text`. Nullable if root causes are not yet determined.
+    Root causes analysis stored as JSON array: `Text`. Nullable if root causes are not yet
+    determined.
     """
     source_run_id = Column(
         String(32), ForeignKey("runs.run_uuid", ondelete="CASCADE"), nullable=True
