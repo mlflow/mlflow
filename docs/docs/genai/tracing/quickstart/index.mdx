@@ -13,7 +13,7 @@ import { Zap, LayoutDashboard, FlaskConical } from "lucide-react";
 Need help setting up tracing? Try <ins>[MLflow Assistant](/genai/getting-started/try-assistant)</ins> - a powerful AI assistant that can add MLflow tracing to your project automatically.
 :::
 
-This quickstart guide will walk you through setting up a simple GenAI application with MLflow Tracing. In less than 10 minutes, you'll enable tracing, run a basic application, and explore the generated traces in the MLflow UI.
+This quickstart guide will walk you through setting up a simple LLM application with MLflow Tracing. In less than 10 minutes, you'll enable tracing, run a basic application, and explore the generated traces in the MLflow UI.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ If you don't have the MLflow server running yet, just follow these simple steps 
 
 ## Create a MLflow Experiment
 
-The traces your GenAI application will send to the MLflow server are grouped into MLflow experiments. We recommend creating one experiment for each GenAI application.
+The traces your LLM application or AI agent will send to the MLflow server are grouped into MLflow experiments. We recommend creating one experiment for each LLM application or AI agent.
 
 Let's create a new MLflow experiment using the MLflow UI so that you can start sending your traces.
 
@@ -38,7 +38,7 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
 
 ## Dependency
 
-To connect your GenAI application to the MLflow server, you will need to install the MLflow client SDK.
+To connect your LLM application or AI agent to the MLflow server, you will need to install the MLflow client SDK.
 
 <TabsWrapper>
 <Tabs groupId="programming-language">
@@ -66,7 +66,7 @@ For a comprehensive list of LLM providers supported by MLflow, see the <ins>[LLM
 
 ## Start Tracing
 
-Once your experiment is created, you're ready to connect to the MLflow server and begin sending traces from your GenAI application.
+Once your experiment is created, you're ready to connect to the MLflow server and begin sending traces from your LLM application or AI agent.
 
 <TabsWrapper>
 <Tabs groupId="programming-language">
@@ -176,7 +176,7 @@ After running the code above, go to the MLflow UI and select the "My Application
 
 ## Track Multi-Turn Conversations with Sessions
 
-Many GenAI applications maintain multi-turn conversations with users. MLflow provides built-in support for tracking user sessions by using standard metadata fields. This allows you to group related traces together and analyze conversation flows.
+Many LLM applications and AI agents maintain multi-turn conversations with users. MLflow provides built-in support for tracking user sessions by using standard metadata fields. This allows you to group related traces together and analyze conversation flows.
 
 <TabsWrapper>
 <Tabs>
@@ -239,7 +239,7 @@ Congrats on sending your first trace with MLflow! Now that you've got the basics
   <TileCard
     icon={Zap}
     title="Automatic Tracing"
-    description="Explore one-line automatic tracing for popular GenAI libraries and frameworks"
+    description="Explore one-line automatic tracing for popular LLM and AI agent frameworks"
     href="/genai/tracing/app-instrumentation/automatic"
     linkText="Enable auto-tracing →"
   />

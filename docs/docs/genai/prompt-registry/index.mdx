@@ -12,7 +12,7 @@ import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
 
 # Prompt Registry
 
-**MLflow Prompt Registry** is a powerful tool that streamlines prompt engineering and management in your Generative AI (GenAI) applications. It enables you to version, track, and reuse prompts across your organization, helping maintain consistency and improving collaboration in prompt development.
+**MLflow Prompt Registry** is a powerful tool that streamlines prompt engineering and management in your LLM applications and AI agents. It enables you to version, track, and reuse prompts across your organization, helping maintain consistency and improving collaboration in prompt development.
 
 <GenAIDemoCard />
 
@@ -60,7 +60,7 @@ import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
 
       :::note
 
-          Prompt template text can contain variables in `{{variable}}` format. These variables can be filled with dynamic content when using the prompt in your GenAI application. MLflow also provides the `to_single_brace_format()` API to convert templates into single brace format for frameworks like LangChain or LlamaIndex that require single brace interpolation.
+          Prompt template text can contain variables in `{{variable}}` format. These variables can be filled with dynamic content when using the prompt in your LLM application or AI agent. MLflow also provides the `to_single_brace_format()` API to convert templates into single brace format for frameworks like LangChain or LlamaIndex that require single brace interpolation.
       :::
 
     </div>
@@ -170,7 +170,7 @@ Once you have multiple versions of a prompt, you can compare them to understand 
 
 ### 4. Load and Use the Prompt
 
-To use a prompt in your GenAI application, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object.
+To use a prompt in your LLM application or AI agent, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object.
 
 ```python
 import mlflow

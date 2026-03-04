@@ -6,7 +6,7 @@ import { Hammer, Brain, Database} from "lucide-react";
 
 # Code-based scorer examples
 
-In MLflow Evaluation for GenAI, [custom code-based scorers](/genai/eval-monitor/scorers/custom) allow you to define flexible evaluation metrics for your AI agent or application. This set of examples illustrate many patterns for using code-based scorers with different options for inputs, outputs, implementation, and error handling.
+In MLflow Evaluation, [custom code-based scorers](/genai/eval-monitor/scorers/custom) allow you to define flexible evaluation metrics for your AI agent or application. This set of examples illustrate many patterns for using code-based scorers with different options for inputs, outputs, implementation, and error handling.
 
 The image below illustrates some custom scorers' outputs as metrics in the MLflow UI.
 
@@ -15,20 +15,20 @@ The image below illustrates some custom scorers' outputs as metrics in the MLflo
 ## Prerequisites
 
 1. Update MLflow
-2. Define your GenAI app
+2. Define your app
 3. Generate traces used in some scorer examples
 
 ### Update `MLflow`
 
-Update `mlflow` to the latest version for the best GenAI experience, and install `openai` since the example app below uses the OpenAI client.
+Update `mlflow` to the latest version for the best experience, and install `openai` since the example app below uses the OpenAI client.
 
 ```bash
 pip install --upgrade mlflow openai
 ```
 
-### Define your GenAI app
+### Define your app
 
-Some examples below will use the following GenAI app, which is a general assistant for question-answering.
+Some examples below will use the following app, which is a general assistant for question-answering.
 
 ```python
 import mlflow

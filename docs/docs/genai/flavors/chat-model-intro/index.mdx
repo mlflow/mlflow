@@ -13,7 +13,7 @@ with others in the MLflow Model Registry, deployed as a REST API, or loaded in a
 compatible with the widely-adopted OpenAI chat API spec, making them easy to integrate with other AI systems and tools.
 
 If you're already familiar with <APILink fn ="mlflow.pyfunc.PythonModel">`PythonModel`</APILink>, you might wonder why <APILink fn ="mlflow.pyfunc.ChatModel">`ChatModel`</APILink> is needed.
-As GenAI applications grow more complex, mapping inputs, outputs, and parameters with a custom `PythonModel` can be challenging. `ChatModel`
+As LLM applications and AI agents grow more complex, mapping inputs, outputs, and parameters with a custom `PythonModel` can be challenging. `ChatModel`
 simplifies this by offering a structured, OpenAI-compatible schema for conversational AI models.
 
 <Table>
@@ -63,7 +63,7 @@ management capabilities with Ollama models.
 
 ## Prerequisites
 
-- Familiarity with MLflow logging APIs and GenAI concepts.
+- Familiarity with MLflow logging APIs and LLM concepts.
 - MLflow version 2.17.0 or higher installed for use of <APILink fn="mlflow.pyfunc.ChatModel">`ChatModel`</APILink>.
 
 ## Understanding ChatModel: Input/Output Mapping
@@ -684,7 +684,7 @@ the input example so that a model signature can be inferred using the example. T
 from the ChatModel API, which automatically configures a signature that conforms to the standard OpenAI-compatible
 input/output/parameter schemas.
 To learn more about auto inference of model signature based on an input example, see the
-[GenAI model signature example](/ml/model/signatures#automatic-signature-inference) section for details.
+[model signature example](/ml/model/signatures#automatic-signature-inference) section for details.
 
 There is also one notable difference in how we call the loaded model's `predict` method: parameters are passed as
 a dictionary via the `params` keyword argument, rather than in the dictionary containing the messages.
