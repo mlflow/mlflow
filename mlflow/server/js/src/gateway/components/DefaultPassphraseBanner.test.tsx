@@ -22,11 +22,11 @@ describe('DefaultPassphraseBanner', () => {
     await userEvent.click(screen.getByRole('button', { name: /close/i }));
 
     expect(screen.queryByText('Security Notice: Default Passphrase in Use')).not.toBeInTheDocument();
-    expect(localStorage.getItem('mlflow.gateway.default-passphrase-warning.dismissed')).toBe('true');
+    expect(localStorage.getItem('mlflow.gateway.default-passphrase-warning.dismissed_v1')).toBe('true');
   });
 
   it('does not render when previously dismissed', () => {
-    localStorage.setItem('mlflow.gateway.default-passphrase-warning.dismissed', 'true');
+    localStorage.setItem('mlflow.gateway.default-passphrase-warning.dismissed_v1', 'true');
 
     renderWithDesignSystem(<DefaultPassphraseBanner />);
 
