@@ -39,6 +39,7 @@ import type {
   RetrieverDocument,
   ModelTraceEvent,
   ModelTraceLocation,
+  ModelTraceInputAudio,
 } from './ModelTrace.types';
 import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
@@ -1006,7 +1007,7 @@ export const isModelTraceChoices = (obj: any): obj is ModelTraceChatResponse['ch
   return (
     Array.isArray(obj) &&
     obj.length > 0 &&
-    obj.every((choice: any) => has(choice, 'message') && isModelTraceChatMessage(choice.message))
+    obj.every((choice: any) => has(choice, 'message') && isRawModelTraceChatMessage(choice.message))
   );
 };
 
@@ -1162,14 +1163,30 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
           const url = part?.image_url?.url;
           return url ? `![](${url})` : '[image]';
         case 'input_audio':
-          // raw encoded audio content is not displayed in the UI
-          return '[audio]';
+          // Audio parts are rendered as <audio> elements by the component,
+          // so they are excluded from the markdown string
+          return undefined;
       }
     })
     .filter((part) => part !== undefined);
 
   // Join with double line breaks for better visual separation
   return contentParts.join('\n\n');
+};
+
+const extractAudioParts = (content?: ModelTraceContentType | null): ModelTraceInputAudio[] => {
+  if (isNil(content) || isString(content)) {
+    return [];
+  }
+  return content
+    .filter(
+      (part): part is { type: 'input_audio'; input_audio: ModelTraceInputAudio } =>
+        part.type === 'input_audio' &&
+        isObject((part as any).input_audio) &&
+        isString(((part as any).input_audio as any).data) &&
+        isString(((part as any).input_audio as any).format),
+    )
+    .map((part) => part.input_audio);
 };
 
 export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): ModelTraceChatMessage | null => {
@@ -1181,10 +1198,13 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
     return null;
   }
 
+  const audioParts = extractAudioParts(message.content);
+
   return {
     ...message,
     content: formatChatContent(message.content),
     tool_calls: message.tool_calls?.map(prettyPrintToolCall),
+    ...(audioParts.length > 0 ? { audioParts } : {}),
   };
 };
 

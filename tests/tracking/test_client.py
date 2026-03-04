@@ -2575,12 +2575,11 @@ def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
     # Mock Unity Catalog behavior
     client = MlflowClient(registry_uri=registry_uri)
 
-    # Mock the search_prompt_versions to return versions
-    mock_response = Mock()
-    mock_response.prompt_versions = [Mock(version="1")]
+    # Mock the search_prompt_versions to return a PagedList with versions
+    mock_versions = PagedList([Mock(version="1")], None)
 
     with (
-        patch.object(client, "search_prompt_versions", return_value=mock_response),
+        patch.object(client, "search_prompt_versions", return_value=mock_versions),
         patch.object(client, "_registry_uri", registry_uri),
     ):
         with pytest.raises(

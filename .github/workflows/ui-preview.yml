@@ -21,7 +21,47 @@ defaults:
   run:
     shell: bash
 
+env:
+  COMMENT_MARKER: "<!-- ui-preview -->"
+
 jobs:
+  notify:
+    if: >-
+      github.event.action != 'closed'
+      && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+      && github.event.pull_request.draft == false
+      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+    runs-on: ubuntu-slim
+    permissions:
+      pull-requests: write
+    timeout-minutes: 5
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          BODY="${COMMENT_MARKER}
+
+          **UI Preview** is being deployed for this PR :hourglass_flowing_sand:
+
+          | | |
+          |---|---|
+          | **Commit** | ${HEAD_SHA} |
+
+          > Building and deploying... This comment will be updated with the preview URL."
+
+          # Only post if no existing comment (to avoid overwriting a previous preview URL)
+          COMMENT_ID=$(gh api --paginate \
+            "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
+            | head -1)
+
+          if [ -z "$COMMENT_ID" ]; then
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$BODY"
+          fi
+
   build:
     if: >-
       github.event.action != 'closed'
@@ -173,8 +213,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_URL: ${{ steps.app.outputs.url }}
         run: |
-          MARKER="<!-- ui-preview -->"
-          BODY="${MARKER}
+          BODY="${COMMENT_MARKER}
 
           **UI Preview** is ready for this PR :rocket:
 
@@ -188,9 +227,9 @@ jobs:
           > The preview updates automatically when new commits are pushed."
 
           # Find existing comment
-          COMMENT_ID=$(gh api \
+          COMMENT_ID=$(gh api --paginate \
             "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-            --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
             | head -1)
 
           if [ -n "$COMMENT_ID" ]; then
@@ -240,14 +279,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          MARKER="<!-- ui-preview -->"
-          BODY="${MARKER}
+          BODY="${COMMENT_MARKER}
 
           **UI Preview** for this PR has been removed."
 
-          COMMENT_ID=$(gh api \
+          COMMENT_ID=$(gh api --paginate \
             "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-            --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
             | head -1)
 
           if [ -n "$COMMENT_ID" ]; then

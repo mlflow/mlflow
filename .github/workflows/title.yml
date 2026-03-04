@@ -59,6 +59,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           IS_PR: ${{ github.event_name == 'pull_request' || github.event.issue.pull_request != null }}
         with:
+          retries: 3
           script: |
             const script = require('./.github/workflows/title.js');
             await script({ github, context, core });
