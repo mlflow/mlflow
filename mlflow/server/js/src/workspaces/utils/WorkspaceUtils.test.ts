@@ -282,6 +282,8 @@ describe('WorkspaceUtils', () => {
     beforeEach(() => {
       // Set active workspace for these tests
       setActiveWorkspace('default');
+      // Clear localStorage so only in-memory workspace is set
+      window.localStorage.clear();
     });
 
     afterEach(() => {
@@ -339,7 +341,6 @@ describe('WorkspaceUtils', () => {
 
     it('returns path without workspace param when no workspace set', () => {
       setActiveWorkspace(null);
-      window.localStorage.clear();
       expect(prefixRouteWithWorkspace('/experiments')).toBe('/experiments');
     });
 
@@ -362,7 +363,6 @@ describe('WorkspaceUtils', () => {
 
     it('does not add workspace param to root path when no workspace is active', () => {
       setActiveWorkspace(null);
-      window.localStorage.clear();
       expect(prefixRouteWithWorkspace('/')).toBe('/');
     });
 
@@ -391,6 +391,8 @@ describe('WorkspaceUtils', () => {
     beforeEach(() => {
       // Set active workspace for these tests
       setActiveWorkspace('default');
+      // Clear localStorage so only in-memory workspace is set
+      window.localStorage.clear();
     });
 
     afterEach(() => {
@@ -417,7 +419,6 @@ describe('WorkspaceUtils', () => {
 
     it('returns root path unchanged when no workspace is active', () => {
       setActiveWorkspace(null);
-      window.localStorage.clear();
       expect(appendWorkspaceSearchParams('/')).toBe('/');
     });
 
@@ -437,7 +438,6 @@ describe('WorkspaceUtils', () => {
 
     it('returns pathname unchanged when no workspace set', () => {
       setActiveWorkspace(null);
-      window.localStorage.clear();
       expect(appendWorkspaceSearchParams('/experiments')).toBe('/experiments');
     });
 
