@@ -28,7 +28,7 @@ class InMemoryBudgetTracker(BudgetTracker):
     _windows: dict[str, BudgetWindow] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def load_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
+    def refresh_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
         """Load or refresh policies from the database.
 
         Preserves accumulated cost for unchanged windows. Removes windows

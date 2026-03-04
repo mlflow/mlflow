@@ -79,7 +79,7 @@ class BudgetTracker(ABC):
         self._last_refresh_time = time.monotonic()
 
     @abstractmethod
-    def load_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
+    def refresh_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
         """Load or refresh policies from the database.
 
         Preserves accumulated cost for unchanged windows. Removes windows

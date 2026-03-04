@@ -174,7 +174,7 @@ def test_in_memory_tracker_is_budget_tracker():
 
 def test_record_cost_below_limit():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0)])
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     newly_exceeded = tracker.record_cost(50.0)
     assert newly_exceeded == []
@@ -186,7 +186,7 @@ def test_record_cost_below_limit():
 
 def test_record_cost_exceeds_threshold():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0)])
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     newly_exceeded = tracker.record_cost(150.0)
     assert len(newly_exceeded) == 1
@@ -199,7 +199,7 @@ def test_record_cost_exceeds_threshold():
 
 def test_record_cost_exceeds_only_once():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0)])
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     exceeded1 = tracker.record_cost(150.0)
     assert len(exceeded1) == 1
@@ -213,7 +213,7 @@ def test_record_cost_exceeds_only_once():
 
 def test_record_cost_incremental_exceeding():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0)])
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     assert tracker.record_cost(60.0) == []
     exceeded = tracker.record_cost(50.0)
@@ -223,7 +223,7 @@ def test_record_cost_incremental_exceeding():
 
 def test_should_reject_request_reject():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)])
+    tracker.refresh_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)])
 
     tracker.record_cost(150.0)
     exceeded, policy = tracker.should_reject_request()
@@ -233,7 +233,7 @@ def test_should_reject_request_reject():
 
 def test_should_reject_request_alert_only():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)])
+    tracker.refresh_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)])
 
     tracker.record_cost(150.0)
     exceeded, policy = tracker.should_reject_request()
@@ -243,7 +243,7 @@ def test_should_reject_request_alert_only():
 
 def test_should_reject_request_not_yet():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)])
+    tracker.refresh_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)])
 
     tracker.record_cost(50.0)
     exceeded, policy = tracker.should_reject_request()
@@ -258,7 +258,7 @@ def test_window_resets_on_expiry():
         duration_unit=BudgetDurationUnit.MINUTES,
         duration_value=5,
     )
-    tracker.load_policies([policy])
+    tracker.refresh_policies([policy])
     tracker.record_cost(80.0)
 
     window = tracker._get_window_info("bp-test")
@@ -278,27 +278,27 @@ def test_window_resets_on_expiry():
     assert newly_exceeded == []
 
 
-def test_load_policies_preserves_spend_in_same_window():
+def test_refresh_policies_preserves_spend_in_same_window():
     tracker = InMemoryBudgetTracker()
     policy = _make_policy(budget_amount=100.0)
-    tracker.load_policies([policy])
+    tracker.refresh_policies([policy])
     tracker.record_cost(60.0)
 
     # Reload same policy — spend should be preserved
-    tracker.load_policies([policy])
+    tracker.refresh_policies([policy])
     window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 60.0
 
 
-def test_load_policies_removes_deleted_policy():
+def test_refresh_policies_removes_deleted_policy():
     tracker = InMemoryBudgetTracker()
     policy1 = _make_policy(budget_policy_id="bp-1", budget_amount=100.0)
     policy2 = _make_policy(budget_policy_id="bp-2", budget_amount=200.0)
-    tracker.load_policies([policy1, policy2])
+    tracker.refresh_policies([policy1, policy2])
     tracker.record_cost(50.0)
 
     # Reload with only policy1 — policy2 window should be gone
-    tracker.load_policies([policy1])
+    tracker.refresh_policies([policy1])
     assert tracker._get_window_info("bp-1") is not None
     assert tracker._get_window_info("bp-2") is None
 
@@ -315,7 +315,7 @@ def test_multiple_policies_independent():
         budget_amount=100.0,
         budget_action=BudgetAction.REJECT,
     )
-    tracker.load_policies([policy_alert, policy_reject])
+    tracker.refresh_policies([policy_alert, policy_reject])
 
     exceeded = tracker.record_cost(75.0)
     # Only the alert policy should be exceeded (50 < 75)
@@ -340,7 +340,7 @@ def test_workspace_scoped_cost_recording():
         workspace="ws1",
         budget_amount=100.0,
     )
-    tracker.load_policies([policy])
+    tracker.refresh_policies([policy])
 
     # Cost from different workspace — should not apply
     tracker.record_cost(200.0, workspace="ws2")
@@ -361,39 +361,39 @@ def test_all_duration_units_window_consistency(duration_unit):
     assert start <= now < end
 
 
-# --- load_policies return value tests ---
+# --- refresh_policies return value tests ---
 
 
-def test_load_policies_returns_new_windows():
+def test_refresh_policies_returns_new_windows():
     tracker = InMemoryBudgetTracker()
     policy1 = _make_policy(budget_policy_id="bp-1")
     policy2 = _make_policy(budget_policy_id="bp-2")
 
-    new_windows = tracker.load_policies([policy1, policy2])
+    new_windows = tracker.refresh_policies([policy1, policy2])
     assert len(new_windows) == 2
     ids = {w.policy.budget_policy_id for w in new_windows}
     assert ids == {"bp-1", "bp-2"}
 
 
-def test_load_policies_returns_empty_on_reload():
+def test_refresh_policies_returns_empty_on_reload():
     tracker = InMemoryBudgetTracker()
     policy = _make_policy()
 
-    new_windows = tracker.load_policies([policy])
+    new_windows = tracker.refresh_policies([policy])
     assert len(new_windows) == 1
 
     # Reload same policy within same window — no new windows
-    new_windows = tracker.load_policies([policy])
+    new_windows = tracker.refresh_policies([policy])
     assert new_windows == []
 
 
-def test_load_policies_returns_only_new_on_mixed():
+def test_refresh_policies_returns_only_new_on_mixed():
     tracker = InMemoryBudgetTracker()
     policy1 = _make_policy(budget_policy_id="bp-1")
-    tracker.load_policies([policy1])
+    tracker.refresh_policies([policy1])
 
     policy2 = _make_policy(budget_policy_id="bp-2")
-    new_windows = tracker.load_policies([policy1, policy2])
+    new_windows = tracker.refresh_policies([policy1, policy2])
     assert len(new_windows) == 1
     assert new_windows[0].policy.budget_policy_id == "bp-2"
 
@@ -403,7 +403,7 @@ def test_load_policies_returns_only_new_on_mixed():
 
 def test_backfill_spend_sets_cumulative():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0)])
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     tracker.backfill_spend("bp-test", 42.5)
     window = tracker._get_window_info("bp-test")
@@ -413,7 +413,7 @@ def test_backfill_spend_sets_cumulative():
 
 def test_backfill_spend_sets_exceeded_when_exceeds():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0)])
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     tracker.backfill_spend("bp-test", 150.0)
     window = tracker._get_window_info("bp-test")
@@ -423,7 +423,7 @@ def test_backfill_spend_sets_exceeded_when_exceeds():
 
 def test_backfill_spend_sets_exceeded_at_exact_limit():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy(budget_amount=100.0)])
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     tracker.backfill_spend("bp-test", 100.0)
     window = tracker._get_window_info("bp-test")
@@ -433,6 +433,6 @@ def test_backfill_spend_sets_exceeded_at_exact_limit():
 
 def test_backfill_spend_nonexistent_is_noop():
     tracker = InMemoryBudgetTracker()
-    tracker.load_policies([_make_policy()])
+    tracker.refresh_policies([_make_policy()])
     # Should not raise
     tracker.backfill_spend("nonexistent-policy", 50.0)
