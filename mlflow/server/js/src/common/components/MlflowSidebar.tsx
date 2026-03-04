@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useAuthContext } from '../contexts/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import {
   BeakerIcon,
@@ -92,6 +93,7 @@ export function MlflowSidebar({
   // WorkflowType context is always available, but UI is guarded by feature flag
   const { workflowType, setWorkflowType } = useWorkflowType();
   const { experimentId } = useParams();
+  const authContext = useAuthContext();
   const logTelemetryEvent = useLogTelemetryEvent();
   const toggleSidebar = useCallback(() => {
     setShowSidebar(!showSidebar);
@@ -406,6 +408,45 @@ export function MlflowSidebar({
           >
             <FormattedMessage defaultMessage="Settings" description="Sidebar link for settings page" />
           </MlflowSidebarLink>
+          {authContext.authType === 'oauth' && (
+            <Tooltip
+              componentId="mlflow.sidebar.sign_out_tooltip"
+              content={<FormattedMessage defaultMessage="Sign out" description="Tooltip for sign out button" />}
+              open={!showSidebar ? undefined : false}
+              side="right"
+              delayDuration={0}
+            >
+              <div
+                role="button"
+                tabIndex={0}
+                css={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.sm,
+                  padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+                  cursor: 'pointer',
+                  borderRadius: theme.borders.borderRadiusMd,
+                  color: theme.colors.textSecondary,
+                  '&:hover': {
+                    backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+                    color: theme.colors.textPrimary,
+                  },
+                }}
+                onClick={() => authContext.logout()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    authContext.logout();
+                  }
+                }}
+              >
+                {showSidebar && (
+                  <Typography.Text color="secondary">
+                    <FormattedMessage defaultMessage="Sign out" description="Sidebar button to sign out" />
+                  </Typography.Text>
+                )}
+              </div>
+            </Tooltip>
+          )}
         </div>
       </nav>
     </aside>

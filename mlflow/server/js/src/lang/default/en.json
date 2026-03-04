@@ -1782,6 +1782,10 @@
     "defaultMessage": "Model",
     "description": "Dimension toggle option for model"
   },
+  "AV0x9p": {
+    "defaultMessage": "Authentication",
+    "description": "Auth settings title"
+  },
   "AX7L9r": {
     "defaultMessage": "Error",
     "description": "Error assessment status in the evaluations table."
@@ -3658,6 +3662,10 @@
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
   },
+  "ObY572": {
+    "defaultMessage": "Sign out",
+    "description": "Tooltip for sign out button"
+  },
   "OcYzCN": {
     "defaultMessage": "Unresolved",
     "description": "Label for a user_frustration assessment with 'unresolved' value"
@@ -4800,6 +4808,10 @@
     "defaultMessage": "Details & Timeline",
     "description": "Label for the details & timeline view tab in the model trace explorer"
   },
+  "Wh2WvS": {
+    "defaultMessage": "Sign out",
+    "description": "Sign out button on settings page"
+  },
   "WiML15": {
     "defaultMessage": "Create your first workspace",
     "description": "Home page workspaces empty state title"
@@ -5454,6 +5466,10 @@
   "b1yfI9": {
     "defaultMessage": "Run details",
     "description": "Run page > Overview > Run details section heading"
+  },
+  "b5WYoO": {
+    "defaultMessage": "Sign out",
+    "description": "Sidebar button to sign out"
   },
   "b6VGsd": {
     "defaultMessage": "Pre-built LLM-as-a-judge | Session level",
@@ -8514,6 +8530,10 @@
   "wFvyI1": {
     "defaultMessage": "Registered at:",
     "description": "A label for the registration timestamp in the prompt details page"
+  },
+  "wHXjTG": {
+    "defaultMessage": "Signed in as {username}",
+    "description": "Auth info showing current user"
   },
   "wJX0a/": {
     "defaultMessage": "Provider",

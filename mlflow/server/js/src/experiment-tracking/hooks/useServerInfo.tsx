@@ -6,9 +6,25 @@ import { getAjaxUrl, getDefaultHeaders } from '../../common/utils/FetchUtils';
 
 export const SERVER_INFO_QUERY_KEY = 'serverInfo';
 
+interface AuthUser {
+  username: string;
+  display_name: string;
+  email: string;
+  is_admin: boolean;
+}
+
+interface AuthProvider {
+  name: string;
+  display_name: string;
+  type: 'oidc' | 'saml';
+}
+
 interface ServerInfoResponse {
   store_type: string | null;
   workspaces_enabled: boolean;
+  auth_type?: 'oauth' | 'basic' | 'none';
+  auth_user?: AuthUser;
+  auth_providers?: AuthProvider[];
 }
 
 // Default response when the API call fails (e.g., older server without this endpoint)
@@ -36,7 +52,13 @@ async function fetchServerInfo(): Promise<ServerInfoResponse> {
       },
     });
     if (!response.ok) {
-      // If the endpoint doesn't exist or returns an error, return default
+      // If the server returns 401, redirect to login page (OAuth session expired or not authenticated)
+      if (response.status === 401 && typeof window !== 'undefined') {
+        window.location.href = '/auth/login?next=' + encodeURIComponent(window.location.href);
+        // Return a promise that never resolves to prevent rendering with stale data
+        return new Promise<ServerInfoResponse>(() => {});
+      }
+      // If the endpoint doesn't exist or returns another error, return default
       return DEFAULT_RESPONSE;
     }
     return response.json();
@@ -119,3 +141,15 @@ export const getWorkspacesEnabledSync = (): boolean => {
 export const resetServerInfoCache = (): void => {
   queryClientRef?.removeQueries({ queryKey: [SERVER_INFO_QUERY_KEY] });
 };
+
+export const useAuthInfo = () => {
+  const { data, isLoading } = useServerInfo();
+  return {
+    authType: data?.auth_type ?? 'none',
+    authUser: data?.auth_user ?? null,
+    authProviders: data?.auth_providers ?? [],
+    loading: isLoading,
+  };
+};
+
+export type { AuthUser, AuthProvider, ServerInfoResponse };
