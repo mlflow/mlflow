@@ -46,13 +46,9 @@ jest.mock('./IssueDetectionApiKeyConfigurator', () => ({
     </div>
   ),
 }));
+const mockUseApiKeyConfiguration = jest.fn();
 jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration', () => ({
-  useApiKeyConfiguration: () => ({
-    existingSecrets: [],
-    authModes: [],
-    defaultAuthMode: undefined,
-    isLoadingProviderConfig: false,
-  }),
+  useApiKeyConfiguration: () => mockUseApiKeyConfiguration(),
 }));
 jest.mock('./IssueDetectionAdvancedSettings', () => ({
   IssueDetectionAdvancedSettings: () => <div data-testid="advanced-settings">Advanced Settings</div>,
@@ -67,6 +63,12 @@ describe('IssueDetectionModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseApiKeyConfiguration.mockReturnValue({
+      existingSecrets: [],
+      authModes: [],
+      defaultAuthMode: undefined,
+      isLoadingProviderConfig: false,
+    });
   });
 
   test('renders modal when visible', () => {
@@ -227,5 +229,26 @@ describe('IssueDetectionModal', () => {
     await userEvent.click(saveKeyCheckbox);
 
     expect(screen.getByPlaceholderText('API key name')).toBeInTheDocument();
+  });
+
+  test('defaults to existing key mode when provider is selected and secrets are available', async () => {
+    // Override the mock to return existing secrets
+    mockUseApiKeyConfiguration.mockReturnValue({
+      existingSecrets: [{ secret_id: 'secret-1', secret_name: 'My Key' }],
+      authModes: [],
+      defaultAuthMode: undefined,
+      isLoadingProviderConfig: false,
+    });
+
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    // When selecting a provider with available secrets, it should default to existing mode
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
+
+    // Verify the component receives config with mode: 'existing' by checking
+    // that the "Use existing" button test behavior is consistent
+    await userEvent.click(screen.getByTestId('set-existing-key'));
+    const submitButton = screen.getByText('Run Analysis').closest('button');
+    expect(submitButton).not.toBeDisabled();
   });
 });

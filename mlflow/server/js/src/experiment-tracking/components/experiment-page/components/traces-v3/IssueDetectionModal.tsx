@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Modal,
   Button,
@@ -55,6 +55,19 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
   const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
     provider,
   });
+
+  // Update API key mode to 'existing' when secrets become available for the selected provider
+  useEffect(() => {
+    if (provider && existingSecrets.length > 0) {
+      setApiKeyConfig((prev) => {
+        // Only update if currently in 'new' mode with no fields filled
+        if (prev.mode === 'new' && Object.keys(prev.newSecret.secretFields).length === 0) {
+          return { ...prev, mode: 'existing' };
+        }
+        return prev;
+      });
+    }
+  }, [provider, existingSecrets.length]);
 
   const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);
