@@ -28,7 +28,7 @@ const renderActiveShape = (props: ActiveShapeProps, theme: DesignSystemThemeInte
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, name, value, percentage } = props;
 
   // Label is always centered above the pie — no overflow issues regardless of slice position
-  const labelY = cy - outerRadius - theme.spacing.lg;
+  const labelY = cy - PIE_PADDING_ANGLE - outerRadius - theme.spacing.lg;
 
   return (
     <g>
