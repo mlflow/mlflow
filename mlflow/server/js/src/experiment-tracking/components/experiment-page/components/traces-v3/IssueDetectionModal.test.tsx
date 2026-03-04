@@ -1,9 +1,7 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { renderWithDesignSystem, screen, waitFor } from '../../../../../common/utils/TestUtils.react18';
 import { IssueDetectionModal } from './IssueDetectionModal';
-import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 
-jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration');
 jest.mock('../../../../../gateway/components/create-endpoint/ProviderSelect', () => ({
   ProviderSelect: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <select data-testid="provider-select" value={value} onChange={(e) => onChange(e.target.value)}>
@@ -11,49 +9,6 @@ jest.mock('../../../../../gateway/components/create-endpoint/ProviderSelect', ()
       <option value="openai">OpenAI</option>
       <option value="anthropic">Anthropic</option>
     </select>
-  ),
-}));
-jest.mock('../../../../../gateway/components/create-endpoint/ModelSelect', () => ({
-  ModelSelect: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <select data-testid="model-select" value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">Select model</option>
-      <option value="gpt-4">gpt-4</option>
-      <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-    </select>
-  ),
-}));
-jest.mock('../../../../../gateway/components/model-configuration/components/ApiKeyConfigurator', () => ({
-  ApiKeyConfigurator: ({
-    value,
-    onChange,
-  }: {
-    value: {
-      mode: string;
-      existingSecretId: string;
-      newSecret: { name: string; secretFields: Record<string, string> };
-    };
-    onChange: (v: any) => void;
-  }) => (
-    <div data-testid="api-key-configurator">
-      <button
-        data-testid="set-existing-key"
-        onClick={() => onChange({ ...value, mode: 'existing', existingSecretId: 'secret-123' })}
-      >
-        Use existing key
-      </button>
-      <button
-        data-testid="set-new-key"
-        onClick={() =>
-          onChange({
-            ...value,
-            mode: 'new',
-            newSecret: { name: 'my-key', authMode: '', secretFields: { api_key: 'sk-123' }, configFields: {} },
-          })
-        }
-      >
-        Use new key
-      </button>
-    </div>
   ),
 }));
 
@@ -66,15 +21,6 @@ describe('IssueDetectionModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.mocked(useApiKeyConfiguration).mockReturnValue({
-      existingSecrets: [],
-      isLoadingSecrets: false,
-      authModes: [],
-      defaultAuthMode: undefined,
-      selectedAuthMode: undefined,
-      hasExistingSecrets: false,
-      isLoadingProviderConfig: false,
-    });
   });
 
   test('renders modal when visible', () => {
@@ -95,19 +41,37 @@ describe('IssueDetectionModal', () => {
     expect(screen.getByText('Connect an LLM to run an AI-powered issue analysis on your traces')).toBeInTheDocument();
   });
 
-  test('renders model selection section', () => {
+  test('renders provider selection', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
-    expect(screen.getByText('Model')).toBeInTheDocument();
     expect(screen.getByTestId('provider-select')).toBeInTheDocument();
-    expect(screen.getByTestId('model-select')).toBeInTheDocument();
   });
 
-  test('renders connections section', () => {
+  test('shows default models when provider with defaults is selected', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
-    expect(screen.getByText('Connections')).toBeInTheDocument();
-    expect(screen.getByTestId('api-key-configurator')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
+
+    expect(screen.getByText(/Analysis model: gpt-5 · Judge model: gpt-5-mini/)).toBeInTheDocument();
+  });
+
+  test('shows message when provider without defaults is selected', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    // Add a provider option without defaults
+    const providerSelect = screen.getByTestId('provider-select');
+    const newOption = document.createElement('option');
+    newOption.value = 'other-provider';
+    newOption.textContent = 'Other Provider';
+    providerSelect.appendChild(newOption);
+
+    await userEvent.selectOptions(providerSelect, 'other-provider');
+
+    expect(screen.getByText(/Please select models in `Advanced settings` below/)).toBeInTheDocument();
   });
 
   test('submit button is disabled when form is incomplete', () => {
@@ -117,60 +81,15 @@ describe('IssueDetectionModal', () => {
     expect(submitButton).toBeDisabled();
   });
 
-  test('submit button is enabled when form is complete with existing key and traces', async () => {
+  test('submit button is enabled when provider is selected', async () => {
     const userEvent = (await import('@testing-library/user-event')).default;
 
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
-    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
-    await userEvent.click(screen.getByTestId('set-existing-key'));
 
     const submitButton = screen.getByText('Run Analysis').closest('button');
     expect(submitButton).not.toBeDisabled();
-  });
-
-  test('submit button is enabled when form is complete with new key and traces', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
-
-    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
-    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
-    await userEvent.click(screen.getByTestId('set-new-key'));
-
-    const submitButton = screen.getByText('Run Analysis').closest('button');
-    expect(submitButton).not.toBeDisabled();
-  });
-
-  test('does not show save key checkbox without provider selected', () => {
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
-
-    expect(screen.queryByText('Save this key for reuse')).not.toBeInTheDocument();
-  });
-
-  test('shows save key checkbox when provider selected and using new key mode', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
-
-    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
-    await userEvent.click(screen.getByTestId('set-new-key'));
-
-    expect(screen.getByText('Save this key for reuse')).toBeInTheDocument();
-  });
-
-  test('hides save key checkbox when switching to existing key', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
-
-    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
-    await userEvent.click(screen.getByTestId('set-new-key'));
-    expect(screen.getByText('Save this key for reuse')).toBeInTheDocument();
-
-    await userEvent.click(screen.getByTestId('set-existing-key'));
-    expect(screen.queryByText('Save this key for reuse')).not.toBeInTheDocument();
   });
 
   test('calls onClose when cancel button is clicked', async () => {
@@ -192,8 +111,6 @@ describe('IssueDetectionModal', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} onClose={onClose} />);
 
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
-    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
-    await userEvent.click(screen.getByTestId('set-existing-key'));
 
     const submitButton = screen.getByText('Run Analysis').closest('button')!;
     await userEvent.click(submitButton);
@@ -201,22 +118,5 @@ describe('IssueDetectionModal', () => {
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
     });
-  });
-
-  test('resets api key config when provider changes', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
-
-    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
-    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
-    await userEvent.click(screen.getByTestId('set-existing-key'));
-
-    expect(screen.queryByText('Save this key for reuse')).not.toBeInTheDocument();
-
-    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'anthropic');
-    await userEvent.click(screen.getByTestId('set-new-key'));
-
-    expect(screen.getByText('Save this key for reuse')).toBeInTheDocument();
   });
 });
