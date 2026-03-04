@@ -4032,12 +4032,9 @@ def _create_issue():
         "experiment_id": request_message.experiment_id,
         "name": request_message.name,
         "description": request_message.description,
-        "frequency": request_message.frequency if request_message.HasField("frequency") else None,
-        "run_id": request_message.run_id or None,
-        "root_cause": request_message.root_cause or None,
+        "source_run_id": request_message.source_run_id or None,
+        "root_causes": list(request_message.root_causes) or None,
         "confidence": request_message.confidence or None,
-        "rationale_examples": list(request_message.rationale_examples) or None,
-        "example_trace_ids": list(request_message.example_trace_ids) or None,
         "trace_ids": list(request_message.trace_ids) or None,
         "created_by": request_message.created_by or None,
     }
@@ -4071,6 +4068,7 @@ def _update_issue(issue_id):
         status=status,
         name=request_message.name or None,
         description=request_message.description or None,
+        confidence=request_message.confidence or None,
     )
 
     response_message = UpdateIssue.Response(issue=updated_issue.to_proto())
@@ -4097,16 +4095,17 @@ def _search_issues():
     """
     request_message = _get_request_message(SearchIssues())
 
-    status = IssueStatus(request_message.status) if request_message.status else None
+    # Build kwargs for search_issues
+    search_kwargs = {
+        "experiment_id": request_message.experiment_id or None,
+        "filter_string": request_message.filter_string or None,
+        "page_token": request_message.page_token or None,
+    }
 
-    issues = _get_tracking_store().search_issues(
-        experiment_id=request_message.experiment_id or None,
-        run_id=request_message.run_id or None,
-        status=status,
-        filter_string=request_message.filter_string or None,
-        max_results=request_message.max_results or 100,
-        page_token=request_message.page_token or None,
-    )
+    if request_message.max_results:
+        search_kwargs["max_results"] = request_message.max_results
+
+    issues = _get_tracking_store().search_issues(**search_kwargs)
 
     issue_protos = [issue.to_proto() for issue in issues]
     response_message = SearchIssues.Response(

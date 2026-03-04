@@ -4281,12 +4281,9 @@ def test_create_issue_with_all_fields():
     request_message.name = "High latency"
     request_message.description = "API calls are taking too long"
     request_message.status = "pending"
-    request_message.frequency = 0.75
-    request_message.run_id = "run-123"
-    request_message.root_cause = "Database query inefficiency"
+    request_message.source_run_id = "run-123"
+    request_message.root_causes.extend(["Database query inefficiency", "Network latency"])
     request_message.confidence = "high"
-    request_message.rationale_examples.extend(["Example 1", "Example 2"])
-    request_message.example_trace_ids.extend(["trace-1", "trace-2"])
     request_message.trace_ids.extend(["trace-1", "trace-2", "trace-3"])
     request_message.created_by = "user@example.com"
 
@@ -4296,13 +4293,9 @@ def test_create_issue_with_all_fields():
         name="High latency",
         description="API calls are taking too long",
         status=IssueStatus.PENDING,
-        frequency=0.75,
-        run_id="run-123",
-        root_cause="Database query inefficiency",
+        source_run_id="run-123",
+        root_causes=["Database query inefficiency", "Network latency"],
         confidence="high",
-        rationale_examples=["Example 1", "Example 2"],
-        example_trace_ids=["trace-1", "trace-2"],
-        trace_ids=["trace-1", "trace-2", "trace-3"],
         created_timestamp=1234567890,
         last_updated_timestamp=1234567890,
         created_by="user@example.com",
@@ -4321,22 +4314,22 @@ def test_create_issue_with_all_fields():
         assert call_kwargs["experiment_id"] == "exp-123"
         assert call_kwargs["name"] == "High latency"
         assert call_kwargs["description"] == "API calls are taking too long"
-        assert call_kwargs["frequency"] == 0.75
         assert call_kwargs["status"] == IssueStatus.PENDING
-        assert call_kwargs["run_id"] == "run-123"
-        assert call_kwargs["root_cause"] == "Database query inefficiency"
+        assert call_kwargs["source_run_id"] == "run-123"
+        assert call_kwargs["root_causes"] == ["Database query inefficiency", "Network latency"]
         assert call_kwargs["confidence"] == "high"
-        assert call_kwargs["rationale_examples"] == ["Example 1", "Example 2"]
-        assert call_kwargs["example_trace_ids"] == ["trace-1", "trace-2"]
         assert call_kwargs["trace_ids"] == ["trace-1", "trace-2", "trace-3"]
         assert call_kwargs["created_by"] == "user@example.com"
 
         json_response = json.loads(response.get_data())
         assert json_response["issue"]["issue_id"] == "iss-123"
-        assert json_response["issue"]["frequency"] == 0.75
+        assert json_response["issue"]["root_causes"] == [
+            "Database query inefficiency",
+            "Network latency",
+        ]
 
 
-def test_create_issue_without_frequency():
+def test_create_issue_without_optional_fields():
     request_message = CreateIssue()
     request_message.experiment_id = "exp-456"
     request_message.name = "Error handling issue"
@@ -4348,7 +4341,6 @@ def test_create_issue_without_frequency():
         name="Error handling issue",
         description="Errors are not being caught properly",
         status=IssueStatus.PENDING,
-        frequency=None,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567890,
     )
@@ -4363,13 +4355,12 @@ def test_create_issue_without_frequency():
 
         mock_store.return_value.create_issue.assert_called_once()
         call_kwargs = mock_store.return_value.create_issue.call_args[1]
-        assert call_kwargs["frequency"] is None
+        assert call_kwargs["source_run_id"] is None
+        assert call_kwargs["root_causes"] is None
+        assert call_kwargs["confidence"] is None
 
         json_response = json.loads(response.get_data())
         assert json_response["issue"]["issue_id"] == "iss-456"
-        assert (
-            "frequency" not in json_response["issue"] or json_response["issue"]["frequency"] is None
-        )
 
 
 def test_create_issue_with_default_status():
@@ -4408,7 +4399,8 @@ def test_get_issue():
         name="Test issue",
         description="Test description",
         status=IssueStatus.ACCEPTED,
-        frequency=0.8,
+        confidence="high",
+        root_causes=["Root cause 1"],
         created_timestamp=1234567890,
         last_updated_timestamp=1234567890,
     )
@@ -4424,7 +4416,8 @@ def test_get_issue():
         json_response = json.loads(response.get_data())
         assert json_response["issue"]["issue_id"] == "iss-get-123"
         assert json_response["issue"]["name"] == "Test issue"
-        assert json_response["issue"]["frequency"] == 0.8
+        assert json_response["issue"]["confidence"] == "high"
+        assert json_response["issue"]["root_causes"] == ["Root cause 1"]
 
 
 def test_get_issue_not_found():
@@ -4449,6 +4442,7 @@ def test_update_issue():
     request_message.name = "Updated issue name"
     request_message.description = "Updated description"
     request_message.status = "accepted"
+    request_message.confidence = "medium"
 
     updated_issue = Issue(
         issue_id="iss-update-123",
@@ -4456,7 +4450,7 @@ def test_update_issue():
         name="Updated issue name",
         description="Updated description",
         status=IssueStatus.ACCEPTED,
-        frequency=0.75,
+        confidence="medium",
         created_timestamp=1234567890,
         last_updated_timestamp=1234567900,
     )
@@ -4475,10 +4469,12 @@ def test_update_issue():
         assert call_kwargs["name"] == "Updated issue name"
         assert call_kwargs["description"] == "Updated description"
         assert call_kwargs["status"] == IssueStatus.ACCEPTED
+        assert call_kwargs["confidence"] == "medium"
 
         json_response = json.loads(response.get_data())
         assert json_response["issue"]["issue_id"] == "iss-update-123"
         assert json_response["issue"]["name"] == "Updated issue name"
+        assert json_response["issue"]["confidence"] == "medium"
 
 
 def test_search_issues_all():
@@ -4491,7 +4487,6 @@ def test_search_issues_all():
             name="Issue 1",
             description="Description 1",
             status=IssueStatus.PENDING,
-            frequency=0.9,
             created_timestamp=1234567890,
             last_updated_timestamp=1234567890,
         ),
@@ -4501,7 +4496,6 @@ def test_search_issues_all():
             name="Issue 2",
             description="Description 2",
             status=IssueStatus.ACCEPTED,
-            frequency=0.5,
             created_timestamp=1234567891,
             last_updated_timestamp=1234567891,
         ),
@@ -4517,7 +4511,11 @@ def test_search_issues_all():
 
         mock_store.return_value.search_issues.assert_called_once()
         call_kwargs = mock_store.return_value.search_issues.call_args[1]
-        assert call_kwargs["max_results"] == 100
+        # max_results not specified in request, so it's not passed to store
+        # The store will use its own default parameter value (SEARCH_ISSUES_DEFAULT_MAX_RESULTS)
+        assert "max_results" not in call_kwargs
+        assert call_kwargs["experiment_id"] is None
+        assert call_kwargs["filter_string"] is None
 
         json_response = json.loads(response.get_data())
         assert len(json_response["issues"]) == 2
@@ -4529,8 +4527,7 @@ def test_search_issues_all():
 def test_search_issues_with_filters():
     request_message = SearchIssues()
     request_message.experiment_id = "exp-specific"
-    request_message.run_id = "run-specific"
-    request_message.status = "accepted"
+    request_message.filter_string = "status = 'accepted' AND source_run_id = 'run-specific'"
     request_message.max_results = 50
 
     issues = [
@@ -4540,8 +4537,7 @@ def test_search_issues_with_filters():
             name="Filtered issue",
             description="Description",
             status=IssueStatus.ACCEPTED,
-            frequency=0.8,
-            run_id="run-specific",
+            source_run_id="run-specific",
             created_timestamp=1234567890,
             last_updated_timestamp=1234567890,
         ),
@@ -4557,8 +4553,9 @@ def test_search_issues_with_filters():
 
         call_kwargs = mock_store.return_value.search_issues.call_args[1]
         assert call_kwargs["experiment_id"] == "exp-specific"
-        assert call_kwargs["run_id"] == "run-specific"
-        assert call_kwargs["status"] == IssueStatus.ACCEPTED
+        assert (
+            call_kwargs["filter_string"] == "status = 'accepted' AND source_run_id = 'run-specific'"
+        )
         assert call_kwargs["max_results"] == 50
 
         json_response = json.loads(response.get_data())
@@ -4630,9 +4627,6 @@ def test_create_issue_with_empty_lists():
         name="Test issue",
         description="Test description",
         status=IssueStatus.PENDING,
-        rationale_examples=[],
-        example_trace_ids=[],
-        trace_ids=[],
         created_timestamp=1234567890,
         last_updated_timestamp=1234567890,
     )
@@ -4647,6 +4641,5 @@ def test_create_issue_with_empty_lists():
 
         call_kwargs = mock_store.return_value.create_issue.call_args[1]
         # Empty lists should be passed as None
-        assert call_kwargs["rationale_examples"] is None
-        assert call_kwargs["example_trace_ids"] is None
+        assert call_kwargs["root_causes"] is None
         assert call_kwargs["trace_ids"] is None
