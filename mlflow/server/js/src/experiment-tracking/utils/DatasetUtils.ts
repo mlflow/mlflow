@@ -1,7 +1,9 @@
 import { DatasetSourceTypes, type DatasetSummary, type RunDatasetWithTags } from '../types';
 
 export function datasetSummariesEqual(summary1: DatasetSummary, summary2: DatasetSummary): boolean {
-  return summary1.digest === summary2.digest && summary1.name === summary2.name && summary1.context === summary2.context;
+  return (
+    summary1.digest === summary2.digest && summary1.name === summary2.name && summary1.context === summary2.context
+  );
 }
 
 export function getDatasetSourceUrl(datasetWithTags: RunDatasetWithTags): string | null {
