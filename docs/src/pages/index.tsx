@@ -71,8 +71,15 @@ export default function Home(): JSX.Element {
             <h1 className={styles.megaHeading}>MLflow Documentation</h1>
             <p className={styles.introText}>
               Welcome to the MLflow Documentation. Our documentation is organized into two sections to help you find
-              exactly what you need. Choose <Link to="/genai/"><strong>LLMs & Agents</strong></Link> for agent and LLM application development, tracing, and
-              evaluation tools, or select <Link to="/ml/"><strong>Machine Learning</strong></Link> for traditional ML workflows.
+              exactly what you need. Choose{' '}
+              <Link to="/genai/">
+                <strong>LLMs & Agents</strong>
+              </Link>{' '}
+              for agent and LLM application development, tracing, and evaluation tools, or select{' '}
+              <Link to="/ml/">
+                <strong>Machine Learning</strong>
+              </Link>{' '}
+              for traditional ML workflows.
             </p>
           </div>
 

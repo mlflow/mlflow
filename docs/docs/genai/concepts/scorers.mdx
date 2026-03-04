@@ -177,9 +177,7 @@ correctness_judge = make_judge(
 # Example usage
 feedback = correctness_judge(
     inputs={"question": "What is MLflow?"},
-    outputs={
-        "response": "MLflow is an open-source AI engineering platform."
-    },
+    outputs={"response": "MLflow is an open-source AI engineering platform."},
 )
 print(f"Correctness: {feedback.value}")
 ```
