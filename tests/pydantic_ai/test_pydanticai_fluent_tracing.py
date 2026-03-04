@@ -26,14 +26,18 @@ IS_USAGE_DEPRECATED = PYDANTIC_AI_VERSION >= Version("0.7.3")
 HAS_RUN_STREAM_SYNC = hasattr(Agent, "run_stream_sync")
 # Streaming tests require pydantic-ai >= 1.0.0 due to API changes
 HAS_STABLE_STREAMING_API = PYDANTIC_AI_VERSION >= Version("1.0.0")
-# In pydantic-ai >= 1.63.0, _agent_graph calls execute_tool_call directly instead of handle_call
-from pydantic_ai._tool_manager import ToolManager as _ToolManager
+# In pydantic-ai >= 1.63.0, _agent_graph calls execute_tool_call directly instead of handle_call.
+# _tool_manager module doesn't exist in older versions (e.g. 0.2.x).
+try:
+    from pydantic_ai._tool_manager import ToolManager as _ToolManager
 
-TOOL_MANAGER_SPAN_NAME = (
-    "ToolManager.execute_tool_call"
-    if hasattr(_ToolManager, "execute_tool_call")
-    else "ToolManager.handle_call"
-)
+    TOOL_MANAGER_SPAN_NAME = (
+        "ToolManager.execute_tool_call"
+        if hasattr(_ToolManager, "execute_tool_call")
+        else "ToolManager.handle_call"
+    )
+except ImportError:
+    TOOL_MANAGER_SPAN_NAME = "ToolManager.handle_call"
 
 
 def _make_dummy_response_without_tool():
