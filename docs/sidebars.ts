@@ -469,7 +469,7 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'link',
-          href: '/#running-mlflow-anywhere',
+          href: '/#running-mlflow-for-ml-models-anywhere',
           label: 'Managed Services',
         },
         {
