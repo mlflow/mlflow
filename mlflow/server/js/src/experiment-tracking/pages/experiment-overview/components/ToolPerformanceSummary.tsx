@@ -107,7 +107,7 @@ export const ToolPerformanceSummary: React.FC = () => {
           </div>
 
           {/* Scrollable table body */}
-          <div css={{ maxHeight: 300, overflowY: 'auto' }}>
+          <div css={{ maxHeight: 200, overflowY: 'auto' }}>
             {sortedToolsData.map((tool, index) => {
               const originalIndex = toolsData.findIndex((t) => t.toolName === tool.toolName);
               const colorIndex = originalIndex === -1 ? index : originalIndex;
