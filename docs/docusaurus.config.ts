@@ -339,6 +339,10 @@ const config: Config = {
               '/ml/getting-started/databricks-trial',
             ],
           },
+          {
+            to: '/genai/tracing/quickstart',
+            from: ['/genai/getting-started'],
+          },
           // Redirect deleted data-model pages to GenAI main page
           {
             to: '/genai',
