@@ -6,7 +6,6 @@ The concrete InMemoryBudgetTracker lives in ``budget_tracker.in_memory``.
 
 from __future__ import annotations
 
-import logging
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -14,17 +13,12 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from mlflow.entities.gateway_budget_policy import (
-    BudgetAction as BudgetAction,
-)
-from mlflow.entities.gateway_budget_policy import (
     BudgetDurationUnit,
     BudgetTargetScope,
     GatewayBudgetPolicy,
 )
 from mlflow.environment_variables import MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
-
-_logger = logging.getLogger(__name__)
 
 _EPOCH = datetime.fromtimestamp(0, tz=timezone.utc)
 # Sunday-aligned epoch for WEEKS windows (Dec 28, 1969 is the Sunday before Jan 1, 1970)
@@ -150,9 +144,12 @@ def _compute_window_start(
     - MINUTES: aligned to epoch minutes
     - HOURS: aligned to epoch hours (e.g., duration_value=2 → 0:00, 2:00, 4:00, …)
     - DAYS: aligned to epoch days (e.g., duration_value=7 → weekly from epoch)
-    - WEEKS: aligned to epoch weeks (7-day intervals from epoch)
+    - WEEKS: aligned to Sunday-based weeks using a Sunday-aligned epoch (Dec 28, 1969)
     - MONTHS: aligned to first of months (e.g., duration_value=3 → Jan 1, Apr 1, Jul 1, …)
     """
+    if duration_value <= 0:
+        raise ValueError(f"duration_value must be positive, got {duration_value}")
+
     if duration_unit == BudgetDurationUnit.MINUTES:
         epoch = _EPOCH
         minutes_since_epoch = (now - epoch).total_seconds() / 60
