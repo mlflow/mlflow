@@ -41,10 +41,9 @@ Users need the ability to offload span content to a cheaper trace repository (e.
   - Search/filter on trace metadata **must** continue to work for archived traces
   - The `search_traces` and `get_trace` APIs **must** be unaffected from the caller's perspective
 - The feature **must** support the following repository backends (S3, GCS, Azure, local; similar to the supported integrations for artifact storage)
-- The feature **should** allow three span storage modes at ingestion time:
+- The feature **should** allow two span storage modes at ingestion time:
   - `database` (default, current behavior): spans written to DB for real-time search on span-level attributes
   - `repository`: spans written by the server to the trace repository, only trace-level metadata stored in DB
-  - `direct-to-repository`: server may signal MLflow clients to upload traces directly to the repository (client credentials or pre-signed URL); analogous to client uploading run artifacts. By default the server only allows clients that can upload directly; fallback to `repository` mode (server writes to repository) for OTel clients is opt-in via server config `--fallback-to-trace-root`. Only trace-level metadata stored in DB.
   - Span storage mode **must** be configured on the server only; the client **must not** be able to change or affect this configuration
 - The feature **should** record the storage location of span data in trace metadata so retrieval is transparent
 
@@ -121,10 +120,10 @@ traces repository.
 
 ## Decision Matrix
 
-| Proposals                                                                                                        | Storage Efficiency | Search Capability            | Backward Compat. | Implementation Effort | Standards Compliance |
-| :--------------------------------------------------------------------------------------------------------------- | :----------------- | :--------------------------- | :--------------- | :-------------------- | :------------------- |
-| **Option 1: Tiered storage + repository + direct-to-repository (configurable via `MLFLOW_TRACE_SPANS_STORAGE`)** | Medium to High     | High or trace-only (by mode) | Yes              | Moderate              | High (OTLP standard) |
-| Option 2: Database partitioning + cold table                                                                     | Low                | High (SQL on cold table)     | Yes              | High                  | Low (custom format)  |
+| Proposals                                                                                 | Storage Efficiency | Search Capability            | Backward Compat. | Implementation Effort | Standards Compliance |
+| :---------------------------------------------------------------------------------------- | :----------------- | :--------------------------- | :--------------- | :-------------------- | :------------------- |
+| **Option 1: Tiered storage + repository (configurable via `MLFLOW_TRACE_SPANS_STORAGE`)** | Medium to High     | High or trace-only (by mode) | Yes              | Moderate              | High (OTLP standard) |
+| Option 2: Database partitioning + cold table                                              | Low                | High (SQL on cold table)     | Yes              | High                  | Low (custom format)  |
 
 - **Storage Efficiency:** How much does the approach reduce database storage costs?
 - **Search Capability:** Can users still search/filter on trace metadata after archival?
@@ -135,17 +134,16 @@ traces repository.
 
 ### Option 1 (Recommended): Tiered Storage with OTLP Protobuf Archival and Repository Modes
 
-We propose a single design that supports three configurable **ingestion modes** (server-side, via `MLFLOW_TRACE_SPANS_STORAGE` or `--trace-spans-storage`):
+We propose a single design that supports two configurable **ingestion modes** (server-side, via `MLFLOW_TRACE_SPANS_STORAGE` or `--trace-spans-storage`):
 
 1. **`database` (default)** — Tiered storage: trace span content is stored in the database for a configurable retention window, then archived to the trace repository in OTLP protobuf format. Trace metadata remains in the database permanently; retrieval and retention policies apply as described below.
 2. **`repository`** — Repository: span content is written by the server directly to the trace repository at ingestion time; only trace-level metadata is stored in the DB. No span content is written to the database, so there is no tiered archival step for these traces. Best for users who do not need span-level search and want maximum DB savings with minimal implementation surface.
-3. **`direct-to-repository`** — The server can signal MLflow clients that the client may upload traces directly to the trace repository when the client has the proper credentials or a pre-signed URL. This is analogous to the existing pattern of clients uploading run artifacts directly to the artifact store. Only trace-level metadata is stored in the DB. By default, the server **requires** (only allows) clients that can upload traces directly; clients that cannot (e.g. OTel clients or those without credentials) are not accepted for trace ingestion unless the server is started with **`--fallback-to-trace-root`**. When that option is set, the server falls back to `repository` mode for such clients and writes the trace span data to the repository itself. Best for environments where MLflow clients can assume write access to the trace store (e.g. via pre-signed URLs or shared credentials), reducing server load.
 
-All three modes use the same trace repository layout, OTLP protobuf format for span data, and transparent retrieval via `get_trace` / `search_traces`. Trace metadata remains in the database in all cases, enabling trace-level search and filtering.
+Both modes use the same trace repository layout, OTLP protobuf format for span data, and transparent retrieval via `get_trace` / `search_traces`. Trace metadata remains in the database in all cases, enabling trace-level search and filtering.
 
 NOTE: for cases where the traces storage is down, the server may save traces in the database meanwhile, until the connection is restored.
 
-The key insight is that the `spans.content` column dominates database storage, while the metadata columns (`trace_info`, `trace_tags`, `trace_request_metadata`, `trace_metrics`, `span_metrics`) are compact and valuable for search. By archiving only the span content (or skipping DB for span content in `repository` or `direct-to-repository` mode), we achieve maximum storage savings with minimal impact on functionality.
+The key insight is that the `spans.content` column dominates database storage, while the metadata columns (`trace_info`, `trace_tags`, `trace_request_metadata`, `trace_metrics`, `span_metrics`) are compact and valuable for search. By archiving only the span content (or skipping DB for span content in `repository` mode), we achieve maximum storage savings with minimal impact on functionality.
 
 #### Storage Format: OTLP Protobuf (`TracesData`)
 
@@ -184,7 +182,7 @@ Each `traces.pb` file contains a single `TracesData` message with all spans for 
 **Use the existing `SpansLocation` tag.** MLflow already stores where span data lives via the tag `TraceTagKey.SPANS_LOCATION` = `"mlflow.trace.spansLocation"` (see `mlflow/tracing/constant.py`). The enum `SpansLocation(str, Enum)` currently has `TRACKING_STORE` and `ARTIFACT_REPO`. Extend it with one new value for archival:
 
 - **`TRACKING_STORE`** (existing): Span content is in the `spans` table (current behavior). Traces remain in this state until successfully archived to the trace repository (or artifact repo). Used for traces in `database` ingestion mode that have not yet been archived.
-- **`TRACES_REPO`** (new): Span content has been archived to the trace repository (or written directly in `repository` or `direct-to-repository` ingestion mode). The `spans.content` column is cleared for archived traces; span metadata rows are retained for index-based filtering. Retrieval loads span data from the trace repository.
+- **`TRACES_REPO`** (new): Span content has been archived to the trace repository (or written directly in `repository` ingestion mode). The `spans.content` column is cleared for archived traces; span metadata rows are retained for index-based filtering. Retrieval loads span data from the trace repository.
 - **`ARTIFACT_REPO`** (existing): Retained for existing behavior (e.g. V3 API traces whose spans are stored in the artifact store). Distinct from `TRACES_REPO` for the proposed OTLP trace repository.
 
 Traces stay in `TRACKING_STORE` until archival completes (export to repository + clear DB content + set tag to `TRACES_REPO`). If the process crashes mid-archival, the trace remains `TRACKING_STORE` and will be selected again on the next run (re-export overwrites the file, then clear and set tag).
@@ -265,7 +263,7 @@ def get_trace(self, trace_id, allow_partial=False):
 **Impact on `search_traces`:** Today, `search_traces` supports both trace-level filters (timestamp, state, tags, metrics) and span-level filters (`span.name`, `span.type`, `span.status`, `span.duration_ns`, `span.attributes.*`, etc.). Span-level filters fall into two categories:
 
 - **Column-based span filters** such as `span.name`, `span.type`, `span.status`, and `span.duration_ns` filter against dedicated columns on the `spans` table. Because archival retains span rows and these metadata columns while only clearing/moving `spans.content`, these filters continue to work for archived traces.
-- **JSON-based span filters** such as `span.attributes.*` rely on data stored inside the `spans.content` JSON blob. After archival (or in `repository` or `direct-to-repository` mode), `spans.content` is no longer populated in the DB for archived traces, so these filters no longer match archived traces.
+- **JSON-based span filters** such as `span.attributes.*` rely on data stored inside the `spans.content` JSON blob. After archival (or in `repository` mode), `spans.content` is no longer populated in the DB for archived traces, so these filters no longer match archived traces.
 
 The implementation must handle this gracefully:
 
@@ -285,22 +283,16 @@ For `batch_get_traces`, the implementation should partition trace IDs by `SpansL
                               Can be overridden per workspace via workspaces.traces_destination.
                               Supports the same repository backends as artifacts (S3, GCS, Azure, etc.)
                               Env var: MLFLOW_TRACE_ARCHIVAL_LOCATION
-
---fallback-to-trace-root              When MLFLOW_TRACE_SPANS_STORAGE=direct-to-repository, allow fallback to
-                              repository mode: if the client cannot upload traces directly (e.g. OTel client or
-                              no credentials), the server writes trace span data to the repository. If unset,
-                              only clients that can upload directly are accepted. Env var: MLFLOW_FALLBACK_TO_TRACE_ROOT
 ```
 
 **New environment variables:**
 
-| Variable                               | Description                                                                                                                                                                                                            | Default                           |
-| :------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------- |
-| `MLFLOW_TRACE_ARCHIVAL_LOCATION`       | Global destination URI for the trace repository (trace span storage). Overridable per workspace via `workspaces.traces_destination`.                                                                                   | Same as `--artifacts-destination` |
-| `MLFLOW_TRACE_SPANS_STORAGE`           | Default span storage mode for new traces: `database`, `repository`, or `direct-to-repository` (server-side only; clients cannot override)                                                                              | `database`                        |
-| `MLFLOW_FALLBACK_TO_TRACE_ROOT`        | When span storage is `direct-to-repository`: if set, server falls back to writing trace data to the repository for clients that cannot upload directly (e.g. OTel); if unset, only direct-upload clients are accepted. | false (no fallback)               |
-| `MLFLOW_TRACE_ARCHIVAL_OLDER_THAN`     | Default value for archiving traces older than this duration (e.g., `90d`, `24h`) (global default, overridable via CLI)                                                                                                 | None                              |
-| `MLFLOW_TRACE_ARCHIVAL_MAX_DB_SIZE_MB` | Default value for archiving traces beyond total span content size in DB (global default, overridable via CLI)                                                                                                          | None                              |
+| Variable                               | Description                                                                                                                          | Default                           |
+| :------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------- |
+| `MLFLOW_TRACE_ARCHIVAL_LOCATION`       | Global destination URI for the trace repository (trace span storage). Overridable per workspace via `workspaces.traces_destination`. | Same as `--artifacts-destination` |
+| `MLFLOW_TRACE_SPANS_STORAGE`           | Default span storage mode for new traces: `database` or `repository` (server-side only; clients cannot override)                     | `database`                        |
+| `MLFLOW_TRACE_ARCHIVAL_OLDER_THAN`     | Default value for archiving traces older than this duration (e.g., `90d`, `24h`) (global default, overridable via CLI)               | None                              |
+| `MLFLOW_TRACE_ARCHIVAL_MAX_DB_SIZE_MB` | Default value for archiving traces beyond total span content size in DB (global default, overridable via CLI)                        | None                              |
 
 #### Strengths
 
@@ -312,18 +304,17 @@ For `batch_get_traces`, the implementation should partition trace IDs by `SpansL
 - Idempotent archival process with clear state tracking (`SpansLocation` tag)
 - Flexible retention policies (time-based, size-based, or both)
 - Global policies with optional workspace overrides align with multi-tenant usage
-- Repository and direct-to-repository ingestion modes (`MLFLOW_TRACE_SPANS_STORAGE=repository` or `direct-to-repository`) available for users who don't need span-level DB search: zero span data in DB, no archival job needed for those traces. Direct-to-repository allows MLflow clients to upload trace data directly (e.g. with pre-signed URLs); optional server fallback for OTel or unauthenticated clients is controlled by `--fallback-to-trace-root` / `MLFLOW_FALLBACK_TO_TRACE_ROOT`.
-- Single implementation covers tiered archival, repository, and direct-to-repository; one format (OTLP protobuf) and one retrieval path.
+- Repository ingestion mode (`MLFLOW_TRACE_SPANS_STORAGE=repository`) available for users who don't need span-level DB search: zero span data in DB, no archival job needed for those traces.
+- Single implementation covers tiered archival and repository mode; one format (OTLP protobuf) and one retrieval path.
 
 #### Risks
 
-- **Increased retrieval latency for archived or `repository` / `direct-to-repository` mode traces:** Fetching span data from object storage (S3, GCS) adds latency compared to a DB read. This is acceptable for infrequent historical access but should be documented.
+- **Increased retrieval latency for archived or `repository` mode traces:** Fetching span data from object storage (S3, GCS) adds latency compared to a DB read. This is acceptable for infrequent historical access but should be documented.
 - **No span-level search on archived traces:** After archival, span-level filters (e.g., `span.type = 'LLM'`) won't work against archived span content. Trace-level filters (timestamp, state, tags, metrics) continue to work. This trade-off is inherent to the tiered storage model.
 - **Trace repository availability:** If the trace repository is unavailable, archived traces cannot be retrieved. This is the same availability model as run artifacts today.
 - **Size estimation accuracy:** The `content_size` column stores exact byte size at write time, avoiding the ambiguity of `LENGTH(content)` (which in some engines returns character count rather than bytes). Existing rows require a one-time backfill; until backfilled, their `content_size = 0` will cause them to be underestimated in size-based policies.
 - **Resource intensive "size-based policy":** Computing and ranking trace sizes for the size-based retention policy can be expensive (full scan of span content length, JOINs, sort). It should be run as a scheduled or manual batch job, not inline with request handling. Prefer time-based policy where it is sufficient; use size-based policy when DB size is the primary constraint.
-- **When using `repository` or `direct-to-repository` mode:** No span-level search (trace-level only); mode is chosen at server startup and applies to new traces. Retention policies do not apply to `repository` or `direct-to-repository` mode traces (there is no span content in DB to archive).
-- **When using `direct-to-repository` without `--fallback-to-trace-root`:** Only clients that can upload trace data directly (e.g. MLflow client with credentials or pre-signed URL) are accepted; OTel or other clients without direct-upload capability will not be able to ingest traces unless the server is started with `--fallback-to-trace-root`.
+- **When using `repository` mode:** No span-level search (trace-level only); mode is chosen at server startup and applies to new traces. Retention policies do not apply to `repository` mode traces (there is no span content in DB to archive).
 
 #### Trace Deletion and Archived File Cleanup
 
