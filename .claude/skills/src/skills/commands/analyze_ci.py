@@ -131,7 +131,7 @@ def truncate_logs(logs: str, max_tokens: int = MAX_LOG_TOKENS) -> str:
 
 PR_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/pull/(\d+)")
 JOB_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)/job/(\d+)")
-RUN_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)$")
+RUN_URL_PATTERN = re.compile(r"github\.com/([^/]+/[^/]+)/actions/runs/(\d+)")
 
 
 async def get_failed_jobs_from_pr(
