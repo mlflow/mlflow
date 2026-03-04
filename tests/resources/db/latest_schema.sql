@@ -424,7 +424,7 @@ CREATE TABLE issues (
 	created_by VARCHAR(255),
 	CONSTRAINT issues_pk PRIMARY KEY (issue_id),
 	CONSTRAINT fk_issues_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
-	CONSTRAINT fk_issues_source_run_id FOREIGN KEY(source_run_id) REFERENCES runs (run_uuid) ON DELETE CASCADE
+	CONSTRAINT fk_issues_source_run_id FOREIGN KEY(source_run_id) REFERENCES runs (run_uuid) ON DELETE SET NULL
 )
 
 
