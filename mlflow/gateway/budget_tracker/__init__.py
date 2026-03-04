@@ -1,7 +1,7 @@
 """Budget tracker for AI Gateway cost management.
 
-Provides an abstract BudgetTracker interface and an in-memory implementation.
-Cost accumulation in InMemoryBudgetTracker lives in memory and resets on server restart.
+Provides an abstract BudgetTracker interface and window computation helpers.
+The concrete InMemoryBudgetTracker lives in ``budget_tracker.in_memory``.
 """
 
 from __future__ import annotations
@@ -10,11 +10,13 @@ import logging
 import threading
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from mlflow.entities.gateway_budget_policy import (
-    BudgetAction,
+    BudgetAction as BudgetAction,
+)
+from mlflow.entities.gateway_budget_policy import (
     BudgetDurationUnit,
     BudgetTargetScope,
     GatewayBudgetPolicy,
@@ -23,6 +25,8 @@ from mlflow.environment_variables import MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
+
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 # Module-level singleton
 _budget_tracker: BudgetTracker | None = None
@@ -35,6 +39,8 @@ def get_budget_tracker() -> BudgetTracker:
     if _budget_tracker is None:
         with _tracker_lock:
             if _budget_tracker is None:
+                from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
+
                 _budget_tracker = InMemoryBudgetTracker()
     return _budget_tracker
 
@@ -142,27 +148,35 @@ def _compute_window_start(
     - MINUTES: aligned to epoch minutes
     - HOURS: aligned to epoch hours (e.g., duration_value=2 → 0:00, 2:00, 4:00, …)
     - DAYS: aligned to epoch days (e.g., duration_value=7 → weekly from epoch)
-    - MONTHS: aligned to first of the month
+    - WEEKS: aligned to epoch weeks (7-day intervals from epoch)
+    - MONTHS: aligned to first of months (e.g., duration_value=3 → Jan 1, Apr 1, Jul 1, …)
     """
     if duration_unit == BudgetDurationUnit.MINUTES:
-        epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        epoch = _EPOCH
         minutes_since_epoch = (now - epoch).total_seconds() / 60
         window_index = int(minutes_since_epoch) // duration_value
         window_start_minutes = window_index * duration_value
         return epoch + timedelta(minutes=window_start_minutes)
 
     elif duration_unit == BudgetDurationUnit.HOURS:
-        epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        epoch = _EPOCH
         hours_since_epoch = (now - epoch).total_seconds() / 3600
         window_index = int(hours_since_epoch) // duration_value
         window_start_hours = window_index * duration_value
         return epoch + timedelta(hours=window_start_hours)
 
     elif duration_unit == BudgetDurationUnit.DAYS:
-        epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        epoch = _EPOCH
         days_since_epoch = (now - epoch).days
         window_index = days_since_epoch // duration_value
         window_start_days = window_index * duration_value
+        return epoch + timedelta(days=window_start_days)
+
+    elif duration_unit == BudgetDurationUnit.WEEKS:
+        epoch = _EPOCH
+        days_since_epoch = (now - epoch).days
+        window_index = days_since_epoch // (7 * duration_value)
+        window_start_days = window_index * (7 * duration_value)
         return epoch + timedelta(days=window_start_days)
 
     elif duration_unit == BudgetDurationUnit.MONTHS:
@@ -190,6 +204,8 @@ def _compute_window_end(
         return window_start + timedelta(hours=duration_value)
     elif duration_unit == BudgetDurationUnit.DAYS:
         return window_start + timedelta(days=duration_value)
+    elif duration_unit == BudgetDurationUnit.WEEKS:
+        return window_start + timedelta(weeks=duration_value)
     elif duration_unit == BudgetDurationUnit.MONTHS:
         year = window_start.year
         month = window_start.month + duration_value
@@ -211,150 +227,3 @@ def _policy_applies(policy: GatewayBudgetPolicy, workspace: str | None) -> bool:
         return True
     effective_workspace = workspace or DEFAULT_WORKSPACE_NAME
     return policy.workspace == effective_workspace
-
-
-@dataclass
-class InMemoryBudgetTracker(BudgetTracker):
-    """Thread-safe in-memory budget tracker.
-
-    Tracks cumulative cost per budget policy within fixed time windows.
-    Policies are periodically refreshed from the database.
-    Cost accumulation resets on server restart.
-    """
-
-    _windows: dict[str, BudgetWindow] = field(default_factory=dict)
-    _lock: threading.Lock = field(default_factory=threading.Lock)
-
-    def load_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
-        """Load or refresh policies from the database.
-
-        Preserves accumulated cost for unchanged windows. Removes windows
-        for policies that no longer exist.
-
-        Returns:
-            List of newly created windows (cumulative_spend=0) that may need
-            backfilling from historical trace data.
-        """
-        now = datetime.now(timezone.utc)
-        new_windows: dict[str, BudgetWindow] = {}
-        fresh_windows: list[BudgetWindow] = []
-
-        with self._lock:
-            for policy in policies:
-                pid = policy.budget_policy_id
-                window_start = _compute_window_start(
-                    policy.duration_unit, policy.duration_value, now
-                )
-                window_end = _compute_window_end(
-                    policy.duration_unit, policy.duration_value, window_start
-                )
-
-                existing = self._windows.get(pid)
-                if existing and existing.window_start == window_start:
-                    existing.policy = policy
-                    existing.window_end = window_end
-                    new_windows[pid] = existing
-                else:
-                    window = BudgetWindow(
-                        policy=policy,
-                        window_start=window_start,
-                        window_end=window_end,
-                    )
-                    new_windows[pid] = window
-                    fresh_windows.append(window)
-
-            self._windows = new_windows
-            self.mark_refreshed()
-
-        return fresh_windows
-
-    def record_cost(
-        self,
-        cost_usd: float,
-        workspace: str | None = None,
-    ) -> list[BudgetWindow]:
-        """Record a cost against all applicable policies.
-
-        Args:
-            cost_usd: The cost in USD to record.
-            workspace: The workspace the request was made from.
-
-        Returns:
-            List of windows that were newly exceeded (limit exceeded for the first
-            time in this window). Used to trigger webhook alerts.
-        """
-        newly_exceeded: list[BudgetWindow] = []
-        now = datetime.now(timezone.utc)
-
-        with self._lock:
-            for window in self._windows.values():
-                if now >= window.window_end:
-                    window.window_start = _compute_window_start(
-                        window.policy.duration_unit,
-                        window.policy.duration_value,
-                        now,
-                    )
-                    window.window_end = _compute_window_end(
-                        window.policy.duration_unit,
-                        window.policy.duration_value,
-                        window.window_start,
-                    )
-                    window.cumulative_spend = 0.0
-                    window.exceeded = False
-
-                if not _policy_applies(window.policy, workspace):
-                    continue
-
-                window.cumulative_spend += cost_usd
-
-                if not window.exceeded and window.cumulative_spend >= window.policy.budget_amount:
-                    window.exceeded = True
-                    newly_exceeded.append(window)
-
-        return newly_exceeded
-
-    def should_reject_request(
-        self,
-        workspace: str | None = None,
-    ) -> tuple[bool, GatewayBudgetPolicy | None]:
-        """Check if any REJECT-capable policy is exceeded.
-
-        Args:
-            workspace: The workspace to check against.
-
-        Returns:
-            Tuple of (exceeded, policy). If exceeded is True, policy is the
-            first exceeded policy found.
-        """
-        now = datetime.now(timezone.utc)
-
-        with self._lock:
-            for window in self._windows.values():
-                if now >= window.window_end:
-                    continue
-
-                if not _policy_applies(window.policy, workspace):
-                    continue
-
-                if window.policy.budget_action != BudgetAction.REJECT:
-                    continue
-
-                if window.cumulative_spend >= window.policy.budget_amount:
-                    return True, window.policy
-
-        return False, None
-
-    def backfill_spend(self, budget_policy_id: str, spend: float) -> None:
-        """Set cumulative spend on a window from historical data."""
-        with self._lock:
-            window = self._windows.get(budget_policy_id)
-            if window is None:
-                return
-            window.cumulative_spend = spend
-            if spend >= window.policy.budget_amount:
-                window.exceeded = True
-
-    def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
-        """Get the current window info for a policy (for payload construction)."""
-        with self._lock:
-            return self._windows.get(budget_policy_id)

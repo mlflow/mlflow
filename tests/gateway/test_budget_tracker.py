@@ -12,11 +12,11 @@ from mlflow.entities.gateway_budget_policy import (
 )
 from mlflow.gateway.budget_tracker import (
     BudgetTracker,
-    InMemoryBudgetTracker,
     _compute_window_end,
     _compute_window_start,
     _policy_applies,
 )
+from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
 
 
 def _make_policy(
@@ -67,6 +67,16 @@ def test_compute_window_start_days():
     assert start == expected
 
 
+def test_compute_window_start_weeks():
+    now = datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
+    start = _compute_window_start(BudgetDurationUnit.WEEKS, 2, now)
+    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    days_since_epoch = (now - epoch).days
+    window_index = days_since_epoch // (7 * 2)
+    expected = epoch + timedelta(days=window_index * 14)
+    assert start == expected
+
+
 def test_compute_window_start_months():
     now = datetime(2025, 8, 15, tzinfo=timezone.utc)
     start = _compute_window_start(BudgetDurationUnit.MONTHS, 3, now)
@@ -95,6 +105,12 @@ def test_compute_window_end_days():
     start = datetime(2025, 6, 15, 0, 0, 0, tzinfo=timezone.utc)
     end = _compute_window_end(BudgetDurationUnit.DAYS, 7, start)
     assert end == datetime(2025, 6, 22, 0, 0, 0, tzinfo=timezone.utc)
+
+
+def test_compute_window_end_weeks():
+    start = datetime(2025, 6, 12, 0, 0, 0, tzinfo=timezone.utc)
+    end = _compute_window_end(BudgetDurationUnit.WEEKS, 2, start)
+    assert end == datetime(2025, 6, 26, 0, 0, 0, tzinfo=timezone.utc)
 
 
 def test_compute_window_end_months():
@@ -241,7 +257,7 @@ def test_window_resets_on_expiry():
 
     # Simulate time passing beyond window end
     with patch(
-        "mlflow.gateway.budget_tracker.datetime",
+        "mlflow.gateway.budget_tracker.in_memory.datetime",
     ) as mock_dt:
         mock_dt.now.return_value = window.window_end + timedelta(seconds=1)
         mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
