@@ -667,9 +667,9 @@ def test_issue_reference_creation():
     assert issue_ref.create_time_ms == timestamp_ms
     assert issue_ref.last_update_time_ms == timestamp_ms
 
-    # Test default source is CODE
+    # Test default source is LLM_JUDGE
     issue_ref_default = IssueReference(issue_id="iss-999", issue_name="test_issue")
-    assert issue_ref_default.source.source_type == "CODE"
+    assert issue_ref_default.source.source_type == "LLM_JUDGE"
 
 
 def test_issue_reference_requires_issue_id():

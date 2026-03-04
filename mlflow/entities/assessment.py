@@ -520,7 +520,7 @@ class IssueReference(Assessment):
         last_update_time_ms: int | None = None,
     ):
         if source is None:
-            source = AssessmentSource(source_type=AssessmentSourceType.CODE)
+            source = AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE)
 
         if issue_id is None:
             raise MlflowException.invalid_parameter_value("The `issue_id` field must be specified.")

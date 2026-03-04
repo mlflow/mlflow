@@ -693,7 +693,7 @@ def test_log_issue_reference_default_source(trace_id):
     assert assessment.issue_name == "connection_issue"
     assert assessment.trace_id == trace_id
     assert assessment.issue_id == "iss-67890"
-    assert assessment.source.source_type == AssessmentSourceType.CODE
+    assert assessment.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert assessment.source.source_id == "default"
 
 
@@ -712,7 +712,7 @@ def test_get_issue_reference_assessment(trace_id):
     assert result.issue_name == "performance_issue"
     assert result.trace_id == trace_id
     assert result.issue_id == "iss-55555"
-    assert result.source.source_type == AssessmentSourceType.CODE
+    assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert result.source.source_id == "default"
     assert result.create_time_ms is not None
     assert result.last_update_time_ms is not None
