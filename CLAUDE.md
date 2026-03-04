@@ -190,6 +190,34 @@ gh run view <run-id>
 gh run watch
 ```
 
+### Stacked PRs with git stack
+
+Use `git stack` to manage stacked (dependent) pull requests:
+
+```bash
+# Create a branch for the first PR
+git stack create first-change
+# Make changes, then commit
+git add . && git commit -s -m "First change"
+git stack push   # Creates the PR
+
+# Create a dependent second PR
+git stack create second-change
+# Make changes, then commit
+git add . && git commit -s -m "Second change"
+git stack push   # Creates the second PR
+
+# Address review comments on the first PR
+git switch stack/first-change
+# Make changes, then commit
+git add . && git commit -s -m "Address review comments"
+git stack sync   # Rebases dependent branches onto the updated first branch
+# If merge conflicts: resolve, then: git rebase --continue && git stack sync --continue --from stack/first-change
+git stack push   # Updates both PRs
+```
+
+Key commands: `git stack create <name>`, `git stack push`, `git stack sync`, `git stack commit` (commit + sync in one step).
+
 ## Pre-commit Hooks
 
 The repository uses pre-commit for code quality. Install hooks with:
