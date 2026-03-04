@@ -615,13 +615,6 @@ def process_transcript(
             MESSAGE_FIELD_CONTENT, ""
         )
 
-        # Extract Claude Code version from transcript entries (CLI-only).
-        # The first entry is often a queue-operation without a version field,
-        # so scan until we find one.
-        claude_code_version = next(
-            (entry.get("version") for entry in transcript if "version" in entry), None
-        )
-
         if not session_id:
             session_id = f"claude-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
@@ -648,6 +641,11 @@ def process_transcript(
         conv_end_ns = parse_timestamp_to_ns(last_entry.get(MESSAGE_FIELD_TIMESTAMP))
         if not conv_end_ns or conv_end_ns <= conv_start_ns:
             conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)
+
+        # Extract Claude Code version from transcript entries (CLI-only)
+        claude_code_version = next(
+            (ver for entry in transcript if (ver := entry.get("version"))), None
+        )
 
         return _finalize_trace(
             parent_span,
