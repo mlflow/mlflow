@@ -1,26 +1,27 @@
 import { DatasetSourceTypes, type DatasetSummary, type RunDatasetWithTags } from '../types';
 
-export const datasetSummariesEqual = (summary1: DatasetSummary, summary2: DatasetSummary) =>
-  summary1.digest === summary2.digest && summary1.name === summary2.name && summary1.context === summary2.context;
+export function datasetSummariesEqual(summary1: DatasetSummary, summary2: DatasetSummary): boolean {
+  return summary1.digest === summary2.digest && summary1.name === summary2.name && summary1.context === summary2.context;
+}
 
-export const getDatasetSourceUrl = (datasetWithTags: RunDatasetWithTags): string | null => {
+export function getDatasetSourceUrl(datasetWithTags: RunDatasetWithTags): string | null {
   const { dataset } = datasetWithTags;
-  const sourceType = dataset.sourceType;
+
   try {
-    if (sourceType === DatasetSourceTypes.HTTP || sourceType === DatasetSourceTypes.EXTERNAL) {
-      const { url } = JSON.parse(dataset.source);
-      return url ?? null;
-    }
-    if (sourceType === DatasetSourceTypes.S3) {
-      const { uri } = JSON.parse(dataset.source);
-      return uri ?? null;
-    }
-    if (sourceType === DatasetSourceTypes.HUGGING_FACE) {
-      const { path } = JSON.parse(dataset.source);
-      return path ? `https://huggingface.co/datasets/${path}` : null;
+    const parsed = JSON.parse(dataset.source);
+
+    switch (dataset.sourceType) {
+      case DatasetSourceTypes.HTTP:
+      case DatasetSourceTypes.EXTERNAL:
+        return parsed.url ?? null;
+      case DatasetSourceTypes.S3:
+        return parsed.uri ?? null;
+      case DatasetSourceTypes.HUGGING_FACE:
+        return parsed.path ? `https://huggingface.co/datasets/${parsed.path}` : null;
+      default:
+        return null;
     }
   } catch {
     return null;
   }
-  return null;
-};
+}

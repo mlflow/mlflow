@@ -14,7 +14,7 @@ export interface DatasetLinkProps {
   experimentId?: string;
 }
 
-export const ExperimentViewDatasetLink = ({ datasetWithTags, runTags, experimentId }: DatasetLinkProps) => {
+export function ExperimentViewDatasetLink({ datasetWithTags, experimentId }: DatasetLinkProps): JSX.Element | null {
   const { dataset } = datasetWithTags;
 
   if (experimentId) {
@@ -52,5 +52,6 @@ export const ExperimentViewDatasetLink = ({ datasetWithTags, runTags, experiment
       );
     }
   }
+
   return null;
-};
+}

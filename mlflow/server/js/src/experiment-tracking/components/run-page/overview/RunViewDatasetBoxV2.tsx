@@ -34,8 +34,8 @@ export const RunViewDatasetBoxV2 = ({
         experimentId: runInfo.experimentId ?? undefined,
         runUuid: runInfo.runUuid ?? '',
         runName: runInfo.runName ?? undefined,
-        datasets: datasets,
-        tags: tags,
+        datasets,
+        tags,
       },
     });
     setIsDrawerOpen(true);

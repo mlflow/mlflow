@@ -147,45 +147,47 @@ const ExperimentViewDatasetDrawerImpl = ({
                   flex: 1,
                 }}
               >
-                {runData.datasets.map((dataset) => (
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`${dataset.dataset.name} (${dataset.dataset.digest})`}
-                    key={`${dataset.dataset.name}-${dataset.dataset.digest}`}
-                    css={{
-                      display: 'flex',
-                      whiteSpace: 'nowrap',
-                      cursor: 'pointer',
-                      flexDirection: 'column',
-                      justifyContent: 'center',
-                      alignItems: 'flex-start',
-                      backgroundColor: areDatasetsEqual(dataset, datasetWithTags)
-                        ? theme.colors.actionTertiaryBackgroundPress
-                        : 'transparent',
-                      paddingBottom: theme.spacing.sm,
-                      paddingTop: theme.spacing.sm,
-                      paddingLeft: theme.spacing.sm,
-                      border: 0,
-                      borderTop: `1px solid ${theme.colors.border}`,
-                      '&:hover': {
-                        backgroundColor: theme.colors.actionTertiaryBackgroundHover,
-                      },
-                    }}
-                    onClick={() => {
-                      setSelectedDatasetWithRun({ datasetWithTags: dataset, runData: runData });
-                      setIsOpen(true);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        setSelectedDatasetWithRun({ datasetWithTags: dataset, runData: runData });
-                        setIsOpen(true);
-                      }
-                    }}
-                  >
-                    <ExperimentViewDatasetWithContext datasetWithTags={dataset} displayTextAsLink={false} />
-                  </div>
-                ))}
+                {runData.datasets.map((dataset) => {
+                  const selectDataset = () => {
+                    setSelectedDatasetWithRun({ datasetWithTags: dataset, runData });
+                    setIsOpen(true);
+                  };
+                  return (
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${dataset.dataset.name} (${dataset.dataset.digest})`}
+                      key={`${dataset.dataset.name}-${dataset.dataset.digest}`}
+                      css={{
+                        display: 'flex',
+                        whiteSpace: 'nowrap',
+                        cursor: 'pointer',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'flex-start',
+                        backgroundColor: areDatasetsEqual(dataset, datasetWithTags)
+                          ? theme.colors.actionTertiaryBackgroundPress
+                          : 'transparent',
+                        paddingBottom: theme.spacing.sm,
+                        paddingTop: theme.spacing.sm,
+                        paddingLeft: theme.spacing.sm,
+                        border: 0,
+                        borderTop: `1px solid ${theme.colors.border}`,
+                        '&:hover': {
+                          backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+                        },
+                      }}
+                      onClick={selectDataset}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          selectDataset();
+                        }
+                      }}
+                    >
+                      <ExperimentViewDatasetWithContext datasetWithTags={dataset} displayTextAsLink={false} />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
