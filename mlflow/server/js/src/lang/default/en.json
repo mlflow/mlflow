@@ -1894,6 +1894,10 @@
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
   },
+  "B5WVpt": {
+    "defaultMessage": "Analysis model: {analysisModel} · Judge model: {judgeModel}",
+    "description": "Display of default models for selected provider"
+  },
   "B80MC6": {
     "defaultMessage": "Contour Plot",
     "description": "Tab pane title for contour plots on the compare runs page"
@@ -3618,10 +3622,6 @@
     "defaultMessage": "Link prompts to traces",
     "description": "Heading describing how to add prompts when no prompt records are available"
   },
-  "O6uYS1": {
-    "defaultMessage": "Saved API keys can be managed in AI Gateway → API Keys tab",
-    "description": "Tooltip explaining where saved API keys can be found"
-  },
   "O9r1RR": {
     "defaultMessage": "Start Time:",
     "description": "Row title for the start time of runs on the experiment compare runs page"
@@ -4928,6 +4928,10 @@
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
   },
+  "XQSxtK": {
+    "defaultMessage": "Please select models in `Advanced settings` below",
+    "description": "Message when provider has no default models"
+  },
   "XX8+x1": {
     "defaultMessage": "View prompt template",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
@@ -5619,10 +5623,6 @@
     "defaultMessage": "Compare by",
     "description": "Runs charts > components > charts > DifferenceViewPlot > Compare by column heading"
   },
-  "c8EovS": {
-    "defaultMessage": "Save this key for reuse",
-    "description": "Checkbox to save API key for reuse"
-  },
   "cAKSkQ": {
     "defaultMessage": "Select a cell to display preview",
     "description": "Experiment page > table view > preview sidebar > nothing selected"
@@ -5802,10 +5802,6 @@
   "d8cdYc": {
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
-  },
-  "dFvZdM": {
-    "defaultMessage": "Connections",
-    "description": "Section header for API key configuration"
   },
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
