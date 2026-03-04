@@ -1191,34 +1191,22 @@ class SqlIssue(Base):
     def __repr__(self):
         return f"<SqlIssue({self.issue_id}, {self.name}, {self.status})>"
 
-    def to_mlflow_entity(self, trace_ids: list[str] | None = None) -> Issue:
+    def to_mlflow_entity(self) -> Issue:
         """
         Convert DB model to corresponding MLflow entity.
-
-        Args:
-            trace_ids: Optional list of trace IDs associated with this issue.
 
         Returns:
             :py:class:`mlflow.entities.Issue` object.
         """
-
         return Issue(
             issue_id=self.issue_id,
             experiment_id=str(self.experiment_id),
-            run_id=self.run_id,
             name=self.name,
             description=self.description,
-            root_cause=self.root_cause,
             status=self.status,
-            frequency=self.frequency,
             confidence=self.confidence,
-            rationale_examples=(
-                json.loads(self.rationale_examples) if self.rationale_examples else None
-            ),
-            example_trace_ids=(
-                json.loads(self.example_trace_ids) if self.example_trace_ids else None
-            ),
-            trace_ids=trace_ids or None,
+            root_causes=json.loads(self.root_causes) if self.root_causes else None,
+            source_run_id=self.source_run_id,
             created_timestamp=self.created_timestamp,
             last_updated_timestamp=self.last_updated_timestamp,
             created_by=self.created_by,

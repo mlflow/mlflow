@@ -5780,12 +5780,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         name: str,
         description: str,
         status: str,
-        frequency: float | None = None,
-        run_id: str | None = None,
-        root_cause: str | None = None,
         confidence: str | None = None,
-        rationale_examples: list[str] | None = None,
-        example_trace_ids: list[str] | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
         trace_ids: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
@@ -5797,12 +5794,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             name: Short descriptive name for the issue.
             description: Detailed description of the issue.
             status: Issue status.
-            frequency: Optional frequency score indicating how often this issue occurs.
-            run_id: Optional run ID that discovered this issue.
-            root_cause: Optional analysis of the root cause.
             confidence: Optional confidence level indicator.
-            rationale_examples: Optional list of rationale examples.
-            example_trace_ids: Optional list of example trace IDs.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional run ID that discovered this issue.
             trace_ids: Optional list of trace IDs associated with this issue.
             created_by: Optional identifier for who created this issue.
 
@@ -5814,8 +5808,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
 
             # Verify run exists if provided
-            if run_id:
-                self._get_run(run_uuid=run_id, session=session)
+            if source_run_id:
+                self._get_run(run_uuid=source_run_id, session=session)
 
             # Generate issue ID
             issue_id = f"iss-{uuid.uuid4().hex}"
@@ -5823,23 +5817,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Get current timestamp
             current_time = get_current_time_millis()
 
-            # Serialize list fields to JSON
-            rationale_examples_json = json.dumps(rationale_examples) if rationale_examples else None
-            example_trace_ids_json = json.dumps(example_trace_ids) if example_trace_ids else None
+            # Serialize root_causes to JSON
+            root_causes_json = json.dumps(root_causes) if root_causes else None
 
             # Create SqlIssue record
             sql_issue = SqlIssue(
                 issue_id=issue_id,
                 experiment_id=experiment_id,
-                run_id=run_id,
                 name=name,
                 description=description,
-                root_cause=root_cause,
                 status=status,
-                frequency=frequency,
                 confidence=confidence,
-                rationale_examples=rationale_examples_json,
-                example_trace_ids=example_trace_ids_json,
+                root_causes=root_causes_json,
+                source_run_id=source_run_id,
                 created_timestamp=current_time,
                 last_updated_timestamp=current_time,
                 created_by=created_by,
@@ -5859,7 +5849,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         issue_name=name,
                         source=AssessmentSource(source_type="CODE", source_id="issue_discovery"),
                         trace_id=trace_id,
-                        run_id=run_id,
+                        run_id=source_run_id,
                         create_time_ms=current_time,
                         last_update_time_ms=current_time,
                     )
@@ -5871,7 +5861,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.commit()
 
             # Return Issue entity
-            return sql_issue.to_mlflow_entity(trace_ids=trace_ids)
+            return sql_issue.to_mlflow_entity()
 
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints

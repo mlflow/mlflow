@@ -21,14 +21,10 @@ def test_create_issue_required_fields_only(store):
     assert issue.experiment_id == exp_id
     assert issue.name == "High latency"
     assert issue.description == "API calls are taking too long"
-    assert issue.frequency is None
     assert issue.status == "draft"
-    assert issue.run_id is None
-    assert issue.root_cause is None
     assert issue.confidence is None
-    assert issue.rationale_examples is None
-    assert issue.example_trace_ids is None
-    assert issue.trace_ids is None
+    assert issue.root_causes is None
+    assert issue.source_run_id is None
     assert issue.created_by is None
     assert issue.created_timestamp > 0
     assert issue.last_updated_timestamp == issue.created_timestamp
@@ -46,29 +42,23 @@ def test_create_issue_with_all_fields(store):
 
     issue = store.create_issue(
         experiment_id=exp_id,
-        run_id=run.info.run_id,
         name="Token limit exceeded",
         description="Model is hitting token limits frequently",
-        frequency=0.42,
         status="accepted",
-        root_cause="Input prompts are too long",
         confidence="high",
-        rationale_examples=["Example 1", "Example 2"],
-        example_trace_ids=["trace-1", "trace-2"],
+        root_causes=["Input prompts are too long", "Context window exceeded"],
+        source_run_id=run.info.run_id,
         created_by="user@example.com",
     )
 
     assert issue.issue_id.startswith("iss-")
     assert issue.experiment_id == exp_id
-    assert issue.run_id == run.info.run_id
     assert issue.name == "Token limit exceeded"
     assert issue.description == "Model is hitting token limits frequently"
-    assert issue.frequency == 0.42
     assert issue.status == "accepted"
-    assert issue.root_cause == "Input prompts are too long"
     assert issue.confidence == "high"
-    assert issue.rationale_examples == ["Example 1", "Example 2"]
-    assert issue.example_trace_ids == ["trace-1", "trace-2"]
+    assert issue.root_causes == ["Input prompts are too long", "Context window exceeded"]
+    assert issue.source_run_id == run.info.run_id
     assert issue.created_by == "user@example.com"
 
 
@@ -111,15 +101,11 @@ def test_create_issue_with_trace_ids(store):
         experiment_id=exp_id,
         name="Authentication failure",
         description="Users are getting auth errors",
-        frequency=0.15,
         status="draft",
         trace_ids=[trace_info_1.request_id, trace_info_2.request_id],
     )
 
     assert issue.issue_id.startswith("iss-")
-    assert len(issue.trace_ids) == 2
-    assert trace_info_1.request_id in issue.trace_ids
-    assert trace_info_2.request_id in issue.trace_ids
 
 
 def test_create_issue_invalid_experiment(store):
@@ -128,7 +114,6 @@ def test_create_issue_invalid_experiment(store):
             experiment_id="999999",
             name="Test issue",
             description="This should fail",
-            frequency=0.5,
             status="draft",
         )
 
@@ -139,10 +124,9 @@ def test_create_issue_invalid_run(store):
     with pytest.raises(MlflowException, match=r"Run .* not found"):
         store.create_issue(
             experiment_id=exp_id,
-            run_id="nonexistent-run-id",
+            source_run_id="nonexistent-run-id",
             name="Test issue",
             description="This should fail",
-            frequency=0.5,
             status="draft",
         )
 
@@ -173,7 +157,6 @@ def test_create_issue_creates_issue_reference_assessments(store):
         experiment_id=exp_id,
         name="Timeout error",
         description="Request timeouts",
-        frequency=0.4,
         status="draft",
         trace_ids=[trace_info.request_id],
     )
