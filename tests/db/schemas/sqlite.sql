@@ -413,21 +413,18 @@ CREATE TABLE endpoint_tags (
 CREATE TABLE issues (
 	issue_id VARCHAR(36) NOT NULL,
 	experiment_id INTEGER NOT NULL,
-	run_id VARCHAR(32),
 	name VARCHAR(250) NOT NULL,
 	description TEXT NOT NULL,
-	root_cause TEXT,
-	status VARCHAR(50) DEFAULT 'draft' NOT NULL,
-	frequency FLOAT,
+	status VARCHAR(50) NOT NULL,
 	confidence VARCHAR(50),
-	rationale_examples TEXT,
-	example_trace_ids TEXT,
+	root_causes TEXT,
+	source_run_id VARCHAR(32),
 	created_timestamp BIGINT NOT NULL,
 	last_updated_timestamp BIGINT NOT NULL,
 	created_by VARCHAR(255),
 	CONSTRAINT issues_pk PRIMARY KEY (issue_id),
 	CONSTRAINT fk_issues_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
-	CONSTRAINT fk_issues_run_id FOREIGN KEY(run_id) REFERENCES runs (run_uuid) ON DELETE CASCADE
+	CONSTRAINT fk_issues_source_run_id FOREIGN KEY(source_run_id) REFERENCES runs (run_uuid) ON DELETE CASCADE
 )
 
 

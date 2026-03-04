@@ -1130,11 +1130,6 @@ class SqlIssue(Base):
     """
     Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table. Required.
     """
-    run_id = Column(String(32), ForeignKey("runs.run_uuid", ondelete="CASCADE"), nullable=True)
-    """
-    Run ID that discovered this issue: `String` (limit 32 characters).
-    *Foreign Key* into ``runs`` table. Nullable for manually created issues.
-    """
     name = Column(String(250), nullable=False)
     """
     Issue name/title: `String` (limit 250 characters).
@@ -1143,29 +1138,24 @@ class SqlIssue(Base):
     """
     Detailed description of the issue: `Text`.
     """
-    root_cause = Column(Text, nullable=True)
-    """
-    Root cause analysis of the issue: `Text`. Nullable if root cause is not yet determined.
-    """
     status = Column(String(50), nullable=False)
     """
     Issue status: `String` (limit 50 characters).
-    """
-    frequency = Column(Float, nullable=True)
-    """
-    Frequency score: `Float` between 0.0 and 1.0 indicating how often this issue occurs. Optional.
     """
     confidence = Column(String(50), nullable=True)
     """
     Confidence level: `String` (limit 50 characters). Optional indicator of detection confidence.
     """
-    rationale_examples = Column(Text, nullable=True)
+    root_causes = Column(Text, nullable=True)
     """
-    Rationale examples stored as JSON array: `Text`. Nullable if no examples provided.
+    Root causes analysis stored as JSON array: `Text`. Nullable if root causes are not yet determined.
     """
-    example_trace_ids = Column(Text, nullable=True)
+    source_run_id = Column(
+        String(32), ForeignKey("runs.run_uuid", ondelete="CASCADE"), nullable=True
+    )
     """
-    Example trace IDs stored as JSON array: `Text`. Nullable if no example traces selected.
+    Source run ID that discovered this issue: `String` (limit 32 characters).
+    *Foreign Key* into ``runs`` table. Nullable for manually created issues.
     """
     created_timestamp = Column(BigInteger, nullable=False)
     """
@@ -1180,7 +1170,9 @@ class SqlIssue(Base):
     Creator identifier: `String` (limit 255 characters). Optional.
     """
 
-    run = relationship("SqlRun", backref=backref("issues", cascade="all"))
+    run = relationship(
+        "SqlRun", foreign_keys=[source_run_id], backref=backref("issues", cascade="all")
+    )
     """
     SQLAlchemy relationship (many:one) with
     :py:class:`mlflow.store.tracking.dbmodels.models.SqlRun`.
@@ -1189,7 +1181,7 @@ class SqlIssue(Base):
     __table_args__ = (
         PrimaryKeyConstraint("issue_id", name="issues_pk"),
         Index(f"index_{__tablename__}_experiment_id", "experiment_id"),
-        Index(f"index_{__tablename__}_run_id", "run_id"),
+        Index(f"index_{__tablename__}_source_run_id", "source_run_id"),
         Index(f"index_{__tablename__}_status", "status"),
     )
 

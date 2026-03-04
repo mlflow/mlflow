@@ -21,15 +21,12 @@ def upgrade():
         SqlIssue.__tablename__,
         sa.Column("issue_id", sa.String(length=36), nullable=False),
         sa.Column("experiment_id", sa.Integer(), nullable=False),
-        sa.Column("run_id", sa.String(length=32), nullable=True),
         sa.Column("name", sa.String(length=250), nullable=False),
         sa.Column("description", sa.Text(), nullable=False),
-        sa.Column("root_cause", sa.Text(), nullable=True),
-        sa.Column("status", sa.String(length=50), nullable=False, server_default="draft"),
-        sa.Column("frequency", sa.Float(), nullable=True),
+        sa.Column("status", sa.String(length=50), nullable=False),
         sa.Column("confidence", sa.String(length=50), nullable=True),
-        sa.Column("rationale_examples", sa.Text(), nullable=True),
-        sa.Column("example_trace_ids", sa.Text(), nullable=True),
+        sa.Column("root_causes", sa.Text(), nullable=True),
+        sa.Column("source_run_id", sa.String(length=32), nullable=True),
         sa.Column("created_timestamp", sa.BigInteger(), nullable=False),
         sa.Column("last_updated_timestamp", sa.BigInteger(), nullable=False),
         sa.Column("created_by", sa.String(length=255), nullable=True),
@@ -40,9 +37,9 @@ def upgrade():
             ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
-            ["run_id"],
+            ["source_run_id"],
             ["runs.run_uuid"],
-            name="fk_issues_run_id",
+            name="fk_issues_source_run_id",
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("issue_id", name="issues_pk"),
@@ -55,8 +52,8 @@ def upgrade():
             unique=False,
         )
         batch_op.create_index(
-            f"index_{SqlIssue.__tablename__}_run_id",
-            ["run_id"],
+            f"index_{SqlIssue.__tablename__}_source_run_id",
+            ["source_run_id"],
             unique=False,
         )
         batch_op.create_index(
