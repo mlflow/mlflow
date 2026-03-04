@@ -16,6 +16,54 @@ import { formatCredentialFieldName, sortFieldsByProvider } from '../../../../../
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import type { AuthMode } from '../../../../../gateway/types';
 
+/**
+ * Helper function to get the selected auth mode from available modes.
+ * Returns the matched mode if currentAuthMode is provided and found,
+ * otherwise returns the default mode or the first available mode.
+ */
+function getSelectedAuthMode(
+  authModes: AuthMode[],
+  currentAuthMode: string | undefined,
+  defaultAuthMode: string | undefined,
+): AuthMode | undefined {
+  if (!authModes.length) return undefined;
+  if (currentAuthMode) {
+    const matched = authModes.find((m) => m.mode === currentAuthMode);
+    if (matched) return matched;
+  }
+  return authModes.find((m) => m.mode === defaultAuthMode) ?? authModes[0];
+}
+
+/**
+ * Creates a handler function for updating secret fields in API key configuration.
+ */
+function createSecretFieldChangeHandler(value: ApiKeyConfiguration, onChange: (value: ApiKeyConfiguration) => void) {
+  return (fieldName: string, fieldValue: string) => {
+    onChange({
+      ...value,
+      newSecret: {
+        ...value.newSecret,
+        secretFields: { ...value.newSecret.secretFields, [fieldName]: fieldValue },
+      },
+    });
+  };
+}
+
+/**
+ * Creates a handler function for updating config fields in API key configuration.
+ */
+function createConfigFieldChangeHandler(value: ApiKeyConfiguration, onChange: (value: ApiKeyConfiguration) => void) {
+  return (fieldName: string, fieldValue: string) => {
+    onChange({
+      ...value,
+      newSecret: {
+        ...value.newSecret,
+        configFields: { ...value.newSecret.configFields, [fieldName]: fieldValue },
+      },
+    });
+  };
+}
+
 interface IssueDetectionApiKeyConfiguratorProps {
   value: ApiKeyConfiguration;
   onChange: (value: ApiKeyConfiguration) => void;
@@ -43,14 +91,10 @@ export function IssueDetectionApiKeyConfigurator({
 }: IssueDetectionApiKeyConfiguratorProps) {
   const { theme } = useDesignSystemTheme();
 
-  const selectedAuthMode = useMemo((): AuthMode | undefined => {
-    if (!authModes.length) return undefined;
-    if (value.newSecret.authMode) {
-      const matched = authModes.find((m) => m.mode === value.newSecret.authMode);
-      if (matched) return matched;
-    }
-    return authModes.find((m) => m.mode === defaultAuthMode) ?? authModes[0];
-  }, [authModes, value.newSecret.authMode, defaultAuthMode]);
+  const selectedAuthMode = useMemo(
+    () => getSelectedAuthMode(authModes, value.newSecret.authMode, defaultAuthMode),
+    [authModes, value.newSecret.authMode, defaultAuthMode],
+  );
 
   const requiredFields = useMemo(() => {
     const secretFields = (selectedAuthMode?.secret_fields ?? []).map((field) => ({
@@ -107,31 +151,9 @@ export function IssueDetectionApiKeyConfigurator({
     [onChange, value],
   );
 
-  const handleSecretFieldChange = useCallback(
-    (fieldName: string, fieldValue: string) => {
-      onChange({
-        ...value,
-        newSecret: {
-          ...value.newSecret,
-          secretFields: { ...value.newSecret.secretFields, [fieldName]: fieldValue },
-        },
-      });
-    },
-    [onChange, value],
-  );
+  const handleSecretFieldChange = useMemo(() => createSecretFieldChangeHandler(value, onChange), [onChange, value]);
 
-  const handleConfigFieldChange = useCallback(
-    (fieldName: string, fieldValue: string) => {
-      onChange({
-        ...value,
-        newSecret: {
-          ...value.newSecret,
-          configFields: { ...value.newSecret.configFields, [fieldName]: fieldValue },
-        },
-      });
-    },
-    [onChange, value],
-  );
+  const handleConfigFieldChange = useMemo(() => createConfigFieldChangeHandler(value, onChange), [onChange, value]);
 
   if (!provider) {
     return (
@@ -207,6 +229,74 @@ export function IssueDetectionApiKeyConfigurator({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+interface IssueDetectionAdvancedApiKeySettingsProps {
+  value: ApiKeyConfiguration;
+  onChange: (value: ApiKeyConfiguration) => void;
+  provider: string;
+  authModes: AuthMode[];
+  defaultAuthMode: string | undefined;
+  disabled?: boolean;
+  componentIdPrefix?: string;
+}
+
+/**
+ * Advanced API key settings for issue detection.
+ * Shows optional credential fields only.
+ */
+export function IssueDetectionAdvancedApiKeySettings({
+  value,
+  onChange,
+  provider,
+  authModes,
+  defaultAuthMode,
+  disabled,
+  componentIdPrefix = 'mlflow.traces.issue-detection.api-key-advanced',
+}: IssueDetectionAdvancedApiKeySettingsProps) {
+  const { theme } = useDesignSystemTheme();
+
+  const selectedAuthMode = useMemo(
+    () => getSelectedAuthMode(authModes, value.newSecret.authMode, defaultAuthMode),
+    [authModes, value.newSecret.authMode, defaultAuthMode],
+  );
+
+  const optionalFields = useMemo(() => {
+    const secretFields = (selectedAuthMode?.secret_fields ?? []).map((field) => ({
+      ...field,
+      fieldType: 'secret' as const,
+    }));
+    const configFields = (selectedAuthMode?.config_fields ?? []).map((field) => ({
+      ...field,
+      fieldType: 'config' as const,
+    }));
+    const allFields = [...secretFields, ...configFields];
+    const sorted = sortFieldsByProvider(allFields, provider);
+    return sorted.filter((field) => !field.required);
+  }, [selectedAuthMode?.secret_fields, selectedAuthMode?.config_fields, provider]);
+
+  const handleSecretFieldChange = useMemo(() => createSecretFieldChangeHandler(value, onChange), [onChange, value]);
+
+  const handleConfigFieldChange = useMemo(() => createConfigFieldChangeHandler(value, onChange), [onChange, value]);
+
+  if (optionalFields.length === 0) {
+    return null;
+  }
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      {optionalFields.map((field) => (
+        <FieldInput
+          key={field.name}
+          field={field}
+          value={field.fieldType === 'secret' ? value.newSecret.secretFields : value.newSecret.configFields}
+          onChange={field.fieldType === 'secret' ? handleSecretFieldChange : handleConfigFieldChange}
+          componentIdPrefix={componentIdPrefix}
+          disabled={disabled}
+        />
+      ))}
     </div>
   );
 }
