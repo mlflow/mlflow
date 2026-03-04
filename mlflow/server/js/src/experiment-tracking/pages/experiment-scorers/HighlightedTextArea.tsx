@@ -144,6 +144,10 @@ export const HighlightedTextArea: React.FC<HighlightedTextAreaProps> = ({
         }}
       >
         {highlightedContent}
+        {/* Textareas render a trailing newline as a visible blank line (for the
+            cursor), but pre-wrap divs do not. Add a space so the backdrop
+            matches the textarea's content height. */}
+        {value?.endsWith('\n') && ' '}
       </div>
 
       {/* Transparent textarea on top for input */}
