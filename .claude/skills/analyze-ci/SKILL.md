@@ -15,7 +15,7 @@ This skill analyzes logs from failed GitHub Action jobs using Claude.
 
 ## Usage
 
-> **Note:** Always single-quote URLs to prevent zsh from treating `?` in query parameters (e.g., `?pr=123`) as a glob wildcard.
+> **Note:** Always single-quote URLs to prevent the shell from interpreting special characters (e.g., `?` in query parameters).
 
 ```bash
 # Analyze all failed jobs in a PR
