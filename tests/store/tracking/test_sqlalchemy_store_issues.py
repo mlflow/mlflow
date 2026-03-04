@@ -94,15 +94,12 @@ def test_get_issue(store):
 
     created_issue = store.create_issue(
         experiment_id=exp_id,
-        run_id=run.info.run_id,
         name="Low accuracy",
         description="Model accuracy below threshold",
-        frequency=0.88,
         status="draft",
-        root_cause="Insufficient training data",
         confidence="medium",
-        rationale_examples=["Example 1", "Example 2", "Example 3"],
-        example_trace_ids=["trace-a", "trace-b"],
+        root_causes=["Insufficient training data", "Model drift"],
+        source_run_id=run.info.run_id,
         created_by="alice@example.com",
     )
 
@@ -111,16 +108,12 @@ def test_get_issue(store):
     # Verify all fields
     assert retrieved_issue.issue_id == created_issue.issue_id
     assert retrieved_issue.experiment_id == exp_id
-    assert retrieved_issue.run_id == run.info.run_id
     assert retrieved_issue.name == "Low accuracy"
     assert retrieved_issue.description == "Model accuracy below threshold"
-    assert retrieved_issue.frequency == 0.88
     assert retrieved_issue.status == "draft"
-    assert retrieved_issue.root_cause == "Insufficient training data"
     assert retrieved_issue.confidence == "medium"
-    assert retrieved_issue.rationale_examples == ["Example 1", "Example 2", "Example 3"]
-    assert retrieved_issue.example_trace_ids == ["trace-a", "trace-b"]
-    assert retrieved_issue.trace_ids is None
+    assert retrieved_issue.root_causes == ["Insufficient training data", "Model drift"]
+    assert retrieved_issue.source_run_id == run.info.run_id
     assert retrieved_issue.created_by == "alice@example.com"
     assert retrieved_issue.created_timestamp is not None
     assert retrieved_issue.created_timestamp > 0

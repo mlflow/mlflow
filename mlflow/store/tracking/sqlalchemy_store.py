@@ -5832,27 +5832,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Return Issue entity
             return sql_issue.to_mlflow_entity()
 
-    def _get_trace_ids_for_issue(self, session, issue_id: str) -> list[str]:
-        """
-        Helper function to efficiently query trace IDs associated with an issue.
-
-        Args:
-            session: SQLAlchemy session
-            issue_id: The issue ID to query trace IDs for
-
-        Returns:
-            List of trace IDs associated with the issue
-        """
-        assessments = (
-            session.query(SqlAssessments.trace_id)
-            .filter(
-                SqlAssessments.assessment_type == "issue",
-                SqlAssessments.name == issue_id,
-            )
-            .all()
-        )
-        return [assessment.trace_id for assessment in assessments]
-
     def get_issue(self, issue_id: str) -> Issue:
         """
         Get an issue by ID.
@@ -5871,9 +5850,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            trace_ids = self._get_trace_ids_for_issue(session, issue_id)
-
-            return sql_issue.to_mlflow_entity(trace_ids=trace_ids or None)
+            return sql_issue.to_mlflow_entity()
 
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints
