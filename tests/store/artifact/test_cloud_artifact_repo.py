@@ -6,11 +6,11 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo, ArtifactCredentialType
 from mlflow.store.artifact.cloud_artifact_repo import (
+    _ARTIFACT_UPLOAD_BATCH_SIZE,
+    _LARGE_FILE_SIZE_THRESHOLD,
     CloudArtifactRepository,
     FileUploadPlan,
     StagedArtifactUpload,
-    _ARTIFACT_UPLOAD_BATCH_SIZE,
-    _LARGE_FILE_SIZE_THRESHOLD,
     _readable_size,
     _validate_chunk_size_aws,
 )
@@ -286,7 +286,8 @@ def test_detect_cloud_type_no_creds_returned():
     [
         (1024, 3.0),
         (200 * 1024**2, 5.0),
-        (_LARGE_FILE_SIZE_THRESHOLD, 3.0),  # Boundary: exactly at threshold uses standard (> not >=)
+        # Boundary: exactly at threshold uses standard delay (> not >=)
+        (_LARGE_FILE_SIZE_THRESHOLD, 3.0),
     ],
 )
 def test_compute_upload_delay(file_size, expected_delay):
@@ -460,9 +461,7 @@ def test_serial_upload_with_delays_success(monkeypatch):
         instance._compute_upload_delay.return_value = 3.0
         instance.thread_pool.submit.side_effect = futures
 
-        with mock.patch(
-            "mlflow.store.artifact.cloud_artifact_repo.time.sleep"
-        ) as mock_sleep:
+        with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
             failures = instance._upload_files_serially_with_delays(plans)
 
     assert failures == {}
@@ -497,9 +496,7 @@ def test_serial_upload_with_delays_failure(monkeypatch):
         instance._compute_upload_delay.return_value = 3.0
         instance.thread_pool.submit.side_effect = [ok_future, fail_future]
 
-        with mock.patch(
-            "mlflow.store.artifact.cloud_artifact_repo.time.sleep"
-        ) as mock_sleep:
+        with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
             failures = instance._upload_files_serially_with_delays(plans)
 
     assert "fail.txt" in failures
@@ -523,9 +520,7 @@ def test_serial_upload_with_delays_single_file(monkeypatch):
         _unmock(instance, "_upload_files_serially_with_delays")
         instance.thread_pool.submit.return_value = future
 
-        with mock.patch(
-            "mlflow.store.artifact.cloud_artifact_repo.time.sleep"
-        ) as mock_sleep:
+        with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
             failures = instance._upload_files_serially_with_delays([plan])
 
     assert failures == {}
@@ -551,9 +546,7 @@ def test_upload_batch_aws_mixed_small_and_large():
         _unmock(instance, "_upload_batch_aws")
         instance._upload_files_parallel.return_value = {}
 
-        with mock.patch(
-            "mlflow.store.artifact.cloud_artifact_repo.time.sleep"
-        ) as mock_sleep:
+        with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
             failures = instance._upload_batch_aws([small, large], multipart_threshold)
 
     assert failures == {}
@@ -582,9 +575,7 @@ def test_upload_batch_aws_only_small_files():
         _unmock(instance, "_upload_batch_aws")
         instance._upload_files_parallel.return_value = {}
 
-        with mock.patch(
-            "mlflow.store.artifact.cloud_artifact_repo.time.sleep"
-        ) as mock_sleep:
+        with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
             failures = instance._upload_batch_aws(plans, multipart_threshold)
 
     assert failures == {}
@@ -606,9 +597,7 @@ def test_upload_batch_aws_only_large_files():
         _unmock(instance, "_upload_batch_aws")
         instance._upload_files_parallel.return_value = {}
 
-        with mock.patch(
-            "mlflow.store.artifact.cloud_artifact_repo.time.sleep"
-        ) as mock_sleep:
+        with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
             failures = instance._upload_batch_aws(plans, multipart_threshold)
 
     assert failures == {}
@@ -687,9 +676,7 @@ def test_upload_batch_azure_proxy_safe_single_file():
         instance._requires_proxy_safe_uploads = True
         instance._upload_files_parallel.return_value = {}
 
-        failures = instance._upload_batch_azure_gcp(
-            [plan], ArtifactCredentialType.AZURE_SAS_URI
-        )
+        failures = instance._upload_batch_azure_gcp([plan], ArtifactCredentialType.AZURE_SAS_URI)
 
     assert failures == {}
     instance._upload_files_parallel.assert_called_once_with([plan])
@@ -714,9 +701,7 @@ def test_upload_batch_azure_direct_parallel():
         instance._requires_proxy_safe_uploads = False
         instance._upload_files_parallel.return_value = {}
 
-        failures = instance._upload_batch_azure_gcp(
-            plans, ArtifactCredentialType.AZURE_SAS_URI
-        )
+        failures = instance._upload_batch_azure_gcp(plans, ArtifactCredentialType.AZURE_SAS_URI)
 
     assert failures == {}
     instance._upload_files_parallel.assert_called_once_with(plans)
@@ -741,9 +726,7 @@ def test_upload_batch_gcp_always_parallel():
         instance._requires_proxy_safe_uploads = True
         instance._upload_files_parallel.return_value = {}
 
-        failures = instance._upload_batch_azure_gcp(
-            plans, ArtifactCredentialType.GCP_SIGNED_URL
-        )
+        failures = instance._upload_batch_azure_gcp(plans, ArtifactCredentialType.GCP_SIGNED_URL)
 
     assert failures == {}
     instance._upload_files_parallel.assert_called_once_with(plans)
