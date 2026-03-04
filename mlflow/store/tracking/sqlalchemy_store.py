@@ -5860,6 +5860,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         status: str | None = None,
         name: str | None = None,
         description: str | None = None,
+        confidence: str | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -5869,6 +5870,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             status: Optional new status.
             name: Optional new name for the issue.
             description: Optional new description.
+            confidence: Optional new confidence level.
 
         Returns:
             The updated Issue entity.
@@ -5889,16 +5891,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 sql_issue.name = name
             if description is not None:
                 sql_issue.description = description
+            if confidence is not None:
+                sql_issue.confidence = confidence
 
             # Update last_updated_timestamp
             sql_issue.last_updated_timestamp = get_current_time_millis()
 
             session.flush()
 
-            # Fetch trace_ids for the updated issue
-            trace_ids = self._get_trace_ids_for_issue(session, issue_id)
-
-            return sql_issue.to_mlflow_entity(trace_ids=trace_ids or None)
+            return sql_issue.to_mlflow_entity()
 
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints

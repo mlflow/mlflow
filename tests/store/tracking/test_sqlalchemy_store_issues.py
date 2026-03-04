@@ -136,12 +136,13 @@ def test_update_issue(store):
         confidence="low",
     )
 
-    # Update all supported fields (status, name, description)
+    # Update all supported fields (status, name, description, confidence)
     updated_issue = store.update_issue(
         issue_id=created_issue.issue_id,
         status="accepted",
         name="Updated name",
         description="Updated description",
+        confidence="high",
     )
 
     # Verify updated fields
@@ -150,10 +151,10 @@ def test_update_issue(store):
     assert updated_issue.status == "accepted"
     assert updated_issue.name == "Updated name"
     assert updated_issue.description == "Updated description"
+    assert updated_issue.confidence == "high"
 
     # Verify other fields remain unchanged
     assert updated_issue.root_causes == ["Initial root cause"]
-    assert updated_issue.confidence == "low"
     assert updated_issue.source_run_id is None
     assert updated_issue.created_by == created_issue.created_by
     assert updated_issue.created_timestamp == created_issue.created_timestamp
@@ -164,8 +165,8 @@ def test_update_issue(store):
     assert retrieved_issue.status == "accepted"
     assert retrieved_issue.name == "Updated name"
     assert retrieved_issue.description == "Updated description"
+    assert retrieved_issue.confidence == "high"
     assert retrieved_issue.root_causes == ["Initial root cause"]
-    assert retrieved_issue.confidence == "low"
     assert retrieved_issue.last_updated_timestamp == updated_issue.last_updated_timestamp
 
 

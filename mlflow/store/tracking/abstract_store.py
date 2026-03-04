@@ -647,6 +647,7 @@ class AbstractStore(GatewayStoreMixin):
         status: str | None = None,
         name: str | None = None,
         description: str | None = None,
+        confidence: str | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -656,6 +657,7 @@ class AbstractStore(GatewayStoreMixin):
             status: Optional new status.
             name: Optional new name for the issue.
             description: Optional new description.
+            confidence: Optional new confidence level.
 
         Returns:
             The updated Issue entity.
