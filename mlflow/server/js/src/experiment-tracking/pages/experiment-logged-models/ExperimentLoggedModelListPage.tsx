@@ -27,7 +27,7 @@ import { RunsChartsSetHighlightContextProvider } from '../../components/runs-cha
 import { BadRequestError } from '@databricks/web-shared/errors';
 import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks/useResizableMaxWidth';
 import { useExperimentKind, isGenAIExperimentKind } from '../../utils/ExperimentKindUtils';
-import { useExperiment } from '../../hooks/useExperiment';
+import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 
 const INITIAL_RUN_COLUMN_SIZE = 295;
 const CHARTS_MIN_WIDTH = 350;
@@ -40,7 +40,7 @@ const ExperimentLoggedModelListPageImpl = () => {
   invariant(experimentId, 'Experiment ID must be defined');
 
   // Get experiment to determine if it's a GenAI (agent) experiment
-  const { experiment } = useExperiment(experimentId);
+  const { data: experiment } = useGetExperimentQuery({ experimentId });
   const experimentKind = useExperimentKind(experiment?.tags);
   const isAgent = experimentKind ? isGenAIExperimentKind(experimentKind) : false;
 

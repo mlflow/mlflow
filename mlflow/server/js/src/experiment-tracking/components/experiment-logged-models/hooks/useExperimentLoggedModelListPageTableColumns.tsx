@@ -322,10 +322,15 @@ export const useExperimentLoggedModelListPageTableColumns = ({
           resizable: true,
         },
         {
-          headerName: intl.formatMessage({
-            defaultMessage: 'Registered models',
-            description: 'Header title for the registered models column in the logged model list table',
-          }),
+          headerName: isAgent
+            ? intl.formatMessage({
+                defaultMessage: 'Registered agents',
+                description: 'Header title for the registered agents column in the logged agent list table',
+              })
+            : intl.formatMessage({
+                defaultMessage: 'Registered models',
+                description: 'Header title for the registered models column in the logged model list table',
+              }),
           colId: ExperimentLoggedModelListPageKnownColumns.RegisteredModels,
           cellRenderer: ExperimentLoggedModelTableRegisteredModelsCell,
           resizable: true,
