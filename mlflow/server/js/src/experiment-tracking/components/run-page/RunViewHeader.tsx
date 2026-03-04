@@ -172,8 +172,8 @@ export const RunViewHeader = ({
             <span data-testid="runs-header">{runDisplayName}</span>
           </span>
         }
-        breadcrumbs={breadcrumbs}
-        /* prettier-ignore */
+      // breadcrumbs={breadcrumbs}
+      /* prettier-ignore */
       >
         {renderCompareButton()}
         {renderRegisterModelButton()}
@@ -188,14 +188,14 @@ export const RunViewHeader = ({
             },
             ...(handleDeleteRunClick
               ? [
-                  {
-                    id: 'overflow-delete-button',
-                    onClick: handleDeleteRunClick,
-                    itemName: (
-                      <FormattedMessage defaultMessage="Delete" description="Menu item to delete an experiment run" />
-                    ),
-                  },
-                ]
+                {
+                  id: 'overflow-delete-button',
+                  onClick: handleDeleteRunClick,
+                  itemName: (
+                    <FormattedMessage defaultMessage="Delete" description="Menu item to delete an experiment run" />
+                  ),
+                },
+              ]
               : []),
           ]}
         />

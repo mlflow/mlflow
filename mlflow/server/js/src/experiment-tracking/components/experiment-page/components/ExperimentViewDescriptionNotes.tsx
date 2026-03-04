@@ -98,9 +98,9 @@ export const ExperimentViewDescriptionNotes = ({
       css={
         shouldEnableExperimentPageSideTabs()
           ? {
-              paddingBottom: theme.spacing.sm,
-              borderBottom: `1px solid ${theme.colors.border}`,
-            }
+            // paddingBottom: theme.spacing.sm,
+            // borderBottom: `1px solid ${theme.colors.border}`,
+          }
           : undefined
       }
     >

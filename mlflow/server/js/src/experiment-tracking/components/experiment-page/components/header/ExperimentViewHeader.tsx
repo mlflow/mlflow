@@ -158,121 +158,122 @@ export const ExperimentViewHeader = React.memo(
     const showBreadcrumbs = !shouldEnableExperimentPageSideTabs() || shouldEnableWorkflowBasedNavigation();
 
     return (
-      <div
-        css={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: theme.spacing.xs,
-          marginBottom: shouldEnableExperimentPageSideTabs() ? theme.spacing.xs : theme.spacing.sm,
-        }}
-      >
-        {showBreadcrumbs && (
-          <Breadcrumb includeTrailingCaret>
-            {breadcrumbs.map((breadcrumb, index) => (
-              <Breadcrumb.Item key={index}>{breadcrumb}</Breadcrumb.Item>
-            ))}
-          </Breadcrumb>
-        )}
-        <div
-          css={{
-            display: 'grid',
-            gridTemplateColumns: shouldEnableExperimentPageSideTabs() ? '1fr auto auto' : '1fr 1fr 1fr',
-          }}
-        >
-          <div
-            css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', overflow: 'hidden', minWidth: 250 }}
-          >
-            {shouldEnableExperimentPageSideTabs() && (
-              <>
-                {!shouldEnableWorkflowBasedNavigation() && (
-                  <Button
-                    componentId="mlflow.experiment-page.header.back-icon-button"
-                    data-testid="experiment-view-header-back-button"
-                    type="tertiary"
-                    icon={<ArrowLeftIcon />}
-                    onClick={handleBack}
-                  />
-                )}
-                <div
-                  css={{
-                    borderRadius: theme.borders.borderRadiusSm,
-                    backgroundColor: theme.colors.backgroundSecondary,
-                    padding: theme.spacing.sm,
-                  }}
-                >
-                  {getTabDisplayIcon(activeTabByRoute)}
-                </div>
-              </>
-            )}
-            <Tooltip
-              content={normalizedExperimentName}
-              open={shouldEnableWorkflowBasedNavigation() ? false : undefined}
-              componentId="mlflow.experiment_view.header.experiment-name-tooltip"
-            >
-              <span
-                css={{
-                  maxWidth: '100%',
-                  overflow: 'hidden',
-                }}
-              >
-                <Typography.Title
-                  withoutMargins
-                  level={2}
-                  css={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {experimentTitle}
-                </Typography.Title>
-              </span>
-            </Tooltip>
-            {experimentKindSelector}
-            {getInfoTooltip()}
-          </div>
-          {shouldEnableExperimentPageSideTabs() ? <div /> : <TabSelectorBar experimentKind={experimentKind} />}
-          <div
-            css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
-          >
-            {shouldEnableExperimentPageSideTabs() && (
-              <ExperimentViewManagementMenu
-                experiment={experiment}
-                setEditing={setEditing}
-                refetchExperiment={refetchExperiment}
-              />
-            )}
-            <ExperimentViewHeaderShareButton
-              type={shouldEnableExperimentPageSideTabs() ? undefined : 'primary'}
-              experimentIds={experimentIds}
-              searchFacetsState={searchFacetsState}
-              uiState={uiState}
-            />
-            {shouldEnableExperimentPageSideTabs() && showDocsLink && (
-              <Typography.Link
-                componentId="mlflow.experiment-page.header.docs-link"
-                href={docLinkHref}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button componentId="mlflow.experiment-page.header.docs-link-button" icon={<InfoBookIcon />}>
-                  <FormattedMessage
-                    defaultMessage="View docs"
-                    description="Text for docs link button on experiment view page header"
-                  />
-                </Button>
-              </Typography.Link>
-            )}
-            {!shouldEnableExperimentPageSideTabs() && (
-              <ExperimentViewManagementMenu
-                experiment={experiment}
-                setEditing={setEditing}
-                refetchExperiment={refetchExperiment}
-              />
-            )}
-          </div>
-        </div>
-      </div>
+      // <div
+      //   css={{
+      //     display: 'flex',
+      //     flexDirection: 'column',
+      //     gap: theme.spacing.xs,
+      //     marginBottom: shouldEnableExperimentPageSideTabs() ? theme.spacing.xs : theme.spacing.sm,
+      //   }}
+      // >
+      //   {showBreadcrumbs && (
+      //     <Breadcrumb includeTrailingCaret>
+      //       {breadcrumbs.map((breadcrumb, index) => (
+      //         <Breadcrumb.Item key={index}>{breadcrumb}</Breadcrumb.Item>
+      //       ))}
+      //     </Breadcrumb>
+      //   )}
+      //   <div
+      //     css={{
+      //       display: 'grid',
+      //       gridTemplateColumns: shouldEnableExperimentPageSideTabs() ? '1fr auto auto' : '1fr 1fr 1fr',
+      //     }}
+      //   >
+      //     <div
+      //       css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', overflow: 'hidden', minWidth: 250 }}
+      //     >
+      //       {shouldEnableExperimentPageSideTabs() && (
+      //         <>
+      //           {!shouldEnableWorkflowBasedNavigation() && (
+      //             <Button
+      //               componentId="mlflow.experiment-page.header.back-icon-button"
+      //               data-testid="experiment-view-header-back-button"
+      //               type="tertiary"
+      //               icon={<ArrowLeftIcon />}
+      //               onClick={handleBack}
+      //             />
+      //           )}
+      //           <div
+      //             css={{
+      //               borderRadius: theme.borders.borderRadiusSm,
+      //               backgroundColor: theme.colors.backgroundSecondary,
+      //               padding: theme.spacing.sm,
+      //             }}
+      //           >
+      //             {getTabDisplayIcon(activeTabByRoute)}
+      //           </div>
+      //         </>
+      //       )}
+      //       <Tooltip
+      //         content={normalizedExperimentName}
+      //         open={shouldEnableWorkflowBasedNavigation() ? false : undefined}
+      //         componentId="mlflow.experiment_view.header.experiment-name-tooltip"
+      //       >
+      //         <span
+      //           css={{
+      //             maxWidth: '100%',
+      //             overflow: 'hidden',
+      //           }}
+      //         >
+      //           <Typography.Title
+      //             withoutMargins
+      //             level={2}
+      //             css={{
+      //               overflow: 'hidden',
+      //               textOverflow: 'ellipsis',
+      //               whiteSpace: 'nowrap',
+      //             }}
+      //           >
+      //             {experimentTitle}
+      //           </Typography.Title>
+      //         </span>
+      //       </Tooltip>
+      //       {experimentKindSelector}
+      //       {getInfoTooltip()}
+      //     </div>
+      //     {shouldEnableExperimentPageSideTabs() ? <div /> : <TabSelectorBar experimentKind={experimentKind} />}
+      //     <div
+      //       css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
+      //     >
+      //       {shouldEnableExperimentPageSideTabs() && (
+      //         <ExperimentViewManagementMenu
+      //           experiment={experiment}
+      //           setEditing={setEditing}
+      //           refetchExperiment={refetchExperiment}
+      //         />
+      //       )}
+      //       <ExperimentViewHeaderShareButton
+      //         type={shouldEnableExperimentPageSideTabs() ? undefined : 'primary'}
+      //         experimentIds={experimentIds}
+      //         searchFacetsState={searchFacetsState}
+      //         uiState={uiState}
+      //       />
+      //       {shouldEnableExperimentPageSideTabs() && showDocsLink && (
+      //         <Typography.Link
+      //           componentId="mlflow.experiment-page.header.docs-link"
+      //           href={docLinkHref}
+      //           target="_blank"
+      //           rel="noopener noreferrer"
+      //         >
+      //           <Button componentId="mlflow.experiment-page.header.docs-link-button" icon={<InfoBookIcon />}>
+      //             <FormattedMessage
+      //               defaultMessage="View docs"
+      //               description="Text for docs link button on experiment view page header"
+      //             />
+      //           </Button>
+      //         </Typography.Link>
+      //       )}
+      //       {!shouldEnableExperimentPageSideTabs() && (
+      //         <ExperimentViewManagementMenu
+      //           experiment={experiment}
+      //           setEditing={setEditing}
+      //           refetchExperiment={refetchExperiment}
+      //         />
+      //       )}
+      //     </div>
+      //   </div>
+      // </div>
+      <></>
     );
   },
 );

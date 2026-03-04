@@ -182,7 +182,7 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
       <Header
-        breadcrumbs={breadcrumbs}
+        // breadcrumbs={breadcrumbs}
         title={promptDetailsData?.prompt?.name}
         buttons={
           <>

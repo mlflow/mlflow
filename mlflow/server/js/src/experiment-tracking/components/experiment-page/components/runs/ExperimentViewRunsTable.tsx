@@ -553,15 +553,15 @@ const styles = {
         // Padding fixes for the header (if custom header component is used)
         '.ag-header-cell': usingCustomHeaderComponent
           ? {
-              padding: 0,
-            }
+            padding: 0,
+          }
           : undefined,
 
         '.ag-header-cell .ag-checkbox': usingCustomHeaderComponent
           ? {
-              padding: '0 7px',
-              borderLeft: '1px solid transparent', // to match it with the cell sizing
-            }
+            padding: '0 7px',
+            borderLeft: '1px solid transparent', // to match it with the cell sizing
+          }
           : undefined,
 
         '.ag-cell.is-ordered-by, .ag-header-cell > .is-ordered-by': {

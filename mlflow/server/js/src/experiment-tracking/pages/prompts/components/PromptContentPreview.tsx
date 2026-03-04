@@ -143,7 +143,7 @@ export const PromptContentPreview = ({
               description="A label for a button to delete prompt version on the prompt details page"
             />
           </Button>
-          <Button
+          {/* <Button
             componentId="mlflow.prompts.details.preview.optimize"
             icon={<LightningIcon />}
             onClick={() => setShowOptimizeModal(true)}
@@ -162,7 +162,7 @@ export const PromptContentPreview = ({
               defaultMessage="Use"
               description="A label for a button to display the modal with the usage example of the prompt"
             />
-          </Button>
+          </Button> */}
         </div>
       </div>
       <Spacer shrinks={false} />
