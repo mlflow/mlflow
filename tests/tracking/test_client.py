@@ -50,6 +50,7 @@ from mlflow.exceptions import (
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
 )
+from mlflow.prompt.registry_utils import PromptCache
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.sqlalchemy_store import (
@@ -77,7 +78,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 from mlflow.utils.os import is_windows
-from mlflow.prompt.registry_utils import PromptCache
 
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.helper import create_test_trace_info, get_traces
@@ -686,7 +686,7 @@ def disable_prompt_cache():
     MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.unset()
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def reset_prompt_cache():
     PromptCache._reset_instance()
     yield
@@ -2485,7 +2485,7 @@ def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
         client.get_prompt_version("test_prompt", 1)
 
 
-def test_delete_prompt_version_invalidates_cached_load_prompt(tracking_uri, reset_prompt_cache):
+def test_delete_prompt_version_invalidates_cached_load_prompt(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     client.register_prompt(name="test_prompt", template="Version 1")
@@ -2501,7 +2501,7 @@ def test_delete_prompt_version_invalidates_cached_load_prompt(tracking_uri, rese
         client.load_prompt("test_prompt", version=1)
 
 
-def test_delete_prompt_version_invalidates_latest_cache(tracking_uri, reset_prompt_cache):
+def test_delete_prompt_version_invalidates_latest_cache(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     client.register_prompt(name="test_prompt", template="Version 1")
@@ -2518,7 +2518,7 @@ def test_delete_prompt_version_invalidates_latest_cache(tracking_uri, reset_prom
     assert latest_prompt_after_delete.template == "Version 1"
 
 
-def test_delete_prompt_version_invalidates_alias_cache(tracking_uri, reset_prompt_cache):
+def test_delete_prompt_version_invalidates_alias_cache(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     client.register_prompt(name="test_prompt", template="Version 1")
@@ -2533,7 +2533,10 @@ def test_delete_prompt_version_invalidates_alias_cache(tracking_uri, reset_promp
 
     with pytest.raises(
         MlflowException,
-        match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found.|Prompt.*version=1.*not found",
+        match=(
+            r"Prompt (.*) does not exist.|Prompt alias (.*) not found.|"
+            r"Prompt.*version=1.*not found"
+        ),
     ):
         client.load_prompt("prompts:/test_prompt@production")
 
@@ -2558,14 +2561,13 @@ def test_delete_prompt_with_no_versions(tracking_uri):
     assert prompt is None
 
 
-def test_delete_prompt_invalidates_cached_load_prompt(tracking_uri, reset_prompt_cache):
+def test_delete_prompt_invalidates_cached_load_prompt(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     client.register_prompt(name="test_prompt", template="Version 1")
     loaded = client.load_prompt("test_prompt", version=1)
     assert loaded.template == "Version 1"
 
-    client.delete_prompt_version("test_prompt", "1")
     client.delete_prompt("test_prompt")
 
     assert client.get_prompt("test_prompt") is None
