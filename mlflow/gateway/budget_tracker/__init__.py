@@ -26,7 +26,9 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
 
-_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_EPOCH = datetime.fromtimestamp(0, tz=timezone.utc)
+# Sunday-aligned epoch for WEEKS windows (Dec 28, 1969 is the Sunday before Jan 1, 1970)
+_EPOCH_SUNDAY = _EPOCH - timedelta(days=4)
 
 # Module-level singleton
 _budget_tracker: BudgetTracker | None = None
@@ -173,11 +175,10 @@ def _compute_window_start(
         return epoch + timedelta(days=window_start_days)
 
     elif duration_unit == BudgetDurationUnit.WEEKS:
-        epoch = _EPOCH
-        days_since_epoch = (now - epoch).days
-        window_index = days_since_epoch // (7 * duration_value)
+        days_since_sunday_epoch = (now - _EPOCH_SUNDAY).days
+        window_index = days_since_sunday_epoch // (7 * duration_value)
         window_start_days = window_index * (7 * duration_value)
-        return epoch + timedelta(days=window_start_days)
+        return _EPOCH_SUNDAY + timedelta(days=window_start_days)
 
     elif duration_unit == BudgetDurationUnit.MONTHS:
         year = now.year

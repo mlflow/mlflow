@@ -68,13 +68,22 @@ def test_compute_window_start_days():
 
 
 def test_compute_window_start_weeks():
+    # June 15, 2025 is a Sunday — window should start on that Sunday
     now = datetime(2025, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
+    start = _compute_window_start(BudgetDurationUnit.WEEKS, 1, now)
+    assert start == datetime(2025, 6, 15, 0, 0, 0, tzinfo=timezone.utc)
+    assert start.weekday() == 6  # Sunday
+
+    # Wednesday mid-week — window should start on preceding Sunday
+    now = datetime(2025, 6, 18, 14, 30, 0, tzinfo=timezone.utc)
+    start = _compute_window_start(BudgetDurationUnit.WEEKS, 1, now)
+    assert start == datetime(2025, 6, 15, 0, 0, 0, tzinfo=timezone.utc)
+    assert start.weekday() == 6  # Sunday
+
+    # Multi-week (2-week) windows also start on Sundays
+    now = datetime(2025, 6, 20, 0, 0, 0, tzinfo=timezone.utc)
     start = _compute_window_start(BudgetDurationUnit.WEEKS, 2, now)
-    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
-    days_since_epoch = (now - epoch).days
-    window_index = days_since_epoch // (7 * 2)
-    expected = epoch + timedelta(days=window_index * 14)
-    assert start == expected
+    assert start.weekday() == 6  # Sunday
 
 
 def test_compute_window_start_months():
