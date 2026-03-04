@@ -76,7 +76,11 @@ export function useGetTrace(
 
     const expected = JSON.parse(traceStats).num_spans;
     const actual = data?.data?.spans?.length ?? 0;
-    if (expected === actual) {
+
+    // Poll until the actual span count reaches at least the expected count.
+    // NB: In distributed tracing case, the actual span count exceeds the expected count because
+    // sizeStats only counts spans from the originating process.
+    if (actual >= expected) {
       okStatePollCountRef.current = 0;
       return false;
     }
@@ -89,6 +93,7 @@ export function useGetTrace(
       return false;
     }
 
+    // Poll again after 1 second
     return 1000;
   };
 

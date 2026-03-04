@@ -826,6 +826,9 @@ class Linter(ast.NodeVisitor):
         if rules.UseGhToken.check(node, self.resolver):
             self._check(Range.from_node(node), rules.UseGhToken())
 
+        if rule := rules.PreferOsEnviron.check(node, self.resolver):
+            self._check(Range.from_node(node), rule)
+
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
