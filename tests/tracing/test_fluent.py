@@ -2811,3 +2811,159 @@ assert len(trace_ids) == 5
             "MLFLOW_TRACE_SAMPLING_RATIO": "0.0",
         },
     )
+
+
+def test_configure_trace_injects_metadata_and_tags():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(
+        metadata={"custom_key": "custom_value"},
+        tags={"my_tag": "tag_value"},
+    ):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.request_metadata["custom_key"] == "custom_value"
+    assert trace.info.tags["my_tag"] == "tag_value"
+
+
+def test_configure_trace_no_wrapper_span():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(metadata={"k": "v"}):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    # Only the one span from @mlflow.trace, no wrapper
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "my_func"
+
+
+def test_configure_trace_nesting_merges():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(
+        metadata={"outer_key": "outer_val", "shared": "outer"},
+        tags={"outer_tag": "ot"},
+    ):
+        with mlflow.configure_trace(
+            metadata={"inner_key": "inner_val", "shared": "inner"},
+            tags={"inner_tag": "it"},
+        ):
+            my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    # Both outer and inner metadata present
+    assert trace.info.request_metadata["outer_key"] == "outer_val"
+    assert trace.info.request_metadata["inner_key"] == "inner_val"
+    # Inner wins on conflict
+    assert trace.info.request_metadata["shared"] == "inner"
+    # Both tags present
+    assert trace.info.tags["outer_tag"] == "ot"
+    assert trace.info.tags["inner_tag"] == "it"
+
+
+def test_configure_trace_resets_after_exit():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(metadata={"session": "s1"}):
+        pass
+
+    # Trace created outside the block should NOT have the metadata
+    my_func()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert "session" not in trace.info.request_metadata
+
+
+def test_configure_trace_metadata_only():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(metadata={"k": "v"}):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.request_metadata["k"] == "v"
+
+
+def test_configure_trace_tags_only():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(tags={"t": "v"}):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.tags["t"] == "v"
+
+
+def test_configure_trace_session_id_and_user():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(session_id="sess-123", user="user@example.com"):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.trace_metadata["mlflow.trace.session"] == "sess-123"
+    assert trace.info.trace_metadata["mlflow.trace.user"] == "user@example.com"
+
+
+def test_configure_trace_session_id_with_metadata():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(
+        session_id="sess-456",
+        user="alice",
+        metadata={"custom_key": "custom_value"},
+    ):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.trace_metadata["mlflow.trace.session"] == "sess-456"
+    assert trace.info.trace_metadata["mlflow.trace.user"] == "alice"
+    assert trace.info.trace_metadata["custom_key"] == "custom_value"
+
+
+def test_update_current_trace_with_session_id_and_user():
+    @mlflow.trace
+    def my_func():
+        mlflow.update_current_trace(session_id="sess-789", user="bob")
+        return "hello"
+
+    my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.trace_metadata["mlflow.trace.session"] == "sess-789"
+    assert trace.info.trace_metadata["mlflow.trace.user"] == "bob"
+
+
+def test_update_current_trace_session_id_with_metadata():
+    @mlflow.trace
+    def my_func():
+        mlflow.update_current_trace(
+            session_id="sess-abc",
+            user="carol",
+            metadata={"env": "staging"},
+        )
+        return "hello"
+
+    my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.trace_metadata["mlflow.trace.session"] == "sess-abc"
+    assert trace.info.trace_metadata["mlflow.trace.user"] == "carol"
+    assert trace.info.trace_metadata["env"] == "staging"
