@@ -233,12 +233,8 @@ const RunsCompareImpl = ({
     }
 
     const groupChartDataEntries = comparedRuns
-      .filter(
-        (run) => run.groupParentInfo && !run.groupParentInfo.isRemainingRunsGroup,
-      )
-      .map<RunsChartsRunData>((group) =>
-        createGroupDataTrace(group, getRunColor(group.groupParentInfo?.groupId)),
-      );
+      .filter((run) => run.groupParentInfo)
+      .map<RunsChartsRunData>((group) => createGroupDataTrace(group, getRunColor(group.groupParentInfo?.groupId)));
 
     return groupChartDataEntries;
   }, [groupBy, comparedRuns, latestMetricsByRunUuid, paramsByRunUuid, tagsByRunUuid, imagesByRunUuid, getRunColor]);
