@@ -248,11 +248,13 @@ def set_experiment(
     # so that subprocess can inherit it.
     MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
 
-    _configure_experiment_trace_destination(
+    resolved_location = _configure_experiment_trace_destination(
         experiment=experiment,
         trace_location=trace_location,
         client=client,
     )
+    if resolved_location is not None:
+        experiment._trace_location = resolved_location
 
     return experiment
 
@@ -274,7 +276,7 @@ def _configure_experiment_trace_destination(
     experiment: Experiment,
     trace_location: UnityCatalog | None,
     client: TrackingServiceClient,
-) -> None:
+) -> UnityCatalog | None:
     """Handle the write-path for explicit trace_location in set_experiment.
 
     When trace_location is provided: precheck the experiment's existing link,
@@ -284,6 +286,9 @@ def _configure_experiment_trace_destination(
     When trace_location is None: clear the experiment-derived slot and reset
     the provider so it lazily auto-resolves from experiment tags on the next
     trace (see _resolve_experiment_uc_location in provider.py).
+
+    Returns:
+        The resolved UnityCatalog location if one was configured, or None.
     """
     if trace_location is not None and not isinstance(trace_location, UnityCatalog):
         raise MlflowException.invalid_parameter_value(
@@ -294,12 +299,12 @@ def _configure_experiment_trace_destination(
         # No explicit location — clear any prior destination and let the provider
         # lazily resolve from experiment tags when the next trace starts.
         _clear_experiment_derived_destination()
-        return
+        return None
 
     # Non-Databricks backends: set the destination directly without backend calls.
     if not is_databricks_uri(_resolve_tracking_uri()):
         _set_experiment_derived_destination(trace_location)
-        return
+        return trace_location
 
     tracing_client = TracingClient()
 
@@ -320,7 +325,7 @@ def _configure_experiment_trace_destination(
     if existing_location is not None:
         if _locations_match(trace_location, existing_location):
             _set_experiment_derived_destination(existing_location)
-            return
+            return existing_location
         raise MlflowException.invalid_parameter_value(
             f"Experiment '{experiment.name}' is already linked to a different "
             f"trace location. Existing: {existing_location.full_table_prefix}, "
@@ -335,6 +340,7 @@ def _configure_experiment_trace_destination(
         location=resolved,
     )
     _set_experiment_derived_destination(resolved)
+    return resolved
 
 
 def _set_experiment_primary_metric(
