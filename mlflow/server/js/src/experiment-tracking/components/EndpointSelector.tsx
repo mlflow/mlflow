@@ -114,13 +114,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   }, [currentEndpointName]);
 
   useEffect(() => {
-    if (
-      currentEndpointName &&
-      !currentEndpoint &&
-      !isLoading &&
-      !error &&
-      !hasTriedRefetch.current
-    ) {
+    if (currentEndpointName && !currentEndpoint && !isLoading && !error && !hasTriedRefetch.current) {
       hasTriedRefetch.current = true;
       onEndpointNotFound?.();
     }
