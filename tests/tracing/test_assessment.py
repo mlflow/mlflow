@@ -293,13 +293,7 @@ def test_log_feedback_with_value_and_error(trace_id, legacy_api):
 
 
 def test_log_feedback_invalid_parameters():
-    with pytest.raises(MlflowException, match=r"Either `value` or `error` must be provided."):
-        Feedback(
-            trace_id="1234",
-            name="faithfulness",
-            source=_LLM_ASSESSMENT_SOURCE,
-        )
-
+    
     # Test with a non-AssessmentSource object that is not None
     with pytest.raises(MlflowException, match=r"`source` must be an instance of"):
         Feedback(

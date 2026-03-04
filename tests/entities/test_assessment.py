@@ -617,3 +617,13 @@ def test_feedback_rejects_invalid_error_types(invalid_error):
         MlflowException, match="'error' must be an Exception, AssessmentError, or string"
     ):
         Feedback(name="test", error=invalid_error)
+
+def test_feedback_allows_none_value():
+    from mlflow.entities.assessment import Feedback
+
+    # Should NOT raise exception anymore
+    fb = Feedback(value=None, error=None)
+
+    assert fb is not None
+    assert fb.value is None
+
