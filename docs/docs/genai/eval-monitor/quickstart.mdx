@@ -52,7 +52,7 @@ import mlflow
 
 # Configure environment
 os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your API key
-mlflow.set_experiment("GenAI Evaluation Quickstart")
+mlflow.set_experiment("Evaluation Quickstart")
 ```
 
 ## Step 3: Define your mock agent's prediction function
@@ -230,7 +230,7 @@ from mlflow.genai.scorers import Correctness, Guidelines
 
 # Use different env variable when using a different LLM provider
 os.environ["OPENAI_API_KEY"] = "your-api-key-here"
-mlflow.set_experiment("GenAI Evaluation Quickstart")
+mlflow.set_experiment("Evaluation Quickstart")
 
 # Your agent implementation
 client = OpenAI()
@@ -295,7 +295,7 @@ if __name__ == "__main__":
 
 </details>
 
-After running the code above, go to the MLflow UI and navigate to the "GenAI Evaluation Quickstart" experiment. You'll see the evaluation results with detailed metrics for each scorer.
+After running the code above, go to the MLflow UI and navigate to the "Evaluation Quickstart" experiment. You'll see the evaluation results with detailed metrics for each scorer.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/quickstart-eval-result.png" alt="Detailed Evaluation Results" width="90%" />
 

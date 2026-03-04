@@ -122,7 +122,7 @@ MLflow Tracing gives you complete visibility into your agents and LLM applicatio
 
         #### Create a High-Quality Dataset from Real World Traffic
 
-        Evaluating the performance of your GenAI application is crucial, but creating a reliable evaluation dataset is challenging.
+        Evaluating the performance of your LLM application or AI agent is crucial, but creating a reliable evaluation dataset is challenging.
 
         Traces from production systems capture perfect data for building high-quality datasets with precise details for internal components like retrievers and tools.
 
@@ -146,7 +146,7 @@ MLflow Tracing gives you complete visibility into your agents and LLM applicatio
   {
     icon: Heart,
     title: "Open Source",
-    description: "MLflow is open source and 100% FREE. You don't need to pay additional SaaS costs to add observability to your GenAI stack. Your trace data is hosted on your own infrastructure."
+    description: "MLflow is open source and 100% FREE. You don't need to pay additional SaaS costs to add observability to your AI stack. Your trace data is hosted on your own infrastructure."
   },
   {
     icon: Zap,
@@ -201,7 +201,7 @@ MLflow Tracing gives you complete visibility into your agents and LLM applicatio
 
 ## One-line Auto Tracing Integrations
 
-MLflow Tracing is integrated with various GenAI libraries, such as OpenAI, LangChain, DSPy, Vercel AI, and provides one-line automatic tracing experience for each library (and combinations of them!):
+MLflow Tracing is integrated with various LLM and AI agent frameworks, such as OpenAI, LangChain, DSPy, Vercel AI, and provides one-line automatic tracing experience for each library (and combinations of them!):
 
 ```python
 import mlflow
@@ -228,7 +228,7 @@ In addition to the one-line auto tracing experience, MLflow offers Python SDK fo
 
 ## Production Readiness
 
-MLflow Tracing is production ready and provides comprehensive monitoring capabilities for your GenAI applications in production environments. By enabling [async logging](/genai/tracing/prod-tracing/#asynchronous-trace-logging), trace logging is done in the background and does not impact the performance of your application.
+MLflow Tracing is production ready and provides comprehensive monitoring capabilities for your LLM applications and AI agents in production environments. By enabling [async logging](/genai/tracing/prod-tracing/#asynchronous-trace-logging), trace logging is done in the background and does not impact the performance of your application.
 
 For production deployments, it is recommended to use the [Production Tracing SDK](/genai/tracing/lightweight-sdk) (`mlflow-tracing`) that is optimized for reducing the total installation size and minimizing dependencies while maintaining full tracing capabilities. Compared to the full `mlflow` package, the `mlflow-tracing` package requires 95% smaller footprint.
 
