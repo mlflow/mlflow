@@ -37,6 +37,7 @@ from mlflow.entities import (
     Experiment,
     Feedback,
     Issue,
+    IssueStatus,
     Run,
     RunInputs,
     RunOutputs,
@@ -5779,7 +5780,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         experiment_id: str,
         name: str,
         description: str,
-        status: str,
+        status: IssueStatus = IssueStatus.PENDING,
         confidence: str | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
@@ -5792,7 +5793,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             experiment_id: The experiment ID.
             name: Short descriptive name for the issue.
             description: Detailed description of the issue.
-            status: Issue status.
+            status: Issue status. Defaults to IssueStatus.PENDING.
             confidence: Optional confidence level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional run ID that discovered this issue.
@@ -5820,7 +5821,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 experiment_id=experiment_id,
                 name=name,
                 description=description,
-                status=status,
+                status=status.value,
                 confidence=confidence,
                 root_causes=root_causes_json,
                 source_run_id=source_run_id,
@@ -5859,7 +5860,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def update_issue(
         self,
         issue_id: str,
-        status: str | None = None,
+        status: IssueStatus | None = None,
         name: str | None = None,
         description: str | None = None,
         confidence: str | None = None,
@@ -5878,6 +5879,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             The updated Issue entity.
         """
         with self.ManagedSessionMaker() as session:
+            status_str = status.value if status else None
+
             # Fetch the existing issue
             sql_issue = (
                 self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
@@ -5889,8 +5892,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
             # Update fields if provided
-            if status is not None:
-                sql_issue.status = status
+            if status_str is not None:
+                sql_issue.status = status_str
             if name is not None:
                 sql_issue.name = name
             if description is not None:
