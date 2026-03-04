@@ -19,12 +19,10 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetTargetScope,
     GatewayBudgetPolicy,
 )
+from mlflow.environment_variables import MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
-
-# How often (seconds) to re-fetch policies from the database
-_REFRESH_INTERVAL_SECONDS = 60
 
 # Module-level singleton
 _budget_tracker: BudgetTracker | None = None
@@ -64,7 +62,9 @@ class BudgetTracker(ABC):
 
     def needs_refresh(self) -> bool:
         """Check whether policies should be re-fetched from the database."""
-        return (time.monotonic() - self._last_refresh_time) >= _REFRESH_INTERVAL_SECONDS
+        return (
+            time.monotonic() - self._last_refresh_time
+        ) >= MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL.get()
 
     def mark_refreshed(self) -> None:
         """Mark the tracker as just refreshed."""
