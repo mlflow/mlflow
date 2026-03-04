@@ -232,8 +232,8 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
                   defaultMessage: 'Detect issues in traces',
                   description: 'Aria label for the detect issues button in the traces table toolbar',
                 })}
+                icon={<SparkleIcon color="ai" />}
               >
-                <SparkleIcon color="ai" css={{ marginRight: theme.spacing.xs }} />
                 <FormattedMessage
                   defaultMessage="Detect Issues"
                   description="Label for the detect issues button in the traces table toolbar"
