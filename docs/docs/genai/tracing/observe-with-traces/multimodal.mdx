@@ -86,7 +86,7 @@ mlflow.openai.autolog()
 
 def encode_image(image_path):
     with open(image_path, "rb") as f:
-        return base64.standard_b64encode(f.read()).decode("utf-8")
+        return base64.b64encode(f.read()).decode("utf-8")
 
 
 base64_image = encode_image("photo.png")
@@ -125,7 +125,7 @@ mlflow.openai.autolog()
 
 def encode_audio(audio_path):
     with open(audio_path, "rb") as f:
-        return base64.standard_b64encode(f.read()).decode("utf-8")
+        return base64.b64encode(f.read()).decode("utf-8")
 
 
 client = OpenAI()
@@ -163,7 +163,7 @@ mlflow.anthropic.autolog()
 
 def encode_image(image_path):
     with open(image_path, "rb") as f:
-        return base64.standard_b64encode(f.read()).decode("utf-8")
+        return base64.b64encode(f.read()).decode("utf-8")
 
 
 client = Anthropic()
