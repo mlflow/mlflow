@@ -1006,7 +1006,7 @@ export const isModelTraceChoices = (obj: any): obj is ModelTraceChatResponse['ch
   return (
     Array.isArray(obj) &&
     obj.length > 0 &&
-    obj.every((choice: any) => has(choice, 'message') && isModelTraceChatMessage(choice.message))
+    obj.every((choice: any) => has(choice, 'message') && isRawModelTraceChatMessage(choice.message))
   );
 };
 
