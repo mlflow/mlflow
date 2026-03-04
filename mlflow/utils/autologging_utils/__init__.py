@@ -1,5 +1,6 @@
 import contextlib
 import importlib
+import importlib.metadata
 import inspect
 import logging
 import threading
@@ -375,7 +376,7 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
         _logger.warning(
             f"MLflow {integration_name} autologging is known to be compatible with "
             f"{min_var} <= {pip_release}, but the installed version is "
-            f"{module.__version__}. If you encounter errors during autologging, try upgrading "
+            f"{getattr(module, '__version__', importlib.metadata.version(pip_release))}. If you encounter errors during autologging, try upgrading "
             f"/ downgrading {pip_release} to a compatible version, or try upgrading MLflow.",
         )
 
