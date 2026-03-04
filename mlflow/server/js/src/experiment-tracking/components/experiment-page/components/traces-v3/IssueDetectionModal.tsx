@@ -1,7 +1,19 @@
 import React, { useState, useCallback } from 'react';
-import { Modal, Button, useDesignSystemTheme, SparkleIcon, Typography } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
+import {
+  Modal,
+  Button,
+  useDesignSystemTheme,
+  SparkleIcon,
+  Typography,
+  Checkbox,
+  Tooltip,
+  Input,
+} from '@databricks/design-system';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ProviderSelect } from '../../../../../gateway/components/create-endpoint/ProviderSelect';
+import { IssueDetectionApiKeyConfigurator } from './IssueDetectionApiKeyConfigurator';
+import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
+import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 
 interface IssueDetectionModalProps {
   visible: boolean;
@@ -9,6 +21,18 @@ interface IssueDetectionModalProps {
   experimentId?: string;
 }
 
+const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
+  mode: 'new',
+  existingSecretId: '',
+  newSecret: {
+    name: '',
+    authMode: '',
+    secretFields: {},
+    configFields: {},
+  },
+};
+
+// TODO: add default models for other providers
 const DEFAULT_MODELS_BY_PROVIDER: Record<string, { analysisModel: string; judgeModel: string }> = {
   openai: { analysisModel: 'gpt-5', judgeModel: 'gpt-5-mini' },
   anthropic: { analysisModel: 'claude-sonnet-4-20250514', judgeModel: 'claude-haiku-4-20250514' },
@@ -17,22 +41,33 @@ const DEFAULT_MODELS_BY_PROVIDER: Record<string, { analysisModel: string; judgeM
 
 export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visible, onClose, experimentId }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [provider, setProvider] = useState('');
   const [analysisModel, setAnalysisModel] = useState('');
   const [judgeModel, setJudgeModel] = useState('');
+  const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(DEFAULT_API_KEY_CONFIG);
+  const [saveKey, setSaveKey] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
+    provider,
+  });
 
   const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);
     const defaults = DEFAULT_MODELS_BY_PROVIDER[newProvider];
     setAnalysisModel(defaults?.analysisModel ?? '');
     setJudgeModel(defaults?.judgeModel ?? '');
+    setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
+    setSaveKey(false);
   }, []);
 
   const resetForm = useCallback(() => {
     setProvider('');
     setAnalysisModel('');
     setJudgeModel('');
+    setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
+    setSaveKey(false);
   }, []);
 
   const handleSubmit = async () => {
@@ -44,6 +79,8 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
         provider,
         analysisModel,
         judgeModel,
+        apiKeyConfig,
+        saveKey,
         experimentId,
       });
       resetForm();
@@ -58,7 +95,12 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
     onClose();
   }, [resetForm, onClose]);
 
-  const isSubmitDisabled = !provider || !analysisModel || !judgeModel;
+  const isApiKeyValid =
+    apiKeyConfig.mode === 'existing'
+      ? !!apiKeyConfig.existingSecretId
+      : Object.keys(apiKeyConfig.newSecret.secretFields).length > 0 && (!saveKey || !!apiKeyConfig.newSecret.name);
+
+  const isSubmitDisabled = !provider || !analysisModel || !judgeModel || !isApiKeyValid;
 
   return (
     <Modal
@@ -127,6 +169,67 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
                 description="Message when provider has no default models"
               />
             </Typography.Text>
+          )}
+        </div>
+
+        <div>
+          <Typography.Text css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>
+            <FormattedMessage defaultMessage="Connections" description="Section header for API key configuration" />
+          </Typography.Text>
+          <div css={{ marginTop: theme.spacing.sm }}>
+            <IssueDetectionApiKeyConfigurator
+              value={apiKeyConfig}
+              onChange={setApiKeyConfig}
+              provider={provider}
+              authModes={authModes}
+              defaultAuthMode={defaultAuthMode}
+              isLoadingProviderConfig={isLoadingProviderConfig}
+              hasExistingSecrets={existingSecrets.length > 0}
+              componentIdPrefix="mlflow.traces.issue-detection-modal.api-key"
+            />
+          </div>
+          {provider && apiKeyConfig.mode === 'new' && (
+            <div css={{ marginTop: theme.spacing.md }}>
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
+                <Tooltip
+                  componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
+                  content={intl.formatMessage({
+                    defaultMessage: 'Saved API keys can be managed in AI Gateway → API Keys tab',
+                    description: 'Tooltip explaining where saved API keys can be found',
+                  })}
+                >
+                  <span>
+                    <Checkbox
+                      componentId="mlflow.traces.issue-detection-modal.save-key-checkbox"
+                      isChecked={saveKey}
+                      onChange={(checked) => setSaveKey(checked)}
+                    >
+                      <FormattedMessage
+                        defaultMessage="Save this key for reuse"
+                        description="Checkbox to save API key for reuse"
+                      />
+                    </Checkbox>
+                  </span>
+                </Tooltip>
+                {saveKey && (
+                  <Input
+                    componentId="mlflow.traces.issue-detection-modal.api-key-name"
+                    value={apiKeyConfig.newSecret.name}
+                    onChange={(e) =>
+                      setApiKeyConfig({
+                        ...apiKeyConfig,
+                        newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
+                      })
+                    }
+                    placeholder={intl.formatMessage({
+                      defaultMessage: 'API key name',
+                      description: 'Placeholder for API key name input',
+                    })}
+                    css={{ width: 200 }}
+                  />
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
