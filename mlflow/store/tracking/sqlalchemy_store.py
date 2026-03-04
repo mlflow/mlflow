@@ -187,6 +187,7 @@ from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.search_utils import (
     SearchEvaluationDatasetsUtils,
     SearchExperimentsUtils,
+    SearchIssuesUtils,
     SearchLoggedModelsPaginationToken,
     SearchTraceUtils,
     SearchUtils,
@@ -5907,8 +5908,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def search_issues(
         self,
         experiment_id: str | None = None,
-        run_id: str | None = None,
-        status: str | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
         page_token: str | None = None,
@@ -5918,9 +5917,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         Args:
             experiment_id: Optional experiment ID to filter by.
-            run_id: Optional run ID to filter by.
-            status: Optional status to filter by.
-            filter_string: Optional filter string for advanced filtering (not implemented yet).
+            filter_string: Optional filter string for advanced filtering.
+                Supported filters: status, source_run_id
+                Supported comparators: =, !=
+                Examples:
+                    - "status = 'accepted'"
+                    - "source_run_id = 'run123'"
+                    - "status = 'draft' AND source_run_id != 'run456'"
             max_results: Maximum number of results to return.
             page_token: Token for pagination.
 
@@ -5934,36 +5937,33 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Build query
             query = session.query(SqlIssue)
 
-            # Apply filters
+            # Apply experiment_id filter
             if experiment_id:
                 query = query.filter(SqlIssue.experiment_id == experiment_id)
-            if run_id:
-                query = query.filter(SqlIssue.run_id == run_id)
-            if status:
-                query = query.filter(SqlIssue.status == status)
 
-            # Order by frequency DESC (NULLS LAST), then by created_timestamp DESC
-            # Use nullslast() to ensure NULL frequencies always come after non-NULL values
-            query = query.order_by(
-                SqlIssue.frequency.desc().nullslast(),
-                SqlIssue.created_timestamp.desc(),
-            )
+            # Parse and apply filter_string
+            if filter_string:
+                parsed_filters = SearchIssuesUtils.parse_search_filter(filter_string)
+                filter_clauses = _get_search_issues_filter_clauses(
+                    parsed_filters, self._get_dialect()
+                )
+                query = query.filter(*filter_clauses)
+
+            # Order by created_timestamp DESC
+            query = query.order_by(SqlIssue.created_timestamp.desc())
 
             # Apply pagination - fetch max_results + 1 to determine if there's a next page
             query = query.offset(offset).limit(max_results + 1)
 
             sql_issues = query.all()
 
-            # Determine next page token before loading trace_ids
+            # Determine next page token
             has_next_page = len(sql_issues) > max_results
             next_token = (
                 SearchTraceUtils.create_page_token(offset + max_results) if has_next_page else None
             )
 
-            issues = []
-            for sql_issue in sql_issues[:max_results]:
-                trace_ids = self._get_trace_ids_for_issue(session, sql_issue.issue_id)
-                issues.append(sql_issue.to_mlflow_entity(trace_ids=trace_ids or None))
+            issues = [sql_issue.to_mlflow_entity() for sql_issue in sql_issues[:max_results]]
 
             return PagedList(issues, token=next_token)
 
@@ -6664,6 +6664,34 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
             raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
 
     return attribute_filters, non_attribute_filters
+
+
+def _get_search_issues_filter_clauses(parsed_filters, dialect):
+    """
+    Creates filter clauses for searching issues.
+
+    Args:
+        parsed_filters: List of parsed filter dictionaries from SearchIssuesUtils
+        dialect: Database dialect for SQL comparison functions
+
+    Returns:
+        List of SQLAlchemy filter clauses
+    """
+    filter_clauses = []
+
+    for f in parsed_filters:
+        key = f["key"]
+        comparator = f["comparator"]
+        value = f["value"]
+
+        # Get the appropriate SqlIssue attribute
+        attr = getattr(SqlIssue, key)
+
+        # Use SearchUtils to get the comparison function and apply it
+        filter_clause = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+        filter_clauses.append(filter_clause)
+
+    return filter_clauses
 
 
 def _get_search_datasets_order_by_clauses(order_by):
