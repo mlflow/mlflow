@@ -424,7 +424,7 @@ const sidebarsGenAI: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'tracing/integrations/listing/opencode',
-                  label: 'Opencode',
+                  label: 'OpenCode',
                 },
               ],
             },

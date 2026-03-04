@@ -2,10 +2,10 @@
  * MLflow Tracing Plugin for OpenCode
  *
  * This plugin listens for session.idle events and creates MLflow traces
- * directly using the mlflow-tracing TypeScript SDK.
+ * directly using the @mlflow/core TypeScript SDK.
  *
  * Usage:
- *   1. Install: npm install @mlflow/opencode mlflow-tracing
+ *   1. Install: npm install @mlflow/opencode @mlflow/core
  *   2. Add to opencode.json: { "plugin": ["@mlflow/opencode"] }
  *   3. Set environment variables:
  *      export MLFLOW_TRACKING_URI=http://localhost:5000
@@ -22,10 +22,12 @@ import {
   SpanAttributeKey,
   TraceMetadataKey,
   InMemoryTraceManager,
-} from 'mlflow-tracing';
+} from '@mlflow/core';
 
-// Track processed turns to avoid duplicate traces
-const processedTurns = new Map<string, number>();
+// Track the last processed message count per session to avoid duplicate traces.
+// On each session.idle event, we compare the current message count with the
+// last processed count to determine if new messages need tracing.
+const processedMessageCounts = new Map<string, number>();
 
 // Silent plugin - no console output to avoid TUI interference
 const DEBUG = process.env.MLFLOW_OPENCODE_DEBUG === 'true';
@@ -47,7 +49,6 @@ interface ApiResponse<T> {
 }
 
 interface SessionClient {
-  get: (params: { path: { id: string } }) => Promise<ApiResponse<unknown>>;
   messages: (params: {
     path: { id: string };
     query: { limit: number };
@@ -100,11 +101,6 @@ interface Message {
   parts?: MessagePart[];
 }
 
-interface SessionInfo {
-  directory?: string;
-  title?: string;
-}
-
 /**
  * Initialize the MLflow tracing SDK if not already initialized.
  * Requires MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID environment variables.
@@ -154,17 +150,19 @@ function timestampToNs(timestamp: number | undefined): number | undefined {
 }
 
 /**
- * Extract the user prompt from messages (find last user message text)
+ * Extract the user prompt from messages (find last user message text).
+ * Concatenates all text parts to handle multi-part user input.
  */
 function extractUserPrompt(messages: Message[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (msg.info?.role === MESSAGE_ROLE_USER) {
       const parts = msg.parts || [];
-      for (const part of parts) {
-        if (part.type === PART_TYPE_TEXT && part.text) {
-          return part.text;
-        }
+      const textParts = parts
+        .filter((p) => p.type === PART_TYPE_TEXT && p.text)
+        .map((p) => p.text || '');
+      if (textParts.length > 0) {
+        return textParts.join('\n');
       }
     }
   }
@@ -172,18 +170,19 @@ function extractUserPrompt(messages: Message[]): string {
 }
 
 /**
- * Extract the assistant response from messages (find last assistant text)
+ * Extract the assistant response from messages (find last assistant message text).
+ * Concatenates all text parts to handle multi-part assistant responses.
  */
 function extractAssistantResponse(messages: Message[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (msg.info?.role === MESSAGE_ROLE_ASSISTANT) {
       const parts = msg.parts || [];
-      for (let j = parts.length - 1; j >= 0; j--) {
-        const part = parts[j];
-        if (part.type === PART_TYPE_TEXT && part.text?.trim()) {
-          return part.text;
-        }
+      const textParts = parts
+        .filter((p) => p.type === PART_TYPE_TEXT && p.text?.trim())
+        .map((p) => p.text || '');
+      if (textParts.length > 0) {
+        return textParts.join('\n');
       }
     }
   }
@@ -287,8 +286,6 @@ function createLlmAndToolSpans(
   messages: Message[],
   startIdx: number,
 ): void {
-  let llmCallNum = 0;
-
   for (let i = startIdx; i < messages.length; i++) {
     const msg = messages[i];
     if (msg.info?.role !== MESSAGE_ROLE_ASSISTANT) {
@@ -311,12 +308,11 @@ function createLlmAndToolSpans(
 
     // Create LLM span for text responses
     if (textParts.length > 0) {
-      llmCallNum++;
       const conversationMessages = reconstructConversationMessages(messages, i);
       const textContent = textParts.map((p) => p.text || '').join('\n');
 
       const llmSpan = startSpan({
-        name: `llm_call_${llmCallNum}`,
+        name: 'llm_call',
         parent: parentSpan,
         spanType: SpanType.LLM,
         startTimeNs: createdNs,
@@ -330,13 +326,18 @@ function createLlmAndToolSpans(
         },
       });
 
+      // Set message format so the MLflow UI renders the chat bubble view
+      llmSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
+
       // Set token usage
       const tokenUsage = buildTokenUsage(tokens);
       if (tokenUsage) {
         llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, tokenUsage);
       }
 
-      llmSpan.setOutputs({ response: textContent });
+      llmSpan.setOutputs({
+        choices: [{ message: { role: 'assistant', content: textContent } }],
+      });
       llmSpan.end({ endTimeNs: completedNs });
     }
 
@@ -386,9 +387,7 @@ function createLlmAndToolSpans(
  */
 async function processSession(
   sessionId: string,
-  sessionInfo: SessionInfo,
   messages: Message[],
-  directory: string,
 ): Promise<void> {
   if (!messages || messages.length === 0) {
     if (DEBUG) {
@@ -454,8 +453,6 @@ async function processSession(
         ...trace.info.traceMetadata,
         [TraceMetadataKey.TRACE_SESSION]: sessionId,
         [TraceMetadataKey.TRACE_USER]: process.env.USER || '',
-        'mlflow.trace.working_directory': sessionInfo.directory || directory,
-        'mlflow.trace.session_title': sessionInfo.title || '',
       };
     }
   } catch (error) {
@@ -485,7 +482,6 @@ async function processSession(
  */
 export const MLflowTracingPlugin: Plugin = (input: PluginInput): Promise<Hooks> => {
   const client = (input as { client: PluginClient }).client;
-  const directory = (input as { directory: string }).directory;
 
   return Promise.resolve({
     event: async ({ event }: { event: { type: string; properties?: Record<string, unknown> } }) => {
@@ -505,17 +501,6 @@ export const MLflowTracingPlugin: Plugin = (input: PluginInput): Promise<Hooks> 
       }
 
       try {
-        // Fetch session info and messages using the SDK client
-        const sessionResult = await client.session.get({
-          path: { id: sessionID },
-        });
-        if (!sessionResult.data) {
-          if (DEBUG) {
-            console.error('[mlflow] Failed to fetch session:', sessionID);
-          }
-          return;
-        }
-
         const messagesResult = await client.session.messages({
           path: { id: sessionID },
           query: { limit: 1000 },
@@ -530,7 +515,7 @@ export const MLflowTracingPlugin: Plugin = (input: PluginInput): Promise<Hooks> 
         // Check if we've already processed this exact turn
         const allMessages = messagesResult.data as Message[];
         const messageCount = allMessages.length;
-        const lastProcessedCount = processedTurns.get(sessionID) ?? 0;
+        const lastProcessedCount = processedMessageCounts.get(sessionID) ?? 0;
 
         if (messageCount <= lastProcessedCount) {
           return;
@@ -538,18 +523,18 @@ export const MLflowTracingPlugin: Plugin = (input: PluginInput): Promise<Hooks> 
 
         // Get only the NEW messages since last trace
         const newMessages = allMessages.slice(lastProcessedCount);
-        processedTurns.set(sessionID, messageCount);
+        processedMessageCounts.set(sessionID, messageCount);
 
         // Clean up old entries to prevent memory leak
-        if (processedTurns.size > 50) {
-          const keys = Array.from(processedTurns.keys());
+        if (processedMessageCounts.size > 50) {
+          const keys = Array.from(processedMessageCounts.keys());
           for (let i = 0; i < keys.length - 50; i++) {
-            processedTurns.delete(keys[i]);
+            processedMessageCounts.delete(keys[i]);
           }
         }
 
         // Process the session
-        await processSession(sessionID, sessionResult.data as SessionInfo, newMessages, directory);
+        await processSession(sessionID, newMessages);
       } catch (error) {
         if (DEBUG) {
           console.error('[mlflow] Error processing session:', error);

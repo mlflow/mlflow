@@ -17,7 +17,6 @@ After setting up the MLflow plugin, MLflow will automatically capture traces of 
 - Tool usage (file operations, bash commands, code edits, etc.)
 - Conversation timing and duration per turn
 - Token usage (input, output, and total tokens)
-- Session metadata including working directory and user
 
 ## Setup
 
@@ -48,7 +47,7 @@ Add the plugin to your `opencode.json` file:
 
 ### Step 3: Set Environment Variables
 
-Configure the MLflow connection using environment variables:
+Configure the MLflow connection using environment variables. For persistence across sessions, add these to your shell profile (e.g., `~/.bashrc`, `~/.zshrc`) or a `.env` file in your project root:
 
 ```bash
 # Required: MLflow tracking server URI
@@ -60,8 +59,15 @@ export MLFLOW_EXPERIMENT_ID=123456
 
 ### Step 4: Start MLflow Server (if not already running)
 
+You can start an MLflow server using [Docker Compose](/self-hosting/#docker-compose), which doesn't require a Python environment:
+
 ```bash
-# Start MLflow with SQLite backend
+docker compose up -d
+```
+
+Alternatively, if you have Python and `mlflow` installed:
+
+```bash
 mlflow server
 ```
 
@@ -87,8 +93,8 @@ The plugin is configured entirely via environment variables:
 ### Configuration Examples
 
 ```bash
-# Local development with SQLite
-export MLFLOW_TRACKING_URI=sqlite:///mlflow.db
+# Local MLflow server
+export MLFLOW_TRACKING_URI=http://localhost:5000
 export MLFLOW_EXPERIMENT_ID=0
 
 # Remote MLflow server

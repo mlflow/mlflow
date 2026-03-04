@@ -3,10 +3,19 @@
  */
 
 import { MLflowTracingPlugin } from '../src';
-import type { PluginInput, PluginClient, EventParams } from '@opencode-ai/plugin';
+import type { PluginInput } from '@opencode-ai/plugin';
 
-// Mock the mlflow-tracing module
-jest.mock('mlflow-tracing', () => {
+interface PluginClient {
+  session: {
+    messages: jest.Mock;
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type EventParams = any;
+
+// Mock the @mlflow/core module
+jest.mock('@mlflow/core', () => {
   const mockSpan = {
     traceId: 'mock-trace-id',
     setAttribute: jest.fn(),
@@ -49,27 +58,25 @@ jest.mock('mlflow-tracing', () => {
 });
 
 // Import mocked functions after mocking
-import * as mlflowTracing from 'mlflow-tracing';
+import * as mlflowTracing from '@mlflow/core';
 
 describe('MLflowTracingPlugin', () => {
   const originalEnv = process.env;
 
   // Helper to create mock client
   const createMockClient = (
-    sessionData: Record<string, unknown> = {},
+    _sessionData: Record<string, unknown> = {},
     messagesData: unknown[] = [],
   ): PluginClient => ({
     session: {
-      get: jest.fn().mockResolvedValue({ data: sessionData }),
       messages: jest.fn().mockResolvedValue({ data: messagesData }),
     },
   });
 
   // Helper to create plugin input
-  const createPluginInput = (client: PluginClient, directory = '/test/directory'): PluginInput => ({
+  const createPluginInput = (client: PluginClient): PluginInput => ({
     client,
-    directory,
-  });
+  } as unknown as PluginInput);
 
   // Helper to create event params
   const createEventParams = (type: string, properties?: Record<string, unknown>): EventParams => ({
@@ -223,7 +230,6 @@ describe('MLflowTracingPlugin', () => {
 
       await hooks.event!(createSessionIdleEvent('test-session-123'));
 
-      expect(mockClient.session.get).not.toHaveBeenCalled();
       expect(mockClient.session.messages).not.toHaveBeenCalled();
     });
 
@@ -236,7 +242,7 @@ describe('MLflowTracingPlugin', () => {
 
       await hooks.event!(createSessionIdleEvent('test-session-123'));
 
-      expect(mockClient.session.get).not.toHaveBeenCalled();
+      expect(mockClient.session.messages).not.toHaveBeenCalled();
     });
 
     it('should initialize SDK when both env variables are set', async () => {
@@ -267,7 +273,7 @@ describe('MLflowTracingPlugin', () => {
 
       await hooks.event!(createEventParams('message.updated', {}));
 
-      expect(mockClient.session.get).not.toHaveBeenCalled();
+      expect(mockClient.session.messages).not.toHaveBeenCalled();
     });
 
     it('should not process events without sessionID', async () => {
@@ -279,7 +285,7 @@ describe('MLflowTracingPlugin', () => {
 
       await hooks.event!(createEventParams('session.idle', {}));
 
-      expect(mockClient.session.get).not.toHaveBeenCalled();
+      expect(mockClient.session.messages).not.toHaveBeenCalled();
     });
   });
 
@@ -312,7 +318,7 @@ describe('MLflowTracingPlugin', () => {
       // Should create LLM span
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: 'llm_call_1',
+          name: 'llm_call',
           spanType: 'LLM',
           inputs: expect.objectContaining({
             model: 'anthropic/claude-3-opus',
@@ -344,7 +350,7 @@ describe('MLflowTracingPlugin', () => {
       // Verify startSpan was called for LLM
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: 'llm_call_1',
+          name: 'llm_call',
           spanType: 'LLM',
         }),
       );
@@ -506,7 +512,7 @@ describe('MLflowTracingPlugin', () => {
       // Should create both LLM and tool spans
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: 'llm_call_1',
+          name: 'llm_call',
           spanType: 'LLM',
         }),
       );
@@ -644,7 +650,7 @@ describe('MLflowTracingPlugin', () => {
       // Should create LLM span
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: 'llm_call_1',
+          name: 'llm_call',
           spanType: 'LLM',
         }),
       );
@@ -756,30 +762,14 @@ describe('MLflowTracingPlugin', () => {
       expect(mlflowTracing.startSpan).toHaveBeenCalled();
     });
 
-    it('should handle session fetch failure', async () => {
-      const mockClient = {
-        session: {
-          get: jest.fn().mockResolvedValue({ data: null }),
-          messages: jest.fn(),
-        },
-      };
-
-      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
-
-      await hooks.event!(createSessionIdleEvent('fetch-failure'));
-
-      expect(mockClient.session.messages).not.toHaveBeenCalled();
-    });
-
     it('should handle messages fetch failure', async () => {
       const mockClient = {
         session: {
-          get: jest.fn().mockResolvedValue({ data: { title: 'Test' } }),
           messages: jest.fn().mockResolvedValue({ data: null }),
         },
       };
 
-      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
+      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient as PluginClient));
 
       await hooks.event!(createSessionIdleEvent('messages-failure'));
 
@@ -820,12 +810,11 @@ describe('MLflowTracingPlugin', () => {
 
       const mockClient = {
         session: {
-          get: jest.fn().mockResolvedValue({ data: { title: 'Test' } }),
           messages: jest.fn().mockImplementation(() => Promise.resolve({ data: currentMessages })),
         },
       };
 
-      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
+      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient as PluginClient));
 
       // First turn
       await hooks.event!(createSessionIdleEvent('incremental-session'));
