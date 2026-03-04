@@ -774,10 +774,6 @@
     "defaultMessage": "AI Gateway",
     "description": "Feature card title for AI Gateway"
   },
-  "3pRh9n": {
-    "defaultMessage": "The type of value the judge will return.",
-    "description": "Hint text for output type selection"
-  },
   "3vS6G9": {
     "defaultMessage": "{count, plural, one {# trace was} other {# traces were}} removed",
     "description": "Success message after deleting sessions - trace count"
@@ -3948,6 +3944,10 @@
   "QqbUt/": {
     "defaultMessage": "Search API Keys",
     "description": "Placeholder for API key search filter"
+  },
+  "QqxiAM": {
+    "defaultMessage": "The type of value the judge will return. Ensure this matches the output format specified in your instructions.",
+    "description": "Hint text for output type selection with alignment warning"
   },
   "Qr3GVE": {
     "defaultMessage": "Model Training",
