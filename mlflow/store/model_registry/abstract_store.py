@@ -970,7 +970,7 @@ class AbstractStore:
         # Verify the registered model exists and is a prompt
         rm = self.get_registered_model(name)
         if hasattr(rm, "_tags") and isinstance(rm._tags, dict):
-            internal_tags = rm._tags.copy()
+            internal_tags = rm._tags
         elif hasattr(rm, "_tags") and rm._tags:
             internal_tags = {tag.key: tag.value for tag in rm._tags}
         else:
