@@ -20,7 +20,7 @@ import {
   truncatePreservingImages,
 } from './ModelTraceExplorerChatRenderer.utils';
 import { ModelTraceExplorerToolCallMessage } from './ModelTraceExplorerToolCallMessage';
-import { CodeSnippetRenderMode, type ModelTraceChatMessage } from '../ModelTrace.types';
+import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
 
 const tryGetJsonContent = (content: string) => {
@@ -140,6 +140,40 @@ function ModelTraceExplorerReasoningSection({ reasoning }: { reasoning: string }
   );
 }
 
+function getAudioMimeType(format: string): string {
+  switch (format) {
+    case 'mp3':
+      return 'audio/mpeg';
+    default:
+      return `audio/${format}`;
+  }
+}
+
+function ModelTraceExplorerAudioPlayer({ audioParts }: { audioParts: ModelTraceInputAudio[] }) {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <>
+      {audioParts.map((audio, index) => (
+        <div
+          key={index}
+          css={{
+            padding: theme.spacing.sm,
+            paddingTop: 0,
+          }}
+        >
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <audio
+            controls
+            css={{ width: '100%', maxWidth: 500 }}
+            src={`data:${getAudioMimeType(audio.format)};base64,${audio.data}`}
+          />
+        </div>
+      ))}
+    </>
+  );
+}
+
 export function ModelTraceExplorerChatMessage({
   message,
   className,
@@ -186,6 +220,9 @@ export function ModelTraceExplorerChatMessage({
           message.tool_calls.map((toolCall) => (
             <ModelTraceExplorerToolCallMessage key={toolCall.id} toolCall={toolCall} />
           ))}
+        {message.audioParts && message.audioParts.length > 0 && (
+          <ModelTraceExplorerAudioPlayer audioParts={message.audioParts} />
+        )}
         <ModelTraceExplorerChatMessageContent
           content={displayedContent}
           shouldDisplayCodeSnippet={shouldDisplayCodeSnippet}
