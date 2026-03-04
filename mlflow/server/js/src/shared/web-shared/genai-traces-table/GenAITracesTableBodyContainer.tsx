@@ -24,7 +24,7 @@ import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './uti
 
 interface GenAITracesTableBodyContainerProps {
   // Experiment metadata
-  experimentId: string;
+  experimentId?: string;
   currentRunDisplayName?: string;
   runUuid?: string;
   compareToRunUuid?: string;

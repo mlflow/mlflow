@@ -23,7 +23,7 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   selectedColumns: TracesTableColumn[];
   expandedSessions: Set<string>;
   toggleSessionExpanded: (sessionId: string) => void;
-  experimentId: string;
+  experimentId?: string;
   getRunColor?: (runUuid: string) => string;
   runUuid?: string;
   compareToRunUuid?: string;
@@ -42,7 +42,7 @@ interface SessionHeaderRowProps {
   goal?: string;
   persona?: string;
   selectedColumns: TracesTableColumn[];
-  experimentId: string;
+  experimentId?: string;
   isExpanded: boolean;
   isComparing: boolean;
   toggleSessionExpanded: (sessionId: string) => void;
@@ -61,9 +61,9 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
   virtualizerTotalSize,
   virtualizerMeasureElement,
   selectedColumns,
-  experimentId,
   expandedSessions,
   toggleSessionExpanded,
+  experimentId,
   getRunColor,
   runUuid,
   compareToRunUuid,

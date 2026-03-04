@@ -152,6 +152,20 @@ deny_wrong_shell_defaults contains msg if {
 	)
 }
 
+deny_github_script_without_retries contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/github-script@")
+	not step["with"].retries
+	msg := sprintf(
+		concat("", [
+			"actions/github-script in job '%s' must have 'retries' set ",
+			"(e.g., retries: 3) for resilience against transient GitHub API failures.",
+		]),
+		[job_id],
+	)
+}
+
 deny_scheduled_workflow_without_repo_check contains msg if {
 	input["true"].schedule
 	not any_job_has_repo_check(input.jobs)

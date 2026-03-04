@@ -6247,15 +6247,14 @@ class MlflowClient:
         """
         Search prompt versions for a given prompt name.
 
-        This method delegates directly to the store. Only supported in Unity Catalog registries.
-
         Args:
             name: Name of the prompt to search versions for.
             max_results: Maximum number of versions to return.
             page_token: Token for pagination.
 
         Returns:
-            SearchPromptVersionsResponse containing the list of versions.
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`~mlflow.entities.model_registry.PromptVersion` objects.
 
         Example:
 
@@ -6264,9 +6263,9 @@ class MlflowClient:
             from mlflow import MlflowClient
 
             client = MlflowClient()
-            response = client.search_prompt_versions("my_prompt", max_results=10)
-            for version in response.prompt_versions:
-                print(f"Version {version.version}: {version.description}")
+            versions = client.search_prompt_versions("my_prompt", max_results=10)
+            for version in versions:
+                print(f"Version {version.version}: {version.template}")
         """
         registry_client = self._get_registry_client()
         return registry_client.search_prompt_versions(name, max_results, page_token)
@@ -6297,7 +6296,7 @@ class MlflowClient:
             # For Unity Catalog, delete all versions first
             if client.get_registry_uri().startswith("databricks-uc"):
                 versions = client.search_prompt_versions("my_prompt")
-                for version in versions.prompt_versions:
+                for version in versions:
                     client.delete_prompt_version("my_prompt", version.version)
 
             # Then delete the prompt
@@ -6309,16 +6308,9 @@ class MlflowClient:
         registry_uri = self._registry_uri
 
         if is_databricks_unity_catalog_uri(registry_uri):
-            search_response = self.search_prompt_versions(name, max_results=1)
+            versions = self.search_prompt_versions(name, max_results=1)
 
-            # Check if any versions exist
-            has_versions = (
-                hasattr(search_response, "prompt_versions")
-                and search_response.prompt_versions
-                and len(search_response.prompt_versions) > 0
-            )
-
-            if has_versions:
+            if len(versions) > 0:
                 raise MlflowException(
                     f"Cannot delete prompt '{name}' because it still has undeleted versions. "
                     f"Please delete all versions first using delete_prompt_version(), "
@@ -6580,7 +6572,6 @@ class MlflowClient:
         return self._tracking_client.remove_dataset_from_experiments(dataset_id, experiment_ids)
 
     # Webhook APIs
-    @experimental(version="3.3.0")
     def create_webhook(
         self,
         name: str,
@@ -6619,7 +6610,6 @@ class MlflowClient:
             status=status,
         )
 
-    @experimental(version="3.3.0")
     def get_webhook(self, webhook_id: str) -> Webhook:
         """
         Get webhook instance by ID.
@@ -6632,7 +6622,6 @@ class MlflowClient:
         """
         return self._get_registry_client().get_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def list_webhooks(
         self,
         max_results: int | None = None,
@@ -6650,7 +6639,6 @@ class MlflowClient:
         """
         return self._get_registry_client().list_webhooks(max_results, page_token)
 
-    @experimental(version="3.3.0")
     def update_webhook(
         self,
         webhook_id: str,
@@ -6693,7 +6681,6 @@ class MlflowClient:
             status=status,
         )
 
-    @experimental(version="3.3.0")
     def delete_webhook(self, webhook_id: str) -> None:
         """
         Delete a webhook.
@@ -6706,7 +6693,6 @@ class MlflowClient:
         """
         self._get_registry_client().delete_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def test_webhook(
         self, webhook_id: str, event: WebhookEventStr | WebhookEvent | None = None
     ) -> WebhookTestResult:

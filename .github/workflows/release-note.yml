@@ -39,6 +39,7 @@ jobs:
       - name: validate-labeled
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
+          retries: 3
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
             const script = require("./.github/workflows/release-note.js");
@@ -58,6 +59,7 @@ jobs:
       - name: post-merge
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
+          retries: 3
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
             const script = require("./.github/workflows/release-note.js");

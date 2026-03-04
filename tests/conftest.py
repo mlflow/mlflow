@@ -88,7 +88,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--serve-wheel",
         action="store_true",
-        default=os.getenv("CI", "false").lower() == "true",
+        default=os.environ.get("CI", "false").lower() == "true",
         help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
     )
     parser.addoption(
@@ -552,6 +552,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/mistral",
             "tests/models",
             "tests/onnx",
+            "tests/otel",
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",

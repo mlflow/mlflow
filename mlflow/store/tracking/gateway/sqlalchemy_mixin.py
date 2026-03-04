@@ -20,6 +20,13 @@ from mlflow.entities import (
     RoutingStrategy,
 )
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+    GatewayBudgetPolicy,
+)
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -29,6 +36,8 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking._secret_cache import (
     _DEFAULT_CACHE_MAX_SIZE,
     _DEFAULT_CACHE_TTL,
@@ -37,6 +46,7 @@ from mlflow.store.tracking._secret_cache import (
     SecretCache,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
@@ -61,7 +71,12 @@ from mlflow.utils.crypto import (
     _encrypt_secret,
     _mask_secret_value,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_SOURCE_ID, MLFLOW_EXPERIMENT_SOURCE_TYPE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_IS_GATEWAY,
+    MLFLOW_EXPERIMENT_SOURCE_ID,
+    MLFLOW_EXPERIMENT_SOURCE_TYPE,
+)
+from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.time import get_current_time_millis
 
 
@@ -615,6 +630,7 @@ class SqlAlchemyGatewayStoreMixin:
                     tags=[
                         ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
                         ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                        ExperimentTag(MLFLOW_EXPERIMENT_IS_GATEWAY, "true"),
                     ],
                 )
 
@@ -753,6 +769,7 @@ class SqlAlchemyGatewayStoreMixin:
                     tags=[
                         ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
                         ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                        ExperimentTag(MLFLOW_EXPERIMENT_IS_GATEWAY, "true"),
                     ],
                 )
 
@@ -1161,3 +1178,145 @@ class SqlAlchemyGatewayStoreMixin:
                 SqlGatewayEndpointTag.endpoint_id == endpoint_id,
                 SqlGatewayEndpointTag.key == key,
             ).delete()
+
+    # Budget Policy APIs
+
+    def create_budget_policy(
+        self,
+        budget_unit: BudgetUnit,
+        budget_amount: float,
+        duration_unit: BudgetDurationUnit,
+        duration_value: int,
+        target_scope: BudgetTargetScope,
+        budget_action: BudgetAction,
+        created_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        with self.ManagedSessionMaker() as session:
+            budget_policy_id = f"bp-{uuid.uuid4().hex}"
+            current_time = get_current_time_millis()
+
+            sql_budget_policy = self._with_workspace_field(
+                SqlGatewayBudgetPolicy(
+                    budget_policy_id=budget_policy_id,
+                    budget_unit=budget_unit.value
+                    if isinstance(budget_unit, BudgetUnit)
+                    else budget_unit,
+                    budget_amount=budget_amount,
+                    duration_unit=duration_unit.value
+                    if isinstance(duration_unit, BudgetDurationUnit)
+                    else duration_unit,
+                    duration_value=duration_value,
+                    target_scope=target_scope.value
+                    if isinstance(target_scope, BudgetTargetScope)
+                    else target_scope,
+                    budget_action=budget_action.value
+                    if isinstance(budget_action, BudgetAction)
+                    else budget_action,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
+            )
+
+            session.add(sql_budget_policy)
+            session.flush()
+
+            return sql_budget_policy.to_mlflow_entity()
+
+    def get_budget_policy(
+        self,
+        budget_policy_id: str,
+    ) -> GatewayBudgetPolicy:
+        with self.ManagedSessionMaker() as session:
+            sql_budget_policy = self._get_entity_or_raise(
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
+            )
+            return sql_budget_policy.to_mlflow_entity()
+
+    def update_budget_policy(
+        self,
+        budget_policy_id: str,
+        budget_unit: BudgetUnit | None = None,
+        budget_amount: float | None = None,
+        duration_unit: BudgetDurationUnit | None = None,
+        duration_value: int | None = None,
+        target_scope: BudgetTargetScope | None = None,
+        budget_action: BudgetAction | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        with self.ManagedSessionMaker() as session:
+            sql_budget_policy = self._get_entity_or_raise(
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
+            )
+
+            if budget_unit is not None:
+                sql_budget_policy.budget_unit = (
+                    budget_unit.value if isinstance(budget_unit, BudgetUnit) else budget_unit
+                )
+            if budget_amount is not None:
+                sql_budget_policy.budget_amount = budget_amount
+            if duration_unit is not None:
+                sql_budget_policy.duration_unit = (
+                    duration_unit.value
+                    if isinstance(duration_unit, BudgetDurationUnit)
+                    else duration_unit
+                )
+            if duration_value is not None:
+                sql_budget_policy.duration_value = duration_value
+            if target_scope is not None:
+                sql_budget_policy.target_scope = (
+                    target_scope.value
+                    if isinstance(target_scope, BudgetTargetScope)
+                    else target_scope
+                )
+            if budget_action is not None:
+                sql_budget_policy.budget_action = (
+                    budget_action.value
+                    if isinstance(budget_action, BudgetAction)
+                    else budget_action
+                )
+
+            sql_budget_policy.last_updated_at = get_current_time_millis()
+            if updated_by is not None:
+                sql_budget_policy.last_updated_by = updated_by
+
+            session.flush()
+
+            return sql_budget_policy.to_mlflow_entity()
+
+    def delete_budget_policy(self, budget_policy_id: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            sql_budget_policy = self._get_entity_or_raise(
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
+            )
+            session.delete(sql_budget_policy)
+
+    def list_budget_policies(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayBudgetPolicy]:
+        self._validate_max_results_param(max_results)
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        with self.ManagedSessionMaker() as session:
+            query = (
+                self._get_query(session, SqlGatewayBudgetPolicy)
+                .order_by(SqlGatewayBudgetPolicy.budget_policy_id)
+                .offset(offset)
+                .limit(max_results + 1)
+            )
+            policies = [bp.to_mlflow_entity() for bp in query.all()]
+            next_token = None
+            if len(policies) > max_results:
+                next_token = SearchUtils.create_page_token(offset + max_results)
+            return PagedList(policies[:max_results], next_token)

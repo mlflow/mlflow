@@ -193,8 +193,22 @@ class AnthropicAdapter(ProviderAdapter):
         # }
         # ```
         from mlflow.anthropic.chat import convert_message_to_mlflow_chat
+        from mlflow.types.chat import TextContentPart
 
         stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
+
+        message = convert_message_to_mlflow_chat(resp)
+
+        # Normalize content to OpenAI wire format: `content` must be a str or null,
+        # never a list. Anthropic returns a list of content blocks; we collapse all
+        # TextContentPart entries into a single string. Non-text parts (images, etc.)
+        # are dropped here since they have no OpenAI chat.completion equivalent.
+        # For tool-call-only responses the list will be empty, so content becomes None.
+        if isinstance(message.content, list):
+            text = "".join(
+                part.text for part in message.content if isinstance(part, TextContentPart)
+            )
+            message.content = text or None
 
         return chat.ResponsePayload(
             id=resp["id"],
@@ -204,11 +218,7 @@ class AnthropicAdapter(ProviderAdapter):
             choices=[
                 chat.Choice(
                     index=0,
-                    # TODO: Remove this casting once
-                    # https://github.com/mlflow/mlflow/pull/14160 is merged
-                    message=chat.ResponseMessage(
-                        **convert_message_to_mlflow_chat(resp).model_dump()
-                    ),
+                    message=chat.ResponseMessage(**message.model_dump()),
                     finish_reason=stop_reason,
                 )
             ],

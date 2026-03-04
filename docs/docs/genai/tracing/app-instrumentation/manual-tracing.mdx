@@ -73,7 +73,7 @@ Decorator requires TypeScript version 5.0+ and it can only be applied to class m
 :::
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 class MyClass {
     @mlflow.trace({ spanType: mlflow.SpanType.LLM })
@@ -131,7 +131,7 @@ invocation(4, 2)
 **Named Function**:
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 const getWeather = async (city: string) => {
     return `The weather in ${city} is sunny`;
@@ -150,7 +150,7 @@ await tracedGetWeather('San Francisco');
 **Anonymous Function**:
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 const getWeather = mlflow.trace(
     (city: string) => {
@@ -199,7 +199,7 @@ def invoke(prompt: str):
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 class MyClass {
     @mlflow.trace({
@@ -247,7 +247,7 @@ def invoke(prompt: str):
 Use the `mlflow.getCurrentActiveSpan` API.
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 class MyClass {
     @mlflow.trace({ spanType: mlflow.SpanType.LLM })
@@ -285,7 +285,7 @@ def my_func(x):
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 class MyClass {
     @mlflow.trace({ spanType: mlflow.SpanType.LLM })
@@ -354,7 +354,7 @@ summary_result = summarize_document(long_document, instructions)
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 class MyClass {
     @mlflow.trace({ name: "Summarization Pipeline" })
@@ -417,7 +417,7 @@ with mlflow.start_span(name="my_span") as span:
 Use the `mlflow.withSpan` function wrapper.
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 const result = await mlflow.withSpan(
     async (span: mlflow.Span) => {
@@ -486,8 +486,8 @@ start_session()
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
-import { tracedOpenAI } from "mlflow-openai";
+import * as mlflow from "@mlflow/core";
+import { tracedOpenAI } from "@mlflow/openai";
 import { OpenAI } from "openai";
 import * as readline from "readline";
 
