@@ -584,9 +584,6 @@ def test_start_job_is_atomic(tmp_path: Path, workspaces_enabled):
 
 
 def test_exec_job_fails_job_on_unexpected_error(tmp_path: Path, workspaces_enabled):
-    """Ensure jobs transition to FAILED (not stuck in RUNNING) when _exec_job
-    encounters an unexpected error after start_job() succeeds.
-    """
     from mlflow.server import handlers
     from mlflow.server.jobs.utils import _exec_job
 
