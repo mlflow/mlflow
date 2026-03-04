@@ -80,6 +80,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
   const location = useLocation();
   const [selectedTurnIndex, setSelectedTurnIndex] = useState<number | null>(null);
   const [selectedTrace, setSelectedTrace] = useState<ModelTrace | null>(null);
+  const [highlightedAssessmentId, setHighlightedAssessmentId] = useState<string | null>(null);
   const chatRefs = useRef<{ [traceId: string]: HTMLDivElement }>({});
 
   invariant(experimentId, 'Experiment ID must be defined');
@@ -185,6 +186,14 @@ const ExperimentSingleChatSessionPageImpl = () => {
               setSelectedTrace={setSelectedTrace}
               chatRefs={chatRefs}
               getAssessmentTitle={getAssessmentTitle}
+              onAssessmentClick={(trace, assessmentId) => {
+                setHighlightedAssessmentId(assessmentId);
+                setSelectedTrace(trace);
+                const index = (traces ?? []).findIndex((t) => getModelTraceId(t) === getModelTraceId(trace));
+                if (index >= 0) {
+                  setSelectedTurnIndex(index);
+                }
+              }}
             />
             {shouldEnableAssessmentsInSessions() && (
               <ExperimentSingleChatSessionScoreResults
@@ -203,12 +212,16 @@ const ExperimentSingleChatSessionPageImpl = () => {
         )}
         {selectedTrace !== null && selectedTurnIndex !== null && (
           <ModelTraceExplorerDrawer
-            handleClose={() => setSelectedTrace(null)}
+            handleClose={() => {
+              setSelectedTrace(null);
+              setHighlightedAssessmentId(null);
+            }}
             selectPreviousEval={() => {
               if (selectedTurnIndex > 0 && traces) {
                 const prevIndex = selectedTurnIndex - 1;
                 setSelectedTurnIndex(prevIndex);
                 setSelectedTrace(traces[prevIndex]);
+                setHighlightedAssessmentId(null);
               }
             }}
             selectNextEval={() => {
@@ -216,6 +229,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
                 const nextIndex = selectedTurnIndex + 1;
                 setSelectedTurnIndex(nextIndex);
                 setSelectedTrace(traces[nextIndex]);
+                setHighlightedAssessmentId(null);
               }
             }}
             isPreviousAvailable={selectedTurnIndex > 0}
@@ -238,10 +252,18 @@ const ExperimentSingleChatSessionPageImpl = () => {
             >
               {isEvaluatingTracesInDetailsViewEnabled() ? (
                 <JudgeContextProviderForTrace>
-                  <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />
+                  <ModelTraceExplorer
+                    modelTrace={selectedTrace}
+                    collapseAssessmentPane="force-open"
+                    initialHighlightedAssessmentId={highlightedAssessmentId ?? undefined}
+                  />
                 </JudgeContextProviderForTrace>
               ) : (
-                <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />
+                <ModelTraceExplorer
+                  modelTrace={selectedTrace}
+                  collapseAssessmentPane="force-open"
+                  initialHighlightedAssessmentId={highlightedAssessmentId ?? undefined}
+                />
               )}
             </div>
           </ModelTraceExplorerDrawer>

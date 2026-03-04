@@ -1,5 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
@@ -247,5 +247,26 @@ describe('SingleChatTurnAssessments', () => {
 
     // Should not show any "+ N" indicator
     expect(screen.queryByText(/\+ \d+/)).not.toBeInTheDocument();
+  });
+
+  it('should call onAssessmentClick with assessment ID when pill is clicked', () => {
+    const mockOnAssessmentClick = jest.fn();
+    const trace = createMockTrace([
+      createMockAssessment('assess-1', 'Relevance'),
+      createMockAssessment('assess-2', 'Correctness'),
+    ]);
+
+    render(
+      <TestWrapper>
+        <SingleChatTurnAssessments
+          trace={trace}
+          getAssessmentTitle={mockGetAssessmentTitle}
+          onAssessmentClick={mockOnAssessmentClick}
+        />
+      </TestWrapper>,
+    );
+
+    fireEvent.click(screen.getByText('Relevance:', { exact: false }));
+    expect(mockOnAssessmentClick).toHaveBeenCalledWith('assess-1');
   });
 });

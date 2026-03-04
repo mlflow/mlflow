@@ -26,6 +26,7 @@ export const ModelTraceExplorerImpl = ({
   onSelectSpan,
   collapseAssessmentPane,
   showLoadingState,
+  initialHighlightedAssessmentId,
 }: {
   modelTrace: ModelTrace;
   className?: string;
@@ -38,6 +39,7 @@ export const ModelTraceExplorerImpl = ({
    */
   collapseAssessmentPane?: boolean | 'force-open';
   showLoadingState?: boolean;
+  initialHighlightedAssessmentId?: string;
 }) => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
   const [forceDisplay, setForceDisplay] = useState(false);
@@ -92,6 +94,7 @@ export const ModelTraceExplorerImpl = ({
         assessmentsPaneEnabled={assessmentsPaneEnabled}
         initialAssessmentsPaneCollapsed={collapseAssessmentPane}
         isTraceInitialLoading={isTraceInitialLoading}
+        initialHighlightedAssessmentId={initialHighlightedAssessmentId}
       >
         {showLoadingState ? (
           <ModelTraceExplorerSkeleton />
