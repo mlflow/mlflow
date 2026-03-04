@@ -33,7 +33,7 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'getting-started/try-assistant',
-      label: "Try MLflow's AI Assistant",
+      label: 'Try MLflow\'s AI Assistant',
       className: 'sidebar-top-level-category',
     },
     {
