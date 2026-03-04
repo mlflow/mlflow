@@ -161,6 +161,49 @@ export interface CustomCodeScorer extends ScheduledScorerBase {
 
 export type ScheduledScorer = LLMScorer | CustomCodeScorer;
 
+export enum JudgeCategory {
+  RAG = 'rag',
+  TEXT_QUALITY = 'text_quality',
+  SAFETY = 'safety',
+  TOOL_CALL = 'tool_call',
+  AGENT = 'agent',
+}
+
+export const JUDGE_CATEGORIES = Object.values(JudgeCategory);
+
+const TEMPLATE_CATEGORY_MAP: Partial<Record<LLM_TEMPLATE, JudgeCategory>> = {
+  [LLM_TEMPLATE.RETRIEVAL_GROUNDEDNESS]: JudgeCategory.RAG,
+  [LLM_TEMPLATE.RETRIEVAL_RELEVANCE]: JudgeCategory.RAG,
+  [LLM_TEMPLATE.RETRIEVAL_SUFFICIENCY]: JudgeCategory.RAG,
+  [LLM_TEMPLATE.COMPLETENESS]: JudgeCategory.TEXT_QUALITY,
+  [LLM_TEMPLATE.CORRECTNESS]: JudgeCategory.TEXT_QUALITY,
+  [LLM_TEMPLATE.EQUIVALENCE]: JudgeCategory.TEXT_QUALITY,
+  [LLM_TEMPLATE.FLUENCY]: JudgeCategory.TEXT_QUALITY,
+  [LLM_TEMPLATE.RELEVANCE_TO_QUERY]: JudgeCategory.TEXT_QUALITY,
+  [LLM_TEMPLATE.SUMMARIZATION]: JudgeCategory.TEXT_QUALITY,
+  [LLM_TEMPLATE.SAFETY]: JudgeCategory.SAFETY,
+  [LLM_TEMPLATE.CONVERSATIONAL_SAFETY]: JudgeCategory.SAFETY,
+  [LLM_TEMPLATE.TOOL_CALL_CORRECTNESS]: JudgeCategory.TOOL_CALL,
+  [LLM_TEMPLATE.TOOL_CALL_EFFICIENCY]: JudgeCategory.TOOL_CALL,
+  [LLM_TEMPLATE.CONVERSATIONAL_TOOL_CALL_EFFICIENCY]: JudgeCategory.TOOL_CALL,
+  [LLM_TEMPLATE.CONVERSATION_COMPLETENESS]: JudgeCategory.AGENT,
+  [LLM_TEMPLATE.CONVERSATIONAL_GUIDELINES]: JudgeCategory.AGENT,
+  [LLM_TEMPLATE.CONVERSATIONAL_ROLE_ADHERENCE]: JudgeCategory.AGENT,
+  [LLM_TEMPLATE.KNOWLEDGE_RETENTION]: JudgeCategory.AGENT,
+  [LLM_TEMPLATE.USER_FRUSTRATION]: JudgeCategory.AGENT,
+};
+
+/**
+ * Maps a scorer to its category based on its LLM template.
+ * Returns undefined for custom-code scorers or templates without a mapped category.
+ */
+export const getScorerCategory = (scorer: ScheduledScorer): JudgeCategory | undefined => {
+  if (scorer.type !== 'llm' || !scorer.llmTemplate) {
+    return undefined;
+  }
+  return TEMPLATE_CATEGORY_MAP[scorer.llmTemplate as LLM_TEMPLATE];
+};
+
 export type ScorerConfig = {
   name: string;
   serialized_scorer: string;

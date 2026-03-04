@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   useDesignSystemTheme,
   ParagraphSkeleton,
@@ -12,9 +12,13 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import ScorerCardContainer from './ScorerCardContainer';
 import ScorerModalRenderer from './ScorerModalRenderer';
 import ScorerEmptyStateRenderer from './ScorerEmptyStateRenderer';
+import JudgeSelectionActionBar from './JudgeSelectionActionBar';
+import JudgeCategoryFilter from './JudgeCategoryFilter';
 import { useGetScheduledScorers } from './hooks/useGetScheduledScorers';
+import { useDeleteScheduledScorerMutation } from './hooks/useDeleteScheduledScorer';
 import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE } from './constants';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
+import { type JudgeCategory, getScorerCategory } from './types';
 
 interface ExperimentScorersContentContainerProps {
   experimentId: string;
@@ -25,9 +29,58 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
   const intl = useIntl();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [initialScorerType, setInitialScorerType] = useState<ScorerFormData['scorerType']>('llm');
+  const [selectedScorerNames, setSelectedScorerNames] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState<JudgeCategory | 'all'>('all');
 
   const scheduledScorersResult = useGetScheduledScorers(experimentId);
   const scorers = scheduledScorersResult.data?.scheduledScorers || [];
+  const deleteScorerMutation = useDeleteScheduledScorerMutation();
+
+  const filteredScorers = useMemo(() => {
+    return scorers.filter((scorer) => {
+      if (searchQuery && !scorer.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      if (activeCategory !== 'all') {
+        const category = getScorerCategory(scorer);
+        if (category !== activeCategory) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [scorers, searchQuery, activeCategory]);
+
+  const selectedScorers = useMemo(
+    () => scorers.filter((s) => selectedScorerNames.has(s.name)),
+    [scorers, selectedScorerNames],
+  );
+
+  const handleSelectionChange = useCallback((scorerName: string, selected: boolean) => {
+    setSelectedScorerNames((prev) => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(scorerName);
+      } else {
+        next.delete(scorerName);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedScorerNames(new Set());
+  }, []);
+
+  const handleBulkDelete = useCallback(() => {
+    const names = Array.from(selectedScorerNames);
+    if (names.length === 0) return;
+    deleteScorerMutation.mutate(
+      { experimentId, scorerNames: names },
+      { onSuccess: () => setSelectedScorerNames(new Set()) },
+    );
+  }, [selectedScorerNames, deleteScorerMutation, experimentId]);
 
   const handleNewLLMScorerClick = () => {
     setInitialScorerType('llm');
@@ -96,6 +149,13 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
         overflow: 'auto',
       }}
     >
+      {/* Selection action bar - shown when judges are selected */}
+      <JudgeSelectionActionBar
+        selectedScorers={selectedScorers}
+        experimentId={experimentId}
+        onDelete={handleBulkDelete}
+        onClearSelection={handleClearSelection}
+      />
       {/* Header with New judge split button */}
       <div
         css={{
@@ -129,6 +189,15 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
           <FormattedMessage defaultMessage="New LLM judge" description="Button text to create a new LLM judge" />
         </SplitButton>
       </div>
+      {/* Search and category filter */}
+      <div css={{ padding: `0 ${theme.spacing.sm}px` }}>
+        <JudgeCategoryFilter
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          activeCategory={activeCategory}
+          onCategoryChange={setActiveCategory}
+        />
+      </div>
       <Spacer size="sm" />
       {/* Content area */}
       <div
@@ -145,8 +214,14 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
             width: '100%',
           }}
         >
-          {scorers.map((scorer) => (
-            <ScorerCardContainer key={scorer.name} scorer={scorer} experimentId={experimentId} />
+          {filteredScorers.map((scorer) => (
+            <ScorerCardContainer
+              key={scorer.name}
+              scorer={scorer}
+              experimentId={experimentId}
+              isSelected={selectedScorerNames.has(scorer.name)}
+              onSelectionChange={(selected) => handleSelectionChange(scorer.name, selected)}
+            />
           ))}
         </div>
       </div>

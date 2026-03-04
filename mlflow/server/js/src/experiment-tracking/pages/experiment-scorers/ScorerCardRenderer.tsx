@@ -6,6 +6,7 @@ import {
   Tag,
   Button,
   Card,
+  Checkbox,
   ChevronDownIcon,
   ChevronRightIcon,
   CircleIcon,
@@ -69,6 +70,8 @@ interface ScorerCardRendererProps {
   control: Control<LLMScorerFormData | CustomCodeScorerFormData>;
   setValue: UseFormSetValue<LLMScorerFormData | CustomCodeScorerFormData>;
   getValues: UseFormGetValues<LLMScorerFormData | CustomCodeScorerFormData>;
+  isSelected?: boolean;
+  onSelectionChange?: (selected: boolean) => void;
 }
 
 const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
@@ -81,6 +84,8 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
   control,
   setValue,
   getValues,
+  isSelected,
+  onSelectionChange,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -101,11 +106,23 @@ const ScorerCardRenderer: React.FC<ScorerCardRendererProps> = ({
       <div
         css={{
           display: 'grid',
-          gridTemplateColumns: 'auto 1fr auto',
+          gridTemplateColumns: onSelectionChange ? 'auto auto 1fr auto' : 'auto 1fr auto',
           gap: theme.spacing.xs,
           alignItems: 'flex-start',
         }}
       >
+        {onSelectionChange && (
+          <div
+            css={{ display: 'flex', alignItems: 'center', paddingTop: theme.spacing.xs }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Checkbox
+              componentId="mlflow.experiment-scorers.scorer-card-checkbox"
+              isChecked={isSelected}
+              onChange={(e) => onSelectionChange(e.target.checked)}
+            />
+          </div>
+        )}
         <Button
           componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorercardrenderer_106"
           icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}

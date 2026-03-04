@@ -14,9 +14,11 @@ import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 interface ScorerCardContainerProps {
   scorer: ScheduledScorer;
   experimentId: string;
+  isSelected?: boolean;
+  onSelectionChange?: (selected: boolean) => void;
 }
 
-const ScorerCardContainer: React.FC<ScorerCardContainerProps> = ({ scorer, experimentId }) => {
+const ScorerCardContainer: React.FC<ScorerCardContainerProps> = ({ scorer, experimentId, isSelected, onSelectionChange }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeModal, setActiveModal] = useState<'delete' | 'edit' | null>(null);
 
@@ -94,6 +96,8 @@ const ScorerCardContainer: React.FC<ScorerCardContainerProps> = ({ scorer, exper
         control={control}
         setValue={setValue}
         getValues={getValues}
+        isSelected={isSelected}
+        onSelectionChange={onSelectionChange}
       />
       <ScorerModalRenderer
         visible={activeModal === 'edit'}
