@@ -295,21 +295,12 @@ def test_trace_disabled_decorator(enabled_initially):
     assert len(get_traces()) == 0
     assert is_tracing_enabled() == enabled_initially
 
-    # @trace_disabled should not block the decorated function even
-    # if it fails to disable tracing
-    with mock.patch(
-        "mlflow.tracing.provider.disable", side_effect=MlflowTracingException("error")
-    ) as disable_mock:
+    # @trace_disabled should not re-initialize the tracer provider.
+    # It saves/restores the existing provider, so enable() is never called.
+    with mock.patch("mlflow.tracing.provider.enable") as enable_mock:
         assert test_fn() == 0
         assert call_count == 3
-        assert disable_mock.call_count == (1 if enabled_initially else 0)
-
-    with mock.patch(
-        "mlflow.tracing.provider.enable", side_effect=MlflowTracingException("error")
-    ) as enable_mock:
-        assert test_fn() == 0
-        assert call_count == 4
-        assert enable_mock.call_count == (1 if enabled_initially else 0)
+        enable_mock.assert_not_called()
 
 
 def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):

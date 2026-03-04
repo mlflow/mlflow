@@ -748,35 +748,33 @@ def trace_disabled(f: Callable[P, R]) -> Callable[P, R]:
 
     @functools.wraps(f)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        is_func_called = False
-        result = None
+        if not is_tracing_enabled():
+            return f(*args, **kwargs)
+
+        # Save the current tracer provider and swap in a NoOp, then restore it
+        # after the function completes. This avoids calling enable() which would
+        # re-initialize the tracer provider from scratch and may fail if optional
+        # dependencies (e.g. OTLP exporter) are not installed.
         try:
-            if is_tracing_enabled():
-                disable()
-                try:
-                    is_func_called = True
-                    result = f(*args, **kwargs)
-                finally:
-                    enable()
-            else:
-                is_func_called = True
-                result = f(*args, **kwargs)
-        # We should only catch the exception from disable() and enable()
-        # and let other exceptions propagate.
-        except MlflowTracingException as e:
+            saved_provider = provider.get()
+            saved_once_done = provider.once._done
+            provider.set(trace.NoOpTracerProvider())
+            provider.once._done = True
+        except Exception as e:
             _logger.warning(
-                f"An error occurred while disabling or re-enabling tracing: {e} "
+                f"An error occurred while disabling tracing: {e} "
                 "The original function will still be executed, but the tracing "
                 "state may not be as expected. For full traceback, set "
                 "logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
-            # If the exception is raised before the original function
-            # is called, we should call the original function
-            if not is_func_called:
-                result = f(*args, **kwargs)
+            return f(*args, **kwargs)
 
-        return result
+        try:
+            return f(*args, **kwargs)
+        finally:
+            provider.set(saved_provider)
+            provider.once._done = saved_once_done
 
     return wrapper
 
