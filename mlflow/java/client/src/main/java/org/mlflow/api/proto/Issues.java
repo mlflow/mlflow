@@ -52,7 +52,7 @@ public final class Issues {
      * Experiment ID.
      * </pre>
      *
-     * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string experiment_id = 2;</code>
      * @return Whether the experimentId field is set.
      */
     boolean hasExperimentId();
@@ -61,7 +61,7 @@ public final class Issues {
      * Experiment ID.
      * </pre>
      *
-     * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string experiment_id = 2;</code>
      * @return The experimentId.
      */
     java.lang.String getExperimentId();
@@ -70,7 +70,7 @@ public final class Issues {
      * Experiment ID.
      * </pre>
      *
-     * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string experiment_id = 2;</code>
      * @return The bytes for experimentId.
      */
     com.google.protobuf.ByteString
@@ -78,39 +78,10 @@ public final class Issues {
 
     /**
      * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 3;</code>
-     * @return Whether the runId field is set.
-     */
-    boolean hasRunId();
-    /**
-     * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 3;</code>
-     * @return The runId.
-     */
-    java.lang.String getRunId();
-    /**
-     * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 3;</code>
-     * @return The bytes for runId.
-     */
-    com.google.protobuf.ByteString
-        getRunIdBytes();
-
-    /**
-     * <pre>
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string name = 3;</code>
      * @return Whether the name field is set.
      */
     boolean hasName();
@@ -119,7 +90,7 @@ public final class Issues {
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string name = 3;</code>
      * @return The name.
      */
     java.lang.String getName();
@@ -128,7 +99,7 @@ public final class Issues {
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string name = 3;</code>
      * @return The bytes for name.
      */
     com.google.protobuf.ByteString
@@ -139,7 +110,7 @@ public final class Issues {
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string description = 4;</code>
      * @return Whether the description field is set.
      */
     boolean hasDescription();
@@ -148,7 +119,7 @@ public final class Issues {
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string description = 4;</code>
      * @return The description.
      */
     java.lang.String getDescription();
@@ -157,7 +128,7 @@ public final class Issues {
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string description = 4;</code>
      * @return The bytes for description.
      */
     com.google.protobuf.ByteString
@@ -165,39 +136,10 @@ public final class Issues {
 
     /**
      * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 6;</code>
-     * @return Whether the rootCause field is set.
-     */
-    boolean hasRootCause();
-    /**
-     * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 6;</code>
-     * @return The rootCause.
-     */
-    java.lang.String getRootCause();
-    /**
-     * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 6;</code>
-     * @return The bytes for rootCause.
-     */
-    com.google.protobuf.ByteString
-        getRootCauseBytes();
-
-    /**
-     * <pre>
      * Issue status.
      * </pre>
      *
-     * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string status = 5;</code>
      * @return Whether the status field is set.
      */
     boolean hasStatus();
@@ -206,7 +148,7 @@ public final class Issues {
      * Issue status.
      * </pre>
      *
-     * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string status = 5;</code>
      * @return The status.
      */
     java.lang.String getStatus();
@@ -215,7 +157,7 @@ public final class Issues {
      * Issue status.
      * </pre>
      *
-     * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string status = 5;</code>
      * @return The bytes for status.
      */
     com.google.protobuf.ByteString
@@ -223,29 +165,10 @@ public final class Issues {
 
     /**
      * <pre>
-     * Frequency score indicating how often this issue occurs.
-     * </pre>
-     *
-     * <code>optional double frequency = 8;</code>
-     * @return Whether the frequency field is set.
-     */
-    boolean hasFrequency();
-    /**
-     * <pre>
-     * Frequency score indicating how often this issue occurs.
-     * </pre>
-     *
-     * <code>optional double frequency = 8;</code>
-     * @return The frequency.
-     */
-    double getFrequency();
-
-    /**
-     * <pre>
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 9;</code>
+     * <code>optional string confidence = 6;</code>
      * @return Whether the confidence field is set.
      */
     boolean hasConfidence();
@@ -254,7 +177,7 @@ public final class Issues {
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 9;</code>
+     * <code>optional string confidence = 6;</code>
      * @return The confidence.
      */
     java.lang.String getConfidence();
@@ -263,7 +186,7 @@ public final class Issues {
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 9;</code>
+     * <code>optional string confidence = 6;</code>
      * @return The bytes for confidence.
      */
     com.google.protobuf.ByteString
@@ -271,133 +194,80 @@ public final class Issues {
 
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 10;</code>
-     * @return A list containing the rationaleExamples.
+     * <code>repeated string root_causes = 7;</code>
+     * @return A list containing the rootCauses.
      */
     java.util.List<java.lang.String>
-        getRationaleExamplesList();
+        getRootCausesList();
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 10;</code>
-     * @return The count of rationaleExamples.
+     * <code>repeated string root_causes = 7;</code>
+     * @return The count of rootCauses.
      */
-    int getRationaleExamplesCount();
+    int getRootCausesCount();
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 10;</code>
+     * <code>repeated string root_causes = 7;</code>
      * @param index The index of the element to return.
-     * @return The rationaleExamples at the given index.
+     * @return The rootCauses at the given index.
      */
-    java.lang.String getRationaleExamples(int index);
+    java.lang.String getRootCauses(int index);
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 10;</code>
+     * <code>repeated string root_causes = 7;</code>
      * @param index The index of the value to return.
-     * @return The bytes of the rationaleExamples at the given index.
+     * @return The bytes of the rootCauses at the given index.
      */
     com.google.protobuf.ByteString
-        getRationaleExamplesBytes(int index);
+        getRootCausesBytes(int index);
 
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 11;</code>
-     * @return A list containing the exampleTraceIds.
+     * <code>optional string source_run_id = 8;</code>
+     * @return Whether the sourceRunId field is set.
      */
-    java.util.List<java.lang.String>
-        getExampleTraceIdsList();
+    boolean hasSourceRunId();
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 11;</code>
-     * @return The count of exampleTraceIds.
+     * <code>optional string source_run_id = 8;</code>
+     * @return The sourceRunId.
      */
-    int getExampleTraceIdsCount();
+    java.lang.String getSourceRunId();
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 11;</code>
-     * @param index The index of the element to return.
-     * @return The exampleTraceIds at the given index.
-     */
-    java.lang.String getExampleTraceIds(int index);
-    /**
-     * <pre>
-     * List of example trace IDs.
-     * </pre>
-     *
-     * <code>repeated string example_trace_ids = 11;</code>
-     * @param index The index of the value to return.
-     * @return The bytes of the exampleTraceIds at the given index.
+     * <code>optional string source_run_id = 8;</code>
+     * @return The bytes for sourceRunId.
      */
     com.google.protobuf.ByteString
-        getExampleTraceIdsBytes(int index);
-
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 12;</code>
-     * @return A list containing the traceIds.
-     */
-    java.util.List<java.lang.String>
-        getTraceIdsList();
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 12;</code>
-     * @return The count of traceIds.
-     */
-    int getTraceIdsCount();
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 12;</code>
-     * @param index The index of the element to return.
-     * @return The traceIds at the given index.
-     */
-    java.lang.String getTraceIds(int index);
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 12;</code>
-     * @param index The index of the value to return.
-     * @return The bytes of the traceIds at the given index.
-     */
-    com.google.protobuf.ByteString
-        getTraceIdsBytes(int index);
+        getSourceRunIdBytes();
 
     /**
      * <pre>
      * Creation timestamp in milliseconds.
      * </pre>
      *
-     * <code>optional int64 created_timestamp = 13 [(.mlflow.validate_required) = true];</code>
+     * <code>optional int64 created_timestamp = 9;</code>
      * @return Whether the createdTimestamp field is set.
      */
     boolean hasCreatedTimestamp();
@@ -406,7 +276,7 @@ public final class Issues {
      * Creation timestamp in milliseconds.
      * </pre>
      *
-     * <code>optional int64 created_timestamp = 13 [(.mlflow.validate_required) = true];</code>
+     * <code>optional int64 created_timestamp = 9;</code>
      * @return The createdTimestamp.
      */
     long getCreatedTimestamp();
@@ -416,7 +286,7 @@ public final class Issues {
      * Last update timestamp in milliseconds.
      * </pre>
      *
-     * <code>optional int64 last_updated_timestamp = 14 [(.mlflow.validate_required) = true];</code>
+     * <code>optional int64 last_updated_timestamp = 10;</code>
      * @return Whether the lastUpdatedTimestamp field is set.
      */
     boolean hasLastUpdatedTimestamp();
@@ -425,7 +295,7 @@ public final class Issues {
      * Last update timestamp in milliseconds.
      * </pre>
      *
-     * <code>optional int64 last_updated_timestamp = 14 [(.mlflow.validate_required) = true];</code>
+     * <code>optional int64 last_updated_timestamp = 10;</code>
      * @return The lastUpdatedTimestamp.
      */
     long getLastUpdatedTimestamp();
@@ -435,7 +305,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 15;</code>
+     * <code>optional string created_by = 11;</code>
      * @return Whether the createdBy field is set.
      */
     boolean hasCreatedBy();
@@ -444,7 +314,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 15;</code>
+     * <code>optional string created_by = 11;</code>
      * @return The createdBy.
      */
     java.lang.String getCreatedBy();
@@ -453,7 +323,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 15;</code>
+     * <code>optional string created_by = 11;</code>
      * @return The bytes for createdBy.
      */
     com.google.protobuf.ByteString
@@ -461,7 +331,7 @@ public final class Issues {
   }
   /**
    * <pre>
-   * Represents a quality or operational problem discovered in traces.
+   * Represents an issue discovered in traces.
    * </pre>
    *
    * Protobuf type {@code mlflow.issues.Issue}
@@ -478,15 +348,12 @@ public final class Issues {
     private Issue() {
       issueId_ = "";
       experimentId_ = "";
-      runId_ = "";
       name_ = "";
       description_ = "";
-      rootCause_ = "";
       status_ = "";
       confidence_ = "";
-      rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      sourceRunId_ = "";
       createdBy_ = "";
     }
 
@@ -536,84 +403,55 @@ public final class Issues {
             case 26: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000004;
-              runId_ = bs;
+              name_ = bs;
               break;
             }
             case 34: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000008;
-              name_ = bs;
+              description_ = bs;
               break;
             }
             case 42: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000010;
-              description_ = bs;
+              status_ = bs;
               break;
             }
             case 50: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000020;
-              rootCause_ = bs;
+              confidence_ = bs;
               break;
             }
             case 58: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000040;
-              status_ = bs;
-              break;
-            }
-            case 65: {
-              bitField0_ |= 0x00000080;
-              frequency_ = input.readDouble();
-              break;
-            }
-            case 74: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000100;
-              confidence_ = bs;
-              break;
-            }
-            case 82: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000200) != 0)) {
-                rationaleExamples_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000200;
+              if (!((mutable_bitField0_ & 0x00000040) != 0)) {
+                rootCauses_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000040;
               }
-              rationaleExamples_.add(bs);
+              rootCauses_.add(bs);
+              break;
+            }
+            case 66: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000040;
+              sourceRunId_ = bs;
+              break;
+            }
+            case 72: {
+              bitField0_ |= 0x00000080;
+              createdTimestamp_ = input.readInt64();
+              break;
+            }
+            case 80: {
+              bitField0_ |= 0x00000100;
+              lastUpdatedTimestamp_ = input.readInt64();
               break;
             }
             case 90: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000400) != 0)) {
-                exampleTraceIds_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000400;
-              }
-              exampleTraceIds_.add(bs);
-              break;
-            }
-            case 98: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000800) != 0)) {
-                traceIds_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000800;
-              }
-              traceIds_.add(bs);
-              break;
-            }
-            case 104: {
               bitField0_ |= 0x00000200;
-              createdTimestamp_ = input.readInt64();
-              break;
-            }
-            case 112: {
-              bitField0_ |= 0x00000400;
-              lastUpdatedTimestamp_ = input.readInt64();
-              break;
-            }
-            case 122: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000800;
               createdBy_ = bs;
               break;
             }
@@ -632,14 +470,8 @@ public final class Issues {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000200) != 0)) {
-          rationaleExamples_ = rationaleExamples_.getUnmodifiableView();
-        }
-        if (((mutable_bitField0_ & 0x00000400) != 0)) {
-          exampleTraceIds_ = exampleTraceIds_.getUnmodifiableView();
-        }
-        if (((mutable_bitField0_ & 0x00000800) != 0)) {
-          traceIds_ = traceIds_.getUnmodifiableView();
+        if (((mutable_bitField0_ & 0x00000040) != 0)) {
+          rootCauses_ = rootCauses_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -726,7 +558,7 @@ public final class Issues {
      * Experiment ID.
      * </pre>
      *
-     * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string experiment_id = 2;</code>
      * @return Whether the experimentId field is set.
      */
     @java.lang.Override
@@ -738,7 +570,7 @@ public final class Issues {
      * Experiment ID.
      * </pre>
      *
-     * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string experiment_id = 2;</code>
      * @return The experimentId.
      */
     @java.lang.Override
@@ -761,7 +593,7 @@ public final class Issues {
      * Experiment ID.
      * </pre>
      *
-     * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string experiment_id = 2;</code>
      * @return The bytes for experimentId.
      */
     @java.lang.Override
@@ -779,86 +611,26 @@ public final class Issues {
       }
     }
 
-    public static final int RUN_ID_FIELD_NUMBER = 3;
-    private volatile java.lang.Object runId_;
-    /**
-     * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 3;</code>
-     * @return Whether the runId field is set.
-     */
-    @java.lang.Override
-    public boolean hasRunId() {
-      return ((bitField0_ & 0x00000004) != 0);
-    }
-    /**
-     * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 3;</code>
-     * @return The runId.
-     */
-    @java.lang.Override
-    public java.lang.String getRunId() {
-      java.lang.Object ref = runId_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          runId_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 3;</code>
-     * @return The bytes for runId.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getRunIdBytes() {
-      java.lang.Object ref = runId_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        runId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int NAME_FIELD_NUMBER = 4;
+    public static final int NAME_FIELD_NUMBER = 3;
     private volatile java.lang.Object name_;
     /**
      * <pre>
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string name = 3;</code>
      * @return Whether the name field is set.
      */
     @java.lang.Override
     public boolean hasName() {
-      return ((bitField0_ & 0x00000008) != 0);
+      return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string name = 3;</code>
      * @return The name.
      */
     @java.lang.Override
@@ -881,7 +653,7 @@ public final class Issues {
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string name = 3;</code>
      * @return The bytes for name.
      */
     @java.lang.Override
@@ -899,26 +671,26 @@ public final class Issues {
       }
     }
 
-    public static final int DESCRIPTION_FIELD_NUMBER = 5;
+    public static final int DESCRIPTION_FIELD_NUMBER = 4;
     private volatile java.lang.Object description_;
     /**
      * <pre>
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string description = 4;</code>
      * @return Whether the description field is set.
      */
     @java.lang.Override
     public boolean hasDescription() {
-      return ((bitField0_ & 0x00000010) != 0);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <pre>
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string description = 4;</code>
      * @return The description.
      */
     @java.lang.Override
@@ -941,7 +713,7 @@ public final class Issues {
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string description = 4;</code>
      * @return The bytes for description.
      */
     @java.lang.Override
@@ -959,86 +731,26 @@ public final class Issues {
       }
     }
 
-    public static final int ROOT_CAUSE_FIELD_NUMBER = 6;
-    private volatile java.lang.Object rootCause_;
-    /**
-     * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 6;</code>
-     * @return Whether the rootCause field is set.
-     */
-    @java.lang.Override
-    public boolean hasRootCause() {
-      return ((bitField0_ & 0x00000020) != 0);
-    }
-    /**
-     * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 6;</code>
-     * @return The rootCause.
-     */
-    @java.lang.Override
-    public java.lang.String getRootCause() {
-      java.lang.Object ref = rootCause_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          rootCause_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 6;</code>
-     * @return The bytes for rootCause.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getRootCauseBytes() {
-      java.lang.Object ref = rootCause_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        rootCause_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int STATUS_FIELD_NUMBER = 7;
+    public static final int STATUS_FIELD_NUMBER = 5;
     private volatile java.lang.Object status_;
     /**
      * <pre>
      * Issue status.
      * </pre>
      *
-     * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string status = 5;</code>
      * @return Whether the status field is set.
      */
     @java.lang.Override
     public boolean hasStatus() {
-      return ((bitField0_ & 0x00000040) != 0);
+      return ((bitField0_ & 0x00000010) != 0);
     }
     /**
      * <pre>
      * Issue status.
      * </pre>
      *
-     * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string status = 5;</code>
      * @return The status.
      */
     @java.lang.Override
@@ -1061,7 +773,7 @@ public final class Issues {
      * Issue status.
      * </pre>
      *
-     * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string status = 5;</code>
      * @return The bytes for status.
      */
     @java.lang.Override
@@ -1079,53 +791,26 @@ public final class Issues {
       }
     }
 
-    public static final int FREQUENCY_FIELD_NUMBER = 8;
-    private double frequency_;
-    /**
-     * <pre>
-     * Frequency score indicating how often this issue occurs.
-     * </pre>
-     *
-     * <code>optional double frequency = 8;</code>
-     * @return Whether the frequency field is set.
-     */
-    @java.lang.Override
-    public boolean hasFrequency() {
-      return ((bitField0_ & 0x00000080) != 0);
-    }
-    /**
-     * <pre>
-     * Frequency score indicating how often this issue occurs.
-     * </pre>
-     *
-     * <code>optional double frequency = 8;</code>
-     * @return The frequency.
-     */
-    @java.lang.Override
-    public double getFrequency() {
-      return frequency_;
-    }
-
-    public static final int CONFIDENCE_FIELD_NUMBER = 9;
+    public static final int CONFIDENCE_FIELD_NUMBER = 6;
     private volatile java.lang.Object confidence_;
     /**
      * <pre>
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 9;</code>
+     * <code>optional string confidence = 6;</code>
      * @return Whether the confidence field is set.
      */
     @java.lang.Override
     public boolean hasConfidence() {
-      return ((bitField0_ & 0x00000100) != 0);
+      return ((bitField0_ & 0x00000020) != 0);
     }
     /**
      * <pre>
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 9;</code>
+     * <code>optional string confidence = 6;</code>
      * @return The confidence.
      */
     @java.lang.Override
@@ -1148,7 +833,7 @@ public final class Issues {
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 9;</code>
+     * <code>optional string confidence = 6;</code>
      * @return The bytes for confidence.
      */
     @java.lang.Override
@@ -1166,179 +851,137 @@ public final class Issues {
       }
     }
 
-    public static final int RATIONALE_EXAMPLES_FIELD_NUMBER = 10;
-    private com.google.protobuf.LazyStringList rationaleExamples_;
+    public static final int ROOT_CAUSES_FIELD_NUMBER = 7;
+    private com.google.protobuf.LazyStringList rootCauses_;
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 10;</code>
-     * @return A list containing the rationaleExamples.
+     * <code>repeated string root_causes = 7;</code>
+     * @return A list containing the rootCauses.
      */
     public com.google.protobuf.ProtocolStringList
-        getRationaleExamplesList() {
-      return rationaleExamples_;
+        getRootCausesList() {
+      return rootCauses_;
     }
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 10;</code>
-     * @return The count of rationaleExamples.
+     * <code>repeated string root_causes = 7;</code>
+     * @return The count of rootCauses.
      */
-    public int getRationaleExamplesCount() {
-      return rationaleExamples_.size();
+    public int getRootCausesCount() {
+      return rootCauses_.size();
     }
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 10;</code>
+     * <code>repeated string root_causes = 7;</code>
      * @param index The index of the element to return.
-     * @return The rationaleExamples at the given index.
+     * @return The rootCauses at the given index.
      */
-    public java.lang.String getRationaleExamples(int index) {
-      return rationaleExamples_.get(index);
+    public java.lang.String getRootCauses(int index) {
+      return rootCauses_.get(index);
     }
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 10;</code>
+     * <code>repeated string root_causes = 7;</code>
      * @param index The index of the value to return.
-     * @return The bytes of the rationaleExamples at the given index.
+     * @return The bytes of the rootCauses at the given index.
      */
     public com.google.protobuf.ByteString
-        getRationaleExamplesBytes(int index) {
-      return rationaleExamples_.getByteString(index);
+        getRootCausesBytes(int index) {
+      return rootCauses_.getByteString(index);
     }
 
-    public static final int EXAMPLE_TRACE_IDS_FIELD_NUMBER = 11;
-    private com.google.protobuf.LazyStringList exampleTraceIds_;
+    public static final int SOURCE_RUN_ID_FIELD_NUMBER = 8;
+    private volatile java.lang.Object sourceRunId_;
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 11;</code>
-     * @return A list containing the exampleTraceIds.
+     * <code>optional string source_run_id = 8;</code>
+     * @return Whether the sourceRunId field is set.
      */
-    public com.google.protobuf.ProtocolStringList
-        getExampleTraceIdsList() {
-      return exampleTraceIds_;
+    @java.lang.Override
+    public boolean hasSourceRunId() {
+      return ((bitField0_ & 0x00000040) != 0);
     }
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 11;</code>
-     * @return The count of exampleTraceIds.
+     * <code>optional string source_run_id = 8;</code>
+     * @return The sourceRunId.
      */
-    public int getExampleTraceIdsCount() {
-      return exampleTraceIds_.size();
+    @java.lang.Override
+    public java.lang.String getSourceRunId() {
+      java.lang.Object ref = sourceRunId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          sourceRunId_ = s;
+        }
+        return s;
+      }
     }
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 11;</code>
-     * @param index The index of the element to return.
-     * @return The exampleTraceIds at the given index.
+     * <code>optional string source_run_id = 8;</code>
+     * @return The bytes for sourceRunId.
      */
-    public java.lang.String getExampleTraceIds(int index) {
-      return exampleTraceIds_.get(index);
-    }
-    /**
-     * <pre>
-     * List of example trace IDs.
-     * </pre>
-     *
-     * <code>repeated string example_trace_ids = 11;</code>
-     * @param index The index of the value to return.
-     * @return The bytes of the exampleTraceIds at the given index.
-     */
+    @java.lang.Override
     public com.google.protobuf.ByteString
-        getExampleTraceIdsBytes(int index) {
-      return exampleTraceIds_.getByteString(index);
+        getSourceRunIdBytes() {
+      java.lang.Object ref = sourceRunId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sourceRunId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
-    public static final int TRACE_IDS_FIELD_NUMBER = 12;
-    private com.google.protobuf.LazyStringList traceIds_;
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 12;</code>
-     * @return A list containing the traceIds.
-     */
-    public com.google.protobuf.ProtocolStringList
-        getTraceIdsList() {
-      return traceIds_;
-    }
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 12;</code>
-     * @return The count of traceIds.
-     */
-    public int getTraceIdsCount() {
-      return traceIds_.size();
-    }
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 12;</code>
-     * @param index The index of the element to return.
-     * @return The traceIds at the given index.
-     */
-    public java.lang.String getTraceIds(int index) {
-      return traceIds_.get(index);
-    }
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 12;</code>
-     * @param index The index of the value to return.
-     * @return The bytes of the traceIds at the given index.
-     */
-    public com.google.protobuf.ByteString
-        getTraceIdsBytes(int index) {
-      return traceIds_.getByteString(index);
-    }
-
-    public static final int CREATED_TIMESTAMP_FIELD_NUMBER = 13;
+    public static final int CREATED_TIMESTAMP_FIELD_NUMBER = 9;
     private long createdTimestamp_;
     /**
      * <pre>
      * Creation timestamp in milliseconds.
      * </pre>
      *
-     * <code>optional int64 created_timestamp = 13 [(.mlflow.validate_required) = true];</code>
+     * <code>optional int64 created_timestamp = 9;</code>
      * @return Whether the createdTimestamp field is set.
      */
     @java.lang.Override
     public boolean hasCreatedTimestamp() {
-      return ((bitField0_ & 0x00000200) != 0);
+      return ((bitField0_ & 0x00000080) != 0);
     }
     /**
      * <pre>
      * Creation timestamp in milliseconds.
      * </pre>
      *
-     * <code>optional int64 created_timestamp = 13 [(.mlflow.validate_required) = true];</code>
+     * <code>optional int64 created_timestamp = 9;</code>
      * @return The createdTimestamp.
      */
     @java.lang.Override
@@ -1346,26 +989,26 @@ public final class Issues {
       return createdTimestamp_;
     }
 
-    public static final int LAST_UPDATED_TIMESTAMP_FIELD_NUMBER = 14;
+    public static final int LAST_UPDATED_TIMESTAMP_FIELD_NUMBER = 10;
     private long lastUpdatedTimestamp_;
     /**
      * <pre>
      * Last update timestamp in milliseconds.
      * </pre>
      *
-     * <code>optional int64 last_updated_timestamp = 14 [(.mlflow.validate_required) = true];</code>
+     * <code>optional int64 last_updated_timestamp = 10;</code>
      * @return Whether the lastUpdatedTimestamp field is set.
      */
     @java.lang.Override
     public boolean hasLastUpdatedTimestamp() {
-      return ((bitField0_ & 0x00000400) != 0);
+      return ((bitField0_ & 0x00000100) != 0);
     }
     /**
      * <pre>
      * Last update timestamp in milliseconds.
      * </pre>
      *
-     * <code>optional int64 last_updated_timestamp = 14 [(.mlflow.validate_required) = true];</code>
+     * <code>optional int64 last_updated_timestamp = 10;</code>
      * @return The lastUpdatedTimestamp.
      */
     @java.lang.Override
@@ -1373,26 +1016,26 @@ public final class Issues {
       return lastUpdatedTimestamp_;
     }
 
-    public static final int CREATED_BY_FIELD_NUMBER = 15;
+    public static final int CREATED_BY_FIELD_NUMBER = 11;
     private volatile java.lang.Object createdBy_;
     /**
      * <pre>
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 15;</code>
+     * <code>optional string created_by = 11;</code>
      * @return Whether the createdBy field is set.
      */
     @java.lang.Override
     public boolean hasCreatedBy() {
-      return ((bitField0_ & 0x00000800) != 0);
+      return ((bitField0_ & 0x00000200) != 0);
     }
     /**
      * <pre>
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 15;</code>
+     * <code>optional string created_by = 11;</code>
      * @return The createdBy.
      */
     @java.lang.Override
@@ -1415,7 +1058,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 15;</code>
+     * <code>optional string created_by = 11;</code>
      * @return The bytes for createdBy.
      */
     @java.lang.Override
@@ -1454,43 +1097,31 @@ public final class Issues {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, experimentId_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, runId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, name_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, name_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, description_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, description_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, status_);
       }
       if (((bitField0_ & 0x00000020) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, rootCause_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, confidence_);
+      }
+      for (int i = 0; i < rootCauses_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, rootCauses_.getRaw(i));
       }
       if (((bitField0_ & 0x00000040) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, status_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 8, sourceRunId_);
       }
       if (((bitField0_ & 0x00000080) != 0)) {
-        output.writeDouble(8, frequency_);
+        output.writeInt64(9, createdTimestamp_);
       }
       if (((bitField0_ & 0x00000100) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 9, confidence_);
-      }
-      for (int i = 0; i < rationaleExamples_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, rationaleExamples_.getRaw(i));
-      }
-      for (int i = 0; i < exampleTraceIds_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 11, exampleTraceIds_.getRaw(i));
-      }
-      for (int i = 0; i < traceIds_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 12, traceIds_.getRaw(i));
+        output.writeInt64(10, lastUpdatedTimestamp_);
       }
       if (((bitField0_ & 0x00000200) != 0)) {
-        output.writeInt64(13, createdTimestamp_);
-      }
-      if (((bitField0_ & 0x00000400) != 0)) {
-        output.writeInt64(14, lastUpdatedTimestamp_);
-      }
-      if (((bitField0_ & 0x00000800) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 15, createdBy_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 11, createdBy_);
       }
       unknownFields.writeTo(output);
     }
@@ -1508,61 +1139,38 @@ public final class Issues {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, experimentId_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, runId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, name_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, name_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, description_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, description_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, status_);
       }
       if (((bitField0_ & 0x00000020) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, rootCause_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, confidence_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < rootCauses_.size(); i++) {
+          dataSize += computeStringSizeNoTag(rootCauses_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getRootCausesList().size();
       }
       if (((bitField0_ & 0x00000040) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, status_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, sourceRunId_);
       }
       if (((bitField0_ & 0x00000080) != 0)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeDoubleSize(8, frequency_);
+          .computeInt64Size(9, createdTimestamp_);
       }
       if (((bitField0_ & 0x00000100) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, confidence_);
-      }
-      {
-        int dataSize = 0;
-        for (int i = 0; i < rationaleExamples_.size(); i++) {
-          dataSize += computeStringSizeNoTag(rationaleExamples_.getRaw(i));
-        }
-        size += dataSize;
-        size += 1 * getRationaleExamplesList().size();
-      }
-      {
-        int dataSize = 0;
-        for (int i = 0; i < exampleTraceIds_.size(); i++) {
-          dataSize += computeStringSizeNoTag(exampleTraceIds_.getRaw(i));
-        }
-        size += dataSize;
-        size += 1 * getExampleTraceIdsList().size();
-      }
-      {
-        int dataSize = 0;
-        for (int i = 0; i < traceIds_.size(); i++) {
-          dataSize += computeStringSizeNoTag(traceIds_.getRaw(i));
-        }
-        size += dataSize;
-        size += 1 * getTraceIdsList().size();
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(10, lastUpdatedTimestamp_);
       }
       if (((bitField0_ & 0x00000200) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(13, createdTimestamp_);
-      }
-      if (((bitField0_ & 0x00000400) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(14, lastUpdatedTimestamp_);
-      }
-      if (((bitField0_ & 0x00000800) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(15, createdBy_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, createdBy_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -1589,11 +1197,6 @@ public final class Issues {
         if (!getExperimentId()
             .equals(other.getExperimentId())) return false;
       }
-      if (hasRunId() != other.hasRunId()) return false;
-      if (hasRunId()) {
-        if (!getRunId()
-            .equals(other.getRunId())) return false;
-      }
       if (hasName() != other.hasName()) return false;
       if (hasName()) {
         if (!getName()
@@ -1604,33 +1207,23 @@ public final class Issues {
         if (!getDescription()
             .equals(other.getDescription())) return false;
       }
-      if (hasRootCause() != other.hasRootCause()) return false;
-      if (hasRootCause()) {
-        if (!getRootCause()
-            .equals(other.getRootCause())) return false;
-      }
       if (hasStatus() != other.hasStatus()) return false;
       if (hasStatus()) {
         if (!getStatus()
             .equals(other.getStatus())) return false;
-      }
-      if (hasFrequency() != other.hasFrequency()) return false;
-      if (hasFrequency()) {
-        if (java.lang.Double.doubleToLongBits(getFrequency())
-            != java.lang.Double.doubleToLongBits(
-                other.getFrequency())) return false;
       }
       if (hasConfidence() != other.hasConfidence()) return false;
       if (hasConfidence()) {
         if (!getConfidence()
             .equals(other.getConfidence())) return false;
       }
-      if (!getRationaleExamplesList()
-          .equals(other.getRationaleExamplesList())) return false;
-      if (!getExampleTraceIdsList()
-          .equals(other.getExampleTraceIdsList())) return false;
-      if (!getTraceIdsList()
-          .equals(other.getTraceIdsList())) return false;
+      if (!getRootCausesList()
+          .equals(other.getRootCausesList())) return false;
+      if (hasSourceRunId() != other.hasSourceRunId()) return false;
+      if (hasSourceRunId()) {
+        if (!getSourceRunId()
+            .equals(other.getSourceRunId())) return false;
+      }
       if (hasCreatedTimestamp() != other.hasCreatedTimestamp()) return false;
       if (hasCreatedTimestamp()) {
         if (getCreatedTimestamp()
@@ -1665,10 +1258,6 @@ public final class Issues {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
         hash = (53 * hash) + getExperimentId().hashCode();
       }
-      if (hasRunId()) {
-        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getRunId().hashCode();
-      }
       if (hasName()) {
         hash = (37 * hash) + NAME_FIELD_NUMBER;
         hash = (53 * hash) + getName().hashCode();
@@ -1677,34 +1266,21 @@ public final class Issues {
         hash = (37 * hash) + DESCRIPTION_FIELD_NUMBER;
         hash = (53 * hash) + getDescription().hashCode();
       }
-      if (hasRootCause()) {
-        hash = (37 * hash) + ROOT_CAUSE_FIELD_NUMBER;
-        hash = (53 * hash) + getRootCause().hashCode();
-      }
       if (hasStatus()) {
         hash = (37 * hash) + STATUS_FIELD_NUMBER;
         hash = (53 * hash) + getStatus().hashCode();
-      }
-      if (hasFrequency()) {
-        hash = (37 * hash) + FREQUENCY_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            java.lang.Double.doubleToLongBits(getFrequency()));
       }
       if (hasConfidence()) {
         hash = (37 * hash) + CONFIDENCE_FIELD_NUMBER;
         hash = (53 * hash) + getConfidence().hashCode();
       }
-      if (getRationaleExamplesCount() > 0) {
-        hash = (37 * hash) + RATIONALE_EXAMPLES_FIELD_NUMBER;
-        hash = (53 * hash) + getRationaleExamplesList().hashCode();
+      if (getRootCausesCount() > 0) {
+        hash = (37 * hash) + ROOT_CAUSES_FIELD_NUMBER;
+        hash = (53 * hash) + getRootCausesList().hashCode();
       }
-      if (getExampleTraceIdsCount() > 0) {
-        hash = (37 * hash) + EXAMPLE_TRACE_IDS_FIELD_NUMBER;
-        hash = (53 * hash) + getExampleTraceIdsList().hashCode();
-      }
-      if (getTraceIdsCount() > 0) {
-        hash = (37 * hash) + TRACE_IDS_FIELD_NUMBER;
-        hash = (53 * hash) + getTraceIdsList().hashCode();
+      if (hasSourceRunId()) {
+        hash = (37 * hash) + SOURCE_RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getSourceRunId().hashCode();
       }
       if (hasCreatedTimestamp()) {
         hash = (37 * hash) + CREATED_TIMESTAMP_FIELD_NUMBER;
@@ -1817,7 +1393,7 @@ public final class Issues {
     }
     /**
      * <pre>
-     * Represents a quality or operational problem discovered in traces.
+     * Represents an issue discovered in traces.
      * </pre>
      *
      * Protobuf type {@code mlflow.issues.Issue}
@@ -1861,32 +1437,24 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000001);
         experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        runId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
         name_ = "";
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         description_ = "";
-        bitField0_ = (bitField0_ & ~0x00000010);
-        rootCause_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000008);
         status_ = "";
-        bitField0_ = (bitField0_ & ~0x00000040);
-        frequency_ = 0D;
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000010);
         confidence_ = "";
-        bitField0_ = (bitField0_ & ~0x00000100);
-        rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000200);
-        exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000400);
-        traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000800);
+        bitField0_ = (bitField0_ & ~0x00000020);
+        rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000040);
+        sourceRunId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000080);
         createdTimestamp_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00001000);
+        bitField0_ = (bitField0_ & ~0x00000100);
         lastUpdatedTimestamp_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00002000);
+        bitField0_ = (bitField0_ & ~0x00000200);
         createdBy_ = "";
-        bitField0_ = (bitField0_ & ~0x00004000);
+        bitField0_ = (bitField0_ & ~0x00000400);
         return this;
       }
 
@@ -1926,56 +1494,38 @@ public final class Issues {
         if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.runId_ = runId_;
+        result.name_ = name_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
           to_bitField0_ |= 0x00000008;
         }
-        result.name_ = name_;
+        result.description_ = description_;
         if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
-        result.description_ = description_;
+        result.status_ = status_;
         if (((from_bitField0_ & 0x00000020) != 0)) {
           to_bitField0_ |= 0x00000020;
         }
-        result.rootCause_ = rootCause_;
-        if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.confidence_ = confidence_;
+        if (((bitField0_ & 0x00000040) != 0)) {
+          rootCauses_ = rootCauses_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000040);
+        }
+        result.rootCauses_ = rootCauses_;
+        if (((from_bitField0_ & 0x00000080) != 0)) {
           to_bitField0_ |= 0x00000040;
         }
-        result.status_ = status_;
-        if (((from_bitField0_ & 0x00000080) != 0)) {
-          result.frequency_ = frequency_;
+        result.sourceRunId_ = sourceRunId_;
+        if (((from_bitField0_ & 0x00000100) != 0)) {
+          result.createdTimestamp_ = createdTimestamp_;
           to_bitField0_ |= 0x00000080;
         }
-        if (((from_bitField0_ & 0x00000100) != 0)) {
+        if (((from_bitField0_ & 0x00000200) != 0)) {
+          result.lastUpdatedTimestamp_ = lastUpdatedTimestamp_;
           to_bitField0_ |= 0x00000100;
         }
-        result.confidence_ = confidence_;
-        if (((bitField0_ & 0x00000200) != 0)) {
-          rationaleExamples_ = rationaleExamples_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000200);
-        }
-        result.rationaleExamples_ = rationaleExamples_;
-        if (((bitField0_ & 0x00000400) != 0)) {
-          exampleTraceIds_ = exampleTraceIds_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000400);
-        }
-        result.exampleTraceIds_ = exampleTraceIds_;
-        if (((bitField0_ & 0x00000800) != 0)) {
-          traceIds_ = traceIds_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000800);
-        }
-        result.traceIds_ = traceIds_;
-        if (((from_bitField0_ & 0x00001000) != 0)) {
-          result.createdTimestamp_ = createdTimestamp_;
+        if (((from_bitField0_ & 0x00000400) != 0)) {
           to_bitField0_ |= 0x00000200;
-        }
-        if (((from_bitField0_ & 0x00002000) != 0)) {
-          result.lastUpdatedTimestamp_ = lastUpdatedTimestamp_;
-          to_bitField0_ |= 0x00000400;
-        }
-        if (((from_bitField0_ & 0x00004000) != 0)) {
-          to_bitField0_ |= 0x00000800;
         }
         result.createdBy_ = createdBy_;
         result.bitField0_ = to_bitField0_;
@@ -2037,67 +1587,39 @@ public final class Issues {
           experimentId_ = other.experimentId_;
           onChanged();
         }
-        if (other.hasRunId()) {
-          bitField0_ |= 0x00000004;
-          runId_ = other.runId_;
-          onChanged();
-        }
         if (other.hasName()) {
-          bitField0_ |= 0x00000008;
+          bitField0_ |= 0x00000004;
           name_ = other.name_;
           onChanged();
         }
         if (other.hasDescription()) {
-          bitField0_ |= 0x00000010;
+          bitField0_ |= 0x00000008;
           description_ = other.description_;
           onChanged();
         }
-        if (other.hasRootCause()) {
-          bitField0_ |= 0x00000020;
-          rootCause_ = other.rootCause_;
-          onChanged();
-        }
         if (other.hasStatus()) {
-          bitField0_ |= 0x00000040;
+          bitField0_ |= 0x00000010;
           status_ = other.status_;
           onChanged();
         }
-        if (other.hasFrequency()) {
-          setFrequency(other.getFrequency());
-        }
         if (other.hasConfidence()) {
-          bitField0_ |= 0x00000100;
+          bitField0_ |= 0x00000020;
           confidence_ = other.confidence_;
           onChanged();
         }
-        if (!other.rationaleExamples_.isEmpty()) {
-          if (rationaleExamples_.isEmpty()) {
-            rationaleExamples_ = other.rationaleExamples_;
-            bitField0_ = (bitField0_ & ~0x00000200);
+        if (!other.rootCauses_.isEmpty()) {
+          if (rootCauses_.isEmpty()) {
+            rootCauses_ = other.rootCauses_;
+            bitField0_ = (bitField0_ & ~0x00000040);
           } else {
-            ensureRationaleExamplesIsMutable();
-            rationaleExamples_.addAll(other.rationaleExamples_);
+            ensureRootCausesIsMutable();
+            rootCauses_.addAll(other.rootCauses_);
           }
           onChanged();
         }
-        if (!other.exampleTraceIds_.isEmpty()) {
-          if (exampleTraceIds_.isEmpty()) {
-            exampleTraceIds_ = other.exampleTraceIds_;
-            bitField0_ = (bitField0_ & ~0x00000400);
-          } else {
-            ensureExampleTraceIdsIsMutable();
-            exampleTraceIds_.addAll(other.exampleTraceIds_);
-          }
-          onChanged();
-        }
-        if (!other.traceIds_.isEmpty()) {
-          if (traceIds_.isEmpty()) {
-            traceIds_ = other.traceIds_;
-            bitField0_ = (bitField0_ & ~0x00000800);
-          } else {
-            ensureTraceIdsIsMutable();
-            traceIds_.addAll(other.traceIds_);
-          }
+        if (other.hasSourceRunId()) {
+          bitField0_ |= 0x00000080;
+          sourceRunId_ = other.sourceRunId_;
           onChanged();
         }
         if (other.hasCreatedTimestamp()) {
@@ -2107,7 +1629,7 @@ public final class Issues {
           setLastUpdatedTimestamp(other.getLastUpdatedTimestamp());
         }
         if (other.hasCreatedBy()) {
-          bitField0_ |= 0x00004000;
+          bitField0_ |= 0x00000400;
           createdBy_ = other.createdBy_;
           onChanged();
         }
@@ -2255,7 +1777,7 @@ public final class Issues {
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 2;</code>
        * @return Whether the experimentId field is set.
        */
       public boolean hasExperimentId() {
@@ -2266,7 +1788,7 @@ public final class Issues {
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 2;</code>
        * @return The experimentId.
        */
       public java.lang.String getExperimentId() {
@@ -2288,7 +1810,7 @@ public final class Issues {
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 2;</code>
        * @return The bytes for experimentId.
        */
       public com.google.protobuf.ByteString
@@ -2309,7 +1831,7 @@ public final class Issues {
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 2;</code>
        * @param value The experimentId to set.
        * @return This builder for chaining.
        */
@@ -2328,7 +1850,7 @@ public final class Issues {
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 2;</code>
        * @return This builder for chaining.
        */
       public Builder clearExperimentId() {
@@ -2342,7 +1864,7 @@ public final class Issues {
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 2 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 2;</code>
        * @param value The bytes for experimentId to set.
        * @return This builder for chaining.
        */
@@ -2357,132 +1879,24 @@ public final class Issues {
         return this;
       }
 
-      private java.lang.Object runId_ = "";
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 3;</code>
-       * @return Whether the runId field is set.
-       */
-      public boolean hasRunId() {
-        return ((bitField0_ & 0x00000004) != 0);
-      }
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 3;</code>
-       * @return The runId.
-       */
-      public java.lang.String getRunId() {
-        java.lang.Object ref = runId_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            runId_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 3;</code>
-       * @return The bytes for runId.
-       */
-      public com.google.protobuf.ByteString
-          getRunIdBytes() {
-        java.lang.Object ref = runId_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          runId_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 3;</code>
-       * @param value The runId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRunId(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        runId_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 3;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearRunId() {
-        bitField0_ = (bitField0_ & ~0x00000004);
-        runId_ = getDefaultInstance().getRunId();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 3;</code>
-       * @param value The bytes for runId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRunIdBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        runId_ = value;
-        onChanged();
-        return this;
-      }
-
       private java.lang.Object name_ = "";
       /**
        * <pre>
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string name = 3;</code>
        * @return Whether the name field is set.
        */
       public boolean hasName() {
-        return ((bitField0_ & 0x00000008) != 0);
+        return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string name = 3;</code>
        * @return The name.
        */
       public java.lang.String getName() {
@@ -2504,7 +1918,7 @@ public final class Issues {
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string name = 3;</code>
        * @return The bytes for name.
        */
       public com.google.protobuf.ByteString
@@ -2525,7 +1939,7 @@ public final class Issues {
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string name = 3;</code>
        * @param value The name to set.
        * @return This builder for chaining.
        */
@@ -2534,7 +1948,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000004;
         name_ = value;
         onChanged();
         return this;
@@ -2544,11 +1958,11 @@ public final class Issues {
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string name = 3;</code>
        * @return This builder for chaining.
        */
       public Builder clearName() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         name_ = getDefaultInstance().getName();
         onChanged();
         return this;
@@ -2558,7 +1972,7 @@ public final class Issues {
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string name = 3;</code>
        * @param value The bytes for name to set.
        * @return This builder for chaining.
        */
@@ -2567,7 +1981,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000004;
         name_ = value;
         onChanged();
         return this;
@@ -2579,18 +1993,18 @@ public final class Issues {
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string description = 4;</code>
        * @return Whether the description field is set.
        */
       public boolean hasDescription() {
-        return ((bitField0_ & 0x00000010) != 0);
+        return ((bitField0_ & 0x00000008) != 0);
       }
       /**
        * <pre>
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string description = 4;</code>
        * @return The description.
        */
       public java.lang.String getDescription() {
@@ -2612,7 +2026,7 @@ public final class Issues {
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string description = 4;</code>
        * @return The bytes for description.
        */
       public com.google.protobuf.ByteString
@@ -2633,7 +2047,7 @@ public final class Issues {
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string description = 4;</code>
        * @param value The description to set.
        * @return This builder for chaining.
        */
@@ -2642,7 +2056,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000010;
+  bitField0_ |= 0x00000008;
         description_ = value;
         onChanged();
         return this;
@@ -2652,11 +2066,11 @@ public final class Issues {
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string description = 4;</code>
        * @return This builder for chaining.
        */
       public Builder clearDescription() {
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         description_ = getDefaultInstance().getDescription();
         onChanged();
         return this;
@@ -2666,7 +2080,7 @@ public final class Issues {
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 5 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string description = 4;</code>
        * @param value The bytes for description to set.
        * @return This builder for chaining.
        */
@@ -2675,116 +2089,8 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000010;
+  bitField0_ |= 0x00000008;
         description_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object rootCause_ = "";
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 6;</code>
-       * @return Whether the rootCause field is set.
-       */
-      public boolean hasRootCause() {
-        return ((bitField0_ & 0x00000020) != 0);
-      }
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 6;</code>
-       * @return The rootCause.
-       */
-      public java.lang.String getRootCause() {
-        java.lang.Object ref = rootCause_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            rootCause_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 6;</code>
-       * @return The bytes for rootCause.
-       */
-      public com.google.protobuf.ByteString
-          getRootCauseBytes() {
-        java.lang.Object ref = rootCause_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          rootCause_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 6;</code>
-       * @param value The rootCause to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRootCause(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        rootCause_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 6;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearRootCause() {
-        bitField0_ = (bitField0_ & ~0x00000020);
-        rootCause_ = getDefaultInstance().getRootCause();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 6;</code>
-       * @param value The bytes for rootCause to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRootCauseBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        rootCause_ = value;
         onChanged();
         return this;
       }
@@ -2795,18 +2101,18 @@ public final class Issues {
        * Issue status.
        * </pre>
        *
-       * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string status = 5;</code>
        * @return Whether the status field is set.
        */
       public boolean hasStatus() {
-        return ((bitField0_ & 0x00000040) != 0);
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
        * Issue status.
        * </pre>
        *
-       * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string status = 5;</code>
        * @return The status.
        */
       public java.lang.String getStatus() {
@@ -2828,7 +2134,7 @@ public final class Issues {
        * Issue status.
        * </pre>
        *
-       * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string status = 5;</code>
        * @return The bytes for status.
        */
       public com.google.protobuf.ByteString
@@ -2849,7 +2155,7 @@ public final class Issues {
        * Issue status.
        * </pre>
        *
-       * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string status = 5;</code>
        * @param value The status to set.
        * @return This builder for chaining.
        */
@@ -2858,7 +2164,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000040;
+  bitField0_ |= 0x00000010;
         status_ = value;
         onChanged();
         return this;
@@ -2868,11 +2174,11 @@ public final class Issues {
        * Issue status.
        * </pre>
        *
-       * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string status = 5;</code>
        * @return This builder for chaining.
        */
       public Builder clearStatus() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000010);
         status_ = getDefaultInstance().getStatus();
         onChanged();
         return this;
@@ -2882,7 +2188,7 @@ public final class Issues {
        * Issue status.
        * </pre>
        *
-       * <code>optional string status = 7 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string status = 5;</code>
        * @param value The bytes for status to set.
        * @return This builder for chaining.
        */
@@ -2891,63 +2197,8 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000040;
+  bitField0_ |= 0x00000010;
         status_ = value;
-        onChanged();
-        return this;
-      }
-
-      private double frequency_ ;
-      /**
-       * <pre>
-       * Frequency score indicating how often this issue occurs.
-       * </pre>
-       *
-       * <code>optional double frequency = 8;</code>
-       * @return Whether the frequency field is set.
-       */
-      @java.lang.Override
-      public boolean hasFrequency() {
-        return ((bitField0_ & 0x00000080) != 0);
-      }
-      /**
-       * <pre>
-       * Frequency score indicating how often this issue occurs.
-       * </pre>
-       *
-       * <code>optional double frequency = 8;</code>
-       * @return The frequency.
-       */
-      @java.lang.Override
-      public double getFrequency() {
-        return frequency_;
-      }
-      /**
-       * <pre>
-       * Frequency score indicating how often this issue occurs.
-       * </pre>
-       *
-       * <code>optional double frequency = 8;</code>
-       * @param value The frequency to set.
-       * @return This builder for chaining.
-       */
-      public Builder setFrequency(double value) {
-        bitField0_ |= 0x00000080;
-        frequency_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Frequency score indicating how often this issue occurs.
-       * </pre>
-       *
-       * <code>optional double frequency = 8;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearFrequency() {
-        bitField0_ = (bitField0_ & ~0x00000080);
-        frequency_ = 0D;
         onChanged();
         return this;
       }
@@ -2958,18 +2209,18 @@ public final class Issues {
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 9;</code>
+       * <code>optional string confidence = 6;</code>
        * @return Whether the confidence field is set.
        */
       public boolean hasConfidence() {
-        return ((bitField0_ & 0x00000100) != 0);
+        return ((bitField0_ & 0x00000020) != 0);
       }
       /**
        * <pre>
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 9;</code>
+       * <code>optional string confidence = 6;</code>
        * @return The confidence.
        */
       public java.lang.String getConfidence() {
@@ -2991,7 +2242,7 @@ public final class Issues {
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 9;</code>
+       * <code>optional string confidence = 6;</code>
        * @return The bytes for confidence.
        */
       public com.google.protobuf.ByteString
@@ -3012,7 +2263,7 @@ public final class Issues {
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 9;</code>
+       * <code>optional string confidence = 6;</code>
        * @param value The confidence to set.
        * @return This builder for chaining.
        */
@@ -3021,7 +2272,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000100;
+  bitField0_ |= 0x00000020;
         confidence_ = value;
         onChanged();
         return this;
@@ -3031,11 +2282,11 @@ public final class Issues {
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 9;</code>
+       * <code>optional string confidence = 6;</code>
        * @return This builder for chaining.
        */
       public Builder clearConfidence() {
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000020);
         confidence_ = getDefaultInstance().getConfidence();
         onChanged();
         return this;
@@ -3045,7 +2296,7 @@ public final class Issues {
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 9;</code>
+       * <code>optional string confidence = 6;</code>
        * @param value The bytes for confidence to set.
        * @return This builder for chaining.
        */
@@ -3054,443 +2305,261 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000100;
+  bitField0_ |= 0x00000020;
         confidence_ = value;
         onChanged();
         return this;
       }
 
-      private com.google.protobuf.LazyStringList rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      private void ensureRationaleExamplesIsMutable() {
-        if (!((bitField0_ & 0x00000200) != 0)) {
-          rationaleExamples_ = new com.google.protobuf.LazyStringArrayList(rationaleExamples_);
-          bitField0_ |= 0x00000200;
+      private com.google.protobuf.LazyStringList rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureRootCausesIsMutable() {
+        if (!((bitField0_ & 0x00000040) != 0)) {
+          rootCauses_ = new com.google.protobuf.LazyStringArrayList(rootCauses_);
+          bitField0_ |= 0x00000040;
          }
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 10;</code>
-       * @return A list containing the rationaleExamples.
+       * <code>repeated string root_causes = 7;</code>
+       * @return A list containing the rootCauses.
        */
       public com.google.protobuf.ProtocolStringList
-          getRationaleExamplesList() {
-        return rationaleExamples_.getUnmodifiableView();
+          getRootCausesList() {
+        return rootCauses_.getUnmodifiableView();
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 10;</code>
-       * @return The count of rationaleExamples.
+       * <code>repeated string root_causes = 7;</code>
+       * @return The count of rootCauses.
        */
-      public int getRationaleExamplesCount() {
-        return rationaleExamples_.size();
+      public int getRootCausesCount() {
+        return rootCauses_.size();
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 10;</code>
+       * <code>repeated string root_causes = 7;</code>
        * @param index The index of the element to return.
-       * @return The rationaleExamples at the given index.
+       * @return The rootCauses at the given index.
        */
-      public java.lang.String getRationaleExamples(int index) {
-        return rationaleExamples_.get(index);
+      public java.lang.String getRootCauses(int index) {
+        return rootCauses_.get(index);
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 10;</code>
+       * <code>repeated string root_causes = 7;</code>
        * @param index The index of the value to return.
-       * @return The bytes of the rationaleExamples at the given index.
+       * @return The bytes of the rootCauses at the given index.
        */
       public com.google.protobuf.ByteString
-          getRationaleExamplesBytes(int index) {
-        return rationaleExamples_.getByteString(index);
+          getRootCausesBytes(int index) {
+        return rootCauses_.getByteString(index);
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 10;</code>
+       * <code>repeated string root_causes = 7;</code>
        * @param index The index to set the value at.
-       * @param value The rationaleExamples to set.
+       * @param value The rootCauses to set.
        * @return This builder for chaining.
        */
-      public Builder setRationaleExamples(
+      public Builder setRootCauses(
           int index, java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureRationaleExamplesIsMutable();
-        rationaleExamples_.set(index, value);
+  ensureRootCausesIsMutable();
+        rootCauses_.set(index, value);
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 10;</code>
-       * @param value The rationaleExamples to add.
+       * <code>repeated string root_causes = 7;</code>
+       * @param value The rootCauses to add.
        * @return This builder for chaining.
        */
-      public Builder addRationaleExamples(
+      public Builder addRootCauses(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureRationaleExamplesIsMutable();
-        rationaleExamples_.add(value);
+  ensureRootCausesIsMutable();
+        rootCauses_.add(value);
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 10;</code>
-       * @param values The rationaleExamples to add.
+       * <code>repeated string root_causes = 7;</code>
+       * @param values The rootCauses to add.
        * @return This builder for chaining.
        */
-      public Builder addAllRationaleExamples(
+      public Builder addAllRootCauses(
           java.lang.Iterable<java.lang.String> values) {
-        ensureRationaleExamplesIsMutable();
+        ensureRootCausesIsMutable();
         com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, rationaleExamples_);
+            values, rootCauses_);
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 10;</code>
+       * <code>repeated string root_causes = 7;</code>
        * @return This builder for chaining.
        */
-      public Builder clearRationaleExamples() {
-        rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000200);
+      public Builder clearRootCauses() {
+        rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000040);
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 10;</code>
-       * @param value The bytes of the rationaleExamples to add.
+       * <code>repeated string root_causes = 7;</code>
+       * @param value The bytes of the rootCauses to add.
        * @return This builder for chaining.
        */
-      public Builder addRationaleExamplesBytes(
+      public Builder addRootCausesBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureRationaleExamplesIsMutable();
-        rationaleExamples_.add(value);
+  ensureRootCausesIsMutable();
+        rootCauses_.add(value);
         onChanged();
         return this;
       }
 
-      private com.google.protobuf.LazyStringList exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      private void ensureExampleTraceIdsIsMutable() {
-        if (!((bitField0_ & 0x00000400) != 0)) {
-          exampleTraceIds_ = new com.google.protobuf.LazyStringArrayList(exampleTraceIds_);
-          bitField0_ |= 0x00000400;
-         }
-      }
+      private java.lang.Object sourceRunId_ = "";
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 11;</code>
-       * @return A list containing the exampleTraceIds.
+       * <code>optional string source_run_id = 8;</code>
+       * @return Whether the sourceRunId field is set.
        */
-      public com.google.protobuf.ProtocolStringList
-          getExampleTraceIdsList() {
-        return exampleTraceIds_.getUnmodifiableView();
+      public boolean hasSourceRunId() {
+        return ((bitField0_ & 0x00000080) != 0);
       }
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 11;</code>
-       * @return The count of exampleTraceIds.
+       * <code>optional string source_run_id = 8;</code>
+       * @return The sourceRunId.
        */
-      public int getExampleTraceIdsCount() {
-        return exampleTraceIds_.size();
+      public java.lang.String getSourceRunId() {
+        java.lang.Object ref = sourceRunId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            sourceRunId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 11;</code>
-       * @param index The index of the element to return.
-       * @return The exampleTraceIds at the given index.
-       */
-      public java.lang.String getExampleTraceIds(int index) {
-        return exampleTraceIds_.get(index);
-      }
-      /**
-       * <pre>
-       * List of example trace IDs.
-       * </pre>
-       *
-       * <code>repeated string example_trace_ids = 11;</code>
-       * @param index The index of the value to return.
-       * @return The bytes of the exampleTraceIds at the given index.
+       * <code>optional string source_run_id = 8;</code>
+       * @return The bytes for sourceRunId.
        */
       public com.google.protobuf.ByteString
-          getExampleTraceIdsBytes(int index) {
-        return exampleTraceIds_.getByteString(index);
+          getSourceRunIdBytes() {
+        java.lang.Object ref = sourceRunId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          sourceRunId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
       }
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 11;</code>
-       * @param index The index to set the value at.
-       * @param value The exampleTraceIds to set.
+       * <code>optional string source_run_id = 8;</code>
+       * @param value The sourceRunId to set.
        * @return This builder for chaining.
        */
-      public Builder setExampleTraceIds(
-          int index, java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  ensureExampleTraceIdsIsMutable();
-        exampleTraceIds_.set(index, value);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of example trace IDs.
-       * </pre>
-       *
-       * <code>repeated string example_trace_ids = 11;</code>
-       * @param value The exampleTraceIds to add.
-       * @return This builder for chaining.
-       */
-      public Builder addExampleTraceIds(
+      public Builder setSourceRunId(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureExampleTraceIdsIsMutable();
-        exampleTraceIds_.add(value);
+  bitField0_ |= 0x00000080;
+        sourceRunId_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 11;</code>
-       * @param values The exampleTraceIds to add.
+       * <code>optional string source_run_id = 8;</code>
        * @return This builder for chaining.
        */
-      public Builder addAllExampleTraceIds(
-          java.lang.Iterable<java.lang.String> values) {
-        ensureExampleTraceIdsIsMutable();
-        com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, exampleTraceIds_);
+      public Builder clearSourceRunId() {
+        bitField0_ = (bitField0_ & ~0x00000080);
+        sourceRunId_ = getDefaultInstance().getSourceRunId();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 11;</code>
+       * <code>optional string source_run_id = 8;</code>
+       * @param value The bytes for sourceRunId to set.
        * @return This builder for chaining.
        */
-      public Builder clearExampleTraceIds() {
-        exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000400);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of example trace IDs.
-       * </pre>
-       *
-       * <code>repeated string example_trace_ids = 11;</code>
-       * @param value The bytes of the exampleTraceIds to add.
-       * @return This builder for chaining.
-       */
-      public Builder addExampleTraceIdsBytes(
+      public Builder setSourceRunIdBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureExampleTraceIdsIsMutable();
-        exampleTraceIds_.add(value);
-        onChanged();
-        return this;
-      }
-
-      private com.google.protobuf.LazyStringList traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      private void ensureTraceIdsIsMutable() {
-        if (!((bitField0_ & 0x00000800) != 0)) {
-          traceIds_ = new com.google.protobuf.LazyStringArrayList(traceIds_);
-          bitField0_ |= 0x00000800;
-         }
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 12;</code>
-       * @return A list containing the traceIds.
-       */
-      public com.google.protobuf.ProtocolStringList
-          getTraceIdsList() {
-        return traceIds_.getUnmodifiableView();
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 12;</code>
-       * @return The count of traceIds.
-       */
-      public int getTraceIdsCount() {
-        return traceIds_.size();
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 12;</code>
-       * @param index The index of the element to return.
-       * @return The traceIds at the given index.
-       */
-      public java.lang.String getTraceIds(int index) {
-        return traceIds_.get(index);
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 12;</code>
-       * @param index The index of the value to return.
-       * @return The bytes of the traceIds at the given index.
-       */
-      public com.google.protobuf.ByteString
-          getTraceIdsBytes(int index) {
-        return traceIds_.getByteString(index);
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 12;</code>
-       * @param index The index to set the value at.
-       * @param value The traceIds to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTraceIds(
-          int index, java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  ensureTraceIdsIsMutable();
-        traceIds_.set(index, value);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 12;</code>
-       * @param value The traceIds to add.
-       * @return This builder for chaining.
-       */
-      public Builder addTraceIds(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  ensureTraceIdsIsMutable();
-        traceIds_.add(value);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 12;</code>
-       * @param values The traceIds to add.
-       * @return This builder for chaining.
-       */
-      public Builder addAllTraceIds(
-          java.lang.Iterable<java.lang.String> values) {
-        ensureTraceIdsIsMutable();
-        com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, traceIds_);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 12;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearTraceIds() {
-        traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000800);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 12;</code>
-       * @param value The bytes of the traceIds to add.
-       * @return This builder for chaining.
-       */
-      public Builder addTraceIdsBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  ensureTraceIdsIsMutable();
-        traceIds_.add(value);
+  bitField0_ |= 0x00000080;
+        sourceRunId_ = value;
         onChanged();
         return this;
       }
@@ -3501,19 +2570,19 @@ public final class Issues {
        * Creation timestamp in milliseconds.
        * </pre>
        *
-       * <code>optional int64 created_timestamp = 13 [(.mlflow.validate_required) = true];</code>
+       * <code>optional int64 created_timestamp = 9;</code>
        * @return Whether the createdTimestamp field is set.
        */
       @java.lang.Override
       public boolean hasCreatedTimestamp() {
-        return ((bitField0_ & 0x00001000) != 0);
+        return ((bitField0_ & 0x00000100) != 0);
       }
       /**
        * <pre>
        * Creation timestamp in milliseconds.
        * </pre>
        *
-       * <code>optional int64 created_timestamp = 13 [(.mlflow.validate_required) = true];</code>
+       * <code>optional int64 created_timestamp = 9;</code>
        * @return The createdTimestamp.
        */
       @java.lang.Override
@@ -3525,12 +2594,12 @@ public final class Issues {
        * Creation timestamp in milliseconds.
        * </pre>
        *
-       * <code>optional int64 created_timestamp = 13 [(.mlflow.validate_required) = true];</code>
+       * <code>optional int64 created_timestamp = 9;</code>
        * @param value The createdTimestamp to set.
        * @return This builder for chaining.
        */
       public Builder setCreatedTimestamp(long value) {
-        bitField0_ |= 0x00001000;
+        bitField0_ |= 0x00000100;
         createdTimestamp_ = value;
         onChanged();
         return this;
@@ -3540,11 +2609,11 @@ public final class Issues {
        * Creation timestamp in milliseconds.
        * </pre>
        *
-       * <code>optional int64 created_timestamp = 13 [(.mlflow.validate_required) = true];</code>
+       * <code>optional int64 created_timestamp = 9;</code>
        * @return This builder for chaining.
        */
       public Builder clearCreatedTimestamp() {
-        bitField0_ = (bitField0_ & ~0x00001000);
+        bitField0_ = (bitField0_ & ~0x00000100);
         createdTimestamp_ = 0L;
         onChanged();
         return this;
@@ -3556,19 +2625,19 @@ public final class Issues {
        * Last update timestamp in milliseconds.
        * </pre>
        *
-       * <code>optional int64 last_updated_timestamp = 14 [(.mlflow.validate_required) = true];</code>
+       * <code>optional int64 last_updated_timestamp = 10;</code>
        * @return Whether the lastUpdatedTimestamp field is set.
        */
       @java.lang.Override
       public boolean hasLastUpdatedTimestamp() {
-        return ((bitField0_ & 0x00002000) != 0);
+        return ((bitField0_ & 0x00000200) != 0);
       }
       /**
        * <pre>
        * Last update timestamp in milliseconds.
        * </pre>
        *
-       * <code>optional int64 last_updated_timestamp = 14 [(.mlflow.validate_required) = true];</code>
+       * <code>optional int64 last_updated_timestamp = 10;</code>
        * @return The lastUpdatedTimestamp.
        */
       @java.lang.Override
@@ -3580,12 +2649,12 @@ public final class Issues {
        * Last update timestamp in milliseconds.
        * </pre>
        *
-       * <code>optional int64 last_updated_timestamp = 14 [(.mlflow.validate_required) = true];</code>
+       * <code>optional int64 last_updated_timestamp = 10;</code>
        * @param value The lastUpdatedTimestamp to set.
        * @return This builder for chaining.
        */
       public Builder setLastUpdatedTimestamp(long value) {
-        bitField0_ |= 0x00002000;
+        bitField0_ |= 0x00000200;
         lastUpdatedTimestamp_ = value;
         onChanged();
         return this;
@@ -3595,11 +2664,11 @@ public final class Issues {
        * Last update timestamp in milliseconds.
        * </pre>
        *
-       * <code>optional int64 last_updated_timestamp = 14 [(.mlflow.validate_required) = true];</code>
+       * <code>optional int64 last_updated_timestamp = 10;</code>
        * @return This builder for chaining.
        */
       public Builder clearLastUpdatedTimestamp() {
-        bitField0_ = (bitField0_ & ~0x00002000);
+        bitField0_ = (bitField0_ & ~0x00000200);
         lastUpdatedTimestamp_ = 0L;
         onChanged();
         return this;
@@ -3611,18 +2680,18 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 15;</code>
+       * <code>optional string created_by = 11;</code>
        * @return Whether the createdBy field is set.
        */
       public boolean hasCreatedBy() {
-        return ((bitField0_ & 0x00004000) != 0);
+        return ((bitField0_ & 0x00000400) != 0);
       }
       /**
        * <pre>
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 15;</code>
+       * <code>optional string created_by = 11;</code>
        * @return The createdBy.
        */
       public java.lang.String getCreatedBy() {
@@ -3644,7 +2713,7 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 15;</code>
+       * <code>optional string created_by = 11;</code>
        * @return The bytes for createdBy.
        */
       public com.google.protobuf.ByteString
@@ -3665,7 +2734,7 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 15;</code>
+       * <code>optional string created_by = 11;</code>
        * @param value The createdBy to set.
        * @return This builder for chaining.
        */
@@ -3674,7 +2743,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00004000;
+  bitField0_ |= 0x00000400;
         createdBy_ = value;
         onChanged();
         return this;
@@ -3684,11 +2753,11 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 15;</code>
+       * <code>optional string created_by = 11;</code>
        * @return This builder for chaining.
        */
       public Builder clearCreatedBy() {
-        bitField0_ = (bitField0_ & ~0x00004000);
+        bitField0_ = (bitField0_ & ~0x00000400);
         createdBy_ = getDefaultInstance().getCreatedBy();
         onChanged();
         return this;
@@ -3698,7 +2767,7 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 15;</code>
+       * <code>optional string created_by = 11;</code>
        * @param value The bytes for createdBy to set.
        * @return This builder for chaining.
        */
@@ -3707,7 +2776,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00004000;
+  bitField0_ |= 0x00000400;
         createdBy_ = value;
         onChanged();
         return this;
@@ -3771,10 +2840,39 @@ public final class Issues {
 
     /**
      * <pre>
+     * Experiment ID.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the experimentId field is set.
+     */
+    boolean hasExperimentId();
+    /**
+     * <pre>
+     * Experiment ID.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The experimentId.
+     */
+    java.lang.String getExperimentId();
+    /**
+     * <pre>
+     * Experiment ID.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for experimentId.
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdBytes();
+
+    /**
+     * <pre>
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
      * @return Whether the name field is set.
      */
     boolean hasName();
@@ -3783,7 +2881,7 @@ public final class Issues {
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
      * @return The name.
      */
     java.lang.String getName();
@@ -3792,7 +2890,7 @@ public final class Issues {
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
      * @return The bytes for name.
      */
     com.google.protobuf.ByteString
@@ -3803,7 +2901,7 @@ public final class Issues {
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
      * @return Whether the description field is set.
      */
     boolean hasDescription();
@@ -3812,7 +2910,7 @@ public final class Issues {
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
      * @return The description.
      */
     java.lang.String getDescription();
@@ -3821,7 +2919,7 @@ public final class Issues {
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
      * @return The bytes for description.
      */
     com.google.protobuf.ByteString
@@ -3829,76 +2927,28 @@ public final class Issues {
 
     /**
      * <pre>
-     * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
+     * Issue status.
      * </pre>
      *
-     * <code>optional double frequency = 3;</code>
-     * @return Whether the frequency field is set.
-     */
-    boolean hasFrequency();
-    /**
-     * <pre>
-     * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
-     * </pre>
-     *
-     * <code>optional double frequency = 3;</code>
-     * @return The frequency.
-     */
-    double getFrequency();
-
-    /**
-     * <pre>
-     * Experiment ID.
-     * </pre>
-     *
-     * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the experimentId field is set.
-     */
-    boolean hasExperimentId();
-    /**
-     * <pre>
-     * Experiment ID.
-     * </pre>
-     *
-     * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The experimentId.
-     */
-    java.lang.String getExperimentId();
-    /**
-     * <pre>
-     * Experiment ID.
-     * </pre>
-     *
-     * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for experimentId.
-     */
-    com.google.protobuf.ByteString
-        getExperimentIdBytes();
-
-    /**
-     * <pre>
-     * Issue status, e.g. "draft".
-     * </pre>
-     *
-     * <code>optional string status = 5;</code>
+     * <code>optional string status = 4;</code>
      * @return Whether the status field is set.
      */
     boolean hasStatus();
     /**
      * <pre>
-     * Issue status, e.g. "draft".
+     * Issue status.
      * </pre>
      *
-     * <code>optional string status = 5;</code>
+     * <code>optional string status = 4;</code>
      * @return The status.
      */
     java.lang.String getStatus();
     /**
      * <pre>
-     * Issue status, e.g. "draft".
+     * Issue status.
      * </pre>
      *
-     * <code>optional string status = 5;</code>
+     * <code>optional string status = 4;</code>
      * @return The bytes for status.
      */
     com.google.protobuf.ByteString
@@ -3906,68 +2956,10 @@ public final class Issues {
 
     /**
      * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 6;</code>
-     * @return Whether the runId field is set.
-     */
-    boolean hasRunId();
-    /**
-     * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 6;</code>
-     * @return The runId.
-     */
-    java.lang.String getRunId();
-    /**
-     * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 6;</code>
-     * @return The bytes for runId.
-     */
-    com.google.protobuf.ByteString
-        getRunIdBytes();
-
-    /**
-     * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 7;</code>
-     * @return Whether the rootCause field is set.
-     */
-    boolean hasRootCause();
-    /**
-     * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 7;</code>
-     * @return The rootCause.
-     */
-    java.lang.String getRootCause();
-    /**
-     * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 7;</code>
-     * @return The bytes for rootCause.
-     */
-    com.google.protobuf.ByteString
-        getRootCauseBytes();
-
-    /**
-     * <pre>
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 8;</code>
+     * <code>optional string confidence = 5;</code>
      * @return Whether the confidence field is set.
      */
     boolean hasConfidence();
@@ -3976,7 +2968,7 @@ public final class Issues {
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 8;</code>
+     * <code>optional string confidence = 5;</code>
      * @return The confidence.
      */
     java.lang.String getConfidence();
@@ -3985,7 +2977,7 @@ public final class Issues {
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 8;</code>
+     * <code>optional string confidence = 5;</code>
      * @return The bytes for confidence.
      */
     com.google.protobuf.ByteString
@@ -3993,92 +2985,80 @@ public final class Issues {
 
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 9;</code>
-     * @return A list containing the rationaleExamples.
+     * <code>repeated string root_causes = 6;</code>
+     * @return A list containing the rootCauses.
      */
     java.util.List<java.lang.String>
-        getRationaleExamplesList();
+        getRootCausesList();
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 9;</code>
-     * @return The count of rationaleExamples.
+     * <code>repeated string root_causes = 6;</code>
+     * @return The count of rootCauses.
      */
-    int getRationaleExamplesCount();
+    int getRootCausesCount();
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 9;</code>
+     * <code>repeated string root_causes = 6;</code>
      * @param index The index of the element to return.
-     * @return The rationaleExamples at the given index.
+     * @return The rootCauses at the given index.
      */
-    java.lang.String getRationaleExamples(int index);
+    java.lang.String getRootCauses(int index);
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 9;</code>
+     * <code>repeated string root_causes = 6;</code>
      * @param index The index of the value to return.
-     * @return The bytes of the rationaleExamples at the given index.
+     * @return The bytes of the rootCauses at the given index.
      */
     com.google.protobuf.ByteString
-        getRationaleExamplesBytes(int index);
+        getRootCausesBytes(int index);
 
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 10;</code>
-     * @return A list containing the exampleTraceIds.
+     * <code>optional string source_run_id = 7;</code>
+     * @return Whether the sourceRunId field is set.
      */
-    java.util.List<java.lang.String>
-        getExampleTraceIdsList();
+    boolean hasSourceRunId();
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 10;</code>
-     * @return The count of exampleTraceIds.
+     * <code>optional string source_run_id = 7;</code>
+     * @return The sourceRunId.
      */
-    int getExampleTraceIdsCount();
+    java.lang.String getSourceRunId();
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 10;</code>
-     * @param index The index of the element to return.
-     * @return The exampleTraceIds at the given index.
-     */
-    java.lang.String getExampleTraceIds(int index);
-    /**
-     * <pre>
-     * List of example trace IDs.
-     * </pre>
-     *
-     * <code>repeated string example_trace_ids = 10;</code>
-     * @param index The index of the value to return.
-     * @return The bytes of the exampleTraceIds at the given index.
+     * <code>optional string source_run_id = 7;</code>
+     * @return The bytes for sourceRunId.
      */
     com.google.protobuf.ByteString
-        getExampleTraceIdsBytes(int index);
+        getSourceRunIdBytes();
 
     /**
      * <pre>
      * List of trace IDs associated with this issue.
      * </pre>
      *
-     * <code>repeated string trace_ids = 11;</code>
+     * <code>repeated string trace_ids = 8;</code>
      * @return A list containing the traceIds.
      */
     java.util.List<java.lang.String>
@@ -4088,7 +3068,7 @@ public final class Issues {
      * List of trace IDs associated with this issue.
      * </pre>
      *
-     * <code>repeated string trace_ids = 11;</code>
+     * <code>repeated string trace_ids = 8;</code>
      * @return The count of traceIds.
      */
     int getTraceIdsCount();
@@ -4097,7 +3077,7 @@ public final class Issues {
      * List of trace IDs associated with this issue.
      * </pre>
      *
-     * <code>repeated string trace_ids = 11;</code>
+     * <code>repeated string trace_ids = 8;</code>
      * @param index The index of the element to return.
      * @return The traceIds at the given index.
      */
@@ -4107,7 +3087,7 @@ public final class Issues {
      * List of trace IDs associated with this issue.
      * </pre>
      *
-     * <code>repeated string trace_ids = 11;</code>
+     * <code>repeated string trace_ids = 8;</code>
      * @param index The index of the value to return.
      * @return The bytes of the traceIds at the given index.
      */
@@ -4119,7 +3099,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 12;</code>
+     * <code>optional string created_by = 9;</code>
      * @return Whether the createdBy field is set.
      */
     boolean hasCreatedBy();
@@ -4128,7 +3108,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 12;</code>
+     * <code>optional string created_by = 9;</code>
      * @return The createdBy.
      */
     java.lang.String getCreatedBy();
@@ -4137,7 +3117,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 12;</code>
+     * <code>optional string created_by = 9;</code>
      * @return The bytes for createdBy.
      */
     com.google.protobuf.ByteString
@@ -4160,15 +3140,13 @@ public final class Issues {
       super(builder);
     }
     private CreateIssue() {
+      experimentId_ = "";
       name_ = "";
       description_ = "";
-      experimentId_ = "";
       status_ = "";
-      runId_ = "";
-      rootCause_ = "";
       confidence_ = "";
-      rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      sourceRunId_ = "";
       traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       createdBy_ = "";
     }
@@ -4207,80 +3185,60 @@ public final class Issues {
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              name_ = bs;
+              experimentId_ = bs;
               break;
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
-              description_ = bs;
+              name_ = bs;
               break;
             }
-            case 25: {
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000004;
-              frequency_ = input.readDouble();
+              description_ = bs;
               break;
             }
             case 34: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000008;
-              experimentId_ = bs;
+              status_ = bs;
               break;
             }
             case 42: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000010;
-              status_ = bs;
+              confidence_ = bs;
               break;
             }
             case 50: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000020;
-              runId_ = bs;
+              if (!((mutable_bitField0_ & 0x00000020) != 0)) {
+                rootCauses_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000020;
+              }
+              rootCauses_.add(bs);
               break;
             }
             case 58: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000040;
-              rootCause_ = bs;
+              bitField0_ |= 0x00000020;
+              sourceRunId_ = bs;
               break;
             }
             case 66: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000080;
-              confidence_ = bs;
-              break;
-            }
-            case 74: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000100) != 0)) {
-                rationaleExamples_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000100;
-              }
-              rationaleExamples_.add(bs);
-              break;
-            }
-            case 82: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000200) != 0)) {
-                exampleTraceIds_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000200;
-              }
-              exampleTraceIds_.add(bs);
-              break;
-            }
-            case 90: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000400) != 0)) {
+              if (!((mutable_bitField0_ & 0x00000080) != 0)) {
                 traceIds_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000400;
+                mutable_bitField0_ |= 0x00000080;
               }
               traceIds_.add(bs);
               break;
             }
-            case 98: {
+            case 74: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000100;
+              bitField0_ |= 0x00000040;
               createdBy_ = bs;
               break;
             }
@@ -4299,13 +3257,10 @@ public final class Issues {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000100) != 0)) {
-          rationaleExamples_ = rationaleExamples_.getUnmodifiableView();
+        if (((mutable_bitField0_ & 0x00000020) != 0)) {
+          rootCauses_ = rootCauses_.getUnmodifiableView();
         }
-        if (((mutable_bitField0_ & 0x00000200) != 0)) {
-          exampleTraceIds_ = exampleTraceIds_.getUnmodifiableView();
-        }
-        if (((mutable_bitField0_ & 0x00000400) != 0)) {
+        if (((mutable_bitField0_ & 0x00000080) != 0)) {
           traceIds_ = traceIds_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
@@ -5018,173 +3973,26 @@ public final class Issues {
     }
 
     private int bitField0_;
-    public static final int NAME_FIELD_NUMBER = 1;
-    private volatile java.lang.Object name_;
-    /**
-     * <pre>
-     * Short descriptive name for the issue.
-     * </pre>
-     *
-     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the name field is set.
-     */
-    @java.lang.Override
-    public boolean hasName() {
-      return ((bitField0_ & 0x00000001) != 0);
-    }
-    /**
-     * <pre>
-     * Short descriptive name for the issue.
-     * </pre>
-     *
-     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The name.
-     */
-    @java.lang.Override
-    public java.lang.String getName() {
-      java.lang.Object ref = name_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          name_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Short descriptive name for the issue.
-     * </pre>
-     *
-     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for name.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getNameBytes() {
-      java.lang.Object ref = name_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        name_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int DESCRIPTION_FIELD_NUMBER = 2;
-    private volatile java.lang.Object description_;
-    /**
-     * <pre>
-     * Detailed description of the issue.
-     * </pre>
-     *
-     * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the description field is set.
-     */
-    @java.lang.Override
-    public boolean hasDescription() {
-      return ((bitField0_ & 0x00000002) != 0);
-    }
-    /**
-     * <pre>
-     * Detailed description of the issue.
-     * </pre>
-     *
-     * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The description.
-     */
-    @java.lang.Override
-    public java.lang.String getDescription() {
-      java.lang.Object ref = description_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          description_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Detailed description of the issue.
-     * </pre>
-     *
-     * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for description.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getDescriptionBytes() {
-      java.lang.Object ref = description_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        description_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int FREQUENCY_FIELD_NUMBER = 3;
-    private double frequency_;
-    /**
-     * <pre>
-     * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
-     * </pre>
-     *
-     * <code>optional double frequency = 3;</code>
-     * @return Whether the frequency field is set.
-     */
-    @java.lang.Override
-    public boolean hasFrequency() {
-      return ((bitField0_ & 0x00000004) != 0);
-    }
-    /**
-     * <pre>
-     * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
-     * </pre>
-     *
-     * <code>optional double frequency = 3;</code>
-     * @return The frequency.
-     */
-    @java.lang.Override
-    public double getFrequency() {
-      return frequency_;
-    }
-
-    public static final int EXPERIMENT_ID_FIELD_NUMBER = 4;
+    public static final int EXPERIMENT_ID_FIELD_NUMBER = 1;
     private volatile java.lang.Object experimentId_;
     /**
      * <pre>
      * Experiment ID.
      * </pre>
      *
-     * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      * @return Whether the experimentId field is set.
      */
     @java.lang.Override
     public boolean hasExperimentId() {
-      return ((bitField0_ & 0x00000008) != 0);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
      * Experiment ID.
      * </pre>
      *
-     * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      * @return The experimentId.
      */
     @java.lang.Override
@@ -5207,7 +4015,7 @@ public final class Issues {
      * Experiment ID.
      * </pre>
      *
-     * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
      * @return The bytes for experimentId.
      */
     @java.lang.Override
@@ -5225,26 +4033,146 @@ public final class Issues {
       }
     }
 
-    public static final int STATUS_FIELD_NUMBER = 5;
+    public static final int NAME_FIELD_NUMBER = 2;
+    private volatile java.lang.Object name_;
+    /**
+     * <pre>
+     * Short descriptive name for the issue.
+     * </pre>
+     *
+     * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the name field is set.
+     */
+    @java.lang.Override
+    public boolean hasName() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Short descriptive name for the issue.
+     * </pre>
+     *
+     * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The name.
+     */
+    @java.lang.Override
+    public java.lang.String getName() {
+      java.lang.Object ref = name_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          name_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Short descriptive name for the issue.
+     * </pre>
+     *
+     * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for name.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getNameBytes() {
+      java.lang.Object ref = name_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        name_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int DESCRIPTION_FIELD_NUMBER = 3;
+    private volatile java.lang.Object description_;
+    /**
+     * <pre>
+     * Detailed description of the issue.
+     * </pre>
+     *
+     * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the description field is set.
+     */
+    @java.lang.Override
+    public boolean hasDescription() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * Detailed description of the issue.
+     * </pre>
+     *
+     * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
+     * @return The description.
+     */
+    @java.lang.Override
+    public java.lang.String getDescription() {
+      java.lang.Object ref = description_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          description_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Detailed description of the issue.
+     * </pre>
+     *
+     * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for description.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getDescriptionBytes() {
+      java.lang.Object ref = description_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        description_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int STATUS_FIELD_NUMBER = 4;
     private volatile java.lang.Object status_;
     /**
      * <pre>
-     * Issue status, e.g. "draft".
+     * Issue status.
      * </pre>
      *
-     * <code>optional string status = 5;</code>
+     * <code>optional string status = 4;</code>
      * @return Whether the status field is set.
      */
     @java.lang.Override
     public boolean hasStatus() {
-      return ((bitField0_ & 0x00000010) != 0);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <pre>
-     * Issue status, e.g. "draft".
+     * Issue status.
      * </pre>
      *
-     * <code>optional string status = 5;</code>
+     * <code>optional string status = 4;</code>
      * @return The status.
      */
     @java.lang.Override
@@ -5264,10 +4192,10 @@ public final class Issues {
     }
     /**
      * <pre>
-     * Issue status, e.g. "draft".
+     * Issue status.
      * </pre>
      *
-     * <code>optional string status = 5;</code>
+     * <code>optional string status = 4;</code>
      * @return The bytes for status.
      */
     @java.lang.Override
@@ -5285,146 +4213,26 @@ public final class Issues {
       }
     }
 
-    public static final int RUN_ID_FIELD_NUMBER = 6;
-    private volatile java.lang.Object runId_;
-    /**
-     * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 6;</code>
-     * @return Whether the runId field is set.
-     */
-    @java.lang.Override
-    public boolean hasRunId() {
-      return ((bitField0_ & 0x00000020) != 0);
-    }
-    /**
-     * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 6;</code>
-     * @return The runId.
-     */
-    @java.lang.Override
-    public java.lang.String getRunId() {
-      java.lang.Object ref = runId_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          runId_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * MLflow run ID that discovered this issue.
-     * </pre>
-     *
-     * <code>optional string run_id = 6;</code>
-     * @return The bytes for runId.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getRunIdBytes() {
-      java.lang.Object ref = runId_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        runId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int ROOT_CAUSE_FIELD_NUMBER = 7;
-    private volatile java.lang.Object rootCause_;
-    /**
-     * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 7;</code>
-     * @return Whether the rootCause field is set.
-     */
-    @java.lang.Override
-    public boolean hasRootCause() {
-      return ((bitField0_ & 0x00000040) != 0);
-    }
-    /**
-     * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 7;</code>
-     * @return The rootCause.
-     */
-    @java.lang.Override
-    public java.lang.String getRootCause() {
-      java.lang.Object ref = rootCause_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          rootCause_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Analysis of the root cause of the issue.
-     * </pre>
-     *
-     * <code>optional string root_cause = 7;</code>
-     * @return The bytes for rootCause.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getRootCauseBytes() {
-      java.lang.Object ref = rootCause_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        rootCause_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int CONFIDENCE_FIELD_NUMBER = 8;
+    public static final int CONFIDENCE_FIELD_NUMBER = 5;
     private volatile java.lang.Object confidence_;
     /**
      * <pre>
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 8;</code>
+     * <code>optional string confidence = 5;</code>
      * @return Whether the confidence field is set.
      */
     @java.lang.Override
     public boolean hasConfidence() {
-      return ((bitField0_ & 0x00000080) != 0);
+      return ((bitField0_ & 0x00000010) != 0);
     }
     /**
      * <pre>
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 8;</code>
+     * <code>optional string confidence = 5;</code>
      * @return The confidence.
      */
     @java.lang.Override
@@ -5447,7 +4255,7 @@ public final class Issues {
      * Confidence level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 8;</code>
+     * <code>optional string confidence = 5;</code>
      * @return The bytes for confidence.
      */
     @java.lang.Override
@@ -5465,116 +4273,125 @@ public final class Issues {
       }
     }
 
-    public static final int RATIONALE_EXAMPLES_FIELD_NUMBER = 9;
-    private com.google.protobuf.LazyStringList rationaleExamples_;
+    public static final int ROOT_CAUSES_FIELD_NUMBER = 6;
+    private com.google.protobuf.LazyStringList rootCauses_;
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 9;</code>
-     * @return A list containing the rationaleExamples.
+     * <code>repeated string root_causes = 6;</code>
+     * @return A list containing the rootCauses.
      */
     public com.google.protobuf.ProtocolStringList
-        getRationaleExamplesList() {
-      return rationaleExamples_;
+        getRootCausesList() {
+      return rootCauses_;
     }
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 9;</code>
-     * @return The count of rationaleExamples.
+     * <code>repeated string root_causes = 6;</code>
+     * @return The count of rootCauses.
      */
-    public int getRationaleExamplesCount() {
-      return rationaleExamples_.size();
+    public int getRootCausesCount() {
+      return rootCauses_.size();
     }
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 9;</code>
+     * <code>repeated string root_causes = 6;</code>
      * @param index The index of the element to return.
-     * @return The rationaleExamples at the given index.
+     * @return The rootCauses at the given index.
      */
-    public java.lang.String getRationaleExamples(int index) {
-      return rationaleExamples_.get(index);
+    public java.lang.String getRootCauses(int index) {
+      return rootCauses_.get(index);
     }
     /**
      * <pre>
-     * List of rationale strings providing examples of the issue.
+     * Analysis of the root causes of the issue.
      * </pre>
      *
-     * <code>repeated string rationale_examples = 9;</code>
+     * <code>repeated string root_causes = 6;</code>
      * @param index The index of the value to return.
-     * @return The bytes of the rationaleExamples at the given index.
+     * @return The bytes of the rootCauses at the given index.
      */
     public com.google.protobuf.ByteString
-        getRationaleExamplesBytes(int index) {
-      return rationaleExamples_.getByteString(index);
+        getRootCausesBytes(int index) {
+      return rootCauses_.getByteString(index);
     }
 
-    public static final int EXAMPLE_TRACE_IDS_FIELD_NUMBER = 10;
-    private com.google.protobuf.LazyStringList exampleTraceIds_;
+    public static final int SOURCE_RUN_ID_FIELD_NUMBER = 7;
+    private volatile java.lang.Object sourceRunId_;
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 10;</code>
-     * @return A list containing the exampleTraceIds.
+     * <code>optional string source_run_id = 7;</code>
+     * @return Whether the sourceRunId field is set.
      */
-    public com.google.protobuf.ProtocolStringList
-        getExampleTraceIdsList() {
-      return exampleTraceIds_;
+    @java.lang.Override
+    public boolean hasSourceRunId() {
+      return ((bitField0_ & 0x00000020) != 0);
     }
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 10;</code>
-     * @return The count of exampleTraceIds.
+     * <code>optional string source_run_id = 7;</code>
+     * @return The sourceRunId.
      */
-    public int getExampleTraceIdsCount() {
-      return exampleTraceIds_.size();
+    @java.lang.Override
+    public java.lang.String getSourceRunId() {
+      java.lang.Object ref = sourceRunId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          sourceRunId_ = s;
+        }
+        return s;
+      }
     }
     /**
      * <pre>
-     * List of example trace IDs.
+     * MLflow run ID that discovered this issue.
      * </pre>
      *
-     * <code>repeated string example_trace_ids = 10;</code>
-     * @param index The index of the element to return.
-     * @return The exampleTraceIds at the given index.
+     * <code>optional string source_run_id = 7;</code>
+     * @return The bytes for sourceRunId.
      */
-    public java.lang.String getExampleTraceIds(int index) {
-      return exampleTraceIds_.get(index);
-    }
-    /**
-     * <pre>
-     * List of example trace IDs.
-     * </pre>
-     *
-     * <code>repeated string example_trace_ids = 10;</code>
-     * @param index The index of the value to return.
-     * @return The bytes of the exampleTraceIds at the given index.
-     */
+    @java.lang.Override
     public com.google.protobuf.ByteString
-        getExampleTraceIdsBytes(int index) {
-      return exampleTraceIds_.getByteString(index);
+        getSourceRunIdBytes() {
+      java.lang.Object ref = sourceRunId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sourceRunId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
-    public static final int TRACE_IDS_FIELD_NUMBER = 11;
+    public static final int TRACE_IDS_FIELD_NUMBER = 8;
     private com.google.protobuf.LazyStringList traceIds_;
     /**
      * <pre>
      * List of trace IDs associated with this issue.
      * </pre>
      *
-     * <code>repeated string trace_ids = 11;</code>
+     * <code>repeated string trace_ids = 8;</code>
      * @return A list containing the traceIds.
      */
     public com.google.protobuf.ProtocolStringList
@@ -5586,7 +4403,7 @@ public final class Issues {
      * List of trace IDs associated with this issue.
      * </pre>
      *
-     * <code>repeated string trace_ids = 11;</code>
+     * <code>repeated string trace_ids = 8;</code>
      * @return The count of traceIds.
      */
     public int getTraceIdsCount() {
@@ -5597,7 +4414,7 @@ public final class Issues {
      * List of trace IDs associated with this issue.
      * </pre>
      *
-     * <code>repeated string trace_ids = 11;</code>
+     * <code>repeated string trace_ids = 8;</code>
      * @param index The index of the element to return.
      * @return The traceIds at the given index.
      */
@@ -5609,7 +4426,7 @@ public final class Issues {
      * List of trace IDs associated with this issue.
      * </pre>
      *
-     * <code>repeated string trace_ids = 11;</code>
+     * <code>repeated string trace_ids = 8;</code>
      * @param index The index of the value to return.
      * @return The bytes of the traceIds at the given index.
      */
@@ -5618,26 +4435,26 @@ public final class Issues {
       return traceIds_.getByteString(index);
     }
 
-    public static final int CREATED_BY_FIELD_NUMBER = 12;
+    public static final int CREATED_BY_FIELD_NUMBER = 9;
     private volatile java.lang.Object createdBy_;
     /**
      * <pre>
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 12;</code>
+     * <code>optional string created_by = 9;</code>
      * @return Whether the createdBy field is set.
      */
     @java.lang.Override
     public boolean hasCreatedBy() {
-      return ((bitField0_ & 0x00000100) != 0);
+      return ((bitField0_ & 0x00000040) != 0);
     }
     /**
      * <pre>
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 12;</code>
+     * <code>optional string created_by = 9;</code>
      * @return The createdBy.
      */
     @java.lang.Override
@@ -5660,7 +4477,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 12;</code>
+     * <code>optional string created_by = 9;</code>
      * @return The bytes for createdBy.
      */
     @java.lang.Override
@@ -5693,40 +4510,31 @@ public final class Issues {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, description_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, name_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        output.writeDouble(3, frequency_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, description_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, experimentId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, status_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, status_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, confidence_);
+      }
+      for (int i = 0; i < rootCauses_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, rootCauses_.getRaw(i));
       }
       if (((bitField0_ & 0x00000020) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, runId_);
-      }
-      if (((bitField0_ & 0x00000040) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, rootCause_);
-      }
-      if (((bitField0_ & 0x00000080) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 8, confidence_);
-      }
-      for (int i = 0; i < rationaleExamples_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 9, rationaleExamples_.getRaw(i));
-      }
-      for (int i = 0; i < exampleTraceIds_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, exampleTraceIds_.getRaw(i));
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, sourceRunId_);
       }
       for (int i = 0; i < traceIds_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 11, traceIds_.getRaw(i));
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 8, traceIds_.getRaw(i));
       }
-      if (((bitField0_ & 0x00000100) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 12, createdBy_);
+      if (((bitField0_ & 0x00000040) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 9, createdBy_);
       }
       unknownFields.writeTo(output);
     }
@@ -5738,45 +4546,30 @@ public final class Issues {
 
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, description_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, name_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeDoubleSize(3, frequency_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, description_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, experimentId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, status_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, status_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, confidence_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < rootCauses_.size(); i++) {
+          dataSize += computeStringSizeNoTag(rootCauses_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getRootCausesList().size();
       }
       if (((bitField0_ & 0x00000020) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, runId_);
-      }
-      if (((bitField0_ & 0x00000040) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, rootCause_);
-      }
-      if (((bitField0_ & 0x00000080) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, confidence_);
-      }
-      {
-        int dataSize = 0;
-        for (int i = 0; i < rationaleExamples_.size(); i++) {
-          dataSize += computeStringSizeNoTag(rationaleExamples_.getRaw(i));
-        }
-        size += dataSize;
-        size += 1 * getRationaleExamplesList().size();
-      }
-      {
-        int dataSize = 0;
-        for (int i = 0; i < exampleTraceIds_.size(); i++) {
-          dataSize += computeStringSizeNoTag(exampleTraceIds_.getRaw(i));
-        }
-        size += dataSize;
-        size += 1 * getExampleTraceIdsList().size();
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, sourceRunId_);
       }
       {
         int dataSize = 0;
@@ -5786,8 +4579,8 @@ public final class Issues {
         size += dataSize;
         size += 1 * getTraceIdsList().size();
       }
-      if (((bitField0_ & 0x00000100) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(12, createdBy_);
+      if (((bitField0_ & 0x00000040) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, createdBy_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -5804,6 +4597,11 @@ public final class Issues {
       }
       org.mlflow.api.proto.Issues.CreateIssue other = (org.mlflow.api.proto.Issues.CreateIssue) obj;
 
+      if (hasExperimentId() != other.hasExperimentId()) return false;
+      if (hasExperimentId()) {
+        if (!getExperimentId()
+            .equals(other.getExperimentId())) return false;
+      }
       if (hasName() != other.hasName()) return false;
       if (hasName()) {
         if (!getName()
@@ -5814,41 +4612,23 @@ public final class Issues {
         if (!getDescription()
             .equals(other.getDescription())) return false;
       }
-      if (hasFrequency() != other.hasFrequency()) return false;
-      if (hasFrequency()) {
-        if (java.lang.Double.doubleToLongBits(getFrequency())
-            != java.lang.Double.doubleToLongBits(
-                other.getFrequency())) return false;
-      }
-      if (hasExperimentId() != other.hasExperimentId()) return false;
-      if (hasExperimentId()) {
-        if (!getExperimentId()
-            .equals(other.getExperimentId())) return false;
-      }
       if (hasStatus() != other.hasStatus()) return false;
       if (hasStatus()) {
         if (!getStatus()
             .equals(other.getStatus())) return false;
-      }
-      if (hasRunId() != other.hasRunId()) return false;
-      if (hasRunId()) {
-        if (!getRunId()
-            .equals(other.getRunId())) return false;
-      }
-      if (hasRootCause() != other.hasRootCause()) return false;
-      if (hasRootCause()) {
-        if (!getRootCause()
-            .equals(other.getRootCause())) return false;
       }
       if (hasConfidence() != other.hasConfidence()) return false;
       if (hasConfidence()) {
         if (!getConfidence()
             .equals(other.getConfidence())) return false;
       }
-      if (!getRationaleExamplesList()
-          .equals(other.getRationaleExamplesList())) return false;
-      if (!getExampleTraceIdsList()
-          .equals(other.getExampleTraceIdsList())) return false;
+      if (!getRootCausesList()
+          .equals(other.getRootCausesList())) return false;
+      if (hasSourceRunId() != other.hasSourceRunId()) return false;
+      if (hasSourceRunId()) {
+        if (!getSourceRunId()
+            .equals(other.getSourceRunId())) return false;
+      }
       if (!getTraceIdsList()
           .equals(other.getTraceIdsList())) return false;
       if (hasCreatedBy() != other.hasCreatedBy()) return false;
@@ -5867,6 +4647,10 @@ public final class Issues {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasExperimentId()) {
+        hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getExperimentId().hashCode();
+      }
       if (hasName()) {
         hash = (37 * hash) + NAME_FIELD_NUMBER;
         hash = (53 * hash) + getName().hashCode();
@@ -5875,38 +4659,21 @@ public final class Issues {
         hash = (37 * hash) + DESCRIPTION_FIELD_NUMBER;
         hash = (53 * hash) + getDescription().hashCode();
       }
-      if (hasFrequency()) {
-        hash = (37 * hash) + FREQUENCY_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            java.lang.Double.doubleToLongBits(getFrequency()));
-      }
-      if (hasExperimentId()) {
-        hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getExperimentId().hashCode();
-      }
       if (hasStatus()) {
         hash = (37 * hash) + STATUS_FIELD_NUMBER;
         hash = (53 * hash) + getStatus().hashCode();
-      }
-      if (hasRunId()) {
-        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getRunId().hashCode();
-      }
-      if (hasRootCause()) {
-        hash = (37 * hash) + ROOT_CAUSE_FIELD_NUMBER;
-        hash = (53 * hash) + getRootCause().hashCode();
       }
       if (hasConfidence()) {
         hash = (37 * hash) + CONFIDENCE_FIELD_NUMBER;
         hash = (53 * hash) + getConfidence().hashCode();
       }
-      if (getRationaleExamplesCount() > 0) {
-        hash = (37 * hash) + RATIONALE_EXAMPLES_FIELD_NUMBER;
-        hash = (53 * hash) + getRationaleExamplesList().hashCode();
+      if (getRootCausesCount() > 0) {
+        hash = (37 * hash) + ROOT_CAUSES_FIELD_NUMBER;
+        hash = (53 * hash) + getRootCausesList().hashCode();
       }
-      if (getExampleTraceIdsCount() > 0) {
-        hash = (37 * hash) + EXAMPLE_TRACE_IDS_FIELD_NUMBER;
-        hash = (53 * hash) + getExampleTraceIdsList().hashCode();
+      if (hasSourceRunId()) {
+        hash = (37 * hash) + SOURCE_RUN_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getSourceRunId().hashCode();
       }
       if (getTraceIdsCount() > 0) {
         hash = (37 * hash) + TRACE_IDS_FIELD_NUMBER;
@@ -6053,30 +4820,24 @@ public final class Issues {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        name_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
-        description_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
-        frequency_ = 0D;
-        bitField0_ = (bitField0_ & ~0x00000004);
         experimentId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000001);
+        name_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
+        description_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
         status_ = "";
-        bitField0_ = (bitField0_ & ~0x00000010);
-        runId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
-        rootCause_ = "";
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000008);
         confidence_ = "";
-        bitField0_ = (bitField0_ & ~0x00000080);
-        rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000100);
-        exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000200);
+        bitField0_ = (bitField0_ & ~0x00000010);
+        rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000020);
+        sourceRunId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000040);
         traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000400);
+        bitField0_ = (bitField0_ & ~0x00000080);
         createdBy_ = "";
-        bitField0_ = (bitField0_ & ~0x00000800);
+        bitField0_ = (bitField0_ & ~0x00000100);
         return this;
       }
 
@@ -6108,52 +4869,39 @@ public final class Issues {
         if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
-        result.name_ = name_;
+        result.experimentId_ = experimentId_;
         if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.description_ = description_;
+        result.name_ = name_;
         if (((from_bitField0_ & 0x00000004) != 0)) {
-          result.frequency_ = frequency_;
           to_bitField0_ |= 0x00000004;
         }
+        result.description_ = description_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
           to_bitField0_ |= 0x00000008;
         }
-        result.experimentId_ = experimentId_;
+        result.status_ = status_;
         if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
-        result.status_ = status_;
-        if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.confidence_ = confidence_;
+        if (((bitField0_ & 0x00000020) != 0)) {
+          rootCauses_ = rootCauses_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000020);
+        }
+        result.rootCauses_ = rootCauses_;
+        if (((from_bitField0_ & 0x00000040) != 0)) {
           to_bitField0_ |= 0x00000020;
         }
-        result.runId_ = runId_;
-        if (((from_bitField0_ & 0x00000040) != 0)) {
-          to_bitField0_ |= 0x00000040;
-        }
-        result.rootCause_ = rootCause_;
-        if (((from_bitField0_ & 0x00000080) != 0)) {
-          to_bitField0_ |= 0x00000080;
-        }
-        result.confidence_ = confidence_;
-        if (((bitField0_ & 0x00000100) != 0)) {
-          rationaleExamples_ = rationaleExamples_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000100);
-        }
-        result.rationaleExamples_ = rationaleExamples_;
-        if (((bitField0_ & 0x00000200) != 0)) {
-          exampleTraceIds_ = exampleTraceIds_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000200);
-        }
-        result.exampleTraceIds_ = exampleTraceIds_;
-        if (((bitField0_ & 0x00000400) != 0)) {
+        result.sourceRunId_ = sourceRunId_;
+        if (((bitField0_ & 0x00000080) != 0)) {
           traceIds_ = traceIds_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000400);
+          bitField0_ = (bitField0_ & ~0x00000080);
         }
         result.traceIds_ = traceIds_;
-        if (((from_bitField0_ & 0x00000800) != 0)) {
-          to_bitField0_ |= 0x00000100;
+        if (((from_bitField0_ & 0x00000100) != 0)) {
+          to_bitField0_ |= 0x00000040;
         }
         result.createdBy_ = createdBy_;
         result.bitField0_ = to_bitField0_;
@@ -6205,68 +4953,50 @@ public final class Issues {
 
       public Builder mergeFrom(org.mlflow.api.proto.Issues.CreateIssue other) {
         if (other == org.mlflow.api.proto.Issues.CreateIssue.getDefaultInstance()) return this;
-        if (other.hasName()) {
+        if (other.hasExperimentId()) {
           bitField0_ |= 0x00000001;
+          experimentId_ = other.experimentId_;
+          onChanged();
+        }
+        if (other.hasName()) {
+          bitField0_ |= 0x00000002;
           name_ = other.name_;
           onChanged();
         }
         if (other.hasDescription()) {
-          bitField0_ |= 0x00000002;
+          bitField0_ |= 0x00000004;
           description_ = other.description_;
           onChanged();
         }
-        if (other.hasFrequency()) {
-          setFrequency(other.getFrequency());
-        }
-        if (other.hasExperimentId()) {
-          bitField0_ |= 0x00000008;
-          experimentId_ = other.experimentId_;
-          onChanged();
-        }
         if (other.hasStatus()) {
-          bitField0_ |= 0x00000010;
+          bitField0_ |= 0x00000008;
           status_ = other.status_;
           onChanged();
         }
-        if (other.hasRunId()) {
-          bitField0_ |= 0x00000020;
-          runId_ = other.runId_;
-          onChanged();
-        }
-        if (other.hasRootCause()) {
-          bitField0_ |= 0x00000040;
-          rootCause_ = other.rootCause_;
-          onChanged();
-        }
         if (other.hasConfidence()) {
-          bitField0_ |= 0x00000080;
+          bitField0_ |= 0x00000010;
           confidence_ = other.confidence_;
           onChanged();
         }
-        if (!other.rationaleExamples_.isEmpty()) {
-          if (rationaleExamples_.isEmpty()) {
-            rationaleExamples_ = other.rationaleExamples_;
-            bitField0_ = (bitField0_ & ~0x00000100);
+        if (!other.rootCauses_.isEmpty()) {
+          if (rootCauses_.isEmpty()) {
+            rootCauses_ = other.rootCauses_;
+            bitField0_ = (bitField0_ & ~0x00000020);
           } else {
-            ensureRationaleExamplesIsMutable();
-            rationaleExamples_.addAll(other.rationaleExamples_);
+            ensureRootCausesIsMutable();
+            rootCauses_.addAll(other.rootCauses_);
           }
           onChanged();
         }
-        if (!other.exampleTraceIds_.isEmpty()) {
-          if (exampleTraceIds_.isEmpty()) {
-            exampleTraceIds_ = other.exampleTraceIds_;
-            bitField0_ = (bitField0_ & ~0x00000200);
-          } else {
-            ensureExampleTraceIdsIsMutable();
-            exampleTraceIds_.addAll(other.exampleTraceIds_);
-          }
+        if (other.hasSourceRunId()) {
+          bitField0_ |= 0x00000040;
+          sourceRunId_ = other.sourceRunId_;
           onChanged();
         }
         if (!other.traceIds_.isEmpty()) {
           if (traceIds_.isEmpty()) {
             traceIds_ = other.traceIds_;
-            bitField0_ = (bitField0_ & ~0x00000400);
+            bitField0_ = (bitField0_ & ~0x00000080);
           } else {
             ensureTraceIdsIsMutable();
             traceIds_.addAll(other.traceIds_);
@@ -6274,7 +5004,7 @@ public final class Issues {
           onChanged();
         }
         if (other.hasCreatedBy()) {
-          bitField0_ |= 0x00000800;
+          bitField0_ |= 0x00000100;
           createdBy_ = other.createdBy_;
           onChanged();
         }
@@ -6308,295 +5038,24 @@ public final class Issues {
       }
       private int bitField0_;
 
-      private java.lang.Object name_ = "";
-      /**
-       * <pre>
-       * Short descriptive name for the issue.
-       * </pre>
-       *
-       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the name field is set.
-       */
-      public boolean hasName() {
-        return ((bitField0_ & 0x00000001) != 0);
-      }
-      /**
-       * <pre>
-       * Short descriptive name for the issue.
-       * </pre>
-       *
-       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
-       * @return The name.
-       */
-      public java.lang.String getName() {
-        java.lang.Object ref = name_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            name_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Short descriptive name for the issue.
-       * </pre>
-       *
-       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for name.
-       */
-      public com.google.protobuf.ByteString
-          getNameBytes() {
-        java.lang.Object ref = name_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          name_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Short descriptive name for the issue.
-       * </pre>
-       *
-       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
-       * @param value The name to set.
-       * @return This builder for chaining.
-       */
-      public Builder setName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        name_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Short descriptive name for the issue.
-       * </pre>
-       *
-       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearName() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        name_ = getDefaultInstance().getName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Short descriptive name for the issue.
-       * </pre>
-       *
-       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for name to set.
-       * @return This builder for chaining.
-       */
-      public Builder setNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        name_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object description_ = "";
-      /**
-       * <pre>
-       * Detailed description of the issue.
-       * </pre>
-       *
-       * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the description field is set.
-       */
-      public boolean hasDescription() {
-        return ((bitField0_ & 0x00000002) != 0);
-      }
-      /**
-       * <pre>
-       * Detailed description of the issue.
-       * </pre>
-       *
-       * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
-       * @return The description.
-       */
-      public java.lang.String getDescription() {
-        java.lang.Object ref = description_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            description_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Detailed description of the issue.
-       * </pre>
-       *
-       * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for description.
-       */
-      public com.google.protobuf.ByteString
-          getDescriptionBytes() {
-        java.lang.Object ref = description_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          description_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Detailed description of the issue.
-       * </pre>
-       *
-       * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
-       * @param value The description to set.
-       * @return This builder for chaining.
-       */
-      public Builder setDescription(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        description_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Detailed description of the issue.
-       * </pre>
-       *
-       * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearDescription() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        description_ = getDefaultInstance().getDescription();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Detailed description of the issue.
-       * </pre>
-       *
-       * <code>optional string description = 2 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for description to set.
-       * @return This builder for chaining.
-       */
-      public Builder setDescriptionBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        description_ = value;
-        onChanged();
-        return this;
-      }
-
-      private double frequency_ ;
-      /**
-       * <pre>
-       * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
-       * </pre>
-       *
-       * <code>optional double frequency = 3;</code>
-       * @return Whether the frequency field is set.
-       */
-      @java.lang.Override
-      public boolean hasFrequency() {
-        return ((bitField0_ & 0x00000004) != 0);
-      }
-      /**
-       * <pre>
-       * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
-       * </pre>
-       *
-       * <code>optional double frequency = 3;</code>
-       * @return The frequency.
-       */
-      @java.lang.Override
-      public double getFrequency() {
-        return frequency_;
-      }
-      /**
-       * <pre>
-       * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
-       * </pre>
-       *
-       * <code>optional double frequency = 3;</code>
-       * @param value The frequency to set.
-       * @return This builder for chaining.
-       */
-      public Builder setFrequency(double value) {
-        bitField0_ |= 0x00000004;
-        frequency_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Frequency score (0.0 to 1.0) indicating how often this issue occurs.
-       * </pre>
-       *
-       * <code>optional double frequency = 3;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearFrequency() {
-        bitField0_ = (bitField0_ & ~0x00000004);
-        frequency_ = 0D;
-        onChanged();
-        return this;
-      }
-
       private java.lang.Object experimentId_ = "";
       /**
        * <pre>
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        * @return Whether the experimentId field is set.
        */
       public boolean hasExperimentId() {
-        return ((bitField0_ & 0x00000008) != 0);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        * @return The experimentId.
        */
       public java.lang.String getExperimentId() {
@@ -6618,7 +5077,7 @@ public final class Issues {
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        * @return The bytes for experimentId.
        */
       public com.google.protobuf.ByteString
@@ -6639,7 +5098,7 @@ public final class Issues {
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        * @param value The experimentId to set.
        * @return This builder for chaining.
        */
@@ -6648,7 +5107,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000001;
         experimentId_ = value;
         onChanged();
         return this;
@@ -6658,11 +5117,11 @@ public final class Issues {
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        * @return This builder for chaining.
        */
       public Builder clearExperimentId() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000001);
         experimentId_ = getDefaultInstance().getExperimentId();
         onChanged();
         return this;
@@ -6672,7 +5131,7 @@ public final class Issues {
        * Experiment ID.
        * </pre>
        *
-       * <code>optional string experiment_id = 4 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
        * @param value The bytes for experimentId to set.
        * @return This builder for chaining.
        */
@@ -6681,8 +5140,224 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000001;
         experimentId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object name_ = "";
+      /**
+       * <pre>
+       * Short descriptive name for the issue.
+       * </pre>
+       *
+       * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the name field is set.
+       */
+      public boolean hasName() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * Short descriptive name for the issue.
+       * </pre>
+       *
+       * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
+       * @return The name.
+       */
+      public java.lang.String getName() {
+        java.lang.Object ref = name_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            name_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Short descriptive name for the issue.
+       * </pre>
+       *
+       * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for name.
+       */
+      public com.google.protobuf.ByteString
+          getNameBytes() {
+        java.lang.Object ref = name_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          name_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Short descriptive name for the issue.
+       * </pre>
+       *
+       * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
+       * @param value The name to set.
+       * @return This builder for chaining.
+       */
+      public Builder setName(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        name_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Short descriptive name for the issue.
+       * </pre>
+       *
+       * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearName() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        name_ = getDefaultInstance().getName();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Short descriptive name for the issue.
+       * </pre>
+       *
+       * <code>optional string name = 2 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for name to set.
+       * @return This builder for chaining.
+       */
+      public Builder setNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        name_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object description_ = "";
+      /**
+       * <pre>
+       * Detailed description of the issue.
+       * </pre>
+       *
+       * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the description field is set.
+       */
+      public boolean hasDescription() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <pre>
+       * Detailed description of the issue.
+       * </pre>
+       *
+       * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
+       * @return The description.
+       */
+      public java.lang.String getDescription() {
+        java.lang.Object ref = description_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            description_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Detailed description of the issue.
+       * </pre>
+       *
+       * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for description.
+       */
+      public com.google.protobuf.ByteString
+          getDescriptionBytes() {
+        java.lang.Object ref = description_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          description_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Detailed description of the issue.
+       * </pre>
+       *
+       * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
+       * @param value The description to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDescription(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        description_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Detailed description of the issue.
+       * </pre>
+       *
+       * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearDescription() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        description_ = getDefaultInstance().getDescription();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Detailed description of the issue.
+       * </pre>
+       *
+       * <code>optional string description = 3 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for description to set.
+       * @return This builder for chaining.
+       */
+      public Builder setDescriptionBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        description_ = value;
         onChanged();
         return this;
       }
@@ -6690,21 +5365,21 @@ public final class Issues {
       private java.lang.Object status_ = "";
       /**
        * <pre>
-       * Issue status, e.g. "draft".
+       * Issue status.
        * </pre>
        *
-       * <code>optional string status = 5;</code>
+       * <code>optional string status = 4;</code>
        * @return Whether the status field is set.
        */
       public boolean hasStatus() {
-        return ((bitField0_ & 0x00000010) != 0);
+        return ((bitField0_ & 0x00000008) != 0);
       }
       /**
        * <pre>
-       * Issue status, e.g. "draft".
+       * Issue status.
        * </pre>
        *
-       * <code>optional string status = 5;</code>
+       * <code>optional string status = 4;</code>
        * @return The status.
        */
       public java.lang.String getStatus() {
@@ -6723,10 +5398,10 @@ public final class Issues {
       }
       /**
        * <pre>
-       * Issue status, e.g. "draft".
+       * Issue status.
        * </pre>
        *
-       * <code>optional string status = 5;</code>
+       * <code>optional string status = 4;</code>
        * @return The bytes for status.
        */
       public com.google.protobuf.ByteString
@@ -6744,10 +5419,10 @@ public final class Issues {
       }
       /**
        * <pre>
-       * Issue status, e.g. "draft".
+       * Issue status.
        * </pre>
        *
-       * <code>optional string status = 5;</code>
+       * <code>optional string status = 4;</code>
        * @param value The status to set.
        * @return This builder for chaining.
        */
@@ -6756,31 +5431,31 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000010;
+  bitField0_ |= 0x00000008;
         status_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Issue status, e.g. "draft".
+       * Issue status.
        * </pre>
        *
-       * <code>optional string status = 5;</code>
+       * <code>optional string status = 4;</code>
        * @return This builder for chaining.
        */
       public Builder clearStatus() {
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         status_ = getDefaultInstance().getStatus();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Issue status, e.g. "draft".
+       * Issue status.
        * </pre>
        *
-       * <code>optional string status = 5;</code>
+       * <code>optional string status = 4;</code>
        * @param value The bytes for status to set.
        * @return This builder for chaining.
        */
@@ -6789,224 +5464,8 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000010;
+  bitField0_ |= 0x00000008;
         status_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object runId_ = "";
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 6;</code>
-       * @return Whether the runId field is set.
-       */
-      public boolean hasRunId() {
-        return ((bitField0_ & 0x00000020) != 0);
-      }
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 6;</code>
-       * @return The runId.
-       */
-      public java.lang.String getRunId() {
-        java.lang.Object ref = runId_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            runId_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 6;</code>
-       * @return The bytes for runId.
-       */
-      public com.google.protobuf.ByteString
-          getRunIdBytes() {
-        java.lang.Object ref = runId_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          runId_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 6;</code>
-       * @param value The runId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRunId(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        runId_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 6;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearRunId() {
-        bitField0_ = (bitField0_ & ~0x00000020);
-        runId_ = getDefaultInstance().getRunId();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * MLflow run ID that discovered this issue.
-       * </pre>
-       *
-       * <code>optional string run_id = 6;</code>
-       * @param value The bytes for runId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRunIdBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        runId_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object rootCause_ = "";
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 7;</code>
-       * @return Whether the rootCause field is set.
-       */
-      public boolean hasRootCause() {
-        return ((bitField0_ & 0x00000040) != 0);
-      }
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 7;</code>
-       * @return The rootCause.
-       */
-      public java.lang.String getRootCause() {
-        java.lang.Object ref = rootCause_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            rootCause_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 7;</code>
-       * @return The bytes for rootCause.
-       */
-      public com.google.protobuf.ByteString
-          getRootCauseBytes() {
-        java.lang.Object ref = rootCause_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          rootCause_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 7;</code>
-       * @param value The rootCause to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRootCause(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000040;
-        rootCause_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 7;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearRootCause() {
-        bitField0_ = (bitField0_ & ~0x00000040);
-        rootCause_ = getDefaultInstance().getRootCause();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Analysis of the root cause of the issue.
-       * </pre>
-       *
-       * <code>optional string root_cause = 7;</code>
-       * @param value The bytes for rootCause to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRootCauseBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000040;
-        rootCause_ = value;
         onChanged();
         return this;
       }
@@ -7017,18 +5476,18 @@ public final class Issues {
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 8;</code>
+       * <code>optional string confidence = 5;</code>
        * @return Whether the confidence field is set.
        */
       public boolean hasConfidence() {
-        return ((bitField0_ & 0x00000080) != 0);
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 8;</code>
+       * <code>optional string confidence = 5;</code>
        * @return The confidence.
        */
       public java.lang.String getConfidence() {
@@ -7050,7 +5509,7 @@ public final class Issues {
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 8;</code>
+       * <code>optional string confidence = 5;</code>
        * @return The bytes for confidence.
        */
       public com.google.protobuf.ByteString
@@ -7071,7 +5530,7 @@ public final class Issues {
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 8;</code>
+       * <code>optional string confidence = 5;</code>
        * @param value The confidence to set.
        * @return This builder for chaining.
        */
@@ -7080,7 +5539,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000080;
+  bitField0_ |= 0x00000010;
         confidence_ = value;
         onChanged();
         return this;
@@ -7090,11 +5549,11 @@ public final class Issues {
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 8;</code>
+       * <code>optional string confidence = 5;</code>
        * @return This builder for chaining.
        */
       public Builder clearConfidence() {
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000010);
         confidence_ = getDefaultInstance().getConfidence();
         onChanged();
         return this;
@@ -7104,7 +5563,7 @@ public final class Issues {
        * Confidence level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 8;</code>
+       * <code>optional string confidence = 5;</code>
        * @param value The bytes for confidence to set.
        * @return This builder for chaining.
        */
@@ -7113,307 +5572,270 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000080;
+  bitField0_ |= 0x00000010;
         confidence_ = value;
         onChanged();
         return this;
       }
 
-      private com.google.protobuf.LazyStringList rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      private void ensureRationaleExamplesIsMutable() {
-        if (!((bitField0_ & 0x00000100) != 0)) {
-          rationaleExamples_ = new com.google.protobuf.LazyStringArrayList(rationaleExamples_);
-          bitField0_ |= 0x00000100;
+      private com.google.protobuf.LazyStringList rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureRootCausesIsMutable() {
+        if (!((bitField0_ & 0x00000020) != 0)) {
+          rootCauses_ = new com.google.protobuf.LazyStringArrayList(rootCauses_);
+          bitField0_ |= 0x00000020;
          }
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 9;</code>
-       * @return A list containing the rationaleExamples.
+       * <code>repeated string root_causes = 6;</code>
+       * @return A list containing the rootCauses.
        */
       public com.google.protobuf.ProtocolStringList
-          getRationaleExamplesList() {
-        return rationaleExamples_.getUnmodifiableView();
+          getRootCausesList() {
+        return rootCauses_.getUnmodifiableView();
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 9;</code>
-       * @return The count of rationaleExamples.
+       * <code>repeated string root_causes = 6;</code>
+       * @return The count of rootCauses.
        */
-      public int getRationaleExamplesCount() {
-        return rationaleExamples_.size();
+      public int getRootCausesCount() {
+        return rootCauses_.size();
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 9;</code>
+       * <code>repeated string root_causes = 6;</code>
        * @param index The index of the element to return.
-       * @return The rationaleExamples at the given index.
+       * @return The rootCauses at the given index.
        */
-      public java.lang.String getRationaleExamples(int index) {
-        return rationaleExamples_.get(index);
+      public java.lang.String getRootCauses(int index) {
+        return rootCauses_.get(index);
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 9;</code>
+       * <code>repeated string root_causes = 6;</code>
        * @param index The index of the value to return.
-       * @return The bytes of the rationaleExamples at the given index.
+       * @return The bytes of the rootCauses at the given index.
        */
       public com.google.protobuf.ByteString
-          getRationaleExamplesBytes(int index) {
-        return rationaleExamples_.getByteString(index);
+          getRootCausesBytes(int index) {
+        return rootCauses_.getByteString(index);
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 9;</code>
+       * <code>repeated string root_causes = 6;</code>
        * @param index The index to set the value at.
-       * @param value The rationaleExamples to set.
+       * @param value The rootCauses to set.
        * @return This builder for chaining.
        */
-      public Builder setRationaleExamples(
+      public Builder setRootCauses(
           int index, java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureRationaleExamplesIsMutable();
-        rationaleExamples_.set(index, value);
+  ensureRootCausesIsMutable();
+        rootCauses_.set(index, value);
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 9;</code>
-       * @param value The rationaleExamples to add.
+       * <code>repeated string root_causes = 6;</code>
+       * @param value The rootCauses to add.
        * @return This builder for chaining.
        */
-      public Builder addRationaleExamples(
+      public Builder addRootCauses(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureRationaleExamplesIsMutable();
-        rationaleExamples_.add(value);
+  ensureRootCausesIsMutable();
+        rootCauses_.add(value);
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 9;</code>
-       * @param values The rationaleExamples to add.
+       * <code>repeated string root_causes = 6;</code>
+       * @param values The rootCauses to add.
        * @return This builder for chaining.
        */
-      public Builder addAllRationaleExamples(
+      public Builder addAllRootCauses(
           java.lang.Iterable<java.lang.String> values) {
-        ensureRationaleExamplesIsMutable();
+        ensureRootCausesIsMutable();
         com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, rationaleExamples_);
+            values, rootCauses_);
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 9;</code>
+       * <code>repeated string root_causes = 6;</code>
        * @return This builder for chaining.
        */
-      public Builder clearRationaleExamples() {
-        rationaleExamples_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000100);
+      public Builder clearRootCauses() {
+        rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000020);
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of rationale strings providing examples of the issue.
+       * Analysis of the root causes of the issue.
        * </pre>
        *
-       * <code>repeated string rationale_examples = 9;</code>
-       * @param value The bytes of the rationaleExamples to add.
+       * <code>repeated string root_causes = 6;</code>
+       * @param value The bytes of the rootCauses to add.
        * @return This builder for chaining.
        */
-      public Builder addRationaleExamplesBytes(
+      public Builder addRootCausesBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureRationaleExamplesIsMutable();
-        rationaleExamples_.add(value);
+  ensureRootCausesIsMutable();
+        rootCauses_.add(value);
         onChanged();
         return this;
       }
 
-      private com.google.protobuf.LazyStringList exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      private void ensureExampleTraceIdsIsMutable() {
-        if (!((bitField0_ & 0x00000200) != 0)) {
-          exampleTraceIds_ = new com.google.protobuf.LazyStringArrayList(exampleTraceIds_);
-          bitField0_ |= 0x00000200;
-         }
-      }
+      private java.lang.Object sourceRunId_ = "";
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 10;</code>
-       * @return A list containing the exampleTraceIds.
+       * <code>optional string source_run_id = 7;</code>
+       * @return Whether the sourceRunId field is set.
        */
-      public com.google.protobuf.ProtocolStringList
-          getExampleTraceIdsList() {
-        return exampleTraceIds_.getUnmodifiableView();
+      public boolean hasSourceRunId() {
+        return ((bitField0_ & 0x00000040) != 0);
       }
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 10;</code>
-       * @return The count of exampleTraceIds.
+       * <code>optional string source_run_id = 7;</code>
+       * @return The sourceRunId.
        */
-      public int getExampleTraceIdsCount() {
-        return exampleTraceIds_.size();
+      public java.lang.String getSourceRunId() {
+        java.lang.Object ref = sourceRunId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            sourceRunId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 10;</code>
-       * @param index The index of the element to return.
-       * @return The exampleTraceIds at the given index.
-       */
-      public java.lang.String getExampleTraceIds(int index) {
-        return exampleTraceIds_.get(index);
-      }
-      /**
-       * <pre>
-       * List of example trace IDs.
-       * </pre>
-       *
-       * <code>repeated string example_trace_ids = 10;</code>
-       * @param index The index of the value to return.
-       * @return The bytes of the exampleTraceIds at the given index.
+       * <code>optional string source_run_id = 7;</code>
+       * @return The bytes for sourceRunId.
        */
       public com.google.protobuf.ByteString
-          getExampleTraceIdsBytes(int index) {
-        return exampleTraceIds_.getByteString(index);
+          getSourceRunIdBytes() {
+        java.lang.Object ref = sourceRunId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          sourceRunId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
       }
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 10;</code>
-       * @param index The index to set the value at.
-       * @param value The exampleTraceIds to set.
+       * <code>optional string source_run_id = 7;</code>
+       * @param value The sourceRunId to set.
        * @return This builder for chaining.
        */
-      public Builder setExampleTraceIds(
-          int index, java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  ensureExampleTraceIdsIsMutable();
-        exampleTraceIds_.set(index, value);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of example trace IDs.
-       * </pre>
-       *
-       * <code>repeated string example_trace_ids = 10;</code>
-       * @param value The exampleTraceIds to add.
-       * @return This builder for chaining.
-       */
-      public Builder addExampleTraceIds(
+      public Builder setSourceRunId(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureExampleTraceIdsIsMutable();
-        exampleTraceIds_.add(value);
+  bitField0_ |= 0x00000040;
+        sourceRunId_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 10;</code>
-       * @param values The exampleTraceIds to add.
+       * <code>optional string source_run_id = 7;</code>
        * @return This builder for chaining.
        */
-      public Builder addAllExampleTraceIds(
-          java.lang.Iterable<java.lang.String> values) {
-        ensureExampleTraceIdsIsMutable();
-        com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, exampleTraceIds_);
+      public Builder clearSourceRunId() {
+        bitField0_ = (bitField0_ & ~0x00000040);
+        sourceRunId_ = getDefaultInstance().getSourceRunId();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * List of example trace IDs.
+       * MLflow run ID that discovered this issue.
        * </pre>
        *
-       * <code>repeated string example_trace_ids = 10;</code>
+       * <code>optional string source_run_id = 7;</code>
+       * @param value The bytes for sourceRunId to set.
        * @return This builder for chaining.
        */
-      public Builder clearExampleTraceIds() {
-        exampleTraceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000200);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of example trace IDs.
-       * </pre>
-       *
-       * <code>repeated string example_trace_ids = 10;</code>
-       * @param value The bytes of the exampleTraceIds to add.
-       * @return This builder for chaining.
-       */
-      public Builder addExampleTraceIdsBytes(
+      public Builder setSourceRunIdBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  ensureExampleTraceIdsIsMutable();
-        exampleTraceIds_.add(value);
+  bitField0_ |= 0x00000040;
+        sourceRunId_ = value;
         onChanged();
         return this;
       }
 
       private com.google.protobuf.LazyStringList traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensureTraceIdsIsMutable() {
-        if (!((bitField0_ & 0x00000400) != 0)) {
+        if (!((bitField0_ & 0x00000080) != 0)) {
           traceIds_ = new com.google.protobuf.LazyStringArrayList(traceIds_);
-          bitField0_ |= 0x00000400;
+          bitField0_ |= 0x00000080;
          }
       }
       /**
@@ -7421,7 +5843,7 @@ public final class Issues {
        * List of trace IDs associated with this issue.
        * </pre>
        *
-       * <code>repeated string trace_ids = 11;</code>
+       * <code>repeated string trace_ids = 8;</code>
        * @return A list containing the traceIds.
        */
       public com.google.protobuf.ProtocolStringList
@@ -7433,7 +5855,7 @@ public final class Issues {
        * List of trace IDs associated with this issue.
        * </pre>
        *
-       * <code>repeated string trace_ids = 11;</code>
+       * <code>repeated string trace_ids = 8;</code>
        * @return The count of traceIds.
        */
       public int getTraceIdsCount() {
@@ -7444,7 +5866,7 @@ public final class Issues {
        * List of trace IDs associated with this issue.
        * </pre>
        *
-       * <code>repeated string trace_ids = 11;</code>
+       * <code>repeated string trace_ids = 8;</code>
        * @param index The index of the element to return.
        * @return The traceIds at the given index.
        */
@@ -7456,7 +5878,7 @@ public final class Issues {
        * List of trace IDs associated with this issue.
        * </pre>
        *
-       * <code>repeated string trace_ids = 11;</code>
+       * <code>repeated string trace_ids = 8;</code>
        * @param index The index of the value to return.
        * @return The bytes of the traceIds at the given index.
        */
@@ -7469,7 +5891,7 @@ public final class Issues {
        * List of trace IDs associated with this issue.
        * </pre>
        *
-       * <code>repeated string trace_ids = 11;</code>
+       * <code>repeated string trace_ids = 8;</code>
        * @param index The index to set the value at.
        * @param value The traceIds to set.
        * @return This builder for chaining.
@@ -7489,7 +5911,7 @@ public final class Issues {
        * List of trace IDs associated with this issue.
        * </pre>
        *
-       * <code>repeated string trace_ids = 11;</code>
+       * <code>repeated string trace_ids = 8;</code>
        * @param value The traceIds to add.
        * @return This builder for chaining.
        */
@@ -7508,7 +5930,7 @@ public final class Issues {
        * List of trace IDs associated with this issue.
        * </pre>
        *
-       * <code>repeated string trace_ids = 11;</code>
+       * <code>repeated string trace_ids = 8;</code>
        * @param values The traceIds to add.
        * @return This builder for chaining.
        */
@@ -7525,12 +5947,12 @@ public final class Issues {
        * List of trace IDs associated with this issue.
        * </pre>
        *
-       * <code>repeated string trace_ids = 11;</code>
+       * <code>repeated string trace_ids = 8;</code>
        * @return This builder for chaining.
        */
       public Builder clearTraceIds() {
         traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000400);
+        bitField0_ = (bitField0_ & ~0x00000080);
         onChanged();
         return this;
       }
@@ -7539,7 +5961,7 @@ public final class Issues {
        * List of trace IDs associated with this issue.
        * </pre>
        *
-       * <code>repeated string trace_ids = 11;</code>
+       * <code>repeated string trace_ids = 8;</code>
        * @param value The bytes of the traceIds to add.
        * @return This builder for chaining.
        */
@@ -7560,18 +5982,18 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 12;</code>
+       * <code>optional string created_by = 9;</code>
        * @return Whether the createdBy field is set.
        */
       public boolean hasCreatedBy() {
-        return ((bitField0_ & 0x00000800) != 0);
+        return ((bitField0_ & 0x00000100) != 0);
       }
       /**
        * <pre>
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 12;</code>
+       * <code>optional string created_by = 9;</code>
        * @return The createdBy.
        */
       public java.lang.String getCreatedBy() {
@@ -7593,7 +6015,7 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 12;</code>
+       * <code>optional string created_by = 9;</code>
        * @return The bytes for createdBy.
        */
       public com.google.protobuf.ByteString
@@ -7614,7 +6036,7 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 12;</code>
+       * <code>optional string created_by = 9;</code>
        * @param value The createdBy to set.
        * @return This builder for chaining.
        */
@@ -7623,7 +6045,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000800;
+  bitField0_ |= 0x00000100;
         createdBy_ = value;
         onChanged();
         return this;
@@ -7633,11 +6055,11 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 12;</code>
+       * <code>optional string created_by = 9;</code>
        * @return This builder for chaining.
        */
       public Builder clearCreatedBy() {
-        bitField0_ = (bitField0_ & ~0x00000800);
+        bitField0_ = (bitField0_ & ~0x00000100);
         createdBy_ = getDefaultInstance().getCreatedBy();
         onChanged();
         return this;
@@ -7647,7 +6069,7 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 12;</code>
+       * <code>optional string created_by = 9;</code>
        * @param value The bytes for createdBy to set.
        * @return This builder for chaining.
        */
@@ -7656,7 +6078,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000800;
+  bitField0_ |= 0x00000100;
         createdBy_ = value;
         onChanged();
         return this;
@@ -7749,39 +6171,10 @@ public final class Issues {
 
     /**
      * <pre>
-     * Issue status to update.
-     * </pre>
-     *
-     * <code>optional string status = 2;</code>
-     * @return Whether the status field is set.
-     */
-    boolean hasStatus();
-    /**
-     * <pre>
-     * Issue status to update.
-     * </pre>
-     *
-     * <code>optional string status = 2;</code>
-     * @return The status.
-     */
-    java.lang.String getStatus();
-    /**
-     * <pre>
-     * Issue status to update.
-     * </pre>
-     *
-     * <code>optional string status = 2;</code>
-     * @return The bytes for status.
-     */
-    com.google.protobuf.ByteString
-        getStatusBytes();
-
-    /**
-     * <pre>
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 3;</code>
+     * <code>optional string name = 2;</code>
      * @return Whether the name field is set.
      */
     boolean hasName();
@@ -7790,7 +6183,7 @@ public final class Issues {
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 3;</code>
+     * <code>optional string name = 2;</code>
      * @return The name.
      */
     java.lang.String getName();
@@ -7799,7 +6192,7 @@ public final class Issues {
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 3;</code>
+     * <code>optional string name = 2;</code>
      * @return The bytes for name.
      */
     com.google.protobuf.ByteString
@@ -7810,7 +6203,7 @@ public final class Issues {
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 4;</code>
+     * <code>optional string description = 3;</code>
      * @return Whether the description field is set.
      */
     boolean hasDescription();
@@ -7819,7 +6212,7 @@ public final class Issues {
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 4;</code>
+     * <code>optional string description = 3;</code>
      * @return The description.
      */
     java.lang.String getDescription();
@@ -7828,11 +6221,69 @@ public final class Issues {
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 4;</code>
+     * <code>optional string description = 3;</code>
      * @return The bytes for description.
      */
     com.google.protobuf.ByteString
         getDescriptionBytes();
+
+    /**
+     * <pre>
+     * Issue status to update.
+     * </pre>
+     *
+     * <code>optional string status = 4;</code>
+     * @return Whether the status field is set.
+     */
+    boolean hasStatus();
+    /**
+     * <pre>
+     * Issue status to update.
+     * </pre>
+     *
+     * <code>optional string status = 4;</code>
+     * @return The status.
+     */
+    java.lang.String getStatus();
+    /**
+     * <pre>
+     * Issue status to update.
+     * </pre>
+     *
+     * <code>optional string status = 4;</code>
+     * @return The bytes for status.
+     */
+    com.google.protobuf.ByteString
+        getStatusBytes();
+
+    /**
+     * <pre>
+     * Confidence level indicator.
+     * </pre>
+     *
+     * <code>optional string confidence = 5;</code>
+     * @return Whether the confidence field is set.
+     */
+    boolean hasConfidence();
+    /**
+     * <pre>
+     * Confidence level indicator.
+     * </pre>
+     *
+     * <code>optional string confidence = 5;</code>
+     * @return The confidence.
+     */
+    java.lang.String getConfidence();
+    /**
+     * <pre>
+     * Confidence level indicator.
+     * </pre>
+     *
+     * <code>optional string confidence = 5;</code>
+     * @return The bytes for confidence.
+     */
+    com.google.protobuf.ByteString
+        getConfidenceBytes();
   }
   /**
    * <pre>
@@ -7852,9 +6303,10 @@ public final class Issues {
     }
     private UpdateIssue() {
       issueId_ = "";
-      status_ = "";
       name_ = "";
       description_ = "";
+      status_ = "";
+      confidence_ = "";
     }
 
     @java.lang.Override
@@ -7897,19 +6349,25 @@ public final class Issues {
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
-              status_ = bs;
+              name_ = bs;
               break;
             }
             case 26: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000004;
-              name_ = bs;
+              description_ = bs;
               break;
             }
             case 34: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000008;
-              description_ = bs;
+              status_ = bs;
+              break;
+            }
+            case 42: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000010;
+              confidence_ = bs;
               break;
             }
             default: {
@@ -8697,86 +7155,26 @@ public final class Issues {
       }
     }
 
-    public static final int STATUS_FIELD_NUMBER = 2;
-    private volatile java.lang.Object status_;
-    /**
-     * <pre>
-     * Issue status to update.
-     * </pre>
-     *
-     * <code>optional string status = 2;</code>
-     * @return Whether the status field is set.
-     */
-    @java.lang.Override
-    public boolean hasStatus() {
-      return ((bitField0_ & 0x00000002) != 0);
-    }
-    /**
-     * <pre>
-     * Issue status to update.
-     * </pre>
-     *
-     * <code>optional string status = 2;</code>
-     * @return The status.
-     */
-    @java.lang.Override
-    public java.lang.String getStatus() {
-      java.lang.Object ref = status_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          status_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Issue status to update.
-     * </pre>
-     *
-     * <code>optional string status = 2;</code>
-     * @return The bytes for status.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getStatusBytes() {
-      java.lang.Object ref = status_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        status_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int NAME_FIELD_NUMBER = 3;
+    public static final int NAME_FIELD_NUMBER = 2;
     private volatile java.lang.Object name_;
     /**
      * <pre>
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 3;</code>
+     * <code>optional string name = 2;</code>
      * @return Whether the name field is set.
      */
     @java.lang.Override
     public boolean hasName() {
-      return ((bitField0_ & 0x00000004) != 0);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 3;</code>
+     * <code>optional string name = 2;</code>
      * @return The name.
      */
     @java.lang.Override
@@ -8799,7 +7197,7 @@ public final class Issues {
      * Short descriptive name for the issue.
      * </pre>
      *
-     * <code>optional string name = 3;</code>
+     * <code>optional string name = 2;</code>
      * @return The bytes for name.
      */
     @java.lang.Override
@@ -8817,26 +7215,26 @@ public final class Issues {
       }
     }
 
-    public static final int DESCRIPTION_FIELD_NUMBER = 4;
+    public static final int DESCRIPTION_FIELD_NUMBER = 3;
     private volatile java.lang.Object description_;
     /**
      * <pre>
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 4;</code>
+     * <code>optional string description = 3;</code>
      * @return Whether the description field is set.
      */
     @java.lang.Override
     public boolean hasDescription() {
-      return ((bitField0_ & 0x00000008) != 0);
+      return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 4;</code>
+     * <code>optional string description = 3;</code>
      * @return The description.
      */
     @java.lang.Override
@@ -8859,7 +7257,7 @@ public final class Issues {
      * Detailed description of the issue.
      * </pre>
      *
-     * <code>optional string description = 4;</code>
+     * <code>optional string description = 3;</code>
      * @return The bytes for description.
      */
     @java.lang.Override
@@ -8871,6 +7269,126 @@ public final class Issues {
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         description_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int STATUS_FIELD_NUMBER = 4;
+    private volatile java.lang.Object status_;
+    /**
+     * <pre>
+     * Issue status to update.
+     * </pre>
+     *
+     * <code>optional string status = 4;</code>
+     * @return Whether the status field is set.
+     */
+    @java.lang.Override
+    public boolean hasStatus() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <pre>
+     * Issue status to update.
+     * </pre>
+     *
+     * <code>optional string status = 4;</code>
+     * @return The status.
+     */
+    @java.lang.Override
+    public java.lang.String getStatus() {
+      java.lang.Object ref = status_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          status_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Issue status to update.
+     * </pre>
+     *
+     * <code>optional string status = 4;</code>
+     * @return The bytes for status.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getStatusBytes() {
+      java.lang.Object ref = status_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        status_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int CONFIDENCE_FIELD_NUMBER = 5;
+    private volatile java.lang.Object confidence_;
+    /**
+     * <pre>
+     * Confidence level indicator.
+     * </pre>
+     *
+     * <code>optional string confidence = 5;</code>
+     * @return Whether the confidence field is set.
+     */
+    @java.lang.Override
+    public boolean hasConfidence() {
+      return ((bitField0_ & 0x00000010) != 0);
+    }
+    /**
+     * <pre>
+     * Confidence level indicator.
+     * </pre>
+     *
+     * <code>optional string confidence = 5;</code>
+     * @return The confidence.
+     */
+    @java.lang.Override
+    public java.lang.String getConfidence() {
+      java.lang.Object ref = confidence_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          confidence_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Confidence level indicator.
+     * </pre>
+     *
+     * <code>optional string confidence = 5;</code>
+     * @return The bytes for confidence.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getConfidenceBytes() {
+      java.lang.Object ref = confidence_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        confidence_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -8895,13 +7413,16 @@ public final class Issues {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, issueId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, status_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, name_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, name_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, description_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, description_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, status_);
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, confidence_);
       }
       unknownFields.writeTo(output);
     }
@@ -8916,13 +7437,16 @@ public final class Issues {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, issueId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, status_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, name_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, name_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, description_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, description_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, status_);
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, confidence_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -8944,11 +7468,6 @@ public final class Issues {
         if (!getIssueId()
             .equals(other.getIssueId())) return false;
       }
-      if (hasStatus() != other.hasStatus()) return false;
-      if (hasStatus()) {
-        if (!getStatus()
-            .equals(other.getStatus())) return false;
-      }
       if (hasName() != other.hasName()) return false;
       if (hasName()) {
         if (!getName()
@@ -8958,6 +7477,16 @@ public final class Issues {
       if (hasDescription()) {
         if (!getDescription()
             .equals(other.getDescription())) return false;
+      }
+      if (hasStatus() != other.hasStatus()) return false;
+      if (hasStatus()) {
+        if (!getStatus()
+            .equals(other.getStatus())) return false;
+      }
+      if (hasConfidence() != other.hasConfidence()) return false;
+      if (hasConfidence()) {
+        if (!getConfidence()
+            .equals(other.getConfidence())) return false;
       }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
@@ -8974,10 +7503,6 @@ public final class Issues {
         hash = (37 * hash) + ISSUE_ID_FIELD_NUMBER;
         hash = (53 * hash) + getIssueId().hashCode();
       }
-      if (hasStatus()) {
-        hash = (37 * hash) + STATUS_FIELD_NUMBER;
-        hash = (53 * hash) + getStatus().hashCode();
-      }
       if (hasName()) {
         hash = (37 * hash) + NAME_FIELD_NUMBER;
         hash = (53 * hash) + getName().hashCode();
@@ -8985,6 +7510,14 @@ public final class Issues {
       if (hasDescription()) {
         hash = (37 * hash) + DESCRIPTION_FIELD_NUMBER;
         hash = (53 * hash) + getDescription().hashCode();
+      }
+      if (hasStatus()) {
+        hash = (37 * hash) + STATUS_FIELD_NUMBER;
+        hash = (53 * hash) + getStatus().hashCode();
+      }
+      if (hasConfidence()) {
+        hash = (37 * hash) + CONFIDENCE_FIELD_NUMBER;
+        hash = (53 * hash) + getConfidence().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -9125,12 +7658,14 @@ public final class Issues {
         super.clear();
         issueId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        status_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
         name_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         description_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
+        status_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
+        confidence_ = "";
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -9166,15 +7701,19 @@ public final class Issues {
         if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.status_ = status_;
+        result.name_ = name_;
         if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.name_ = name_;
+        result.description_ = description_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
           to_bitField0_ |= 0x00000008;
         }
-        result.description_ = description_;
+        result.status_ = status_;
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          to_bitField0_ |= 0x00000010;
+        }
+        result.confidence_ = confidence_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -9229,19 +7768,24 @@ public final class Issues {
           issueId_ = other.issueId_;
           onChanged();
         }
-        if (other.hasStatus()) {
-          bitField0_ |= 0x00000002;
-          status_ = other.status_;
-          onChanged();
-        }
         if (other.hasName()) {
-          bitField0_ |= 0x00000004;
+          bitField0_ |= 0x00000002;
           name_ = other.name_;
           onChanged();
         }
         if (other.hasDescription()) {
-          bitField0_ |= 0x00000008;
+          bitField0_ |= 0x00000004;
           description_ = other.description_;
+          onChanged();
+        }
+        if (other.hasStatus()) {
+          bitField0_ |= 0x00000008;
+          status_ = other.status_;
+          onChanged();
+        }
+        if (other.hasConfidence()) {
+          bitField0_ |= 0x00000010;
+          confidence_ = other.confidence_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -9382,132 +7926,24 @@ public final class Issues {
         return this;
       }
 
-      private java.lang.Object status_ = "";
-      /**
-       * <pre>
-       * Issue status to update.
-       * </pre>
-       *
-       * <code>optional string status = 2;</code>
-       * @return Whether the status field is set.
-       */
-      public boolean hasStatus() {
-        return ((bitField0_ & 0x00000002) != 0);
-      }
-      /**
-       * <pre>
-       * Issue status to update.
-       * </pre>
-       *
-       * <code>optional string status = 2;</code>
-       * @return The status.
-       */
-      public java.lang.String getStatus() {
-        java.lang.Object ref = status_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            status_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Issue status to update.
-       * </pre>
-       *
-       * <code>optional string status = 2;</code>
-       * @return The bytes for status.
-       */
-      public com.google.protobuf.ByteString
-          getStatusBytes() {
-        java.lang.Object ref = status_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          status_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Issue status to update.
-       * </pre>
-       *
-       * <code>optional string status = 2;</code>
-       * @param value The status to set.
-       * @return This builder for chaining.
-       */
-      public Builder setStatus(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        status_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Issue status to update.
-       * </pre>
-       *
-       * <code>optional string status = 2;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearStatus() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        status_ = getDefaultInstance().getStatus();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Issue status to update.
-       * </pre>
-       *
-       * <code>optional string status = 2;</code>
-       * @param value The bytes for status to set.
-       * @return This builder for chaining.
-       */
-      public Builder setStatusBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        status_ = value;
-        onChanged();
-        return this;
-      }
-
       private java.lang.Object name_ = "";
       /**
        * <pre>
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 3;</code>
+       * <code>optional string name = 2;</code>
        * @return Whether the name field is set.
        */
       public boolean hasName() {
-        return ((bitField0_ & 0x00000004) != 0);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 3;</code>
+       * <code>optional string name = 2;</code>
        * @return The name.
        */
       public java.lang.String getName() {
@@ -9529,7 +7965,7 @@ public final class Issues {
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 3;</code>
+       * <code>optional string name = 2;</code>
        * @return The bytes for name.
        */
       public com.google.protobuf.ByteString
@@ -9550,7 +7986,7 @@ public final class Issues {
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 3;</code>
+       * <code>optional string name = 2;</code>
        * @param value The name to set.
        * @return This builder for chaining.
        */
@@ -9559,7 +7995,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000002;
         name_ = value;
         onChanged();
         return this;
@@ -9569,11 +8005,11 @@ public final class Issues {
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 3;</code>
+       * <code>optional string name = 2;</code>
        * @return This builder for chaining.
        */
       public Builder clearName() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         name_ = getDefaultInstance().getName();
         onChanged();
         return this;
@@ -9583,7 +8019,7 @@ public final class Issues {
        * Short descriptive name for the issue.
        * </pre>
        *
-       * <code>optional string name = 3;</code>
+       * <code>optional string name = 2;</code>
        * @param value The bytes for name to set.
        * @return This builder for chaining.
        */
@@ -9592,7 +8028,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000002;
         name_ = value;
         onChanged();
         return this;
@@ -9604,18 +8040,18 @@ public final class Issues {
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 4;</code>
+       * <code>optional string description = 3;</code>
        * @return Whether the description field is set.
        */
       public boolean hasDescription() {
-        return ((bitField0_ & 0x00000008) != 0);
+        return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 4;</code>
+       * <code>optional string description = 3;</code>
        * @return The description.
        */
       public java.lang.String getDescription() {
@@ -9637,7 +8073,7 @@ public final class Issues {
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 4;</code>
+       * <code>optional string description = 3;</code>
        * @return The bytes for description.
        */
       public com.google.protobuf.ByteString
@@ -9658,7 +8094,7 @@ public final class Issues {
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 4;</code>
+       * <code>optional string description = 3;</code>
        * @param value The description to set.
        * @return This builder for chaining.
        */
@@ -9667,7 +8103,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000004;
         description_ = value;
         onChanged();
         return this;
@@ -9677,11 +8113,11 @@ public final class Issues {
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 4;</code>
+       * <code>optional string description = 3;</code>
        * @return This builder for chaining.
        */
       public Builder clearDescription() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         description_ = getDefaultInstance().getDescription();
         onChanged();
         return this;
@@ -9691,7 +8127,7 @@ public final class Issues {
        * Detailed description of the issue.
        * </pre>
        *
-       * <code>optional string description = 4;</code>
+       * <code>optional string description = 3;</code>
        * @param value The bytes for description to set.
        * @return This builder for chaining.
        */
@@ -9700,8 +8136,224 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000004;
         description_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object status_ = "";
+      /**
+       * <pre>
+       * Issue status to update.
+       * </pre>
+       *
+       * <code>optional string status = 4;</code>
+       * @return Whether the status field is set.
+       */
+      public boolean hasStatus() {
+        return ((bitField0_ & 0x00000008) != 0);
+      }
+      /**
+       * <pre>
+       * Issue status to update.
+       * </pre>
+       *
+       * <code>optional string status = 4;</code>
+       * @return The status.
+       */
+      public java.lang.String getStatus() {
+        java.lang.Object ref = status_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            status_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Issue status to update.
+       * </pre>
+       *
+       * <code>optional string status = 4;</code>
+       * @return The bytes for status.
+       */
+      public com.google.protobuf.ByteString
+          getStatusBytes() {
+        java.lang.Object ref = status_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          status_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Issue status to update.
+       * </pre>
+       *
+       * <code>optional string status = 4;</code>
+       * @param value The status to set.
+       * @return This builder for chaining.
+       */
+      public Builder setStatus(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        status_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Issue status to update.
+       * </pre>
+       *
+       * <code>optional string status = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearStatus() {
+        bitField0_ = (bitField0_ & ~0x00000008);
+        status_ = getDefaultInstance().getStatus();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Issue status to update.
+       * </pre>
+       *
+       * <code>optional string status = 4;</code>
+       * @param value The bytes for status to set.
+       * @return This builder for chaining.
+       */
+      public Builder setStatusBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        status_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object confidence_ = "";
+      /**
+       * <pre>
+       * Confidence level indicator.
+       * </pre>
+       *
+       * <code>optional string confidence = 5;</code>
+       * @return Whether the confidence field is set.
+       */
+      public boolean hasConfidence() {
+        return ((bitField0_ & 0x00000010) != 0);
+      }
+      /**
+       * <pre>
+       * Confidence level indicator.
+       * </pre>
+       *
+       * <code>optional string confidence = 5;</code>
+       * @return The confidence.
+       */
+      public java.lang.String getConfidence() {
+        java.lang.Object ref = confidence_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            confidence_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Confidence level indicator.
+       * </pre>
+       *
+       * <code>optional string confidence = 5;</code>
+       * @return The bytes for confidence.
+       */
+      public com.google.protobuf.ByteString
+          getConfidenceBytes() {
+        java.lang.Object ref = confidence_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          confidence_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Confidence level indicator.
+       * </pre>
+       *
+       * <code>optional string confidence = 5;</code>
+       * @param value The confidence to set.
+       * @return This builder for chaining.
+       */
+      public Builder setConfidence(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        confidence_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Confidence level indicator.
+       * </pre>
+       *
+       * <code>optional string confidence = 5;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearConfidence() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        confidence_ = getDefaultInstance().getConfidence();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Confidence level indicator.
+       * </pre>
+       *
+       * <code>optional string confidence = 5;</code>
+       * @param value The bytes for confidence to set.
+       * @return This builder for chaining.
+       */
+      public Builder setConfidenceBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        confidence_ = value;
         onChanged();
         return this;
       }
@@ -11147,68 +9799,10 @@ public final class Issues {
 
     /**
      * <pre>
-     * Filter by run ID.
-     * </pre>
-     *
-     * <code>optional string run_id = 2;</code>
-     * @return Whether the runId field is set.
-     */
-    boolean hasRunId();
-    /**
-     * <pre>
-     * Filter by run ID.
-     * </pre>
-     *
-     * <code>optional string run_id = 2;</code>
-     * @return The runId.
-     */
-    java.lang.String getRunId();
-    /**
-     * <pre>
-     * Filter by run ID.
-     * </pre>
-     *
-     * <code>optional string run_id = 2;</code>
-     * @return The bytes for runId.
-     */
-    com.google.protobuf.ByteString
-        getRunIdBytes();
-
-    /**
-     * <pre>
-     * Filter by status.
-     * </pre>
-     *
-     * <code>optional string status = 3;</code>
-     * @return Whether the status field is set.
-     */
-    boolean hasStatus();
-    /**
-     * <pre>
-     * Filter by status.
-     * </pre>
-     *
-     * <code>optional string status = 3;</code>
-     * @return The status.
-     */
-    java.lang.String getStatus();
-    /**
-     * <pre>
-     * Filter by status.
-     * </pre>
-     *
-     * <code>optional string status = 3;</code>
-     * @return The bytes for status.
-     */
-    com.google.protobuf.ByteString
-        getStatusBytes();
-
-    /**
-     * <pre>
      * Filter string for advanced filtering.
      * </pre>
      *
-     * <code>optional string filter_string = 4;</code>
+     * <code>optional string filter_string = 2;</code>
      * @return Whether the filterString field is set.
      */
     boolean hasFilterString();
@@ -11217,7 +9811,7 @@ public final class Issues {
      * Filter string for advanced filtering.
      * </pre>
      *
-     * <code>optional string filter_string = 4;</code>
+     * <code>optional string filter_string = 2;</code>
      * @return The filterString.
      */
     java.lang.String getFilterString();
@@ -11226,7 +9820,7 @@ public final class Issues {
      * Filter string for advanced filtering.
      * </pre>
      *
-     * <code>optional string filter_string = 4;</code>
+     * <code>optional string filter_string = 2;</code>
      * @return The bytes for filterString.
      */
     com.google.protobuf.ByteString
@@ -11237,7 +9831,7 @@ public final class Issues {
      * Maximum number of results to return.
      * </pre>
      *
-     * <code>optional int32 max_results = 5;</code>
+     * <code>optional int32 max_results = 3;</code>
      * @return Whether the maxResults field is set.
      */
     boolean hasMaxResults();
@@ -11246,7 +9840,7 @@ public final class Issues {
      * Maximum number of results to return.
      * </pre>
      *
-     * <code>optional int32 max_results = 5;</code>
+     * <code>optional int32 max_results = 3;</code>
      * @return The maxResults.
      */
     int getMaxResults();
@@ -11256,7 +9850,7 @@ public final class Issues {
      * Page token for pagination.
      * </pre>
      *
-     * <code>optional string page_token = 6;</code>
+     * <code>optional string page_token = 4;</code>
      * @return Whether the pageToken field is set.
      */
     boolean hasPageToken();
@@ -11265,7 +9859,7 @@ public final class Issues {
      * Page token for pagination.
      * </pre>
      *
-     * <code>optional string page_token = 6;</code>
+     * <code>optional string page_token = 4;</code>
      * @return The pageToken.
      */
     java.lang.String getPageToken();
@@ -11274,7 +9868,7 @@ public final class Issues {
      * Page token for pagination.
      * </pre>
      *
-     * <code>optional string page_token = 6;</code>
+     * <code>optional string page_token = 4;</code>
      * @return The bytes for pageToken.
      */
     com.google.protobuf.ByteString
@@ -11298,8 +9892,6 @@ public final class Issues {
     }
     private SearchIssues() {
       experimentId_ = "";
-      runId_ = "";
-      status_ = "";
       filterString_ = "";
       pageToken_ = "";
     }
@@ -11344,29 +9936,17 @@ public final class Issues {
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
-              runId_ = bs;
+              filterString_ = bs;
               break;
             }
-            case 26: {
-              com.google.protobuf.ByteString bs = input.readBytes();
+            case 24: {
               bitField0_ |= 0x00000004;
-              status_ = bs;
+              maxResults_ = input.readInt32();
               break;
             }
             case 34: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000008;
-              filterString_ = bs;
-              break;
-            }
-            case 40: {
-              bitField0_ |= 0x00000010;
-              maxResults_ = input.readInt32();
-              break;
-            }
-            case 50: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000020;
               pageToken_ = bs;
               break;
             }
@@ -12601,146 +11181,26 @@ public final class Issues {
       }
     }
 
-    public static final int RUN_ID_FIELD_NUMBER = 2;
-    private volatile java.lang.Object runId_;
-    /**
-     * <pre>
-     * Filter by run ID.
-     * </pre>
-     *
-     * <code>optional string run_id = 2;</code>
-     * @return Whether the runId field is set.
-     */
-    @java.lang.Override
-    public boolean hasRunId() {
-      return ((bitField0_ & 0x00000002) != 0);
-    }
-    /**
-     * <pre>
-     * Filter by run ID.
-     * </pre>
-     *
-     * <code>optional string run_id = 2;</code>
-     * @return The runId.
-     */
-    @java.lang.Override
-    public java.lang.String getRunId() {
-      java.lang.Object ref = runId_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          runId_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Filter by run ID.
-     * </pre>
-     *
-     * <code>optional string run_id = 2;</code>
-     * @return The bytes for runId.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getRunIdBytes() {
-      java.lang.Object ref = runId_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        runId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int STATUS_FIELD_NUMBER = 3;
-    private volatile java.lang.Object status_;
-    /**
-     * <pre>
-     * Filter by status.
-     * </pre>
-     *
-     * <code>optional string status = 3;</code>
-     * @return Whether the status field is set.
-     */
-    @java.lang.Override
-    public boolean hasStatus() {
-      return ((bitField0_ & 0x00000004) != 0);
-    }
-    /**
-     * <pre>
-     * Filter by status.
-     * </pre>
-     *
-     * <code>optional string status = 3;</code>
-     * @return The status.
-     */
-    @java.lang.Override
-    public java.lang.String getStatus() {
-      java.lang.Object ref = status_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          status_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Filter by status.
-     * </pre>
-     *
-     * <code>optional string status = 3;</code>
-     * @return The bytes for status.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getStatusBytes() {
-      java.lang.Object ref = status_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        status_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int FILTER_STRING_FIELD_NUMBER = 4;
+    public static final int FILTER_STRING_FIELD_NUMBER = 2;
     private volatile java.lang.Object filterString_;
     /**
      * <pre>
      * Filter string for advanced filtering.
      * </pre>
      *
-     * <code>optional string filter_string = 4;</code>
+     * <code>optional string filter_string = 2;</code>
      * @return Whether the filterString field is set.
      */
     @java.lang.Override
     public boolean hasFilterString() {
-      return ((bitField0_ & 0x00000008) != 0);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
      * Filter string for advanced filtering.
      * </pre>
      *
-     * <code>optional string filter_string = 4;</code>
+     * <code>optional string filter_string = 2;</code>
      * @return The filterString.
      */
     @java.lang.Override
@@ -12763,7 +11223,7 @@ public final class Issues {
      * Filter string for advanced filtering.
      * </pre>
      *
-     * <code>optional string filter_string = 4;</code>
+     * <code>optional string filter_string = 2;</code>
      * @return The bytes for filterString.
      */
     @java.lang.Override
@@ -12781,26 +11241,26 @@ public final class Issues {
       }
     }
 
-    public static final int MAX_RESULTS_FIELD_NUMBER = 5;
+    public static final int MAX_RESULTS_FIELD_NUMBER = 3;
     private int maxResults_;
     /**
      * <pre>
      * Maximum number of results to return.
      * </pre>
      *
-     * <code>optional int32 max_results = 5;</code>
+     * <code>optional int32 max_results = 3;</code>
      * @return Whether the maxResults field is set.
      */
     @java.lang.Override
     public boolean hasMaxResults() {
-      return ((bitField0_ & 0x00000010) != 0);
+      return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
      * Maximum number of results to return.
      * </pre>
      *
-     * <code>optional int32 max_results = 5;</code>
+     * <code>optional int32 max_results = 3;</code>
      * @return The maxResults.
      */
     @java.lang.Override
@@ -12808,26 +11268,26 @@ public final class Issues {
       return maxResults_;
     }
 
-    public static final int PAGE_TOKEN_FIELD_NUMBER = 6;
+    public static final int PAGE_TOKEN_FIELD_NUMBER = 4;
     private volatile java.lang.Object pageToken_;
     /**
      * <pre>
      * Page token for pagination.
      * </pre>
      *
-     * <code>optional string page_token = 6;</code>
+     * <code>optional string page_token = 4;</code>
      * @return Whether the pageToken field is set.
      */
     @java.lang.Override
     public boolean hasPageToken() {
-      return ((bitField0_ & 0x00000020) != 0);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <pre>
      * Page token for pagination.
      * </pre>
      *
-     * <code>optional string page_token = 6;</code>
+     * <code>optional string page_token = 4;</code>
      * @return The pageToken.
      */
     @java.lang.Override
@@ -12850,7 +11310,7 @@ public final class Issues {
      * Page token for pagination.
      * </pre>
      *
-     * <code>optional string page_token = 6;</code>
+     * <code>optional string page_token = 4;</code>
      * @return The bytes for pageToken.
      */
     @java.lang.Override
@@ -12886,19 +11346,13 @@ public final class Issues {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, runId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, filterString_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, status_);
+        output.writeInt32(3, maxResults_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, filterString_);
-      }
-      if (((bitField0_ & 0x00000010) != 0)) {
-        output.writeInt32(5, maxResults_);
-      }
-      if (((bitField0_ & 0x00000020) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, pageToken_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, pageToken_);
       }
       unknownFields.writeTo(output);
     }
@@ -12913,20 +11367,14 @@ public final class Issues {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentId_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, runId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, filterString_);
       }
       if (((bitField0_ & 0x00000004) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, status_);
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(3, maxResults_);
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, filterString_);
-      }
-      if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt32Size(5, maxResults_);
-      }
-      if (((bitField0_ & 0x00000020) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, pageToken_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, pageToken_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -12947,16 +11395,6 @@ public final class Issues {
       if (hasExperimentId()) {
         if (!getExperimentId()
             .equals(other.getExperimentId())) return false;
-      }
-      if (hasRunId() != other.hasRunId()) return false;
-      if (hasRunId()) {
-        if (!getRunId()
-            .equals(other.getRunId())) return false;
-      }
-      if (hasStatus() != other.hasStatus()) return false;
-      if (hasStatus()) {
-        if (!getStatus()
-            .equals(other.getStatus())) return false;
       }
       if (hasFilterString() != other.hasFilterString()) return false;
       if (hasFilterString()) {
@@ -12987,14 +11425,6 @@ public final class Issues {
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
         hash = (53 * hash) + getExperimentId().hashCode();
-      }
-      if (hasRunId()) {
-        hash = (37 * hash) + RUN_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getRunId().hashCode();
-      }
-      if (hasStatus()) {
-        hash = (37 * hash) + STATUS_FIELD_NUMBER;
-        hash = (53 * hash) + getStatus().hashCode();
       }
       if (hasFilterString()) {
         hash = (37 * hash) + FILTER_STRING_FIELD_NUMBER;
@@ -13147,16 +11577,12 @@ public final class Issues {
         super.clear();
         experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        runId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
-        status_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
         filterString_ = "";
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000002);
         maxResults_ = 0;
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000004);
         pageToken_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
 
@@ -13192,21 +11618,13 @@ public final class Issues {
         if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
-        result.runId_ = runId_;
+        result.filterString_ = filterString_;
         if (((from_bitField0_ & 0x00000004) != 0)) {
+          result.maxResults_ = maxResults_;
           to_bitField0_ |= 0x00000004;
         }
-        result.status_ = status_;
         if (((from_bitField0_ & 0x00000008) != 0)) {
           to_bitField0_ |= 0x00000008;
-        }
-        result.filterString_ = filterString_;
-        if (((from_bitField0_ & 0x00000010) != 0)) {
-          result.maxResults_ = maxResults_;
-          to_bitField0_ |= 0x00000010;
-        }
-        if (((from_bitField0_ & 0x00000020) != 0)) {
-          to_bitField0_ |= 0x00000020;
         }
         result.pageToken_ = pageToken_;
         result.bitField0_ = to_bitField0_;
@@ -13263,18 +11681,8 @@ public final class Issues {
           experimentId_ = other.experimentId_;
           onChanged();
         }
-        if (other.hasRunId()) {
-          bitField0_ |= 0x00000002;
-          runId_ = other.runId_;
-          onChanged();
-        }
-        if (other.hasStatus()) {
-          bitField0_ |= 0x00000004;
-          status_ = other.status_;
-          onChanged();
-        }
         if (other.hasFilterString()) {
-          bitField0_ |= 0x00000008;
+          bitField0_ |= 0x00000002;
           filterString_ = other.filterString_;
           onChanged();
         }
@@ -13282,7 +11690,7 @@ public final class Issues {
           setMaxResults(other.getMaxResults());
         }
         if (other.hasPageToken()) {
-          bitField0_ |= 0x00000020;
+          bitField0_ |= 0x00000008;
           pageToken_ = other.pageToken_;
           onChanged();
         }
@@ -13424,240 +11832,24 @@ public final class Issues {
         return this;
       }
 
-      private java.lang.Object runId_ = "";
-      /**
-       * <pre>
-       * Filter by run ID.
-       * </pre>
-       *
-       * <code>optional string run_id = 2;</code>
-       * @return Whether the runId field is set.
-       */
-      public boolean hasRunId() {
-        return ((bitField0_ & 0x00000002) != 0);
-      }
-      /**
-       * <pre>
-       * Filter by run ID.
-       * </pre>
-       *
-       * <code>optional string run_id = 2;</code>
-       * @return The runId.
-       */
-      public java.lang.String getRunId() {
-        java.lang.Object ref = runId_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            runId_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Filter by run ID.
-       * </pre>
-       *
-       * <code>optional string run_id = 2;</code>
-       * @return The bytes for runId.
-       */
-      public com.google.protobuf.ByteString
-          getRunIdBytes() {
-        java.lang.Object ref = runId_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          runId_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Filter by run ID.
-       * </pre>
-       *
-       * <code>optional string run_id = 2;</code>
-       * @param value The runId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRunId(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        runId_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Filter by run ID.
-       * </pre>
-       *
-       * <code>optional string run_id = 2;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearRunId() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        runId_ = getDefaultInstance().getRunId();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Filter by run ID.
-       * </pre>
-       *
-       * <code>optional string run_id = 2;</code>
-       * @param value The bytes for runId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setRunIdBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        runId_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object status_ = "";
-      /**
-       * <pre>
-       * Filter by status.
-       * </pre>
-       *
-       * <code>optional string status = 3;</code>
-       * @return Whether the status field is set.
-       */
-      public boolean hasStatus() {
-        return ((bitField0_ & 0x00000004) != 0);
-      }
-      /**
-       * <pre>
-       * Filter by status.
-       * </pre>
-       *
-       * <code>optional string status = 3;</code>
-       * @return The status.
-       */
-      public java.lang.String getStatus() {
-        java.lang.Object ref = status_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            status_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Filter by status.
-       * </pre>
-       *
-       * <code>optional string status = 3;</code>
-       * @return The bytes for status.
-       */
-      public com.google.protobuf.ByteString
-          getStatusBytes() {
-        java.lang.Object ref = status_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          status_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Filter by status.
-       * </pre>
-       *
-       * <code>optional string status = 3;</code>
-       * @param value The status to set.
-       * @return This builder for chaining.
-       */
-      public Builder setStatus(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        status_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Filter by status.
-       * </pre>
-       *
-       * <code>optional string status = 3;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearStatus() {
-        bitField0_ = (bitField0_ & ~0x00000004);
-        status_ = getDefaultInstance().getStatus();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Filter by status.
-       * </pre>
-       *
-       * <code>optional string status = 3;</code>
-       * @param value The bytes for status to set.
-       * @return This builder for chaining.
-       */
-      public Builder setStatusBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        status_ = value;
-        onChanged();
-        return this;
-      }
-
       private java.lang.Object filterString_ = "";
       /**
        * <pre>
        * Filter string for advanced filtering.
        * </pre>
        *
-       * <code>optional string filter_string = 4;</code>
+       * <code>optional string filter_string = 2;</code>
        * @return Whether the filterString field is set.
        */
       public boolean hasFilterString() {
-        return ((bitField0_ & 0x00000008) != 0);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
        * Filter string for advanced filtering.
        * </pre>
        *
-       * <code>optional string filter_string = 4;</code>
+       * <code>optional string filter_string = 2;</code>
        * @return The filterString.
        */
       public java.lang.String getFilterString() {
@@ -13679,7 +11871,7 @@ public final class Issues {
        * Filter string for advanced filtering.
        * </pre>
        *
-       * <code>optional string filter_string = 4;</code>
+       * <code>optional string filter_string = 2;</code>
        * @return The bytes for filterString.
        */
       public com.google.protobuf.ByteString
@@ -13700,7 +11892,7 @@ public final class Issues {
        * Filter string for advanced filtering.
        * </pre>
        *
-       * <code>optional string filter_string = 4;</code>
+       * <code>optional string filter_string = 2;</code>
        * @param value The filterString to set.
        * @return This builder for chaining.
        */
@@ -13709,7 +11901,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000002;
         filterString_ = value;
         onChanged();
         return this;
@@ -13719,11 +11911,11 @@ public final class Issues {
        * Filter string for advanced filtering.
        * </pre>
        *
-       * <code>optional string filter_string = 4;</code>
+       * <code>optional string filter_string = 2;</code>
        * @return This builder for chaining.
        */
       public Builder clearFilterString() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000002);
         filterString_ = getDefaultInstance().getFilterString();
         onChanged();
         return this;
@@ -13733,7 +11925,7 @@ public final class Issues {
        * Filter string for advanced filtering.
        * </pre>
        *
-       * <code>optional string filter_string = 4;</code>
+       * <code>optional string filter_string = 2;</code>
        * @param value The bytes for filterString to set.
        * @return This builder for chaining.
        */
@@ -13742,7 +11934,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000008;
+  bitField0_ |= 0x00000002;
         filterString_ = value;
         onChanged();
         return this;
@@ -13754,19 +11946,19 @@ public final class Issues {
        * Maximum number of results to return.
        * </pre>
        *
-       * <code>optional int32 max_results = 5;</code>
+       * <code>optional int32 max_results = 3;</code>
        * @return Whether the maxResults field is set.
        */
       @java.lang.Override
       public boolean hasMaxResults() {
-        return ((bitField0_ & 0x00000010) != 0);
+        return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
        * Maximum number of results to return.
        * </pre>
        *
-       * <code>optional int32 max_results = 5;</code>
+       * <code>optional int32 max_results = 3;</code>
        * @return The maxResults.
        */
       @java.lang.Override
@@ -13778,12 +11970,12 @@ public final class Issues {
        * Maximum number of results to return.
        * </pre>
        *
-       * <code>optional int32 max_results = 5;</code>
+       * <code>optional int32 max_results = 3;</code>
        * @param value The maxResults to set.
        * @return This builder for chaining.
        */
       public Builder setMaxResults(int value) {
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000004;
         maxResults_ = value;
         onChanged();
         return this;
@@ -13793,11 +11985,11 @@ public final class Issues {
        * Maximum number of results to return.
        * </pre>
        *
-       * <code>optional int32 max_results = 5;</code>
+       * <code>optional int32 max_results = 3;</code>
        * @return This builder for chaining.
        */
       public Builder clearMaxResults() {
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000004);
         maxResults_ = 0;
         onChanged();
         return this;
@@ -13809,18 +12001,18 @@ public final class Issues {
        * Page token for pagination.
        * </pre>
        *
-       * <code>optional string page_token = 6;</code>
+       * <code>optional string page_token = 4;</code>
        * @return Whether the pageToken field is set.
        */
       public boolean hasPageToken() {
-        return ((bitField0_ & 0x00000020) != 0);
+        return ((bitField0_ & 0x00000008) != 0);
       }
       /**
        * <pre>
        * Page token for pagination.
        * </pre>
        *
-       * <code>optional string page_token = 6;</code>
+       * <code>optional string page_token = 4;</code>
        * @return The pageToken.
        */
       public java.lang.String getPageToken() {
@@ -13842,7 +12034,7 @@ public final class Issues {
        * Page token for pagination.
        * </pre>
        *
-       * <code>optional string page_token = 6;</code>
+       * <code>optional string page_token = 4;</code>
        * @return The bytes for pageToken.
        */
       public com.google.protobuf.ByteString
@@ -13863,7 +12055,7 @@ public final class Issues {
        * Page token for pagination.
        * </pre>
        *
-       * <code>optional string page_token = 6;</code>
+       * <code>optional string page_token = 4;</code>
        * @param value The pageToken to set.
        * @return This builder for chaining.
        */
@@ -13872,7 +12064,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000008;
         pageToken_ = value;
         onChanged();
         return this;
@@ -13882,11 +12074,11 @@ public final class Issues {
        * Page token for pagination.
        * </pre>
        *
-       * <code>optional string page_token = 6;</code>
+       * <code>optional string page_token = 4;</code>
        * @return This builder for chaining.
        */
       public Builder clearPageToken() {
-        bitField0_ = (bitField0_ & ~0x00000020);
+        bitField0_ = (bitField0_ & ~0x00000008);
         pageToken_ = getDefaultInstance().getPageToken();
         onChanged();
         return this;
@@ -13896,7 +12088,7 @@ public final class Issues {
        * Page token for pagination.
        * </pre>
        *
-       * <code>optional string page_token = 6;</code>
+       * <code>optional string page_token = 4;</code>
        * @param value The bytes for pageToken to set.
        * @return This builder for chaining.
        */
@@ -13905,7 +12097,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000020;
+  bitField0_ |= 0x00000008;
         pageToken_ = value;
         onChanged();
         return this;
@@ -14018,36 +12210,31 @@ public final class Issues {
   static {
     java.lang.String[] descriptorData = {
       "\n\014issues.proto\022\rmlflow.issues\032\020databrick" +
-      "s.proto\"\353\002\n\005Issue\022\020\n\010issue_id\030\001 \001(\t\022\033\n\re" +
-      "xperiment_id\030\002 \001(\tB\004\370\206\031\001\022\016\n\006run_id\030\003 \001(\t" +
-      "\022\022\n\004name\030\004 \001(\tB\004\370\206\031\001\022\031\n\013description\030\005 \001(" +
-      "\tB\004\370\206\031\001\022\022\n\nroot_cause\030\006 \001(\t\022\024\n\006status\030\007 " +
-      "\001(\tB\004\370\206\031\001\022\021\n\tfrequency\030\010 \001(\001\022\022\n\nconfiden" +
-      "ce\030\t \001(\t\022\032\n\022rationale_examples\030\n \003(\t\022\031\n\021" +
-      "example_trace_ids\030\013 \003(\t\022\021\n\ttrace_ids\030\014 \003" +
-      "(\t\022\037\n\021created_timestamp\030\r \001(\003B\004\370\206\031\001\022$\n\026l" +
-      "ast_updated_timestamp\030\016 \001(\003B\004\370\206\031\001\022\022\n\ncre" +
-      "ated_by\030\017 \001(\t\"\303\002\n\013CreateIssue\022\022\n\004name\030\001 " +
-      "\001(\tB\004\370\206\031\001\022\031\n\013description\030\002 \001(\tB\004\370\206\031\001\022\021\n\t" +
-      "frequency\030\003 \001(\001\022\033\n\rexperiment_id\030\004 \001(\tB\004" +
-      "\370\206\031\001\022\016\n\006status\030\005 \001(\t\022\016\n\006run_id\030\006 \001(\t\022\022\n\n" +
-      "root_cause\030\007 \001(\t\022\022\n\nconfidence\030\010 \001(\t\022\032\n\022" +
-      "rationale_examples\030\t \003(\t\022\031\n\021example_trac" +
-      "e_ids\030\n \003(\t\022\021\n\ttrace_ids\030\013 \003(\t\022\022\n\ncreate" +
-      "d_by\030\014 \001(\t\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024." +
-      "mlflow.issues.Issue\"\211\001\n\013UpdateIssue\022\026\n\010i" +
-      "ssue_id\030\001 \001(\tB\004\370\206\031\001\022\016\n\006status\030\002 \001(\t\022\014\n\004n" +
-      "ame\030\003 \001(\t\022\023\n\013description\030\004 \001(\t\032/\n\010Respon" +
-      "se\022#\n\005issue\030\001 \001(\0132\024.mlflow.issues.Issue\"" +
-      "S\n\010GetIssue\022\026\n\010issue_id\030\001 \001(\tB\004\370\206\031\001\032/\n\010R" +
-      "esponse\022#\n\005issue\030\001 \001(\0132\024.mlflow.issues.I" +
-      "ssue\"\320\001\n\014SearchIssues\022\025\n\rexperiment_id\030\001" +
-      " \001(\t\022\016\n\006run_id\030\002 \001(\t\022\016\n\006status\030\003 \001(\t\022\025\n\r" +
-      "filter_string\030\004 \001(\t\022\023\n\013max_results\030\005 \001(\005" +
-      "\022\022\n\npage_token\030\006 \001(\t\032I\n\010Response\022$\n\006issu" +
-      "es\030\001 \003(\0132\024.mlflow.issues.Issue\022\027\n\017next_p" +
-      "age_token\030\002 \001(\tB\031\n\024org.mlflow.api.proto\220" +
-      "\001\001"
+      "s.proto\"\362\001\n\005Issue\022\020\n\010issue_id\030\001 \001(\t\022\025\n\re" +
+      "xperiment_id\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\023\n\013desc" +
+      "ription\030\004 \001(\t\022\016\n\006status\030\005 \001(\t\022\022\n\nconfide" +
+      "nce\030\006 \001(\t\022\023\n\013root_causes\030\007 \003(\t\022\025\n\rsource" +
+      "_run_id\030\010 \001(\t\022\031\n\021created_timestamp\030\t \001(\003" +
+      "\022\036\n\026last_updated_timestamp\030\n \001(\003\022\022\n\ncrea" +
+      "ted_by\030\013 \001(\t\"\201\002\n\013CreateIssue\022\033\n\rexperime" +
+      "nt_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\022\031\n" +
+      "\013description\030\003 \001(\tB\004\370\206\031\001\022\016\n\006status\030\004 \001(\t" +
+      "\022\022\n\nconfidence\030\005 \001(\t\022\023\n\013root_causes\030\006 \003(" +
+      "\t\022\025\n\rsource_run_id\030\007 \001(\t\022\021\n\ttrace_ids\030\010 " +
+      "\003(\t\022\022\n\ncreated_by\030\t \001(\t\032/\n\010Response\022#\n\005i" +
+      "ssue\030\001 \001(\0132\024.mlflow.issues.Issue\"\235\001\n\013Upd" +
+      "ateIssue\022\026\n\010issue_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name" +
+      "\030\002 \001(\t\022\023\n\013description\030\003 \001(\t\022\016\n\006status\030\004 " +
+      "\001(\t\022\022\n\nconfidence\030\005 \001(\t\032/\n\010Response\022#\n\005i" +
+      "ssue\030\001 \001(\0132\024.mlflow.issues.Issue\"S\n\010GetI" +
+      "ssue\022\026\n\010issue_id\030\001 \001(\tB\004\370\206\031\001\032/\n\010Response" +
+      "\022#\n\005issue\030\001 \001(\0132\024.mlflow.issues.Issue\"\260\001" +
+      "\n\014SearchIssues\022\025\n\rexperiment_id\030\001 \001(\t\022\025\n" +
+      "\rfilter_string\030\002 \001(\t\022\023\n\013max_results\030\003 \001(" +
+      "\005\022\022\n\npage_token\030\004 \001(\t\032I\n\010Response\022$\n\006iss" +
+      "ues\030\001 \003(\0132\024.mlflow.issues.Issue\022\027\n\017next_" +
+      "page_token\030\002 \001(\tB\031\n\024org.mlflow.api.proto" +
+      "\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -14059,13 +12246,13 @@ public final class Issues {
     internal_static_mlflow_issues_Issue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_Issue_descriptor,
-        new java.lang.String[] { "IssueId", "ExperimentId", "RunId", "Name", "Description", "RootCause", "Status", "Frequency", "Confidence", "RationaleExamples", "ExampleTraceIds", "TraceIds", "CreatedTimestamp", "LastUpdatedTimestamp", "CreatedBy", });
+        new java.lang.String[] { "IssueId", "ExperimentId", "Name", "Description", "Status", "Confidence", "RootCauses", "SourceRunId", "CreatedTimestamp", "LastUpdatedTimestamp", "CreatedBy", });
     internal_static_mlflow_issues_CreateIssue_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_issues_CreateIssue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_CreateIssue_descriptor,
-        new java.lang.String[] { "Name", "Description", "Frequency", "ExperimentId", "Status", "RunId", "RootCause", "Confidence", "RationaleExamples", "ExampleTraceIds", "TraceIds", "CreatedBy", });
+        new java.lang.String[] { "ExperimentId", "Name", "Description", "Status", "Confidence", "RootCauses", "SourceRunId", "TraceIds", "CreatedBy", });
     internal_static_mlflow_issues_CreateIssue_Response_descriptor =
       internal_static_mlflow_issues_CreateIssue_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_issues_CreateIssue_Response_fieldAccessorTable = new
@@ -14077,7 +12264,7 @@ public final class Issues {
     internal_static_mlflow_issues_UpdateIssue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_UpdateIssue_descriptor,
-        new java.lang.String[] { "IssueId", "Status", "Name", "Description", });
+        new java.lang.String[] { "IssueId", "Name", "Description", "Status", "Confidence", });
     internal_static_mlflow_issues_UpdateIssue_Response_descriptor =
       internal_static_mlflow_issues_UpdateIssue_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_issues_UpdateIssue_Response_fieldAccessorTable = new
@@ -14101,7 +12288,7 @@ public final class Issues {
     internal_static_mlflow_issues_SearchIssues_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_SearchIssues_descriptor,
-        new java.lang.String[] { "ExperimentId", "RunId", "Status", "FilterString", "MaxResults", "PageToken", });
+        new java.lang.String[] { "ExperimentId", "FilterString", "MaxResults", "PageToken", });
     internal_static_mlflow_issues_SearchIssues_Response_descriptor =
       internal_static_mlflow_issues_SearchIssues_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_issues_SearchIssues_Response_fieldAccessorTable = new

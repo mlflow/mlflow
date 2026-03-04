@@ -9,91 +9,70 @@ import "databricks.proto";
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
 
-// Represents a quality or operational problem discovered in traces.
+// Represents an issue discovered in traces.
 message Issue {
   // Unique identifier for the issue.
   optional string issue_id = 1;
 
   // Experiment ID.
-  optional string experiment_id = 2 [(validate_required) = true];
-
-  // MLflow run ID that discovered this issue.
-  optional string run_id = 3;
+  optional string experiment_id = 2;
 
   // Short descriptive name for the issue.
-  optional string name = 4 [(validate_required) = true];
+  optional string name = 3;
 
   // Detailed description of the issue.
-  optional string description = 5 [(validate_required) = true];
-
-  // Analysis of the root cause of the issue.
-  optional string root_cause = 6;
+  optional string description = 4;
 
   // Issue status.
-  optional string status = 7 [(validate_required) = true];
-
-  // Frequency score indicating how often this issue occurs.
-  optional double frequency = 8;
+  optional string status = 5;
 
   // Confidence level indicator.
-  optional string confidence = 9;
+  optional string confidence = 6;
 
-  // List of rationale strings providing examples of the issue.
-  repeated string rationale_examples = 10;
+  // Analysis of the root causes of the issue.
+  repeated string root_causes = 7;
 
-  // List of example trace IDs.
-  repeated string example_trace_ids = 11;
-
-  // List of trace IDs associated with this issue.
-  repeated string trace_ids = 12;
+  // MLflow run ID that discovered this issue.
+  optional string source_run_id = 8;
 
   // Creation timestamp in milliseconds.
-  optional int64 created_timestamp = 13 [(validate_required) = true];
+  optional int64 created_timestamp = 9;
 
   // Last update timestamp in milliseconds.
-  optional int64 last_updated_timestamp = 14 [(validate_required) = true];
+  optional int64 last_updated_timestamp = 10;
 
   // Identifier for who created this issue.
-  optional string created_by = 15;
+  optional string created_by = 11;
 }
 
 // Request to create a new issue.
 message CreateIssue {
+  // Experiment ID.
+  optional string experiment_id = 1 [(validate_required) = true];
+
   // Short descriptive name for the issue.
-  optional string name = 1 [(validate_required) = true];
+  optional string name = 2 [(validate_required) = true];
 
   // Detailed description of the issue.
-  optional string description = 2 [(validate_required) = true];
+  optional string description = 3 [(validate_required) = true];
 
-  // Frequency score (0.0 to 1.0) indicating how often this issue occurs.
-  optional double frequency = 3;
-
-  // Experiment ID.
-  optional string experiment_id = 4 [(validate_required) = true];
-
-  // Issue status, e.g. "draft".
-  optional string status = 5;
-
-  // MLflow run ID that discovered this issue.
-  optional string run_id = 6;
-
-  // Analysis of the root cause of the issue.
-  optional string root_cause = 7;
+  // Issue status.
+  optional string status = 4;
 
   // Confidence level indicator.
-  optional string confidence = 8;
+  optional string confidence = 5;
 
-  // List of rationale strings providing examples of the issue.
-  repeated string rationale_examples = 9;
+  // Analysis of the root causes of the issue.
+  repeated string root_causes = 6;
 
-  // List of example trace IDs.
-  repeated string example_trace_ids = 10;
+  // MLflow run ID that discovered this issue.
+  optional string source_run_id = 7;
 
   // List of trace IDs associated with this issue.
-  repeated string trace_ids = 11;
+  repeated string trace_ids = 8;
 
   // Identifier for who created this issue.
-  optional string created_by = 12;
+  optional string created_by = 9;
 
   message Response {
     // The created issue.
@@ -106,14 +85,17 @@ message UpdateIssue {
   // Issue ID to update.
   optional string issue_id = 1 [(validate_required) = true];
 
-  // Issue status to update.
-  optional string status = 2;
-
   // Short descriptive name for the issue.
-  optional string name = 3;
+  optional string name = 2;
 
   // Detailed description of the issue.
-  optional string description = 4;
+  optional string description = 3;
+
+  // Issue status to update.
+  optional string status = 4;
+
+  // Confidence level indicator.
+  optional string confidence = 5;
 
   message Response {
     // The updated issue.
@@ -137,20 +119,14 @@ message SearchIssues {
   // Filter by experiment ID.
   optional string experiment_id = 1;
 
-  // Filter by run ID.
-  optional string run_id = 2;
-
-  // Filter by status.
-  optional string status = 3;
-
   // Filter string for advanced filtering.
-  optional string filter_string = 4;
+  optional string filter_string = 2;
 
   // Maximum number of results to return.
-  optional int32 max_results = 5;
+  optional int32 max_results = 3;
 
   // Page token for pagination.
-  optional string page_token = 6;
+  optional string page_token = 4;
 
   message Response {
     // List of issues.
