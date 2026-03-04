@@ -39,6 +39,9 @@ export const ModelSectionRenderer: React.FC<ModelSectionRendererProps> = ({
   // (e.g., after a rename), invalidate the scorers cache to refetch from the backend.
   // The backend re-resolves the stored endpoint ID to the current name.
   const handleEndpointNotFound = useCallback(() => {
+    if (!experimentId) {
+      return;
+    }
     queryClient.invalidateQueries(['mlflow', 'scheduled-scorers', experimentId]);
   }, [queryClient, experimentId]);
 

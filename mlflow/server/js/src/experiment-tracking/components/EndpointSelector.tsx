@@ -114,11 +114,17 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   }, [currentEndpointName]);
 
   useEffect(() => {
-    if (currentEndpointName && !currentEndpoint && !isLoading && !hasTriedRefetch.current) {
+    if (
+      currentEndpointName &&
+      !currentEndpoint &&
+      !isLoading &&
+      !error &&
+      !hasTriedRefetch.current
+    ) {
       hasTriedRefetch.current = true;
       onEndpointNotFound?.();
     }
-  }, [currentEndpointName, currentEndpoint, isLoading, onEndpointNotFound]);
+  }, [currentEndpointName, currentEndpoint, isLoading, error, onEndpointNotFound]);
 
   const defaultPlaceholder = intl.formatMessage({
     defaultMessage: 'Select an endpoint',
