@@ -83,9 +83,9 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 <summary>What is a minor/patch release?</summary>
 
 - Minor release: a release that increments the second part of the version number (e.g., 1.2.0 -> 1.3.0).
-  Minor bug fixes, doc updates and new features usually go into minor releases.
+  Minor releases are expected to contain larger changes, such as new features and improvements. Non-critical bug fixes and doc updates can be included as well. By default, your PR should target the next minor release.
 - Patch release: a release that increments the third part of the version number (e.g., 1.2.0 -> 1.2.1).
-  Critical bug fixes and doc updates usually go into patch releases.
+  Patch releases are typically only performed when there has been a major regression or bug in the latest release. For the sake of stability, your PR should not be included in a patch release unless it is a critical fix, or if the risk level of your PR is exceedingly low.
 
 </details>
 
