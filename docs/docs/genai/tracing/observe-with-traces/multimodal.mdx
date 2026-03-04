@@ -62,7 +62,9 @@ response = client.chat.completions.create(
                 {"type": "text", "text": "What's in this image?"},
                 {
                     "type": "image_url",
-                    "image_url": {"url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1200px-Cat03.jpg"},
+                    "image_url": {
+                        "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1200px-Cat03.jpg"
+                    },
                 },
             ],
         }
