@@ -40,7 +40,7 @@ def upgrade():
             ["source_run_id"],
             ["runs.run_uuid"],
             name="fk_issues_source_run_id",
-            ondelete="CASCADE",
+            ondelete="SET NULL",
         ),
         sa.PrimaryKeyConstraint("issue_id", name="issues_pk"),
     )

@@ -1152,11 +1152,12 @@ class SqlIssue(Base):
     determined.
     """
     source_run_id = Column(
-        String(32), ForeignKey("runs.run_uuid", ondelete="CASCADE"), nullable=True
+        String(32), ForeignKey("runs.run_uuid", ondelete="SET NULL"), nullable=True
     )
     """
     Source run ID that discovered this issue: `String` (limit 32 characters).
     *Foreign Key* into ``runs`` table. Nullable for manually created issues.
+    When the source run is deleted, this field is set to NULL.
     """
     created_timestamp = Column(BigInteger, nullable=False)
     """
