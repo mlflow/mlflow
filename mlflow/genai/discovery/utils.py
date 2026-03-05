@@ -20,6 +20,7 @@ from mlflow.genai.discovery.entities import (
     _IdentifiedIssue,
 )
 from mlflow.genai.scorers.base import Scorer
+from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
 from mlflow.tracing.constant import TraceMetadataKey
 
 if TYPE_CHECKING:
@@ -29,12 +30,6 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _NUM_RETRIES = 5
-
-
-def _to_litellm_model(model_uri: str) -> str:
-    from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
-
-    return convert_model_uri_to_litellm(model_uri)
 
 
 def _get_session_id(trace: Trace) -> str | None:
@@ -250,16 +245,6 @@ def _group_traces_by_session(
     return dict(groups)
 
 
-def _embed_texts(texts: list[str], embedding_model: str) -> list[list[float]]:
-    import litellm
-
-    litellm_model = _to_litellm_model(embedding_model)
-    # Embedding APIs reject empty strings; replace with a placeholder.
-    sanitized = [text or "(empty)" for text in texts]
-    response = litellm.embedding(model=litellm_model, input=sanitized)
-    return [item["embedding"] for item in response.data]
-
-
 def _extract_failure_labels(
     analyses: list[_ConversationAnalysis],
     model: str,
@@ -281,7 +266,7 @@ def _extract_failure_labels(
     from mlflow.genai.discovery.constants import FAILURE_LABEL_SYSTEM_PROMPT
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
 
-    litellm_model = _to_litellm_model(model)
+    litellm_model = convert_model_uri_to_litellm(model)
 
     def _label_one(analysis: _ConversationAnalysis) -> str:
         rationale = analysis.surface[:800]
@@ -317,29 +302,15 @@ def _extract_failure_labels(
 
 def _cluster_analyses(
     analyses: list[_ConversationAnalysis],
-    embedding_model: str,
     max_issues: int,
-    labels: list[str] | None = None,
+    labels: list[str],
     label_model: str | None = None,
     token_counter=None,
 ) -> list[list[int]]:
-    """
-    Group failure analyses into issue clusters.
-
-    When ``labels`` are provided (short LLM-extracted domain+failure labels),
-    uses an LLM to group them by domain/topic — this produces much better
-    domain-aware groupings than pure embedding similarity.
-
-    Falls back to embedding-based agglomerative clustering when labels are
-    not available.
-    """
     if len(analyses) == 1:
         return [[0]]
 
-    if labels:
-        return _cluster_by_llm(labels, max_issues, label_model, token_counter=token_counter)
-
-    return _cluster_by_embeddings(analyses, embedding_model, max_issues)
+    return _cluster_by_llm(labels, max_issues, label_model, token_counter=token_counter)
 
 
 def _cluster_by_llm(
@@ -361,7 +332,7 @@ def _cluster_by_llm(
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
 
     model = model or DEFAULT_JUDGE_MODEL
-    litellm_model = _to_litellm_model(model)
+    litellm_model = convert_model_uri_to_litellm(model)
 
     numbered = "\n".join(f"[{i}] {lbl}" for i, lbl in enumerate(labels))
     prompt = (
@@ -433,36 +404,6 @@ def _cluster_by_llm(
     return cluster_groups
 
 
-def _cluster_by_embeddings(
-    analyses: list[_ConversationAnalysis],
-    embedding_model: str,
-    max_issues: int,
-) -> list[list[int]]:
-    import numpy as np
-    from scipy.cluster.hierarchy import fcluster, linkage
-    from scipy.spatial.distance import pdist
-
-    texts = [analysis.surface for analysis in analyses]
-    vecs = np.array(_embed_texts(texts, embedding_model))
-
-    dists = pdist(vecs, metric="cosine")
-    dists = np.nan_to_num(dists, nan=1.0)
-    link = linkage(dists, method="average")
-    cluster_ids = fcluster(link, t=0.50, criterion="distance")
-
-    clusters: dict[int, list[int]] = {}
-    for idx, cid in enumerate(cluster_ids):
-        clusters.setdefault(int(cid), []).append(idx)
-
-    all_clusters = list(clusters.values())
-
-    if len(all_clusters) > max_issues:
-        all_clusters.sort(key=len, reverse=True)
-        all_clusters = all_clusters[:max_issues]
-
-    return all_clusters
-
-
 def _summarize_cluster(
     cluster_indices: list[int],
     analyses: list[_ConversationAnalysis],
@@ -487,7 +428,7 @@ def _summarize_cluster(
         f"Respond with a JSON object matching this schema:\n{schema_json}"
     )
 
-    litellm_model = _to_litellm_model(analysis_model)
+    litellm_model = convert_model_uri_to_litellm(analysis_model)
 
     response = _invoke_litellm(
         litellm_model=litellm_model,
