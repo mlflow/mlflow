@@ -323,7 +323,7 @@ class InstructionsJudge(Judge):
 
         if unused_params:
             unused_str = "', '".join(unused_params)
-            _logger.warning(
+            _logger.debug(
                 f"The following parameters were provided but are not used by this judge's "
                 f"instructions: '{unused_str}'. The judge only uses template variables that "
                 f"appear in the instructions: {self.template_variables}"

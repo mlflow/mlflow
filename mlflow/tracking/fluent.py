@@ -885,6 +885,8 @@ def flush_trace_async_logging(terminate=False) -> None:
     Args:
         terminate: If True, shut down the logging threads after flushing.
     """
+    # _get_trace_exporter() may raise if the tracer provider lacks
+    # _active_span_processor (e.g. NoOpTracerProvider when tracing is disabled).
     try:
         trace_exporter = _get_trace_exporter()
         if hasattr(trace_exporter, "_async_queue"):
