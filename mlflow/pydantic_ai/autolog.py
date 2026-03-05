@@ -455,7 +455,9 @@ def _parse_usage(result: Any) -> dict[str, int] | None:
         output_tokens = getattr(usage, "output_tokens", None)
         if output_tokens is None:
             output_tokens = getattr(usage, "response_tokens", 0)
-        total_tokens = getattr(usage, "total_tokens", input_tokens + output_tokens)
+        total_tokens = getattr(usage, "total_tokens")
+        if total_tokens is None:
+            total_tokens = input_tokens + output_tokens
         return {
             TokenUsageKey.INPUT_TOKENS: input_tokens,
             TokenUsageKey.OUTPUT_TOKENS: output_tokens,
