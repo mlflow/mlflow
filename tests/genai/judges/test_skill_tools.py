@@ -1,0 +1,94 @@
+import textwrap
+
+import pytest
+
+from mlflow.genai.skills import SkillSet
+
+
+@pytest.fixture
+def skill_set(tmp_path):
+    skill_path = tmp_path / "test-skill"
+    skill_path.mkdir()
+    (skill_path / "SKILL.md").write_text(
+        textwrap.dedent("""\
+        ---
+        name: test-skill
+        description: A test skill.
+        ---
+
+        ## Body
+
+        Skill body content here.
+        """)
+    )
+    refs = skill_path / "references"
+    refs.mkdir()
+    (refs / "RUBRIC.md").write_text("# Rubric\n\nDetailed guide.")
+    return SkillSet([skill_path])
+
+
+def test_read_skill_returns_body(skill_set):
+    from mlflow.genai.judges.tools.read_skill import ReadSkillTool
+
+    tool = ReadSkillTool()
+    result = tool.invoke(skill_set=skill_set, skill_name="test-skill")
+    assert "Skill body content here" in result
+
+
+def test_read_skill_unknown_name(skill_set):
+    from mlflow.genai.judges.tools.read_skill import ReadSkillTool
+
+    tool = ReadSkillTool()
+    result = tool.invoke(skill_set=skill_set, skill_name="nonexistent")
+    assert "Error" in result
+    assert "test-skill" in result
+
+
+def test_read_skill_has_valid_definition():
+    from mlflow.genai.judges.tools.read_skill import ReadSkillTool
+
+    tool = ReadSkillTool()
+    defn = tool.get_definition()
+    assert defn.function.name == "read_skill"
+    assert "skill_name" in defn.function.parameters.properties
+
+
+def test_read_skill_reference_returns_content(skill_set):
+    from mlflow.genai.judges.tools.read_skill_reference import ReadSkillReferenceTool
+
+    tool = ReadSkillReferenceTool()
+    result = tool.invoke(
+        skill_set=skill_set, skill_name="test-skill", file_path="references/RUBRIC.md"
+    )
+    assert "Detailed guide" in result
+
+
+def test_read_skill_reference_unknown_file(skill_set):
+    from mlflow.genai.judges.tools.read_skill_reference import ReadSkillReferenceTool
+
+    tool = ReadSkillReferenceTool()
+    result = tool.invoke(
+        skill_set=skill_set, skill_name="test-skill", file_path="references/MISSING.md"
+    )
+    assert "Error" in result
+    assert "RUBRIC.md" in result
+
+
+@pytest.mark.parametrize("bad_path", ["../../../etc/passwd", "/etc/passwd", "../../secret.txt"])
+def test_read_skill_reference_path_traversal(skill_set, bad_path):
+    from mlflow.genai.judges.tools.read_skill_reference import ReadSkillReferenceTool
+
+    tool = ReadSkillReferenceTool()
+    result = tool.invoke(skill_set=skill_set, skill_name="test-skill", file_path=bad_path)
+    assert "Error" in result
+    assert "Invalid" in result or "relative" in result.lower()
+
+
+def test_read_skill_reference_has_valid_definition():
+    from mlflow.genai.judges.tools.read_skill_reference import ReadSkillReferenceTool
+
+    tool = ReadSkillReferenceTool()
+    defn = tool.get_definition()
+    assert defn.function.name == "read_skill_reference"
+    assert "skill_name" in defn.function.parameters.properties
+    assert "file_path" in defn.function.parameters.properties
