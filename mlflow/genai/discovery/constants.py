@@ -6,6 +6,17 @@ DEFAULT_TRIAGE_SAMPLE_SIZE = 100
 MAX_EXAMPLE_TRACE_IDS = 10
 MIN_EXAMPLES = 1
 SAMPLE_RANDOM_SEED = 42
+NUM_RETRIES = 5
+
+# LLM inference parameter limits
+LABEL_MAX_TOKENS = 1000
+CLUSTER_MAX_TOKENS = 8000
+SUMMARY_MAX_TOKENS = 4096
+ANNOTATION_MAX_TOKENS = 4096
+
+# Text truncation limits
+SURFACE_TRUNCATION_LIMIT = 800
+TRACE_CONTENT_TRUNCATION = 1000
 
 # Likert confidence scale — ordinal comparison for filtering/sorting
 ConfidenceLevel = Literal["definitely_no", "weak_no", "maybe", "weak_yes", "definitely_yes"]
