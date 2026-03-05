@@ -178,9 +178,7 @@ def maybe_traced_gateway_call(
             a span will also be created under the agent's distributed trace.
         request_type: The type of gateway request (e.g., GatewayRequestType.CHAT).
         on_complete: A no-arg callback invoked inside the trace context after the
-            provider call completes (in ``finally``). The callback can read model
-            and token-usage information from child span attributes. Called for both
-            streaming and non-streaming paths.
+            provider call completes (in ``finally``).
 
     Returns:
         A traced version of the function.
