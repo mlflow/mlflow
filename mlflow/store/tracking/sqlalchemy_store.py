@@ -5803,10 +5803,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Verify experiment exists
             self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
 
-            # Verify run exists if provided
-            if source_run_id:
-                self._get_run(run_uuid=source_run_id, session=session)
-
             # Generate issue ID
             issue_id = f"iss-{uuid.uuid4().hex}"
 

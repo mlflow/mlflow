@@ -71,7 +71,7 @@ def test_create_issue_invalid_experiment(store):
 def test_create_issue_invalid_run(store):
     exp_id = store.create_experiment("test")
 
-    with pytest.raises(MlflowException, match=r"Run .* not found"):
+    with pytest.raises(MlflowException, match=r"FOREIGN KEY constraint failed"):
         store.create_issue(
             experiment_id=exp_id,
             source_run_id="nonexistent-run-id",
