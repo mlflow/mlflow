@@ -34,36 +34,6 @@ function getSelectedAuthMode(
   return authModes.find((m) => m.mode === defaultAuthMode) ?? authModes[0];
 }
 
-/**
- * Creates a handler function for updating secret fields in API key configuration.
- */
-function createSecretFieldChangeHandler(value: ApiKeyConfiguration, onChange: (value: ApiKeyConfiguration) => void) {
-  return (fieldName: string, fieldValue: string) => {
-    onChange({
-      ...value,
-      newSecret: {
-        ...value.newSecret,
-        secretFields: { ...value.newSecret.secretFields, [fieldName]: fieldValue },
-      },
-    });
-  };
-}
-
-/**
- * Creates a handler function for updating config fields in API key configuration.
- */
-function createConfigFieldChangeHandler(value: ApiKeyConfiguration, onChange: (value: ApiKeyConfiguration) => void) {
-  return (fieldName: string, fieldValue: string) => {
-    onChange({
-      ...value,
-      newSecret: {
-        ...value.newSecret,
-        configFields: { ...value.newSecret.configFields, [fieldName]: fieldValue },
-      },
-    });
-  };
-}
-
 interface IssueDetectionApiKeyConfiguratorProps {
   value: ApiKeyConfiguration;
   onChange: (value: ApiKeyConfiguration) => void;
@@ -151,9 +121,31 @@ export function IssueDetectionApiKeyConfigurator({
     [onChange, value],
   );
 
-  const handleSecretFieldChange = useMemo(() => createSecretFieldChangeHandler(value, onChange), [onChange, value]);
+  const handleSecretFieldChange = useCallback(
+    (fieldName: string, fieldValue: string) => {
+      onChange({
+        ...value,
+        newSecret: {
+          ...value.newSecret,
+          secretFields: { ...value.newSecret.secretFields, [fieldName]: fieldValue },
+        },
+      });
+    },
+    [onChange, value],
+  );
 
-  const handleConfigFieldChange = useMemo(() => createConfigFieldChangeHandler(value, onChange), [onChange, value]);
+  const handleConfigFieldChange = useCallback(
+    (fieldName: string, fieldValue: string) => {
+      onChange({
+        ...value,
+        newSecret: {
+          ...value.newSecret,
+          configFields: { ...value.newSecret.configFields, [fieldName]: fieldValue },
+        },
+      });
+    },
+    [onChange, value],
+  );
 
   if (!provider) {
     return (
@@ -275,9 +267,31 @@ export function IssueDetectionAdvancedApiKeySettings({
     return sorted.filter((field) => !field.required);
   }, [selectedAuthMode?.secret_fields, selectedAuthMode?.config_fields, provider]);
 
-  const handleSecretFieldChange = useMemo(() => createSecretFieldChangeHandler(value, onChange), [onChange, value]);
+  const handleSecretFieldChange = useCallback(
+    (fieldName: string, fieldValue: string) => {
+      onChange({
+        ...value,
+        newSecret: {
+          ...value.newSecret,
+          secretFields: { ...value.newSecret.secretFields, [fieldName]: fieldValue },
+        },
+      });
+    },
+    [onChange, value],
+  );
 
-  const handleConfigFieldChange = useMemo(() => createConfigFieldChangeHandler(value, onChange), [onChange, value]);
+  const handleConfigFieldChange = useCallback(
+    (fieldName: string, fieldValue: string) => {
+      onChange({
+        ...value,
+        newSecret: {
+          ...value.newSecret,
+          configFields: { ...value.newSecret.configFields, [fieldName]: fieldValue },
+        },
+      });
+    },
+    [onChange, value],
+  );
 
   if (optionalFields.length === 0) {
     return null;
