@@ -26,17 +26,11 @@ jobs:
     if: >
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
-       (
-        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) ||
-        (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-       ))
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association))
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       (
-        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) ||
-        (github.event.issue.user.login == 'Copilot' && github.event.issue.user.type == 'Bot')
-       ) &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/resolve'))
     outputs:
@@ -141,16 +135,22 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ${{ needs.precheck.outputs.head_repository }}
           ref: ${{ needs.precheck.outputs.head_ref }}
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          REPO: ${{ github.repository }}
         run: |
-          git config user.name 'mlflow-app[bot]'
-          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          AUTHOR_LOGIN=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json author --jq '.author.login')
+          AUTHOR_ID=$(gh api "users/$AUTHOR_LOGIN" --jq '.id')
+          git config user.name "$AUTHOR_LOGIN"
+          git config user.email "${AUTHOR_ID}+${AUTHOR_LOGIN}@users.noreply.github.com"
 
       - uses: ./.github/actions/setup-python
 
@@ -194,6 +194,12 @@ jobs:
           name: claude-output
           path: /tmp/output.json
           if-no-files-found: ignore
+
+      - name: Commit changes
+        run: |
+          git add .
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -s -m "Address PR review comments"
 
       - name: Push changes
         env:
