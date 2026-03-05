@@ -14,15 +14,14 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.constants import (
-    ANNOTATION_MAX_TOKENS,
     CONFIDENCE_ORDER,
     DEFAULT_ANALYSIS_MODEL,
     DEFAULT_JUDGE_MODEL,
     DEFAULT_SCORER_NAME,
     DEFAULT_TRIAGE_SAMPLE_SIZE,
+    LLM_MAX_TOKENS,
     MAX_EXAMPLE_TRACE_IDS,
     MIN_CONFIDENCE,
-    MIN_EXAMPLES,
     NO_ISSUE_KEYWORD,
     NUM_RETRIES,
     SURFACE_TRUNCATION_LIMIT,
@@ -303,7 +302,7 @@ def _annotate_issue_traces(
                 num_retries=NUM_RETRIES,
                 response_format=None,
                 include_response_format=False,
-                inference_params={"max_tokens": ANNOTATION_MAX_TOKENS, "temperature": 0},
+                inference_params={"max_tokens": LLM_MAX_TOKENS, "temperature": 0},
             )
             if token_counter is not None:
                 token_counter.track(response)
@@ -644,9 +643,7 @@ def discover_issues(
     identified: list[_IdentifiedIssue] = [
         issue
         for issue in summaries
-        if confidence_gte(issue.confidence, MIN_CONFIDENCE)
-        and len(issue.example_indices) >= MIN_EXAMPLES
-        and not _is_non_issue(issue)
+        if confidence_gte(issue.confidence, MIN_CONFIDENCE) and not _is_non_issue(issue)
     ]
 
     # Merge issues with identical names (case-insensitive), combining their

@@ -13,14 +13,13 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.constants import (
-    CLUSTER_MAX_TOKENS,
     CLUSTER_SUMMARY_SYSTEM_PROMPT,
     DEFAULT_JUDGE_MODEL,
     FAILURE_LABEL_SYSTEM_PROMPT,
-    LABEL_MAX_TOKENS,
+    LLM_MAX_TOKENS,
     NUM_RETRIES,
+    SAMPLE_POOL_MULTIPLIER,
     SAMPLE_RANDOM_SEED,
-    SUMMARY_MAX_TOKENS,
     SURFACE_TRUNCATION_LIMIT,
 )
 from mlflow.genai.discovery.entities import (
@@ -39,6 +38,9 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
+# Span types that represent generic LLM plumbing, not meaningful execution steps.
+_GENERIC_SPAN_TYPES = {"LLM", "CHAT_MODEL", "EMBEDDING"}
+
 
 def get_session_id(trace: Trace) -> str | None:
     return (trace.info.trace_metadata or {}).get(TraceMetadataKey.TRACE_SESSION)
@@ -47,56 +49,42 @@ def get_session_id(trace: Trace) -> str | None:
 def sample_traces(
     sample_size: int,
     search_kwargs: dict[str, object],
-    pool_multiplier: int = 5,
 ) -> list[Trace]:
     """Randomly sample traces, grouping by session when session IDs exist.
 
-    Fetches a pool of traces larger than ``sample_size``, then:
-    - If sessions exist: randomly selects ``sample_size`` sessions and returns
-      all traces from those sessions.
-    - If no sessions: randomly selects ``sample_size`` individual traces.
+    Fetches a pool of traces, groups them by session (or treats each trace
+    as its own group when no sessions exist), then randomly selects
+    ``sample_size`` groups and returns all traces from those groups.
 
     Args:
-        sample_size: Number of sessions (or traces) to sample.
+        sample_size: Number of groups (sessions or individual traces) to sample.
         search_kwargs: Keyword arguments passed to ``mlflow.search_traces``.
-        pool_multiplier: How many times larger than ``sample_size`` the
-            initial fetch pool should be.
 
     Returns:
         List of sampled Trace objects.
     """
-    pool_size = sample_size * pool_multiplier
+    pool_size = sample_size * SAMPLE_POOL_MULTIPLIER
     pool = mlflow.search_traces(max_results=pool_size, **search_kwargs)
     if not pool:
         return []
 
-    sessions: dict[str, list[Trace]] = defaultdict(list)
-    no_session: list[Trace] = []
+    # Group traces by session; traces without a session become their own group
+    groups: dict[str, list[Trace]] = defaultdict(list)
     for trace in pool:
-        if session_id := get_session_id(trace):
-            sessions[session_id].append(trace)
-        else:
-            no_session.append(trace)
+        key = get_session_id(trace) or trace.info.trace_id
+        groups[key].append(trace)
 
     rng = random.Random(SAMPLE_RANDOM_SEED)
-
-    if sessions:
-        session_ids = sorted(sessions.keys())
-        num_samples = min(sample_size, len(session_ids))
-        selected = rng.sample(session_ids, num_samples)
-        result = [trace for sid in selected for trace in sessions[sid]]
-        _logger.info(
-            "Sampled %d sessions (%d traces) from pool of %d sessions",
-            num_samples,
-            len(result),
-            len(session_ids),
-        )
-        return result
-
-    num_samples = min(sample_size, len(no_session))
-    no_session.sort(key=lambda trace: trace.info.trace_id)
-    result = rng.sample(no_session, num_samples)
-    _logger.info("Sampled %d traces from pool of %d", num_samples, len(no_session))
+    group_keys = sorted(groups.keys())
+    num_samples = min(sample_size, len(group_keys))
+    selected = rng.sample(group_keys, num_samples)
+    result = [trace for key in selected for trace in groups[key]]
+    _logger.info(
+        "Sampled %d groups (%d traces) from pool of %d groups",
+        num_samples,
+        len(result),
+        len(group_keys),
+    )
     return result
 
 
@@ -113,33 +101,34 @@ def verify_scorer(scorer: Scorer, trace: Trace) -> None:
     Raises:
         MlflowException: If the scorer produces no feedback or returns a null value.
     """
-    scorer(trace=trace)
-    result_trace = mlflow.get_trace(trace.info.trace_id)
-    if result_trace is None:
-        raise mlflow.exceptions.MlflowException(
-            f"Scorer '{scorer.name}' produced no feedback on test trace {trace.info.trace_id}"
+    try:
+        scorer(trace=trace)
+        result_trace = mlflow.get_trace(trace.info.trace_id)
+        if result_trace is None:
+            raise mlflow.exceptions.MlflowException(
+                f"Scorer '{scorer.name}' produced no feedback on test trace"
+            )
+        feedback = next(
+            (
+                assessment
+                for assessment in result_trace.info.assessments
+                if isinstance(assessment, Feedback) and assessment.name == scorer.name
+            ),
+            None,
         )
-    feedback = next(
-        (
-            assessment
-            for assessment in result_trace.info.assessments
-            if isinstance(assessment, Feedback) and assessment.name == scorer.name
-        ),
-        None,
-    )
-    if feedback is None:
+        if feedback is None:
+            raise mlflow.exceptions.MlflowException(
+                f"Scorer '{scorer.name}' produced no feedback on test trace"
+            )
+        if feedback.value is None:
+            error = feedback.error_message or "unknown error (check model API logs)"
+            raise mlflow.exceptions.MlflowException(
+                f"Scorer '{scorer.name}' returned null value: {error}"
+            )
+    except Exception as exc:
         raise mlflow.exceptions.MlflowException(
-            f"Scorer '{scorer.name}' produced no feedback on test trace {trace.info.trace_id}"
-        )
-    if feedback.value is None:
-        error = feedback.error_message or "unknown error (check model API logs)"
-        raise mlflow.exceptions.MlflowException(
-            f"Scorer '{scorer.name}' failed on test trace {trace.info.trace_id}: {error}"
-        )
-
-
-# Span types that represent generic LLM plumbing, not meaningful execution steps.
-_GENERIC_SPAN_TYPES = {"LLM", "CHAT_MODEL", "EMBEDDING"}
+            f"Scorer '{scorer.name}' failed verification on trace {trace.info.trace_id}: {exc}"
+        ) from exc
 
 
 def extract_execution_path(trace: Trace) -> str:
@@ -314,7 +303,7 @@ def extract_failure_labels(
             num_retries=NUM_RETRIES,
             response_format=None,
             include_response_format=False,
-            inference_params={"max_tokens": LABEL_MAX_TOKENS, "temperature": 0},
+            inference_params={"max_tokens": LLM_MAX_TOKENS, "temperature": 0},
         )
         if token_counter is not None:
             token_counter.track(response)
@@ -403,7 +392,7 @@ def cluster_by_llm(
         num_retries=NUM_RETRIES,
         response_format={"type": "json_object"},
         include_response_format=True,
-        inference_params={"max_tokens": CLUSTER_MAX_TOKENS, "temperature": 0},
+        inference_params={"max_tokens": LLM_MAX_TOKENS, "temperature": 0},
     )
     if token_counter is not None:
         token_counter.track(response)
@@ -492,7 +481,7 @@ def summarize_cluster(
         num_retries=NUM_RETRIES,
         response_format={"type": "json_object"},
         include_response_format=True,
-        inference_params={"max_tokens": SUMMARY_MAX_TOKENS, "temperature": 0},
+        inference_params={"max_tokens": LLM_MAX_TOKENS, "temperature": 0},
     )
     if token_counter is not None:
         token_counter.track(response)

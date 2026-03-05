@@ -437,7 +437,7 @@ def test_test_scorer_no_feedback_raises(make_trace):
 
     with (
         patch("mlflow.genai.discovery.utils.mlflow.get_trace", return_value=result_trace),
-        pytest.raises(Exception, match="produced no feedback"),
+        pytest.raises(Exception, match="failed verification"),
     ):
         verify_scorer(scorer, trace)
 
@@ -457,6 +457,6 @@ def test_test_scorer_null_value_raises(make_trace):
 
     with (
         patch("mlflow.genai.discovery.utils.mlflow.get_trace", return_value=result_trace),
-        pytest.raises(Exception, match="model API error"),
+        pytest.raises(Exception, match="failed verification"),
     ):
         verify_scorer(scorer, trace)
