@@ -7,14 +7,27 @@ import {
   useDesignSystemTheme,
   ChevronDownIcon,
   ChevronRightIcon,
+  TypeaheadComboboxRoot,
+  TypeaheadComboboxInput,
+  TypeaheadComboboxMenu,
+  TypeaheadComboboxMenuItem,
+  useComboboxState,
 } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { SecretSelector } from '../../../../../gateway/components/secrets/SecretSelector';
 import { SecretInput } from '../../../../../gateway/components/secrets/SecretInput';
 import { GatewayInput } from '../../../../../gateway/components/common';
 import { formatCredentialFieldName, sortFieldsByProvider } from '../../../../../gateway/utils/providerUtils';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
-import type { AuthMode } from '../../../../../gateway/types';
+import type { AuthMode, SecretInfo } from '../../../../../gateway/types';
+import { useSecretsQuery } from '../../../../../gateway/hooks/useSecretsQuery';
+
+interface ApiKeyOption {
+  type: 'existing' | 'new';
+  secretId?: string;
+  secretName?: string;
+  value: string;
+}
 
 /**
  * Helper function to get the selected auth mode from available modes.
@@ -60,6 +73,13 @@ export function IssueDetectionApiKeyConfigurator({
   disabled,
 }: IssueDetectionApiKeyConfiguratorProps) {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+  const { data: secrets } = useSecretsQuery({ provider });
+
+  const filteredSecrets = useMemo(
+    () => (provider ? secrets?.filter((s) => s.provider === provider) : secrets) ?? [],
+    [provider, secrets],
+  );
 
   const selectedAuthMode = useMemo(
     () => getSelectedAuthMode(authModes, value.newSecret.authMode, defaultAuthMode),
@@ -79,6 +99,10 @@ export function IssueDetectionApiKeyConfigurator({
     const sorted = sortFieldsByProvider(allFields, provider);
     return sorted.filter((field) => field.required);
   }, [selectedAuthMode?.secret_fields, selectedAuthMode?.config_fields, provider]);
+
+  const isSingleApiKeyField = useMemo(() => {
+    return requiredFields.length === 1 && requiredFields[0].fieldType === 'secret';
+  }, [requiredFields]);
 
   useEffect(() => {
     if (value.mode === 'new' && !value.newSecret.authMode && selectedAuthMode) {
@@ -101,7 +125,7 @@ export function IssueDetectionApiKeyConfigurator({
 
   const handleExistingSecretSelect = useCallback(
     (secretId: string) => {
-      onChange({ ...value, existingSecretId: secretId });
+      onChange({ ...value, mode: 'existing', existingSecretId: secretId });
     },
     [onChange, value],
   );
@@ -163,6 +187,18 @@ export function IssueDetectionApiKeyConfigurator({
       <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.md }}>
         <Spinner size="small" />
       </div>
+    );
+  }
+
+  if (isSingleApiKeyField) {
+    return (
+      <SimplifiedApiKeyInput
+        value={value}
+        onChange={onChange}
+        fieldName={requiredFields[0].name}
+        secrets={filteredSecrets}
+        disabled={disabled}
+      />
     );
   }
 
@@ -308,6 +344,168 @@ export function IssueDetectionAdvancedApiKeySettings({
           disabled={disabled}
         />
       ))}
+    </div>
+  );
+}
+
+interface SimplifiedApiKeyInputProps {
+  value: ApiKeyConfiguration;
+  onChange: (value: ApiKeyConfiguration) => void;
+  fieldName: string;
+  secrets: SecretInfo[];
+  disabled?: boolean;
+}
+
+function SimplifiedApiKeyInput({ value, onChange, fieldName, secrets, disabled }: SimplifiedApiKeyInputProps) {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+
+  const items = useMemo((): ApiKeyOption[] => {
+    return secrets.map((secret) => ({
+      type: 'existing' as const,
+      secretId: secret.secret_id,
+      secretName: secret.secret_name,
+      value: secret.secret_id,
+    }));
+  }, [secrets]);
+
+  const [filteredItems, setFilteredItems] = useState<(ApiKeyOption | null)[]>(items);
+  const [inputValue, setInputValue] = useState(
+    value.mode === 'existing'
+      ? (secrets.find((s) => s.secret_id === value.existingSecretId)?.secret_name ?? '')
+      : (value.newSecret.secretFields[fieldName] ?? ''),
+  );
+
+  useEffect(() => {
+    setFilteredItems(items);
+  }, [items]);
+
+  useEffect(() => {
+    if (value.mode === 'existing') {
+      const secretName = secrets.find((s) => s.secret_id === value.existingSecretId)?.secret_name ?? '';
+      setInputValue(secretName);
+    }
+  }, [value.mode, value.existingSecretId, secrets]);
+
+  const selectedItem = useMemo((): ApiKeyOption | null => {
+    if (value.mode === 'existing' && value.existingSecretId) {
+      const secret = secrets.find((s) => s.secret_id === value.existingSecretId);
+      if (secret) {
+        return {
+          type: 'existing',
+          secretId: secret.secret_id,
+          secretName: secret.secret_name,
+          value: secret.secret_id,
+        };
+      }
+    }
+    return null;
+  }, [value.mode, value.existingSecretId, secrets]);
+
+  const handleFormChange = useCallback(
+    (item: ApiKeyOption | null) => {
+      if (item?.type === 'existing' && item.secretId) {
+        onChange({
+          ...value,
+          mode: 'existing',
+          existingSecretId: item.secretId,
+        });
+      }
+    },
+    [onChange, value],
+  );
+
+  const handleInputValueChange = useCallback(
+    (newInputValue: string) => {
+      const matchingSecret = secrets.find(
+        (s) => s.secret_name.toLowerCase() === newInputValue.toLowerCase() || s.secret_id === newInputValue,
+      );
+
+      if (matchingSecret) {
+        onChange({
+          ...value,
+          mode: 'existing',
+          existingSecretId: matchingSecret.secret_id,
+        });
+      } else {
+        onChange({
+          ...value,
+          mode: 'new',
+          existingSecretId: '',
+          newSecret: {
+            ...value.newSecret,
+            secretFields: { [fieldName]: newInputValue },
+          },
+        });
+      }
+    },
+    [onChange, value, fieldName, secrets],
+  );
+
+  const wrappedSetInputValue: React.Dispatch<React.SetStateAction<string>> = useCallback(
+    (action) => {
+      const newValue = typeof action === 'function' ? action(inputValue) : action;
+      setInputValue(newValue);
+      handleInputValueChange(newValue);
+    },
+    [inputValue, handleInputValueChange],
+  );
+
+  const comboboxComponentId = `mlflow.traces.issue-detection.api-key.api-key-combobox`;
+
+  const comboboxState = useComboboxState<ApiKeyOption | null>({
+    componentId: comboboxComponentId,
+    allItems: items,
+    items: filteredItems,
+    setItems: setFilteredItems,
+    multiSelect: false,
+    setInputValue: wrappedSetInputValue,
+    itemToString: (item) => item?.secretName ?? '',
+    matcher: (item, query) => item?.secretName?.toLowerCase().includes(query.toLowerCase()) ?? false,
+    formValue: selectedItem,
+    formOnChange: handleFormChange,
+  });
+
+  const isUsingExistingKey = value.mode === 'existing' && value.existingSecretId;
+
+  return (
+    <div>
+      <Typography.Text
+        color="secondary"
+        css={{ display: 'block', marginBottom: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
+      >
+        {formatCredentialFieldName(fieldName)}
+      </Typography.Text>
+      <TypeaheadComboboxRoot id={comboboxComponentId} comboboxState={comboboxState}>
+        <TypeaheadComboboxInput
+          placeholder={intl.formatMessage({
+            defaultMessage: 'Enter API key or select saved key',
+            description: 'Placeholder for API key combobox input',
+          })}
+          comboboxState={comboboxState}
+          formOnChange={handleFormChange}
+          disabled={disabled}
+          showComboboxToggleButton={items.length > 0}
+          type={isUsingExistingKey ? 'text' : 'password'}
+        />
+        {filteredItems.length > 0 && (
+          <TypeaheadComboboxMenu comboboxState={comboboxState}>
+            {filteredItems.map(
+              (item, index) =>
+                item && (
+                  <TypeaheadComboboxMenuItem
+                    key={item.secretId}
+                    item={item}
+                    index={index}
+                    comboboxState={comboboxState}
+                  >
+                    {item.secretName}
+                  </TypeaheadComboboxMenuItem>
+                ),
+            )}
+          </TypeaheadComboboxMenu>
+        )}
+      </TypeaheadComboboxRoot>
     </div>
   );
 }

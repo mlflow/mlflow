@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Modal,
   Button,
@@ -56,6 +56,19 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
     provider,
   });
 
+  // Update API key mode to 'existing' when secrets become available for the selected provider
+  useEffect(() => {
+    if (provider && existingSecrets.length > 0) {
+      setApiKeyConfig((prev) => {
+        // Only update if currently in 'new' mode with no fields filled
+        if (prev.mode === 'new' && Object.keys(prev.newSecret.secretFields).length === 0) {
+          return { ...prev, mode: 'existing' };
+        }
+        return prev;
+      });
+    }
+  }, [provider, existingSecrets.length]);
+
   const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);
     const defaults = DEFAULT_MODELS_BY_PROVIDER[newProvider];
@@ -95,7 +108,8 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
   const isApiKeyValid =
     apiKeyConfig.mode === 'existing'
       ? !!apiKeyConfig.existingSecretId
-      : Object.keys(apiKeyConfig.newSecret.secretFields).length > 0 && (!saveKey || !!apiKeyConfig.newSecret.name);
+      : Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) &&
+        (!saveKey || !!apiKeyConfig.newSecret.name);
 
   const isSubmitDisabled = !provider || !analysisModel || !judgeModel || !isApiKeyValid;
 
@@ -180,49 +194,51 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
               hasExistingSecrets={existingSecrets.length > 0}
             />
           </div>
-          {provider && apiKeyConfig.mode === 'new' && (
-            <div css={{ marginTop: theme.spacing.md }}>
-              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
-                <Tooltip
-                  componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
-                  content={intl.formatMessage({
-                    defaultMessage: 'Saved API keys can be managed in AI Gateway → API Keys tab',
-                    description: 'Tooltip explaining where saved API keys can be found',
-                  })}
-                >
-                  <span>
-                    <Checkbox
-                      componentId="mlflow.traces.issue-detection-modal.save-key-checkbox"
-                      isChecked={saveKey}
-                      onChange={(checked) => setSaveKey(checked)}
-                    >
-                      <FormattedMessage
-                        defaultMessage="Save this key for reuse"
-                        description="Checkbox to save API key for reuse"
-                      />
-                    </Checkbox>
-                  </span>
-                </Tooltip>
-                {saveKey && (
-                  <Input
-                    componentId="mlflow.traces.issue-detection-modal.api-key-name"
-                    value={apiKeyConfig.newSecret.name}
-                    onChange={(e) =>
-                      setApiKeyConfig({
-                        ...apiKeyConfig,
-                        newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
-                      })
-                    }
-                    placeholder={intl.formatMessage({
-                      defaultMessage: 'API key name',
-                      description: 'Placeholder for API key name input',
+          {provider &&
+            apiKeyConfig.mode === 'new' &&
+            Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
+              <div css={{ marginTop: theme.spacing.md }}>
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
+                  <Tooltip
+                    componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
+                    content={intl.formatMessage({
+                      defaultMessage: 'Saved API keys can be managed in AI Gateway → API Keys tab',
+                      description: 'Tooltip explaining where saved API keys can be found',
                     })}
-                    css={{ width: 200 }}
-                  />
-                )}
+                  >
+                    <span>
+                      <Checkbox
+                        componentId="mlflow.traces.issue-detection-modal.save-key-checkbox"
+                        isChecked={saveKey}
+                        onChange={(checked) => setSaveKey(checked)}
+                      >
+                        <FormattedMessage
+                          defaultMessage="Save this key for reuse"
+                          description="Checkbox to save API key for reuse"
+                        />
+                      </Checkbox>
+                    </span>
+                  </Tooltip>
+                  {saveKey && (
+                    <Input
+                      componentId="mlflow.traces.issue-detection-modal.api-key-name"
+                      value={apiKeyConfig.newSecret.name}
+                      onChange={(e) =>
+                        setApiKeyConfig({
+                          ...apiKeyConfig,
+                          newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
+                        })
+                      }
+                      placeholder={intl.formatMessage({
+                        defaultMessage: 'API key name',
+                        description: 'Placeholder for API key name input',
+                      })}
+                      css={{ width: 200 }}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
 
         <Accordion
