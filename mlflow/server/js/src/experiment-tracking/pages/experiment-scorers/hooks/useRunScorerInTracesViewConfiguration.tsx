@@ -285,9 +285,7 @@ const RunJudgeModalImpl = ({
                     scorer={scorer}
                     key={scorer.name}
                     onClick={() => toggleJudge(scorer)}
-                    selected={selectedJudges.some(
-                      (j) => isObject(j) && (j as LLMScorer).name === scorer.name,
-                    )}
+                    selected={selectedJudges.some((j) => isObject(j) && (j as LLMScorer).name === scorer.name)}
                   />
                 ))
               )}
