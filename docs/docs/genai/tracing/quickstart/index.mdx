@@ -5,7 +5,7 @@ import TabsWrapper from '@site/src/components/TabsWrapper';
 import ServerSetup from "@site/src/content/setup_server.mdx";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Zap, LayoutDashboard, FlaskConical } from "lucide-react";
+import { Zap, FlaskConical, TestTube } from "lucide-react";
 
 # Tracing Quickstart
 
@@ -237,18 +237,18 @@ Congrats on sending your first trace with MLflow! Now that you've got the basics
 
 <TilesGrid>
   <TileCard
+    icon={TestTube}
+    title="Evaluation Quickstart"
+    description="Learn how to systematically evaluate your GenAI application's quality with LLM judges and automated testing"
+    href="/genai/eval-monitor/quickstart"
+    linkText="Start evaluating →"
+  />
+  <TileCard
     icon={Zap}
     title="Automatic Tracing"
     description="Explore one-line automatic tracing for popular GenAI libraries and frameworks"
     href="/genai/tracing/app-instrumentation/automatic"
     linkText="Enable auto-tracing →"
-  />
-  <TileCard
-    icon={LayoutDashboard}
-    title="Tracing UI"
-    description="Learn how to explore and analyze your traces in the MLflow UI"
-    href="/genai/tracing/observe-with-traces/ui/"
-    linkText="View traces →"
   />
   <TileCard
     icon={FlaskConical}
