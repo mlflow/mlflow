@@ -13,7 +13,7 @@ def commands():
     """Commands for autologging with MLflow."""
 
 
-@commands.command("claude")
+@commands.group("claude", invoke_without_command=True)
 @click.argument("directory", default=".", type=click.Path(file_okay=False, dir_okay=True))
 @click.option(
     "--tracking-uri", "-u", help="MLflow tracking URI (e.g., 'databricks' or 'file://mlruns')"
@@ -22,7 +22,9 @@ def commands():
 @click.option("--experiment-name", "-n", help="MLflow experiment name")
 @click.option("--disable", is_flag=True, help="Disable Claude tracing in the specified directory")
 @click.option("--status", is_flag=True, help="Show current tracing status")
+@click.pass_context
 def claude(
+    ctx: click.Context,
     directory: str,
     tracking_uri: str | None,
     experiment_id: str | None,
@@ -55,6 +57,10 @@ def claude(
       # Disable tracing in current directory
       mlflow autolog claude --disable
     """
+    # Skip setup when a subcommand (e.g., stop-hook) is being invoked
+    if ctx.invoked_subcommand is not None:
+        return
+
     target_dir = Path(directory).resolve()
     claude_dir = target_dir / ".claude"
     settings_file = claude_dir / "settings.json"
@@ -160,3 +166,11 @@ def _show_setup_status(
 
     click.echo("\n🔧 To disable tracing later:")
     click.echo("   mlflow autolog claude --disable")
+
+
+@claude.command("stop-hook", hidden=True)
+def stop_hook() -> None:
+    """Hook handler invoked when a Claude Code conversation ends."""
+    from mlflow.claude_code.hooks import stop_hook_handler
+
+    stop_hook_handler()

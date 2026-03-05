@@ -67,10 +67,7 @@ def test_claude_setup_with_uv_env_var(runner, monkeypatch):
         assert result.exit_code == 0
 
         hook_command = _get_hook_command_from_settings()
-        assert hook_command == (
-            "uv run python -I -c "
-            '"from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()"'
-        )
+        assert hook_command == "uv run mlflow autolog claude stop-hook"
 
 
 def test_claude_setup_without_uv_env_var(runner, monkeypatch):
@@ -81,16 +78,28 @@ def test_claude_setup_without_uv_env_var(runner, monkeypatch):
         assert result.exit_code == 0
 
         hook_command = _get_hook_command_from_settings()
-        assert hook_command == (
-            "python -I -c "
-            '"from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()"'
-        )
+        assert hook_command == "mlflow autolog claude stop-hook"
 
 
-def test_upsert_hook_uses_isolated_mode():
+def test_upsert_hook_uses_cli_command():
     config = {HOOK_FIELD_HOOKS: {}}
-    upsert_hook(config, "Stop", "stop_hook_handler")
+    upsert_hook(config, "Stop", "stop-hook")
 
     hook_command = config[HOOK_FIELD_HOOKS]["Stop"][0][HOOK_FIELD_HOOKS][0][HOOK_FIELD_COMMAND]
-    assert " -I -c " in hook_command
-    assert "from mlflow.claude_code.hooks import stop_hook_handler" in hook_command
+    assert "mlflow autolog claude stop-hook" in hook_command
+
+
+def test_upsert_hook_upgrades_legacy_hook():
+    legacy_command = (
+        'python -I -c "from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()"'
+    )
+    config = {
+        HOOK_FIELD_HOOKS: {
+            "Stop": [{HOOK_FIELD_HOOKS: [{"type": "command", HOOK_FIELD_COMMAND: legacy_command}]}]
+        }
+    }
+    upsert_hook(config, "Stop", "stop-hook")
+
+    hook_command = config[HOOK_FIELD_HOOKS]["Stop"][0][HOOK_FIELD_HOOKS][0][HOOK_FIELD_COMMAND]
+    assert "mlflow autolog claude stop-hook" in hook_command
+    assert "python -I -c" not in hook_command
