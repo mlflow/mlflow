@@ -148,9 +148,14 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         run: |
-          git config user.name 'mlflow-app[bot]'
-          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          AUTHOR_LOGIN=$(gh pr view "$PR_NUMBER" --json author --jq '.author.login')
+          AUTHOR_ID=$(gh api "users/$AUTHOR_LOGIN" --jq '.id')
+          git config user.name "$AUTHOR_LOGIN"
+          git config user.email "${AUTHOR_ID}+${AUTHOR_LOGIN}@users.noreply.github.com"
 
       - uses: ./.github/actions/setup-python
 
@@ -186,6 +191,12 @@ jobs:
             cat "$OUTPUT_FILE"
           fi
           echo "===================="
+
+      - name: Commit changes
+        run: |
+          git add .
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -s -m "Address PR review comments"
 
       - name: Upload Claude output
         if: always()

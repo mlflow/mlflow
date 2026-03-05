@@ -51,18 +51,8 @@ Automatically fetch and address PR review comments. This command examines review
    - Read the file and surrounding code for context
    - Make minimal, precise changes to address the feedback
 
-5. After making all changes, commit them:
+5. After making all changes, run pre-commit on changed files:
 
-   - Stage changes: `git add .`
-   - Create DCO-signed commit with this exact format:
-
-     ```bash
-     git commit -s -m "Address PR review comments
-
-     🤖 Generated with Claude Code
-
-     Co-Authored-By: Claude <noreply@anthropic.com>"
-     ```
-
-   - Handle any pre-commit hook failures (they may auto-fix formatting)
-   - **DO NOT PUSH** the changes; just commit them locally
+   - Run `pre-commit run --files <changed files>` to lint and auto-fix formatting
+   - If pre-commit makes additional changes, re-apply them as needed until pre-commit passes
+   - **DO NOT** commit or push changes; the workflow handles `git add` and `git commit -s`
