@@ -10,6 +10,7 @@ from mlflow.entities.assessment import (
     AssessmentSourceType,
     Expectation,
     Feedback,
+    IssueReference,
 )
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
@@ -43,6 +44,7 @@ from mlflow.entities.gateway_endpoint import (
 )
 from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
+from mlflow.entities.issue import Issue
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -104,6 +106,7 @@ __all__ = [
     "LifecycleStage",
     "Dataset",
     "InputTag",
+    "Issue",
     "DatasetInput",
     "RunInputs",
     "RunOutputs",
@@ -138,6 +141,7 @@ __all__ = [
     "AssessmentSourceType",
     "Expectation",
     "Feedback",
+    "IssueReference",
     # Note: EvaluationDataset is intentionally excluded from __all__ to prevent
     # circular import issues during plugin registration. It can still be imported
     # explicitly via: from mlflow.entities import EvaluationDataset

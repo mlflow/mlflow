@@ -6821,6 +6821,58 @@ def test_search_traces_with_metadata_is_not_null_filter(store: SqlAlchemyStore):
     assert trace_ids == {trace1_id}
 
 
+def test_search_traces_with_tag_is_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_tag_is_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, tags={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, tags={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, tags={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.region IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.env IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='tag.region IS NULL AND tag.env = "staging"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id}
+
+
+def test_search_traces_with_tag_is_not_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_tag_is_not_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, tags={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, tags={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, tags={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.region IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.env IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='tag.region IS NOT NULL AND tag.env = "production"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+
 @pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
 def test_search_traces_with_metadata_rlike_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_metadata_rlike")
@@ -9747,6 +9799,76 @@ def test_assessment_with_error(store_and_trace_info):
     assert retrieved_feedback.error.stack_trace is not None
     assert "ValueError: Test error message" in retrieved_feedback.error.stack_trace
     assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
+
+
+def test_start_trace_with_assessments_missing_trace_id(store):
+    """
+    Regression test for NOT NULL constraint on assessments.trace_id during trace export.
+
+    During normal trace export (MlflowV3SpanExporter), two things happen:
+
+    1. log_spans() is called incrementally as each span completes. Internally this calls
+       start_trace(), creating the trace row in the DB.
+    2. When the root span finishes, _log_trace() calls start_trace() again with the full
+       TraceInfo — including any assessments attached to the trace.
+
+    Because the trace row already exists from step 1, the second start_trace() hits an
+    IntegrityError and falls back to session.merge(). Assessments created standalone
+    (e.g. returned by custom metric functions) have trace_id=None by design. Without
+    backfilling trace_id before the merge, SQLAlchemy updates the assessment row with
+    trace_id=NULL, violating the NOT NULL constraint on assessments.trace_id.
+    """
+    exp_id = store.create_experiment("test_assessment_trace_id")
+    timestamp_ms = get_current_time_millis()
+    trace_id = f"tr-{uuid.uuid4()}"
+
+    # Step 1: log_spans() creates the trace row as spans are exported incrementally.
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=0,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"cr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    # Assessment with trace_id=None, as returned by custom metric functions.
+    assessment = Feedback(
+        name="test_feedback",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1"),
+        trace_id=None,
+        value="good",
+    )
+
+    # Step 2: _log_trace() calls start_trace() with the full TraceInfo (including
+    # assessments) after the root span finishes. The trace already exists from step 1,
+    # so this hits the IntegrityError -> session.merge() path. Before the fix, this
+    # raised sqlite3.IntegrityError because assessment.trace_id was None.
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"cr-{uuid.uuid4()}",
+            request_preview="request",
+            response_preview="response",
+            assessments=[assessment],
+        ),
+    )
+
+    assert len(result.assessments) == 1
+    assert result.assessments[0].trace_id == trace_id
+    assert result.assessments[0].name == "test_feedback"
 
 
 def test_dataset_crud_operations(store):
