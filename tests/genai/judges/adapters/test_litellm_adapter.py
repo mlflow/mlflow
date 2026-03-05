@@ -10,6 +10,8 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
+from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     _invoke_litellm,
@@ -463,6 +465,189 @@ def test_remove_oldest_tool_call_pair_preserves_non_tool_messages():
     assert result[1].content == "Hello"
     assert result[2].role == "user"
     assert result[2].content == "Thanks"
+
+
+def test_invoke_litellm_with_extra_headers():
+    mock_response = ModelResponse(choices=[{"message": {"content": '{"result": "yes"}'}}])
+
+    headers = {"X-Custom-Auth": "token123", "X-Request-ID": "req-456"}
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        _invoke_litellm(
+            litellm_model="openai/gpt-4",
+            messages=[litellm.Message(role="user", content="Test")],
+            tools=[],
+            num_retries=3,
+            response_format=None,
+            include_response_format=False,
+            extra_headers=headers,
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["extra_headers"] == headers
+
+
+def test_invoke_litellm_without_extra_headers_omits_key():
+    mock_response = ModelResponse(choices=[{"message": {"content": '{"result": "yes"}'}}])
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        _invoke_litellm(
+            litellm_model="openai/gpt-4",
+            messages=[litellm.Message(role="user", content="Test")],
+            tools=[],
+            num_retries=3,
+            response_format=None,
+            include_response_format=False,
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert "extra_headers" not in call_kwargs
+
+
+def test_invoke_litellm_and_handle_tools_with_base_url():
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
+    )
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        output = _invoke_litellm_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="Test")],
+            trace=None,
+            num_retries=3,
+            base_url="http://my-proxy:8080/v1",
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["api_base"] == "http://my-proxy:8080/v1"
+    assert call_kwargs["api_key"] == "dummy"
+    assert output.response == '{"result": "yes", "rationale": "OK"}'
+
+
+def test_invoke_litellm_and_handle_tools_with_extra_headers():
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
+    )
+
+    headers = {"X-Api-Key": "secret", "X-Org": "my-org"}
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        output = _invoke_litellm_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="Test")],
+            trace=None,
+            num_retries=3,
+            extra_headers=headers,
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["extra_headers"] == headers
+    assert output.response == '{"result": "yes", "rationale": "OK"}'
+
+
+def test_invoke_litellm_and_handle_tools_with_base_url_and_extra_headers():
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
+    )
+
+    headers = {"Authorization": "Bearer xyz"}
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        output = _invoke_litellm_and_handle_tools(
+            provider="anthropic",
+            model_name="claude-3",
+            messages=[ChatMessage(role="user", content="Test")],
+            trace=None,
+            num_retries=3,
+            base_url="http://proxy:9090",
+            extra_headers=headers,
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["api_base"] == "http://proxy:9090"
+    assert call_kwargs["api_key"] == "dummy"
+    assert call_kwargs["extra_headers"] == headers
+    assert output.response == '{"result": "yes", "rationale": "OK"}'
+
+
+def test_invoke_litellm_and_handle_tools_base_url_ignored_for_gateway():
+    # When provider is 'gateway', base_url is ignored because gateway has its own routing
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
+    )
+
+    with (
+        mock.patch("litellm.completion", return_value=mock_response) as mock_litellm,
+        mock.patch(
+            "mlflow.genai.utils.gateway_utils.get_tracking_uri",
+            return_value="http://localhost:5000",
+        ),
+    ):
+        from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+
+        _invoke_litellm_and_handle_tools(
+            provider="gateway",
+            model_name="my-endpoint",
+            messages=[ChatMessage(role="user", content="Test")],
+            trace=None,
+            num_retries=3,
+            base_url="http://proxy:9090",
+        )
+
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    # Gateway uses its own api_base, not the base_url
+    assert call_kwargs["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
+    assert call_kwargs["api_key"] == "mlflow-gateway-auth"
+
+
+@pytest.mark.parametrize("model_provider", ["databricks", "endpoints"])
+def test_litellm_adapter_rejects_base_url_for_databricks(model_provider):
+    from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
+
+    adapter = LiteLLMAdapter()
+    input_params = AdapterInvocationInput(
+        prompt="test prompt",
+        assessment_name="test",
+        model_uri=f"{model_provider}:/test-endpoint",
+        trace=None,
+        num_retries=3,
+        base_url="http://proxy:8080",
+    )
+
+    with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
+        adapter.invoke(input_params)
+
+
+@pytest.mark.parametrize("model_provider", ["databricks", "endpoints"])
+def test_litellm_adapter_rejects_extra_headers_for_databricks(model_provider):
+    from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
+
+    adapter = LiteLLMAdapter()
+    input_params = AdapterInvocationInput(
+        prompt="test prompt",
+        assessment_name="test",
+        model_uri=f"{model_provider}:/test-endpoint",
+        trace=None,
+        num_retries=3,
+        extra_headers={"X-Key": "val"},
+    )
+
+    with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
+        adapter.invoke(input_params)
 
 
 def test_record_success_telemetry_with_databricks_agents():
