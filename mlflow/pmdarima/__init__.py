@@ -542,7 +542,7 @@ def _load_model(path):
     ):
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but this model is saved "
-            "in pickle format. To address this issue, you need to set environment variable "
+            "in pickle format. The workaround is to set environment variable "
             "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true'."
         )
     with open(path, "rb") as pickled_model:

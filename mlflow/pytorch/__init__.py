@@ -579,9 +579,11 @@ def _load_by_pickle_check():
     ):
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but this model is saved "
-            "in pickle format. To address this issue, you need to set environment variable "
-            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true', or save the model with "
-            "'export_model=True' like `mlflow.pytorch.save_model(model, path, export_model=True)`."
+            "in pickle format. The recommended way is to save the model with "
+            "'export_model=True' like `mlflow.pytorch.save_model(model, path, export_model=True)`,"
+            "  Another workaround is to set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing model "
+            "using pickle."
         )
 
 
