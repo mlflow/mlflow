@@ -15,7 +15,7 @@ import {
 } from '@databricks/design-system';
 import type { ColumnDef, HeaderContext } from '@tanstack/react-table';
 import { DatasetSourceTypes, RunEntity } from '../../types';
-import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { Link, useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
@@ -67,20 +67,23 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const { theme } = useDesignSystemTheme();
   const saveRunColor = useSaveExperimentRunColor();
   const getRunColor = useGetExperimentRunColor();
+  const navigate = useNavigate();
 
   if ('subRuns' in row.original) {
     return <div>-</div>;
   }
 
   const runUuid = row.original.info.runUuid;
+  const experimentId = row.original.info.experimentId;
   const tags = row.original.data?.tags ?? [];
   const isIssueDetectionRun = tags.some((tag) => tag.key === MLFLOW_RUN_IS_ISSUE_DETECTION_TAG);
   const showIssuesPanelFlag = shouldShowEvalRunsIssuesPanel();
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // When flag is ON and clicking on an issue detection run, do nothing for now
+    // When flag is ON and clicking on an issue detection run, navigate to the issue detection run details page
     if (isIssueDetectionRun && showIssuesPanelFlag) {
+      navigate(Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid));
       return;
     }
     // Otherwise follow old behavior - open the right-side panel

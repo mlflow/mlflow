@@ -4,7 +4,7 @@ import { OverflowMenu, PageHeader } from '../../../shared/building_blocks/PageHe
 import Routes, { PageId as ExperimentTrackingPageId } from '../../routes';
 import type { ExperimentEntity } from '../../types';
 import type { KeyValueEntity } from '../../../common/types';
-import { RunViewModeSwitch } from './RunViewModeSwitch';
+import { RunViewModeSwitch, type RunViewModeSwitchProps } from './RunViewModeSwitch';
 import Utils from '../../../common/utils/Utils';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 import type { UseGetRunQueryResponseExperiment, UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
@@ -35,6 +35,26 @@ const RunViewHeaderIcon = () => {
   );
 };
 
+export interface RunViewHeaderProps {
+  hasComparedExperimentsBefore?: boolean;
+  comparedExperimentIds?: string[];
+  runDisplayName: string;
+  runUuid: string;
+  runOutputs?: UseGetRunQueryResponseOutputs | null;
+  runTags: Record<string, KeyValueEntity>;
+  runParams: Record<string, KeyValueEntity>;
+  experiment: ExperimentEntity | UseGetRunQueryResponseExperiment;
+  handleRenameRunClick: () => void;
+  handleDeleteRunClick?: () => void;
+  artifactRootUri?: string;
+  registeredModelVersionSummaries: RunPageModelVersionSummary[];
+  isLoading?: boolean;
+  /** Custom breadcrumbs to display. If provided, overrides default breadcrumb generation. */
+  customBreadcrumbs?: React.ReactNode[];
+  /** Props to pass to RunViewModeSwitch for custom tab configuration */
+  tabSwitchProps?: Omit<RunViewModeSwitchProps, 'runTags'>;
+}
+
 /**
  * Run details page header component, common for all page view modes
  */
@@ -52,21 +72,9 @@ export const RunViewHeader = ({
   artifactRootUri,
   registeredModelVersionSummaries,
   isLoading,
-}: {
-  hasComparedExperimentsBefore?: boolean;
-  comparedExperimentIds?: string[];
-  runDisplayName: string;
-  runUuid: string;
-  runOutputs?: UseGetRunQueryResponseOutputs | null;
-  runTags: Record<string, KeyValueEntity>;
-  runParams: Record<string, KeyValueEntity>;
-  experiment: ExperimentEntity | UseGetRunQueryResponseExperiment;
-  handleRenameRunClick: () => void;
-  handleDeleteRunClick?: () => void;
-  artifactRootUri?: string;
-  registeredModelVersionSummaries: RunPageModelVersionSummary[];
-  isLoading?: boolean;
-}) => {
+  customBreadcrumbs,
+  tabSwitchProps,
+}: RunViewHeaderProps) => {
   const { theme } = useDesignSystemTheme();
   const experimentKind = useExperimentKind(experiment.tags);
 
@@ -99,9 +107,9 @@ export const RunViewHeader = ({
     );
   }
 
-  const breadcrumbs = [getExperimentPageLink()];
+  const defaultBreadcrumbs = [getExperimentPageLink()];
   if (experiment.experimentId) {
-    breadcrumbs.push(
+    defaultBreadcrumbs.push(
       <Link to={experimentPageTabRoute} data-testid="experiment-observatory-link-runs">
         {shouldRouteToEvaluations ? (
           <FormattedMessage
@@ -117,6 +125,8 @@ export const RunViewHeader = ({
       </Link>,
     );
   }
+
+  const breadcrumbs = customBreadcrumbs ?? defaultBreadcrumbs;
 
   const navigate = useNavigate();
 
@@ -200,7 +210,7 @@ export const RunViewHeader = ({
           ]}
         />
       </PageHeader>
-      <RunViewModeSwitch runTags={runTags} />
+      <RunViewModeSwitch runTags={runTags} {...tabSwitchProps} />
     </div>
   );
 };
