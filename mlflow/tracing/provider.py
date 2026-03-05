@@ -12,6 +12,7 @@ import functools
 import json
 import logging
 import os
+import secrets
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, ParamSpec, TypeVar
 
@@ -20,6 +21,7 @@ from opentelemetry import trace
 from opentelemetry.context.contextvars_context import ContextVarsRuntimeContext
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
+from opentelemetry.sdk.trace.id_generator import IdGenerator
 
 import mlflow
 from mlflow.entities.trace_location import (
@@ -62,6 +64,30 @@ _MLFLOW_TRACE_USER_DESTINATION = UserTraceDestinationRegistry()
 
 
 _logger = logging.getLogger(__name__)
+
+
+class _SecureIdGenerator(IdGenerator):
+    """
+    An OTel IdGenerator that uses ``secrets.randbits()`` (backed by ``os.urandom()``)
+    instead of Python's global ``random`` module.
+
+    The default OTel ``RandomIdGenerator`` calls ``random.getrandbits()``, which is
+    affected by ``random.seed()`` calls in user code.  This leads to deterministic
+    trace IDs across script re-runs, causing "trace already exists" errors when the
+    same IDs are re-submitted to a tracking backend (e.g. Databricks).
+    """
+
+    def generate_span_id(self) -> int:
+        span_id = secrets.randbits(64)
+        while span_id == trace.INVALID_SPAN_ID:
+            span_id = secrets.randbits(64)
+        return span_id
+
+    def generate_trace_id(self) -> int:
+        trace_id = secrets.randbits(128)
+        while trace_id == trace.INVALID_TRACE_ID:
+            trace_id = secrets.randbits(128)
+        return trace_id
 
 
 class _TracerProviderWrapper:
@@ -489,7 +515,11 @@ def _initialize_tracer_provider(disabled=False):
             [f"{k}={v}" for k, v in attributes.items()]
         )
 
-    tracer_provider = TracerProvider(resource=resource, sampler=_get_trace_sampler())
+    tracer_provider = TracerProvider(
+        resource=resource,
+        sampler=_get_trace_sampler(),
+        id_generator=_SecureIdGenerator(),
+    )
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 
