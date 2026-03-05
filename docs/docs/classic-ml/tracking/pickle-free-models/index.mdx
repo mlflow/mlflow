@@ -11,6 +11,7 @@ Saving models with Python's `pickle` or `cloudpickle` relies on Python's object 
 
 :::warning Upcoming Default Behavior Change
 Pickle-free saving formats will become the **default** in an upcoming MLflow release. **Most users (scikit-learn, LightGBM, LangChain, custom Python) will see no breaking change.** PyTorch users should review the [requirements](#pickle-free-format-for-pytorch-model) — `input_example` will be required and `torch.jit.ScriptModule` is not supported.
+To avoid getting affected by the change, pin the MLflow version or specify `serialization_format="pickle"` in the model logging code.
 :::
 
 ## Pickle-free format for Scikit-learn model
@@ -78,7 +79,7 @@ When saving a PyTorch model, saving with `serialization_format="pt2"` uses `torc
 - An **input_example** is required (and only `Tensor` type inputs are supported for the exported model)
 - Not supported for `torch.jit.ScriptModule` models
 - Model weights **cannot be transferred between devices** after loading. If the model is saved with weights on GPU device 0, it must also be loaded onto GPU device 0 — not CPU or a different GPU.
-
+- To avoid these limitations, use the pickle-based serialization by setting `serialization_format="pickle"`.
 :::
 
 ```python
@@ -101,27 +102,6 @@ with mlflow.start_run():
 ```
 
 See <APILink fn="mlflow.pytorch.log_model" /> and <APILink fn="mlflow.pytorch.save_model" /> for details.
-
-## Pickle-free format for DSPy model
-
-Currently, DSPy models do not support a pickle-free format, but a new saving option `use_dspy_model_save` is introduced to delegate the model saving implementation to the DSPy library.
-Set param `use_dspy_model_save=True` to use the DSPy built-in `dspy.Module.save` method. This option requires **dspy > 3.1.0**.
-
-```python
-import mlflow
-import dspy
-
-model = dspy.ChainOfThought("question -> answer")
-
-with mlflow.start_run():
-    mlflow.dspy.log_model(
-        model,
-        name="model",
-        use_dspy_model_save=True,
-    )
-```
-
-See <APILink fn="mlflow.dspy.log_model" /> and <APILink fn="mlflow.dspy.save_model" /> for full parameters.
 
 ## Pickle-free format for LightGBM model
 
