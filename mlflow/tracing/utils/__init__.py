@@ -279,6 +279,48 @@ def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
     return calculate_cost_by_model_and_token_usage(model_name, usage, model_provider)
 
 
+def extract_token_usage_from_response(response: Any) -> dict[str, int] | None:
+    """Extract token usage from a gateway response (object or dict).
+
+    Handles both OpenAI SDK-style response objects (with a ``.usage`` attribute)
+    and raw dict responses with a ``"usage"`` key.
+
+    Returns:
+        Dict with TokenUsageKey entries, or None if no usage found.
+    """
+    if hasattr(response, "usage") and response.usage is not None:
+        usage = response.usage
+        token_usage: dict[str, int] = {}
+        if (v := getattr(usage, "prompt_tokens", None)) is not None:
+            token_usage[TokenUsageKey.INPUT_TOKENS] = v
+        if (v := getattr(usage, "completion_tokens", None)) is not None:
+            token_usage[TokenUsageKey.OUTPUT_TOKENS] = v
+        if (v := getattr(usage, "total_tokens", None)) is not None:
+            token_usage[TokenUsageKey.TOTAL_TOKENS] = v
+        if (v := getattr(usage, "cache_read_input_tokens", None)) is not None:
+            token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = v
+        elif details := getattr(usage, "prompt_tokens_details", None):
+            if (v := getattr(details, "cached_tokens", None)) is not None:
+                token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = v
+        if (v := getattr(usage, "cache_creation_input_tokens", None)) is not None:
+            token_usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = v
+        return token_usage or None
+    elif isinstance(response, dict):
+        if raw_usage := response.get("usage"):
+            token_usage = {}
+            for attr, key in [
+                ("prompt_tokens", TokenUsageKey.INPUT_TOKENS),
+                ("input_tokens", TokenUsageKey.INPUT_TOKENS),
+                ("completion_tokens", TokenUsageKey.OUTPUT_TOKENS),
+                ("output_tokens", TokenUsageKey.OUTPUT_TOKENS),
+                ("total_tokens", TokenUsageKey.TOTAL_TOKENS),
+            ]:
+                if key not in token_usage and (v := raw_usage.get(attr)) is not None:
+                    token_usage[key] = v
+            return token_usage or None
+    return None
+
+
 def calculate_cost_by_model_and_token_usage(
     model_name: str | None, usage: dict[str, int] | None, model_provider: str | None = None
 ) -> dict[str, float] | None:

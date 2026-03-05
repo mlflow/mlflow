@@ -14,8 +14,11 @@ from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks
 from mlflow.server.handlers import _get_model_registry_store
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracing.constant import CostKey, TokenUsageKey
-from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
+from mlflow.tracing.constant import CostKey
+from mlflow.tracing.utils import (
+    calculate_cost_by_model_and_token_usage,
+    extract_token_usage_from_response,
+)
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 from mlflow.webhooks.delivery import deliver_webhook
 from mlflow.webhooks.types import BudgetPolicyExceededPayload
@@ -93,28 +96,7 @@ def record_budget_cost(
     This is a best-effort operation; errors are logged but not raised.
     """
     try:
-        # Extract token usage from response
-        usage_dict = None
-        if hasattr(response, "usage") and response.usage is not None:
-            usage = response.usage
-            usage_dict = {}
-            if hasattr(usage, "prompt_tokens") and usage.prompt_tokens is not None:
-                usage_dict[TokenUsageKey.INPUT_TOKENS] = usage.prompt_tokens
-            if hasattr(usage, "completion_tokens") and usage.completion_tokens is not None:
-                usage_dict[TokenUsageKey.OUTPUT_TOKENS] = usage.completion_tokens
-            if hasattr(usage, "total_tokens") and usage.total_tokens is not None:
-                usage_dict[TokenUsageKey.TOTAL_TOKENS] = usage.total_tokens
-        elif isinstance(response, dict):
-            if raw_usage := response.get("usage"):
-                usage_dict = {
-                    TokenUsageKey.INPUT_TOKENS: raw_usage.get(
-                        "prompt_tokens", raw_usage.get("input_tokens", 0)
-                    ),
-                    TokenUsageKey.OUTPUT_TOKENS: raw_usage.get(
-                        "completion_tokens", raw_usage.get("output_tokens", 0)
-                    ),
-                }
-
+        usage_dict = extract_token_usage_from_response(response)
         if not usage_dict:
             return
 
