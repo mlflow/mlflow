@@ -2488,57 +2488,63 @@ def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
 def test_delete_prompt_version_invalidates_cached_load_prompt(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
-    client.register_prompt(name="test_prompt", template="Version 1")
-    loaded = client.load_prompt("test_prompt", version=1)
+    prompt_ver = client.register_prompt(name="test_prompt", template="Version 1")
+    loaded = client.load_prompt(prompt_ver.name, version=prompt_ver.version)
     assert loaded.template == "Version 1"
 
-    client.delete_prompt_version("test_prompt", "1")
+    client.delete_prompt_version(prompt_ver.name, str(prompt_ver.version))
 
-    with pytest.raises(MlflowException, match=r"Prompt.*name=test_prompt.*version=1.*not found"):
-        client.get_prompt_version("test_prompt", 1)
+    with pytest.raises(
+        MlflowException,
+        match=rf"Prompt.*name={prompt_ver.name}.*version={prompt_ver.version}.*not found",
+    ):
+        client.get_prompt_version(prompt_ver.name, prompt_ver.version)
 
-    with pytest.raises(MlflowException, match=r"Prompt.*name=test_prompt.*version=1.*not found"):
-        client.load_prompt("test_prompt", version=1)
+    with pytest.raises(
+        MlflowException,
+        match=rf"Prompt.*name={prompt_ver.name}.*version={prompt_ver.version}.*not found",
+    ):
+        client.load_prompt(prompt_ver.name, version=prompt_ver.version)
 
 
 def test_delete_prompt_version_invalidates_latest_cache(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
-    client.register_prompt(name="test_prompt", template="Version 1")
-    client.register_prompt(name="test_prompt", template="Version 2")
+    prompt_v1 = client.register_prompt(name="test_prompt", template="Version 1")
+    prompt_v2 = client.register_prompt(name=prompt_v1.name, template="Version 2")
 
-    latest_prompt = client.load_prompt("prompts:/test_prompt@latest")
-    assert latest_prompt.version == 2
-    assert latest_prompt.template == "Version 2"
+    latest_prompt = client.load_prompt(f"prompts:/{prompt_v1.name}@latest")
+    assert latest_prompt.version == prompt_v2.version
+    assert latest_prompt.template == prompt_v2.template
 
-    client.delete_prompt_version("test_prompt", "2")
+    client.delete_prompt_version(prompt_v2.name, str(prompt_v2.version))
 
-    latest_prompt_after_delete = client.load_prompt("prompts:/test_prompt@latest")
-    assert latest_prompt_after_delete.version == 1
-    assert latest_prompt_after_delete.template == "Version 1"
+    latest_prompt_after_delete = client.load_prompt(f"prompts:/{prompt_v1.name}@latest")
+    assert latest_prompt_after_delete.version == prompt_v1.version
+    assert latest_prompt_after_delete.template == prompt_v1.template
 
 
 def test_delete_prompt_version_invalidates_alias_cache(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
-    client.register_prompt(name="test_prompt", template="Version 1")
-    client.register_prompt(name="test_prompt", template="Version 2")
-    client.set_prompt_alias("test_prompt", alias="production", version=1)
+    prompt_v1 = client.register_prompt(name="test_prompt", template="Version 1")
+    client.register_prompt(name=prompt_v1.name, template="Version 2")
+    client.set_prompt_alias(prompt_v1.name, alias="production", version=prompt_v1.version)
 
-    aliased_prompt = client.load_prompt("prompts:/test_prompt@production")
-    assert aliased_prompt.version == 1
-    assert aliased_prompt.template == "Version 1"
+    aliased_prompt = client.load_prompt(f"prompts:/{prompt_v1.name}@production")
+    assert aliased_prompt.version == prompt_v1.version
+    assert aliased_prompt.template == prompt_v1.template
 
-    client.delete_prompt_version("test_prompt", "1")
+    client.delete_prompt_version(prompt_v1.name, str(prompt_v1.version))
 
     with pytest.raises(
         MlflowException,
         match=(
             r"Prompt (.*) does not exist.|Prompt alias (.*) not found.|"
-            r"Prompt.*version=1.*not found"
+            rf"Prompt.*version={prompt_v1.version}.*not found"
         ),
     ):
-        client.load_prompt("prompts:/test_prompt@production")
+        client.load_prompt(f"prompts:/{prompt_v1.name}@production")
 
 
 def test_delete_prompt_with_no_versions(tracking_uri):
@@ -2564,16 +2570,16 @@ def test_delete_prompt_with_no_versions(tracking_uri):
 def test_delete_prompt_invalidates_cached_load_prompt(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
-    client.register_prompt(name="test_prompt", template="Version 1")
-    loaded = client.load_prompt("test_prompt", version=1)
+    prompt_ver = client.register_prompt(name="test_prompt", template="Version 1")
+    loaded = client.load_prompt(prompt_ver.name, version=prompt_ver.version)
     assert loaded.template == "Version 1"
 
-    client.delete_prompt("test_prompt")
+    client.delete_prompt(prompt_ver.name)
 
-    assert client.get_prompt("test_prompt") is None
+    assert client.get_prompt(prompt_ver.name) is None
 
-    with pytest.raises(MlflowException, match=r"Prompt.*name=test_prompt.*not found"):
-        client.load_prompt("test_prompt", version=1)
+    with pytest.raises(MlflowException, match=rf"Prompt.*name={prompt_ver.name}.*not found"):
+        client.load_prompt(prompt_ver.name, version=prompt_ver.version)
 
 
 def test_delete_prompt_complete_workflow(tracking_uri):
