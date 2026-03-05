@@ -326,9 +326,6 @@ function createLlmAndToolSpans(
         },
       });
 
-      // Set message format so the MLflow UI renders the chat bubble view
-      llmSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
-
       // Set token usage
       const tokenUsage = buildTokenUsage(tokens);
       if (tokenUsage) {
@@ -385,10 +382,7 @@ function createLlmAndToolSpans(
 /**
  * Process a session and create MLflow traces
  */
-async function processSession(
-  sessionId: string,
-  messages: Message[],
-): Promise<void> {
+async function processSession(sessionId: string, messages: Message[]): Promise<void> {
   if (!messages || messages.length === 0) {
     if (DEBUG) {
       console.error('[mlflow] Empty messages list, skipping');
@@ -517,6 +511,11 @@ export const MLflowTracingPlugin: Plugin = (input: PluginInput): Promise<Hooks> 
         const messageCount = allMessages.length;
         const lastProcessedCount = processedMessageCounts.get(sessionID) ?? 0;
 
+        // Update LRU position: delete and re-insert to move to end of Map.
+        // This ensures active sessions (even without new messages) aren't evicted.
+        processedMessageCounts.delete(sessionID);
+        processedMessageCounts.set(sessionID, lastProcessedCount);
+
         if (messageCount <= lastProcessedCount) {
           return;
         }
@@ -525,11 +524,11 @@ export const MLflowTracingPlugin: Plugin = (input: PluginInput): Promise<Hooks> 
         const newMessages = allMessages.slice(lastProcessedCount);
         processedMessageCounts.set(sessionID, messageCount);
 
-        // Clean up old entries to prevent memory leak
-        if (processedMessageCounts.size > 50) {
-          const keys = Array.from(processedMessageCounts.keys());
-          for (let i = 0; i < keys.length - 50; i++) {
-            processedMessageCounts.delete(keys[i]);
+        // Evict least recently used entries to prevent memory leak
+        while (processedMessageCounts.size > 50) {
+          const oldest = processedMessageCounts.keys().next().value;
+          if (oldest !== undefined) {
+            processedMessageCounts.delete(oldest);
           }
         }
 

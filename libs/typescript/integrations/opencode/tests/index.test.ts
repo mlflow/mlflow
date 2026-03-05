@@ -74,9 +74,10 @@ describe('MLflowTracingPlugin', () => {
   });
 
   // Helper to create plugin input
-  const createPluginInput = (client: PluginClient): PluginInput => ({
-    client,
-  } as unknown as PluginInput);
+  const createPluginInput = (client: PluginClient): PluginInput =>
+    ({
+      client,
+    }) as unknown as PluginInput;
 
   // Helper to create event params
   const createEventParams = (type: string, properties?: Record<string, unknown>): EventParams => ({

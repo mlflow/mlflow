@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/opencode",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "OpenCode integration package for MLflow Tracing",
   "repository": {
     "type": "git",
@@ -35,8 +35,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
+  "dependencies": {
+    "@mlflow/core": "^0.2.0"
+  },
   "peerDependencies": {
-    "@mlflow/core": "^0.2.0",
     "@opencode-ai/plugin": "^1.0.0"
   },
   "devDependencies": {

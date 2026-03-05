@@ -12,7 +12,7 @@ This plugin automatically traces OpenCode conversations to MLflow, capturing:
 ## Installation
 
 ```bash
-npm install @mlflow/opencode mlflow-tracing
+npm install @mlflow/opencode
 ```
 
 ## Usage

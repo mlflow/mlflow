@@ -23,8 +23,8 @@ module.exports = {
           baseUrl: '.',
           paths: {
             '@opencode-ai/plugin': ['./tests/__mocks__/@opencode-ai/plugin.ts'],
-            'mlflow-tracing': ['../../core/src/index.ts'],
-            'mlflow-tracing/*': ['../../core/src/*'],
+            '@mlflow/core': ['../../core/src/index.ts'],
+            '@mlflow/core/*': ['../../core/src/*'],
           },
         },
       },
@@ -32,8 +32,8 @@ module.exports = {
   },
   moduleNameMapper: {
     '^@opencode-ai/plugin$': '<rootDir>/tests/__mocks__/@opencode-ai/plugin.ts',
-    '^mlflow-tracing$': '<rootDir>/../../core/src',
-    '^mlflow-tracing/(.*)$': '<rootDir>/../../core/src/$1',
+    '^@mlflow/core$': '<rootDir>/../../core/src',
+    '^@mlflow/core/(.*)$': '<rootDir>/../../core/src/$1',
   },
   testTimeout: 30000,
   forceExit: true,
