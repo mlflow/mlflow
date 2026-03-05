@@ -108,7 +108,8 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
   const isApiKeyValid =
     apiKeyConfig.mode === 'existing'
       ? !!apiKeyConfig.existingSecretId
-      : Object.keys(apiKeyConfig.newSecret.secretFields).length > 0 && (!saveKey || !!apiKeyConfig.newSecret.name);
+      : Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) &&
+        (!saveKey || !!apiKeyConfig.newSecret.name);
 
   const isSubmitDisabled = !provider || !analysisModel || !judgeModel || !isApiKeyValid;
 
