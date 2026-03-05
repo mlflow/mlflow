@@ -18,7 +18,6 @@ export const createBaseUIState = (): ExperimentPageUIState => ({
   runListHidden: false,
   groupBy: null,
   groupsExpanded: {},
-  useGroupedValuesInCharts: true,
   hideEmptyCharts: true,
   globalLineChartConfig: {
     xAxisKey: RunsChartsLineChartXAxisType.STEP,

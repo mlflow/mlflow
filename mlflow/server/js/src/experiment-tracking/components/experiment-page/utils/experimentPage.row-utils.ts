@@ -225,7 +225,6 @@ export const prepareRunsGridData = ({
   runUuidsMatchingFilter,
   groupBy = null,
   groupsExpanded = {},
-  useGroupedValuesInCharts,
   searchFacetsState,
 }: PrepareRunsGridDataParams) => {
   const experimentNameMap = Utils.getExperimentNameMap(Utils.sortExperimentsById(experiments)) as Record<
@@ -249,7 +248,6 @@ export const prepareRunsGridData = ({
         runsHidden,
         runsVisibilityMap,
         runsHiddenMode,
-        useGroupedValuesInCharts,
       });
 
       if (groupedRows) {
@@ -432,7 +430,6 @@ export const useExperimentRunRows = ({
   groupBy,
   runsHiddenMode,
   groupsExpanded = {},
-  useGroupedValuesInCharts,
   searchFacetsState,
 }: PrepareRunsGridDataParams) =>
   useMemo(
@@ -455,7 +452,6 @@ export const useExperimentRunRows = ({
         groupBy,
         groupsExpanded,
         runsHiddenMode,
-        useGroupedValuesInCharts,
         searchFacetsState,
       }),
     [
@@ -477,7 +473,6 @@ export const useExperimentRunRows = ({
       groupBy,
       groupsExpanded,
       runsHiddenMode,
-      useGroupedValuesInCharts,
       searchFacetsState,
     ],
   );
@@ -542,10 +537,7 @@ type PrepareRunsGridDataParams = Pick<
   ExperimentRunsSelectorResult,
   'metricKeyList' | 'paramKeyList' | 'modelVersionsByRunUuid'
 > &
-  Pick<
-    ExperimentPageUIState,
-    'runsExpanded' | 'runsPinned' | 'runsHidden' | 'useGroupedValuesInCharts' | 'runsVisibilityMap'
-  > &
+  Pick<ExperimentPageUIState, 'runsExpanded' | 'runsPinned' | 'runsHidden' | 'runsVisibilityMap'> &
   Partial<Pick<ExperimentPageUIState, 'groupsExpanded' | 'runsHiddenMode'>> & {
     /**
      * List of experiments containing the runs

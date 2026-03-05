@@ -20,7 +20,6 @@ export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'groupBy',
   'groupsExpanded',
   'autoRefreshEnabled',
-  'useGroupedValuesInCharts',
   'hideEmptyCharts',
   'globalLineChartConfig',
   'chartsSearchFilter',
@@ -139,11 +138,6 @@ export interface ExperimentPageUIState extends ExperimentRunsChartsUIConfigurati
   groupBy: string | RunsGroupByConfig | null;
 
   /**
-   * Determines if the grouped and aggregated values should be displayed in charts
-   */
-  useGroupedValuesInCharts?: boolean;
-
-  /**
    * Map of the currently expanded run groups
    */
   groupsExpanded: Record<string, boolean>;
@@ -169,7 +163,6 @@ export const createExperimentPageUIState = (): ExperimentPageUIState => ({
   viewMaximized: false,
   runListHidden: false,
   isAccordionReordered: false,
-  useGroupedValuesInCharts: true,
   hideEmptyCharts: true,
   groupBy: null,
   groupsExpanded: {},

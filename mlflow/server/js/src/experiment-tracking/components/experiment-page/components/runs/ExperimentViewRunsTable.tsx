@@ -189,7 +189,7 @@ export const ExperimentViewRunsTable = React.memo(
     );
 
     // A modern version of row visibility toggle function, supports "show all", "show first n runs" options
-    const toggleRowVisibility = useToggleRowVisibilityCallback(rowsData, uiState.useGroupedValuesInCharts);
+    const toggleRowVisibility = useToggleRowVisibilityCallback(rowsData);
 
     const gridReadyHandler = useCallback((params: GridReadyEvent) => {
       setGridApi(params.api);
@@ -384,7 +384,7 @@ export const ExperimentViewRunsTable = React.memo(
             <ExperimentViewRunsTableHeaderContextProvider
               runsHiddenMode={uiState.runsHiddenMode}
               usingCustomVisibility={usingCustomVisibility}
-              useGroupedValuesInCharts={Boolean(uiState.groupBy) && uiState.useGroupedValuesInCharts}
+              useGroupedValuesInCharts={Boolean(uiState.groupBy)}
               allRunsHidden={allRunsHidden}
             >
               <MLFlowAgGridLoader

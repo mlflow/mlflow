@@ -207,7 +207,6 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     groupsExpanded: uiState.groupsExpanded,
     runsHiddenMode: uiState.runsHiddenMode,
     runsVisibilityMap: uiState.runsVisibilityMap,
-    useGroupedValuesInCharts: uiState.useGroupedValuesInCharts,
     searchFacetsState,
     loggedModelsV3ByRunUuid,
   });
@@ -236,7 +235,6 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
 
   const isTabActive = useIsTabActive();
   const autoRefreshEnabled = uiState.autoRefreshEnabled && isTabActive;
-  const usingGroupedValuesInCharts = uiState.useGroupedValuesInCharts ?? true;
 
   const tableElement =
     requestError instanceof Error && !isLoadingRuns ? (
@@ -319,7 +317,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               experimentTags={runsData.experimentTags}
               compareRunCharts={uiState.compareRunCharts}
               compareRunSections={uiState.compareRunSections}
-              groupBy={usingGroupedValuesInCharts ? uiState.groupBy : null}
+              groupBy={uiState.groupBy}
               autoRefreshEnabled={autoRefreshEnabled}
               hideEmptyCharts={uiState.hideEmptyCharts}
               globalLineChartConfig={uiState.globalLineChartConfig}
