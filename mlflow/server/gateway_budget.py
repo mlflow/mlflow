@@ -99,15 +99,11 @@ def _compute_cost_from_child_spans(trace_id: str) -> float:
 
 
 def fire_budget_exceeded_webhooks(
-    newly_exceeded: list[BudgetWindow], workspace: str | None
+    newly_exceeded: list[BudgetWindow],
+    workspace: str | None,
+    registry_store,
 ) -> None:
     """Fire budget_policy.exceeded webhooks for newly-exceeded budget windows."""
-    try:
-        registry_store = _get_model_registry_store()
-    except Exception:
-        _logger.debug("Failed to get model registry store for webhook delivery", exc_info=True)
-        return
-
     event = WebhookEvent(WebhookEntity.BUDGET_POLICY, WebhookAction.EXCEEDED)
 
     for window in newly_exceeded:
@@ -139,6 +135,10 @@ def make_budget_on_complete(
     ended and their MODEL, CHAT_USAGE, and MODEL_PROVIDER attributes are available.
     Works for both streaming and non-streaming paths.
     """
+    try:
+        registry_store = _get_model_registry_store()
+    except Exception:
+        registry_store = None
 
     def on_complete():
         try:
@@ -153,7 +153,8 @@ def make_budget_on_complete(
             maybe_refresh_budget_policies(store)
             tracker = get_budget_tracker()
             if newly_exceeded := tracker.record_cost(total_cost, workspace=workspace):
-                fire_budget_exceeded_webhooks(newly_exceeded, workspace)
+                if registry_store:
+                    fire_budget_exceeded_webhooks(newly_exceeded, workspace, registry_store)
         except Exception:
             _logger.debug("Failed to record budget cost", exc_info=True)
 

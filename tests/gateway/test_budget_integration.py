@@ -1,5 +1,10 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+import mlflow
+import mlflow.gateway.budget_tracker as _bt_module
+from mlflow.entities import SpanType
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDurationUnit,
@@ -7,20 +12,26 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
-from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
+from mlflow.gateway.budget_tracker import get_budget_tracker
+from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.server.gateway_budget import (
     calculate_existing_cost_for_new_windows,
     fire_budget_exceeded_webhooks,
     make_budget_on_complete,
     maybe_refresh_budget_policies,
 )
+from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.constant import CostKey, SpanAttributeKey
+from mlflow.tracking.fluent import _get_experiment_id
 
-_COST_FUNC = "mlflow.server.gateway_budget.calculate_cost_by_model_and_token_usage"
-_TRACKER_FUNC = "mlflow.server.gateway_budget.get_budget_tracker"
 _DELIVER_FUNC = "mlflow.server.gateway_budget.deliver_webhook"
-_REGISTRY_FUNC = "mlflow.server.gateway_budget._get_model_registry_store"
-_MODEL_SPAN_INFO_FUNC = "mlflow.gateway.tracing_utils._get_model_span_info"
+
+
+@pytest.fixture(autouse=True)
+def _reset_budget_tracker():
+    _bt_module._budget_tracker = None
+    yield
+    _bt_module._budget_tracker = None
 
 
 def _make_policy(
@@ -41,161 +52,173 @@ def _make_policy(
     )
 
 
-def _make_model_span_info(
-    model="gpt-4o",
-    provider="openai",
-    usage=None,
-):
-    """Create a mock _ModelSpanInfo with the given span attributes."""
-    from mlflow.gateway.tracing_utils import _ModelSpanInfo
-
-    attrs = {}
-    if model:
-        attrs[SpanAttributeKey.MODEL] = model
-    if provider:
-        attrs[SpanAttributeKey.MODEL_PROVIDER] = provider
-    if usage is not None:
-        attrs[SpanAttributeKey.CHAT_USAGE] = usage
-    return _ModelSpanInfo(name=f"model/{provider}/{model}", attributes=attrs)
+def _make_endpoint_config():
+    return GatewayEndpointConfig(
+        endpoint_id="ep-test",
+        endpoint_name="test-endpoint",
+        experiment_id=_get_experiment_id(),
+        models=[],
+    )
 
 
-def _mock_active_span():
-    """Create a mock span with a trace_id."""
-    span = MagicMock()
-    span.trace_id = "test-trace-id"
-    return span
+def _make_store(policies=None):
+    store = MagicMock()
+    store.list_budget_policies.return_value = policies or []
+    store.sum_gateway_trace_cost.return_value = 0.0
+    return store
 
 
-# --- make_budget_on_complete tests ---
+async def maybe_traced_call(provider_func, endpoint_config, on_complete):
+    traced = maybe_traced_gateway_call(provider_func, endpoint_config, on_complete=on_complete)
+    return await traced({"messages": [{"role": "user", "content": "test"}]})
 
 
-def test_budget_on_complete():
-    usage = {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150}
-    with (
-        patch(_TRACKER_FUNC) as mock_get_tracker,
-        patch(_COST_FUNC, return_value={CostKey.TOTAL_COST: 0.05}),
-        patch(_MODEL_SPAN_INFO_FUNC, return_value=[_make_model_span_info(usage=usage)]),
-        patch("mlflow.get_current_active_span", return_value=_mock_active_span()),
-    ):
-        tracker = InMemoryBudgetTracker()
-        tracker.refresh_policies([_make_policy(budget_amount=100.0)])
-        mock_get_tracker.return_value = tracker
-
-        store = MagicMock()
-        store.list_budget_policies.return_value = [_make_policy(budget_amount=100.0)]
-
-        on_complete = make_budget_on_complete(store, workspace=None)
-        on_complete()
-
-        window = tracker._get_window_info("bp-test")
-        assert window.cumulative_spend == 0.05
-
-
-def test_budget_on_complete_no_span():
-    with patch("mlflow.get_current_active_span", return_value=None):
-        store = MagicMock()
-        on_complete = make_budget_on_complete(store, workspace=None)
-        on_complete()  # should not raise
-
-
-def test_budget_on_complete_no_child_spans():
-    with (
-        patch(_MODEL_SPAN_INFO_FUNC, return_value=[]),
-        patch("mlflow.get_current_active_span", return_value=_mock_active_span()),
-    ):
-        store = MagicMock()
-        on_complete = make_budget_on_complete(store, workspace=None)
-        on_complete()  # should not raise
-
-
-def test_budget_on_complete_no_cost():
-    usage = {"input_tokens": 100, "output_tokens": 50}
-    with (
-        patch(_COST_FUNC, return_value=None),
-        patch(_MODEL_SPAN_INFO_FUNC, return_value=[_make_model_span_info(usage=usage)]),
-        patch("mlflow.get_current_active_span", return_value=_mock_active_span()),
-    ):
-        store = MagicMock()
-        on_complete = make_budget_on_complete(store, workspace=None)
-        on_complete()  # should not raise
-
-
-def test_budget_on_complete_triggers_webhook():
-    usage = {"input_tokens": 1000, "output_tokens": 500, "total_tokens": 1500}
-    with (
-        patch(_DELIVER_FUNC) as mock_deliver,
-        patch(_REGISTRY_FUNC) as mock_registry,
-        patch(_TRACKER_FUNC) as mock_get_tracker,
-        patch(_COST_FUNC, return_value={CostKey.TOTAL_COST: 200.0}),
-        patch(_MODEL_SPAN_INFO_FUNC, return_value=[_make_model_span_info(usage=usage)]),
-        patch("mlflow.get_current_active_span", return_value=_mock_active_span()),
-    ):
-        mock_registry.return_value = MagicMock()
-
-        tracker = InMemoryBudgetTracker()
-        tracker.refresh_policies(
-            [_make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)]
+async def _provider_with_cost(payload):
+    """Simulates a provider that sets LLM_COST on its child span."""
+    with mlflow.start_span("provider/openai/gpt-4o", span_type=SpanType.LLM) as span:
+        span.set_attributes(
+            {
+                SpanAttributeKey.MODEL: "gpt-4o",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+                SpanAttributeKey.LLM_COST: {
+                    CostKey.INPUT_COST: 0.025,
+                    CostKey.OUTPUT_COST: 0.050,
+                    CostKey.TOTAL_COST: 0.075,
+                },
+            }
         )
-        mock_get_tracker.return_value = tracker
+    return {"choices": [{"message": {"content": "Hello"}}]}
 
-        store = MagicMock()
-        store.list_budget_policies.return_value = [
-            _make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)
-        ]
+
+async def _provider_no_cost(payload):
+    """Simulates a provider that creates a span without cost attributes."""
+    with mlflow.start_span("provider/custom/no-cost", span_type=SpanType.LLM) as span:
+        span.set_attribute(SpanAttributeKey.MODEL, "custom-model")
+    return {"choices": [{"message": {"content": "Hello"}}]}
+
+
+# --- make_budget_on_complete integration tests ---
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_records_cost():
+    policy = _make_policy(budget_amount=100.0)
+    store = _make_store(policies=[policy])
+
+    on_complete = make_budget_on_complete(store, workspace=None)
+    await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+    tracker = get_budget_tracker()
+    window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == pytest.approx(0.075)
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_no_span():
+    store = _make_store()
+    on_complete = make_budget_on_complete(store, workspace=None)
+    on_complete()  # called outside trace context — should not raise
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_no_cost():
+    policy = _make_policy(budget_amount=100.0)
+    store = _make_store(policies=[policy])
+
+    on_complete = make_budget_on_complete(store, workspace=None)
+    await maybe_traced_call(_provider_no_cost, _make_endpoint_config(), on_complete)
+
+    # No cost was computed, so record_cost was never called.
+    # The tracker may or may not have refreshed policies (early return before refresh).
+    tracker = get_budget_tracker()
+    window = tracker._get_window_info("bp-test")
+    if window is not None:
+        assert window.cumulative_spend == 0.0
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_triggers_webhook():
+    with patch(_DELIVER_FUNC) as mock_deliver:
+        policy = _make_policy(budget_amount=0.05, budget_action=BudgetAction.ALERT)
+        store = _make_store(policies=[policy])
+        endpoint_config = _make_endpoint_config()
 
         on_complete = make_budget_on_complete(store, workspace=None)
-        on_complete()
+        await maybe_traced_call(_provider_with_cost, endpoint_config, on_complete)
 
         mock_deliver.assert_called_once()
-        window = tracker._get_window_info("bp-test")
-        assert window.cumulative_spend == 200.0
-        assert window.exceeded is True
+        payload = mock_deliver.call_args.kwargs["payload"]
+        assert payload["budget_policy_id"] == "bp-test"
+        assert payload["budget_amount"] == 0.05
+        assert payload["current_spend"] == pytest.approx(0.075)
 
 
-def test_budget_on_complete_no_webhook_for_reject():
-    usage = {"input_tokens": 1000, "output_tokens": 500}
-    with (
-        patch(_DELIVER_FUNC) as mock_deliver,
-        patch(_REGISTRY_FUNC) as mock_registry,
-        patch(_TRACKER_FUNC) as mock_get_tracker,
-        patch(_COST_FUNC, return_value={CostKey.TOTAL_COST: 200.0}),
-        patch(_MODEL_SPAN_INFO_FUNC, return_value=[_make_model_span_info(usage=usage)]),
-        patch("mlflow.get_current_active_span", return_value=_mock_active_span()),
-    ):
-        mock_registry.return_value = MagicMock()
-
-        tracker = InMemoryBudgetTracker()
-        tracker.refresh_policies(
-            [_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)]
-        )
-        mock_get_tracker.return_value = tracker
-
-        store = MagicMock()
-        store.list_budget_policies.return_value = [
-            _make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)
-        ]
+@pytest.mark.asyncio
+async def test_budget_on_complete_no_webhook_for_reject():
+    with patch(_DELIVER_FUNC) as mock_deliver:
+        policy = _make_policy(budget_amount=0.05, budget_action=BudgetAction.REJECT)
+        store = _make_store(policies=[policy])
+        endpoint_config = _make_endpoint_config()
 
         on_complete = make_budget_on_complete(store, workspace=None)
-        on_complete()
+        await maybe_traced_call(_provider_with_cost, endpoint_config, on_complete)
 
         mock_deliver.assert_not_called()
+        tracker = get_budget_tracker()
         assert tracker._get_window_info("bp-test").exceeded is True
+
+
+# --- multi-invocation integration test ---
+
+
+@pytest.mark.asyncio
+async def test_budget_accumulates_over_multiple_invocations():
+    with patch(_DELIVER_FUNC) as mock_deliver:
+        policy = _make_policy(budget_amount=0.20, budget_action=BudgetAction.ALERT)
+        store = _make_store(policies=[policy])
+        endpoint_config = _make_endpoint_config()
+
+        # Call 1: 0.075 spend, under budget
+        on_complete = make_budget_on_complete(store, workspace=None)
+        await maybe_traced_call(_provider_with_cost, endpoint_config, on_complete)
+        mock_deliver.assert_not_called()
+
+        # Call 2: 0.15 spend, still under budget
+        on_complete = make_budget_on_complete(store, workspace=None)
+        await maybe_traced_call(_provider_with_cost, endpoint_config, on_complete)
+        mock_deliver.assert_not_called()
+
+        # Call 3: 0.225 spend, exceeds $0.20 budget → webhook fires
+        on_complete = make_budget_on_complete(store, workspace=None)
+        await maybe_traced_call(_provider_with_cost, endpoint_config, on_complete)
+        mock_deliver.assert_called_once()
+
+        tracker = get_budget_tracker()
+        window = tracker._get_window_info("bp-test")
+        assert window.cumulative_spend == pytest.approx(0.225)
+        assert window.exceeded is True
+
+        # Call 4: already exceeded, webhook should not fire again
+        on_complete = make_budget_on_complete(store, workspace=None)
+        await maybe_traced_call(_provider_with_cost, endpoint_config, on_complete)
+        mock_deliver.assert_called_once()  # still just the one call
+
+        window = tracker._get_window_info("bp-test")
+        assert window.cumulative_spend == pytest.approx(0.30)
 
 
 # --- fire_budget_exceeded_webhooks tests ---
 
 
 def test_fire_budget_exceeded_webhooks_alert():
-    with patch(_DELIVER_FUNC) as mock_deliver, patch(_REGISTRY_FUNC) as mock_registry:
-        mock_registry.return_value = MagicMock()
-
-        tracker = InMemoryBudgetTracker()
+    with patch(_DELIVER_FUNC) as mock_deliver:
+        tracker = get_budget_tracker()
         policy = _make_policy(budget_amount=50.0, budget_action=BudgetAction.ALERT)
         tracker.refresh_policies([policy])
         crossed = tracker.record_cost(60.0)
         assert len(crossed) == 1
 
-        fire_budget_exceeded_webhooks(crossed, workspace=None)
+        fire_budget_exceeded_webhooks(crossed, workspace=None, registry_store=MagicMock())
         mock_deliver.assert_called_once()
 
         payload = mock_deliver.call_args.kwargs["payload"]
@@ -205,68 +228,58 @@ def test_fire_budget_exceeded_webhooks_alert():
 
 
 def test_fire_budget_exceeded_webhooks_reject_skipped():
-    with patch(_DELIVER_FUNC) as mock_deliver, patch(_REGISTRY_FUNC) as mock_registry:
-        mock_registry.return_value = MagicMock()
-
-        tracker = InMemoryBudgetTracker()
+    with patch(_DELIVER_FUNC) as mock_deliver:
+        tracker = get_budget_tracker()
         policy = _make_policy(budget_amount=50.0, budget_action=BudgetAction.REJECT)
         tracker.refresh_policies([policy])
         crossed = tracker.record_cost(60.0)
         assert len(crossed) == 1
 
-        fire_budget_exceeded_webhooks(crossed, workspace=None)
+        fire_budget_exceeded_webhooks(crossed, workspace=None, registry_store=MagicMock())
         mock_deliver.assert_not_called()
 
 
 def test_fire_budget_exceeded_webhooks_with_workspace():
-    with patch(_DELIVER_FUNC) as mock_deliver, patch(_REGISTRY_FUNC) as mock_registry:
-        mock_registry.return_value = MagicMock()
-
-        tracker = InMemoryBudgetTracker()
+    with patch(_DELIVER_FUNC) as mock_deliver:
+        tracker = get_budget_tracker()
         policy = _make_policy(budget_amount=50.0, budget_action=BudgetAction.ALERT)
         tracker.refresh_policies([policy])
         crossed = tracker.record_cost(60.0)
 
-        fire_budget_exceeded_webhooks(crossed, workspace="my-ws")
+        fire_budget_exceeded_webhooks(crossed, workspace="my-ws", registry_store=MagicMock())
         payload = mock_deliver.call_args.kwargs["payload"]
         assert payload["workspace"] == "my-ws"
 
 
-# --- _maybe_refresh_budget_policies tests ---
+# --- maybe_refresh_budget_policies tests ---
 
 
 def test_maybe_refresh_budget_policies():
-    with patch(_TRACKER_FUNC) as mock_get_tracker:
-        tracker = InMemoryBudgetTracker()
-        mock_get_tracker.return_value = tracker
+    store = MagicMock()
+    store.list_budget_policies.return_value = [_make_policy()]
+    store.sum_gateway_trace_cost.return_value = 0.0
 
-        store = MagicMock()
-        policy = _make_policy()
-        store.list_budget_policies.return_value = [policy]
+    maybe_refresh_budget_policies(store)
 
-        maybe_refresh_budget_policies(store)
-
-        store.list_budget_policies.assert_called_once()
-        window = tracker._get_window_info("bp-test")
-        assert window is not None
+    store.list_budget_policies.assert_called_once()
+    tracker = get_budget_tracker()
+    assert tracker._get_window_info("bp-test") is not None
 
 
 def test_maybe_refresh_skips_when_not_needed():
-    with patch(_TRACKER_FUNC) as mock_get_tracker:
-        tracker = InMemoryBudgetTracker()
-        tracker.refresh_policies([_make_policy()])
-        mock_get_tracker.return_value = tracker
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([_make_policy()])
 
-        store = MagicMock()
-        maybe_refresh_budget_policies(store)
-        store.list_budget_policies.assert_not_called()
+    store = MagicMock()
+    maybe_refresh_budget_policies(store)
+    store.list_budget_policies.assert_not_called()
 
 
 # --- calculate_existing_cost_for_new_windows tests ---
 
 
 def test_calculate_existing_cost_on_new_windows():
-    tracker = InMemoryBudgetTracker()
+    tracker = get_budget_tracker()
     new_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     store = MagicMock()
@@ -276,37 +289,31 @@ def test_calculate_existing_cost_on_new_windows():
     tracker.backfill_spend(existing_spend)
 
     store.sum_gateway_trace_cost.assert_called_once()
-    window = tracker._get_window_info("bp-test")
-    assert window.cumulative_spend == 42.0
+    assert tracker._get_window_info("bp-test").cumulative_spend == 42.0
 
 
 def test_calculate_existing_cost_skipped_when_no_new_windows():
     store = MagicMock()
-
     result = calculate_existing_cost_for_new_windows(store, [])
-
     assert result == {}
     store.sum_gateway_trace_cost.assert_not_called()
 
 
 def test_calculate_existing_cost_handles_store_error():
-    tracker = InMemoryBudgetTracker()
+    tracker = get_budget_tracker()
     new_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     store = MagicMock()
     store.sum_gateway_trace_cost.side_effect = Exception("DB error")
 
-    # Should not raise
     existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
     tracker.backfill_spend(existing_spend)
 
-    # Window should remain at 0 since calculation failed
-    window = tracker._get_window_info("bp-test")
-    assert window.cumulative_spend == 0.0
+    assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
 
 
 def test_calculate_existing_cost_zero_spend_excluded():
-    tracker = InMemoryBudgetTracker()
+    tracker = get_budget_tracker()
     new_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     store = MagicMock()
@@ -316,21 +323,16 @@ def test_calculate_existing_cost_zero_spend_excluded():
     assert existing_spend == {}
 
     tracker.backfill_spend(existing_spend)
-    window = tracker._get_window_info("bp-test")
-    assert window.cumulative_spend == 0.0
+    assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
 
 
 def test_refresh_triggers_backfill():
-    tracker = InMemoryBudgetTracker()
-
     store = MagicMock()
-    policy = _make_policy(budget_amount=100.0)
-    store.list_budget_policies.return_value = [policy]
+    store.list_budget_policies.return_value = [_make_policy(budget_amount=100.0)]
     store.sum_gateway_trace_cost.return_value = 25.0
 
-    with patch(_TRACKER_FUNC, return_value=tracker):
-        maybe_refresh_budget_policies(store)
+    maybe_refresh_budget_policies(store)
 
     store.sum_gateway_trace_cost.assert_called_once()
-    window = tracker._get_window_info("bp-test")
-    assert window.cumulative_spend == 25.0
+    tracker = get_budget_tracker()
+    assert tracker._get_window_info("bp-test").cumulative_spend == 25.0
