@@ -293,7 +293,6 @@ export function IssueDetectionAdvancedApiKeySettings({
           field={field}
           value={field.fieldType === 'secret' ? value.newSecret.secretFields : value.newSecret.configFields}
           onChange={field.fieldType === 'secret' ? handleSecretFieldChange : handleConfigFieldChange}
-          componentIdPrefix={componentIdPrefix}
           disabled={disabled}
         />
       ))}
@@ -319,10 +318,13 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
 
   return (
     <div>
-      <FormUI.Label htmlFor={fieldId}>
+      <Typography.Text
+        color="secondary"
+        css={{ display: 'block', marginBottom: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
+      >
         {formatCredentialFieldName(field.name)}
         {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
-      </FormUI.Label>
+      </Typography.Text>
       {field.fieldType === 'secret' ? (
         <SecretInput
           id={fieldId}
@@ -402,9 +404,13 @@ function AuthMethodSelector({ authModes, value, defaultAuthMode, onChange, disab
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
               {authModes.map((mode) => (
                 <Radio key={mode.mode} value={mode.mode}>
-                  <div>
-                    <div css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>{mode.display_name}</div>
-                    {mode.description && <div css={{ color: theme.colors.textSecondary }}>{mode.description}</div>}
+                  <div css={{ fontSize: theme.typography.fontSizeSm }}>
+                    <div>{mode.display_name}</div>
+                    {mode.description && (
+                      <div css={{ color: theme.colors.textSecondary, fontSize: theme.typography.fontSizeSm }}>
+                        {mode.description}
+                      </div>
+                    )}
                   </div>
                 </Radio>
               ))}

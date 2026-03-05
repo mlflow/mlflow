@@ -1,4 +1,4 @@
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme, Typography } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { ModelSelect } from '../../../../../gateway/components/create-endpoint/ModelSelect';
 import { IssueDetectionAdvancedApiKeySettings } from './IssueDetectionApiKeyConfigurator';
@@ -40,10 +40,12 @@ export function IssueDetectionAdvancedSettings({
             onChange={onAnalysisModelChange}
             componentIdPrefix="mlflow.traces.issue-detection-modal.analysis-model"
             label={
-              <FormattedMessage
-                defaultMessage="Analysis Model *"
-                description="Label for analysis model selection (required)"
-              />
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage
+                  defaultMessage="Analysis Model *"
+                  description="Label for analysis model selection (required)"
+                />
+              </Typography.Text>
             }
             hideCapabilities
           />
@@ -55,10 +57,12 @@ export function IssueDetectionAdvancedSettings({
             onChange={onJudgeModelChange}
             componentIdPrefix="mlflow.traces.issue-detection-modal.judge-model"
             label={
-              <FormattedMessage
-                defaultMessage="Judge Model *"
-                description="Label for judge model selection (required)"
-              />
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage
+                  defaultMessage="Judge Model *"
+                  description="Label for judge model selection (required)"
+                />
+              </Typography.Text>
             }
             hideCapabilities
           />
