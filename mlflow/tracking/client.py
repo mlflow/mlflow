@@ -6158,7 +6158,11 @@ class MlflowClient:
             client.delete_prompt_version("my_prompt", "1")
         """
         registry_client = self._get_registry_client()
-        return registry_client.delete_prompt_version(name, version)
+        registry_client.delete_prompt_version(name, version)
+
+        # Invalidate all cache entries for this prompt name since aliases and
+        # "latest" may also resolve to the deleted version.
+        PromptCache.get_instance().delete_all(name)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -6323,7 +6327,9 @@ class MlflowClient:
         # the background thread holds a session open while we try to delete.
         with _prompt_experiment_link_lock:
             # For non-Unity Catalog registries, or if version check passes, delete the prompt
-            return registry_client.delete_prompt(name)
+            registry_client.delete_prompt(name)
+            PromptCache.get_instance().delete_all(name)
+            return
 
     @experimental(version="3.4.0")
     @_disable_in_databricks()
