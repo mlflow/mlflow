@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -9,9 +10,11 @@ from datetime import datetime, timezone
 
 import mlflow
 from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.constants import (
+    ANNOTATION_MAX_TOKENS,
     CONFIDENCE_ORDER,
     DEFAULT_ANALYSIS_MODEL,
     DEFAULT_JUDGE_MODEL,
@@ -20,6 +23,11 @@ from mlflow.genai.discovery.constants import (
     MAX_EXAMPLE_TRACE_IDS,
     MIN_CONFIDENCE,
     MIN_EXAMPLES,
+    NO_ISSUE_KEYWORD,
+    NUM_RETRIES,
+    SURFACE_TRUNCATION_LIMIT,
+    TRACE_ANNOTATION_SYSTEM_PROMPT,
+    TRACE_CONTENT_TRUNCATION,
     build_satisfaction_instructions,
 )
 from mlflow.genai.discovery.entities import (
@@ -29,23 +37,26 @@ from mlflow.genai.discovery.entities import (
     _IdentifiedIssue,
 )
 from mlflow.genai.discovery.utils import (
-    _build_summary,
-    _cluster_analyses,
-    _extract_execution_path,
-    _extract_execution_paths_for_session,
-    _extract_failing_traces,
-    _extract_failure_labels,
-    _extract_span_errors,
-    _get_session_id,
-    _group_traces_by_session,
-    _log_discovery_artifacts,
-    _sample_traces,
-    _summarize_cluster,
-    _test_scorer,
+    build_summary,
+    cluster_analyses,
+    cluster_by_llm,
+    extract_execution_path,
+    extract_execution_paths_for_session,
+    extract_failing_traces,
+    extract_failure_labels,
+    extract_span_errors,
+    get_session_id,
+    group_traces_by_session,
+    log_discovery_artifacts,
+    sample_traces,
+    summarize_cluster,
+    verify_scorer,
 )
+from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
 from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 
@@ -85,8 +96,6 @@ class _TokenCounter:
     """Thread-safe accumulator for LLM token usage across pipeline phases."""
 
     def __init__(self):
-        import threading
-
         self._lock = threading.Lock()
         self.input_tokens = 0
         self.output_tokens = 0
@@ -115,8 +124,7 @@ class _TokenCounter:
 
 
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:
-    from mlflow.genai.discovery.constants import NO_ISSUE_KEYWORD
-
+    """Check if an identified issue is actually a false positive (no real issue)."""
     if NO_ISSUE_KEYWORD.lower() in issue.name.lower():
         return True
     combined = f"{issue.name} {issue.description} {issue.root_cause}".lower()
@@ -126,9 +134,11 @@ def _is_non_issue(issue: _IdentifiedIssue) -> bool:
 def _extract_assessment_rationale(trace: Trace, scorer_name: str) -> str:
     return next(
         (
-            a.rationale
-            for a in trace.info.assessments
-            if isinstance(a, Feedback) and a.name == scorer_name and a.rationale
+            assessment.rationale
+            for assessment in trace.info.assessments
+            if isinstance(assessment, Feedback)
+            and assessment.name == scorer_name
+            and assessment.rationale
         ),
         "",
     )
@@ -138,6 +148,7 @@ def _collect_example_trace_ids(
     issue: _IdentifiedIssue,
     analyses: list[_ConversationAnalysis],
 ) -> list[str]:
+    """Gather trace IDs from analyses referenced by the issue's example indices."""
     trace_ids = []
     for idx in issue.example_indices:
         if 0 <= idx < len(analyses):
@@ -152,11 +163,22 @@ def _recluster_singletons(
     analysis_model: str,
     label_model: str,
     max_issues: int,
-    token_counter=None,
+    token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
-    """Re-cluster singleton issues via a second LLM pass to find better groupings."""
-    from mlflow.genai.discovery.utils import _cluster_by_llm
+    """Re-cluster singleton issues via a second LLM pass to find better groupings.
 
+    Args:
+        singletons: Single-analysis issues to attempt merging.
+        labels: Failure labels from the initial clustering phase.
+        analyses: All conversation analyses from the pipeline.
+        analysis_model: Model URI for cluster summarization.
+        label_model: Model URI for clustering.
+        max_issues: Maximum number of groups to produce.
+        token_counter: Optional token counter for tracking LLM usage.
+
+    Returns:
+        List of issues after re-clustering (merged or original singletons).
+    """
     if len(singletons) < 2:
         return list(singletons)
 
@@ -165,7 +187,7 @@ def _recluster_singletons(
         idx = singleton.example_indices[0]
         singleton_labels.append(labels[idx] if idx < len(labels) else singleton.name)
 
-    new_groups = _cluster_by_llm(
+    new_groups = cluster_by_llm(
         singleton_labels, max_issues, label_model, token_counter=token_counter
     )
 
@@ -174,14 +196,14 @@ def _recluster_singletons(
         if len(group) == 1:
             result.append(singletons[group[0]])
             continue
-        merged_indices = [singletons[g].example_indices[0] for g in group]
-        merged_issue = _summarize_cluster(
+        merged_indices = [singletons[group_idx].example_indices[0] for group_idx in group]
+        merged_issue = summarize_cluster(
             merged_indices, analyses, analysis_model, token_counter=token_counter
         )
         if confidence_gte(merged_issue.confidence, MIN_CONFIDENCE):
             result.append(merged_issue)
         else:
-            result.extend(singletons[g] for g in group)
+            result.extend(singletons[group_idx] for group_idx in group)
 
     return result
 
@@ -190,12 +212,12 @@ def _format_trace_content(trace: Trace) -> str:
     """Build a compact text representation of a trace for annotation prompts."""
     parts = []
     if request := trace.data.request:
-        parts.append(f"Input: {str(request)[:1000]}")
+        parts.append(f"Input: {str(request)[:TRACE_CONTENT_TRUNCATION]}")
     if response := trace.data.response:
-        parts.append(f"Output: {str(response)[:1000]}")
-    if (exec_path := _extract_execution_path(trace)) and exec_path != "(no routing)":
+        parts.append(f"Output: {str(response)[:TRACE_CONTENT_TRUNCATION]}")
+    if (exec_path := extract_execution_path(trace)) and exec_path != "(no routing)":
         parts.append(f"Execution path: {exec_path}")
-    if errors := _extract_span_errors(trace):
+    if errors := extract_span_errors(trace):
         parts.append(f"Errors: {errors}")
     return "\n".join(parts) if parts else "(trace content not available)"
 
@@ -207,21 +229,23 @@ def _annotate_issue_traces(
     model: str,
     trace_to_session: dict[str, str] | None = None,
     session_first_trace: dict[str, str] | None = None,
-    token_counter=None,
+    token_counter: _TokenCounter | None = None,
 ) -> None:
     """Log a Feedback assessment for each issue on affected traces.
 
     When session information is provided, logs one annotation per (issue,
     session) on the session's first trace. Otherwise annotates each trace
     individually.
+
+    Args:
+        issues: Discovered issues to annotate traces for.
+        rationale_map: Mapping of trace_id to triage rationale text.
+        trace_lookup: Mapping of trace_id to Trace objects.
+        model: Model URI for the annotation LLM.
+        trace_to_session: Optional mapping of trace_id to session_id.
+        session_first_trace: Optional mapping of session_id to first trace_id.
+        token_counter: Optional token counter for tracking LLM usage.
     """
-
-    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-    from mlflow.genai.discovery.constants import TRACE_ANNOTATION_SYSTEM_PROMPT
-    from mlflow.genai.discovery.utils import _NUM_RETRIES
-    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-    from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
-
     litellm_model = convert_model_uri_to_litellm(model)
 
     source = AssessmentSource(
@@ -237,12 +261,12 @@ def _annotate_issue_traces(
         if trace_to_session and session_first_trace:
             session_traces: dict[str, list[str]] = {}
             for tid in issue.example_trace_ids:
-                sid = trace_to_session.get(tid, tid)
-                session_traces.setdefault(sid, []).append(tid)
-            for sid, tids in session_traces.items():
-                target = session_first_trace.get(sid, tids[0])
+                session_id = trace_to_session.get(tid, tid)
+                session_traces.setdefault(session_id, []).append(tid)
+            for session_id, tids in session_traces.items():
+                target = session_first_trace.get(session_id, tids[0])
                 rationale = next((rationale_map[t] for t in tids if t in rationale_map), "")
-                work_items.append((issue, target, rationale, sid))
+                work_items.append((issue, target, rationale, session_id))
         else:
             work_items.extend(
                 (issue, trace_id, rationale_map.get(trace_id, ""), None)
@@ -276,10 +300,10 @@ def _annotate_issue_traces(
                     {"role": "user", "content": user_content},
                 ],
                 tools=[],
-                num_retries=_NUM_RETRIES,
+                num_retries=NUM_RETRIES,
                 response_format=None,
                 include_response_format=False,
-                inference_params={"max_tokens": 4096, "temperature": 0},
+                inference_params={"max_tokens": ANNOTATION_MAX_TOKENS, "temperature": 0},
             )
             if token_counter is not None:
                 token_counter.track(response)
@@ -311,8 +335,11 @@ def _annotate_issue_traces(
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(work_items))
     with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="annotate") as executor:
         future_to_item = {
-            executor.submit(_annotate_one, issue, trace_id, rationale, sid): (issue, trace_id)
-            for issue, trace_id, rationale, sid in work_items
+            executor.submit(_annotate_one, issue, trace_id, rationale, session_id): (
+                issue,
+                trace_id,
+            )
+            for issue, trace_id, rationale, session_id in work_items
         }
         for future in as_completed(future_to_item):
             future.result()
@@ -329,8 +356,7 @@ def discover_issues(
     max_issues: int = 20,
     filter_string: str | None = None,
 ) -> DiscoverIssuesResult:
-    """
-    Discover quality and operational issues in traces.
+    """Discover quality and operational issues in traces.
 
     Runs a multi-phase pipeline:
     1. **Triage**: Scores traces using the provided scorers (or a default
@@ -403,7 +429,7 @@ def discover_issues(
             "locations": [exp_id],
         }
         _logger.info("Phase 1: Sampling %d traces...", triage_sample_size)
-        triage_traces = _sample_traces(triage_sample_size, search_kwargs)
+        triage_traces = sample_traces(triage_sample_size, search_kwargs)
 
     # Ensure all evaluation runs are logged to the source experiment
     if exp_id is not None:
@@ -418,7 +444,7 @@ def discover_issues(
         )
 
     if scorers is None:
-        use_conversation = any(_get_session_id(t) for t in triage_traces)
+        use_conversation = any(get_session_id(trace) for trace in triage_traces)
         if not use_conversation:
             _logger.info(
                 "No session IDs found in trace metadata, falling back to trace-level scorer"
@@ -439,22 +465,20 @@ def discover_issues(
     scorer_name = scorers[0].name
 
     _logger.info("Phase 1: Testing scorer on one trace...")
-    t0 = time.time()
-    _test_scorer(scorers[0], triage_traces[0])
-    _logger.info("Phase 1: Test scorer took %.1fs", time.time() - t0)
+    phase_start = time.time()
+    verify_scorer(scorers[0], triage_traces[0])
+    _logger.info("Phase 1: Test scorer took %.1fs", time.time() - phase_start)
 
     _logger.info("Phase 1: Scoring %d traces...", len(triage_traces))
-    t0 = time.time()
+    phase_start = time.time()
     with mlflow.start_run(run_name="discover_issues - triage"):
         triage_eval = mlflow.genai.evaluate(
             data=triage_traces,
             scorers=scorers,
         )
-    _logger.info("Phase 1: Triage scoring took %.1fs", time.time() - t0)
+    _logger.info("Phase 1: Triage scoring took %.1fs", time.time() - phase_start)
 
     # Aggregate judge costs from Phase 1 evaluation assessments.
-    from mlflow.tracing.constant import AssessmentMetadataKey
-
     try:
         scored_traces = mlflow.search_traces(
             return_type="list",
@@ -467,15 +491,15 @@ def discover_issues(
                     continue
                 if cost := meta.get(AssessmentMetadataKey.JUDGE_COST):
                     token_counter.cost_usd += float(cost)
-                if inp := meta.get(AssessmentMetadataKey.JUDGE_INPUT_TOKENS):
-                    token_counter.input_tokens += int(inp)
-                if out := meta.get(AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS):
-                    token_counter.output_tokens += int(out)
+                if input_tok := meta.get(AssessmentMetadataKey.JUDGE_INPUT_TOKENS):
+                    token_counter.input_tokens += int(input_tok)
+                if output_tok := meta.get(AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS):
+                    token_counter.output_tokens += int(output_tok)
     except Exception:
         _logger.debug("Failed to aggregate Phase 1 judge costs", exc_info=True)
 
     scorer_names = [s.name for s in scorers]
-    failing_traces, rationale_map = _extract_failing_traces(
+    failing_traces, rationale_map = extract_failing_traces(
         triage_eval, scorer_names, original_traces=triage_traces
     )
 
@@ -489,15 +513,18 @@ def discover_issues(
         return DiscoverIssuesResult(
             issues=[],
             triage_run_id=triage_eval.run_id,
-            summary=_build_summary([], len(triage_traces)),
+            summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
         )
 
-    # Phase 2: Build analyses from triage rationales (one per session)
-    session_groups = _group_traces_by_session(triage_traces)
+    # Phase 2: For each session with failing traces, combine triage rationales,
+    # human feedback, and span errors into a single ConversationAnalysis.
+    session_groups = group_traces_by_session(triage_traces)
     analyses: list[_ConversationAnalysis] = []
     for session_id, session_traces in session_groups.items():
-        session_failing = [t for t in session_traces if t.info.trace_id in rationale_map]
+        session_failing = [
+            trace for trace in session_traces if trace.info.trace_id in rationale_map
+        ]
         if not session_failing:
             continue
         rationales: list[str] = []
@@ -508,20 +535,20 @@ def discover_issues(
                 seen_rationales.add(text)
                 rationales.append(f"{prefix}{text}" if prefix else text)
 
-        for t in session_failing:
-            _add_rationale(rationale_map[t.info.trace_id])
-            _add_rationale(_extract_assessment_rationale(t, scorer_name), "[human feedback] ")
-            _add_rationale(_extract_span_errors(t), "[span errors] ")
+        for trace in session_failing:
+            _add_rationale(rationale_map[trace.info.trace_id])
+            _add_rationale(_extract_assessment_rationale(trace, scorer_name), "[human feedback] ")
+            _add_rationale(extract_span_errors(trace), "[span errors] ")
         combined_rationale = "; ".join(rationales)
         if not combined_rationale:
             continue
-        surface = combined_rationale[:800]
-        exec_path = _extract_execution_paths_for_session(session_failing)
+        surface = combined_rationale[:SURFACE_TRUNCATION_LIMIT]
+        exec_path = extract_execution_paths_for_session(session_failing)
         analyses.append(
             _ConversationAnalysis(
                 surface=surface,
                 root_cause=combined_rationale,
-                affected_trace_ids=[t.info.trace_id for t in session_failing],
+                affected_trace_ids=[trace.info.trace_id for trace in session_failing],
                 execution_path=exec_path,
             )
         )
@@ -529,50 +556,50 @@ def discover_issues(
 
     # Phase 3: Cluster — LLM-based label extraction and grouping
     _logger.info("Phase 3: Extracting failure labels for clustering...")
-    t0 = time.time()
-    labels = _extract_failure_labels(analyses, judge_model, token_counter=token_counter)
+    phase_start = time.time()
+    labels = extract_failure_labels(analyses, judge_model, token_counter=token_counter)
     _logger.info(
         "Phase 3: Label extraction took %.1fs",
-        time.time() - t0,
+        time.time() - phase_start,
     )
     for i, label in enumerate(labels):
         _logger.info("  [%d] %s", i, label)
 
     _logger.info("Phase 3: Clustering analyses into issues...")
-    t0 = time.time()
-    cluster_groups = _cluster_analyses(
+    phase_start = time.time()
+    cluster_groups = cluster_analyses(
         analyses,
         max_issues,
         labels=labels,
         label_model=judge_model,
         token_counter=token_counter,
     )
-    t_embed = time.time()
+    cluster_end = time.time()
     _logger.info(
         "Phase 3: Clustering took %.1fs, produced %d clusters",
-        t_embed - t0,
+        cluster_end - phase_start,
         len(cluster_groups),
     )
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(cluster_groups))
 
-    def _summarize_one(gi: int, group: list[int]) -> _IdentifiedIssue:
-        t_s = time.time()
-        issue = _summarize_cluster(group, analyses, analysis_model, token_counter=token_counter)
+    def _summarize_one(cluster_idx: int, group: list[int]) -> _IdentifiedIssue:
+        summarize_start = time.time()
+        issue = summarize_cluster(group, analyses, analysis_model, token_counter=token_counter)
         _logger.info(
             "Phase 3: Summarized cluster %d/%d (%d analyses) in %.1fs",
-            gi + 1,
+            cluster_idx + 1,
             len(cluster_groups),
             len(group),
-            time.time() - t_s,
+            time.time() - summarize_start,
         )
         return issue
 
-    summaries: list[_IdentifiedIssue] = [None] * len(cluster_groups)
+    summaries: list[_IdentifiedIssue | None] = [None] * len(cluster_groups)
     with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="summarize") as executor:
         future_to_idx = {
-            executor.submit(_summarize_one, gi, group): gi
-            for gi, group in enumerate(cluster_groups)
+            executor.submit(_summarize_one, cluster_idx, group): cluster_idx
+            for cluster_idx, group in enumerate(cluster_groups)
         }
         for future in as_completed(future_to_idx):
             summaries[future_to_idx[future]] = future.result()
@@ -593,7 +620,7 @@ def discover_issues(
             resplit_groups.extend([idx] for idx in group)
 
     if resplit_groups:
-        resplit_summaries: list[_IdentifiedIssue] = [None] * len(resplit_groups)
+        resplit_summaries: list[_IdentifiedIssue | None] = [None] * len(resplit_groups)
         with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="resplit") as executor:
             future_to_idx = {
                 executor.submit(_summarize_one, len(cluster_groups) + ri, group): ri
@@ -622,7 +649,8 @@ def discover_issues(
         and not _is_non_issue(issue)
     ]
 
-    # Deduplicate issues with identical names
+    # Merge issues with identical names (case-insensitive), combining their
+    # example indices and keeping the higher confidence level.
     seen_names: dict[str, int] = {}
     deduped: list[_IdentifiedIssue] = []
     for issue in identified:
@@ -663,7 +691,7 @@ def discover_issues(
         "Phase 3 complete: %d issues identified (%d clusters filtered out) in %.1fs",
         len(identified),
         len(cluster_groups) - len(identified),
-        time.time() - t0,
+        time.time() - phase_start,
     )
     for issue in identified:
         example_ids = _collect_example_trace_ids(issue, analyses)
@@ -680,18 +708,17 @@ def discover_issues(
         return DiscoverIssuesResult(
             issues=[],
             triage_run_id=triage_eval.run_id,
-            summary=_build_summary([], len(triage_traces)),
+            summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
         )
 
     # Build final Issue objects. Compute frequency based on affected sessions
     # (falls back to traces when no session IDs exist).
-    num_total = len(triage_traces)
     total_sessions = len(session_groups)
     trace_to_session: dict[str, str] = {}
-    for sid, traces_in_session in session_groups.items():
-        for t in traces_in_session:
-            trace_to_session[t.info.trace_id] = sid
+    for session_id, traces_in_session in session_groups.items():
+        for trace in traces_in_session:
+            trace_to_session[trace.info.trace_id] = session_id
 
     now_iso = datetime.now(timezone.utc).isoformat()
     issues: list[Issue] = []
@@ -721,17 +748,17 @@ def discover_issues(
     )
 
     # Phase 4: Annotate affected traces with per-issue feedback assessments
-    trace_lookup = {t.info.trace_id: t for t in triage_traces}
+    trace_lookup = {trace.info.trace_id: trace for trace in triage_traces}
     _logger.info(
         "Phase 4: Annotating %d traces across %d issues...", len(rationale_map), len(issues)
     )
-    t0 = time.time()
-    has_sessions = any(_get_session_id(t) for t in triage_traces)
+    phase_start = time.time()
+    has_sessions = any(get_session_id(trace) for trace in triage_traces)
     session_first_trace: dict[str, str] | None = None
     if has_sessions:
         session_first_trace = {
-            sid: traces_in_session[0].info.trace_id
-            for sid, traces_in_session in session_groups.items()
+            session_id: traces_in_session[0].info.trace_id
+            for session_id, traces_in_session in session_groups.items()
         }
     _annotate_issue_traces(
         issues,
@@ -742,16 +769,16 @@ def discover_issues(
         session_first_trace=session_first_trace,
         token_counter=token_counter,
     )
-    _logger.info("Phase 4: Annotation took %.1fs", time.time() - t0)
+    _logger.info("Phase 4: Annotation took %.1fs", time.time() - phase_start)
 
-    summary = _build_summary(issues, num_total)
-    _logger.info("Done. Found %d issues across %d traces.", len(issues), num_total)
+    summary = build_summary(issues, len(triage_traces))
+    _logger.info("Done. Found %d issues across %d traces.", len(issues), len(triage_traces))
 
     result = DiscoverIssuesResult(
         issues=issues,
         triage_run_id=triage_eval.run_id,
         summary=summary,
-        total_traces_analyzed=num_total,
+        total_traces_analyzed=len(triage_traces),
     )
 
     # Log artifacts to the triage run
@@ -772,14 +799,14 @@ def discover_issues(
     elapsed_seconds = round(time.time() - pipeline_start, 1)
 
     metadata = {
-        "total_traces_analyzed": num_total,
+        "total_traces_analyzed": len(triage_traces),
         "num_issues": len(issues),
         "triage_run_id": triage_eval.run_id,
         "elapsed_seconds": elapsed_seconds,
         **token_counter.to_dict(),
     }
 
-    _log_discovery_artifacts(
+    log_discovery_artifacts(
         triage_eval.run_id,
         {
             "summary.md": summary,

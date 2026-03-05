@@ -3,8 +3,16 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
-from mlflow.genai.discovery.pipeline import discover_issues
+from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
+from mlflow.genai.discovery.pipeline import (
+    _annotate_issue_traces,
+    _format_trace_content,
+    _is_non_issue,
+    _recluster_singletons,
+    confidence_gte,
+    confidence_max,
+    discover_issues,
+)
 from mlflow.genai.evaluation.entities import EvaluationResult
 
 
@@ -34,7 +42,7 @@ def test_discover_issues_no_experiment():
 def test_discover_issues_empty_experiment():
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=[]),
+        patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=[]),
     ):
         result = discover_issues()
 
@@ -55,8 +63,8 @@ def test_discover_issues_all_traces_pass(make_trace):
 
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
-        patch("mlflow.genai.discovery.pipeline._test_scorer"),
+        patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             return_value=triage_eval,
@@ -95,22 +103,22 @@ def test_discover_issues_full_pipeline(make_trace):
 
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
-        patch("mlflow.genai.discovery.pipeline._test_scorer"),
+        patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             return_value=triage_eval,
         ),
         patch(
-            "mlflow.genai.discovery.pipeline._extract_failure_labels",
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
             return_value=["label1", "label2", "label3"],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline._cluster_analyses",
+            "mlflow.genai.discovery.pipeline.cluster_analyses",
             return_value=[[0, 1, 2]],
         ) as mock_cluster,
         patch(
-            "mlflow.genai.discovery.pipeline._summarize_cluster",
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
             return_value=cluster_summary_issue,
         ) as mock_summarize,
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
@@ -143,7 +151,7 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
     )
     triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=triage_df)
 
-    # _summarize_cluster returns issue with low confidence (below MIN_CONFIDENCE="weak_yes")
+    # summarize_cluster returns issue with low confidence (below MIN_CONFIDENCE="weak_yes")
     low_confidence_issue = _IdentifiedIssue(
         name="rare_issue",
         description="Happens very rarely",
@@ -154,22 +162,22 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
 
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
-        patch("mlflow.genai.discovery.pipeline._test_scorer"),
+        patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             return_value=triage_eval,
         ),
         patch(
-            "mlflow.genai.discovery.pipeline._extract_failure_labels",
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
             return_value=["label1", "label2"],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline._cluster_analyses",
+            "mlflow.genai.discovery.pipeline.cluster_analyses",
             return_value=[[0, 1]],
         ) as mock_cluster,
         patch(
-            "mlflow.genai.discovery.pipeline._summarize_cluster",
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
             return_value=low_confidence_issue,
         ) as mock_summarize,
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
@@ -189,7 +197,7 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
 
 def test_discover_issues_explicit_experiment_id():
     with patch(
-        "mlflow.genai.discovery.pipeline._sample_traces",
+        "mlflow.genai.discovery.pipeline.sample_traces",
         return_value=[],
     ) as mock_sample:
         discover_issues(experiment_id="exp-42")
@@ -202,7 +210,7 @@ def test_discover_issues_explicit_experiment_id():
 def test_discover_issues_passes_filter_string():
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=[]) as mock_sample,
+        patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=[]) as mock_sample,
     ):
         discover_issues(filter_string="tag.env = 'prod'")
 
@@ -226,8 +234,8 @@ def test_discover_issues_custom_satisfaction_scorer(make_trace):
 
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
-        patch("mlflow.genai.discovery.pipeline._test_scorer"),
+        patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             return_value=triage_eval,
@@ -265,8 +273,8 @@ def test_discover_issues_additional_scorers(make_trace):
 
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
-        patch("mlflow.genai.discovery.pipeline._test_scorer"),
+        patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             return_value=triage_eval,
@@ -308,8 +316,6 @@ def test_discover_issues_additional_scorers(make_trace):
     ],
 )
 def test_is_non_issue(name, description, root_cause, expected):
-    from mlflow.genai.discovery.pipeline import _is_non_issue
-
     issue = _IdentifiedIssue(
         name=name,
         description=description,
@@ -342,22 +348,22 @@ def test_discover_issues_filters_no_issue_results(make_trace):
 
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
-        patch("mlflow.genai.discovery.pipeline._test_scorer"),
+        patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             return_value=triage_eval,
         ),
         patch(
-            "mlflow.genai.discovery.pipeline._extract_failure_labels",
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
             return_value=["label1", "label2", "label3"],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline._cluster_analyses",
+            "mlflow.genai.discovery.pipeline.cluster_analyses",
             return_value=[[0, 1, 2]],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline._summarize_cluster",
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
             return_value=no_issue_result,
         ),
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
@@ -393,22 +399,22 @@ def test_discover_issues_filters_canonical_no_issue_keyword(make_trace):
 
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline._sample_traces", return_value=traces),
-        patch("mlflow.genai.discovery.pipeline._test_scorer"),
+        patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             return_value=triage_eval,
         ),
         patch(
-            "mlflow.genai.discovery.pipeline._extract_failure_labels",
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
             return_value=["label1", "label2", "label3"],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline._cluster_analyses",
+            "mlflow.genai.discovery.pipeline.cluster_analyses",
             return_value=[[0, 1, 2]],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline._summarize_cluster",
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
             return_value=no_issue_result,
         ),
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
@@ -431,8 +437,6 @@ def _make_litellm_response(content: str):
 
 def _make_issue(**kwargs):
     """Helper to construct Issue with required fields."""
-    from mlflow.genai.discovery.entities import Issue
-
     defaults = {
         "issue_id": "test-id",
         "run_id": "test-run",
@@ -448,8 +452,6 @@ def _make_issue(**kwargs):
 
 
 def test_annotate_traces_annotates_each_trace_with_feedback():
-    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
-
     issues = [
         _make_issue(
             name="Slow responses [api]",
@@ -482,8 +484,6 @@ def test_annotate_traces_annotates_each_trace_with_feedback():
 
 
 def test_annotate_traces_no_work_items_returns_early():
-    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
-
     issues = [
         _make_issue(
             name="Empty issue",
@@ -499,8 +499,6 @@ def test_annotate_traces_no_work_items_returns_early():
 
 
 def test_annotate_traces_llm_failure_falls_back_to_triage_rationale():
-    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
-
     issues = [
         _make_issue(
             name="Timeout [api]",
@@ -529,8 +527,6 @@ def test_annotate_traces_llm_failure_falls_back_to_triage_rationale():
 
 
 def test_annotate_traces_log_feedback_failure_handled_gracefully():
-    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
-
     issues = [
         _make_issue(
             name="Error [db]",
@@ -558,8 +554,6 @@ def test_annotate_traces_log_feedback_failure_handled_gracefully():
 
 
 def test_annotate_traces_multiple_issues_annotated_independently():
-    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
-
     issues = [
         _make_issue(
             name="Issue A",
@@ -594,8 +588,6 @@ def test_annotate_traces_multiple_issues_annotated_independently():
 
 
 def test_annotate_traces_session_level_logs_on_first_trace():
-    from mlflow.genai.discovery.pipeline import _annotate_issue_traces
-
     issues = [
         _make_issue(
             name="Slow responses [api]",
@@ -651,8 +643,6 @@ def test_annotate_traces_session_level_logs_on_first_trace():
 
 
 def test_format_trace_content_includes_errors(make_trace):
-    from mlflow.genai.discovery.pipeline import _format_trace_content
-
     trace = make_trace(error_span=True)
     content = _format_trace_content(trace)
     assert "Errors:" in content
@@ -660,16 +650,12 @@ def test_format_trace_content_includes_errors(make_trace):
 
 
 def test_format_trace_content_no_errors(make_trace):
-    from mlflow.genai.discovery.pipeline import _format_trace_content
-
     trace = make_trace()
     content = _format_trace_content(trace)
     assert "Errors:" not in content
 
 
 def test_recluster_merges_similar_singletons():
-    from mlflow.genai.discovery.pipeline import _recluster_singletons
-
     analyses = [
         _ConversationAnalysis(
             surface="tool error A",
@@ -710,11 +696,11 @@ def test_recluster_merges_similar_singletons():
 
     with (
         patch(
-            "mlflow.genai.discovery.utils._cluster_by_llm",
+            "mlflow.genai.discovery.pipeline.cluster_by_llm",
             return_value=[[0, 1]],
         ) as mock_cluster,
         patch(
-            "mlflow.genai.discovery.pipeline._summarize_cluster",
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
             return_value=merged_issue,
         ) as mock_summarize,
     ):
@@ -729,8 +715,6 @@ def test_recluster_merges_similar_singletons():
 
 
 def test_recluster_keeps_unmerged_singletons():
-    from mlflow.genai.discovery.pipeline import _recluster_singletons
-
     analyses = [
         _ConversationAnalysis(
             surface="error A",
@@ -762,7 +746,7 @@ def test_recluster_keeps_unmerged_singletons():
     labels = ["[path_a] symptom a", "[path_b] symptom b"]
 
     with patch(
-        "mlflow.genai.discovery.utils._cluster_by_llm",
+        "mlflow.genai.discovery.pipeline.cluster_by_llm",
         return_value=[[0], [1]],
     ) as mock_cluster:
         result = _recluster_singletons(
@@ -774,8 +758,6 @@ def test_recluster_keeps_unmerged_singletons():
 
 
 def test_recluster_single_singleton_returns_as_is():
-    from mlflow.genai.discovery.pipeline import _recluster_singletons
-
     singletons = [
         _IdentifiedIssue(
             name="Solo",
@@ -791,8 +773,6 @@ def test_recluster_single_singleton_returns_as_is():
 
 
 def test_recluster_low_confidence_merge_keeps_originals():
-    from mlflow.genai.discovery.pipeline import _recluster_singletons
-
     analyses = [
         _ConversationAnalysis(
             surface="A",
@@ -833,11 +813,11 @@ def test_recluster_low_confidence_merge_keeps_originals():
 
     with (
         patch(
-            "mlflow.genai.discovery.utils._cluster_by_llm",
+            "mlflow.genai.discovery.pipeline.cluster_by_llm",
             return_value=[[0, 1]],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline._summarize_cluster",
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
             return_value=low_conf_merged,
         ),
     ):
@@ -851,8 +831,6 @@ def test_recluster_low_confidence_merge_keeps_originals():
 
 
 def test_confidence_helpers():
-    from mlflow.genai.discovery.pipeline import confidence_gte, confidence_max
-
     assert confidence_gte("definitely_yes", "weak_yes")
     assert confidence_gte("weak_yes", "weak_yes")
     assert not confidence_gte("maybe", "weak_yes")

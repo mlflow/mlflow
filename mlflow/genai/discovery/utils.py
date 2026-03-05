@@ -11,42 +11,59 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.constants import (
+    CLUSTER_MAX_TOKENS,
     CLUSTER_SUMMARY_SYSTEM_PROMPT,
+    DEFAULT_JUDGE_MODEL,
+    FAILURE_LABEL_SYSTEM_PROMPT,
+    LABEL_MAX_TOKENS,
+    NUM_RETRIES,
     SAMPLE_RANDOM_SEED,
+    SUMMARY_MAX_TOKENS,
+    SURFACE_TRUNCATION_LIMIT,
 )
 from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
     _IdentifiedIssue,
 )
+from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
 from mlflow.genai.scorers.base import Scorer
 from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
 from mlflow.tracing.constant import TraceMetadataKey
 
 if TYPE_CHECKING:
     from mlflow.genai.discovery.entities import Issue
+    from mlflow.genai.discovery.pipeline import _TokenCounter
     from mlflow.genai.evaluation.entities import EvaluationResult
 
 _logger = logging.getLogger(__name__)
 
-_NUM_RETRIES = 5
 
-
-def _get_session_id(trace: Trace) -> str | None:
+def get_session_id(trace: Trace) -> str | None:
     return (trace.info.trace_metadata or {}).get(TraceMetadataKey.TRACE_SESSION)
 
 
-def _sample_traces(
+def sample_traces(
     sample_size: int,
     search_kwargs: dict[str, object],
     pool_multiplier: int = 5,
 ) -> list[Trace]:
     """Randomly sample traces, grouping by session when session IDs exist.
 
-    Fetches a pool of traces larger than `sample_size`, then:
-    - If sessions exist: randomly selects `sample_size` sessions and returns
+    Fetches a pool of traces larger than ``sample_size``, then:
+    - If sessions exist: randomly selects ``sample_size`` sessions and returns
       all traces from those sessions.
-    - If no sessions: randomly selects `sample_size` individual traces.
+    - If no sessions: randomly selects ``sample_size`` individual traces.
+
+    Args:
+        sample_size: Number of sessions (or traces) to sample.
+        search_kwargs: Keyword arguments passed to ``mlflow.search_traces``.
+        pool_multiplier: How many times larger than ``sample_size`` the
+            initial fetch pool should be.
+
+    Returns:
+        List of sampled Trace objects.
     """
     pool_size = sample_size * pool_multiplier
     pool = mlflow.search_traces(max_results=pool_size, **search_kwargs)
@@ -56,7 +73,7 @@ def _sample_traces(
     sessions: dict[str, list[Trace]] = defaultdict(list)
     no_session: list[Trace] = []
     for trace in pool:
-        if session_id := _get_session_id(trace):
+        if session_id := get_session_id(trace):
             sessions[session_id].append(trace)
         else:
             no_session.append(trace)
@@ -83,7 +100,19 @@ def _sample_traces(
     return result
 
 
-def _test_scorer(scorer: Scorer, trace: Trace) -> None:
+def verify_scorer(scorer: Scorer, trace: Trace) -> None:
+    """Verify a scorer works on a single trace before running the full pipeline.
+
+    Calls the scorer on the trace, fetches the updated trace, and checks
+    that a Feedback assessment with a non-null value was produced.
+
+    Args:
+        scorer: The scorer to test.
+        trace: A trace to run the scorer on.
+
+    Raises:
+        MlflowException: If the scorer produces no feedback or returns a null value.
+    """
     scorer(trace=trace)
     result_trace = mlflow.get_trace(trace.info.trace_id)
     if result_trace is None:
@@ -92,9 +121,9 @@ def _test_scorer(scorer: Scorer, trace: Trace) -> None:
         )
     feedback = next(
         (
-            a
-            for a in result_trace.info.assessments
-            if isinstance(a, Feedback) and a.name == scorer.name
+            assessment
+            for assessment in result_trace.info.assessments
+            if isinstance(assessment, Feedback) and assessment.name == scorer.name
         ),
         None,
     )
@@ -113,24 +142,30 @@ def _test_scorer(scorer: Scorer, trace: Trace) -> None:
 _GENERIC_SPAN_TYPES = {"LLM", "CHAT_MODEL", "EMBEDDING"}
 
 
-def _extract_execution_path(trace: Trace) -> str:
-    """
-    Extract a compact execution path from a trace's span tree.
+def extract_execution_path(trace: Trace) -> str:
+    """Extract a compact execution path from a trace's span tree.
 
     Filters out generic LLM/embedding spans and returns the meaningful
     execution steps: sub-agents routed to, tools called, etc.
-    Returns a string like "ask_sports_assistant > get_live_scores, web_search"
-    or "(no routing)" if only generic spans were found.
+
+    Args:
+        trace: The trace to extract the execution path from.
+
+    Returns:
+        A string like ``"ask_sports_assistant > get_live_scores, web_search"``
+        or ``"(no routing)"`` if only generic spans were found.
     """
     spans = trace.data.spans
     if not spans:
         return "(no spans)"
 
-    children: dict[str | None, list[object]] = defaultdict(list)
+    # Build a map from parent span ID to child spans for tree traversal
+    children_by_parent: dict[str | None, list[object]] = defaultdict(list)
     for span in spans:
-        children[span.parent_id].append(span)
+        children_by_parent[span.parent_id].append(span)
 
-    meaningful: list[tuple[str, int, str]] = []  # (name, depth, status)
+    # Walk the span tree, collecting non-generic spans with their depth and error status
+    execution_steps: list[tuple[str, int, str]] = []
 
     def _walk(span, depth: int):
         span_type = getattr(span, "span_type", "") or ""
@@ -138,63 +173,61 @@ def _extract_execution_path(trace: Trace) -> str:
             status = ""
             if span.status and span.status.status_code == SpanStatusCode.ERROR:
                 status = " [ERROR]"
-            meaningful.append((span.name, depth, status))
-        for child in children.get(span.span_id, []):
+            execution_steps.append((span.name, depth, status))
+        for child in children_by_parent.get(span.span_id, []):
             _walk(child, depth + 1)
 
-    roots = children.get(None, [])
+    roots = children_by_parent.get(None, [])
     if not roots:
         roots = spans[:1]
     for root in roots:
         _walk(root, 0)
 
-    if not meaningful:
+    if not execution_steps:
         return "(no routing)"
 
-    # Skip the root span (it's always the top-level entry point)
-    non_root = [(name, depth, status) for name, depth, status in meaningful if depth > 0]
+    # Skip root span (top-level entry point) and organize remaining steps hierarchically.
+    # Depth 1 = sub-agents/tools called by orchestrator; depth 2+ = their children.
+    non_root = [(name, depth, status) for name, depth, status in execution_steps if depth > 0]
     if not non_root:
         return "(no routing)"
 
-    # Build hierarchical path: group by depth
-    # Depth 1 = sub-agent/tool called by orchestrator
-    # Depth 2+ = tools called by that sub-agent
-    top_level = []
+    top_level_entries: list[str] = []
     sub_items: dict[str, list[str]] = defaultdict(list)
-    current_top = None
+    current_parent = None
 
     for name, depth, status in non_root:
         entry = f"{name}{status}"
         if depth == 1:
-            current_top = name
-            top_level.append(entry)
-        elif current_top:
-            sub_items[current_top].append(entry)
+            current_parent = name
+            top_level_entries.append(entry)
+        elif current_parent:
+            sub_items[current_parent].append(entry)
 
+    # Format as "parent > child1, child2 | parent2 > child3"
     parts = []
-    for top_entry in top_level:
-        base_name = top_entry.replace(" [ERROR]", "")
-        if subs := sub_items.get(base_name, []):
-            unique_subs = list(dict.fromkeys(subs))
-            parts.append(f"{top_entry} > {', '.join(unique_subs)}")
+    for entry in top_level_entries:
+        entry_name = entry.replace(" [ERROR]", "")
+        if child_entries := sub_items.get(entry_name, []):
+            unique_children = list(dict.fromkeys(child_entries))
+            parts.append(f"{entry} > {', '.join(unique_children)}")
         else:
-            parts.append(top_entry)
+            parts.append(entry)
 
     return " | ".join(parts) if parts else "(no routing)"
 
 
-def _extract_execution_paths_for_session(traces: list[Trace]) -> str:
-    """
-    Extract combined execution paths across all traces in a session.
+def extract_execution_paths_for_session(traces: list[Trace]) -> str:
+    """Extract combined execution paths across all traces in a session.
 
     Deduplicates paths and joins them, giving a compact summary of
     what the agent did across the entire conversation.
     """
-    paths = list(dict.fromkeys(_extract_execution_path(t) for t in traces))
+    paths = list(dict.fromkeys(extract_execution_path(trace) for trace in traces))
     return "; ".join(paths) if paths else "(no routing)"
 
 
-def _extract_span_errors(trace: Trace, max_length: int = 500) -> str:
+def extract_span_errors(trace: Trace, max_length: int = 500) -> str:
     spans = trace.data.spans
     if not spans:
         return ""
@@ -226,17 +259,17 @@ def _extract_span_errors(trace: Trace, max_length: int = 500) -> str:
     return "; ".join(errors)[:max_length]
 
 
-def _group_traces_by_session(
+def group_traces_by_session(
     traces: list[Trace],
 ) -> dict[str, list[Trace]]:
-    """
-    Group traces by session ID. Traces without a session become standalone
-    single-trace "sessions" keyed by their trace_id.
-    Each group is sorted by timestamp_ms.
+    """Group traces by session ID.
+
+    Traces without a session become standalone single-trace "sessions"
+    keyed by their trace_id. Each group is sorted by timestamp_ms.
     """
     groups: dict[str, list[Trace]] = defaultdict(list)
     for trace in traces:
-        session_id = _get_session_id(trace) or trace.info.trace_id
+        session_id = get_session_id(trace) or trace.info.trace_id
         groups[session_id].append(trace)
 
     for traces_in_group in groups.values():
@@ -245,31 +278,32 @@ def _group_traces_by_session(
     return dict(groups)
 
 
-def _extract_failure_labels(
+def extract_failure_labels(
     analyses: list[_ConversationAnalysis],
     model: str,
-    token_counter=None,
+    token_counter: _TokenCounter | None = None,
 ) -> list[str]:
-    """
-    Extract short failure labels that combine execution path with symptom.
+    """Extract short failure labels that combine execution path with symptom.
 
-    Each label has the format:
-    ``[execution_path] symptom description``
-
+    Each label has the format ``[execution_path] symptom description``.
     The execution path comes from the trace spans (which sub-agents/tools
     were called). The symptom is extracted by an LLM from the triage
     rationale. Together they enable clustering by "what the agent did"
     and "how it failed."
+
+    Args:
+        analyses: Conversation analyses to generate labels for.
+        model: Model URI for the label-generation LLM.
+        token_counter: Optional token counter for tracking LLM usage.
+
+    Returns:
+        List of failure label strings, one per analysis.
     """
-
-    from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
-    from mlflow.genai.discovery.constants import FAILURE_LABEL_SYSTEM_PROMPT
-    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-
     litellm_model = convert_model_uri_to_litellm(model)
 
-    def _label_one(analysis: _ConversationAnalysis) -> str:
-        rationale = analysis.surface[:800]
+    # Generate labels in parallel — each label is an independent LLM call
+    def _generate_label(analysis: _ConversationAnalysis) -> str:
+        rationale = analysis.surface[:SURFACE_TRUNCATION_LIMIT]
         response = _invoke_litellm(
             litellm_model=litellm_model,
             messages=[
@@ -277,10 +311,10 @@ def _extract_failure_labels(
                 {"role": "user", "content": rationale},
             ],
             tools=[],
-            num_retries=_NUM_RETRIES,
+            num_retries=NUM_RETRIES,
             response_format=None,
             include_response_format=False,
-            inference_params={"max_tokens": 1000, "temperature": 0},
+            inference_params={"max_tokens": LABEL_MAX_TOKENS, "temperature": 0},
         )
         if token_counter is not None:
             token_counter.track(response)
@@ -292,7 +326,7 @@ def _extract_failure_labels(
     labels: list[str | None] = [None] * len(analyses)
     with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="label") as executor:
         future_to_idx = {
-            executor.submit(_label_one, analysis): i for i, analysis in enumerate(analyses)
+            executor.submit(_generate_label, analysis): i for i, analysis in enumerate(analyses)
         }
         for future in as_completed(future_to_idx):
             labels[future_to_idx[future]] = future.result()
@@ -300,37 +334,41 @@ def _extract_failure_labels(
     return [label for label in labels if label is not None]
 
 
-def _cluster_analyses(
+def cluster_analyses(
     analyses: list[_ConversationAnalysis],
     max_issues: int,
     labels: list[str],
     label_model: str | None = None,
-    token_counter=None,
+    token_counter: _TokenCounter | None = None,
 ) -> list[list[int]]:
     if len(analyses) == 1:
         return [[0]]
 
-    return _cluster_by_llm(labels, max_issues, label_model, token_counter=token_counter)
+    return cluster_by_llm(labels, max_issues, label_model, token_counter=token_counter)
 
 
-def _cluster_by_llm(
+def cluster_by_llm(
     labels: list[str],
     max_issues: int,
     model: str | None = None,
-    token_counter=None,
+    token_counter: _TokenCounter | None = None,
 ) -> list[list[int]]:
-    """
-    Use an LLM to group failure labels by execution path and symptom.
+    """Use an LLM to group failure labels by execution path and symptom.
 
     Each label has the format ``[execution_path] symptom``, where the
     execution path shows which sub-agents/tools were called. The LLM
     groups labels that share similar execution paths AND similar failure
     symptoms into coherent issue categories.
+
+    Args:
+        labels: Failure labels to cluster.
+        max_issues: Maximum number of groups to produce.
+        model: Model URI for the clustering LLM.
+        token_counter: Optional token counter for tracking LLM usage.
+
+    Returns:
+        List of index lists, where each inner list is a cluster of label indices.
     """
-
-    from mlflow.genai.discovery.constants import DEFAULT_JUDGE_MODEL
-    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-
     model = model or DEFAULT_JUDGE_MODEL
     litellm_model = convert_model_uri_to_litellm(model)
 
@@ -362,10 +400,10 @@ def _cluster_by_llm(
         litellm_model=litellm_model,
         messages=[{"role": "user", "content": prompt}],
         tools=[],
-        num_retries=_NUM_RETRIES,
+        num_retries=NUM_RETRIES,
         response_format={"type": "json_object"},
         include_response_format=True,
-        inference_params={"max_tokens": 8000, "temperature": 0},
+        inference_params={"max_tokens": CLUSTER_MAX_TOKENS, "temperature": 0},
     )
     if token_counter is not None:
         token_counter.track(response)
@@ -379,12 +417,12 @@ def _cluster_by_llm(
         return [[i] for i in range(len(labels))]
     result = json.loads(content)
 
-    # Handle both {"groups": [...]} and direct list formats
+    # Normalize response format: accept both {"groups": [...]} and bare list
     groups = (
         result if isinstance(result, list) else result.get("groups", result.get("categories", []))
     )
 
-    # Convert to list of index lists
+    # Ensure every index appears exactly once; orphaned indices become singletons
     all_indices = set()
     cluster_groups: list[list[int]] = []
     for group in groups:
@@ -393,10 +431,9 @@ def _cluster_by_llm(
             cluster_groups.append(indices)
             all_indices.update(indices)
 
-    # Add any missing indices as singletons
     cluster_groups.extend([i] for i in range(len(labels)) if i not in all_indices)
 
-    # Cap at max_issues
+    # Enforce max_issues limit by keeping the largest groups
     if len(cluster_groups) > max_issues:
         cluster_groups.sort(key=len, reverse=True)
         cluster_groups = cluster_groups[:max_issues]
@@ -404,15 +441,27 @@ def _cluster_by_llm(
     return cluster_groups
 
 
-def _summarize_cluster(
+def summarize_cluster(
     cluster_indices: list[int],
     analyses: list[_ConversationAnalysis],
     analysis_model: str,
-    token_counter=None,
+    token_counter: _TokenCounter | None = None,
 ) -> _IdentifiedIssue:
+    """Summarize a cluster of analyses into a single identified issue.
 
-    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
+    Uses an LLM to synthesize a name, description, root cause, and confidence
+    for the cluster. Always returns all cluster indices as example_indices
+    (overriding the LLM's selection).
 
+    Args:
+        cluster_indices: Indices into ``analyses`` that form this cluster.
+        analyses: All conversation analyses from the pipeline.
+        analysis_model: Model URI for the summarization LLM.
+        token_counter: Optional token counter for tracking LLM usage.
+
+    Returns:
+        An ``_IdentifiedIssue`` with synthesized fields and all cluster indices.
+    """
     cluster_analyses = [analyses[i] for i in cluster_indices]
     parts = []
     for i, analysis in zip(cluster_indices, cluster_analyses):
@@ -440,10 +489,10 @@ def _summarize_cluster(
             },
         ],
         tools=[],
-        num_retries=_NUM_RETRIES,
+        num_retries=NUM_RETRIES,
         response_format={"type": "json_object"},
         include_response_format=True,
-        inference_params={"max_tokens": 4096, "temperature": 0},
+        inference_params={"max_tokens": SUMMARY_MAX_TOKENS, "temperature": 0},
     )
     if token_counter is not None:
         token_counter.track(response)
@@ -454,13 +503,12 @@ def _summarize_cluster(
     return result
 
 
-def _extract_failing_traces(
+def extract_failing_traces(
     eval_result: EvaluationResult,
     scorer_names: str | list[str],
     original_traces: list[Trace] | None = None,
 ) -> tuple[list[Trace], dict[str, str]]:
-    """
-    Extract failing traces and their rationales from an evaluation result.
+    """Extract failing traces and their rationales from an evaluation result.
 
     ``scorer_names`` can be a single scorer name or a list. When multiple
     names are provided, a trace is considered failing if ANY scorer marks
@@ -468,8 +516,18 @@ def _extract_failing_traces(
 
     When ``original_traces`` is provided, maps results back to the original
     trace objects by DataFrame position (the evaluate framework may assign
-    new trace IDs during scoring).  Rationales are extracted from the
-    DataFrame column first; if absent, from the trace assessment.
+    new trace IDs during scoring).
+
+    Args:
+        eval_result: The evaluation result containing a DataFrame with
+            scorer value and rationale columns.
+        scorer_names: One or more scorer names to check for failures.
+        original_traces: Optional list of original traces to map results
+            back to by position.
+
+    Returns:
+        A tuple of (failing_traces, rationale_map) where rationale_map
+        maps trace_id to the combined rationale string.
     """
     if isinstance(scorer_names, str):
         scorer_names = [scorer_names]
@@ -535,7 +593,7 @@ def _extract_failing_traces(
     return failing, rationales
 
 
-def _log_discovery_artifacts(run_id: str, artifacts: dict[str, str]) -> None:
+def log_discovery_artifacts(run_id: str, artifacts: dict[str, str]) -> None:
     if not run_id:
         return
     client = mlflow.MlflowClient()
@@ -546,7 +604,7 @@ def _log_discovery_artifacts(run_id: str, artifacts: dict[str, str]) -> None:
             _logger.warning("Failed to log %s to run %s", filename, run_id, exc_info=True)
 
 
-def _build_summary(issues: list[Issue], total_traces: int) -> str:
+def build_summary(issues: list[Issue], total_traces: int) -> str:
     if not issues:
         return f"## Issue Discovery Summary\n\nAnalyzed {total_traces} traces. No issues found."
 
