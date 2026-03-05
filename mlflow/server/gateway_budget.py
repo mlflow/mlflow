@@ -10,6 +10,7 @@ import mlflow
 from mlflow.entities.gateway_budget_policy import BudgetTargetScope
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.budget_tracker import BudgetWindow, get_budget_tracker
+from mlflow.gateway.tracing_utils import _get_model_span_info
 from mlflow.server.handlers import _get_model_registry_store
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import CostKey, SpanAttributeKey
@@ -81,8 +82,6 @@ def _compute_cost_from_child_spans(trace_id: str) -> float:
     Prefers ``LLM_COST`` if already set on the span (computed at span.end()),
     otherwise falls back to calculating from MODEL + CHAT_USAGE via LiteLLM.
     """
-    from mlflow.gateway.tracing_utils import _get_model_span_info
-
     total = 0.0
     for info in _get_model_span_info(trace_id):
         if llm_cost := info.attributes.get(SpanAttributeKey.LLM_COST):
@@ -129,12 +128,7 @@ def make_budget_on_complete(
     store: SqlAlchemyStore,
     workspace: str | None,
 ):
-    """Create an on_complete callback that records budget cost from child span attributes.
-
-    Called inside the trace context (in ``finally``), so child spans have already
-    ended and their MODEL, CHAT_USAGE, and MODEL_PROVIDER attributes are available.
-    Works for both streaming and non-streaming paths.
-    """
+    """Create an on_complete callback that records budget cost from child span attributes."""
     try:
         registry_store = _get_model_registry_store()
     except Exception:
