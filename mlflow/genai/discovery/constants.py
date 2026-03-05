@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from typing import Literal
 
+# Number of sessions (or individual traces) to sample for triage by default
 DEFAULT_TRIAGE_SAMPLE_SIZE = 100
+# Cap on trace IDs attached to each Issue to keep payloads manageable
 MAX_EXAMPLE_TRACE_IDS = 10
+# Fetch N * sample_size traces so random sampling has enough diversity
 SAMPLE_POOL_MULTIPLIER = 5
 SAMPLE_RANDOM_SEED = 42
+# LLM calls are non-deterministic; retry on transient API/rate-limit errors
 NUM_RETRIES = 5
+# Upper bound on generated tokens per LLM call (covers long cluster summaries)
 LLM_MAX_TOKENS = 8192
 
 # Text truncation limits
@@ -19,8 +24,7 @@ CONFIDENCE_LEVELS = ("definitely_no", "weak_no", "maybe", "weak_yes", "definitel
 CONFIDENCE_ORDER = {level: i for i, level in enumerate(CONFIDENCE_LEVELS)}
 MIN_CONFIDENCE = "weak_yes"
 
-DEFAULT_JUDGE_MODEL = "openai:/gpt-5-mini"
-DEFAULT_ANALYSIS_MODEL = "openai:/gpt-5.2"
+DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
 
 # ---- Satisfaction scorer instructions ----

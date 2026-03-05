@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -21,8 +20,7 @@ from mlflow.genai.discovery.clustering import (
 )
 from mlflow.genai.discovery.constants import (
     CONFIDENCE_ORDER,
-    DEFAULT_ANALYSIS_MODEL,
-    DEFAULT_JUDGE_MODEL,
+    DEFAULT_MODEL,
     DEFAULT_SCORER_NAME,
     DEFAULT_TRIAGE_SAMPLE_SIZE,
     LLM_MAX_TOKENS,
@@ -40,6 +38,7 @@ from mlflow.genai.discovery.entities import (
     Issue,
     _ConversationAnalysis,
     _IdentifiedIssue,
+    _TokenCounter,
 )
 from mlflow.genai.discovery.extraction import (
     extract_execution_path,
@@ -52,7 +51,6 @@ from mlflow.genai.discovery.sampling import (
     get_session_id,
     group_traces_by_session,
     sample_traces,
-    verify_scorer,
 )
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
 from mlflow.genai.judges.make_judge import make_judge
@@ -94,43 +92,53 @@ def confidence_max(a: str, b: str) -> str:
     return a if CONFIDENCE_ORDER.get(a, 0) >= CONFIDENCE_ORDER.get(b, 0) else b
 
 
-class _TokenCounter:
-    """Thread-safe accumulator for LLM token usage across pipeline phases."""
-
-    def __init__(self):
-        self._lock = threading.Lock()
-        self.input_tokens = 0
-        self.output_tokens = 0
-        self.cost_usd = 0.0
-
-    def track(self, response) -> None:
-        with self._lock:
-            usage = getattr(response, "usage", None)
-            if usage:
-                self.input_tokens += getattr(usage, "prompt_tokens", 0) or 0
-                self.output_tokens += getattr(usage, "completion_tokens", 0) or 0
-            if hidden := getattr(response, "_hidden_params", None):
-                if cost := hidden.get("response_cost"):
-                    self.cost_usd += cost
-
-    def to_dict(self) -> dict:
-        result = {}
-        total = self.input_tokens + self.output_tokens
-        if total > 0:
-            result["input_tokens"] = self.input_tokens
-            result["output_tokens"] = self.output_tokens
-            result["total_tokens"] = total
-        if self.cost_usd > 0:
-            result["cost_usd"] = round(self.cost_usd, 6)
-        return result
-
-
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:
     """Check if an identified issue is actually a false positive (no real issue)."""
     if NO_ISSUE_KEYWORD.lower() in issue.name.lower():
         return True
     combined = f"{issue.name} {issue.description} {issue.root_cause}".lower()
     return any(pattern in combined for pattern in _NO_ISSUE_PATTERNS)
+
+
+def verify_scorer(
+    scorer: Scorer,
+    trace: Trace,
+    session: list[Trace] | None = None,
+) -> None:
+    """
+    Verify a scorer works on a single trace (or session) before running the full pipeline.
+
+    Calls the scorer and checks that the returned Feedback has a non-null value.
+
+    Args:
+        scorer: The scorer to test.
+        trace: A trace to run the scorer on (used for trace-based scorers).
+        session: If provided, pass as ``session=`` to the scorer instead of ``trace=``.
+            Used for conversation-based scorers that require ``{{ conversation }}``.
+
+    Raises:
+        MlflowException: If the scorer produces no feedback or returns a null value.
+    """
+    try:
+        if session is not None:
+            feedback = scorer(session=session)
+        else:
+            feedback = scorer(trace=trace)
+        if not isinstance(feedback, Feedback):
+            raise mlflow.exceptions.MlflowException(
+                f"Scorer '{scorer.name}' returned {type(feedback).__name__} instead of Feedback"
+            )
+        if feedback.value is None:
+            error = feedback.error_message or "unknown error (check model API logs)"
+            raise mlflow.exceptions.MlflowException(
+                f"Scorer '{scorer.name}' returned null value: {error}"
+            )
+    except mlflow.exceptions.MlflowException:
+        raise
+    except Exception as exc:
+        raise mlflow.exceptions.MlflowException(
+            f"Scorer '{scorer.name}' failed verification on trace {trace.info.trace_id}: {exc}"
+        ) from exc
 
 
 def _extract_assessment_rationale(trace: Trace, scorer_name: str) -> str:
@@ -162,8 +170,7 @@ def _recluster_singletons(
     singletons: list[_IdentifiedIssue],
     labels: list[str],
     analyses: list[_ConversationAnalysis],
-    analysis_model: str,
-    label_model: str,
+    model: str,
     max_issues: int,
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
@@ -174,8 +181,7 @@ def _recluster_singletons(
         singletons: Single-analysis issues to attempt merging.
         labels: Failure labels from the initial clustering phase.
         analyses: All conversation analyses from the pipeline.
-        analysis_model: Model URI for cluster summarization.
-        label_model: Model URI for clustering.
+        model: Model URI for clustering and summarization.
         max_issues: Maximum number of groups to produce.
         token_counter: Optional token counter for tracking LLM usage.
 
@@ -190,9 +196,7 @@ def _recluster_singletons(
         idx = singleton.example_indices[0]
         singleton_labels.append(labels[idx] if idx < len(labels) else singleton.name)
 
-    new_groups = cluster_by_llm(
-        singleton_labels, max_issues, label_model, token_counter=token_counter
-    )
+    new_groups = cluster_by_llm(singleton_labels, max_issues, model, token_counter=token_counter)
 
     result: list[_IdentifiedIssue] = []
     for group in new_groups:
@@ -201,7 +205,7 @@ def _recluster_singletons(
             continue
         merged_indices = [singletons[group_idx].example_indices[0] for group_idx in group]
         merged_issue = summarize_cluster(
-            merged_indices, analyses, analysis_model, token_counter=token_counter
+            merged_indices, analyses, model, token_counter=token_counter
         )
         if confidence_gte(merged_issue.confidence, MIN_CONFIDENCE):
             result.append(merged_issue)
@@ -307,7 +311,7 @@ def _annotate_issue_traces(
                 num_retries=NUM_RETRIES,
                 response_format=None,
                 include_response_format=False,
-                inference_params={"max_tokens": LLM_MAX_TOKENS, "temperature": 0},
+                inference_params={"max_tokens": LLM_MAX_TOKENS},
             )
             if token_counter is not None:
                 token_counter.track(response)
@@ -354,8 +358,7 @@ def discover_issues(
     experiment_id: str | None = None,
     traces: list[Trace] | None = None,
     scorers: list[Scorer] | None = None,
-    judge_model: str | None = None,
-    analysis_model: str | None = None,
+    model: str | None = None,
     triage_sample_size: int = DEFAULT_TRIAGE_SAMPLE_SIZE,
     max_issues: int = 20,
     filter_string: str | None = None,
@@ -380,10 +383,8 @@ def discover_issues(
         scorers: Scorers to run during triage. A trace is considered failing
             if *any* scorer marks it as ``False``. When ``None``, a default
             conversation-level satisfaction judge is used.
-        judge_model: LLM used for scoring traces (satisfaction + issue detection).
-            Defaults to ``"openai:/gpt-5-mini"``.
-        analysis_model: LLM used for analysis and cluster summarization.
-            Defaults to ``"openai:/gpt-5.2"``.
+        model: LLM used for all pipeline phases (scoring, labeling, clustering,
+            summarization). Defaults to ``"openai:/gpt-5-mini"``.
         triage_sample_size: Number of sessions (or traces, if no session metadata
             exists) to randomly sample for the triage phase. Ignored when
             ``traces`` is provided.
@@ -414,8 +415,7 @@ def discover_issues(
     """
     pipeline_start = time.time()
     token_counter = _TokenCounter()
-    judge_model = judge_model or DEFAULT_JUDGE_MODEL
-    analysis_model = analysis_model or DEFAULT_ANALYSIS_MODEL
+    model = model or DEFAULT_MODEL
 
     exp_id = experiment_id or _get_experiment_id()
 
@@ -448,6 +448,7 @@ def discover_issues(
             total_traces_analyzed=0,
         )
 
+    use_conversation = False
     if scorers is None:
         use_conversation = any(get_session_id(trace) for trace in triage_traces)
         if not use_conversation:
@@ -458,7 +459,7 @@ def discover_issues(
         default_scorer = make_judge(
             name=DEFAULT_SCORER_NAME,
             instructions=instructions,
-            model=judge_model,
+            model=model,
             feedback_value_type=bool,
         )
         _logger.info(
@@ -471,7 +472,17 @@ def discover_issues(
 
     _logger.info("Phase 1: Testing scorer on one trace...")
     phase_start = time.time()
-    verify_scorer(scorers[0], triage_traces[0])
+    test_session = None
+    if use_conversation:
+        session_groups = group_traces_by_session(triage_traces)
+        # Pick a group with a real session ID (multi-trace groups have actual sessions)
+        test_session = next(
+            (traces for traces in session_groups.values() if len(traces) > 1),
+            next(iter(session_groups.values())),
+        )
+    verify_scorer(
+        scorers[0], test_session[0] if test_session else triage_traces[0], session=test_session
+    )
     _logger.info("Phase 1: Test scorer took %.1fs", time.time() - phase_start)
 
     _logger.info("Phase 1: Scoring %d traces...", len(triage_traces))
@@ -562,7 +573,7 @@ def discover_issues(
     # Phase 3: Cluster — LLM-based label extraction and grouping
     _logger.info("Phase 3: Extracting failure labels for clustering...")
     phase_start = time.time()
-    labels = extract_failure_labels(analyses, judge_model, token_counter=token_counter)
+    labels = extract_failure_labels(analyses, model, token_counter=token_counter)
     _logger.info(
         "Phase 3: Label extraction took %.1fs",
         time.time() - phase_start,
@@ -575,9 +586,7 @@ def discover_issues(
     if len(analyses) == 1:
         cluster_groups = [[0]]
     else:
-        cluster_groups = cluster_by_llm(
-            labels, max_issues, judge_model, token_counter=token_counter
-        )
+        cluster_groups = cluster_by_llm(labels, max_issues, model, token_counter=token_counter)
     cluster_end = time.time()
     _logger.info(
         "Phase 3: Clustering took %.1fs, produced %d clusters",
@@ -589,7 +598,7 @@ def discover_issues(
 
     def _summarize_one(cluster_idx: int, group: list[int]) -> _IdentifiedIssue:
         summarize_start = time.time()
-        issue = summarize_cluster(group, analyses, analysis_model, token_counter=token_counter)
+        issue = summarize_cluster(group, analyses, model, token_counter=token_counter)
         _logger.info(
             "Phase 3: Summarized cluster %d/%d (%d analyses) in %.1fs",
             cluster_idx + 1,
@@ -677,8 +686,7 @@ def discover_issues(
             singletons,
             labels,
             analyses,
-            analysis_model,
-            judge_model,
+            model,
             max_issues,
             token_counter=token_counter,
         )
@@ -766,7 +774,7 @@ def discover_issues(
         issues,
         rationale_map,
         trace_lookup,
-        judge_model,
+        model,
         trace_to_session=trace_to_session if has_sessions else None,
         session_first_trace=session_first_trace,
         token_counter=token_counter,
@@ -803,6 +811,8 @@ def discover_issues(
     metadata = {
         "total_traces_analyzed": len(triage_traces),
         "num_issues": len(issues),
+        "model": model,
+        "scorer_names": scorer_names,
         "triage_run_id": triage_eval.run_id,
         "elapsed_seconds": elapsed_seconds,
         **token_counter.to_dict(),

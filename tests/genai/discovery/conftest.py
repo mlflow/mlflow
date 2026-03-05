@@ -4,6 +4,14 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
+from mlflow.genai.scorers.base import Scorer
+
+
+class _TestScorer(Scorer):
+    """Minimal Scorer subclass for use in discovery pipeline tests."""
+
+    def __call__(self, **kwargs):
+        return True
 
 
 def _create_trace(

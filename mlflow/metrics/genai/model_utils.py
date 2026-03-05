@@ -98,10 +98,13 @@ def convert_model_uri_to_litellm(model_uri: str) -> str:
     For Databricks endpoints, MLflow uses ``endpoints:/endpoint-name`` which maps
     to ``databricks/endpoint-name`` in LiteLLM.
     """
-    scheme, path = _parse_model_uri(model_uri)
-    if scheme in ("endpoints", "databricks"):
-        return f"databricks/{path}"
-    return f"{scheme}/{path}"
+    try:
+        scheme, path = _parse_model_uri(model_uri)
+        if scheme in ("endpoints", "databricks"):
+            return f"databricks/{path}"
+        return f"{scheme}/{path}"
+    except Exception as e:
+        raise MlflowException(f"Failed to convert MLflow URI to LiteLLM format: {e}")
 
 
 _PREDICT_ERROR_MSG = """\
