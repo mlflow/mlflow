@@ -10,6 +10,7 @@ defaults:
 
 jobs:
   prepend-warning:
+    if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
