@@ -93,8 +93,6 @@ _LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES = [
     "collections.OrderedDict",
     "lightgbm.basic.Booster",
     "lightgbm.sklearn.LGBMClassifier",
-    "lightgbm.sklearn.LGBMModel",
-    "lightgbm.sklearn.LGBMRanker",
     "lightgbm.sklearn.LGBMRegressor",
 ]
 

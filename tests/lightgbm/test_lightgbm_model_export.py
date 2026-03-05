@@ -560,11 +560,6 @@ def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
         lgb_model=model,
         path=model_path,
         serialization_format="skops",
-        skops_trusted_types=[
-            "collections.OrderedDict",
-            "lightgbm.basic.Booster",
-            "lightgbm.sklearn.LGBMClassifier",
-        ],
     )
 
     logged_reqs = [
