@@ -2,12 +2,14 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_location import TraceLocationType
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
@@ -130,6 +132,38 @@ def test_on_end():
 
     # Verify span was exported
     mock_exporter.export.assert_called_once_with((otel_span,))
+
+
+def test_on_end_sets_user_session_span_attributes():
+    trace_manager = InMemoryTraceManager.get_instance()
+    with mock.patch.object(trace_manager, "pop_trace", return_value=None):
+        with mlflow.start_span("foo") as live_span:
+            mlflow.update_current_trace(
+                metadata={
+                    TraceMetadataKey.TRACE_USER: "alice",
+                    TraceMetadataKey.TRACE_SESSION: "sess-123",
+                }
+            )
+            otel_span = live_span._span
+
+    processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())
+    processor.on_end(otel_span)
+
+    assert otel_span.attributes["user.id"] == "alice"
+    assert otel_span.attributes["session.id"] == "sess-123"
+
+
+def test_on_end_does_not_set_user_session_attributes_when_missing():
+    trace_manager = InMemoryTraceManager.get_instance()
+    with mock.patch.object(trace_manager, "pop_trace", return_value=None):
+        with mlflow.start_span("foo") as live_span:
+            otel_span = live_span._span
+
+    processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())
+    processor.on_end(otel_span)
+
+    assert "user.id" not in otel_span.attributes
+    assert "session.id" not in otel_span.attributes
 
 
 def test_trace_metadata_and_tags():

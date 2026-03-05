@@ -185,7 +185,7 @@ export const useExperimentPageSideNavConfig = ({
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT ||
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
   ) {
-    return {
+    const baseConfig = {
       'top-level': [
         ...(shouldEnableExperimentOverviewTab()
           ? [
@@ -236,6 +236,8 @@ export const useExperimentPageSideNavConfig = ({
           ]
         : ExperimentPageSideNavGenAIConfig.evaluation,
     };
+
+    return baseConfig;
   }
 
   return ExperimentPageSideNavCustomModelConfig;

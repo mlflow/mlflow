@@ -260,6 +260,20 @@ def test_notebook_trace_renderer_base_url_override(monkeypatch):
     assert "http://mlflow:5000/static-files/lib/notebook-trace-renderer/index.html" not in html
 
 
+def test_notebook_iframe_includes_workspace_query_param(monkeypatch):
+    trace = create_trace("a")
+    mlflow.set_tracking_uri("http://localhost:5000")
+
+    # Without workspace set, the query string should not contain workspace
+    html = get_notebook_iframe_html([trace])
+    assert "workspace=" not in html
+
+    # With workspace set, the query string should contain workspace
+    monkeypatch.setenv("MLFLOW_WORKSPACE", "my-workspace")
+    html = get_notebook_iframe_html([trace])
+    assert "workspace=my-workspace" in html
+
+
 def test_display_in_oss(monkeypatch):
     mock_ipython = MockIPython()
     monkeypatch.setattr("IPython.get_ipython", lambda: mock_ipython)

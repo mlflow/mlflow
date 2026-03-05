@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_serializer
 
 
 class TextContentPart(BaseModel):
@@ -205,10 +205,26 @@ class ChatChoice(BaseModel):
     finish_reason: str | None = None
 
 
+class PromptTokensDetails(BaseModel):
+    model_config = {"extra": "allow"}
+
+    cached_tokens: int | None = None
+
+
 class ChatUsage(BaseModel):
+    model_config = {"extra": "allow"}
+
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     total_tokens: int | None = None
+    prompt_tokens_details: PromptTokensDetails | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        if data.get("prompt_tokens_details") is None:
+            data.pop("prompt_tokens_details", None)
+        return data
 
 
 class ToolCallDelta(BaseModel):

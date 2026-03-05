@@ -12,7 +12,7 @@ class WorkspaceRestStoreMixin:
     Shared workspace capability detection for REST-based stores.
     """
 
-    _SERVER_FEATURES_ENDPOINT = "/api/3.0/mlflow/server-features"
+    _SERVER_INFO_ENDPOINT = "/api/3.0/mlflow/server-info"
     _WORKSPACE_UNSUPPORTED_ERROR = (
         "Active workspace '{workspace}' cannot be used because the remote server does not "
         "support workspaces. Restart the server with --enable-workspaces or unset the active "
@@ -56,7 +56,7 @@ class WorkspaceRestStoreMixin:
         try:
             response = http_request(
                 host_creds=host_creds,
-                endpoint=self._SERVER_FEATURES_ENDPOINT,
+                endpoint=self._SERVER_INFO_ENDPOINT,
                 method="GET",
                 timeout=3,
                 max_retries=0,
@@ -64,18 +64,18 @@ class WorkspaceRestStoreMixin:
             )
         except Exception as exc:  # pragma: no cover - network errors vary
             raise MlflowException(
-                message=f"Failed to query {self._SERVER_FEATURES_ENDPOINT}: {exc}",
+                message=f"Failed to query {self._SERVER_INFO_ENDPOINT}: {exc}",
                 error_code=databricks_pb2.INTERNAL_ERROR,
             ) from exc
 
         if response.status_code == 404:
-            # This is expected for older servers that don't have the server-features endpoint.
+            # This is expected for older servers that don't have the server-info endpoint.
             return False
 
         if response.status_code != 200:
             raise MlflowException(
                 message=(
-                    f"Failed to query {self._SERVER_FEATURES_ENDPOINT}: "
+                    f"Failed to query {self._SERVER_INFO_ENDPOINT}: "
                     f"{response.status_code} {response.text}"
                 ),
                 error_code=databricks_pb2.TEMPORARILY_UNAVAILABLE,

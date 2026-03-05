@@ -87,6 +87,11 @@ const sidebarsGenAI: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
+                  id: 'tracing/token-usage-cost/index',
+                  label: 'Token Usage and Cost',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/track-users-sessions/index',
                   label: 'Track Users and Sessions',
                 },
@@ -675,6 +680,16 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/phoenix',
                       label: 'Arize Phoenix',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/trulens',
+                      label: 'TruLens',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/guardrails',
+                      label: 'Guardrails AI',
+                    },
                   ],
                   collapsed: false,
                   link: {
@@ -947,6 +962,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'governance/ai-gateway/traffic-routing-fallbacks',
           label: 'Traffic Routing & Fallbacks',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/usage-tracking',
+          label: 'Usage Tracking',
         },
         {
           type: 'category',

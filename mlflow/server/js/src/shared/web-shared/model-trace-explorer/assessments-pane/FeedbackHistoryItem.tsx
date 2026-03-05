@@ -2,7 +2,7 @@ import { isNil } from 'lodash';
 
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
+import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 
 import { AssessmentDisplayValue } from './AssessmentDisplayValue';
 import { AssessmentItemHeader } from './AssessmentItemHeader';

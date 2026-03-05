@@ -58,7 +58,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
@@ -116,6 +116,8 @@ from mlflow.protos.service_pb2 import (
     SearchEvaluationDatasets,
     SearchExperiments,
     SearchRuns,
+    SearchTraces,
+    SearchTracesV3,
     SetDatasetTags,
     SetExperimentTag,
     SetTag,
@@ -908,6 +910,49 @@ def test_search_traces_errors():
         match="Searching traces by model_id is not supported on the current tracking server.",
     ):
         store.search_traces(model_id="model_id")
+
+
+def test_search_traces_v3_endpoint_not_found_falls_back_to_v2():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    v2_response = mock.MagicMock()
+    v2_response.traces = []
+    v2_response.next_page_token = ""
+
+    endpoint_not_found = MlflowException("Not found", error_code=ENDPOINT_NOT_FOUND)
+
+    with mock.patch.object(
+        store, "_call_endpoint", side_effect=[endpoint_not_found, v2_response]
+    ) as mock_endpoint:
+        trace_infos, token = store._search_traces(
+            locations=["123", "456"],
+            filter_string="state = 'OK'",
+            max_results=10,
+            order_by=["request_time DESC"],
+            page_token="abc",
+        )
+
+    assert mock_endpoint.call_count == 2
+
+    # First call must target the V3 endpoint
+    v3_call = mock_endpoint.call_args_list[0]
+    assert v3_call.args[0] is SearchTracesV3
+
+    # Second call must use the V2 body with experiment_ids, not locations
+    v2_call = mock_endpoint.call_args_list[1]
+    assert v2_call.args[0] is SearchTraces
+
+    v2_body = json.loads(v2_call.args[1])
+    assert v2_body == {
+        "experiment_ids": ["123", "456"],
+        "filter": "state = 'OK'",
+        "max_results": 10,
+        "order_by": ["request_time DESC"],
+        "page_token": "abc",
+    }
+
+    assert trace_infos == []
+    assert token is None
 
 
 def test_get_artifact_uri_for_trace_compatibility():

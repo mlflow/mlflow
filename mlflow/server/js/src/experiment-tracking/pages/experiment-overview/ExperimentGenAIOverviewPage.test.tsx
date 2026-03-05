@@ -5,7 +5,9 @@ import { renderWithIntl } from '../../../common/utils/TestUtils.react18';
 import ExperimentGenAIOverviewPage from './ExperimentGenAIOverviewPage';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { MemoryRouter, Route, Routes } from '../../../common/utils/RoutingUtils';
+
+import { fetchOrFail } from '../../../common/utils/FetchUtils';
+import { setupTestRouter, testRoute, TestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
 
 // Mock FetchUtils
 jest.mock('../../../common/utils/FetchUtils', () => ({
@@ -13,10 +15,10 @@ jest.mock('../../../common/utils/FetchUtils', () => ({
   getAjaxUrl: (url: string) => url,
 }));
 
-import { fetchOrFail } from '../../../common/utils/FetchUtils';
-const mockFetchOrFail = fetchOrFail as jest.MockedFunction<typeof fetchOrFail>;
+const mockFetchOrFail = jest.mocked(fetchOrFail);
 
 describe('ExperimentGenAIOverviewPage', () => {
+  const { history } = setupTestRouter();
   const testExperimentId = 'test-experiment-456';
 
   const createQueryClient = () =>
@@ -33,14 +35,11 @@ describe('ExperimentGenAIOverviewPage', () => {
     return renderWithIntl(
       <QueryClientProvider client={queryClient}>
         <DesignSystemProvider>
-          <MemoryRouter initialEntries={[initialUrl]}>
-            <Routes>
-              <Route
-                path="/experiments/:experimentId/overview/:overviewTab?"
-                element={<ExperimentGenAIOverviewPage />}
-              />
-            </Routes>
-          </MemoryRouter>
+          <TestRouter
+            history={history}
+            routes={[testRoute(<ExperimentGenAIOverviewPage />, `/experiments/:experimentId/overview/:overviewTab?`)]}
+            initialEntries={[initialUrl]}
+          />
         </DesignSystemProvider>
       </QueryClientProvider>,
     );

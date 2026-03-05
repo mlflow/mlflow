@@ -23,6 +23,7 @@ deny_unsafe_checkout contains msg if {
 	# "on.push" becomes "true.push" which is why below statements use "true"
 	# instead of "on".
 	input["true"].pull_request_target
+	not safe_pull_request_target_workflow
 	some job in input.jobs
 	some step in job.steps
 	startswith(step.uses, "actions/checkout@")
@@ -31,6 +32,12 @@ deny_unsafe_checkout contains msg if {
 		"Explicit checkout in a pull_request_target workflow is unsafe. ",
 		"See https://securitylab.github.com/resources/github-actions-preventing-pwn-requests for more information.",
 	])
+}
+
+# Workflows that are safe to use pull_request_target with explicit checkout
+# because they restrict execution to trusted authors via author_association.
+safe_pull_request_target_workflow if {
+	input.name == "UI Preview"
 }
 
 deny_unnecessary_github_token contains msg if {
@@ -142,6 +149,20 @@ deny_wrong_shell_defaults contains msg if {
 	msg := sprintf(
 		"Workflow has 'defaults.run.shell: %s' but it must be 'bash' to enable pipefail by default",
 		[shell],
+	)
+}
+
+deny_github_script_without_retries contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/github-script@")
+	not step["with"].retries
+	msg := sprintf(
+		concat("", [
+			"actions/github-script in job '%s' must have 'retries' set ",
+			"(e.g., retries: 3) for resilience against transient GitHub API failures.",
+		]),
+		[job_id],
 	)
 }
 

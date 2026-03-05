@@ -597,7 +597,7 @@ def test_responses_agent_non_mlflow_decorators():
                     custom_outputs=None,
                     item={
                         "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
-                        "content": [{"text": "Hello!", "type": "output_text"}],
+                        "content": [{"text": "Hello!", "type": "output_text", "annotations": []}],
                         "role": "assistant",
                         "type": "message",
                     },
@@ -697,7 +697,11 @@ def test_responses_agent_non_mlflow_decorators():
                     item={
                         "id": "chatcmpl_fd04a20f-f348-45e1-af37-68cf3bb08bdb",
                         "content": [
-                            {"text": "Hello! How can I help you today?", "type": "output_text"}
+                            {
+                                "text": "Hello! How can I help you today?",
+                                "type": "output_text",
+                                "annotations": [],
+                            }
                         ],
                         "role": "assistant",
                         "type": "message",
@@ -748,7 +752,9 @@ def test_responses_agent_non_mlflow_decorators():
                     custom_outputs=None,
                     item={
                         "id": "msg_bdrk_016AC1ojH743YLHDfgnf4B7Y",
-                        "content": [{"text": "Hello there! I'", "type": "output_text"}],
+                        "content": [
+                            {"text": "Hello there! I'", "type": "output_text", "annotations": []}
+                        ],
                         "role": "assistant",
                         "type": "message",
                     },
@@ -906,7 +912,13 @@ def test_responses_agent_non_mlflow_decorators():
                     custom_outputs=None,
                     item={
                         "id": "msg_bdrk_015YdA8hjVSHWxpAdecgHqj3",
-                        "content": [{"text": "I can help you calculate 4*", "type": "output_text"}],
+                        "content": [
+                            {
+                                "text": "I can help you calculate 4*",
+                                "type": "output_text",
+                                "annotations": [],
+                            }
+                        ],
                         "role": "assistant",
                         "type": "message",
                     },
@@ -1005,6 +1017,180 @@ def test_responses_agent_non_mlflow_decorators():
                 )
             ],
         ),
+        # Parallel tool calls: verifies arguments are assembled per tool call index
+        # Before fix, all arguments were concatenated into first tool call, causing JSON errors
+        (
+            [
+                # Text content
+                {
+                    "id": "msg1",
+                    "choices": [{"delta": {"content": "Calling tools."}, "index": 0}],
+                    "object": "chat.completion.chunk",
+                },
+                # Tool 0: search - init + args
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "call_0",
+                                        "function": {"name": "search", "arguments": ""},
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "function": {"arguments": '{"query": "ML best practices"}'},
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                # Tool 1: weather - init + args
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 1,
+                                        "id": "call_1",
+                                        "function": {"name": "weather", "arguments": ""},
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 1,
+                                        "function": {"arguments": '{"location": "Seattle"}'},
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                # Tool 2: calculate - init + args
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 2,
+                                        "id": "call_2",
+                                        "function": {"name": "calc", "arguments": ""},
+                                    }
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {"index": 2, "function": {"arguments": '{"expr": "42*17"}'}}
+                                ]
+                            },
+                            "index": 0,
+                        }
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+                # Final chunk
+                {
+                    "id": "msg1",
+                    "choices": [
+                        {"delta": {"content": ""}, "finish_reason": "tool_calls", "index": 0}
+                    ],
+                    "object": "chat.completion.chunk",
+                },
+            ],
+            [
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta", item_id="msg1", delta="Calling tools."
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_text.delta", item_id="msg1", delta=""
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    item={
+                        "id": "msg1",
+                        "content": [
+                            {"text": "Calling tools.", "type": "output_text", "annotations": []}
+                        ],
+                        "role": "assistant",
+                        "type": "message",
+                    },
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    item={
+                        "type": "function_call",
+                        "id": "msg1",
+                        "call_id": "call_0",
+                        "name": "search",
+                        "arguments": '{"query": "ML best practices"}',
+                    },
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    item={
+                        "type": "function_call",
+                        "id": "msg1",
+                        "call_id": "call_1",
+                        "name": "weather",
+                        "arguments": '{"location": "Seattle"}',
+                    },
+                ),
+                ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    item={
+                        "type": "function_call",
+                        "id": "msg1",
+                        "call_id": "call_2",
+                        "name": "calc",
+                        "arguments": '{"expr": "42*17"}',
+                    },
+                ),
+            ],
+        ),
     ],
 )
 def test_responses_agent_output_to_responses_items_stream(chunks, expected_output):
@@ -1066,6 +1252,7 @@ def test_create_text_output_item():
             {
                 "text": "Hello world",
                 "type": "output_text",
+                "annotations": [],
             }
         ],
         "role": "assistant",

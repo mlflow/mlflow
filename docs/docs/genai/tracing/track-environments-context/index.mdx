@@ -82,8 +82,8 @@ class ChatRequest(BaseModel):
     message: str
 
 
-@mlflow.trace  # Ensure @mlflow.trace is the outermost decorator
-@app.post("/chat")  # FastAPI decorator should be inner
+@app.post("/chat")  # FastAPI decorator should be outermost
+@mlflow.trace  # Ensure @mlflow.trace is the inner decorator
 def handle_chat(request: Request, chat_request: ChatRequest):
     # Retrieve all context from request headers
     client_request_id = request.headers.get("X-Request-ID")

@@ -1,7 +1,8 @@
 import pytest
+import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
-from mlflow.entities.workspace import Workspace
+from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException
 from mlflow.store.workspace.dbmodels.models import SqlWorkspace
 from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore
@@ -263,3 +264,149 @@ def test_get_default_workspace_returns_default(workspace_store):
     default_ws = workspace_store.get_default_workspace()
     assert default_ws.name == DEFAULT_WORKSPACE_NAME
     assert default_ws.description is not None
+
+
+def test_delete_workspace_reassigns_resources_to_default(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+
+    with workspace_store.ManagedSessionMaker() as session:
+        session.execute(
+            sa.text(
+                "INSERT INTO experiments (name, workspace, lifecycle_stage) "
+                "VALUES (:name, :ws, 'active')"
+            ),
+            {"name": "exp-in-team-a", "ws": "team-a"},
+        )
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        row = session.execute(
+            sa.text("SELECT workspace FROM experiments WHERE name = :name"),
+            {"name": "exp-in-team-a"},
+        ).fetchone()
+        assert row[0] == DEFAULT_WORKSPACE_NAME
+
+
+def test_delete_workspace_fails_on_naming_conflict(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+
+    with workspace_store.ManagedSessionMaker() as session:
+        session.execute(
+            sa.text(
+                "INSERT INTO experiments (name, workspace, lifecycle_stage) "
+                "VALUES (:name, :ws, 'active')"
+            ),
+            {"name": "shared-exp", "ws": "team-a"},
+        )
+        session.execute(
+            sa.text(
+                "INSERT INTO experiments (name, workspace, lifecycle_stage) "
+                "VALUES (:name, :ws, 'active')"
+            ),
+            {"name": "shared-exp", "ws": DEFAULT_WORKSPACE_NAME},
+        )
+
+    with pytest.raises(MlflowException, match="already exist in the default workspace") as exc:
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    assert exc.value.error_code == "INVALID_STATE"
+
+    # Workspace should still exist (transaction rolled back)
+    ws = workspace_store.get_workspace("team-a")
+    assert ws.name == "team-a"
+
+
+def test_delete_workspace_cascade_removes_resources(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+
+    with workspace_store.ManagedSessionMaker() as session:
+        session.execute(
+            sa.text(
+                "INSERT INTO experiments (name, workspace, lifecycle_stage) "
+                "VALUES (:name, :ws, 'active')"
+            ),
+            {"name": "exp-in-team-a", "ws": "team-a"},
+        )
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.CASCADE)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        row = session.execute(
+            sa.text("SELECT count(*) FROM experiments WHERE name = :name"),
+            {"name": "exp-in-team-a"},
+        ).scalar()
+        assert row == 0
+
+    with pytest.raises(MlflowException, match="not found"):
+        workspace_store.get_workspace("team-a")
+
+
+def test_delete_workspace_cascade_removes_experiment_with_runs(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+
+    with workspace_store.ManagedSessionMaker() as session:
+        session.execute(
+            sa.text(
+                "INSERT INTO experiments (experiment_id, name, workspace, lifecycle_stage) "
+                "VALUES (:id, :name, :ws, 'active')"
+            ),
+            {"id": 999, "name": "exp-with-runs", "ws": "team-a"},
+        )
+        session.execute(
+            sa.text(
+                "INSERT INTO runs (run_uuid, name, experiment_id, lifecycle_stage, status, "
+                "source_type, start_time, end_time) "
+                "VALUES (:run_id, :name, :exp_id, 'active', 'FINISHED', 'LOCAL', 0, 0)"
+            ),
+            {"run_id": "run-in-team-a", "name": "test-run", "exp_id": 999},
+        )
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.CASCADE)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        exp_count = session.execute(
+            sa.text("SELECT count(*) FROM experiments WHERE name = :name"),
+            {"name": "exp-with-runs"},
+        ).scalar()
+        assert exp_count == 0
+        run_count = session.execute(
+            sa.text("SELECT count(*) FROM runs WHERE run_uuid = :run_id"),
+            {"run_id": "run-in-team-a"},
+        ).scalar()
+        assert run_count == 0
+
+
+def test_delete_workspace_restrict_blocks_when_resources_exist(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+
+    with workspace_store.ManagedSessionMaker() as session:
+        session.execute(
+            sa.text(
+                "INSERT INTO experiments (name, workspace, lifecycle_stage) "
+                "VALUES (:name, :ws, 'active')"
+            ),
+            {"name": "exp-in-team-a", "ws": "team-a"},
+        )
+
+    with pytest.raises(MlflowException, match="still contains") as exc:
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.RESTRICT)
+    assert exc.value.error_code == "INVALID_STATE"
+
+    # Workspace and resources should still exist
+    ws = workspace_store.get_workspace("team-a")
+    assert ws.name == "team-a"
+    with workspace_store.ManagedSessionMaker() as session:
+        row = session.execute(
+            sa.text("SELECT workspace FROM experiments WHERE name = :name"),
+            {"name": "exp-in-team-a"},
+        ).fetchone()
+        assert row[0] == "team-a"
+
+
+def test_delete_workspace_restrict_allows_empty_workspace(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.RESTRICT)
+
+    with pytest.raises(MlflowException, match="not found"):
+        workspace_store.get_workspace("team-a")

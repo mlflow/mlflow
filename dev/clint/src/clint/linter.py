@@ -685,7 +685,7 @@ class Linter(ast.NodeVisitor):
         for alias in node.names:
             root_module = alias.name.split(".", 1)[0]
             if self._is_in_function() and root_module in BUILTIN_MODULES:
-                self._check(Range.from_node(node), rules.LazyBuiltinImport())
+                self._check(Range.from_node(node), rules.LazyImport())
 
             if (
                 alias.name.split(".", 1)[0] == "typing_extensions"
@@ -709,7 +709,7 @@ class Linter(ast.NodeVisitor):
 
         root_module = node.module and node.module.split(".", 1)[0]
         if self._is_in_function() and root_module in BUILTIN_MODULES:
-            self._check(Range.from_node(node), rules.LazyBuiltinImport())
+            self._check(Range.from_node(node), rules.LazyImport())
 
         if self.in_TYPE_CHECKING and self.is_mlflow_init_py:
             for alias in node.names:
@@ -826,6 +826,9 @@ class Linter(ast.NodeVisitor):
         if rules.UseGhToken.check(node, self.resolver):
             self._check(Range.from_node(node), rules.UseGhToken())
 
+        if rule := rules.PreferOsEnviron.check(node, self.resolver):
+            self._check(Range.from_node(node), rule)
+
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
@@ -854,6 +857,17 @@ class Linter(ast.NodeVisitor):
     def visit_Dict(self, node: ast.Dict) -> None:
         if rules.PreferDictUnion.check(node):
             self._check(Range.from_node(node), rules.PreferDictUnion())
+        self.generic_visit(node)
+
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        if rules.PreferNext.check(node):
+            self._check(Range.from_node(node), rules.PreferNext())
+        self.generic_visit(node)
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        if rules.ExceptBoolOp.check(node):
+            self._check(Range.from_node(node), rules.ExceptBoolOp())
+
         self.generic_visit(node)
 
     def visit_Compare(self, node: ast.Compare) -> None:

@@ -21,7 +21,7 @@ from mlflow.demo.base import (
 )
 from mlflow.demo.data import EXPECTED_ANSWERS
 from mlflow.demo.generators.traces import DEMO_TRACE_TYPE_TAG, DEMO_VERSION_TAG, TracesDemoGenerator
-from mlflow.entities.assessment import AssessmentSource, Feedback
+from mlflow.entities.assessment import AssessmentSource, Expectation, Feedback
 from mlflow.entities.trace import Trace
 from mlflow.entities.view_type import ViewType
 from mlflow.genai.datasets import create_dataset, delete_dataset, search_datasets
@@ -99,7 +99,7 @@ def _create_quality_aware_scorer(
     quality_threshold = 400
 
     @scorer(name=name)
-    def quality_aware_scorer(inputs, outputs) -> Feedback:
+    def quality_aware_scorer(inputs, outputs, trace) -> Feedback:
         content = str(inputs) + str(outputs)
         output_str = str(outputs)
 
@@ -114,6 +114,10 @@ def _create_quality_aware_scorer(
         normalized = hash_val / 0xFFFFFFFF
         is_passing = normalized < effective_pass_rate
 
+        # Use the trace timestamp so the quality overview chart shows a trend
+        # across days instead of a single dot at the current time.
+        trace_timestamp_ms = trace.info.timestamp_ms if trace else None
+
         return Feedback(
             value="yes" if is_passing else "no",
             rationale=rationale_fn(is_passing),
@@ -121,6 +125,8 @@ def _create_quality_aware_scorer(
                 source_type="LLM_JUDGE",
                 source_id=f"judges/{name}",
             ),
+            create_time_ms=trace_timestamp_ms,
+            last_update_time_ms=trace_timestamp_ms,
         )
 
     return quality_aware_scorer
@@ -281,6 +287,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         for trace in traces:
             trace_id = trace.info.trace_id
+            trace_timestamp_ms = trace.info.timestamp_ms
 
             root_span = next((span for span in trace.data.spans if span.parent_id is None), None)
             if root_span is None:
@@ -291,8 +298,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
             if expected_answer := self._find_expected_answer(query):
                 try:
-                    mlflow.log_expectation(
-                        trace_id=trace_id,
+                    expectation = Expectation(
                         name="expected_response",
                         value=expected_answer,
                         source=AssessmentSource(
@@ -300,7 +306,11 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
                             source_id="demo_annotator",
                         ),
                         metadata={"demo": "true"},
+                        trace_id=trace_id,
+                        create_time_ms=trace_timestamp_ms,
+                        last_update_time_ms=trace_timestamp_ms,
                     )
+                    mlflow.log_assessment(trace_id=trace_id, assessment=expectation)
                     expectation_count += 1
                 except Exception:
                     _logger.debug("Failed to log expectation for trace %s", trace_id, exc_info=True)

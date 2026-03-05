@@ -28,8 +28,17 @@ import { shouldEnableWorkflowBasedNavigation } from '../../common/utils/FeatureU
 const GatewayPageTitle = () => {
   const { theme } = useDesignSystemTheme();
   return (
-    <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
-      <CloudModelIcon />
+    <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+      <span
+        css={{
+          display: 'flex',
+          borderRadius: theme.borders.borderRadiusSm,
+          backgroundColor: theme.colors.backgroundSecondary,
+          padding: theme.spacing.sm,
+        }}
+      >
+        <CloudModelIcon />
+      </span>
       <FormattedMessage defaultMessage="AI Gateway" description="Header title for the AI Gateway configuration page" />
     </span>
   );

@@ -18,33 +18,56 @@ _logger = logging.getLogger(__name__)
 
 
 def patched_claude_sdk_init(original, self, options=None):
-    """Patched __init__ that adds MLflow tracing hook to ClaudeSDKClient.
-
-    The hook handler checks autologging_is_disabled() at runtime, so hooks
-    are always injected but become no-ops when autologging is disabled.
-    """
     try:
-        from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
+        from claude_agent_sdk.types import UserMessage
 
-        from mlflow.claude_code.hooks import sdk_stop_hook_handler
+        result = original(self, options)
+        messages = []
 
-        # Create options if not provided
-        if options is None:
-            options = ClaudeAgentOptions()
+        # query() sends the user prompt but doesn't echo it through receive_response()
+        original_query = self.query
 
-        if options.hooks is None:
-            options.hooks = {}
-        if "Stop" not in options.hooks:
-            options.hooks["Stop"] = []
+        async def wrapped_query(prompt, *args, **kwargs):
+            if isinstance(prompt, str):
+                messages.append(UserMessage(content=prompt))
+            elif hasattr(prompt, "__aiter__"):
+                # prompt is an async generator yielding message dicts — wrap it
+                # to capture the user content while passing items through to the SDK
+                original_prompt = prompt
 
-        options.hooks["Stop"].append(HookMatcher(hooks=[sdk_stop_hook_handler]))
+                async def capturing_prompt():
+                    async for item in original_prompt:
+                        if isinstance(item, dict) and item.get("type") == "user":
+                            content = item.get("message", {}).get("content", "")
+                            if isinstance(content, str) and content.strip():
+                                messages.append(UserMessage(content=content))
+                        yield item
 
-        # Call original init with modified options
-        return original(self, options)
+                prompt = capturing_prompt()
+            return await original_query(prompt, *args, **kwargs)
 
+        self.query = wrapped_query
+
+        original_receive_response = self.receive_response
+
+        async def wrapped_receive_response(*args, **kwargs):
+            async for msg in original_receive_response(*args, **kwargs):
+                messages.append(msg)
+                yield msg
+            try:
+                from mlflow.utils.autologging_utils import autologging_is_disabled
+
+                if not autologging_is_disabled("anthropic"):
+                    from mlflow.claude_code.tracing import process_sdk_messages
+
+                    process_sdk_messages(list(messages))
+            except Exception as e:
+                _logger.debug("Error building SDK trace: %s", e, exc_info=True)
+
+        self.receive_response = wrapped_receive_response
+        return result
     except Exception as e:
         _logger.debug("Error in patched_claude_sdk_init: %s", e, exc_info=True)
-        # Fall back to original behavior if patching fails
         return original(self, options)
 
 
@@ -139,11 +162,16 @@ def _set_token_usage_attribute(span: LiveSpan, output: Any):
 def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         if usage := getattr(output, "usage", None):
-            return {
+            usage_dict = {
                 TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,
                 TokenUsageKey.TOTAL_TOKENS: usage.input_tokens + usage.output_tokens,
             }
+            if (cached := getattr(usage, "cache_read_input_tokens", None)) is not None:
+                usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+            if (created := getattr(usage, "cache_creation_input_tokens", None)) is not None:
+                usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+            return usage_dict
     except Exception as e:
         _logger.debug(f"Failed to parse token usage from output: {e}")
     return None

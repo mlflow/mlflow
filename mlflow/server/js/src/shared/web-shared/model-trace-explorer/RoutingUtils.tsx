@@ -45,8 +45,11 @@ const getActiveWorkspace = (): string | null => {
 
 const isAbsoluteUrl = (value: string) => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value);
 
-/** Routes that never have workspace context (e.g., /settings). Root '/' is contextual. */
-const ALWAYS_GLOBAL_ROUTES = ['/settings'];
+/**
+ * Routes that never have workspace context. Root '/' is contextual.
+ * Kept as an extension point for any future workspace-agnostic routes.
+ */
+const ALWAYS_GLOBAL_ROUTES: string[] = [];
 
 /** Check if pathname is always global (workspace-agnostic). */
 const isGlobalRoute = (pathname: string): boolean => {
@@ -215,6 +218,7 @@ const prefixRouteWithWorkspaceForTo = (to: To): To => {
 };
 
 const useParams = useParamsDirect;
+
 const useLocation = useLocationDirect;
 
 const Link = React.forwardRef<

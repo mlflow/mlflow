@@ -48,7 +48,7 @@ export const ExperimentSelect = ({ value, onChange, disabled, error, componentId
         matchTriggerWidth: true,
         maxHeight: 300,
       }}
-      css={{ width: '100%' }}
+      css={{ width: 300 }}
       allowClear
     >
       {experiments.map((experiment) => (

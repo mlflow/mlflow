@@ -4,13 +4,6 @@ import { APILink } from "@site/src/components/APILink";
 
 Workspaces add an optional organizational layer and permission scheme for MLflow resources such as experiments, registered models, prompts, AI Gateway resources, and artifacts, letting teams share one deployment without running multiple servers.
 
-:::warning Known limitations
-
-- UI support for workspaces is not yet available (coming soon).
-- Disabling workspaces after creating resources in non-default workspaces currently requires manual database changes; helper tooling is planned.
-
-:::
-
 ## Key Capabilities
 
 **Resource scoping**
@@ -41,6 +34,12 @@ Workspaces provide logical separation and authorization controls inside one MLfl
 :::warning Requirements
 
 Workspaces require a SQL database backend store. File-based backends are not supported when workspaces are enabled.
+
+:::
+
+:::note
+
+If you are enabling workspaces on an existing instance with basic-auth, set `grant_default_workspace_access = true` in your [auth config](/self-hosting/workspaces/configuration#grant_default_workspace_access) for backwards compatibility. Otherwise, existing resources in the `default` workspace will become inaccessible to non-admin users.
 
 :::
 

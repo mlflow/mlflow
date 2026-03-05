@@ -51,8 +51,13 @@ def strip_html_comments(text: str) -> str:
     return re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
 
 
+def strip_empty_checkboxes(text: str) -> str:
+    return re.sub(r"^\s{0,3}[-*]\s+\[\s*\]\s+.+\n?", "", text, flags=re.MULTILINE)
+
+
 def build_prompt(title: str, body: str) -> str:
     body = strip_html_comments(body)
+    body = strip_empty_checkboxes(body)
     return PROMPT_TEMPLATE.format(
         title=title,
         body=body[:MAX_BODY_LENGTH],

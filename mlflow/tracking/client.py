@@ -45,6 +45,7 @@ from mlflow.entities import (
     Trace,
     ViewType,
     Workspace,
+    WorkspaceDeletionMode,
 )
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -373,10 +374,21 @@ class MlflowClient:
             name, description, default_artifact_root=default_artifact_root
         )
 
-    def delete_workspace(self, name: str) -> None:
-        """Delete an existing workspace."""
+    def delete_workspace(self, name: str, mode: str = WorkspaceDeletionMode.RESTRICT) -> None:
+        """Delete an existing workspace.
 
-        self._get_workspace_client().delete_workspace(name)
+        Args:
+            name: Name of the workspace to delete.
+            mode: Deletion mode — ``"SET_DEFAULT"``, ``"CASCADE"``, or ``"RESTRICT"``.
+        """
+        try:
+            deletion_mode = WorkspaceDeletionMode(mode)
+        except ValueError:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid deletion mode '{mode}'. "
+                f"Must be one of: {', '.join(m.value for m in WorkspaceDeletionMode)}"
+            )
+        self._get_workspace_client().delete_workspace(name, mode=deletion_mode)
 
     def get_run(self, run_id: str) -> Run:
         """
@@ -6146,7 +6158,11 @@ class MlflowClient:
             client.delete_prompt_version("my_prompt", "1")
         """
         registry_client = self._get_registry_client()
-        return registry_client.delete_prompt_version(name, version)
+        registry_client.delete_prompt_version(name, version)
+
+        # Invalidate all cache entries for this prompt name since aliases and
+        # "latest" may also resolve to the deleted version.
+        PromptCache.get_instance().delete_all(name)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -6235,15 +6251,14 @@ class MlflowClient:
         """
         Search prompt versions for a given prompt name.
 
-        This method delegates directly to the store. Only supported in Unity Catalog registries.
-
         Args:
             name: Name of the prompt to search versions for.
             max_results: Maximum number of versions to return.
             page_token: Token for pagination.
 
         Returns:
-            SearchPromptVersionsResponse containing the list of versions.
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`~mlflow.entities.model_registry.PromptVersion` objects.
 
         Example:
 
@@ -6252,9 +6267,9 @@ class MlflowClient:
             from mlflow import MlflowClient
 
             client = MlflowClient()
-            response = client.search_prompt_versions("my_prompt", max_results=10)
-            for version in response.prompt_versions:
-                print(f"Version {version.version}: {version.description}")
+            versions = client.search_prompt_versions("my_prompt", max_results=10)
+            for version in versions:
+                print(f"Version {version.version}: {version.template}")
         """
         registry_client = self._get_registry_client()
         return registry_client.search_prompt_versions(name, max_results, page_token)
@@ -6285,7 +6300,7 @@ class MlflowClient:
             # For Unity Catalog, delete all versions first
             if client.get_registry_uri().startswith("databricks-uc"):
                 versions = client.search_prompt_versions("my_prompt")
-                for version in versions.prompt_versions:
+                for version in versions:
                     client.delete_prompt_version("my_prompt", version.version)
 
             # Then delete the prompt
@@ -6297,16 +6312,9 @@ class MlflowClient:
         registry_uri = self._registry_uri
 
         if is_databricks_unity_catalog_uri(registry_uri):
-            search_response = self.search_prompt_versions(name, max_results=1)
+            versions = self.search_prompt_versions(name, max_results=1)
 
-            # Check if any versions exist
-            has_versions = (
-                hasattr(search_response, "prompt_versions")
-                and search_response.prompt_versions
-                and len(search_response.prompt_versions) > 0
-            )
-
-            if has_versions:
+            if len(versions) > 0:
                 raise MlflowException(
                     f"Cannot delete prompt '{name}' because it still has undeleted versions. "
                     f"Please delete all versions first using delete_prompt_version(), "
@@ -6319,7 +6327,9 @@ class MlflowClient:
         # the background thread holds a session open while we try to delete.
         with _prompt_experiment_link_lock:
             # For non-Unity Catalog registries, or if version check passes, delete the prompt
-            return registry_client.delete_prompt(name)
+            registry_client.delete_prompt(name)
+            PromptCache.get_instance().delete_all(name)
+            return
 
     @experimental(version="3.4.0")
     @_disable_in_databricks()
@@ -6568,7 +6578,6 @@ class MlflowClient:
         return self._tracking_client.remove_dataset_from_experiments(dataset_id, experiment_ids)
 
     # Webhook APIs
-    @experimental(version="3.3.0")
     def create_webhook(
         self,
         name: str,
@@ -6607,7 +6616,6 @@ class MlflowClient:
             status=status,
         )
 
-    @experimental(version="3.3.0")
     def get_webhook(self, webhook_id: str) -> Webhook:
         """
         Get webhook instance by ID.
@@ -6620,7 +6628,6 @@ class MlflowClient:
         """
         return self._get_registry_client().get_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def list_webhooks(
         self,
         max_results: int | None = None,
@@ -6638,7 +6645,6 @@ class MlflowClient:
         """
         return self._get_registry_client().list_webhooks(max_results, page_token)
 
-    @experimental(version="3.3.0")
     def update_webhook(
         self,
         webhook_id: str,
@@ -6681,7 +6687,6 @@ class MlflowClient:
             status=status,
         )
 
-    @experimental(version="3.3.0")
     def delete_webhook(self, webhook_id: str) -> None:
         """
         Delete a webhook.
@@ -6694,7 +6699,6 @@ class MlflowClient:
         """
         self._get_registry_client().delete_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def test_webhook(
         self, webhook_id: str, event: WebhookEventStr | WebhookEvent | None = None
     ) -> WebhookTestResult:

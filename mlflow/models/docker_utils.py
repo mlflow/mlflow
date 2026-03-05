@@ -138,8 +138,8 @@ def generate_dockerfile(
 
 
 def _get_maven_proxy():
-    http_proxy = os.getenv("http_proxy")
-    https_proxy = os.getenv("https_proxy")
+    http_proxy = os.environ.get("http_proxy")
+    https_proxy = os.environ.get("https_proxy")
     if not http_proxy or not https_proxy:
         return ""
 

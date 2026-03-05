@@ -8,6 +8,8 @@ export enum GatewayPageId {
   endpointDetailsPage = 'mlflow.gateway.endpoint-details',
 }
 
+// following same pattern as other routes files
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class GatewayRoutePaths {
   static get gatewayPage() {
     return createMLflowRoutePath('/gateway');
@@ -30,6 +32,8 @@ export class GatewayRoutePaths {
   }
 }
 
+// following same pattern as other routes files
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class GatewayRoutes {
   static get gatewayPageRoute() {
     return GatewayRoutePaths.gatewayPage;
@@ -47,8 +51,18 @@ class GatewayRoutes {
     return GatewayRoutePaths.createEndpointPage;
   }
 
-  static getEndpointDetailsRoute(endpointId: string) {
-    return generatePath(GatewayRoutePaths.endpointDetailsPage, { endpointId });
+  static getEndpointDetailsRoute(endpointId: string, options?: { tab?: string; startTime?: string; endTime?: string }) {
+    const path = generatePath(GatewayRoutePaths.endpointDetailsPage, { endpointId });
+    if (!options) return path;
+    const params = new URLSearchParams();
+    if (options.tab) params.set('tab', options.tab);
+    if (options.startTime && options.endTime) {
+      params.set('startTimeLabel', 'CUSTOM');
+      params.set('startTime', options.startTime);
+      params.set('endTime', options.endTime);
+    }
+    const query = params.toString();
+    return query ? `${path}?${query}` : path;
   }
 }
 
