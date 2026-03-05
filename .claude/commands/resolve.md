@@ -53,6 +53,5 @@ Automatically fetch and address PR review comments. This command examines review
 
 5. After making all changes, run pre-commit on changed files:
 
-   - Run `pre-commit run --files <changed files>` to lint and auto-fix formatting
-   - If pre-commit makes additional changes, re-apply them as needed until pre-commit passes
+   - Run `pre-commit run --files <changed files>` to lint and auto-fix formatting until it passes
    - **DO NOT** commit or push changes
