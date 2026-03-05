@@ -2964,9 +2964,12 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         token, _, username = credentials.partition(":")
         if not secrets.compare_digest(token, internal_token):
             return None
-        if username:
-            return store.get_user(username)
-        return store.get_user(auth_config.admin_username)
+        try:
+            if username:
+                return store.get_user(username)
+            return store.get_user(auth_config.admin_username)
+        except MlflowException:
+            return None
 
     return None
 
