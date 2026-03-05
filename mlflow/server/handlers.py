@@ -4682,7 +4682,7 @@ def _create_gateway_endpoint():
         request_message.experiment_id if request_message.HasField("experiment_id") else None
     )
     usage_tracking = (
-        request_message.usage_tracking if request_message.HasField("usage_tracking") else False
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else True
     )
 
     endpoint = _get_tracking_store().create_gateway_endpoint(

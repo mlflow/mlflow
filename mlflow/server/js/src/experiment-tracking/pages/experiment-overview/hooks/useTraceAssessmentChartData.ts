@@ -145,7 +145,7 @@ export function useTraceAssessmentChartData(assessmentName: string): UseTraceAss
     // For non-bucketed values (sparse integers, strings, booleans), use as-is
     const sortedValues = sortValuesAlphanumerically(allValues);
     return sortedValues.map((value) => ({
-      name: value,
+      name: value.replace(/^"|"$/g, ''),
       count: valueCounts[value] || 0,
     }));
   }, [distributionDataPoints]);
