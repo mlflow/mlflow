@@ -674,18 +674,12 @@ def test_recluster_merges_similar_singletons():
         _ConversationAnalysis(
             surface="tool error A",
             root_cause="API failure",
-            symptoms="timeout",
-            domain="",
             affected_trace_ids=["t1"],
-            severity=3,
         ),
         _ConversationAnalysis(
             surface="tool error B",
             root_cause="API failure",
-            symptoms="timeout",
-            domain="",
             affected_trace_ids=["t2"],
-            severity=3,
         ),
     ]
     singletons = [
@@ -741,18 +735,12 @@ def test_recluster_keeps_unmerged_singletons():
         _ConversationAnalysis(
             surface="error A",
             root_cause="A",
-            symptoms="A",
-            domain="",
             affected_trace_ids=["t1"],
-            severity=3,
         ),
         _ConversationAnalysis(
             surface="error B",
             root_cause="B",
-            symptoms="B",
-            domain="",
             affected_trace_ids=["t2"],
-            severity=3,
         ),
     ]
     singletons = [
@@ -809,18 +797,12 @@ def test_recluster_low_confidence_merge_keeps_originals():
         _ConversationAnalysis(
             surface="A",
             root_cause="A",
-            symptoms="A",
-            domain="",
             affected_trace_ids=["t1"],
-            severity=3,
         ),
         _ConversationAnalysis(
             surface="B",
             root_cause="B",
-            symptoms="B",
-            domain="",
             affected_trace_ids=["t2"],
-            severity=3,
         ),
     ]
     singletons = [

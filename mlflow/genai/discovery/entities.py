@@ -33,10 +33,7 @@ class DiscoverIssuesResult:
 class _ConversationAnalysis:
     surface: str
     root_cause: str
-    symptoms: str
-    domain: str
     affected_trace_ids: list[str]
-    severity: int
     execution_path: str = ""
 
 

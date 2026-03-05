@@ -218,10 +218,11 @@ def _annotate_issue_traces(
 
     from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
     from mlflow.genai.discovery.constants import TRACE_ANNOTATION_SYSTEM_PROMPT
-    from mlflow.genai.discovery.utils import _NUM_RETRIES, _to_litellm_model
+    from mlflow.genai.discovery.utils import _NUM_RETRIES
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
+    from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
 
-    litellm_model = _to_litellm_model(model)
+    litellm_model = convert_model_uri_to_litellm(model)
 
     source = AssessmentSource(
         source_type=AssessmentSourceType.LLM_JUDGE,
@@ -324,7 +325,6 @@ def discover_issues(
     scorers: list[Scorer] | None = None,
     judge_model: str | None = None,
     analysis_model: str | None = None,
-    embedding_model: str = "openai:/text-embedding-3-small",
     triage_sample_size: int = DEFAULT_TRIAGE_SAMPLE_SIZE,
     max_issues: int = 20,
     filter_string: str | None = None,
@@ -338,8 +338,8 @@ def discover_issues(
        to analysis.
     2. **Analysis**: Builds per-session analyses from triage rationales and
        human feedback assessments.
-    3. **Cluster & Identify**: Embedding-based clustering of analyses into
-       coherent issue groups, with LLM-based summarization and refinement.
+    3. **Cluster & Identify**: LLM-based clustering of analyses into
+       coherent issue groups, with summarization and refinement.
 
     Args:
         experiment_id: Experiment to analyze. Defaults to the active experiment.
@@ -353,8 +353,6 @@ def discover_issues(
             Defaults to ``"openai:/gpt-5-mini"``.
         analysis_model: LLM used for analysis and cluster summarization.
             Defaults to ``"openai:/gpt-5.2"``.
-        embedding_model: Embedding model for semantic clustering.
-            Defaults to ``"openai:/text-embedding-3-small"``.
         triage_sample_size: Number of sessions (or traces, if no session metadata
             exists) to randomly sample for the triage phase. Ignored when
             ``traces`` is provided.
@@ -523,16 +521,13 @@ def discover_issues(
             _ConversationAnalysis(
                 surface=surface,
                 root_cause=combined_rationale,
-                symptoms=combined_rationale,
-                domain="",
                 affected_trace_ids=[t.info.trace_id for t in session_failing],
-                severity=3,
                 execution_path=exec_path,
             )
         )
     _logger.info("Phase 2: Built %d analyses from triage rationales", len(analyses))
 
-    # Phase 3: Cluster — embedding-based agglomerative clustering + LLM refinement
+    # Phase 3: Cluster — LLM-based label extraction and grouping
     _logger.info("Phase 3: Extracting failure labels for clustering...")
     t0 = time.time()
     labels = _extract_failure_labels(analyses, judge_model, token_counter=token_counter)
@@ -547,7 +542,6 @@ def discover_issues(
     t0 = time.time()
     cluster_groups = _cluster_analyses(
         analyses,
-        embedding_model,
         max_issues,
         labels=labels,
         label_model=judge_model,
