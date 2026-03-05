@@ -2,25 +2,22 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING
 
 import mlflow
 from mlflow.genai.discovery.constants import (
     CLUSTER_SUMMARY_SYSTEM_PROMPT,
-    DEFAULT_JUDGE_MODEL,
+    DEFAULT_MODEL,
     LLM_MAX_TOKENS,
     NUM_RETRIES,
 )
 from mlflow.genai.discovery.entities import (
+    Issue,
     _ConversationAnalysis,
     _IdentifiedIssue,
+    _TokenCounter,
 )
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
 from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
-
-if TYPE_CHECKING:
-    from mlflow.genai.discovery.entities import Issue
-    from mlflow.genai.discovery.pipeline import _TokenCounter
 
 _logger = logging.getLogger(__name__)
 
@@ -48,7 +45,7 @@ def cluster_by_llm(
     Returns:
         List of index lists, where each inner list is a cluster of label indices.
     """
-    model = model or DEFAULT_JUDGE_MODEL
+    model = model or DEFAULT_MODEL
     litellm_model = convert_model_uri_to_litellm(model)
 
     numbered = "\n".join(f"[{i}] {lbl}" for i, lbl in enumerate(labels))
@@ -82,7 +79,7 @@ def cluster_by_llm(
         num_retries=NUM_RETRIES,
         response_format={"type": "json_object"},
         include_response_format=True,
-        inference_params={"max_tokens": LLM_MAX_TOKENS, "temperature": 0},
+        inference_params={"max_tokens": LLM_MAX_TOKENS},
     )
     if token_counter is not None:
         token_counter.track(response)
@@ -123,7 +120,7 @@ def cluster_by_llm(
 def summarize_cluster(
     cluster_indices: list[int],
     analyses: list[_ConversationAnalysis],
-    analysis_model: str,
+    model: str,
     token_counter: _TokenCounter | None = None,
 ) -> _IdentifiedIssue:
     """
@@ -136,7 +133,7 @@ def summarize_cluster(
     Args:
         cluster_indices: Indices into ``analyses`` that form this cluster.
         analyses: All conversation analyses from the pipeline.
-        analysis_model: Model URI for the summarization LLM.
+        model: Model URI for the summarization LLM.
         token_counter: Optional token counter for tracking LLM usage.
 
     Returns:
@@ -157,7 +154,7 @@ def summarize_cluster(
         f"Respond with a JSON object matching this schema:\n{schema_json}"
     )
 
-    litellm_model = convert_model_uri_to_litellm(analysis_model)
+    litellm_model = convert_model_uri_to_litellm(model)
 
     response = _invoke_litellm(
         litellm_model=litellm_model,
@@ -172,7 +169,7 @@ def summarize_cluster(
         num_retries=NUM_RETRIES,
         response_format={"type": "json_object"},
         include_response_format=True,
-        inference_params={"max_tokens": LLM_MAX_TOKENS, "temperature": 0},
+        inference_params={"max_tokens": LLM_MAX_TOKENS},
     )
     if token_counter is not None:
         token_counter.track(response)
