@@ -177,7 +177,7 @@ def test_session_manager_get_tokens(manager):
     assert tokens["refresh_token"] == "refresh-tok"
 
 
-def test_session_manager_update_tokens_rotates_id(manager):
+def test_session_manager_update_tokens_keeps_session_id(manager):
     sid = manager.create_session(
         user_id=1,
         provider="oidc:test",
@@ -189,18 +189,17 @@ def test_session_manager_update_tokens_rotates_id(manager):
         user_agent="",
     )
 
-    new_sid = manager.update_session_tokens(
+    returned_sid = manager.update_session_tokens(
         old_session_id=sid,
         access_token="new-at",
         refresh_token="new-rt",
         token_expiry=datetime.now(timezone.utc) + timedelta(hours=2),
     )
 
-    assert new_sid != sid
-    assert manager.validate_session(sid) is None
-    assert manager.validate_session(new_sid) is not None
+    assert returned_sid == sid
+    assert manager.validate_session(sid) is not None
 
-    tokens = manager.get_session_tokens(new_sid)
+    tokens = manager.get_session_tokens(sid)
     assert tokens["access_token"] == "new-at"
     assert tokens["refresh_token"] == "new-rt"
 

@@ -22,13 +22,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { authType, authUser, authProviders } = useAuthInfo();
 
   const logout = useCallback(async () => {
-    const response = await fetch('/auth/logout', {
-      method: 'POST',
-      credentials: 'same-origin',
-    });
-    if (response.redirected) {
-      window.location.href = response.url;
-    } else {
+    try {
+      const response = await fetch('/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+      const data = await response.json();
+      window.location.href = data.redirect_url || '/auth/login';
+    } catch {
       window.location.href = '/auth/login';
     }
   }, []);

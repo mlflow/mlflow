@@ -145,16 +145,12 @@ def _try_refresh_token(session_id: str, session_info: dict[str, object]):
         seconds=new_tokens.get("expires_in", 3600)
     )
 
-    new_session_id = _session_manager.update_session_tokens(
+    _session_manager.update_session_tokens(
         old_session_id=session_id,
         access_token=new_tokens["access_token"],
         refresh_token=new_tokens.get("refresh_token", ""),
         token_expiry=token_expiry,
     )
-
-    if new_session_id:
-        # Store the new session ID so _after_request can set the new cookie
-        request._new_session_id = new_session_id
 
 
 def _check_external_authz(username: str, resource_type: str, resource_id: str, action: str):
@@ -293,10 +289,8 @@ def _logout():
             if username := claims.get("username", ""):
                 _external_authz.invalidate_cache_for_user(username)
 
-    response = redirect("/auth/login")
-    _session_manager.clear_session_cookie(response)
-
-    # Handle IdP logout redirect
+    # Build the redirect URL (IdP logout or local login page)
+    redirect_url = "/auth/login"
     if session_info:
         provider_str = session_info.get("provider", "")
         if provider_str.startswith("oidc:"):
@@ -306,18 +300,16 @@ def _logout():
 
                 endpoints = _get_endpoints(provider)
                 if end_session_url := endpoints.get("end_session_endpoint"):
-                    claims = (
-                        json.loads(session_info.get("id_token_claims", "{}"))
-                        if session_info.get("id_token_claims")
-                        else {}
-                    )
                     params = {
                         "post_logout_redirect_uri": f"{request.scheme}://{request.host}/auth/login",
                         "client_id": provider.client_id,
                     }
-                    response = redirect(f"{end_session_url}?{urlencode(params)}")
-                    _session_manager.clear_session_cookie(response)
+                    redirect_url = f"{end_session_url}?{urlencode(params)}"
 
+    # Return JSON so the frontend can do a full page navigation (avoids CORS
+    # issues when fetch() would otherwise follow a 302 to the IdP).
+    response = make_response(jsonify({"redirect_url": redirect_url}))
+    _session_manager.clear_session_cookie(response)
     return response
 
 
@@ -563,11 +555,12 @@ def _infer_resource_context(req) -> tuple[str, str, str]:
 
 @catch_mlflow_exception
 def _after_request(resp: Response):
-    # Update session cookie if token was refreshed
-    if new_session_id := getattr(request, "_new_session_id", None):
-        _session_manager.set_session_cookie(resp, new_session_id)
-
     if 400 <= resp.status_code < 600:
+        return resp
+
+    # Enrich /server-info response with auth context
+    if request.path.endswith("/mlflow/server-info") and request.method == "GET":
+        _enrich_server_info_response(resp)
         return resp
 
     handler = AFTER_REQUEST_HANDLERS.get((request.path, request.method))
@@ -580,6 +573,54 @@ def _after_request(resp: Response):
         handler(resp)
 
     return resp
+
+
+def _enrich_server_info_response(resp: Response):
+    try:
+        data = resp.get_json()
+        if not isinstance(data, dict):
+            return
+    except Exception:
+        return
+
+    data["auth_type"] = "oauth"
+    data["auth_providers"] = _oauth_config.get_enabled_providers()
+
+    # Add current user info if authenticated via session
+    if username := getattr(request, "username", None):
+        session_id = _session_manager.get_session_id_from_cookie(request)
+        session_info = _session_manager.validate_session(session_id) if session_id else None
+        claims = (session_info or {}).get("id_token_claims") or {}
+        try:
+            user = store.get_user(username)
+            is_admin = user.is_admin
+        except Exception:
+            is_admin = False
+        data["auth_user"] = {
+            "username": username,
+            "display_name": claims.get("display_name", ""),
+            "email": claims.get("email", ""),
+            "is_admin": is_admin,
+        }
+
+    resp.set_data(json.dumps(data))
+    resp.content_type = "application/json"
+
+
+def _install_authenticate_request_shortcut():
+    import mlflow.server.auth as auth_module
+
+    _original_authenticate_request = auth_module.authenticate_request
+
+    def _patched_authenticate_request() -> Authorization | Response:
+        # If _before_request already authenticated the user, return the stored username
+        # instead of re-running the full OAuth flow. This is needed because after-request
+        # handlers (e.g. filter_search_experiments) call authenticate_request() again.
+        if username := getattr(request, "username", None):
+            return Authorization("session", {"username": username})
+        return _original_authenticate_request()
+
+    auth_module.authenticate_request = _patched_authenticate_request
 
 
 def _install_idp_default_permission_hook():
@@ -686,6 +727,10 @@ def create_app(app: Flask = app):
     # Initialize external authz client
     if _oauth_config.external_authz.enabled:
         _external_authz = ExternalAuthzClient(_oauth_config.external_authz)
+
+    # Patch authenticate_request() to reuse the username from _before_request,
+    # so after-request handlers don't re-run the full OAuth flow.
+    _install_authenticate_request_shortcut()
 
     # Install IdP default permission hook (step 5 in authz chain)
     _install_idp_default_permission_hook()

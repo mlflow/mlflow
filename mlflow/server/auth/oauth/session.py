@@ -161,7 +161,6 @@ class SessionManager:
     ) -> str:
         from mlflow.server.auth.oauth.db.models import SqlSession
 
-        new_session_id = generate_session_id()
         encryption_key = self._config.encryption_key
 
         with self._session_maker() as db:
@@ -169,7 +168,6 @@ class SessionManager:
             if not session:
                 return ""
 
-            session.id = new_session_id
             session.access_token_enc = encrypt_token(access_token, encryption_key)
             if refresh_token:
                 session.refresh_token_enc = encrypt_token(refresh_token, encryption_key)
@@ -178,7 +176,7 @@ class SessionManager:
             session.last_accessed_at = datetime.now(timezone.utc)
             db.commit()
 
-        return new_session_id
+        return old_session_id
 
     def delete_session(self, session_id: str) -> dict[str, str | None] | None:
         from mlflow.server.auth.oauth.db.models import SqlSession
