@@ -55,4 +55,4 @@ Automatically fetch and address PR review comments. This command examines review
 
    - Run `pre-commit run --files <changed files>` to lint and auto-fix formatting
    - If pre-commit makes additional changes, re-apply them as needed until pre-commit passes
-   - **DO NOT** commit or push changes; the workflow handles `git add` and `git commit -s`
+   - **DO NOT** commit or push changes
