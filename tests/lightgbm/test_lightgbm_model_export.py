@@ -87,6 +87,16 @@ def lgb_sklearn_model():
     return ModelWithData(model=model, inference_dataframe=X)
 
 
+@pytest.fixture(scope="module")
+def lgb_sklearn_regressor_model():
+    diabetes = datasets.load_diabetes()
+    X = pd.DataFrame(diabetes.data, columns=diabetes.feature_names)
+    y = diabetes.target
+    model = lgb.LGBMRegressor(n_estimators=10)
+    model.fit(X, y)
+    return ModelWithData(model=model, inference_dataframe=X)
+
+
 @pytest.fixture
 def model_path(tmp_path):
     return os.path.join(tmp_path, "model")
@@ -582,4 +592,37 @@ def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
     np.testing.assert_array_almost_equal(
         reloaded_model.predict(lgb_sklearn_model.inference_dataframe),
         reloaded_pyfunc.predict(lgb_sklearn_model.inference_dataframe),
+    )
+
+
+def test_sklearn_regressor_model_save_load_by_skops(lgb_sklearn_regressor_model, model_path):
+    from mlflow.utils.requirements_utils import _parse_requirements
+
+    model = lgb_sklearn_regressor_model.model
+    mlflow.lightgbm.save_model(
+        lgb_model=model,
+        path=model_path,
+        serialization_format="skops",
+    )
+
+    logged_reqs = [
+        req.req_str
+        for req in _parse_requirements(
+            os.path.join(model_path, "requirements.txt"), is_constraint=False
+        )
+    ]
+    assert f"skops=={skops.__version__}" in logged_reqs
+    assert f"cloudpickle=={cloudpickle.__version__}" not in logged_reqs
+
+    reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    np.testing.assert_array_almost_equal(
+        model.predict(lgb_sklearn_regressor_model.inference_dataframe),
+        reloaded_model.predict(lgb_sklearn_regressor_model.inference_dataframe),
+    )
+
+    np.testing.assert_array_almost_equal(
+        reloaded_model.predict(lgb_sklearn_regressor_model.inference_dataframe),
+        reloaded_pyfunc.predict(lgb_sklearn_regressor_model.inference_dataframe),
     )
