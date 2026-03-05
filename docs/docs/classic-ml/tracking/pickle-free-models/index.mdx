@@ -80,7 +80,7 @@ When saving a PyTorch model, saving with `serialization_format="pt2"` uses `torc
 - Not supported for `torch.jit.ScriptModule` models
 - Model weights **cannot be transferred between devices** after loading. If the model is saved with weights on GPU device 0, it must also be loaded onto GPU device 0 — not CPU or a different GPU.
 - To avoid these limitations, use the pickle-based serialization by setting `serialization_format="pickle"`.
-:::
+  :::
 
 ```python
 import mlflow
