@@ -193,9 +193,28 @@ def _stringify_all_experiment_ids(x):
             _stringify_all_experiment_ids(y)
 
 
+def _stringify_all_model_ids(x):
+    """Converts model_id fields which are defined as ints into strings in the given json.
+    This is necessary because non-Databricks registry backends may return model_id as a
+    JSON integer, but the ModelVersion protobuf defines model_id as a string field.
+    The Python JSON serializer is unwilling to convert ints to strings, so we need to
+    manually perform this conversion.
+    """
+    if isinstance(x, dict):
+        for k, v in x.items():
+            if k == "model_id":
+                x[k] = str(v)
+            elif k not in ("params", "tags", "metrics"):  # skip run data
+                _stringify_all_model_ids(v)
+    elif isinstance(x, list):
+        for y in x:
+            _stringify_all_model_ids(y)
+
+
 def parse_dict(js_dict, message):
     """Parses a JSON dictionary into a message proto, ignoring unknown fields in the JSON."""
     _stringify_all_experiment_ids(js_dict)
+    _stringify_all_model_ids(js_dict)
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
 
 

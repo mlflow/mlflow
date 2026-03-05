@@ -20,6 +20,7 @@ from mlflow.utils.proto_json_utils import (
     MlflowFailedTypeConversion,
     _CustomJsonEncoder,
     _stringify_all_experiment_ids,
+    _stringify_all_model_ids,
     cast_df_types_according_to_schema,
     dataframe_from_parsed_json,
     dataframe_from_raw_json,
@@ -251,6 +252,45 @@ def test_back_compat():
         },
     }
     assert exp_json == in_json
+
+
+def test_stringify_all_model_ids():
+    in_json = {
+        "name": "test-model",
+        "version": "1",
+        "model_id": 123,
+        "nested": {
+            "model_id": 456,
+            "deeper": {"model_id": 789},
+        },
+    }
+
+    _stringify_all_model_ids(in_json)
+    assert in_json == {
+        "name": "test-model",
+        "version": "1",
+        "model_id": "123",
+        "nested": {
+            "model_id": "456",
+            "deeper": {"model_id": "789"},
+        },
+    }
+
+
+def test_parse_dict_with_integer_model_id():
+    from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion
+
+    response_dict = {
+        "name": "test-model",
+        "version": "1",
+        "model_id": 123,
+    }
+
+    model_version = ProtoModelVersion()
+    parse_dict(response_dict, model_version)
+    assert model_version.model_id == "123"
+    assert model_version.name == "test-model"
+    assert model_version.version == "1"
 
 
 def assert_result(result, expected_result):
