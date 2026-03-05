@@ -23,9 +23,9 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           REPO: ${{ github.repository }}
         run: |
-          body='> [!WARNING]
-          > Please submit a PR only if the issue has the `ready` label, has no assignee, and no duplicate PR exists. PRs not meeting these requirements may be automatically closed.
+          body="> [!WARNING]
+          > Please submit a PR only if the issue has the \`ready\` label, has no assignee, and no duplicate PR exists. PRs not meeting these requirements may be automatically closed.
 
-          '"${ISSUE_BODY}"
+          ${ISSUE_BODY}"
 
           gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --body "$body"
