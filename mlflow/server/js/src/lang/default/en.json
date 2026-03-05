@@ -2722,6 +2722,10 @@
     "defaultMessage": "Y-axis Log Scale:",
     "description": "Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
   },
+  "HHRU4d": {
+    "defaultMessage": "Detection progress",
+    "description": "Issue detection progress > Title"
+  },
   "HLbyGb": {
     "defaultMessage": "Show more",
     "description": "Button text to show more description text for the entity"
@@ -6303,6 +6307,10 @@
     "defaultMessage": "You need to provide values for all defined inputs",
     "description": "Experiment page > new run modal > invalid state - no prompt inputs provided"
   },
+  "fnKCv5": {
+    "defaultMessage": "Cancel",
+    "description": "Issue detection progress > Cancel button"
+  },
   "fq8v6G": {
     "defaultMessage": "Trace name",
     "description": "Column label for trace name"
@@ -6366,6 +6374,10 @@
   "g56Cuk": {
     "defaultMessage": "Delete {count, plural, one { # trace } other { # traces }}",
     "description": "Experiment page > traces view controls > Delete traces modal > Delete button"
+  },
+  "g734JR": {
+    "defaultMessage": "{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, {identifiedIssues} issues identified so far",
+    "description": "Issue detection progress > Progress summary"
   },
   "g7xNvF": {
     "defaultMessage": "Display points",
@@ -8126,6 +8138,10 @@
   "rjhiii": {
     "defaultMessage": "Trace failed to render",
     "description": "Title for the error state in the model trace explorer"
+  },
+  "rk4Qif": {
+    "defaultMessage": "Identifying issues from traces...",
+    "description": "Issue detection progress > Step label"
   },
   "rmAWZX": {
     "defaultMessage": "just now",

@@ -40,6 +40,7 @@ import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
 import { useLoggedModelsForExperimentRun } from '../experiment-page/hooks/useLoggedModelsForExperimentRun';
 import { useLoggedModelsForExperimentRunV2 } from '../experiment-page/hooks/useLoggedModelsForExperimentRunV2';
 import { useExperimentKind } from '../../utils/ExperimentKindUtils';
+import type { KeyValueEntity } from '../../../common/types';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -60,10 +61,17 @@ export interface RunPageProps {
   tabSwitchProps?: RunViewHeaderProps['tabSwitchProps'];
   /** Custom callback after successful run deletion */
   onDeleteSuccess?: (experimentId: string) => void;
+  /** Render function to replace the entire Overview tab. Receives run data as props. */
+  renderCustomOverview?: (props: {
+    runUuid: string;
+    runInfo: NonNullable<ReturnType<typeof useRunDetailsPageData>['runInfo']>;
+    tags: Record<string, KeyValueEntity>;
+    onRunDataUpdated: () => void;
+  }) => React.ReactNode;
 }
 
 export const RunPage = (props: RunPageProps) => {
-  const { customBreadcrumbs, tabSwitchProps, onDeleteSuccess } = props;
+  const { customBreadcrumbs, tabSwitchProps, onDeleteSuccess, renderCustomOverview } = props;
   const { runUuid, experimentId } = useParams<{
     runUuid: string;
     experimentId: string;
@@ -196,6 +204,19 @@ export const RunPage = (props: RunPageProps) => {
         );
       case RunPageTabName.TRACES:
         return renderEvaluationTab();
+    }
+
+    if (renderCustomOverview) {
+      return (
+        <>
+          {renderCustomOverview({
+            runUuid: safeRunUuid,
+            runInfo,
+            tags,
+            onRunDataUpdated: refetchRun,
+          })}
+        </>
+      );
     }
 
     return (
