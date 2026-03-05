@@ -31,6 +31,11 @@ class SkillSet:
     def get_skill(self, name: str) -> Skill | None:
         return next((s for s in self.skills if s.name == name), None)
 
+    def to_prompt(self, model: str | None = None) -> str:
+        from mlflow.genai.skills.prompt_format import to_prompt
+
+        return to_prompt(self.skills, model)
+
 
 def load_skill(path: str | Path) -> Skill:
     path = Path(path)
