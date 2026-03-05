@@ -1173,9 +1173,7 @@ class SqlIssue(Base):
     Creator identifier: `String` (limit 255 characters). Optional.
     """
 
-    run = relationship(
-        "SqlRun", foreign_keys=[source_run_id], backref=backref("issues", cascade="all")
-    )
+    run = relationship("SqlRun", foreign_keys=[source_run_id], backref=backref("issues"))
     """
     SQLAlchemy relationship (many:one) with
     :py:class:`mlflow.store.tracking.dbmodels.models.SqlRun`.
