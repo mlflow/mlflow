@@ -8,6 +8,7 @@ import { Table } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { JsonCell } from './ExperimentEvaluationDatasetJsonCell';
 import { ExperimentEvaluationDatasetRecordsToolbar } from './ExperimentEvaluationDatasetRecordsToolbar';
+import { ExperimentEvaluationDatasetRecordsEmptyState } from './ExperimentEvaluationDatasetRecordsEmptyState';
 import type { EvaluationDataset, EvaluationDatasetRecord } from '../types';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 
@@ -145,12 +146,19 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
         css={{ flex: 1 }}
         empty={
           !isLoading && table.getRowModel().rows.length === 0 ? (
-            <Empty
-              description={intl.formatMessage({
-                defaultMessage: 'No records found',
-                description: 'Empty state for the evaluation dataset records table',
-              })}
-            />
+            searchFilter.trim() ? (
+              <Empty
+                description={intl.formatMessage({
+                  defaultMessage: 'No records found',
+                  description: 'Empty state for the evaluation dataset records table when search yields no results',
+                })}
+              />
+            ) : (
+              <ExperimentEvaluationDatasetRecordsEmptyState
+                datasetId={datasetId ?? ''}
+                datasetName={dataset.name ?? ''}
+              />
+            )
           ) : undefined
         }
         scrollable
