@@ -26,6 +26,8 @@ import { ExperimentLoggedModelListPageRowVisibilityContextProvider } from '../..
 import { RunsChartsSetHighlightContextProvider } from '../../components/runs-charts/hooks/useRunsChartTraceHighlight';
 import { BadRequestError } from '@databricks/web-shared/errors';
 import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks/useResizableMaxWidth';
+import { useExperimentKind, isGenAIExperimentKind } from '../../utils/ExperimentKindUtils';
+import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 
 const INITIAL_RUN_COLUMN_SIZE = 295;
 const CHARTS_MIN_WIDTH = 350;
@@ -34,6 +36,13 @@ const ExperimentLoggedModelListPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
   const sortingAndFilteringEnabled = isLoggedModelsFilteringAndSortingEnabled();
+
+  invariant(experimentId, 'Experiment ID must be defined');
+
+  // Get experiment to determine if it's a GenAI (agent) experiment
+  const { data: experiment } = useGetExperimentQuery({ experimentId });
+  const experimentKind = useExperimentKind(experiment?.tags);
+  const isAgent = experimentKind ? isGenAIExperimentKind(experimentKind) : false;
 
   const {
     state: {
@@ -56,8 +65,6 @@ const ExperimentLoggedModelListPageImpl = () => {
     clearSelectedDatasets,
     setGroupBy,
   } = useLoggedModelsListPageState();
-
-  invariant(experimentId, 'Experiment ID must be defined');
 
   const { viewMode, setViewMode } = useExperimentLoggedModelListPageMode();
 
@@ -105,6 +112,7 @@ const ExperimentLoggedModelListPageImpl = () => {
     orderByColumn,
     orderByAsc,
     enableSortingByMetrics: sortingAndFilteringEnabled,
+    isAgent,
   });
 
   const [tableAreaWidth, setTableAreaWidth] = useState<number>(INITIAL_RUN_COLUMN_SIZE);
