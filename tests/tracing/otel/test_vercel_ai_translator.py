@@ -197,3 +197,41 @@ def test_parse_vercel_ai_generate_text(attributes, expected_inputs, expected_out
     assert inputs == expected_inputs
     outputs = json.loads(result["attributes"][SpanAttributeKey.OUTPUTS])
     assert outputs == expected_outputs
+
+
+@pytest.mark.parametrize(
+    ("operation_id", "expected_format"),
+    [
+        ("ai.generateText", "vercel_ai"),
+        ("ai.generateText.doGenerate", "vercel_ai"),
+        ("ai.streamText", "vercel_ai"),
+        ("ai.streamText.doStream", "vercel_ai"),
+        ("ai.toolCall", None),
+        ("ai.embed", None),
+    ],
+)
+def test_message_format_set_for_chat_operations(operation_id, expected_format):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    attributes = {"ai.operationId": json.dumps(operation_id)}
+    if operation_id in ("ai.generateText", "ai.streamText"):
+        attributes["ai.prompt"] = json.dumps('{"prompt":"hello"}')
+        attributes["ai.response.text"] = json.dumps("world")
+    elif operation_id in ("ai.generateText.doGenerate", "ai.streamText.doStream"):
+        attributes["ai.prompt.messages"] = json.dumps(
+            '[{"role":"user","content":[{"type":"text","text":"hello"}]}]'
+        )
+        attributes["ai.response.text"] = json.dumps("world")
+    elif operation_id == "ai.toolCall":
+        attributes["ai.toolCall.args"] = json.dumps('{"x":1}')
+        attributes["ai.toolCall.result"] = json.dumps('{"y":2}')
+    elif operation_id == "ai.embed":
+        attributes["ai.value"] = json.dumps("some text")
+        attributes["ai.embedding"] = json.dumps([0.1, 0.2])
+    span.to_dict.return_value = {"attributes": attributes}
+
+    result = translate_span_when_storing(span)
+    if expected_format:
+        assert json.loads(result["attributes"][SpanAttributeKey.MESSAGE_FORMAT]) == expected_format
+    else:
+        assert SpanAttributeKey.MESSAGE_FORMAT not in result["attributes"]
