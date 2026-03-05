@@ -68,12 +68,17 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -530,6 +535,16 @@ def _save_model(model, path):
 
 
 def _load_model(path):
+    if (
+        not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+        and not is_in_databricks_runtime()
+        and not is_in_databricks_model_serving_environment()
+    ):
+        raise MlflowException(
+            "Deserializing model using pickle is disallowed, but this model is saved "
+            "in pickle format. To address this issue, you need to set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true'."
+        )
     with open(path, "rb") as pickled_model:
         return pickle.load(pickled_model)
 

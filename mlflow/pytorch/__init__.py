@@ -963,6 +963,7 @@ def load_state_dict(state_dict_uri, **kwargs):
     """
     import torch
 
+    _load_by_pickle_check()
     local_path = _download_artifact_from_uri(artifact_uri=state_dict_uri)
     state_dict_path = os.path.join(local_path, _TORCH_STATE_DICT_FILE_NAME)
     return torch.load(state_dict_path, **kwargs)
