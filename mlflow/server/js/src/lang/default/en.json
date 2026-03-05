@@ -559,6 +559,10 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
+  "23xuy1": {
+    "defaultMessage": "Analysis Model *",
+    "description": "Label for analysis model selection (required)"
+  },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
@@ -778,6 +782,10 @@
     "defaultMessage": "AI Gateway",
     "description": "Feature card title for AI Gateway"
   },
+  "3pUugt": {
+    "defaultMessage": "Run Analysis",
+    "description": "Submit button to trigger issue detection job"
+  },
   "3vS6G9": {
     "defaultMessage": "{count, plural, one {# trace was} other {# traces were}} removed",
     "description": "Success message after deleting sessions - trace count"
@@ -957,6 +965,10 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
+  },
+  "5GOMqh": {
+    "defaultMessage": "Connect an LLM to run an AI-powered issue analysis on your traces",
+    "description": "Description text for issue detection modal"
   },
   "5Mzn2b": {
     "defaultMessage": "Creator",
@@ -1442,6 +1454,10 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
   },
+  "8S2wnj": {
+    "defaultMessage": "Judge Model *",
+    "description": "Label for judge model selection (required)"
+  },
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
@@ -1885,6 +1901,10 @@
   "B5K1Ix": {
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
+  },
+  "B5WVpt": {
+    "defaultMessage": "Analysis model: {analysisModel} · Judge model: {judgeModel}",
+    "description": "Display of default models for selected provider"
   },
   "B80MC6": {
     "defaultMessage": "Contour Plot",
@@ -3610,6 +3630,10 @@
     "defaultMessage": "Link prompts to traces",
     "description": "Heading describing how to add prompts when no prompt records are available"
   },
+  "O6uYS1": {
+    "defaultMessage": "Saved API keys can be managed in AI Gateway → API Keys tab",
+    "description": "Tooltip explaining where saved API keys can be found"
+  },
   "O9r1RR": {
     "defaultMessage": "Start Time:",
     "description": "Row title for the start time of runs on the experiment compare runs page"
@@ -3888,10 +3912,6 @@
   "QK/Qyx": {
     "defaultMessage": "Total",
     "description": "Label for total token usage"
-  },
-  "QK9qFL": {
-    "defaultMessage": "Hide assessments",
-    "description": "Label for the button to hide the assessments pane"
   },
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
@@ -4916,6 +4936,10 @@
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
   },
+  "XQSxtK": {
+    "defaultMessage": "Please select models in `Advanced settings` below",
+    "description": "Message when provider has no default models"
+  },
   "XX8+x1": {
     "defaultMessage": "View prompt template",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
@@ -5483,6 +5507,10 @@
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
   },
+  "bO0wxq": {
+    "defaultMessage": "Advanced settings",
+    "description": "Collapsible section for advanced settings"
+  },
   "bO1IlR": {
     "defaultMessage": "Select all",
     "description": "Description for button to select all rows in table"
@@ -5606,6 +5634,10 @@
   "c5AQYh": {
     "defaultMessage": "Compare by",
     "description": "Runs charts > components > charts > DifferenceViewPlot > Compare by column heading"
+  },
+  "c8EovS": {
+    "defaultMessage": "Save this key for reuse",
+    "description": "Checkbox to save API key for reuse"
   },
   "cAKSkQ": {
     "defaultMessage": "Select a cell to display preview",
@@ -5787,6 +5819,10 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
+  "dFvZdM": {
+    "defaultMessage": "Connections",
+    "description": "Section header for API key configuration"
+  },
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
     "description": "Experiment page > new run modal > invalid state - no prompt template provided"
@@ -5806,6 +5842,10 @@
   "dPn3az": {
     "defaultMessage": "Tool",
     "description": "Display text for the 'tool' role in a GenAI chat message."
+  },
+  "dQ3JME": {
+    "defaultMessage": "API key name",
+    "description": "Placeholder for API key name input"
   },
   "dQawRm": {
     "defaultMessage": "Passthrough APIs",
@@ -8423,6 +8463,10 @@
     "defaultMessage": "At least one form field has incorrect value. Please correct and try again.",
     "description": "Generic error message for an invalid form input"
   },
+  "vedifc": {
+    "defaultMessage": "Enter API key or select saved key",
+    "description": "Placeholder for API key combobox input"
+  },
   "vgfy8y": {
     "defaultMessage": "Add assessment",
     "description": "Evaluation review > assessments > add assessment button label"
@@ -8950,6 +8994,10 @@
   "zC/uKl": {
     "defaultMessage": "Auto-refresh",
     "description": "Run page > Charts tab > Auto-refresh toggle button"
+  },
+  "zDRvO3": {
+    "defaultMessage": "Detect Issues",
+    "description": "Title of the issue detection configuration modal"
   },
   "zE5aGj": {
     "defaultMessage": "Guidelines",

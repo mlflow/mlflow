@@ -441,7 +441,7 @@ typing-extensions-allowlist = [
 ]
 # Rules that are only enabled for code examples.
 example-rules = [
-  "lazy-builtin-import",
+  "lazy-import",
   "log-model-artifact-path",
   "unknown-mlflow-function",
   "unknown-mlflow-arguments",

@@ -646,6 +646,12 @@ MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE = _BooleanEnvironmentVariable(
     "MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", False
 )
 
+#: How often (in seconds) the gateway budget tracker re-fetches policies from the database.
+#: (default: ``60``)
+MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 60
+)
+
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
