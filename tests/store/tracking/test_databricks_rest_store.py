@@ -1276,6 +1276,137 @@ def test_update_assessment(sql_warehouse_id):
         assert res.rationale == "updated_rationale"
 
 
+def test_update_assessment_uc_table_prefix(sql_warehouse_id):
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    trace_id = "trace:/catalog.schema.prefix/1234"
+    response.text = json.dumps(
+        {
+            "assessment_id": "1234",
+            "assessment_name": "updated_assessment_name",
+            "trace_location": {
+                "type": "UC_TABLE_PREFIX",
+                "uc_table_prefix": {
+                    "catalog_name": "catalog",
+                    "schema_name": "schema",
+                    "table_prefix": "prefix",
+                },
+            },
+            "trace_id": "1234",
+            "source": {
+                "source_type": "LLM_JUDGE",
+                "source_id": "gpt-4o-mini",
+            },
+            "create_time": "2025-02-20T05:47:23Z",
+            "last_update_time": "2025-02-20T05:47:23Z",
+            "feedback": {"value": False},
+            "rationale": "updated_rationale",
+            "metadata": {"model": "gpt-4o-mini"},
+            "error": None,
+            "span_id": None,
+        }
+    )
+
+    request = {
+        "assessment_id": "1234",
+        "trace_location": {
+            "type": "UC_TABLE_PREFIX",
+            "uc_table_prefix": {
+                "catalog_name": "catalog",
+                "schema_name": "schema",
+                "table_prefix": "prefix",
+            },
+        },
+        "trace_id": "1234",
+        "feedback": {"value": False},
+        "rationale": "updated_rationale",
+        "metadata": {"model": "gpt-4o-mini"},
+    }
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.update_assessment(
+            trace_id=trace_id,
+            assessment_id="1234",
+            feedback=FeedbackValue(value=False),
+            rationale="updated_rationale",
+            metadata={"model": "gpt-4o-mini"},
+        )
+
+        _verify_requests(
+            mock_http,
+            creds,
+            f"traces/catalog.schema.prefix/1234/assessments/1234?sql_warehouse_id={sql_warehouse_id}&update_mask=feedback,rationale,metadata",
+            "PATCH",
+            json.dumps(request),
+            version="4.0",
+        )
+        assert isinstance(res, Feedback)
+        assert res.assessment_id == "1234"
+        assert res.value is False
+        assert res.rationale == "updated_rationale"
+
+
+def test_search_traces_uc_table_prefix(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
+
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    response.text = json.dumps(
+        {
+            "trace_infos": [
+                {
+                    "trace_id": "1234",
+                    "trace_location": {
+                        "type": "UC_TABLE_PREFIX",
+                        "uc_table_prefix": {
+                            "catalog_name": "catalog",
+                            "schema_name": "schema",
+                            "table_prefix": "prefix",
+                        },
+                    },
+                    "request_time": "1970-01-01T00:00:00.123Z",
+                    "execution_duration_ms": 456,
+                    "state": "OK",
+                    "trace_metadata": {"key": "value"},
+                    "tags": {"k": "v"},
+                }
+            ],
+            "next_page_token": "token",
+        }
+    )
+
+    locations = ["catalog.schema.prefix"]
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        trace_infos, token = store.search_traces(
+            locations=locations,
+        )
+
+    assert mock_http.call_count == 1
+    call_args = mock_http.call_args[1]
+    assert call_args["endpoint"] == f"{_V4_TRACE_REST_API_PATH_PREFIX}/search"
+
+    json_body = call_args["json"]
+    assert "locations" in json_body
+    assert len(json_body["locations"]) == 1
+    assert json_body["locations"][0]["uc_table_prefix"]["catalog_name"] == "catalog"
+    assert json_body["locations"][0]["uc_table_prefix"]["schema_name"] == "schema"
+    assert json_body["locations"][0]["uc_table_prefix"]["table_prefix"] == "prefix"
+    assert json_body["sql_warehouse_id"] == "test-warehouse"
+
+    assert len(trace_infos) == 1
+    assert isinstance(trace_infos[0], TraceInfo)
+    assert trace_infos[0].trace_id == "trace:/catalog.schema.prefix/1234"
+    assert trace_infos[0].trace_location.uc_table_prefix.catalog_name == "catalog"
+    assert trace_infos[0].trace_location.uc_table_prefix.schema_name == "schema"
+    assert trace_infos[0].trace_location.uc_table_prefix.table_prefix == "prefix"
+    assert token == "token"
+
+
 def test_delete_assessment(sql_warehouse_id):
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
