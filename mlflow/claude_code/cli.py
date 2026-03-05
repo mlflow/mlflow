@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 
 from mlflow.claude_code.config import get_tracing_status, setup_environment_config
-from mlflow.claude_code.hooks import disable_tracing_hooks, setup_hooks_config
+from mlflow.claude_code.hooks import disable_tracing_hooks, setup_hooks_config, stop_hook_handler
 
 
 @click.group("autolog")
@@ -171,6 +171,4 @@ def _show_setup_status(
 @claude.command("stop-hook", hidden=True)
 def stop_hook() -> None:
     """Hook handler invoked when a Claude Code conversation ends."""
-    from mlflow.claude_code.hooks import stop_hook_handler
-
     stop_hook_handler()
