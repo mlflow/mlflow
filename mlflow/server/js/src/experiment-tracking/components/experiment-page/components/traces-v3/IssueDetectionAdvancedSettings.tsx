@@ -29,6 +29,8 @@ export function IssueDetectionAdvancedSettings({
   defaultAuthMode,
 }: IssueDetectionAdvancedSettingsProps) {
   const { theme } = useDesignSystemTheme();
+  const analysisModelComponentId = `mlflow.traces.issue-detection-modal.analysis-model`;
+  const judgeModelComponentId = `mlflow.traces.issue-detection-modal.judge-model`;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -38,7 +40,7 @@ export function IssueDetectionAdvancedSettings({
             provider={provider}
             value={analysisModel}
             onChange={onAnalysisModelChange}
-            componentIdPrefix="mlflow.traces.issue-detection-modal.analysis-model"
+            componentIdPrefix={analysisModelComponentId}
             label={
               <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                 <FormattedMessage
@@ -55,7 +57,7 @@ export function IssueDetectionAdvancedSettings({
             provider={provider}
             value={judgeModel}
             onChange={onJudgeModelChange}
-            componentIdPrefix="mlflow.traces.issue-detection-modal.judge-model"
+            componentIdPrefix={judgeModelComponentId}
             label={
               <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                 <FormattedMessage
@@ -75,7 +77,6 @@ export function IssueDetectionAdvancedSettings({
           provider={provider}
           authModes={authModes}
           defaultAuthMode={defaultAuthMode}
-          componentIdPrefix="mlflow.traces.issue-detection-modal.api-key-advanced"
         />
       )}
     </div>

@@ -80,15 +80,6 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
     setIsSubmitting(true);
     try {
       // TODO: Implement backend API call for issue detection
-      // eslint-disable-next-line no-console
-      console.log('Issue detection triggered:', {
-        provider,
-        analysisModel,
-        judgeModel,
-        apiKeyConfig,
-        saveKey,
-        experimentId,
-      });
       resetForm();
       onClose();
     } finally {
