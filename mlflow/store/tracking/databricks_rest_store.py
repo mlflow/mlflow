@@ -190,10 +190,9 @@ class DatabricksTracingRestStore(RestStore):
             raise
 
     def get_trace_location(self, telemetry_profile_id: str) -> UnityCatalogEntity:
-        req_body = message_to_json(GetLocation(location_id=telemetry_profile_id))
         response_proto = self._call_endpoint(
             GetLocation,
-            req_body,
+            "{}",
             endpoint=f"{_V5_TRACE_LOCATION_ENDPOINT}/{telemetry_profile_id}",
             response_proto=GetLocation.Response(),
         )
@@ -415,7 +414,7 @@ class DatabricksTracingRestStore(RestStore):
                 page_token=page_token,
             )
 
-        contain_uc_schemas = False
+        contains_uc_locations = False
         trace_locations = []
         for location in locations:
             match location.split("."):
@@ -429,7 +428,7 @@ class DatabricksTracingRestStore(RestStore):
                             TraceLocation.from_databricks_uc_schema(catalog, schema)
                         )
                     )
-                    contain_uc_schemas = True
+                    contains_uc_locations = True
                 case [catalog, schema, table_prefix]:
                     trace_locations.append(
                         trace_location_to_proto(
@@ -438,7 +437,7 @@ class DatabricksTracingRestStore(RestStore):
                             )
                         )
                     )
-                    contain_uc_schemas = True
+                    contains_uc_locations = True
                 case _:
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid location type: {location}. Expected type: "
@@ -466,7 +465,7 @@ class DatabricksTracingRestStore(RestStore):
             # 2. Server supports V4 API but the experiment location is not supported yet.
             # For these known cases, MLflow fallback to V3 API.
             if e.error_code == ErrorCode.Name(ENDPOINT_NOT_FOUND):
-                if contain_uc_schemas:
+                if contains_uc_locations:
                     raise MlflowException.invalid_parameter_value(
                         "Searching traces in UC tables is not supported yet. Only experiment IDs "
                         "are supported for searching traces."
@@ -476,7 +475,7 @@ class DatabricksTracingRestStore(RestStore):
                 e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
                 and "locations not yet supported" in e.message
             ):
-                if contain_uc_schemas:
+                if contains_uc_locations:
                     raise MlflowException.invalid_parameter_value(
                         "The `locations` parameter cannot contain both MLflow experiment and UC "
                         "schema in the same request. Please specify only one type of location "
