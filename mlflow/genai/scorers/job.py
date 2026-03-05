@@ -1,6 +1,7 @@
 """Huey job functions for async scorer invocation."""
 
 import logging
+import os
 import random
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -140,6 +141,7 @@ def invoke_scorer_job(
     serialized_scorer: str,
     trace_ids: list[str],
     log_assessments: bool = True,
+    username: str | None = None,
 ) -> dict[str, Any]:
     """
     Huey job function for async scorer invocation.
@@ -152,10 +154,18 @@ def invoke_scorer_job(
         serialized_scorer: JSON string of the serialized scorer.
         trace_ids: List of trace IDs to evaluate.
         log_assessments: Whether to log assessments to the traces.
+        username: The authenticated user who triggered the job, propagated to
+            gateway requests so they are authorised as this user.
 
     Returns:
         Dict mapping trace_id to TraceResult (assessments and failures).
     """
+    # Propagate the original user identity to gateway requests. This env var
+    # is read by _get_gateway_api_key() and encoded into the Bearer token so
+    # the auth middleware can authenticate as the correct user.
+    if username is not None:
+        os.environ["_MLFLOW_GATEWAY_AUTH_USERNAME"] = username
+
     # Deserialize scorer
     scorer = Scorer.model_validate_json(serialized_scorer)
 

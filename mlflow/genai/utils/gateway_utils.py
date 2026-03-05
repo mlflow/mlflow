@@ -25,8 +25,15 @@ def _get_gateway_api_key() -> str:
     them as trusted internal callers.  When the env var is absent (auth disabled or
     running outside the server) we fall back to a static placeholder that satisfies
     LiteLLM's requirement for a non-empty ``api_key``.
+
+    If ``_MLFLOW_GATEWAY_AUTH_USERNAME`` is also set, the username is appended to
+    the token (``token:username``) so the auth middleware can authenticate as the
+    original user rather than the admin.
     """
-    return os.environ.get("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "mlflow-gateway-auth")
+    token = os.environ.get("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "mlflow-gateway-auth")
+    if username := os.environ.get("_MLFLOW_GATEWAY_AUTH_USERNAME"):
+        return f"{token}:{username}"
+    return token
 
 
 def get_gateway_litellm_config(endpoint_name: str) -> GatewayLiteLLMConfig:

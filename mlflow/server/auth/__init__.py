@@ -2952,9 +2952,21 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         if store.authenticate_user(username, password):
             return store.get_user(username)
     elif scheme.lower() == "bearer":
+        # Internal Bearer tokens are only valid for gateway routes.
+        if not request.url.path.startswith("/gateway/"):
+            return None
         internal_token = os.environ.get(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR)
-        if internal_token and secrets.compare_digest(credentials, internal_token):
-            return store.get_user(auth_config.admin_username)
+        if not internal_token:
+            return None
+        # Credentials may be "token" (legacy) or "token:username" (per-user).
+        # The token is always a 64-char hex string (no colons), so partition is
+        # unambiguous.
+        token, _, username = credentials.partition(":")
+        if not secrets.compare_digest(token, internal_token):
+            return None
+        if username:
+            return store.get_user(username)
+        return store.get_user(auth_config.admin_username)
 
     return None
 

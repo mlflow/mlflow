@@ -41,6 +41,7 @@ def test_get_gateway_litellm_config(
         monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
 
     monkeypatch.delenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("_MLFLOW_GATEWAY_AUTH_USERNAME", raising=False)
 
     with mock.patch(
         "mlflow.genai.utils.gateway_utils.get_tracking_uri",
@@ -57,6 +58,7 @@ def test_get_gateway_litellm_config(
 def test_get_gateway_litellm_config_with_internal_token(monkeypatch):
     monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
     monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "secret-token-123")
+    monkeypatch.delenv("_MLFLOW_GATEWAY_AUTH_USERNAME", raising=False)
 
     with mock.patch(
         "mlflow.genai.utils.gateway_utils.get_tracking_uri",
@@ -65,6 +67,20 @@ def test_get_gateway_litellm_config_with_internal_token(monkeypatch):
         config = get_gateway_litellm_config("chat")
 
     assert config.api_key == "secret-token-123"
+
+
+def test_get_gateway_litellm_config_with_internal_token_and_username(monkeypatch):
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "secret-token-123")
+    monkeypatch.setenv("_MLFLOW_GATEWAY_AUTH_USERNAME", "alice")
+
+    with mock.patch(
+        "mlflow.genai.utils.gateway_utils.get_tracking_uri",
+        return_value="http://localhost:5000",
+    ):
+        config = get_gateway_litellm_config("chat")
+
+    assert config.api_key == "secret-token-123:alice"
 
 
 @pytest.mark.parametrize(

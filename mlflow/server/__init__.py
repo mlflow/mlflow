@@ -450,7 +450,7 @@ def _run_server(
                 "Errors will be surfaced at job invocation time."
             )
 
-    if app_name is not None and job_execution_enabled:
+    if app_name == "basic-auth" and job_execution_enabled:
         env_map["_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN"] = secrets.token_hex(32)
 
     if job_execution_enabled:

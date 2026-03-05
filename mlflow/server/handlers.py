@@ -5354,6 +5354,10 @@ def _invoke_scorer_handler():
     tracking_store = _get_tracking_store()
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
 
+    # Extract the authenticated username so that job subprocesses can make
+    # gateway requests authorised as the original user (not the admin).
+    username = request.authorization.username if request.authorization else None
+
     jobs = []
     for batch_trace_ids in batches:
         job = submit_job(
@@ -5363,6 +5367,7 @@ def _invoke_scorer_handler():
                 "serialized_scorer": serialized_scorer,
                 "trace_ids": batch_trace_ids,
                 "log_assessments": log_assessments,
+                "username": username,
             },
         )
         jobs.append({"job_id": job.job_id, "trace_ids": batch_trace_ids})
