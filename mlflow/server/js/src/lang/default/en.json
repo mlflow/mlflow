@@ -1138,6 +1138,10 @@
     "defaultMessage": "Unable to load experiment judges",
     "description": "Error message when experiment judges page fails to load"
   },
+  "6WitMT": {
+    "defaultMessage": "Alert sends a webhook notification. <link>Learn how to set up webhooks.</link>",
+    "description": "Tooltip explaining budget exceeded actions and webhook setup"
+  },
   "6XfILf": {
     "defaultMessage": "Contour chart",
     "description": "Experiment tracking > runs charts > add chart menu > contour chart"
@@ -1545,6 +1549,10 @@
   "90097b": {
     "defaultMessage": "Masked Key",
     "description": "Masked API key label"
+  },
+  "90mZic": {
+    "defaultMessage": "Budget",
+    "description": "Budget amount column header"
   },
   "93BFzC": {
     "defaultMessage": "Outputs",
@@ -2058,6 +2066,10 @@
     "defaultMessage": "Click to select a model",
     "description": "Placeholder for model selection"
   },
+  "C6/J2o": {
+    "defaultMessage": "Create Budget Policy",
+    "description": "Title for create budget policy modal"
+  },
   "C6ReUY": {
     "defaultMessage": "Save",
     "description": "Tag assignment modal > Save button"
@@ -2333,6 +2345,10 @@
   "EDWwN/": {
     "defaultMessage": "Compare",
     "description": "Compare button on run detail page"
+  },
+  "EE7SQ0": {
+    "defaultMessage": "Edit budget policy",
+    "description": "Gateway > Budgets list > Edit budget policy button aria label"
   },
   "EI7moF": {
     "defaultMessage": "Last year",
@@ -2858,6 +2874,10 @@
     "defaultMessage": "Goal",
     "description": "Label for the simulation goal metadata in chat session metrics"
   },
+  "IauU14": {
+    "defaultMessage": "Duration",
+    "description": "Budget duration label"
+  },
   "Id2mFI": {
     "defaultMessage": "The request was invalid.",
     "description": "Bad request (HTTP STATUS 400) generic error message"
@@ -2965,6 +2985,10 @@
   "JW0GbU": {
     "defaultMessage": "You can set a maximum of {maxLength} values",
     "description": "Error message when trying to submit a key-value pair form with more than the maximum allowed values"
+  },
+  "JW4EB/": {
+    "defaultMessage": "On exceeded",
+    "description": "Budget on exceeded label"
   },
   "JYVQuV": {
     "defaultMessage": "Run ID",
@@ -3238,6 +3262,10 @@
     "defaultMessage": "This setting enables UI telemetry data collection. Learn more about what types of data are collected in our {documentation}.",
     "description": "Enable telemetry settings description"
   },
+  "La+f9S": {
+    "defaultMessage": "Budgets",
+    "description": "Budget policies page title"
+  },
   "LajLDb": {
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
@@ -3397,6 +3425,10 @@
   "MgFOU5": {
     "defaultMessage": "Inputs",
     "description": "Label for inputs variable option"
+  },
+  "MgfSs1": {
+    "defaultMessage": "Budget amount (USD)",
+    "description": "Budget amount label"
   },
   "MhOmZG": {
     "defaultMessage": "Yes",
@@ -3694,6 +3726,10 @@
     "defaultMessage": "Close",
     "description": "Error modal close button text"
   },
+  "OiNC9u": {
+    "defaultMessage": "No budget policies created",
+    "description": "Empty state title for budgets list"
+  },
   "OilzZP": {
     "defaultMessage": "Conversation",
     "description": "Label for conversation variable option"
@@ -3705,6 +3741,10 @@
   "OjWQ39": {
     "defaultMessage": "Human feedback",
     "description": "Tooltip content for human feedback"
+  },
+  "OlI8fe": {
+    "defaultMessage": "On Exceeded",
+    "description": "Budget on exceeded column header"
   },
   "OlytgO": {
     "defaultMessage": "Field",
@@ -4149,6 +4189,10 @@
     "defaultMessage": "Only run on traces matching this filter; leave blank to run on all. Uses MLflow {link}.",
     "description": "Hint text for filter string input"
   },
+  "SAxj6I": {
+    "defaultMessage": "Create budget policy",
+    "description": "Gateway > Budgets page > Create budget policy button"
+  },
   "SCYMXw": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for creating model in the model registry"
@@ -4407,6 +4451,10 @@
   "U+Jzcv": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Row entry for version columns in the registered model page"
+  },
+  "U+nNo1": {
+    "defaultMessage": "An error occurred while updating the budget policy. Please try again.",
+    "description": "Generic error message for budget policy update"
   },
   "U0joaT": {
     "defaultMessage": "Select traces",
@@ -5043,6 +5091,10 @@
     "defaultMessage": "Select a provider to configure API key",
     "description": "Message when no provider selected for API key form"
   },
+  "YIKNtj": {
+    "defaultMessage": "An error occurred while creating the budget policy. Please try again.",
+    "description": "Generic error message for budget policy creation"
+  },
   "YINJEO": {
     "defaultMessage": "Metric",
     "description": "Column title for the column displaying the metric names for a run"
@@ -5150,6 +5202,10 @@
   "Yy18iD": {
     "defaultMessage": "Add a custom expectation to this session.",
     "description": "Hint message prompting user to add a new expectation to a session"
+  },
+  "YzemxC": {
+    "defaultMessage": "Create",
+    "description": "Create budget policy button text"
   },
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
@@ -5459,6 +5515,10 @@
     "defaultMessage": "Maximum",
     "description": "Experiment page > group by runs control > maximum aggregate function"
   },
+  "awG/R6": {
+    "defaultMessage": "Duration",
+    "description": "Budget duration column header"
+  },
   "awekbG": {
     "defaultMessage": "Cancel",
     "description": "Tag assignment modal > Cancel button"
@@ -5590,6 +5650,10 @@
   "bmd4rb": {
     "defaultMessage": "Latest version",
     "description": "Header for the latest version column in the registered prompts table"
+  },
+  "bnKdtY": {
+    "defaultMessage": "Budgets",
+    "description": "Sidebar link for gateway budgets"
   },
   "bqn2bk": {
     "defaultMessage": "Outputs",
@@ -5882,6 +5946,10 @@
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
+  },
+  "ddUxQJ": {
+    "defaultMessage": "Use \"Create budget policy\" button to set up cost limits for the AI Gateway",
+    "description": "Empty state message for budgets list"
   },
   "dl0TeT": {
     "defaultMessage": "Save",
@@ -7103,6 +7171,10 @@
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > guidelines assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
   },
+  "lvcGaz": {
+    "defaultMessage": "e.g., 100.00",
+    "description": "Budget amount placeholder"
+  },
   "lxGVDu": {
     "defaultMessage": "Percentage of traces evaluated by this judge.",
     "description": "Hint text for sample rate slider"
@@ -7515,6 +7587,10 @@
     "defaultMessage": "Data details for",
     "description": "Text for data details for the experiment run in the dataset drawer"
   },
+  "ocSGk8": {
+    "defaultMessage": "Budgets",
+    "description": "Gateway side nav > Budgets tab"
+  },
   "odkg7W": {
     "defaultMessage": "Compact view",
     "description": "Run page > artifact view > logged table view > compact view toggle button"
@@ -7606,6 +7682,10 @@
   "pOqgMC": {
     "defaultMessage": "Weight",
     "description": "Label for traffic split weight input"
+  },
+  "pT8+E7": {
+    "defaultMessage": "Delete budget policy",
+    "description": "Gateway > Budgets list > Delete budget policy button aria label"
   },
   "pTDM+x": {
     "defaultMessage": "Select LLM model endpoint",
@@ -7838,6 +7918,10 @@
   "r0mM8+": {
     "defaultMessage": "An error occurred while creating the API key. Please try again.",
     "description": "Generic error message for API key creation"
+  },
+  "r26KQf": {
+    "defaultMessage": "Edit Budget Policy",
+    "description": "Title for edit budget policy modal"
   },
   "r3/K3V": {
     "defaultMessage": "Make Predictions",
@@ -8978,6 +9062,10 @@
   "z9UqPZ": {
     "defaultMessage": "Description",
     "description": "Title text for the description section on the model version view page"
+  },
+  "zAQuQT": {
+    "defaultMessage": "Loading budget policies...",
+    "description": "Loading message for budgets list"
   },
   "zAuZ2j": {
     "defaultMessage": "Provide an unique prompt name",
