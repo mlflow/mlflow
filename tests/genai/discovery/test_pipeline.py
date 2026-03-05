@@ -114,7 +114,7 @@ def test_discover_issues_full_pipeline(make_trace):
             return_value=["label1", "label2", "label3"],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline.cluster_analyses",
+            "mlflow.genai.discovery.pipeline.cluster_by_llm",
             return_value=[[0, 1, 2]],
         ) as mock_cluster,
         patch(
@@ -173,7 +173,7 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
             return_value=["label1", "label2"],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline.cluster_analyses",
+            "mlflow.genai.discovery.pipeline.cluster_by_llm",
             return_value=[[0, 1]],
         ) as mock_cluster,
         patch(
@@ -359,7 +359,7 @@ def test_discover_issues_filters_no_issue_results(make_trace):
             return_value=["label1", "label2", "label3"],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline.cluster_analyses",
+            "mlflow.genai.discovery.pipeline.cluster_by_llm",
             return_value=[[0, 1, 2]],
         ),
         patch(
@@ -410,7 +410,7 @@ def test_discover_issues_filters_canonical_no_issue_keyword(make_trace):
             return_value=["label1", "label2", "label3"],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline.cluster_analyses",
+            "mlflow.genai.discovery.pipeline.cluster_by_llm",
             return_value=[[0, 1, 2]],
         ),
         patch(

@@ -13,6 +13,12 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.genai.discovery.clustering import (
+    build_summary,
+    cluster_by_llm,
+    log_discovery_artifacts,
+    summarize_cluster,
+)
 from mlflow.genai.discovery.constants import (
     CONFIDENCE_ORDER,
     DEFAULT_ANALYSIS_MODEL,
@@ -35,20 +41,17 @@ from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
     _IdentifiedIssue,
 )
-from mlflow.genai.discovery.utils import (
-    build_summary,
-    cluster_analyses,
-    cluster_by_llm,
+from mlflow.genai.discovery.extraction import (
     extract_execution_path,
     extract_execution_paths_for_session,
     extract_failing_traces,
     extract_failure_labels,
     extract_span_errors,
+)
+from mlflow.genai.discovery.sampling import (
     get_session_id,
     group_traces_by_session,
-    log_discovery_artifacts,
     sample_traces,
-    summarize_cluster,
     verify_scorer,
 )
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
@@ -164,7 +167,8 @@ def _recluster_singletons(
     max_issues: int,
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
-    """Re-cluster singleton issues via a second LLM pass to find better groupings.
+    """
+    Re-cluster singleton issues via a second LLM pass to find better groupings.
 
     Args:
         singletons: Single-analysis issues to attempt merging.
@@ -230,7 +234,8 @@ def _annotate_issue_traces(
     session_first_trace: dict[str, str] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> None:
-    """Log a Feedback assessment for each issue on affected traces.
+    """
+    Log a Feedback assessment for each issue on affected traces.
 
     When session information is provided, logs one annotation per (issue,
     session) on the session's first trace. Otherwise annotates each trace
@@ -355,7 +360,8 @@ def discover_issues(
     max_issues: int = 20,
     filter_string: str | None = None,
 ) -> DiscoverIssuesResult:
-    """Discover quality and operational issues in traces.
+    """
+    Discover quality and operational issues in traces.
 
     Runs a multi-phase pipeline:
     1. **Triage**: Scores traces using the provided scorers (or a default
@@ -566,13 +572,12 @@ def discover_issues(
 
     _logger.info("Phase 3: Clustering analyses into issues...")
     phase_start = time.time()
-    cluster_groups = cluster_analyses(
-        analyses,
-        max_issues,
-        labels=labels,
-        label_model=judge_model,
-        token_counter=token_counter,
-    )
+    if len(analyses) == 1:
+        cluster_groups = [[0]]
+    else:
+        cluster_groups = cluster_by_llm(
+            labels, max_issues, judge_model, token_counter=token_counter
+        )
     cluster_end = time.time()
     _logger.info(
         "Phase 3: Clustering took %.1fs, produced %d clusters",
