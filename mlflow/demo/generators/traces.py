@@ -87,9 +87,9 @@ class _Model:
 
 
 # Using three distinct models so the cost breakdown chart shows a nice distribution.
-GPT_5_2 = _Model("gpt-5.2", "openai", (1.75, 14.00))
-CLAUDE_SONNET_4_5 = _Model("claude-sonnet-4-5", "anthropic", (3.00, 15.00))
-GEMINI_3_PRO = _Model("gemini-3-pro", "google", (2.00, 12.00))
+GPT_5_2 = _Model(name="gpt-5.2", provider="openai", pricing=(1.75, 14.00))
+CLAUDE_SONNET_4_5 = _Model(name="claude-sonnet-4-5", provider="anthropic", pricing=(3.00, 15.00))
+GEMINI_3_PRO = _Model(name="gemini-3-pro", provider="google", pricing=(2.00, 12.00))
 
 _DEMO_MODELS = (GPT_5_2, CLAUDE_SONNET_4_5, GEMINI_3_PRO)
 
