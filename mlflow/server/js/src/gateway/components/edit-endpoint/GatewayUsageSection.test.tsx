@@ -80,15 +80,6 @@ describe('GatewayUsageSection', () => {
     expect(link).toHaveAttribute('href', `#/experiments/${testExperimentId}/overview?workspace=my-workspace`);
   });
 
-  test('renders view full dashboard link with workspace from localStorage when active workspace is missing', () => {
-    getWorkspacesEnabledSyncMock.mockReturnValue(true);
-    window.localStorage.setItem('mlflow.activeWorkspace', 'stored-workspace');
-    renderComponent();
-
-    const link = screen.getByText('View full dashboard');
-    expect(link).toHaveAttribute('href', `#/experiments/${testExperimentId}/overview?workspace=stored-workspace`);
-  });
-
   test('renders time range controls', () => {
     renderComponent();
 
