@@ -282,7 +282,7 @@ export interface ListUsersResponse {
 
 // Budget Policy types
 export type BudgetUnit = 'USD';
-export type DurationUnit = 'MINUTES' | 'HOURS' | 'DAYS' | 'MONTHS';
+export type DurationUnit = 'MINUTES' | 'HOURS' | 'DAYS' | 'WEEKS' | 'MONTHS';
 export type TargetScope = 'GLOBAL' | 'WORKSPACE';
 export type BudgetAction = 'ALERT' | 'REJECT';
 

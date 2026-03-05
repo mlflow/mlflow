@@ -1,16 +1,34 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Alert,
+  InfoSmallIcon,
   Input,
   Modal,
   SimpleSelect,
   SimpleSelectOption,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useUpdateBudgetPolicy } from '../../hooks/useUpdateBudgetPolicy';
-import type { BudgetPolicy, DurationUnit, TargetScope, BudgetAction } from '../../types';
+import type { BudgetPolicy, DurationUnit, BudgetAction } from '../../types';
+import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
+
+type DurationPreset = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
+const DURATION_MAP: Record<DurationPreset, { unit: DurationUnit; value: number }> = {
+  DAILY: { unit: 'DAYS', value: 1 },
+  WEEKLY: { unit: 'WEEKS', value: 1 },
+  MONTHLY: { unit: 'MONTHS', value: 1 },
+};
+
+const toDurationPreset = (unit: DurationUnit, value: number): DurationPreset => {
+  if (unit === 'DAYS' && value === 1) return 'DAILY';
+  if (unit === 'WEEKS' && value === 1) return 'WEEKLY';
+  if (unit === 'MONTHS' && value === 1) return 'MONTHLY';
+  return 'MONTHLY';
+};
 
 interface EditBudgetPolicyModalProps {
   open: boolean;
@@ -21,9 +39,7 @@ interface EditBudgetPolicyModalProps {
 
 interface FormData {
   budgetAmount: string;
-  durationUnit: DurationUnit;
-  durationValue: string;
-  targetScope: TargetScope;
+  duration: DurationPreset;
   budgetAction: BudgetAction;
 }
 
@@ -32,21 +48,21 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
   const intl = useIntl();
   const [formData, setFormData] = useState<FormData>({
     budgetAmount: '',
-    durationUnit: 'DAYS',
-    durationValue: '30',
-    targetScope: 'GLOBAL',
+    duration: 'MONTHLY',
     budgetAction: 'REJECT',
   });
-  const { mutateAsync: updateBudgetPolicy, isLoading, error: mutationError, reset: resetMutation } =
-    useUpdateBudgetPolicy();
+  const {
+    mutateAsync: updateBudgetPolicy,
+    isLoading,
+    error: mutationError,
+    reset: resetMutation,
+  } = useUpdateBudgetPolicy();
 
   useEffect(() => {
     if (policy) {
       setFormData({
         budgetAmount: String(policy.budget_amount),
-        durationUnit: policy.duration_unit,
-        durationValue: String(policy.duration_value),
-        targetScope: policy.target_scope,
+        duration: toDurationPreset(policy.duration_unit, policy.duration_value),
         budgetAction: policy.budget_action,
       });
       resetMutation();
@@ -68,22 +84,21 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
 
   const isFormValid = useMemo(() => {
     const amount = parseFloat(formData.budgetAmount);
-    if (isNaN(amount) || amount <= 0) return false;
-    const duration = parseInt(formData.durationValue, 10);
-    if (isNaN(duration) || duration <= 0) return false;
-    return true;
-  }, [formData.budgetAmount, formData.durationValue]);
+    return !isNaN(amount) && amount > 0;
+  }, [formData.budgetAmount]);
 
   const handleSubmit = useCallback(async () => {
     if (!isFormValid || !policy) return;
+
+    const { unit, value } = DURATION_MAP[formData.duration];
 
     await updateBudgetPolicy({
       budget_policy_id: policy.budget_policy_id,
       budget_unit: 'USD',
       budget_amount: parseFloat(formData.budgetAmount),
-      duration_unit: formData.durationUnit,
-      duration_value: parseInt(formData.durationValue, 10),
-      target_scope: formData.targetScope,
+      duration_unit: unit,
+      duration_value: value,
+      target_scope: getWorkspacesEnabledSync() ? 'WORKSPACE' : 'GLOBAL',
       budget_action: formData.budgetAction,
     }).then(() => {
       handleClose();
@@ -153,65 +168,58 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
           />
         </div>
 
-        <div css={{ display: 'flex', gap: theme.spacing.md }}>
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, flex: 1 }}>
-            <Typography.Text bold>
-              <FormattedMessage defaultMessage="Duration type" description="Budget duration type label" />
-            </Typography.Text>
-            <SimpleSelect
-              id="edit-budget-policy-duration-type"
-              componentId="mlflow.gateway.edit-budget-policy-modal.duration-type"
-              value={formData.durationUnit}
-              onChange={({ target }) => handleFieldChange('durationUnit', target.value as DurationUnit)}
-            >
-              <SimpleSelectOption value="MINUTES">Minutes</SimpleSelectOption>
-              <SimpleSelectOption value="HOURS">Hours</SimpleSelectOption>
-              <SimpleSelectOption value="DAYS">Days</SimpleSelectOption>
-              <SimpleSelectOption value="MONTHS">Months</SimpleSelectOption>
-            </SimpleSelect>
-          </div>
-
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, flex: 1 }}>
-            <Typography.Text bold>
-              <FormattedMessage defaultMessage="Duration value" description="Budget duration value label" />
-            </Typography.Text>
-            <Input
-              componentId="mlflow.gateway.edit-budget-policy-modal.duration-value"
-              value={formData.durationValue}
-              onChange={(e) => handleFieldChange('durationValue', e.target.value)}
-              type="number"
-              min={1}
-              step="1"
-            />
-          </div>
-        </div>
-
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <Typography.Text bold>
-            <FormattedMessage defaultMessage="Scope" description="Budget target type label" />
+            <FormattedMessage defaultMessage="Duration" description="Budget duration label" />
           </Typography.Text>
           <SimpleSelect
-            id="edit-budget-policy-target-type"
-            componentId="mlflow.gateway.edit-budget-policy-modal.target-type"
-            value={formData.targetScope}
-            onChange={({ target }) => handleFieldChange('targetScope', target.value as TargetScope)}
+            id="edit-budget-policy-duration"
+            componentId="mlflow.gateway.edit-budget-policy-modal.duration"
+            value={formData.duration}
+            onChange={({ target }) => handleFieldChange('duration', target.value as DurationPreset)}
           >
-            <SimpleSelectOption value="GLOBAL">Global</SimpleSelectOption>
-            <SimpleSelectOption value="WORKSPACE">Workspace</SimpleSelectOption>
+            <SimpleSelectOption value="DAILY">Daily</SimpleSelectOption>
+            <SimpleSelectOption value="WEEKLY">Weekly</SimpleSelectOption>
+            <SimpleSelectOption value="MONTHLY">Monthly</SimpleSelectOption>
           </SimpleSelect>
         </div>
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          <Typography.Text bold>
-            <FormattedMessage defaultMessage="On exceeded" description="Budget on exceeded label" />
-          </Typography.Text>
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <Typography.Text bold>
+              <FormattedMessage defaultMessage="On exceeded" description="Budget on exceeded label" />
+            </Typography.Text>
+            <Tooltip
+              componentId="mlflow.gateway.edit-budget-policy-modal.on-exceeded-tooltip"
+              content={
+                <FormattedMessage
+                  defaultMessage="Alert sends a webhook notification. <link>Learn how to set up webhooks.</link>"
+                  description="Tooltip explaining budget exceeded actions and webhook setup"
+                  values={{
+                    link: (chunks: React.ReactNode) => (
+                      <a
+                        href="https://mlflow.org/docs/latest/ml/webhooks/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        css={{ color: 'inherit', textDecoration: 'underline' }}
+                      >
+                        {chunks}
+                      </a>
+                    ),
+                  }}
+                />
+              }
+            >
+              <InfoSmallIcon css={{ color: theme.colors.textSecondary, cursor: 'help' }} />
+            </Tooltip>
+          </div>
           <SimpleSelect
             id="edit-budget-policy-on-exceeded"
             componentId="mlflow.gateway.edit-budget-policy-modal.on-exceeded"
             value={formData.budgetAction}
             onChange={({ target }) => handleFieldChange('budgetAction', target.value as BudgetAction)}
           >
-            <SimpleSelectOption value="ALERT">Alert only</SimpleSelectOption>
+            <SimpleSelectOption value="ALERT">Alert</SimpleSelectOption>
             <SimpleSelectOption value="REJECT">Reject requests</SimpleSelectOption>
           </SimpleSelect>
         </div>
