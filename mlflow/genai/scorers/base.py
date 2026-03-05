@@ -376,6 +376,7 @@ class Scorer(BaseModel):
                     instructions=data["instructions"],
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
+                    inference_params=data.get("inference_params"),
                     # TODO: add aggregations here once we support boolean/numeric judge outputs
                 )
             except Exception as e:
