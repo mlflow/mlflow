@@ -192,12 +192,6 @@ jobs:
           fi
           echo "===================="
 
-      - name: Commit changes
-        run: |
-          git add .
-          git diff --cached --quiet && echo "No changes to commit" && exit 0
-          git commit -s -m "Address PR review comments"
-
       - name: Upload Claude output
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -205,6 +199,12 @@ jobs:
           name: claude-output
           path: /tmp/output.json
           if-no-files-found: ignore
+
+      - name: Commit changes
+        run: |
+          git add .
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -s -m "Address PR review comments"
 
       - name: Push changes
         env:
