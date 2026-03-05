@@ -193,49 +193,51 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
               hasExistingSecrets={existingSecrets.length > 0}
             />
           </div>
-          {provider && apiKeyConfig.mode === 'new' && (
-            <div css={{ marginTop: theme.spacing.md }}>
-              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
-                <Tooltip
-                  componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
-                  content={intl.formatMessage({
-                    defaultMessage: 'Saved API keys can be managed in AI Gateway → API Keys tab',
-                    description: 'Tooltip explaining where saved API keys can be found',
-                  })}
-                >
-                  <span>
-                    <Checkbox
-                      componentId="mlflow.traces.issue-detection-modal.save-key-checkbox"
-                      isChecked={saveKey}
-                      onChange={(checked) => setSaveKey(checked)}
-                    >
-                      <FormattedMessage
-                        defaultMessage="Save this key for reuse"
-                        description="Checkbox to save API key for reuse"
-                      />
-                    </Checkbox>
-                  </span>
-                </Tooltip>
-                {saveKey && (
-                  <Input
-                    componentId="mlflow.traces.issue-detection-modal.api-key-name"
-                    value={apiKeyConfig.newSecret.name}
-                    onChange={(e) =>
-                      setApiKeyConfig({
-                        ...apiKeyConfig,
-                        newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
-                      })
-                    }
-                    placeholder={intl.formatMessage({
-                      defaultMessage: 'API key name',
-                      description: 'Placeholder for API key name input',
+          {provider &&
+            apiKeyConfig.mode === 'new' &&
+            Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
+              <div css={{ marginTop: theme.spacing.md }}>
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
+                  <Tooltip
+                    componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
+                    content={intl.formatMessage({
+                      defaultMessage: 'Saved API keys can be managed in AI Gateway → API Keys tab',
+                      description: 'Tooltip explaining where saved API keys can be found',
                     })}
-                    css={{ width: 200 }}
-                  />
-                )}
+                  >
+                    <span>
+                      <Checkbox
+                        componentId="mlflow.traces.issue-detection-modal.save-key-checkbox"
+                        isChecked={saveKey}
+                        onChange={(checked) => setSaveKey(checked)}
+                      >
+                        <FormattedMessage
+                          defaultMessage="Save this key for reuse"
+                          description="Checkbox to save API key for reuse"
+                        />
+                      </Checkbox>
+                    </span>
+                  </Tooltip>
+                  {saveKey && (
+                    <Input
+                      componentId="mlflow.traces.issue-detection-modal.api-key-name"
+                      value={apiKeyConfig.newSecret.name}
+                      onChange={(e) =>
+                        setApiKeyConfig({
+                          ...apiKeyConfig,
+                          newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
+                        })
+                      }
+                      placeholder={intl.formatMessage({
+                        defaultMessage: 'API key name',
+                        description: 'Placeholder for API key name input',
+                      })}
+                      css={{ width: 200 }}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
 
         <Accordion

@@ -8463,6 +8463,10 @@
     "defaultMessage": "At least one form field has incorrect value. Please correct and try again.",
     "description": "Generic error message for an invalid form input"
   },
+  "vedifc": {
+    "defaultMessage": "Enter API key or select saved key",
+    "description": "Placeholder for API key combobox input"
+  },
   "vgfy8y": {
     "defaultMessage": "Add assessment",
     "description": "Evaluation review > assessments > add assessment button label"
