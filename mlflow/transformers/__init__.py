@@ -323,11 +323,11 @@ def save_model(
 
                 from transformers import pipeline
 
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+                fill_pipe = pipeline("fill-mask", "distilroberta-base")
 
                 with mlflow.start_run():
                     mlflow.transformers.save_model(
-                        transformers_model=qa_pipe,
+                        transformers_model=fill_pipe,
                         path="path/to/save/model",
                     )
 
@@ -335,11 +335,11 @@ def save_model(
 
             .. code-block:: python
 
-                from transformers import MobileBertForQuestionAnswering, AutoTokenizer
+                from transformers import AutoModelForMaskedLM, AutoTokenizer
 
-                architecture = "csarron/mobilebert-uncased-squad-v2"
+                architecture = "distilroberta-base"
                 tokenizer = AutoTokenizer.from_pretrained(architecture)
-                model = MobileBertForQuestionAnswering.from_pretrained(architecture)
+                model = AutoModelForMaskedLM.from_pretrained(architecture)
 
                 with mlflow.start_run():
                     components = {
@@ -835,11 +835,11 @@ def log_model(
 
                 from transformers import pipeline
 
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+                fill_pipe = pipeline("fill-mask", "distilroberta-base")
 
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
-                        transformers_model=qa_pipe,
+                        transformers_model=fill_pipe,
                         name="model",
                     )
 
@@ -847,11 +847,11 @@ def log_model(
 
             .. code-block:: python
 
-                from transformers import MobileBertForQuestionAnswering, AutoTokenizer
+                from transformers import AutoModelForMaskedLM, AutoTokenizer
 
-                architecture = "csarron/mobilebert-uncased-squad-v2"
+                architecture = "distilroberta-base"
                 tokenizer = AutoTokenizer.from_pretrained(architecture)
-                model = MobileBertForQuestionAnswering.from_pretrained(architecture)
+                model = AutoModelForMaskedLM.from_pretrained(architecture)
 
                 with mlflow.start_run():
                     components = {
@@ -1152,14 +1152,14 @@ def persist_pretrained_model(model_uri: str) -> None:
 
         # Saving a model with save_pretrained=False
         with mlflow.start_run() as run:
-            model = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+            model = pipeline("fill-mask", "distilroberta-base")
             mlflow.transformers.log_model(
                 transformers_model=model, name="pipeline", save_pretrained=False
             )
 
         # The model cannot be registered to the Model Registry as it is
         try:
-            mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "qa_pipeline")
+            mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "fill_mask_pipeline")
         except MlflowException as e:
             print(e.message)
 
@@ -1167,7 +1167,7 @@ def persist_pretrained_model(model_uri: str) -> None:
         mlflow.transformers.persist_pretrained_model(f"runs:/{run.info.run_id}/pipeline")
 
         # Now the model can be registered to the Model Registry
-        mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "qa_pipeline")
+        mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "fill_mask_pipeline")
     """
     # Check if the model weight already exists in the model artifact before downloading
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
@@ -1727,6 +1727,16 @@ def _is_text2text_generation_pipeline(pipeline):
         return False
 
 
+def _is_question_answering_pipeline(pipeline):
+    try:
+        from transformers import QuestionAnsweringPipeline
+
+        return isinstance(pipeline, QuestionAnsweringPipeline)
+    except ImportError:
+        # Fallback for transformers 5.x where QuestionAnsweringPipeline was removed
+        return getattr(pipeline, "task", None) == "question-answering"
+
+
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
@@ -1848,7 +1858,7 @@ class _TransformersWrapper:
             # arguments. Transpose list-of-dicts to dict-of-lists so that the data
             # can be passed as keyword arguments.
             if (
-                isinstance(self.pipeline, transformers.QuestionAnsweringPipeline)
+                _is_question_answering_pipeline(self.pipeline)
                 and isinstance(data, list)
                 and data
                 and isinstance(data[0], dict)
@@ -1960,7 +1970,7 @@ class _TransformersWrapper:
             self._validate_str_or_list_str(data)
             data = self._format_prompt_template(data)
             output_key = "generated_text"
-        elif isinstance(self.pipeline, transformers.QuestionAnsweringPipeline):
+        elif _is_question_answering_pipeline(self.pipeline):
             data = self._parse_question_answer_input(data)
             output_key = "answer"
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
