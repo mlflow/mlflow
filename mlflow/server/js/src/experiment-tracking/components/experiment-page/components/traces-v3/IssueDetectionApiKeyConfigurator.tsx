@@ -77,7 +77,7 @@ export function IssueDetectionApiKeyConfigurator({
   const { data: secrets } = useSecretsQuery({ provider });
 
   const filteredSecrets = useMemo(
-    () => (provider ? secrets?.filter((s) => s.provider === provider) : secrets),
+    () => (provider ? secrets?.filter((s) => s.provider === provider) : secrets) ?? [],
     [provider, secrets],
   );
 
@@ -196,7 +196,7 @@ export function IssueDetectionApiKeyConfigurator({
         value={value}
         onChange={onChange}
         fieldName={requiredFields[0].name}
-        secrets={filteredSecrets ?? []}
+        secrets={filteredSecrets}
         disabled={disabled}
       />
     );
