@@ -449,10 +449,12 @@ def _parse_usage(result: Any) -> dict[str, int] | None:
 
         # input_tokens/output_tokens are the current field names; request_tokens/
         # response_tokens are deprecated aliases kept for backward compatibility.
-        input_tokens = getattr(usage, "input_tokens", None) or getattr(usage, "request_tokens", 0)
-        output_tokens = getattr(usage, "output_tokens", None) or getattr(
-            usage, "response_tokens", 0
-        )
+        input_tokens = getattr(usage, "input_tokens", None)
+        if input_tokens is None:
+            input_tokens = getattr(usage, "request_tokens", 0)
+        output_tokens = getattr(usage, "output_tokens", None)
+        if output_tokens is None:
+            output_tokens = getattr(usage, "response_tokens", 0)
         total_tokens = getattr(usage, "total_tokens", input_tokens + output_tokens)
         return {
             TokenUsageKey.INPUT_TOKENS: input_tokens,
