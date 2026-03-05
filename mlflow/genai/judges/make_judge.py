@@ -98,6 +98,7 @@ def make_judge(
     description: str | None = None,
     feedback_value_type: Any = None,
     inference_params: dict[str, Any] | None = None,
+    skills: list[str] | Any | None = None,
 ) -> Judge:
     """
 
@@ -241,4 +242,5 @@ def make_judge(
         description=description,
         feedback_value_type=feedback_value_type,
         inference_params=inference_params,
+        skills=skills,
     )

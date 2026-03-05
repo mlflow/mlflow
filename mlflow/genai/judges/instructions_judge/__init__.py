@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import asdict
-from typing import Any, Literal, get_origin
+from typing import Any, Literal, Union, get_origin
 
 import pydantic
 from pydantic import PrivateAttr
@@ -85,6 +85,7 @@ class InstructionsJudge(Judge):
     _generate_rationale_first: bool = PrivateAttr(default=False)
     _include_tool_calls_in_conversation: bool = PrivateAttr(default=False)
     _inference_params: dict[str, Any] | None = PrivateAttr(default=None)
+    _skill_set: Any = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -96,6 +97,7 @@ class InstructionsJudge(Judge):
         generate_rationale_first: bool = False,
         include_tool_calls_in_conversation: bool = False,
         inference_params: dict[str, Any] | None = None,
+        skills: Union[list[str], "SkillSet", None] = None,
         **kwargs,
     ):
         """
@@ -168,6 +170,23 @@ class InstructionsJudge(Judge):
                 f"Only the following variables are allowed: {allowed_vars}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+        if skills is not None:
+            from mlflow.genai.skills import SkillSet
+
+            if isinstance(skills, SkillSet):
+                self._skill_set = skills
+            else:
+                self._skill_set = SkillSet(skills)
+            if self._TEMPLATE_VARIABLE_TRACE not in self.template_variables:
+                raise MlflowException(
+                    "Skills require {{ trace }} in instructions. Skills are loaded via "
+                    "tools during the agentic tool-calling loop, which only runs for "
+                    "trace-based judges.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            self._skill_set = None
 
         self._validate_model_format()
         self._validate_instructions_template()
@@ -342,10 +361,13 @@ class InstructionsJudge(Judge):
                     for field in output_fields
                 ]
             )
-            return INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
+            system_content = INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
                 evaluation_rating_fields=evaluation_rating_fields,
                 instructions=self._instructions,
             )
+            if self._skill_set:
+                system_content += "\n\n" + self._skill_set.to_prompt(self._model)
+            return system_content
         else:
             base_prompt = format_prompt(
                 INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
@@ -554,6 +576,7 @@ class InstructionsJudge(Judge):
             response_format=response_format,
             use_case=USE_CASE_AGENTIC_JUDGE,
             inference_params=self._inference_params,
+            skill_set=self._skill_set,
         )
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:

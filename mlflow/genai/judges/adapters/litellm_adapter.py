@@ -547,6 +547,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
                 num_retries=input_params.num_retries,
                 response_format=input_params.response_format,
                 inference_params=input_params.inference_params,
+                skill_set=input_params.skill_set,
             )
 
             cleaned_response = _strip_markdown_code_blocks(output.response)

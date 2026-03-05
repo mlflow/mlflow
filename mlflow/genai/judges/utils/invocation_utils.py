@@ -45,6 +45,7 @@ def invoke_judge_model(
     response_format: type[pydantic.BaseModel] | None = None,
     use_case: str | None = None,
     inference_params: dict[str, Any] | None = None,
+    skill_set: Any = None,
 ) -> Feedback:
     """
     Invoke the judge model.
@@ -87,6 +88,7 @@ def invoke_judge_model(
         response_format=response_format,
         use_case=use_case,
         inference_params=inference_params,
+        skill_set=skill_set,
     )
 
     output = adapter.invoke(input_params)
