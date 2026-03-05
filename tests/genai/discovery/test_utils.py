@@ -2,22 +2,27 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.discovery.entities import (
     Issue,
     _ConversationAnalysis,
 )
 from mlflow.genai.discovery.utils import (
-    _build_summary,
-    _cluster_analyses,
-    _extract_failing_traces,
-    _group_traces_by_session,
-    _sample_traces,
-    _summarize_cluster,
+    build_summary,
+    cluster_analyses,
+    extract_failing_traces,
+    extract_span_errors,
+    group_traces_by_session,
+    sample_traces,
+    summarize_cluster,
+    verify_scorer,
 )
 from mlflow.genai.evaluation.entities import EvaluationResult
 
-# ---- _cluster_analyses ----
+# ---- cluster_analyses ----
 
 
 def test_cluster_analyses_single_analysis():
@@ -28,7 +33,7 @@ def test_cluster_analyses_single_analysis():
             affected_trace_ids=["t-1"],
         )
     ]
-    result = _cluster_analyses(analyses, max_issues=5, labels=["[routing] hallucination"])
+    result = cluster_analyses(analyses, max_issues=5, labels=["[routing] hallucination"])
 
     assert result == [[0]]
 
@@ -75,7 +80,7 @@ def test_cluster_analyses_groups_similar():
     ]
 
     with patch("litellm.completion", return_value=mock_response) as mock_completion:
-        groups = _cluster_analyses(analyses, max_issues=5, labels=labels)
+        groups = cluster_analyses(analyses, max_issues=5, labels=labels)
 
     mock_completion.assert_called_once()
     assert len(groups) == 2
@@ -111,13 +116,13 @@ def test_cluster_analyses_respects_max_issues():
     ]
 
     with patch("litellm.completion", return_value=mock_response) as mock_completion:
-        groups = _cluster_analyses(analyses, max_issues=2, labels=labels)
+        groups = cluster_analyses(analyses, max_issues=2, labels=labels)
 
     mock_completion.assert_called_once()
     assert len(groups) <= 2
 
 
-# ---- _summarize_cluster ----
+# ---- summarize_cluster ----
 
 
 def test_summarize_cluster():
@@ -152,14 +157,14 @@ def test_summarize_cluster():
     ]
 
     with patch("litellm.completion", return_value=mock_response) as mock_completion:
-        result = _summarize_cluster([0, 1], analyses, "openai:/gpt-5")
+        result = summarize_cluster([0, 1], analyses, "openai:/gpt-5")
 
     mock_completion.assert_called_once()
     assert result.name == "hallucination"
     assert result.example_indices == [0, 1]
 
 
-# ---- _extract_failing_traces ----
+# ---- extract_failing_traces ----
 
 
 def test_extract_failing_traces(make_trace):
@@ -173,7 +178,7 @@ def test_extract_failing_traces(make_trace):
     )
     eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=df)
 
-    failing, rationales = _extract_failing_traces(eval_result, "satisfaction")
+    failing, rationales = extract_failing_traces(eval_result, "satisfaction")
 
     assert len(failing) == 2
     assert failing[0].info.trace_id == traces[1].info.trace_id
@@ -195,7 +200,7 @@ def test_extract_failing_traces_with_list_of_scorer_names(make_trace):
     )
     eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=df)
 
-    failing, rationales = _extract_failing_traces(eval_result, ["satisfaction", "quality"])
+    failing, rationales = extract_failing_traces(eval_result, ["satisfaction", "quality"])
 
     assert len(failing) == 2
     assert failing[0].info.trace_id == traces[1].info.trace_id
@@ -217,7 +222,7 @@ def test_extract_failing_traces_multiple_scorers_fail_same_row(make_trace):
     )
     eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=df)
 
-    failing, rationales = _extract_failing_traces(eval_result, ["scorer_a", "scorer_b"])
+    failing, rationales = extract_failing_traces(eval_result, ["scorer_a", "scorer_b"])
 
     assert len(failing) == 1
     assert failing[0].info.trace_id == traces[0].info.trace_id
@@ -227,7 +232,7 @@ def test_extract_failing_traces_multiple_scorers_fail_same_row(make_trace):
 
 def test_extract_failing_traces_none_result_df():
     eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=None)
-    failing, rationales = _extract_failing_traces(eval_result, "satisfaction")
+    failing, rationales = extract_failing_traces(eval_result, "satisfaction")
     assert failing == []
     assert rationales == {}
 
@@ -235,7 +240,7 @@ def test_extract_failing_traces_none_result_df():
 def test_extract_failing_traces_missing_column():
     df = pd.DataFrame({"other/value": [True]})
     eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=df)
-    failing, rationales = _extract_failing_traces(eval_result, "satisfaction")
+    failing, rationales = extract_failing_traces(eval_result, "satisfaction")
     assert failing == []
 
 
@@ -249,16 +254,16 @@ def test_extract_failing_traces_no_failures(make_trace):
         }
     )
     eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=df)
-    failing, rationales = _extract_failing_traces(eval_result, "satisfaction")
+    failing, rationales = extract_failing_traces(eval_result, "satisfaction")
     assert failing == []
     assert rationales == {}
 
 
-# ---- _build_summary ----
+# ---- build_summary ----
 
 
 def test_build_summary_no_issues():
-    summary = _build_summary([], 50)
+    summary = build_summary([], 50)
     assert "50 traces" in summary
     assert "No issues found" in summary
 
@@ -276,13 +281,13 @@ def test_build_summary_with_issues():
             confidence="definitely_yes",
         ),
     ]
-    summary = _build_summary(issues, 100)
+    summary = build_summary(issues, 100)
     assert "tool_failure" in summary
     assert "30%" in summary
     assert "API timeout" in summary
 
 
-# ---- _sample_traces ----
+# ---- sample_traces ----
 
 
 def test_sample_traces_no_sessions(make_trace):
@@ -292,7 +297,7 @@ def test_sample_traces_no_sessions(make_trace):
     with patch(
         "mlflow.genai.discovery.utils.mlflow.search_traces", return_value=traces
     ) as mock_search:
-        result = _sample_traces(5, search_kwargs)
+        result = sample_traces(5, search_kwargs)
 
     mock_search.assert_called_once()
     assert mock_search.call_args[1]["max_results"] == 25
@@ -310,7 +315,7 @@ def test_sample_traces_with_sessions(make_trace):
     with patch(
         "mlflow.genai.discovery.utils.mlflow.search_traces", return_value=all_traces
     ) as mock_search:
-        result = _sample_traces(2, search_kwargs)
+        result = sample_traces(2, search_kwargs)
 
     mock_search.assert_called_once()
     session_ids = {(t.info.trace_metadata or {}).get("mlflow.trace.session") for t in result}
@@ -321,7 +326,7 @@ def test_sample_traces_empty_pool():
     search_kwargs = {"filter_string": None, "return_type": "list", "locations": ["exp-1"]}
 
     with patch("mlflow.genai.discovery.utils.mlflow.search_traces", return_value=[]) as mock_search:
-        result = _sample_traces(10, search_kwargs)
+        result = sample_traces(10, search_kwargs)
 
     mock_search.assert_called_once()
     assert result == []
@@ -334,13 +339,13 @@ def test_sample_traces_fewer_than_requested(make_trace):
     with patch(
         "mlflow.genai.discovery.utils.mlflow.search_traces", return_value=traces
     ) as mock_search:
-        result = _sample_traces(10, search_kwargs)
+        result = sample_traces(10, search_kwargs)
 
     mock_search.assert_called_once()
     assert len(result) == 3
 
 
-# ---- _group_traces_by_session ----
+# ---- group_traces_by_session ----
 
 
 def test_group_traces_by_session_with_sessions(make_trace):
@@ -348,7 +353,7 @@ def test_group_traces_by_session_with_sessions(make_trace):
     t2 = make_trace(session_id="s1")
     t3 = make_trace(session_id="s2")
 
-    groups = _group_traces_by_session([t1, t2, t3])
+    groups = group_traces_by_session([t1, t2, t3])
 
     assert len(groups) == 2
     assert len(groups["s1"]) == 2
@@ -359,7 +364,7 @@ def test_group_traces_by_session_no_sessions(make_trace):
     t1 = make_trace()
     t2 = make_trace()
 
-    groups = _group_traces_by_session([t1, t2])
+    groups = group_traces_by_session([t1, t2])
 
     assert len(groups) == 2
     assert t1.info.trace_id in groups
@@ -370,50 +375,39 @@ def test_group_traces_by_session_mixed(make_trace):
     t1 = make_trace(session_id="s1")
     t2 = make_trace()
 
-    groups = _group_traces_by_session([t1, t2])
+    groups = group_traces_by_session([t1, t2])
 
     assert len(groups) == 2
     assert len(groups["s1"]) == 1
     assert t2.info.trace_id in groups
 
 
-# ---- _extract_span_errors ----
+# ---- extract_span_errors ----
 
 
 def test_extract_span_errors_with_error_span(make_trace):
-    from mlflow.genai.discovery.utils import _extract_span_errors
-
     trace = make_trace(error_span=True)
-    result = _extract_span_errors(trace)
+    result = extract_span_errors(trace)
     assert result
     assert "Connection failed" in result
 
 
 def test_extract_span_errors_no_errors(make_trace):
-    from mlflow.genai.discovery.utils import _extract_span_errors
-
     trace = make_trace()
-    result = _extract_span_errors(trace)
+    result = extract_span_errors(trace)
     assert result == ""
 
 
 def test_extract_span_errors_truncation(make_trace):
-    from mlflow.genai.discovery.utils import _extract_span_errors
-
     trace = make_trace(error_span=True)
-    result = _extract_span_errors(trace, max_length=10)
+    result = extract_span_errors(trace, max_length=10)
     assert len(result) <= 10
 
 
-# ---- _test_scorer ----
+# ---- verify_scorer ----
 
 
 def test_test_scorer_happy_path(make_trace):
-
-    from mlflow.entities.assessment import Feedback
-    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-    from mlflow.genai.discovery.utils import _test_scorer
-
     trace = make_trace()
     scorer = MagicMock()
     scorer.name = "test_scorer"
@@ -428,16 +422,12 @@ def test_test_scorer_happy_path(make_trace):
     ]
 
     with patch("mlflow.genai.discovery.utils.mlflow.get_trace", return_value=result_trace):
-        _test_scorer(scorer, trace)
+        verify_scorer(scorer, trace)
 
     scorer.assert_called_once_with(trace=trace)
 
 
 def test_test_scorer_no_feedback_raises(make_trace):
-    import pytest
-
-    from mlflow.genai.discovery.utils import _test_scorer
-
     trace = make_trace()
     scorer = MagicMock()
     scorer.name = "test_scorer"
@@ -449,15 +439,10 @@ def test_test_scorer_no_feedback_raises(make_trace):
         patch("mlflow.genai.discovery.utils.mlflow.get_trace", return_value=result_trace),
         pytest.raises(Exception, match="produced no feedback"),
     ):
-        _test_scorer(scorer, trace)
+        verify_scorer(scorer, trace)
 
 
 def test_test_scorer_null_value_raises(make_trace):
-    import pytest
-
-    from mlflow.entities.assessment import Feedback
-    from mlflow.genai.discovery.utils import _test_scorer
-
     trace = make_trace()
     scorer = MagicMock()
     scorer.name = "test_scorer"
@@ -474,4 +459,4 @@ def test_test_scorer_null_value_raises(make_trace):
         patch("mlflow.genai.discovery.utils.mlflow.get_trace", return_value=result_trace),
         pytest.raises(Exception, match="model API error"),
     ):
-        _test_scorer(scorer, trace)
+        verify_scorer(scorer, trace)
