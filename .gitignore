@@ -134,6 +134,12 @@ a.md
 # Ignore a gunicorn config file
 gunicorn.conf.py
 
+# Playwright MCP server cache
+.playwright-mcp/
+
+# Pyright type checker config (local dev only)
+pyrightconfig.json
+
 # ignore everything in .claude
 .claude/*
 !.claude/commands/
