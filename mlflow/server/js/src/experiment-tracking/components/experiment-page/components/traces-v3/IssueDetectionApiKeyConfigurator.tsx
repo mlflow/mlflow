@@ -240,7 +240,6 @@ interface IssueDetectionAdvancedApiKeySettingsProps {
   authModes: AuthMode[];
   defaultAuthMode: string | undefined;
   disabled?: boolean;
-  componentIdPrefix?: string;
 }
 
 /**
@@ -254,7 +253,6 @@ export function IssueDetectionAdvancedApiKeySettings({
   authModes,
   defaultAuthMode,
   disabled,
-  componentIdPrefix = 'mlflow.traces.issue-detection.api-key-advanced',
 }: IssueDetectionAdvancedApiKeySettingsProps) {
   const { theme } = useDesignSystemTheme();
 
