@@ -92,6 +92,7 @@ jobs:
           NETLIFY_URL: ${{ steps.netlify_deploy.outputs.deploy_url }}
           DOCS_WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
         with:
+          retries: 3
           script: |
             const script = require(
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/preview-comment.js`
@@ -103,6 +104,7 @@ jobs:
           RUN_ID: ${{ github.event.workflow_run.id }}
           ARTIFACT_NAME: docs-build-${{ github.event.workflow_run.id }}
         with:
+          retries: 3
           script: |
             const script = require(
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/delete-artifact.js`
