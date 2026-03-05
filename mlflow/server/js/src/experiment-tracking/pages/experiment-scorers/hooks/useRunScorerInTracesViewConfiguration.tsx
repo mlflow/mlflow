@@ -30,7 +30,7 @@ import {
   getEndpointNameFromGatewayModel,
 } from '../../../../gateway/utils/gatewayUtils';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
-import { isEmpty, isObject } from 'lodash';
+import { isEmpty } from 'lodash';
 
 interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExplorerRunJudgeConfig {
   RunJudgeModalElement: React.ReactNode;
@@ -135,30 +135,34 @@ const RunJudgeModalImpl = ({
   }, [templateOptions, searchValue]);
 
   const [error, setError] = useState<Error | undefined>(undefined);
-  const [selectedJudges, setSelectedJudges] = useState<(LLMScorer | LLM_TEMPLATE)[]>([]);
+  const [selectedScorers, setSelectedScorers] = useState<LLMScorer[]>([]);
+  const [selectedTemplates, setSelectedTemplates] = useState<LLM_TEMPLATE[]>([]);
 
-  const hasSelectedTemplates = selectedJudges.some((j) => !isObject(j));
+  const selectedJudgeCount = selectedScorers.length + selectedTemplates.length;
+  const hasSelectedTemplates = selectedTemplates.length > 0;
 
-  const toggleJudge = (judge: LLMScorer | LLM_TEMPLATE) => {
-    setSelectedJudges((prev) => {
-      const isSelected = prev.some((j) =>
-        isObject(judge) && isObject(j) ? (j as LLMScorer).name === (judge as LLMScorer).name : j === judge,
-      );
-      return isSelected
-        ? prev.filter((j) =>
-            isObject(judge) && isObject(j) ? (j as LLMScorer).name !== (judge as LLMScorer).name : j !== judge,
-          )
-        : [...prev, judge];
+  const toggleScorer = (scorer: LLMScorer) => {
+    setSelectedScorers((prev) => {
+      const isSelected = prev.some((s) => s.name === scorer.name);
+      return isSelected ? prev.filter((s) => s.name !== scorer.name) : [...prev, scorer];
+    });
+  };
+
+  const toggleTemplate = (template: LLM_TEMPLATE) => {
+    setSelectedTemplates((prev) => {
+      const isSelected = prev.includes(template);
+      return isSelected ? prev.filter((t) => t !== template) : [...prev, template];
     });
   };
 
   const handleModalConfirm = async () => {
-    if (selectedJudges.length === 0) {
+    if (selectedJudgeCount === 0) {
       return;
     }
     setError(undefined);
     try {
-      selectedJudges.forEach((judge) => evaluateTraces(judge, [itemId], currentEndpointName));
+      selectedScorers.forEach((scorer) => evaluateTraces(scorer, [itemId], currentEndpointName));
+      selectedTemplates.forEach((template) => evaluateTraces(template, [itemId], currentEndpointName));
       onClose();
     } catch (error) {
       setError(error as Error);
@@ -192,7 +196,7 @@ const RunJudgeModalImpl = ({
           description: 'Button text for canceling a judge run',
         })}
         okText={
-          selectedJudges.length > 1
+          selectedJudgeCount > 1
             ? intl.formatMessage({
                 defaultMessage: 'Run judges',
                 description: 'Button text for running multiple judges',
@@ -203,7 +207,7 @@ const RunJudgeModalImpl = ({
               })
         }
         okButtonProps={{
-          disabled: selectedJudges.length === 0 || (hasSelectedTemplates && !currentEndpointName),
+          disabled: selectedJudgeCount === 0 || (hasSelectedTemplates && !currentEndpointName),
         }}
         onOk={handleModalConfirm}
       >
@@ -284,8 +288,8 @@ const RunJudgeModalImpl = ({
                   <ScorerOption
                     scorer={scorer}
                     key={scorer.name}
-                    onClick={() => toggleJudge(scorer)}
-                    selected={selectedJudges.some((j) => isObject(j) && (j as LLMScorer).name === scorer.name)}
+                    onClick={() => toggleScorer(scorer)}
+                    selected={selectedScorers.some((s) => s.name === scorer.name)}
                   />
                 ))
               )}
@@ -295,10 +299,10 @@ const RunJudgeModalImpl = ({
           {judgeSelectionMode === 'template' &&
             displayedTemplates?.map((template) => (
               <TemplateOption
-                selected={selectedJudges.includes(template.value)}
+                selected={selectedTemplates.includes(template.value)}
                 template={template}
                 key={template.value}
-                onClick={() => toggleJudge(template.value)}
+                onClick={() => toggleTemplate(template.value)}
                 scope={scope}
               />
             ))}
