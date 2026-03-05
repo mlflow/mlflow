@@ -1823,14 +1823,14 @@ def test_unused_parameters_warning(
         judge(**provided_params)
 
         if "{{ trace }}" in instructions:
-            assert not mock_logger.warning.called
+            assert not mock_logger.debug.called
         else:
-            assert mock_logger.warning.called
+            assert mock_logger.debug.called
 
-            warning_call_args = mock_logger.warning.call_args
-            assert warning_call_args is not None
+            debug_call_args = mock_logger.debug.call_args
+            assert debug_call_args is not None
 
-            warning_msg = warning_call_args[0][0]
+            warning_msg = debug_call_args[0][0]
 
             assert "parameters were provided but are not used" in warning_msg
             assert expected_warning in warning_msg
@@ -2589,13 +2589,13 @@ def test_warning_shown_for_explicitly_provided_unused_fields(mock_invoke_judge_m
         model="openai:/gpt-4",
     )
 
-    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.debug") as mock_debug:
         judge(inputs="What is AI?", outputs="This output is not used by the template")
 
-        mock_warning.assert_called_once()
-        warning_message = mock_warning.call_args[0][0]
-        assert "outputs" in warning_message
-        assert "not used by this judge" in warning_message
+        mock_debug.assert_called_once()
+        debug_message = mock_debug.call_args[0][0]
+        assert "outputs" in debug_message
+        assert "not used by this judge" in debug_message
 
 
 def test_no_warning_for_trace_based_judge_with_extra_fields(mock_invoke_judge_model):
@@ -3485,8 +3485,8 @@ def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
     with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
         judge(outputs={"answer": "Test"}, session=[trace1])
 
-        mock_logger.warning.assert_called_once()
-        warning_msg = mock_logger.warning.call_args[0][0]
+        mock_logger.debug.assert_called_once()
+        warning_msg = mock_logger.debug.call_args[0][0]
         assert "conversation" in warning_msg or "session" in warning_msg
         assert "not used by this judge" in warning_msg
 
