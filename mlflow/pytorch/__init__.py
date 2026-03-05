@@ -580,8 +580,8 @@ def save_model(
     # For the case that `input_example` is a tensor or list of numpy arrays / tensors,
     # PyFunc model is not supported yet.
     if not (
-        serialization_format == SERIALIZATION_FORMAT_PT2 and
-        (len(input_example) > 1 or any(isinstance(x, torch.Tensor) for x in input_example))
+        serialization_format == SERIALIZATION_FORMAT_PT2
+        and (len(input_example) > 1 or any(isinstance(x, torch.Tensor) for x in input_example))
     ):
         pyfunc.add_to_model(
             mlflow_model,
