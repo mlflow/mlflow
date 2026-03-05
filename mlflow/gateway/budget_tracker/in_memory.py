@@ -147,14 +147,15 @@ class InMemoryBudgetTracker(BudgetTracker):
 
         return False, None
 
-    def backfill_spend(self, budget_policy_id: str, spend: float) -> None:
-        """Set cumulative spend on a window from historical data."""
+    def backfill_spend(self, spend_by_policy: dict[str, float]) -> None:
+        """Set cumulative spend on windows from historical data."""
         with self._lock:
-            window = self._windows.get(budget_policy_id)
-            if window is None:
-                return
-            window.cumulative_spend = spend
-            window.exceeded = spend >= window.policy.budget_amount
+            for budget_policy_id, spend in spend_by_policy.items():
+                window = self._windows.get(budget_policy_id)
+                if window is None:
+                    continue
+                window.cumulative_spend = spend
+                window.exceeded = spend >= window.policy.budget_amount
 
     def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
         """Get the current window info for a policy (for payload construction)."""
