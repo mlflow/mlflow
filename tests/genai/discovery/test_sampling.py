@@ -1,13 +1,8 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
-
-from mlflow.entities.assessment import Feedback
-from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.discovery.sampling import (
     group_traces_by_session,
     sample_traces,
-    verify_scorer,
 )
 
 # ---- sample_traces ----
@@ -105,61 +100,3 @@ def test_group_traces_by_session_mixed(make_trace):
     assert len(groups) == 2
     assert len(groups["s1"]) == 1
     assert t2.info.trace_id in groups
-
-
-# ---- verify_scorer ----
-
-
-def test_test_scorer_happy_path(make_trace):
-    trace = make_trace()
-    scorer = MagicMock()
-    scorer.name = "test_scorer"
-
-    result_trace = MagicMock()
-    result_trace.info.assessments = [
-        Feedback(
-            name="test_scorer",
-            value=True,
-            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test"),
-        )
-    ]
-
-    with patch("mlflow.genai.discovery.sampling.mlflow.get_trace", return_value=result_trace):
-        verify_scorer(scorer, trace)
-
-    scorer.assert_called_once_with(trace=trace)
-
-
-def test_test_scorer_no_feedback_raises(make_trace):
-    trace = make_trace()
-    scorer = MagicMock()
-    scorer.name = "test_scorer"
-
-    result_trace = MagicMock()
-    result_trace.info.assessments = []
-
-    with (
-        patch("mlflow.genai.discovery.sampling.mlflow.get_trace", return_value=result_trace),
-        pytest.raises(Exception, match="failed verification"),
-    ):
-        verify_scorer(scorer, trace)
-
-
-def test_test_scorer_null_value_raises(make_trace):
-    trace = make_trace()
-    scorer = MagicMock()
-    scorer.name = "test_scorer"
-
-    feedback = MagicMock(spec=Feedback)
-    feedback.name = "test_scorer"
-    feedback.value = None
-    feedback.error_message = "model API error"
-
-    result_trace = MagicMock()
-    result_trace.info.assessments = [feedback]
-
-    with (
-        patch("mlflow.genai.discovery.sampling.mlflow.get_trace", return_value=result_trace),
-        pytest.raises(Exception, match="failed verification"),
-    ):
-        verify_scorer(scorer, trace)

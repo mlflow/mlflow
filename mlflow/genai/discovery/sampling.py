@@ -5,13 +5,11 @@ import random
 from collections import defaultdict
 
 import mlflow
-from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
     SAMPLE_POOL_MULTIPLIER,
     SAMPLE_RANDOM_SEED,
 )
-from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
@@ -87,47 +85,3 @@ def group_traces_by_session(
         traces_in_group.sort(key=lambda trace: trace.info.timestamp_ms)
 
     return dict(groups)
-
-
-def verify_scorer(scorer: Scorer, trace: Trace) -> None:
-    """
-    Verify a scorer works on a single trace before running the full pipeline.
-
-    Calls the scorer on the trace, fetches the updated trace, and checks
-    that a Feedback assessment with a non-null value was produced.
-
-    Args:
-        scorer: The scorer to test.
-        trace: A trace to run the scorer on.
-
-    Raises:
-        MlflowException: If the scorer produces no feedback or returns a null value.
-    """
-    try:
-        scorer(trace=trace)
-        result_trace = mlflow.get_trace(trace.info.trace_id)
-        if result_trace is None:
-            raise mlflow.exceptions.MlflowException(
-                f"Scorer '{scorer.name}' produced no feedback on test trace"
-            )
-        feedback = next(
-            (
-                assessment
-                for assessment in result_trace.info.assessments
-                if isinstance(assessment, Feedback) and assessment.name == scorer.name
-            ),
-            None,
-        )
-        if feedback is None:
-            raise mlflow.exceptions.MlflowException(
-                f"Scorer '{scorer.name}' produced no feedback on test trace"
-            )
-        if feedback.value is None:
-            error = feedback.error_message or "unknown error (check model API logs)"
-            raise mlflow.exceptions.MlflowException(
-                f"Scorer '{scorer.name}' returned null value: {error}"
-            )
-    except Exception as exc:
-        raise mlflow.exceptions.MlflowException(
-            f"Scorer '{scorer.name}' failed verification on trace {trace.info.trace_id}: {exc}"
-        ) from exc

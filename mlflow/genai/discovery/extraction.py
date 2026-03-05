@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import TYPE_CHECKING
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.span_status import SpanStatusCode
@@ -15,13 +14,10 @@ from mlflow.genai.discovery.constants import (
     NUM_RETRIES,
     SURFACE_TRUNCATION_LIMIT,
 )
-from mlflow.genai.discovery.entities import _ConversationAnalysis
+from mlflow.genai.discovery.entities import _ConversationAnalysis, _TokenCounter
+from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
 from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
-
-if TYPE_CHECKING:
-    from mlflow.genai.discovery.pipeline import _TokenCounter
-    from mlflow.genai.evaluation.entities import EvaluationResult
 
 _logger = logging.getLogger(__name__)
 
@@ -192,7 +188,7 @@ def extract_failure_labels(
             num_retries=NUM_RETRIES,
             response_format=None,
             include_response_format=False,
-            inference_params={"max_tokens": LLM_MAX_TOKENS, "temperature": 0},
+            inference_params={"max_tokens": LLM_MAX_TOKENS},
         )
         if token_counter is not None:
             token_counter.track(response)

@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
@@ -12,8 +14,11 @@ from mlflow.genai.discovery.pipeline import (
     confidence_gte,
     confidence_max,
     discover_issues,
+    verify_scorer,
 )
 from mlflow.genai.evaluation.entities import EvaluationResult
+
+from tests.genai.discovery.conftest import _TestScorer
 
 
 @pytest.fixture(autouse=True)
@@ -219,8 +224,7 @@ def test_discover_issues_passes_filter_string():
 
 
 def test_discover_issues_custom_satisfaction_scorer(make_trace):
-    custom_scorer = MagicMock()
-    custom_scorer.name = "custom"
+    custom_scorer = _TestScorer(name="custom")
     traces = [make_trace()]
 
     result_df = pd.DataFrame(
@@ -254,10 +258,8 @@ def test_discover_issues_custom_satisfaction_scorer(make_trace):
 
 
 def test_discover_issues_additional_scorers(make_trace):
-    custom_scorer = MagicMock()
-    custom_scorer.name = "custom"
-    extra_scorer = MagicMock()
-    extra_scorer.name = "extra"
+    custom_scorer = _TestScorer(name="custom")
+    extra_scorer = _TestScorer(name="extra")
     traces = [make_trace()]
 
     result_df = pd.DataFrame(
@@ -839,3 +841,58 @@ def test_confidence_helpers():
     assert confidence_max("definitely_yes", "weak_yes") == "definitely_yes"
     assert confidence_max("maybe", "weak_yes") == "weak_yes"
     assert confidence_max("definitely_no", "maybe") == "maybe"
+
+
+# ---- verify_scorer ----
+
+
+def test_verify_scorer_happy_path(make_trace):
+    trace = make_trace()
+    feedback = Feedback(
+        name="test_scorer",
+        value=True,
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test"),
+    )
+    scorer = MagicMock(return_value=feedback)
+    scorer.name = "test_scorer"
+
+    verify_scorer(scorer, trace)
+
+    scorer.assert_called_once_with(trace=trace)
+
+
+def test_verify_scorer_with_session(make_trace):
+    trace = make_trace()
+    session = [trace, make_trace()]
+    feedback = Feedback(
+        name="test_scorer",
+        value=True,
+        source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test"),
+    )
+    scorer = MagicMock(return_value=feedback)
+    scorer.name = "test_scorer"
+
+    verify_scorer(scorer, trace, session=session)
+
+    scorer.assert_called_once_with(session=session)
+
+
+def test_verify_scorer_non_feedback_raises(make_trace):
+    trace = make_trace()
+    scorer = MagicMock(return_value="not a Feedback")
+    scorer.name = "test_scorer"
+
+    with pytest.raises(Exception, match="returned str instead of Feedback"):
+        verify_scorer(scorer, trace)
+
+
+def test_verify_scorer_null_value_raises(make_trace):
+    trace = make_trace()
+    feedback = MagicMock(spec=Feedback)
+    feedback.value = None
+    feedback.error_message = "model API error"
+    scorer = MagicMock(return_value=feedback)
+    scorer.name = "test_scorer"
+
+    with pytest.raises(Exception, match="returned null value"):
+        verify_scorer(scorer, trace)
