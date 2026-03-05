@@ -16,21 +16,28 @@ from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import CostKey, TokenUsageKey
 from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 from mlflow.webhooks.delivery import deliver_webhook
 from mlflow.webhooks.types import BudgetPolicyExceededPayload
 
 _logger = logging.getLogger(__name__)
 
 
-def backfill_budget_spend(store: SqlAlchemyStore, tracker, new_windows) -> None:
-    """Backfill cumulative spend for newly created budget windows from trace history.
+def calculate_existing_cost_for_new_windows(
+    store: SqlAlchemyStore, new_windows: list[BudgetWindow]
+) -> dict[str, float]:
+    """Calculate existing spend for newly created budget windows from trace history.
 
     When a new BudgetWindow is created (server restart or new policy), its
-    cumulative_spend starts at 0. This queries historical trace cost data to
-    seed the spend so budgets aren't effectively reset on restart.
+    cumulative_spend starts at 0. This queries historical trace cost data so
+    that budget tracking survives server restarts.
+
+    Returns:
+        Dict mapping budget_policy_id to historical spend amount.
     """
+    result: dict[str, float] = {}
     if not new_windows:
-        return
+        return result
 
     for window in new_windows:
         try:
@@ -47,13 +54,14 @@ def backfill_budget_spend(store: SqlAlchemyStore, tracker, new_windows) -> None:
                 workspace=workspace,
             )
             if spend > 0:
-                tracker.backfill_spend(window.policy.budget_policy_id, spend)
+                result[window.policy.budget_policy_id] = spend
         except Exception:
             _logger.debug(
-                "Failed to backfill budget spend for policy %s",
+                "Failed to calculate existing cost for policy %s",
                 window.policy.budget_policy_id,
                 exc_info=True,
             )
+    return result
 
 
 def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
@@ -62,13 +70,14 @@ def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
     if tracker.needs_refresh():
         try:
             policies = store.list_budget_policies()
-            new_windows = tracker.load_policies(policies)
-            backfill_budget_spend(store, tracker, new_windows)
+            new_windows = tracker.refresh_policies(policies)
+            existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+            tracker.backfill_spend(existing_spend)
         except Exception:
             _logger.debug("Failed to refresh budget policies", exc_info=True)
 
 
-def maybe_record_budget_cost(
+def record_budget_cost(
     store: SqlAlchemyStore,
     response: Any,
     model_name: str | None = None,
@@ -155,7 +164,7 @@ def fire_budget_exceeded_webhooks(
             duration_unit=policy.duration_unit.value,
             duration_value=policy.duration_value,
             target_scope=policy.target_scope.value,
-            workspace=workspace or (policy.workspace or "default"),
+            workspace=workspace or (policy.workspace or DEFAULT_WORKSPACE_NAME),
             window_start=int(window.window_start.timestamp() * 1000),
         )
         deliver_webhook(event=event, payload=payload, store=registry_store)
@@ -164,8 +173,16 @@ def fire_budget_exceeded_webhooks(
 def get_model_info(
     endpoint_config: GatewayEndpointConfig,
 ) -> tuple[str | None, str | None]:
-    """Extract model_name and provider from endpoint config."""
-    if endpoint_config.models:
+    """Extract model_name and provider from endpoint config.
+
+    For endpoints configured with multiple models (e.g., traffic-splitting or routing),
+    the specific model used for a given request cannot be determined from the static
+    endpoint configuration alone. In such cases, this function returns (None, None)
+    to avoid misattributing costs or webhooks to an arbitrary model.
+    """
+    if not endpoint_config.models:
+        return None, None
+    if len(endpoint_config.models) == 1:
         m = endpoint_config.models[0]
         return m.model_name, m.provider
     return None, None
@@ -182,7 +199,7 @@ def make_cost_recording_reducer(
         result = aggregate_chat_stream_chunks(chunks)
         if result:
             model_name, model_provider = get_model_info(endpoint_config)
-            maybe_record_budget_cost(
+            record_budget_cost(
                 store,
                 result,
                 model_name=model_name,

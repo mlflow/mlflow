@@ -8,14 +8,14 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
-from mlflow.gateway.budget_tracker import InMemoryBudgetTracker
+from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
 from mlflow.server.gateway_budget import (
-    backfill_budget_spend,
+    calculate_existing_cost_for_new_windows,
     fire_budget_exceeded_webhooks,
     get_model_info,
     make_cost_recording_reducer,
-    maybe_record_budget_cost,
     maybe_refresh_budget_policies,
+    record_budget_cost,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.tracing.constant import CostKey
@@ -76,7 +76,7 @@ def test_get_model_info_empty():
     assert provider is None
 
 
-# --- _maybe_record_budget_cost tests ---
+# --- _record_budget_cost tests ---
 
 
 @dataclass
@@ -95,33 +95,33 @@ class _FakeResponse:
             self.usage = _FakeUsage()
 
 
-def test_maybe_record_budget_cost_with_usage_object():
+def test_record_budget_cost_with_usage_object():
     with (
         patch(_TRACKER_FUNC) as mock_tracker,
         patch(_COST_FUNC, return_value={CostKey.TOTAL_COST: 0.05}) as mock_cost,
     ):
         tracker = InMemoryBudgetTracker()
-        tracker.load_policies([_make_policy(budget_amount=100.0)])
+        tracker.refresh_policies([_make_policy(budget_amount=100.0)])
         mock_tracker.return_value = tracker
 
         store = MagicMock()
         store.list_budget_policies.return_value = [_make_policy(budget_amount=100.0)]
 
         response = _FakeResponse()
-        maybe_record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
+        record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
 
         mock_cost.assert_called_once()
         window = tracker._get_window_info("bp-test")
         assert window.cumulative_spend == 0.05
 
 
-def test_maybe_record_budget_cost_with_usage_dict():
+def test_record_budget_cost_with_usage_dict():
     with (
         patch(_TRACKER_FUNC) as mock_tracker,
         patch(_COST_FUNC, return_value={CostKey.TOTAL_COST: 0.03}) as mock_cost,
     ):
         tracker = InMemoryBudgetTracker()
-        tracker.load_policies([_make_policy(budget_amount=100.0)])
+        tracker.refresh_policies([_make_policy(budget_amount=100.0)])
         mock_tracker.return_value = tracker
 
         store = MagicMock()
@@ -131,20 +131,20 @@ def test_maybe_record_budget_cost_with_usage_dict():
             "usage": {"prompt_tokens": 100, "completion_tokens": 50},
             "choices": [],
         }
-        maybe_record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
+        record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
 
         mock_cost.assert_called_once()
         window = tracker._get_window_info("bp-test")
         assert window.cumulative_spend == 0.03
 
 
-def test_maybe_record_budget_cost_with_anthropic_dict_keys():
+def test_record_budget_cost_with_anthropic_dict_keys():
     with (
         patch(_TRACKER_FUNC) as mock_tracker,
         patch(_COST_FUNC, return_value={CostKey.TOTAL_COST: 0.01}) as mock_cost,
     ):
         tracker = InMemoryBudgetTracker()
-        tracker.load_policies([_make_policy(budget_amount=100.0)])
+        tracker.refresh_policies([_make_policy(budget_amount=100.0)])
         mock_tracker.return_value = tracker
 
         store = MagicMock()
@@ -153,36 +153,36 @@ def test_maybe_record_budget_cost_with_anthropic_dict_keys():
         response = {
             "usage": {"input_tokens": 100, "output_tokens": 50},
         }
-        maybe_record_budget_cost(store, response, model_name="claude-3", model_provider="anthropic")
+        record_budget_cost(store, response, model_name="claude-3", model_provider="anthropic")
 
         mock_cost.assert_called_once()
         window = tracker._get_window_info("bp-test")
         assert window.cumulative_spend == 0.01
 
 
-def test_maybe_record_budget_cost_no_cost_available():
+def test_record_budget_cost_no_cost_available():
     with patch(_COST_FUNC, return_value=None):
         store = MagicMock()
         response = _FakeResponse()
-        maybe_record_budget_cost(
+        record_budget_cost(
             store, response, model_name="unknown-model", model_provider="unknown"
         )
 
 
-def test_maybe_record_budget_cost_no_usage():
+def test_record_budget_cost_no_usage():
     store = MagicMock()
     response = {"choices": []}
-    maybe_record_budget_cost(store, response, model_name="gpt-4o")
+    record_budget_cost(store, response, model_name="gpt-4o")
 
 
-def test_maybe_record_budget_cost_none_usage_attr():
+def test_record_budget_cost_none_usage_attr():
     store = MagicMock()
 
     @dataclass
     class NoUsageResponse:
         usage: object | None = None
 
-    maybe_record_budget_cost(store, NoUsageResponse(), model_name="gpt-4o")
+    record_budget_cost(store, NoUsageResponse(), model_name="gpt-4o")
 
 
 # --- fire_budget_exceeded_webhooks tests ---
@@ -194,7 +194,7 @@ def test_fire_budget_exceeded_webhooks_alert():
 
         tracker = InMemoryBudgetTracker()
         policy = _make_policy(budget_amount=50.0, budget_action=BudgetAction.ALERT)
-        tracker.load_policies([policy])
+        tracker.refresh_policies([policy])
         crossed = tracker.record_cost(60.0)
         assert len(crossed) == 1
 
@@ -213,7 +213,7 @@ def test_fire_budget_exceeded_webhooks_reject_skipped():
 
         tracker = InMemoryBudgetTracker()
         policy = _make_policy(budget_amount=50.0, budget_action=BudgetAction.REJECT)
-        tracker.load_policies([policy])
+        tracker.refresh_policies([policy])
         crossed = tracker.record_cost(60.0)
         assert len(crossed) == 1
 
@@ -227,7 +227,7 @@ def test_fire_budget_exceeded_webhooks_with_workspace():
 
         tracker = InMemoryBudgetTracker()
         policy = _make_policy(budget_amount=50.0, budget_action=BudgetAction.ALERT)
-        tracker.load_policies([policy])
+        tracker.refresh_policies([policy])
         crossed = tracker.record_cost(60.0)
 
         fire_budget_exceeded_webhooks(crossed, workspace="my-ws")
@@ -257,7 +257,7 @@ def test_maybe_refresh_budget_policies():
 def test_maybe_refresh_skips_when_not_needed():
     with patch(_TRACKER_FUNC) as mock_get_tracker:
         tracker = InMemoryBudgetTracker()
-        tracker.load_policies([_make_policy()])
+        tracker.refresh_policies([_make_policy()])
         mock_get_tracker.return_value = tracker
 
         store = MagicMock()
@@ -275,7 +275,7 @@ def test_cost_recording_reducer():
         patch("mlflow.server.gateway_budget.aggregate_chat_stream_chunks") as mock_aggregate,
     ):
         tracker = InMemoryBudgetTracker()
-        tracker.load_policies([_make_policy(budget_amount=100.0)])
+        tracker.refresh_policies([_make_policy(budget_amount=100.0)])
         mock_get_tracker.return_value = tracker
 
         store = MagicMock()
@@ -320,7 +320,7 @@ def test_record_cost_triggers_webhook():
         mock_registry.return_value = MagicMock()
 
         tracker = InMemoryBudgetTracker()
-        tracker.load_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)])
+        tracker.refresh_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)])
         mock_get_tracker.return_value = tracker
 
         store = MagicMock()
@@ -329,7 +329,7 @@ def test_record_cost_triggers_webhook():
         ]
 
         response = _FakeResponse()
-        maybe_record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
+        record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
 
         mock_deliver.assert_called_once()
         window = tracker._get_window_info("bp-test")
@@ -347,7 +347,7 @@ def test_record_cost_no_webhook_for_reject():
         mock_registry.return_value = MagicMock()
 
         tracker = InMemoryBudgetTracker()
-        tracker.load_policies(
+        tracker.refresh_policies(
             [_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)]
         )
         mock_get_tracker.return_value = tracker
@@ -358,64 +358,67 @@ def test_record_cost_no_webhook_for_reject():
         ]
 
         response = _FakeResponse()
-        maybe_record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
+        record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
 
         # Crossed but REJECT → no webhook fired
         mock_deliver.assert_not_called()
         assert tracker._get_window_info("bp-test").exceeded is True
 
 
-# --- _backfill_budget_spend tests ---
+# --- calculate_existing_cost_for_new_windows tests ---
 
 
-def test_backfill_on_new_windows():
+def test_calculate_existing_cost_on_new_windows():
     tracker = InMemoryBudgetTracker()
-    new_windows = tracker.load_policies([_make_policy(budget_amount=100.0)])
+    new_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     store = MagicMock()
     store.sum_gateway_trace_cost.return_value = 42.0
 
-    backfill_budget_spend(store, tracker, new_windows)
+    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    tracker.backfill_spend(existing_spend)
 
     store.sum_gateway_trace_cost.assert_called_once()
     window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 42.0
 
 
-def test_backfill_skipped_when_no_new_windows():
-    tracker = InMemoryBudgetTracker()
+def test_calculate_existing_cost_skipped_when_no_new_windows():
     store = MagicMock()
 
-    backfill_budget_spend(store, tracker, [])
+    result = calculate_existing_cost_for_new_windows(store, [])
 
+    assert result == {}
     store.sum_gateway_trace_cost.assert_not_called()
 
 
-def test_backfill_handles_store_error():
+def test_calculate_existing_cost_handles_store_error():
     tracker = InMemoryBudgetTracker()
-    new_windows = tracker.load_policies([_make_policy(budget_amount=100.0)])
+    new_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     store = MagicMock()
     store.sum_gateway_trace_cost.side_effect = Exception("DB error")
 
     # Should not raise
-    backfill_budget_spend(store, tracker, new_windows)
+    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    tracker.backfill_spend(existing_spend)
 
-    # Window should remain at 0 since backfill failed
+    # Window should remain at 0 since calculation failed
     window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 0.0
 
 
-def test_backfill_zero_spend_skips_backfill():
+def test_calculate_existing_cost_zero_spend_excluded():
     tracker = InMemoryBudgetTracker()
-    new_windows = tracker.load_policies([_make_policy(budget_amount=100.0)])
+    new_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     store = MagicMock()
     store.sum_gateway_trace_cost.return_value = 0.0
 
-    backfill_budget_spend(store, tracker, new_windows)
+    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    assert existing_spend == {}
 
-    # backfill_spend should not be called when spend is 0
+    tracker.backfill_spend(existing_spend)
     window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 0.0
 

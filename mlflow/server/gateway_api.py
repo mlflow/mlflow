@@ -45,7 +45,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server.gateway_budget import (
     get_model_info,
     make_cost_recording_reducer,
-    maybe_record_budget_cost,
+    record_budget_cost,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
@@ -470,7 +470,7 @@ async def invocations(endpoint_name: str, request: Request):
                 request_type=GatewayRequestType.UNIFIED_CHAT,
             )(payload)
             model_name, model_provider = get_model_info(endpoint_config)
-            maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+            record_budget_cost(store, response, model_name, model_provider, workspace)
             return response
 
     elif "input" in body:
@@ -493,7 +493,7 @@ async def invocations(endpoint_name: str, request: Request):
             request_type=GatewayRequestType.UNIFIED_EMBEDDINGS,
         )(payload)
         model_name, model_provider = get_model_info(endpoint_config)
-        maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+        record_budget_cost(store, response, model_name, model_provider, workspace)
         return response
 
     else:
@@ -565,7 +565,7 @@ async def chat_completions(request: Request):
             request_type=GatewayRequestType.UNIFIED_CHAT,
         )(payload)
         model_name, model_provider = get_model_info(endpoint_config)
-        maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+        record_budget_cost(store, response, model_name, model_provider, workspace)
         return response
 
 
@@ -637,7 +637,7 @@ async def openai_passthrough_chat(request: Request):
         action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
     )
     model_name, model_provider = get_model_info(endpoint_config)
-    maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+    record_budget_cost(store, response, model_name, model_provider, workspace)
     return response
 
 
@@ -684,7 +684,7 @@ async def openai_passthrough_embeddings(request: Request):
         action=PassthroughAction.OPENAI_EMBEDDINGS, payload=body, headers=headers
     )
     model_name, model_provider = get_model_info(endpoint_config)
-    maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+    record_budget_cost(store, response, model_name, model_provider, workspace)
     return response
 
 
@@ -756,7 +756,7 @@ async def openai_passthrough_responses(request: Request):
         action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
     )
     model_name, model_provider = get_model_info(endpoint_config)
-    maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+    record_budget_cost(store, response, model_name, model_provider, workspace)
     return response
 
 
@@ -828,7 +828,7 @@ async def anthropic_passthrough_messages(request: Request):
         action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
     )
     model_name, model_provider = get_model_info(endpoint_config)
-    maybe_record_budget_cost(store, response, model_name, model_provider, workspace)
+    record_budget_cost(store, response, model_name, model_provider, workspace)
     return response
 
 
@@ -878,7 +878,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
     )
     model_name, model_provider = get_model_info(endpoint_config)
-    maybe_record_budget_cost(
+    record_budget_cost(
         store, response, model_name=model_name, model_provider=model_provider, workspace=workspace
     )
     return response

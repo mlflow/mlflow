@@ -405,7 +405,7 @@ def test_backfill_spend_sets_cumulative():
     tracker = InMemoryBudgetTracker()
     tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
-    tracker.backfill_spend("bp-test", 42.5)
+    tracker.backfill_spend({"bp-test": 42.5})
     window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 42.5
     assert window.exceeded is False
@@ -415,7 +415,7 @@ def test_backfill_spend_sets_exceeded_when_exceeds():
     tracker = InMemoryBudgetTracker()
     tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
-    tracker.backfill_spend("bp-test", 150.0)
+    tracker.backfill_spend({"bp-test": 150.0})
     window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 150.0
     assert window.exceeded is True
@@ -425,7 +425,7 @@ def test_backfill_spend_sets_exceeded_at_exact_limit():
     tracker = InMemoryBudgetTracker()
     tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
-    tracker.backfill_spend("bp-test", 100.0)
+    tracker.backfill_spend({"bp-test": 100.0})
     window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 100.0
     assert window.exceeded is True
@@ -435,4 +435,4 @@ def test_backfill_spend_nonexistent_is_noop():
     tracker = InMemoryBudgetTracker()
     tracker.refresh_policies([_make_policy()])
     # Should not raise
-    tracker.backfill_spend("nonexistent-policy", 50.0)
+    tracker.backfill_spend({"nonexistent-policy": 50.0})
