@@ -116,6 +116,13 @@ def _set_span_attributes(span: LiveSpan, instance):
         _logger.warning("Failed saving Tool attributes: %s", e)
 
 
+def patched_agent_init(original, self, *args, **kwargs):
+    cfg = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
+    if cfg.log_traces and kwargs.get("instrument") is None:
+        kwargs["instrument"] = True
+    return original(self, *args, **kwargs)
+
+
 async def patched_async_class_call(original, self, *args, **kwargs):
     cfg = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
     if not cfg.log_traces:
