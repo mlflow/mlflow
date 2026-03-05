@@ -314,7 +314,7 @@ def _resolve_api_key_from_input(api_key_input):
     # try reading as an environment variable
     if api_key_input.startswith("$"):
         env_var_name = api_key_input[1:]
-        if env_var := os.getenv(env_var_name):
+        if env_var := os.environ.get(env_var_name):
             return env_var
         else:
             raise MlflowException.invalid_parameter_value(

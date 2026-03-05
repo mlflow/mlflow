@@ -51,10 +51,6 @@
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
   },
-  "+NSi44": {
-    "defaultMessage": "Step 1: Install MLflow",
-    "description": "Step 1 title for custom judge creation"
-  },
   "+Njd07": {
     "defaultMessage": "No sessions found",
     "description": "Title for the empty sessions list in the select sessions modal"
@@ -543,6 +539,10 @@
     "defaultMessage": "User frustration",
     "description": "LLM template option"
   },
+  "1oamMA": {
+    "defaultMessage": "Detect Issues",
+    "description": "Label for the detect issues button in the traces table toolbar"
+  },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
     "description": "Label for the custom column group in the logged model column selector"
@@ -715,6 +715,10 @@
     "defaultMessage": "Add new tag",
     "description": "Experiment tracking > experiment page > runs > add new tag button"
   },
+  "35bW7o": {
+    "defaultMessage": "Step 2: Run the judge",
+    "description": "Step 2 title for custom code judge creation"
+  },
   "36g3aR": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
@@ -774,9 +778,9 @@
     "defaultMessage": "AI Gateway",
     "description": "Feature card title for AI Gateway"
   },
-  "3pRh9n": {
-    "defaultMessage": "The type of value the judge will return.",
-    "description": "Hint text for output type selection"
+  "3pUugt": {
+    "defaultMessage": "Run Analysis",
+    "description": "Submit button to trigger issue detection job"
   },
   "3vS6G9": {
     "defaultMessage": "{count, plural, one {# trace was} other {# traces were}} removed",
@@ -845,6 +849,10 @@
   "4GPLHq": {
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular prompt version.",
     "description": "Description for the edit aliases modal on the registered prompt details page"
+  },
+  "4H11jY": {
+    "defaultMessage": "Add a custom expectation to this trace.",
+    "description": "Hint message prompting user to add a new expectation to a trace"
   },
   "4HKr3y": {
     "defaultMessage": "Attributes",
@@ -954,9 +962,9 @@
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
   },
-  "5IeFBG": {
-    "defaultMessage": "Session scorers{count, plural, =0 {} other { (#)}}",
-    "description": "Section title in a side panel that displays session-level scorers"
+  "5GOMqh": {
+    "defaultMessage": "Connect an LLM to run an AI-powered issue analysis on your traces",
+    "description": "Description text for issue detection modal"
   },
   "5Mzn2b": {
     "defaultMessage": "Creator",
@@ -1289,6 +1297,10 @@
   "7NOp4F": {
     "defaultMessage": "Tags",
     "description": "Column title text for model version tags in model version table"
+  },
+  "7O0x9Q": {
+    "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
+    "description": "Step 1 description for defining judge function"
   },
   "7PCvDy": {
     "defaultMessage": "OK",
@@ -1758,10 +1770,6 @@
     "defaultMessage": "Add tags",
     "description": "Tag assignment modal > Title of the add tags modal"
   },
-  "AHRvpU": {
-    "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
-    "description": "Step 3 description for running the judge"
-  },
   "AHaom4": {
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display"
@@ -1885,6 +1893,10 @@
   "B5K1Ix": {
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
+  },
+  "B5WVpt": {
+    "defaultMessage": "Analysis model: {analysisModel} · Judge model: {judgeModel}",
+    "description": "Display of default models for selected provider"
   },
   "B80MC6": {
     "defaultMessage": "Contour Plot",
@@ -2950,10 +2962,6 @@
     "defaultMessage": "Run ID",
     "description": "Run page > Overview > Run ID section label"
   },
-  "JZuU8B": {
-    "defaultMessage": "Step 2: Define your judge function",
-    "description": "Step 2 title for custom judge creation"
-  },
   "JaanQY": {
     "defaultMessage": "Tools",
     "description": "Filter option for tool support"
@@ -3338,10 +3346,6 @@
     "defaultMessage": "Calls",
     "description": "Column header for call count"
   },
-  "MNLhKO": {
-    "defaultMessage": "Add custom feedback to this trace.",
-    "description": "Hint message prompting user to add new feedback"
-  },
   "MQ4Voz": {
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
     "description": "Evaluation review > input section > title"
@@ -3469,6 +3473,10 @@
   "NGsTf/": {
     "defaultMessage": "Synchronizing artifacts for {runsBeingSynchronizedCount} runs...",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > loading state"
+  },
+  "NHgLd1": {
+    "defaultMessage": "Detect issues in traces",
+    "description": "Aria label for the detect issues button in the traces table toolbar"
   },
   "NJ1bYP": {
     "defaultMessage": "{fieldName} are identical",
@@ -3613,6 +3621,10 @@
   "O3RheJ": {
     "defaultMessage": "Link prompts to traces",
     "description": "Heading describing how to add prompts when no prompt records are available"
+  },
+  "O6uYS1": {
+    "defaultMessage": "Saved API keys can be managed in AI Gateway → API Keys tab",
+    "description": "Tooltip explaining where saved API keys can be found"
   },
   "O9r1RR": {
     "defaultMessage": "Start Time:",
@@ -3821,6 +3833,10 @@
     "defaultMessage": "Welcome to MLflow",
     "description": "Workspace landing page title"
   },
+  "PvgihY": {
+    "defaultMessage": "Session assessments{count, plural, =0 {} other { (#)}}",
+    "description": "Section title in a side panel that displays session-level assessments"
+  },
   "PwQiIn": {
     "defaultMessage": "Actions{count}",
     "description": "Trace actions dropdown button"
@@ -3889,10 +3905,6 @@
     "defaultMessage": "Total",
     "description": "Label for total token usage"
   },
-  "QK9qFL": {
-    "defaultMessage": "Hide assessments",
-    "description": "Label for the button to hide the assessments pane"
-  },
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
     "description": "Feature card summary for evaluation"
@@ -3948,6 +3960,10 @@
   "QqbUt/": {
     "defaultMessage": "Search API Keys",
     "description": "Placeholder for API key search filter"
+  },
+  "QqxiAM": {
+    "defaultMessage": "The type of value the judge will return. Ensure this matches the output format specified in your instructions.",
+    "description": "Hint text for output type selection with alignment warning"
   },
   "Qr3GVE": {
     "defaultMessage": "Model Training",
@@ -4189,10 +4205,6 @@
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
     "description": "Help text explaining model configuration purpose"
   },
-  "Sb0Z4Z": {
-    "defaultMessage": ", . : / - = and blank spaces are not allowed",
-    "description": "Add new key-value tag modal > Invalid characters error"
-  },
   "SbMdmm": {
     "defaultMessage": "{spanName} was called",
     "description": "Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
@@ -4391,6 +4403,10 @@
   "U0joaT": {
     "defaultMessage": "Select traces",
     "description": "Title for the select traces modal"
+  },
+  "U189tZ": {
+    "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
+    "description": "Key-value tag editor modal > Tag dropdown Manage Modal > Invalid characters error"
   },
   "U2x2cM": {
     "defaultMessage": "Endpoint:",
@@ -4912,6 +4928,10 @@
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
   },
+  "XQSxtK": {
+    "defaultMessage": "Please select models in `Advanced settings` below",
+    "description": "Message when provider has no default models"
+  },
   "XX8+x1": {
     "defaultMessage": "View prompt template",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
@@ -4966,6 +4986,10 @@
   "XwkX9B": {
     "defaultMessage": "No metrics recorded",
     "description": "Placeholder text when no metrics are recorded for a logged model"
+  },
+  "Y++w0Q": {
+    "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
+    "description": "Add new key-value tag modal > Invalid characters or path error"
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -5059,10 +5083,6 @@
     "defaultMessage": "Auto-refresh",
     "description": "String for the auto-refresh button that refreshes the runs list automatically"
   },
-  "Yb0kNG": {
-    "defaultMessage": "Install or upgrade MLflow to ensure you have the latest judge functionality.",
-    "description": "Step 1 description for installing MLflow"
-  },
   "Yd5ANL": {
     "defaultMessage": "PASS",
     "description": "Header label for pass/fail assessment type for the pass rate"
@@ -5103,6 +5123,10 @@
     "defaultMessage": "Select an endpoint to view logs",
     "description": "No endpoint selected message for logs tab"
   },
+  "YrlNKi": {
+    "defaultMessage": "Follow these steps to create a custom code judge using your own code. {link}",
+    "description": "Brief instructions for custom code judge creation"
+  },
   "YuYnxd": {
     "defaultMessage": "Delete",
     "description": "Text for delete button on the experiment view page header"
@@ -5114,6 +5138,10 @@
   "Yx79Vd": {
     "defaultMessage": "Confirm",
     "description": "A label for the confirmation button in the modal displayed when the experiment type could not be inferred"
+  },
+  "Yy18iD": {
+    "defaultMessage": "Add a custom expectation to this session.",
+    "description": "Hint message prompting user to add a new expectation to a session"
   },
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
@@ -5595,6 +5623,10 @@
     "defaultMessage": "Compare by",
     "description": "Runs charts > components > charts > DifferenceViewPlot > Compare by column heading"
   },
+  "c8EovS": {
+    "defaultMessage": "Save this key for reuse",
+    "description": "Checkbox to save API key for reuse"
+  },
   "cAKSkQ": {
     "defaultMessage": "Select a cell to display preview",
     "description": "Experiment page > table view > preview sidebar > nothing selected"
@@ -5775,6 +5807,10 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
+  "dFvZdM": {
+    "defaultMessage": "Connections",
+    "description": "Section header for API key configuration"
+  },
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
     "description": "Experiment page > new run modal > invalid state - no prompt template provided"
@@ -5795,6 +5831,10 @@
     "defaultMessage": "Tool",
     "description": "Display text for the 'tool' role in a GenAI chat message."
   },
+  "dQ3JME": {
+    "defaultMessage": "API key name",
+    "description": "Placeholder for API key name input"
+  },
   "dQawRm": {
     "defaultMessage": "Passthrough APIs",
     "description": "Passthrough APIs tab title"
@@ -5806,10 +5846,6 @@
   "dTLq6E": {
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
-  },
-  "dTjHiD": {
-    "defaultMessage": "Add a custom expectation to this trace.",
-    "description": "Hint message prompting user to add a new expectation"
   },
   "dUY9eq": {
     "defaultMessage": "Edit description",
@@ -6058,10 +6094,6 @@
   "fUwLyA": {
     "defaultMessage": "Sample judge output",
     "description": "Title for sample judge output panel"
-  },
-  "fWEvZL": {
-    "defaultMessage": ", . : / - = and blank spaces are not allowed",
-    "description": "Key-value tag editor modal > Tag dropdown Manage Modal > Invalid characters error"
   },
   "fWPlO9": {
     "defaultMessage": "About this logged model",
@@ -6374,10 +6406,6 @@
   "hR27A2": {
     "defaultMessage": "View full dashboard",
     "description": "Link to view full usage dashboard"
-  },
-  "hR2Zvd": {
-    "defaultMessage": "Create a custom judge function using the {decorator} decorator. Implement your scoring logic in the function body. {link}",
-    "description": "Step 2 description for defining judge function"
   },
   "hT5ZGW": {
     "defaultMessage": "Remove message",
@@ -6803,6 +6831,10 @@
     "defaultMessage": "Edit chart",
     "description": "Title of the modal when editing a runs comparison chart"
   },
+  "kBl4Ov": {
+    "defaultMessage": "Detect issues in traces",
+    "description": "Tooltip for the detect issues button in the traces table toolbar"
+  },
   "kCsAho": {
     "defaultMessage": "Correctness",
     "description": "LLM template option"
@@ -6826,10 +6858,6 @@
   "kIlkgf": {
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search runs from the experiments table"
-  },
-  "kJJqpX": {
-    "defaultMessage": "Follow these steps to create a custom judge using your own code. {link}",
-    "description": "Brief instructions for custom judge functions"
   },
   "kNTkr+": {
     "defaultMessage": "Discard",
@@ -7146,6 +7174,10 @@
   "mZtok7": {
     "defaultMessage": "Linked prompts",
     "description": "Label for the linked prompts view tab in the model trace explorer"
+  },
+  "mba0x8": {
+    "defaultMessage": "Step 1: Define your judge function",
+    "description": "Step 1 title for custom code judge creation"
   },
   "md81Lo": {
     "defaultMessage": "Error",
@@ -7867,6 +7899,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "rPEyUh": {
+    "defaultMessage": "Add custom feedback to this trace.",
+    "description": "Hint message prompting user to add new feedback to a trace"
+  },
   "rPbiUM": {
     "defaultMessage": "Labeling sessions",
     "description": "Label for the labeling sessions tab in the MLflow experiment navbar"
@@ -8270,6 +8306,10 @@
   "uSVfB9": {
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > retrieval grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
+  },
+  "uW5+ph": {
+    "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
+    "description": "Step 2 description for running the judge"
   },
   "uX2XCM": {
     "defaultMessage": "Edit Model Configuration",
@@ -8879,6 +8919,10 @@
     "defaultMessage": "Datasets",
     "description": "Title for the datasets section on the run details page"
   },
+  "yv5FMp": {
+    "defaultMessage": "Add custom feedback to this session.",
+    "description": "Hint message prompting user to add new feedback to a session"
+  },
   "yyjAgE": {
     "defaultMessage": "Output for the trace",
     "description": "Description for outputs variable"
@@ -8935,9 +8979,9 @@
     "defaultMessage": "Auto-refresh",
     "description": "Run page > Charts tab > Auto-refresh toggle button"
   },
-  "zDEFn7": {
-    "defaultMessage": "Step 3: Run the judge",
-    "description": "Step 3 title for custom judge creation"
+  "zDRvO3": {
+    "defaultMessage": "Detect Issues",
+    "description": "Title of the issue detection configuration modal"
   },
   "zE5aGj": {
     "defaultMessage": "Guidelines",

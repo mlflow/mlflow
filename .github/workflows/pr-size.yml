@@ -29,6 +29,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          retries: 3
           script: |
             const script = require('./.github/workflows/pr-size.js');
             await script({ github, context });

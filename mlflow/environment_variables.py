@@ -27,7 +27,7 @@ class _EnvironmentVariable:
         return self.name in os.environ
 
     def get_raw(self):
-        return os.getenv(self.name)
+        return os.environ.get(self.name)
 
     def set(self, value):
         os.environ[self.name] = str(value)
@@ -75,7 +75,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
     def get(self):
         # TODO: Remove this block in MLflow 3.2.0
         if self.name == MLFLOW_CONFIGURE_LOGGING.name and (
-            val := os.getenv("MLFLOW_LOGGING_CONFIGURE_LOGGING")
+            val := os.environ.get("MLFLOW_LOGGING_CONFIGURE_LOGGING")
         ):
             warnings.warn(
                 "Environment variable MLFLOW_LOGGING_CONFIGURE_LOGGING is deprecated and will be "
@@ -88,7 +88,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         if not self.defined:
             return self.default
 
-        val = os.getenv(self.name)
+        val = os.environ.get(self.name)
         lowercased = val.lower()
         if lowercased not in ["true", "false", "1", "0"]:
             raise ValueError(
@@ -637,6 +637,12 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE = _BooleanEnvironmentVariable(
     "MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", False
+)
+
+#: How often (in seconds) the gateway budget tracker re-fetches policies from the database.
+#: (default: ``60``)
+MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 60
 )
 
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.

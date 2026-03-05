@@ -365,8 +365,12 @@ const getGroupValueForGroupKey = (runData: SingleRunData, groupKey: RunsGroupByC
 };
 
 export const getRunGroupDisplayName = (group?: RunGroupParentInfo | RowGroupRenderMetadata) => {
-  if (!group || group.isRemainingRunsGroup) {
+  if (!group) {
     return '';
+  }
+
+  if (group.isRemainingRunsGroup) {
+    return 'Unassigned';
   }
 
   if (group.groupingValues.length === 1) {

@@ -352,7 +352,7 @@ type ModelTraceImageContentPart = {
   image_url: ModelTraceImageUrl;
 };
 
-type ModelTraceInputAudio = {
+export type ModelTraceInputAudio = {
   data: string;
   format: 'wav' | 'mp3';
 };
@@ -377,6 +377,7 @@ export type ModelTraceChatMessage = {
   tool_calls?: ModelTraceToolCall[];
   tool_call_id?: string;
   reasoning?: string | null;
+  audioParts?: ModelTraceInputAudio[];
 };
 
 // The actual chat message schema of mlflow contains string, null and content part list.
