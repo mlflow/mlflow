@@ -84,8 +84,14 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
         return credential_infos
 
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path=None):
-        # artifact_file_path is unused in this implementation because the presigned URL
-        # and local file path are sufficient for upload to cloud storage
+        # NB: cloud_credential_info can be None for large files in strict egress control
+        # environments (e.g., Databricks SEG). This repository doesn't support multipart
+        # upload, so always request credentials if not provided.
+        if cloud_credential_info is None:
+            cloud_credential_info = self._get_write_credential_infos(
+                remote_file_paths=[artifact_file_path]
+            )[0]
+
         def try_func(creds):
             presigned_url = creds.signed_uri
             headers = {header.name: header.value for header in creds.headers}
