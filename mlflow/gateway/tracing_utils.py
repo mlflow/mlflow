@@ -214,7 +214,10 @@ def maybe_traced_gateway_call(
                     yield item
             finally:
                 if on_complete:
-                    on_complete()
+                    try:
+                        on_complete()
+                    except Exception:
+                        _logger.debug("on_complete callback failed", exc_info=True)
                 _maybe_create_distributed_span(request_headers, endpoint_config)
 
     elif inspect.iscoroutinefunction(func):
@@ -227,7 +230,10 @@ def maybe_traced_gateway_call(
                 result = await func(*args, **kwargs)
             finally:
                 if on_complete:
-                    on_complete()
+                    try:
+                        on_complete()
+                    except Exception:
+                        _logger.debug("on_complete callback failed", exc_info=True)
                 _maybe_create_distributed_span(request_headers, endpoint_config)
             return result
 
@@ -241,7 +247,10 @@ def maybe_traced_gateway_call(
                 result = func(*args, **kwargs)
             finally:
                 if on_complete:
-                    on_complete()
+                    try:
+                        on_complete()
+                    except Exception:
+                        _logger.debug("on_complete callback failed", exc_info=True)
                 _maybe_create_distributed_span(request_headers, endpoint_config)
             return result
 
