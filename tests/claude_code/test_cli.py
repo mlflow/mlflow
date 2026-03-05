@@ -103,3 +103,12 @@ def test_upsert_hook_upgrades_legacy_hook():
     hook_command = config[HOOK_FIELD_HOOKS]["Stop"][0][HOOK_FIELD_HOOKS][0][HOOK_FIELD_COMMAND]
     assert "mlflow autolog claude stop-hook" in hook_command
     assert "python -I -c" not in hook_command
+
+
+def test_stop_hook_subcommand_is_routable(runner):
+    with runner.isolated_filesystem():
+        result = runner.invoke(commands, ["claude", "stop-hook"], input="{}")
+        # The command should be routed to stop-hook (not treated as a directory argument).
+        # It will fail because stdin doesn't have valid hook data, but that's expected —
+        # we're only checking that Click routes to the subcommand.
+        assert "Configuring Claude tracing" not in result.output

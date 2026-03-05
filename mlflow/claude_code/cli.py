@@ -14,7 +14,13 @@ def commands():
 
 
 @commands.group("claude", invoke_without_command=True)
-@click.argument("directory", default=".", type=click.Path(file_okay=False, dir_okay=True))
+@click.option(
+    "--directory",
+    "-d",
+    default=".",
+    type=click.Path(file_okay=False, dir_okay=True),
+    help="Directory to set up tracing in (default: current directory)",
+)
 @click.option(
     "--tracking-uri", "-u", help="MLflow tracking URI (e.g., 'databricks' or 'file://mlruns')"
 )
@@ -38,15 +44,13 @@ def claude(
     to MLflow. After setup, use the regular 'claude' command and traces will be
     automatically created.
 
-    DIRECTORY: Directory to set up tracing in (default: current directory)
-
     Examples:
 
       # Set up tracing in current directory with local storage
       mlflow autolog claude
 
       # Set up tracing in a specific project directory
-      mlflow autolog claude ~/my-project
+      mlflow autolog claude -d ~/my-project
 
       # Set up tracing with Databricks
       mlflow autolog claude -u databricks -e 123456789
