@@ -30,7 +30,7 @@ interface GenAiTracesTableSessionGroupedRowsProps {
   selectedColumns: TracesTableColumn[];
   expandedSessions: Set<string>;
   toggleSessionExpanded: (sessionId: string) => void;
-  onToggleSessionSelection?: (sessionId: string, traces: ModelTraceInfoV3[]) => void;
+  onToggleSessionSelection?: (sessionId: string, traces: ModelTraceInfoV3[], event: unknown) => void;
   experimentId?: string;
   getRunColor?: (runUuid: string) => string;
   runUuid?: string;
@@ -56,7 +56,7 @@ interface SessionHeaderRowProps {
   enableRowSelection?: boolean;
   isSessionSelected?: boolean;
   isSessionIndeterminate?: boolean;
-  onToggleSessionSelection?: (sessionId: string, traces: ModelTraceInfoV3[]) => void;
+  onToggleSessionSelection?: (sessionId: string, traces: ModelTraceInfoV3[], event: unknown) => void;
   toggleSessionExpanded: (sessionId: string) => void;
   getRunColor?: (runUuid: string) => string;
   runUuid?: string;
@@ -243,9 +243,12 @@ const SessionHeaderRow = React.memo(function SessionHeaderRow({
     toggleSessionExpanded(sessionId);
   }, [toggleSessionExpanded, sessionId]);
 
-  const handleToggleSelection = useCallback(() => {
-    onToggleSessionSelection?.(sessionId, traces);
-  }, [onToggleSessionSelection, sessionId, traces]);
+  const handleToggleSelection = useCallback(
+    (event: unknown) => {
+      onToggleSessionSelection?.(sessionId, traces, event);
+    },
+    [onToggleSessionSelection, sessionId, traces],
+  );
 
   const { theme } = useDesignSystemTheme();
 
