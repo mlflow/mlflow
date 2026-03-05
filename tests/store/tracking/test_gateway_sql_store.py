@@ -2325,6 +2325,40 @@ def test_sum_gateway_trace_cost_time_window(store: SqlAlchemyStore):
     assert abs(total - 0.05) < 1e-9
 
 
+def test_sum_gateway_trace_cost_workspace_filter(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker() as session:
+        # Create two experiments in different workspaces
+        exp_ws_a = SqlExperiment(
+            name=f"cost-ws-a-{uuid.uuid4().hex}",
+            artifact_location="/tmp/a",
+            lifecycle_stage="active",
+            workspace="workspace-a",
+        )
+        exp_ws_b = SqlExperiment(
+            name=f"cost-ws-b-{uuid.uuid4().hex}",
+            artifact_location="/tmp/b",
+            lifecycle_stage="active",
+            workspace="workspace-b",
+        )
+        session.add_all([exp_ws_a, exp_ws_b])
+        session.flush()
+
+        _insert_trace_with_cost(session, exp_ws_a.experiment_id, "t-a", 1000, [("s1", 0.10)])
+        _insert_trace_with_cost(session, exp_ws_b.experiment_id, "t-b", 1000, [("s1", 0.25)])
+
+    # Filtering by workspace-a should only include 0.10
+    total_a = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, workspace="workspace-a")
+    assert abs(total_a - 0.10) < 1e-9
+
+    # Filtering by workspace-b should only include 0.25
+    total_b = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, workspace="workspace-b")
+    assert abs(total_b - 0.25) < 1e-9
+
+    # No workspace filter should include both
+    total_all = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total_all - 0.35) < 1e-9
+
+
 def test_sum_gateway_trace_cost_empty(store: SqlAlchemyStore):
     total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
     assert total == 0.0
