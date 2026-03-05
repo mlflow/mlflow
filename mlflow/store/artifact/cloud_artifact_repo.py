@@ -211,7 +211,7 @@ class CloudArtifactRepository(ArtifactRepository):
 
     def _detect_cloud_type(
         self, upload_plans: list[FileUploadPlan]
-    ) -> ArtifactCredentialType | None:
+    ) -> "ArtifactCredentialType | None":
         """Detect cloud provider by fetching credentials for a sample file.
 
         Note: Fetches an actual credential rather than adding a separate API endpoint.
