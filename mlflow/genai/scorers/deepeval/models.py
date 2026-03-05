@@ -72,6 +72,18 @@ def create_deepeval_model(model_uri: str):
 
     # Parse provider:/model format using shared helper
     provider, model_name = _parse_model_uri(model_uri)
+
+    if provider == "gateway":
+        from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+
+        config = get_gateway_litellm_config(model_name)
+        return LiteLLMModel(
+            model=config.model,
+            base_url=config.api_base,
+            api_key=config.api_key,
+            generation_kwargs={"drop_params": True},
+        )
+
     return LiteLLMModel(
         model=f"{provider}/{model_name}",
         generation_kwargs={"drop_params": True},
