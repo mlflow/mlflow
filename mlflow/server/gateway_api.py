@@ -892,6 +892,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     user_metadata = _get_user_metadata(request)
 
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
 
     headers = dict(request.headers)
@@ -914,6 +915,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
+        on_complete=make_budget_on_complete(store, workspace),
     )
     return StreamingResponse(
         safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
