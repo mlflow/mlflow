@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import fastapi
 import pytest
 
 import mlflow
@@ -16,6 +17,7 @@ from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.server.gateway_budget import (
     calculate_existing_cost_for_new_windows,
+    check_budget_limit,
     fire_budget_exceeded_webhooks,
     make_budget_on_complete,
     maybe_refresh_budget_policies,
@@ -336,3 +338,118 @@ def test_refresh_triggers_backfill():
     store.sum_gateway_trace_cost.assert_called_once()
     tracker = get_budget_tracker()
     assert tracker._get_window_info("bp-test").cumulative_spend == 25.0
+
+
+# --- check_budget_limit tests ---
+
+
+def test_check_budget_limit_no_policies():
+    store = _make_store(policies=[])
+    check_budget_limit(store)
+
+
+def test_check_budget_limit_not_exceeded():
+    policy = _make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)
+    store = _make_store(policies=[policy])
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(50.0)
+
+    check_budget_limit(store)
+
+
+def test_check_budget_limit_exceeded_rejects():
+    policy = _make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)
+    store = _make_store(policies=[policy])
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(150.0)
+
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(store)
+
+
+def test_check_budget_limit_alert_does_not_reject():
+    policy = _make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)
+    store = _make_store(policies=[policy])
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(150.0)
+
+    check_budget_limit(store)
+
+
+def test_check_budget_limit_error_message_format():
+    policy = _make_policy(
+        budget_policy_id="bp-monthly",
+        budget_amount=500.0,
+        budget_action=BudgetAction.REJECT,
+    )
+    store = _make_store(policies=[policy])
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(600.0)
+
+    with pytest.raises(fastapi.HTTPException, match="Request rejected") as exc_info:
+        check_budget_limit(store)
+
+    detail = exc_info.value.detail
+    assert "bp-monthly" in detail
+    assert "$500.00" in detail
+    assert "1 days" in detail
+    assert "Request rejected" in detail
+
+
+def test_check_budget_limit_with_workspace():
+    policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-ws",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=50.0,
+        duration_unit=BudgetDurationUnit.DAYS,
+        duration_value=1,
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.REJECT,
+        created_at=0,
+        last_updated_at=0,
+        workspace="ws1",
+    )
+    store = _make_store(policies=[policy])
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(100.0, workspace="ws1")
+
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(store, workspace="ws1")
+
+    check_budget_limit(store, workspace="ws2")
+
+
+def test_check_budget_limit_multiple_policies():
+    alert_policy = _make_policy(
+        budget_policy_id="bp-alert",
+        budget_amount=50.0,
+        budget_action=BudgetAction.ALERT,
+    )
+    reject_policy = _make_policy(
+        budget_policy_id="bp-reject",
+        budget_amount=100.0,
+        budget_action=BudgetAction.REJECT,
+    )
+    store = _make_store(policies=[alert_policy, reject_policy])
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([alert_policy, reject_policy])
+
+    # 75 exceeds alert (50) but not reject (100) → no rejection
+    tracker.record_cost(75.0)
+    check_budget_limit(store)
+
+    # Push to 105 → exceeds reject policy → should raise
+    tracker.record_cost(30.0)
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(store)
