@@ -16,6 +16,24 @@ import { formatCredentialFieldName, sortFieldsByProvider } from '../../../../../
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import type { AuthMode } from '../../../../../gateway/types';
 
+/**
+ * Helper function to get the selected auth mode from available modes.
+ * Returns the matched mode if currentAuthMode is provided and found,
+ * otherwise returns the default mode or the first available mode.
+ */
+function getSelectedAuthMode(
+  authModes: AuthMode[],
+  currentAuthMode: string | undefined,
+  defaultAuthMode: string | undefined,
+): AuthMode | undefined {
+  if (!authModes.length) return undefined;
+  if (currentAuthMode) {
+    const matched = authModes.find((m) => m.mode === currentAuthMode);
+    if (matched) return matched;
+  }
+  return authModes.find((m) => m.mode === defaultAuthMode) ?? authModes[0];
+}
+
 interface IssueDetectionApiKeyConfiguratorProps {
   value: ApiKeyConfiguration;
   onChange: (value: ApiKeyConfiguration) => void;
@@ -43,14 +61,10 @@ export function IssueDetectionApiKeyConfigurator({
 }: IssueDetectionApiKeyConfiguratorProps) {
   const { theme } = useDesignSystemTheme();
 
-  const selectedAuthMode = useMemo((): AuthMode | undefined => {
-    if (!authModes.length) return undefined;
-    if (value.newSecret.authMode) {
-      const matched = authModes.find((m) => m.mode === value.newSecret.authMode);
-      if (matched) return matched;
-    }
-    return authModes.find((m) => m.mode === defaultAuthMode) ?? authModes[0];
-  }, [authModes, value.newSecret.authMode, defaultAuthMode]);
+  const selectedAuthMode = useMemo(
+    () => getSelectedAuthMode(authModes, value.newSecret.authMode, defaultAuthMode),
+    [authModes, value.newSecret.authMode, defaultAuthMode],
+  );
 
   const requiredFields = useMemo(() => {
     const secretFields = (selectedAuthMode?.secret_fields ?? []).map((field) => ({
@@ -211,6 +225,93 @@ export function IssueDetectionApiKeyConfigurator({
   );
 }
 
+interface IssueDetectionAdvancedApiKeySettingsProps {
+  value: ApiKeyConfiguration;
+  onChange: (value: ApiKeyConfiguration) => void;
+  provider: string;
+  authModes: AuthMode[];
+  defaultAuthMode: string | undefined;
+  disabled?: boolean;
+}
+
+/**
+ * Advanced API key settings for issue detection.
+ * Shows optional credential fields only.
+ */
+export function IssueDetectionAdvancedApiKeySettings({
+  value,
+  onChange,
+  provider,
+  authModes,
+  defaultAuthMode,
+  disabled,
+}: IssueDetectionAdvancedApiKeySettingsProps) {
+  const { theme } = useDesignSystemTheme();
+
+  const selectedAuthMode = useMemo(
+    () => getSelectedAuthMode(authModes, value.newSecret.authMode, defaultAuthMode),
+    [authModes, value.newSecret.authMode, defaultAuthMode],
+  );
+
+  const optionalFields = useMemo(() => {
+    const secretFields = (selectedAuthMode?.secret_fields ?? []).map((field) => ({
+      ...field,
+      fieldType: 'secret' as const,
+    }));
+    const configFields = (selectedAuthMode?.config_fields ?? []).map((field) => ({
+      ...field,
+      fieldType: 'config' as const,
+    }));
+    const allFields = [...secretFields, ...configFields];
+    const sorted = sortFieldsByProvider(allFields, provider);
+    return sorted.filter((field) => !field.required);
+  }, [selectedAuthMode?.secret_fields, selectedAuthMode?.config_fields, provider]);
+
+  const handleSecretFieldChange = useCallback(
+    (fieldName: string, fieldValue: string) => {
+      onChange({
+        ...value,
+        newSecret: {
+          ...value.newSecret,
+          secretFields: { ...value.newSecret.secretFields, [fieldName]: fieldValue },
+        },
+      });
+    },
+    [onChange, value],
+  );
+
+  const handleConfigFieldChange = useCallback(
+    (fieldName: string, fieldValue: string) => {
+      onChange({
+        ...value,
+        newSecret: {
+          ...value.newSecret,
+          configFields: { ...value.newSecret.configFields, [fieldName]: fieldValue },
+        },
+      });
+    },
+    [onChange, value],
+  );
+
+  if (optionalFields.length === 0) {
+    return null;
+  }
+
+  return (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      {optionalFields.map((field) => (
+        <FieldInput
+          key={field.name}
+          field={field}
+          value={field.fieldType === 'secret' ? value.newSecret.secretFields : value.newSecret.configFields}
+          onChange={field.fieldType === 'secret' ? handleSecretFieldChange : handleConfigFieldChange}
+          disabled={disabled}
+        />
+      ))}
+    </div>
+  );
+}
+
 interface FieldInputProps {
   field: {
     name: string;
@@ -229,10 +330,13 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
 
   return (
     <div>
-      <FormUI.Label htmlFor={fieldId}>
+      <Typography.Text
+        color="secondary"
+        css={{ display: 'block', marginBottom: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
+      >
         {formatCredentialFieldName(field.name)}
         {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
-      </FormUI.Label>
+      </Typography.Text>
       {field.fieldType === 'secret' ? (
         <SecretInput
           id={fieldId}
@@ -312,9 +416,13 @@ function AuthMethodSelector({ authModes, value, defaultAuthMode, onChange, disab
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
               {authModes.map((mode) => (
                 <Radio key={mode.mode} value={mode.mode}>
-                  <div>
-                    <div css={{ fontWeight: theme.typography.typographyBoldFontWeight }}>{mode.display_name}</div>
-                    {mode.description && <div css={{ color: theme.colors.textSecondary }}>{mode.description}</div>}
+                  <div css={{ fontSize: theme.typography.fontSizeSm }}>
+                    <div>{mode.display_name}</div>
+                    {mode.description && (
+                      <div css={{ color: theme.colors.textSecondary, fontSize: theme.typography.fontSizeSm }}>
+                        {mode.description}
+                      </div>
+                    )}
                   </div>
                 </Radio>
               ))}

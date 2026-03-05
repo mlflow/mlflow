@@ -559,6 +559,10 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
+  "23xuy1": {
+    "defaultMessage": "Analysis Model *",
+    "description": "Label for analysis model selection (required)"
+  },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
@@ -1449,6 +1453,10 @@
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
+  },
+  "8S2wnj": {
+    "defaultMessage": "Judge Model *",
+    "description": "Label for judge model selection (required)"
   },
   "8Uwpjw": {
     "defaultMessage": "Create run",
@@ -5498,6 +5506,10 @@
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
+  },
+  "bO0wxq": {
+    "defaultMessage": "Advanced settings",
+    "description": "Collapsible section for advanced settings"
   },
   "bO1IlR": {
     "defaultMessage": "Select all",
