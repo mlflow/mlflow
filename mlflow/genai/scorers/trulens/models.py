@@ -60,6 +60,7 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
         model_uri: Model URI in one of these formats:
             - "databricks" - Use default Databricks managed judge
             - "databricks:/endpoint" - Use LiteLLM with Databricks endpoint
+            - "gateway:/endpoint" - Use MLflow AI Gateway endpoint
             - "provider:/model" - Use LiteLLM with the specified model
         kwargs: Additional arguments passed to the underlying provider
 
@@ -81,6 +82,17 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
     # Use LiteLLM for all providers (including databricks:/endpoint)
     try:
         from trulens.providers.litellm import LiteLLM
+
+        if provider == "gateway":
+            from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+
+            config = get_gateway_litellm_config(model_name)
+            return LiteLLM(
+                model_engine=config.model,
+                api_base=config.api_base,
+                api_key=config.api_key,
+                **kwargs,
+            )
 
         litellm_model = f"{provider}/{model_name}" if provider != "litellm" else model_name
         return LiteLLM(model_engine=litellm_model, **kwargs)

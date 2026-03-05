@@ -41,6 +41,7 @@ def create_phoenix_model(model_uri: str):
         model_uri: Model URI in one of these formats:
             - "databricks" - Use default Databricks managed judge
             - "databricks:/endpoint" - Use Databricks serving endpoint
+            - "gateway:/endpoint" - Use MLflow AI Gateway endpoint
             - "provider:/model" - Use LiteLLM model (e.g., "openai:/gpt-4")
 
     Returns:
@@ -58,6 +59,20 @@ def create_phoenix_model(model_uri: str):
     from phoenix.evals import LiteLLMModel
 
     provider, model_name = _parse_model_uri(model_uri)
+
+    if provider == "gateway":
+        from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+
+        config = get_gateway_litellm_config(model_name)
+        return LiteLLMModel(
+            model=config.model,
+            model_kwargs={
+                "api_base": config.api_base,
+                "api_key": config.api_key,
+                "drop_params": True,
+            },
+        )
+
     return LiteLLMModel(
         model=f"{provider}/{model_name}",
         model_kwargs={"drop_params": True},
