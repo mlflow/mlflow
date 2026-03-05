@@ -1,5 +1,12 @@
 import { describe, test, expect } from '@jest/globals';
-import { formDataToModelConfig, modelConfigToFormData, validateModelConfig, getModelConfigFromTags } from './utils';
+import {
+  formDataToModelConfig,
+  modelConfigToFormData,
+  validateModelConfig,
+  getModelConfigFromTags,
+  getResponseFormatFromTags,
+  validateResponseFormatJson,
+} from './utils';
 import type { PromptModelConfig, PromptModelConfigFormData } from './types';
 
 describe('Model Config Utils', () => {
@@ -206,6 +213,80 @@ describe('Model Config Utils', () => {
 
     test('returns undefined for undefined tags', () => {
       expect(getModelConfigFromTags(undefined)).toBeUndefined();
+    });
+  });
+});
+
+describe('Response format (structured output) utils', () => {
+  describe('getResponseFormatFromTags', () => {
+    test('parses valid JSON schema tag', () => {
+      const tags = [
+        {
+          key: '_mlflow_prompt_response_format',
+          value: '{"type":"object","properties":{"result":{"type":"string"}},"additionalProperties":false}',
+        },
+      ];
+
+      const result = getResponseFormatFromTags(tags);
+
+      expect(result).toEqual({
+        type: 'object',
+        properties: { result: { type: 'string' } },
+        additionalProperties: false,
+      });
+    });
+
+    test('returns undefined for missing tag', () => {
+      const tags = [{ key: 'other.tag', value: 'value' }];
+      expect(getResponseFormatFromTags(tags)).toBeUndefined();
+    });
+
+    test('returns undefined for invalid JSON', () => {
+      const tags = [{ key: '_mlflow_prompt_response_format', value: 'not-json' }];
+      expect(getResponseFormatFromTags(tags)).toBeUndefined();
+    });
+
+    test('returns undefined when value parses to non-object', () => {
+      const tags = [{ key: '_mlflow_prompt_response_format', value: '"string"' }];
+      expect(getResponseFormatFromTags(tags)).toBeUndefined();
+    });
+
+    test('returns undefined for empty tags array', () => {
+      expect(getResponseFormatFromTags([])).toBeUndefined();
+    });
+
+    test('returns undefined for undefined tags', () => {
+      expect(getResponseFormatFromTags(undefined)).toBeUndefined();
+    });
+  });
+
+  describe('validateResponseFormatJson', () => {
+    test('returns valid for empty or whitespace-only string', () => {
+      expect(validateResponseFormatJson('')).toEqual({ valid: true });
+      expect(validateResponseFormatJson('   ')).toEqual({ valid: true });
+    });
+
+    test('returns valid for valid JSON object', () => {
+      expect(validateResponseFormatJson('{"type":"object","properties":{},"additionalProperties":false}')).toEqual({
+        valid: true,
+      });
+    });
+
+    test('returns invalid for invalid JSON', () => {
+      const result = validateResponseFormatJson('{ invalid }');
+      expect(result.valid).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+
+    test('returns invalid when JSON parses to non-object', () => {
+      expect(validateResponseFormatJson('[]')).toEqual({
+        valid: false,
+        error: 'Structured output must be a JSON object (e.g. a JSON schema).',
+      });
+      expect(validateResponseFormatJson('123')).toEqual({
+        valid: false,
+        error: 'Structured output must be a JSON object (e.g. a JSON schema).',
+      });
     });
   });
 });
