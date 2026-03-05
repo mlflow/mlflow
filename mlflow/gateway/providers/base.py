@@ -251,9 +251,28 @@ class BaseProvider(ABC):
 
     def _extract_token_usage(self, result) -> dict[str, int] | None:
         """Extract token usage from a response object if available."""
-        from mlflow.tracing.utils import extract_token_usage_from_response
+        if not hasattr(result, "usage") or result.usage is None:
+            return None
 
-        return extract_token_usage_from_response(result)
+        usage = result.usage
+        token_usage = {}
+        if (prompt_tokens := getattr(usage, "prompt_tokens", None)) is not None:
+            token_usage[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+        if (completion_tokens := getattr(usage, "completion_tokens", None)) is not None:
+            token_usage[TokenUsageKey.OUTPUT_TOKENS] = completion_tokens
+        if (total_tokens := getattr(usage, "total_tokens", None)) is not None:
+            token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+        if (cached := getattr(usage, "cache_read_input_tokens", None)) is not None:
+            token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+        elif details := getattr(usage, "prompt_tokens_details", None):
+            if (cached := getattr(details, "cached_tokens", None)) is not None:
+                token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+
+        if (created := getattr(usage, "cache_creation_input_tokens", None)) is not None:
+            token_usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+
+        return token_usage or None
 
     def _extract_passthrough_token_usage(
         self, action: PassthroughAction, result: dict[str, Any]

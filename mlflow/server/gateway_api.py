@@ -39,13 +39,10 @@ from mlflow.gateway.providers.base import (
     TrafficRouteProvider,
 )
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
+from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.server.gateway_budget import (
-    make_cost_recording_reducer,
-    record_budget_cost,
-)
+from mlflow.server.gateway_budget import make_budget_on_complete
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.gateway.entities import (
@@ -452,24 +449,24 @@ async def invocations(endpoint_name: str, request: Request):
                 provider.chat_stream,
                 endpoint_config,
                 user_metadata,
-                output_reducer=make_cost_recording_reducer(store, workspace),
+                output_reducer=aggregate_chat_stream_chunks,
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
+                on_complete=make_budget_on_complete(store, workspace),
             )(payload)
             return StreamingResponse(
                 safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
                 media_type="text/event-stream",
             )
         else:
-            response = await maybe_traced_gateway_call(
+            return await maybe_traced_gateway_call(
                 provider.chat,
                 endpoint_config,
                 user_metadata,
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
+                on_complete=make_budget_on_complete(store, workspace),
             )(payload)
-            record_budget_cost(store, response, workspace=workspace)
-            return response
 
     elif "input" in body:
         # Embeddings request
@@ -483,15 +480,14 @@ async def invocations(endpoint_name: str, request: Request):
             store, endpoint_name, endpoint_type
         )
 
-        response = await maybe_traced_gateway_call(
+        return await maybe_traced_gateway_call(
             provider.embeddings,
             endpoint_config,
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_EMBEDDINGS,
+            on_complete=make_budget_on_complete(store, workspace),
         )(payload)
-        record_budget_cost(store, response, workspace=workspace)
-        return response
 
     else:
         raise HTTPException(
@@ -545,24 +541,24 @@ async def chat_completions(request: Request):
             provider.chat_stream,
             endpoint_config,
             user_metadata,
-            output_reducer=make_cost_recording_reducer(store, workspace),
+            output_reducer=aggregate_chat_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_CHAT,
+            on_complete=make_budget_on_complete(store, workspace),
         )(payload)
         return StreamingResponse(
             safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
             media_type="text/event-stream",
         )
     else:
-        response = await maybe_traced_gateway_call(
+        return await maybe_traced_gateway_call(
             provider.chat,
             endpoint_config,
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_CHAT,
+            on_complete=make_budget_on_complete(store, workspace),
         )(payload)
-        record_budget_cost(store, response, workspace=workspace)
-        return response
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_CHAT], response_model=None)
@@ -628,12 +624,11 @@ async def openai_passthrough_chat(request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
+        on_complete=make_budget_on_complete(store, workspace),
     )
-    response = await traced_passthrough(
+    return await traced_passthrough(
         action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
     )
-    record_budget_cost(store, response, workspace=workspace)
-    return response
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_EMBEDDINGS], response_model=None)
@@ -674,12 +669,11 @@ async def openai_passthrough_embeddings(request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS,
+        on_complete=make_budget_on_complete(store, workspace),
     )
-    response = await traced_passthrough(
+    return await traced_passthrough(
         action=PassthroughAction.OPENAI_EMBEDDINGS, payload=body, headers=headers
     )
-    record_budget_cost(store, response, workspace=workspace)
-    return response
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.OPENAI_RESPONSES], response_model=None)
@@ -745,12 +739,11 @@ async def openai_passthrough_responses(request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
+        on_complete=make_budget_on_complete(store, workspace),
     )
-    response = await traced_passthrough(
+    return await traced_passthrough(
         action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
     )
-    record_budget_cost(store, response, workspace=workspace)
-    return response
 
 
 @gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.ANTHROPIC_MESSAGES], response_model=None)
@@ -816,12 +809,11 @@ async def anthropic_passthrough_messages(request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
+        on_complete=make_budget_on_complete(store, workspace),
     )
-    response = await traced_passthrough(
+    return await traced_passthrough(
         action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
     )
-    record_budget_cost(store, response, workspace=workspace)
-    return response
 
 
 @gateway_router.post(
@@ -865,12 +857,11 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
+        on_complete=make_budget_on_complete(store, workspace),
     )
-    response = await traced_passthrough(
+    return await traced_passthrough(
         action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
     )
-    record_budget_cost(store, response, workspace=workspace)
-    return response
 
 
 @gateway_router.post(

@@ -1,23 +1,19 @@
 """Budget tracking and enforcement for the MLflow Gateway.
 
 This module provides budget-related functions for recording costs, refreshing policies,
-firing exceeded-budget webhooks, and creating streaming cost-recording reducers.
+firing exceeded-budget webhooks, and creating on_complete callbacks for budget recording.
 """
 
 import logging
-from typing import Any
 
+import mlflow
 from mlflow.entities.gateway_budget_policy import BudgetTargetScope
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.budget_tracker import BudgetWindow, get_budget_tracker
-from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks
 from mlflow.server.handlers import _get_model_registry_store
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracing.constant import CostKey
-from mlflow.tracing.utils import (
-    calculate_cost_by_model_and_token_usage,
-    extract_token_usage_from_response,
-)
+from mlflow.tracing.constant import CostKey, SpanAttributeKey
+from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 from mlflow.webhooks.delivery import deliver_webhook
 from mlflow.webhooks.types import BudgetPolicyExceededPayload
@@ -79,52 +75,27 @@ def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
             _logger.debug("Failed to refresh budget policies", exc_info=True)
 
 
-def _extract_model_name(response: Any) -> str | None:
-    """Extract model name from a gateway response (object or dict)."""
-    if hasattr(response, "model"):
-        return response.model
-    if isinstance(response, dict):
-        return response.get("model")
-    return None
+def _compute_cost_from_child_spans(trace_id: str) -> float:
+    """Sum total cost across child spans.
 
-
-def record_budget_cost(
-    store: SqlAlchemyStore,
-    response: Any,
-    workspace: str | None = None,
-) -> None:
-    """Record cost from a gateway response against budget policies.
-
-    Extracts token usage and model name from the response, calculates cost
-    via LiteLLM, records it in the budget tracker, and fires webhooks for
-    newly-exceeded budget windows.
-
-    This is a best-effort operation; errors are logged but not raised.
+    Prefers ``LLM_COST`` if already set on the span (computed at span.end()),
+    otherwise falls back to calculating from MODEL + CHAT_USAGE via LiteLLM.
     """
-    try:
-        usage_dict = extract_token_usage_from_response(response)
-        if not usage_dict:
-            return
+    from mlflow.gateway.tracing_utils import _get_model_span_info
 
-        model_name = _extract_model_name(response)
-        cost = calculate_cost_by_model_and_token_usage(
-            model_name=model_name,
-            usage=usage_dict,
-        )
-        if not cost:
-            return
-
-        total_cost = cost.get(CostKey.TOTAL_COST, 0.0)
-        if total_cost <= 0:
-            return
-
-        maybe_refresh_budget_policies(store)
-        tracker = get_budget_tracker()
-        # Fire webhooks for newly-exceeded budget windows
-        if newly_exceeded := tracker.record_cost(total_cost, workspace=workspace):
-            fire_budget_exceeded_webhooks(newly_exceeded, workspace)
-    except Exception:
-        _logger.debug("Failed to record budget cost", exc_info=True)
+    total = 0.0
+    for info in _get_model_span_info(trace_id):
+        if llm_cost := info.attributes.get(SpanAttributeKey.LLM_COST):
+            total += llm_cost.get(CostKey.TOTAL_COST, 0.0)
+        else:
+            model_name = info.attributes.get(SpanAttributeKey.MODEL)
+            usage = info.attributes.get(SpanAttributeKey.CHAT_USAGE)
+            if not usage:
+                continue
+            model_provider = info.attributes.get(SpanAttributeKey.MODEL_PROVIDER)
+            if cost := calculate_cost_by_model_and_token_usage(model_name, usage, model_provider):
+                total += cost.get(CostKey.TOTAL_COST, 0.0)
+    return total
 
 
 def fire_budget_exceeded_webhooks(
@@ -158,16 +129,32 @@ def fire_budget_exceeded_webhooks(
         deliver_webhook(event=event, payload=payload, store=registry_store)
 
 
-def make_cost_recording_reducer(
+def make_budget_on_complete(
     store: SqlAlchemyStore,
     workspace: str | None,
 ):
-    """Create an output_reducer that aggregates stream chunks and records budget cost."""
+    """Create an on_complete callback that records budget cost from child span attributes.
 
-    def reducer(chunks):
-        result = aggregate_chat_stream_chunks(chunks)
-        if result:
-            record_budget_cost(store, result, workspace=workspace)
-        return result
+    Called inside the trace context (in ``finally``), so child spans have already
+    ended and their MODEL, CHAT_USAGE, and MODEL_PROVIDER attributes are available.
+    Works for both streaming and non-streaming paths.
+    """
 
-    return reducer
+    def on_complete():
+        try:
+            span = mlflow.get_current_active_span()
+            if not span:
+                return
+
+            total_cost = _compute_cost_from_child_spans(span.trace_id)
+            if total_cost <= 0:
+                return
+
+            maybe_refresh_budget_policies(store)
+            tracker = get_budget_tracker()
+            if newly_exceeded := tracker.record_cost(total_cost, workspace=workspace):
+                fire_budget_exceeded_webhooks(newly_exceeded, workspace)
+        except Exception:
+            _logger.debug("Failed to record budget cost", exc_info=True)
+
+    return on_complete
