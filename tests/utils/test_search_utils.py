@@ -230,7 +230,7 @@ def test_bad_quotes(filter_string, error_message):
         ("params.acc LR", "Invalid clause(s) in filter string"),
         ("metric.acc !=", "Invalid clause(s) in filter string"),
         ("acc != 1.0", "Invalid attribute key"),
-        ("foo is null", "Invalid clause(s) in filter string"),
+        ("foo is null", "Invalid attribute key"),
         ("1=1", "Expected 'Identifier' found"),
         ("1==2", "Expected 'Identifier' found"),
     ],
