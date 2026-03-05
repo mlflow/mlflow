@@ -26,6 +26,7 @@ from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
 from mlflow.entities import LoggedModelInput
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -50,7 +51,6 @@ from mlflow.utils.checkpoint_utils import (
     _WEIGHT_ONLY_CHECKPOINT_SUFFIX,
     download_checkpoint_artifact,
 )
-from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
