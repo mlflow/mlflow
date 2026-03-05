@@ -479,11 +479,7 @@ describe('PydanticAI message normalization', () => {
 
     it('should handle InstrumentedModel inputs with multiple request messages', () => {
       const instrumentedModelInput = {
-        messages: [
-          MOCK_PYDANTIC_AI_REQUEST,
-          MOCK_PYDANTIC_AI_RESPONSE,
-          MOCK_PYDANTIC_AI_REQUEST_WITH_TOOL_RETURN,
-        ],
+        messages: [MOCK_PYDANTIC_AI_REQUEST, MOCK_PYDANTIC_AI_RESPONSE, MOCK_PYDANTIC_AI_REQUEST_WITH_TOOL_RETURN],
         model_request_parameters: {
           function_tools: [],
           allow_text_output: true,
