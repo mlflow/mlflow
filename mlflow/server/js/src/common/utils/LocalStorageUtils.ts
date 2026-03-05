@@ -5,6 +5,13 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { IndexedDBStorage } from '@mlflow/mlflow/src/common/utils/IndexedDBStorageUtils';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
+
+export const globalIndexedDBStorage = new IndexedDBStorage((error) => {
+  Utils.logErrorAndNotifyUser(`${error instanceof Error ? error.message : String(error)}`);
+});
+
 /**
  * Utils for working with local storage.
  */
@@ -23,31 +30,49 @@ export default class LocalStorageUtils {
    * (e.g. cached data for multiple experiments).
    */
   static getStoreForComponent(componentName: any, id: any) {
-    return new LocalStorageStore([componentName, id].join('-'), 'localStorage');
+    return LocalStorageUtils.getScopedStoreForComponent(componentName, id, 'localStorage');
   }
 
   static getSessionScopedStoreForComponent(componentName: any, id: any) {
-    return new LocalStorageStore([componentName, id].join('-'), 'sessionStorage');
+    return LocalStorageUtils.getScopedStoreForComponent(componentName, id, 'sessionStorage');
+  }
+
+  static getIndexedDBScopedStoreForComponent(componentName: any, id: any, isIndexedDBAvailable: boolean) {
+    if (isIndexedDBAvailable) {
+      return LocalStorageUtils.getScopedStoreForComponent(componentName, id, 'indexedDB');
+    }
+    return LocalStorageUtils.getStoreForComponent(componentName, id);
+  }
+
+  private static getScopedStoreForComponent(componentName: any, id: any, type: LocalStorageStoreType) {
+    return new LocalStorageStore([componentName, id].join('-'), type);
   }
 }
+
+type LocalStorageStoreType = 'localStorage' | 'sessionStorage' | 'indexedDB';
 
 /**
  * Interface to browser local storage that allows for setting key-value pairs under the specified
  * "scope".
  */
-class LocalStorageStore {
-  constructor(scope: any, type: any) {
+export class LocalStorageStore {
+  private static readonly reactComponentStateKey = 'ReactComponentState';
+  private readonly scope: any;
+  private readonly storageObj: any;
+
+  constructor(scope: any, type: LocalStorageStoreType) {
     this.scope = scope;
-    if (type === 'localStorage') {
-      this.storageObj = window.localStorage;
-    } else {
-      this.storageObj = window.sessionStorage;
+    switch (type) {
+      case 'localStorage':
+        this.storageObj = window.localStorage;
+        break;
+      case 'sessionStorage':
+        this.storageObj = window.sessionStorage;
+        break;
+      case 'indexedDB':
+        this.storageObj = globalIndexedDBStorage;
     }
   }
-  static reactComponentStateKey = 'ReactComponentState';
-
-  scope: any;
-  storageObj: any;
 
   /**
    * Loads React component state cached in local storage into a vanilla JS object.
