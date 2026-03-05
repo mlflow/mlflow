@@ -139,11 +139,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
         </Typography.Text>
 
         <div>
-          <ProviderSelect
-            value={provider}
-            onChange={handleProviderChange}
-            componentIdPrefix="mlflow.traces.issue-detection-modal.provider"
-          />
+          <ProviderSelect value={provider} onChange={handleProviderChange} />
           {provider && DEFAULT_MODELS_BY_PROVIDER[provider] && (
             <Typography.Text
               color="secondary"
@@ -185,7 +181,6 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
               defaultAuthMode={defaultAuthMode}
               isLoadingProviderConfig={isLoadingProviderConfig}
               hasExistingSecrets={existingSecrets.length > 0}
-              componentIdPrefix="mlflow.traces.issue-detection-modal.api-key"
             />
           </div>
           {provider && apiKeyConfig.mode === 'new' && (

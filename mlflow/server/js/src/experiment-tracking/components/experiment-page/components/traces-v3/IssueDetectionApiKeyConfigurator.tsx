@@ -25,7 +25,6 @@ interface IssueDetectionApiKeyConfiguratorProps {
   isLoadingProviderConfig: boolean;
   hasExistingSecrets: boolean;
   disabled?: boolean;
-  componentIdPrefix?: string;
 }
 
 /**
@@ -41,7 +40,6 @@ export function IssueDetectionApiKeyConfigurator({
   isLoadingProviderConfig,
   hasExistingSecrets,
   disabled,
-  componentIdPrefix = 'mlflow.traces.issue-detection.api-key',
 }: IssueDetectionApiKeyConfiguratorProps) {
   const { theme } = useDesignSystemTheme();
 
@@ -157,8 +155,8 @@ export function IssueDetectionApiKeyConfigurator({
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <Radio.Group
-        componentId={`${componentIdPrefix}.mode`}
-        name={`${componentIdPrefix}.mode`}
+        componentId="mlflow.traces.issue-detection.api-key.mode"
+        name="mlflow.traces.issue-detection.api-key.mode"
         value={value.mode}
         onChange={(e) => handleModeChange(e.target.value as 'new' | 'existing')}
         layout="horizontal"
@@ -197,7 +195,6 @@ export function IssueDetectionApiKeyConfigurator({
               field={field}
               value={field.fieldType === 'secret' ? value.newSecret.secretFields : value.newSecret.configFields}
               onChange={field.fieldType === 'secret' ? handleSecretFieldChange : handleConfigFieldChange}
-              componentIdPrefix={componentIdPrefix}
               disabled={disabled}
             />
           ))}
@@ -206,7 +203,6 @@ export function IssueDetectionApiKeyConfigurator({
             value={value.newSecret.authMode}
             defaultAuthMode={defaultAuthMode}
             onChange={handleAuthModeChange}
-            componentIdPrefix={componentIdPrefix}
             disabled={disabled}
           />
         </div>
@@ -224,23 +220,23 @@ interface FieldInputProps {
   };
   value: Record<string, string>;
   onChange: (fieldName: string, fieldValue: string) => void;
-  componentIdPrefix: string;
   disabled?: boolean;
 }
 
-function FieldInput({ field, value, onChange, componentIdPrefix, disabled }: FieldInputProps) {
+function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
   const { theme } = useDesignSystemTheme();
+  const fieldId = `mlflow.traces.issue-detection.api-key.${field.fieldType}.${field.name}`;
 
   return (
     <div>
-      <FormUI.Label htmlFor={`${componentIdPrefix}.${field.fieldType}.${field.name}`}>
+      <FormUI.Label htmlFor={fieldId}>
         {formatCredentialFieldName(field.name)}
         {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
       </FormUI.Label>
       {field.fieldType === 'secret' ? (
         <SecretInput
-          id={`${componentIdPrefix}.secret.${field.name}`}
-          componentId={`${componentIdPrefix}.secret.${field.name}`}
+          id={fieldId}
+          componentId="mlflow.traces.issue-detection.api-key.secret-input"
           value={value[field.name] ?? ''}
           onChange={(e) => onChange(field.name, e.target.value)}
           placeholder={field.description}
@@ -248,8 +244,8 @@ function FieldInput({ field, value, onChange, componentIdPrefix, disabled }: Fie
         />
       ) : (
         <GatewayInput
-          id={`${componentIdPrefix}.config.${field.name}`}
-          componentId={`${componentIdPrefix}.config.${field.name}`}
+          id={fieldId}
+          componentId="mlflow.traces.issue-detection.api-key.config-input"
           value={value[field.name] ?? ''}
           onChange={(e) => onChange(field.name, e.target.value)}
           placeholder={field.description}
@@ -265,18 +261,10 @@ interface AuthMethodSelectorProps {
   value: string;
   defaultAuthMode: string | undefined;
   onChange: (mode: string) => void;
-  componentIdPrefix: string;
   disabled?: boolean;
 }
 
-function AuthMethodSelector({
-  authModes,
-  value,
-  defaultAuthMode,
-  onChange,
-  componentIdPrefix,
-  disabled,
-}: AuthMethodSelectorProps) {
+function AuthMethodSelector({ authModes, value, defaultAuthMode, onChange, disabled }: AuthMethodSelectorProps) {
   const { theme } = useDesignSystemTheme();
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -315,8 +303,8 @@ function AuthMethodSelector({
       {isExpanded && (
         <div css={{ marginTop: theme.spacing.sm, marginLeft: theme.spacing.md }}>
           <Radio.Group
-            name={`${componentIdPrefix}.auth-mode`}
-            componentId={`${componentIdPrefix}.auth-mode-radio-group`}
+            name="mlflow.traces.issue-detection.api-key.auth-mode"
+            componentId="mlflow.traces.issue-detection.api-key.auth-mode-radio-group"
             value={value || defaultAuthMode}
             onChange={(e) => onChange(e.target.value)}
             disabled={disabled}
