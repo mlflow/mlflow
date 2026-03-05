@@ -219,16 +219,17 @@ def log_model(
         model_id: {{ model_id }}
         export_model: If set to True, save the model as "pt2" format. This argument is deprecated,
             For details, see documentation of `serialization_format` argument.
-        serialization_format: The serialization format that is used to save the PyTorch model.
-            The value can be "pickle" or "pt2". If set to "pickle", the PyTorch model is saved
-            by "pickle" or "cloudpickle", depends on 'pickle_module' param setting.
-            If set it to "pt2", the model is saved by `torch.export.save`. This saving format
-            exports the model as a traced graph and is a safer serialization format,
-            it prevents executing arbitrary code during deserialization. If using the "pt2" format,
-            the `input_example` is required (because PyTorch traces the model graph by virtually
-            executing `model.forward` with the provided example input) and only the `Tensor` type
-            input is supported, for details of 'pt2' format, please refer to
-            https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
+        serialization_format: The serialization format used to save the PyTorch model.
+           Accepted values are "pickle" and "pt2".
+           When set to "pickle", the model is serialized using either pickle or cloudpickle,
+           depending on the `pickle_module` parameter.
+           When set to "pt2", the model is saved using torch.export.save, which exports the model
+           as a traced graph. This is a safer serialization format that prevents executing
+           arbitrary code during deserialization.
+           Note that "pt2" format requires `input_example` (used to trace the model graph by
+           virtually executing model.forward) and only supports Numpy array / Tensor or a list
+           of Numpy arrays / Tensors as inputs. For details, see the
+           https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
         kwargs: kwargs to pass to ``torch.save`` method.
 
     Returns:
@@ -377,16 +378,17 @@ def save_model(
         metadata:{{ metadata }}
         export_model: If set to True, save the model as "pt2" format. This argument is deprecated,
             For details, see documentation of `serialization_format` argument.
-        serialization_format: The serialization format that is used to save the PyTorch model.
-            The value can be "pickle" or "pt2". If set to "pickle", the PyTorch model is saved
-            by "pickle" or "cloudpickle", depends on 'pickle_module' param setting.
-            If set it to "pt2", the model is saved by `torch.export.save`. This saving format
-            exports the model as a traced graph and is a safer serialization format,
-            it prevents executing arbitrary code during deserialization. If using the "pt2" format,
-            the `input_example` is required (because PyTorch traces the model graph by virtually
-            executing `model.forward` with the provided example input) and only the `Tensor` type
-            input is supported, for details of 'pt2' format, please refer to
-            https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
+        serialization_format: The serialization format used to save the PyTorch model.
+           Accepted values are "pickle" and "pt2".
+           When set to "pickle", the model is serialized using either pickle or cloudpickle,
+           depending on the `pickle_module` parameter.
+           When set to "pt2", the model is saved using torch.export.save, which exports the model
+           as a traced graph. This is a safer serialization format that prevents executing
+           arbitrary code during deserialization.
+           Note that "pt2" format requires `input_example` (used to trace the model graph by
+           virtually executing model.forward) and only supports Numpy array / Tensor or a list
+           of Numpy arrays / Tensors as inputs. For details, see the
+           https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
         kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
