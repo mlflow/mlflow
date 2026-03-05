@@ -773,6 +773,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     assert args["run_link"] == run_link
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
 
+
 @pytest.mark.parametrize(
     "source",
     [
@@ -795,6 +796,26 @@ def test_create_model_version_rejects_local_source_for_prompts(
     resp = _create_model_version()
     assert resp.status_code == 400
     assert "Invalid prompt source" in resp.get_json()["message"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "https://example.com/../../etc/passwd",
+        "http://example.com/path/..%2f..%2fsecret",
+    ],
+)
+def test_create_model_version_rejects_traversal_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "Invalid model version source" in resp.get_json()["message"]
 
 
 def test_create_model_version_populates_user_id_from_run(
