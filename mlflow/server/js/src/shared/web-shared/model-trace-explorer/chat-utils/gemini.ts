@@ -148,20 +148,19 @@ const normalizeGeminiContentToMessages = (content: GeminiContent): ModelTraceCha
   const role = content.role === 'model' ? 'assistant' : content.role;
   const { textParts, thinking, toolCalls, functionResponses } = processGeminiContentParts(content.parts);
 
-  const messages: ModelTraceChatMessage[] = [];
-
   // Emit function_response parts as individual tool messages
-  for (const fr of functionResponses) {
-    const toolMsg = prettyPrintChatMessage({
-      type: 'message',
-      role: 'tool',
-      name: fr.name,
-      content: JSON.stringify(fr.response),
-    });
-    if (toolMsg) {
-      messages.push(toolMsg);
-    }
-  }
+  const toolMessages = compact(
+    functionResponses.map((fr) =>
+      prettyPrintChatMessage({
+        type: 'message',
+        role: 'tool',
+        name: fr.name,
+        content: JSON.stringify(fr.response),
+      }),
+    ),
+  );
+
+  const messages: ModelTraceChatMessage[] = [...toolMessages];
 
   // Emit the main message (text and/or tool_calls)
   if (textParts.length > 0 || toolCalls.length > 0) {
