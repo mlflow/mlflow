@@ -572,7 +572,7 @@ class SqlAlchemyGatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
-        usage_tracking: bool = False,
+        usage_tracking: bool = True,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
