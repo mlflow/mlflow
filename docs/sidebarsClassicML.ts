@@ -390,6 +390,11 @@ const sidebarsClassicML: SidebarsConfig = {
               id: 'community-model-flavors/index',
               label: 'Community-Managed Model Integrations',
             },
+            {
+              type: 'doc',
+              id: 'tracking/pickle-free-models/index',
+              label: 'Pickle-Free Model format',
+            },
           ],
         },
         {
