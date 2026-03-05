@@ -2,7 +2,7 @@
 
 ## 3.10.1 (2026-03-05)
 
-MLflow 3.10.1 includes several major features and improvements
+MLflow 3.10.1 is a patch release that contains some minor feature enhancements and bugfixes
 
 Features:
 
