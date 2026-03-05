@@ -61,7 +61,11 @@ const BudgetsPage = () => {
       </div>
 
       {/* Modals */}
-      <CreateBudgetPolicyModal open={isCreateModalOpen} onClose={handleCreateModalClose} onSuccess={handleCreateSuccess} />
+      <CreateBudgetPolicyModal
+        open={isCreateModalOpen}
+        onClose={handleCreateModalClose}
+        onSuccess={handleCreateSuccess}
+      />
       <EditBudgetPolicyModal
         open={editingPolicy !== null}
         policy={editingPolicy}
