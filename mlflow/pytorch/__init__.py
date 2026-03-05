@@ -577,16 +577,22 @@ def save_model(
         code=code_dir_subpath,
         **extra_files_config,
     )
-    pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.pytorch",
-        data=model_data_subpath,
-        pickle_module_name=pickle_module.__name__,
-        code=code_dir_subpath,
-        conda_env=_CONDA_ENV_FILE_NAME,
-        python_env=_PYTHON_ENV_FILE_NAME,
-        model_config={"device": None},
-    )
+    # For the case that `input_example` is a tensor or list of numpy arrays / tensors,
+    # PyFunc model is not supported yet.
+    if not (
+        serialization_format == SERIALIZATION_FORMAT_PT2 and
+        (len(input_example) > 1 or any(isinstance(x, torch.Tensor) for x in input_example))
+    ):
+        pyfunc.add_to_model(
+            mlflow_model,
+            loader_module="mlflow.pytorch",
+            data=model_data_subpath,
+            pickle_module_name=pickle_module.__name__,
+            code=code_dir_subpath,
+            conda_env=_CONDA_ENV_FILE_NAME,
+            python_env=_PYTHON_ENV_FILE_NAME,
+            model_config={"device": None},
+        )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
