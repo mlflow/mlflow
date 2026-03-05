@@ -12,12 +12,10 @@ from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
 from mlflow.server.gateway_budget import (
     calculate_existing_cost_for_new_windows,
     fire_budget_exceeded_webhooks,
-    get_model_info,
     make_cost_recording_reducer,
     maybe_refresh_budget_policies,
     record_budget_cost,
 )
-from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.tracing.constant import CostKey
 
 _COST_FUNC = "mlflow.server.gateway_budget.calculate_cost_by_model_and_token_usage"
@@ -44,39 +42,7 @@ def _make_policy(
     )
 
 
-def _make_endpoint_config(model_name="gpt-4o", provider="openai"):
-    return GatewayEndpointConfig(
-        endpoint_id="ep-1",
-        endpoint_name="test-endpoint",
-        models=[
-            GatewayModelConfig(
-                model_definition_id="md-1",
-                provider=provider,
-                model_name=model_name,
-                secret_value={"api_key": "test"},
-            )
-        ],
-    )
-
-
-# --- _get_model_info tests ---
-
-
-def test_get_model_info_with_models():
-    config = _make_endpoint_config(model_name="gpt-4o", provider="openai")
-    model_name, provider = get_model_info(config)
-    assert model_name == "gpt-4o"
-    assert provider == "openai"
-
-
-def test_get_model_info_empty():
-    config = GatewayEndpointConfig(endpoint_id="ep-1", endpoint_name="test", models=[])
-    model_name, provider = get_model_info(config)
-    assert model_name is None
-    assert provider is None
-
-
-# --- _record_budget_cost tests ---
+# --- record_budget_cost tests ---
 
 
 @dataclass
@@ -88,6 +54,7 @@ class _FakeUsage:
 
 @dataclass
 class _FakeResponse:
+    model: str = "gpt-4o"
     usage: _FakeUsage | None = None
 
     def __post_init__(self):
@@ -108,7 +75,7 @@ def test_record_budget_cost_with_usage_object():
         store.list_budget_policies.return_value = [_make_policy(budget_amount=100.0)]
 
         response = _FakeResponse()
-        record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
+        record_budget_cost(store, response)
 
         mock_cost.assert_called_once()
         window = tracker._get_window_info("bp-test")
@@ -128,10 +95,11 @@ def test_record_budget_cost_with_usage_dict():
         store.list_budget_policies.return_value = [_make_policy(budget_amount=100.0)]
 
         response = {
+            "model": "gpt-4o",
             "usage": {"prompt_tokens": 100, "completion_tokens": 50},
             "choices": [],
         }
-        record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
+        record_budget_cost(store, response)
 
         mock_cost.assert_called_once()
         window = tracker._get_window_info("bp-test")
@@ -151,9 +119,10 @@ def test_record_budget_cost_with_anthropic_dict_keys():
         store.list_budget_policies.return_value = [_make_policy(budget_amount=100.0)]
 
         response = {
+            "model": "claude-3-haiku",
             "usage": {"input_tokens": 100, "output_tokens": 50},
         }
-        record_budget_cost(store, response, model_name="claude-3", model_provider="anthropic")
+        record_budget_cost(store, response)
 
         mock_cost.assert_called_once()
         window = tracker._get_window_info("bp-test")
@@ -164,15 +133,13 @@ def test_record_budget_cost_no_cost_available():
     with patch(_COST_FUNC, return_value=None):
         store = MagicMock()
         response = _FakeResponse()
-        record_budget_cost(
-            store, response, model_name="unknown-model", model_provider="unknown"
-        )
+        record_budget_cost(store, response)
 
 
 def test_record_budget_cost_no_usage():
     store = MagicMock()
     response = {"choices": []}
-    record_budget_cost(store, response, model_name="gpt-4o")
+    record_budget_cost(store, response)
 
 
 def test_record_budget_cost_none_usage_attr():
@@ -182,7 +149,7 @@ def test_record_budget_cost_none_usage_attr():
     class NoUsageResponse:
         usage: object | None = None
 
-    record_budget_cost(store, NoUsageResponse(), model_name="gpt-4o")
+    record_budget_cost(store, NoUsageResponse())
 
 
 # --- fire_budget_exceeded_webhooks tests ---
@@ -283,8 +250,7 @@ def test_cost_recording_reducer():
 
         mock_aggregate.return_value = _FakeResponse()
 
-        endpoint_config = _make_endpoint_config()
-        reducer = make_cost_recording_reducer(store, endpoint_config, workspace=None)
+        reducer = make_cost_recording_reducer(store, workspace=None)
 
         chunks = ["chunk1", "chunk2"]
         result = reducer(chunks)
@@ -300,8 +266,7 @@ def test_cost_recording_reducer_no_result():
         mock_aggregate.return_value = None
 
         store = MagicMock()
-        endpoint_config = _make_endpoint_config()
-        reducer = make_cost_recording_reducer(store, endpoint_config, workspace=None)
+        reducer = make_cost_recording_reducer(store, workspace=None)
 
         result = reducer(["chunk1"])
         assert result is None
@@ -329,7 +294,7 @@ def test_record_cost_triggers_webhook():
         ]
 
         response = _FakeResponse()
-        record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
+        record_budget_cost(store, response)
 
         mock_deliver.assert_called_once()
         window = tracker._get_window_info("bp-test")
@@ -358,7 +323,7 @@ def test_record_cost_no_webhook_for_reject():
         ]
 
         response = _FakeResponse()
-        record_budget_cost(store, response, model_name="gpt-4o", model_provider="openai")
+        record_budget_cost(store, response)
 
         # Crossed but REJECT → no webhook fired
         mock_deliver.assert_not_called()

@@ -43,7 +43,6 @@ from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server.gateway_budget import (
-    get_model_info,
     make_cost_recording_reducer,
     record_budget_cost,
 )
@@ -453,7 +452,7 @@ async def invocations(endpoint_name: str, request: Request):
                 provider.chat_stream,
                 endpoint_config,
                 user_metadata,
-                output_reducer=make_cost_recording_reducer(store, endpoint_config, workspace),
+                output_reducer=make_cost_recording_reducer(store, workspace),
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
             )(payload)
@@ -469,8 +468,7 @@ async def invocations(endpoint_name: str, request: Request):
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
             )(payload)
-            model_name, model_provider = get_model_info(endpoint_config)
-            record_budget_cost(store, response, model_name, model_provider, workspace)
+            record_budget_cost(store, response, workspace=workspace)
             return response
 
     elif "input" in body:
@@ -492,8 +490,7 @@ async def invocations(endpoint_name: str, request: Request):
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_EMBEDDINGS,
         )(payload)
-        model_name, model_provider = get_model_info(endpoint_config)
-        record_budget_cost(store, response, model_name, model_provider, workspace)
+        record_budget_cost(store, response, workspace=workspace)
         return response
 
     else:
@@ -548,7 +545,7 @@ async def chat_completions(request: Request):
             provider.chat_stream,
             endpoint_config,
             user_metadata,
-            output_reducer=make_cost_recording_reducer(store, endpoint_config, workspace),
+            output_reducer=make_cost_recording_reducer(store, workspace),
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_CHAT,
         )(payload)
@@ -564,8 +561,7 @@ async def chat_completions(request: Request):
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_CHAT,
         )(payload)
-        model_name, model_provider = get_model_info(endpoint_config)
-        record_budget_cost(store, response, model_name, model_provider, workspace)
+        record_budget_cost(store, response, workspace=workspace)
         return response
 
 
@@ -636,8 +632,7 @@ async def openai_passthrough_chat(request: Request):
     response = await traced_passthrough(
         action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
     )
-    model_name, model_provider = get_model_info(endpoint_config)
-    record_budget_cost(store, response, model_name, model_provider, workspace)
+    record_budget_cost(store, response, workspace=workspace)
     return response
 
 
@@ -683,8 +678,7 @@ async def openai_passthrough_embeddings(request: Request):
     response = await traced_passthrough(
         action=PassthroughAction.OPENAI_EMBEDDINGS, payload=body, headers=headers
     )
-    model_name, model_provider = get_model_info(endpoint_config)
-    record_budget_cost(store, response, model_name, model_provider, workspace)
+    record_budget_cost(store, response, workspace=workspace)
     return response
 
 
@@ -755,8 +749,7 @@ async def openai_passthrough_responses(request: Request):
     response = await traced_passthrough(
         action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
     )
-    model_name, model_provider = get_model_info(endpoint_config)
-    record_budget_cost(store, response, model_name, model_provider, workspace)
+    record_budget_cost(store, response, workspace=workspace)
     return response
 
 
@@ -827,8 +820,7 @@ async def anthropic_passthrough_messages(request: Request):
     response = await traced_passthrough(
         action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
     )
-    model_name, model_provider = get_model_info(endpoint_config)
-    record_budget_cost(store, response, model_name, model_provider, workspace)
+    record_budget_cost(store, response, workspace=workspace)
     return response
 
 
@@ -877,10 +869,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     response = await traced_passthrough(
         action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
     )
-    model_name, model_provider = get_model_info(endpoint_config)
-    record_budget_cost(
-        store, response, model_name=model_name, model_provider=model_provider, workspace=workspace
-    )
+    record_budget_cost(store, response, workspace=workspace)
     return response
 
 

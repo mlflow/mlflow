@@ -12,7 +12,6 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.budget_tracker import BudgetWindow, get_budget_tracker
 from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks
 from mlflow.server.handlers import _get_model_registry_store
-from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import CostKey
 from mlflow.tracing.utils import (
@@ -80,18 +79,25 @@ def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
             _logger.debug("Failed to refresh budget policies", exc_info=True)
 
 
+def _extract_model_name(response: Any) -> str | None:
+    """Extract model name from a gateway response (object or dict)."""
+    if hasattr(response, "model"):
+        return response.model
+    if isinstance(response, dict):
+        return response.get("model")
+    return None
+
+
 def record_budget_cost(
     store: SqlAlchemyStore,
     response: Any,
-    model_name: str | None = None,
-    model_provider: str | None = None,
     workspace: str | None = None,
 ) -> None:
     """Record cost from a gateway response against budget policies.
 
-    Extracts token usage from the response, calculates cost via LiteLLM,
-    records it in the budget tracker, and fires webhooks for newly-exceeded
-    budget windows.
+    Extracts token usage and model name from the response, calculates cost
+    via LiteLLM, records it in the budget tracker, and fires webhooks for
+    newly-exceeded budget windows.
 
     This is a best-effort operation; errors are logged but not raised.
     """
@@ -100,10 +106,10 @@ def record_budget_cost(
         if not usage_dict:
             return
 
+        model_name = _extract_model_name(response)
         cost = calculate_cost_by_model_and_token_usage(
             model_name=model_name,
             usage=usage_dict,
-            model_provider=model_provider,
         )
         if not cost:
             return
@@ -152,27 +158,8 @@ def fire_budget_exceeded_webhooks(
         deliver_webhook(event=event, payload=payload, store=registry_store)
 
 
-def get_model_info(
-    endpoint_config: GatewayEndpointConfig,
-) -> tuple[str | None, str | None]:
-    """Extract model_name and provider from endpoint config.
-
-    For endpoints configured with multiple models (e.g., traffic-splitting or routing),
-    the specific model used for a given request cannot be determined from the static
-    endpoint configuration alone. In such cases, this function returns (None, None)
-    to avoid misattributing costs or webhooks to an arbitrary model.
-    """
-    if not endpoint_config.models:
-        return None, None
-    if len(endpoint_config.models) == 1:
-        m = endpoint_config.models[0]
-        return m.model_name, m.provider
-    return None, None
-
-
 def make_cost_recording_reducer(
     store: SqlAlchemyStore,
-    endpoint_config: GatewayEndpointConfig,
     workspace: str | None,
 ):
     """Create an output_reducer that aggregates stream chunks and records budget cost."""
@@ -180,14 +167,7 @@ def make_cost_recording_reducer(
     def reducer(chunks):
         result = aggregate_chat_stream_chunks(chunks)
         if result:
-            model_name, model_provider = get_model_info(endpoint_config)
-            record_budget_cost(
-                store,
-                result,
-                model_name=model_name,
-                model_provider=model_provider,
-                workspace=workspace,
-            )
+            record_budget_cost(store, result, workspace=workspace)
         return result
 
     return reducer
