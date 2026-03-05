@@ -87,6 +87,16 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "lightgbm"
 
+# Builtin trusted types for LightGBM sklearn-compatible models serialized with skops.
+# These cover the common LightGBM model classes and their internal dependencies.
+_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES = [
+    "collections.OrderedDict",
+    "lightgbm.basic.Booster",
+    "lightgbm.sklearn.LGBMClassifier",
+    "lightgbm.sklearn.LGBMModel",
+    "lightgbm.sklearn.LGBMRanker",
+    "lightgbm.sklearn.LGBMRegressor",
+]
 
 _logger = logging.getLogger(__name__)
 
@@ -322,6 +332,11 @@ def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types
                 "The recommended safe alternative is the 'skops' format. "
                 "For more information, see: https://scikit-learn.org/stable/model_persistence.html",
             )
+        if serialization_format == "skops":
+            merged = list(_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES)
+            if skops_trusted_types:
+                merged.extend(t for t in skops_trusted_types if t not in merged)
+            skops_trusted_types = merged
         _save_sklearn_model(lgb_model, model_path, serialization_format, skops_trusted_types)
 
 
@@ -487,6 +502,12 @@ def _load_model(path):
 
         serialization_format = flavor_conf.get("serialization_format", "cloudpickle")
         skops_trusted_types = flavor_conf.get("skops_trusted_types", None)
+
+        if serialization_format == "skops":
+            merged = list(_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES)
+            if skops_trusted_types:
+                merged.extend(t for t in skops_trusted_types if t not in merged)
+            skops_trusted_types = merged
 
         model = _load_sklearn_model(lgb_model_path, serialization_format, skops_trusted_types)
 
