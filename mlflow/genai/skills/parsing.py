@@ -149,6 +149,4 @@ def _catalog_assets(skill_dir: Path) -> list[str]:
     assets_dir = skill_dir / "assets"
     if not assets_dir.is_dir():
         return []
-    return sorted(
-        str(f.relative_to(skill_dir)) for f in assets_dir.rglob("*") if f.is_file()
-    )
+    return sorted(str(f.relative_to(skill_dir)) for f in assets_dir.rglob("*") if f.is_file())

@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import asdict
-from typing import Any, Literal, Union, get_origin
+from typing import Any, Literal, get_origin
 
 import pydantic
 from pydantic import PrivateAttr
@@ -97,7 +97,7 @@ class InstructionsJudge(Judge):
         generate_rationale_first: bool = False,
         include_tool_calls_in_conversation: bool = False,
         inference_params: dict[str, Any] | None = None,
-        skills: Union[list[str], "SkillSet", None] = None,
+        skills: list[str] | Any | None = None,
         **kwargs,
     ):
         """

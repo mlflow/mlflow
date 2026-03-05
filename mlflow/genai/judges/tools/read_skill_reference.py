@@ -42,9 +42,7 @@ class ReadSkillReferenceTool(JudgeTool):
             )
         )
 
-    def invoke(
-        self, skill_set: SkillSet, skill_name: str, file_path: str, **kwargs
-    ) -> Any:
+    def invoke(self, skill_set: SkillSet, skill_name: str, file_path: str, **kwargs) -> Any:
         skill = skill_set.get_skill(skill_name)
         if not skill:
             available = [s.name for s in skill_set.skills]
