@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from click.testing import CliRunner
@@ -106,9 +107,7 @@ def test_upsert_hook_upgrades_legacy_hook():
 
 
 def test_stop_hook_subcommand_is_routable(runner):
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude", "stop-hook"], input="{}")
-        # The command should be routed to stop-hook (not treated as a directory argument).
-        # It will fail because stdin doesn't have valid hook data, but that's expected —
-        # we're only checking that Click routes to the subcommand.
-        assert "Configuring Claude tracing" not in result.output
+    with mock.patch("mlflow.claude_code.cli.stop_hook_handler") as mock_handler:
+        result = runner.invoke(commands, ["claude", "stop-hook"])
+        assert result.exit_code == 0
+        mock_handler.assert_called_once()
