@@ -54,6 +54,9 @@ jest.mock('../../../../../gateway/components/model-configuration/hooks/useApiKey
     isLoadingProviderConfig: false,
   }),
 }));
+jest.mock('./IssueDetectionAdvancedSettings', () => ({
+  IssueDetectionAdvancedSettings: () => <div data-testid="advanced-settings">Advanced Settings</div>,
+}));
 
 describe('IssueDetectionModal', () => {
   const defaultProps = {

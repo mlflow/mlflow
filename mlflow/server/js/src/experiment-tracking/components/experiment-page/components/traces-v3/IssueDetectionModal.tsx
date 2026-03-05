@@ -8,10 +8,12 @@ import {
   Checkbox,
   Tooltip,
   Input,
+  Accordion,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ProviderSelect } from '../../../../../gateway/components/create-endpoint/ProviderSelect';
 import { IssueDetectionApiKeyConfigurator } from './IssueDetectionApiKeyConfigurator';
+import { IssueDetectionAdvancedSettings } from './IssueDetectionAdvancedSettings';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 
@@ -48,6 +50,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
   const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(DEFAULT_API_KEY_CONFIG);
   const [saveKey, setSaveKey] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
 
   const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
     provider,
@@ -60,6 +63,8 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
     setJudgeModel(defaults?.judgeModel ?? '');
     setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
     setSaveKey(false);
+    // Auto-expand advanced settings if provider doesn't have defaults, collapse if it does
+    setIsAdvancedSettingsExpanded(!defaults);
   }, []);
 
   const resetForm = useCallback(() => {
@@ -68,21 +73,13 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
     setJudgeModel('');
     setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
     setSaveKey(false);
+    setIsAdvancedSettingsExpanded(false);
   }, []);
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
       // TODO: Implement backend API call for issue detection
-      // eslint-disable-next-line no-console
-      console.log('Issue detection triggered:', {
-        provider,
-        analysisModel,
-        judgeModel,
-        apiKeyConfig,
-        saveKey,
-        experimentId,
-      });
       resetForm();
       onClose();
     } finally {
@@ -227,6 +224,36 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({ visibl
             </div>
           )}
         </div>
+
+        <Accordion
+          componentId="mlflow.traces.issue-detection-modal.advanced-settings"
+          activeKey={isAdvancedSettingsExpanded ? ['advanced'] : []}
+          onChange={(keys) => setIsAdvancedSettingsExpanded(Array.isArray(keys) ? keys.includes('advanced') : false)}
+          dangerouslyAppendEmotionCSS={{
+            background: 'transparent',
+            border: 'none',
+          }}
+        >
+          <Accordion.Panel
+            header={intl.formatMessage({
+              defaultMessage: 'Advanced settings',
+              description: 'Collapsible section for advanced settings',
+            })}
+            key="advanced"
+          >
+            <IssueDetectionAdvancedSettings
+              provider={provider}
+              analysisModel={analysisModel}
+              onAnalysisModelChange={setAnalysisModel}
+              judgeModel={judgeModel}
+              onJudgeModelChange={setJudgeModel}
+              apiKeyConfig={apiKeyConfig}
+              onApiKeyConfigChange={setApiKeyConfig}
+              authModes={authModes}
+              defaultAuthMode={defaultAuthMode}
+            />
+          </Accordion.Panel>
+        </Accordion>
       </div>
     </Modal>
   );
