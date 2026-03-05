@@ -20,6 +20,7 @@ from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     NOT_FOUND,
     RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -77,11 +78,22 @@ def register_model(
     tracking backend.
 
     Args:
-        model_uri: URI referring to the MLmodel directory. Use a ``runs:/`` URI if you want to
-            record the run ID with the model in model registry (recommended), or pass the
-            local filesystem path of the model if registering a locally-persisted MLflow
-            model that was previously saved using ``save_model``.
-            ``models:/`` URIs are currently not supported.
+        model_uri: URI referring to the MLmodel directory. Supported URI schemes include:
+
+            - ``runs:/`` URIs (e.g., ``runs:/<run_id>/<artifact_path>``) to register a model
+              from a specific run. The run ID is recorded with the model version.
+            - ``models:/`` URIs, which support two forms:
+
+              - ``models:/<model_name>/<version>`` to promote an existing registered
+                model version. The source run lineage is preserved when the
+                referenced model version has an associated source run.
+              - ``models:/<model_id>`` to create a new registered model version from a logged
+                model (for example, one returned by ``log_model``). The source
+                run lineage is preserved.
+
+            - Local filesystem paths for registering locally-persisted MLflow models that were
+              previously saved using ``save_model``.
+
         name: Name of the registered model under which to create a new model version. If a
             registered model with the given name does not exist, it will be created
             automatically.
@@ -270,14 +282,25 @@ def _register_model(
                 "version": create_version_response.version,
             }
         ]
-        model = client.get_logged_model(model_id)
-        if existing_value := model.tags.get(mlflow_tags.MLFLOW_MODEL_VERSIONS):
-            new_value = json.loads(existing_value) + new_value
+        try:
+            model = client.get_logged_model(model_id)
+            if existing_value := model.tags.get(mlflow_tags.MLFLOW_MODEL_VERSIONS):
+                new_value = json.loads(existing_value) + new_value
 
-        client.set_logged_model_tags(
-            model_id,
-            {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
-        )
+            client.set_logged_model_tags(
+                model_id,
+                {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
+            )
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                _logger.warning(
+                    "Unable to update logged model tags for model ID '%s': the logged model "
+                    "does not exist in the current workspace. No model version link will be "
+                    "recorded on the logged model.",
+                    model_id,
+                )
+            else:
+                raise
 
     if validated_env_pack:
         eprint(

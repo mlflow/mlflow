@@ -36,6 +36,8 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking._secret_cache import (
     _DEFAULT_CACHE_MAX_SIZE,
     _DEFAULT_CACHE_TTL,
@@ -74,6 +76,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_SOURCE_ID,
     MLFLOW_EXPERIMENT_SOURCE_TYPE,
 )
+from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.time import get_current_time_millis
 
 
@@ -1298,7 +1301,22 @@ class SqlAlchemyGatewayStoreMixin:
             )
             session.delete(sql_budget_policy)
 
-    def list_budget_policies(self) -> list[GatewayBudgetPolicy]:
+    def list_budget_policies(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayBudgetPolicy]:
+        self._validate_max_results_param(max_results)
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         with self.ManagedSessionMaker() as session:
-            query = self._get_query(session, SqlGatewayBudgetPolicy)
-            return [bp.to_mlflow_entity() for bp in query.all()]
+            query = (
+                self._get_query(session, SqlGatewayBudgetPolicy)
+                .order_by(SqlGatewayBudgetPolicy.budget_policy_id)
+                .offset(offset)
+                .limit(max_results + 1)
+            )
+            policies = [bp.to_mlflow_entity() for bp in query.all()]
+            next_token = None
+            if len(policies) > max_results:
+                next_token = SearchUtils.create_page_token(offset + max_results)
+            return PagedList(policies[:max_results], next_token)

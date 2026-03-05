@@ -494,7 +494,7 @@ class MyEvaluator(ModelEvaluator):
 Store artifacts directly in SQL Server databases:
 
 ```bash
-pip install mlflow[sqlserver]
+pip install 'mlflow[sqlserver]'
 ```
 
 ```python
@@ -513,7 +513,7 @@ with mlflow.start_run():
 Integrate with Aliyun Object Storage Service:
 
 ```bash
-pip install mlflow[aliyun-oss]
+pip install 'mlflow[aliyun-oss]'
 ```
 
 ```python
@@ -534,7 +534,7 @@ mlflow.create_experiment("oss_experiment", artifact_location="oss://bucket/path"
 Use XetHub for versioned artifact storage:
 
 ```bash
-pip install mlflow[xethub]
+pip install 'mlflow[xethub]'
 ```
 
 ```python
@@ -648,7 +648,7 @@ mlflow run . --backend yarn --backend-config yarn-config.json
 Enterprise artifact governance:
 
 ```bash
-pip install mlflow[jfrog]
+pip install 'mlflow[jfrog]'
 ```
 
 **Key Features:**

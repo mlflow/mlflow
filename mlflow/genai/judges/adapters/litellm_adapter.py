@@ -578,7 +578,14 @@ class LiteLLMAdapter(BaseJudgeAdapter):
                     f"Failed to parse response from judge model. Response: {output.response}"
                 ) from e
 
-            metadata = {AssessmentMetadataKey.JUDGE_COST: output.cost} if output.cost else None
+            metadata = {}
+            if output.cost:
+                metadata[AssessmentMetadataKey.JUDGE_COST] = output.cost
+            if output.num_prompt_tokens:
+                metadata[AssessmentMetadataKey.JUDGE_INPUT_TOKENS] = output.num_prompt_tokens
+            if output.num_completion_tokens:
+                metadata[AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS] = output.num_completion_tokens
+            metadata = metadata or None
 
             if "error" in response_dict:
                 raise MlflowException(
