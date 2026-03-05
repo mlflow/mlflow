@@ -757,6 +757,19 @@ class InstructionsJudge(Judge):
         if self._inference_params is not None:
             pydantic_data["inference_params"] = self._inference_params
 
+        skill_contents = None
+        if self._skill_set:
+            skill_contents = [
+                {
+                    "name": skill.name,
+                    "description": skill.description,
+                    "metadata": skill.metadata,
+                    "body": skill.body,
+                    "references": skill.references,
+                }
+                for skill in self._skill_set.skills
+            ]
+
         serialized_scorer = SerializedScorer(
             name=self.name,
             description=self.description,
@@ -770,6 +783,7 @@ class InstructionsJudge(Judge):
             call_source=None,
             call_signature=None,
             original_func_name=None,
+            skill_contents=skill_contents,
         )
         return asdict(serialized_scorer)
 
