@@ -246,6 +246,7 @@ def _run_databricks_agentic_loop(
     trace: "Trace | None",
     on_final_answer: Callable[[str | None], T],
     use_case: str | None = None,
+    skill_set: Any = None,
 ) -> T:
     """
     Run an agentic loop with Databricks chat completions.
@@ -316,6 +317,7 @@ def _run_databricks_agentic_loop(
             tool_response_messages = _process_tool_calls(
                 tool_calls=message.tool_calls,
                 trace=trace,
+                skill_set=skill_set,
             )
             messages.extend(tool_response_messages)
         except Exception:

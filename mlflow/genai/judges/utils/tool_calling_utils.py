@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 if TYPE_CHECKING:
     import litellm
@@ -40,6 +40,7 @@ def _raise_iteration_limit_exceeded(max_iterations: int) -> NoReturn:
 def _process_tool_calls(
     tool_calls: list["litellm.ChatCompletionMessageToolCall"],
     trace: Trace | None,
+    skill_set: Any = None,
 ) -> list["litellm.Message"]:
     """
     Process tool calls and return tool response messages.
@@ -57,7 +58,9 @@ def _process_tool_calls(
     for tool_call in tool_calls:
         try:
             mlflow_tool_call = _create_mlflow_tool_call_from_litellm(litellm_tool_call=tool_call)
-            result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
+            result = _judge_tool_registry.invoke(
+                tool_call=mlflow_tool_call, trace=trace, skill_set=skill_set
+            )
         except Exception as e:
             tool_response_messages.append(
                 _create_litellm_tool_response_message(

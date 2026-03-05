@@ -199,6 +199,7 @@ def _invoke_litellm_and_handle_tools(
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
+    skill_set: Any = None,
 ) -> InvokeLiteLLMOutput:
     """
     Invoke litellm with retry support and handle tool calling loop.
@@ -246,6 +247,11 @@ def _invoke_litellm_and_handle_tools(
     tools = []
     if trace is not None:
         judge_tools = list_judge_tools()
+        if skill_set is not None:
+            from mlflow.genai.judges.tools.read_skill import ReadSkillTool
+            from mlflow.genai.judges.tools.read_skill_reference import ReadSkillReferenceTool
+
+            judge_tools = judge_tools + [ReadSkillTool(), ReadSkillReferenceTool()]
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
     def _prune_messages_for_context_window() -> list[litellm.Message] | None:
@@ -343,7 +349,9 @@ def _invoke_litellm_and_handle_tools(
                 )
 
             messages.append(message)
-            tool_response_messages = _process_tool_calls(tool_calls=message.tool_calls, trace=trace)
+            tool_response_messages = _process_tool_calls(
+                tool_calls=message.tool_calls, trace=trace, skill_set=skill_set
+            )
             messages.extend(tool_response_messages)
 
         except MlflowException:
