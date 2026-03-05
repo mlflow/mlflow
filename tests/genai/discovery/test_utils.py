@@ -10,34 +10,12 @@ from mlflow.genai.discovery.entities import (
 from mlflow.genai.discovery.utils import (
     _build_summary,
     _cluster_analyses,
-    _embed_texts,
     _extract_failing_traces,
     _group_traces_by_session,
     _sample_traces,
     _summarize_cluster,
 )
 from mlflow.genai.evaluation.entities import EvaluationResult
-
-# ---- _embed_texts ----
-
-
-def test_embed_texts():
-    mock_response = MagicMock()
-    mock_response.data = [
-        {"embedding": [0.1, 0.2, 0.3]},
-        {"embedding": [0.4, 0.5, 0.6]},
-    ]
-    mock_litellm = MagicMock()
-    mock_litellm.embedding.return_value = mock_response
-
-    with patch.dict("sys.modules", {"litellm": mock_litellm}):
-        result = _embed_texts(["hello", "world"], "openai:/text-embedding-3-small")
-
-    mock_litellm.embedding.assert_called_once_with(
-        model="openai/text-embedding-3-small", input=["hello", "world"]
-    )
-    assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
-
 
 # ---- _cluster_analyses ----
 
@@ -47,13 +25,10 @@ def test_cluster_analyses_single_analysis():
         _ConversationAnalysis(
             surface="response generation via LLM pipeline",
             root_cause="Model produced incorrect output.",
-            symptoms="User received wrong answer.",
-            domain="question answering",
             affected_trace_ids=["t-1"],
-            severity=3,
         )
     ]
-    result = _cluster_analyses(analyses, "openai:/text-embedding-3-small", max_issues=5)
+    result = _cluster_analyses(analyses, max_issues=5, labels=["[routing] hallucination"])
 
     assert result == [[0]]
 
@@ -63,72 +38,83 @@ def test_cluster_analyses_groups_similar():
         _ConversationAnalysis(
             surface="response generation via LLM pipeline",
             root_cause="Model hallucinated facts.",
-            symptoms="User received incorrect information.",
-            domain="question answering",
             affected_trace_ids=["t-1"],
-            severity=4,
         ),
         _ConversationAnalysis(
             surface="response generation via LLM pipeline",
             root_cause="Model hallucinated different facts.",
-            symptoms="User received fabricated details.",
-            domain="question answering",
             affected_trace_ids=["t-2"],
-            severity=4,
         ),
         _ConversationAnalysis(
             surface="database query execution timeout",
             root_cause="Query took too long.",
-            symptoms="User waited and received no result.",
-            domain="data retrieval",
             affected_trace_ids=["t-3"],
-            severity=3,
         ),
     ]
 
-    def mock_embed(texts, model):
-        result = []
-        for text in texts:
-            if "response generation" in text.lower():
-                result.append([1.0, 0.0, 0.0])
-            else:
-                result.append([0.0, 1.0, 0.0])
-        return result
+    labels = [
+        "[llm_pipeline] hallucinated facts",
+        "[llm_pipeline] hallucinated different facts",
+        "[database] query timeout",
+    ]
 
-    with patch("mlflow.genai.discovery.utils._embed_texts", side_effect=mock_embed):
-        groups = _cluster_analyses(analyses, "openai:/text-embedding-3-small", max_issues=5)
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps(
+                    {
+                        "groups": [
+                            {"name": "Issue: Hallucination", "indices": [0, 1]},
+                            {"name": "Issue: Query timeout", "indices": [2]},
+                        ]
+                    }
+                )
+            )
+        )
+    ]
 
-    # Should produce 2 groups: [0,1] and [2]
+    with patch("litellm.completion", return_value=mock_response) as mock_completion:
+        groups = _cluster_analyses(analyses, max_issues=5, labels=labels)
+
+    mock_completion.assert_called_once()
     assert len(groups) == 2
     flat = [idx for g in groups for idx in g]
     assert sorted(flat) == [0, 1, 2]
 
 
 def test_cluster_analyses_respects_max_issues():
+    labels = [f"[domain_{i}] unique issue {i}" for i in range(5)]
     analyses = [
         _ConversationAnalysis(
             surface=f"unique issue number {i}",
             root_cause=f"Unique root cause {i}.",
-            symptoms=f"User observed issue {i}.",
-            domain=f"domain {i}",
             affected_trace_ids=[f"t-{i}"],
-            severity=3,
         )
         for i in range(5)
     ]
 
-    def mock_embed(texts, model):
-        import numpy as np
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps(
+                    {
+                        "groups": [
+                            {"name": "Issue: Group A", "indices": [0, 1, 2]},
+                            {"name": "Issue: Group B", "indices": [3, 4]},
+                        ]
+                    }
+                )
+            )
+        )
+    ]
 
-        rng = np.random.RandomState(42)
-        return [rng.randn(128).tolist() for _ in texts]
+    with patch("litellm.completion", return_value=mock_response) as mock_completion:
+        groups = _cluster_analyses(analyses, max_issues=2, labels=labels)
 
-    with patch("mlflow.genai.discovery.utils._embed_texts", side_effect=mock_embed):
-        groups = _cluster_analyses(analyses, "openai:/text-embedding-3-small", max_issues=2)
-
+    mock_completion.assert_called_once()
     assert len(groups) <= 2
-    flat = [idx for g in groups for idx in g]
-    assert len(flat) <= 5
 
 
 # ---- _summarize_cluster ----
@@ -139,18 +125,12 @@ def test_summarize_cluster():
         _ConversationAnalysis(
             surface="response generation via LLM",
             root_cause="Model hallucinated.",
-            symptoms="User received incorrect facts.",
-            domain="question answering",
             affected_trace_ids=["t-1"],
-            severity=4,
         ),
         _ConversationAnalysis(
             surface="response generation via LLM",
             root_cause="Model made up facts.",
-            symptoms="User received fabricated information.",
-            domain="question answering",
             affected_trace_ids=["t-2"],
-            severity=4,
         ),
     ]
 
