@@ -10,7 +10,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
-from mlflow.gateway.budget_tracker import InMemoryBudgetTracker
+from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
 from mlflow.server.gateway_budget import check_budget_limit
 
 _TRACKER_FUNC = "mlflow.server.gateway_budget.get_budget_tracker"
