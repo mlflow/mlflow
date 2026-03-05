@@ -191,5 +191,5 @@ export const shouldEnableIssueDetection = () => {
  * When enabled (true), the right panel is hidden by default and only the evaluation runs table is shown.
  */
 export const shouldShowEvalRunsIssuesPanel = () => {
-  return false;
+  return true;
 };
