@@ -44,7 +44,9 @@ def autolog(
     CREWAI_VERSION = Version(crewai.__version__)
 
     # _create_long_term_memory was replaced by _save_to_memory in crewai 1.10.0
-    _memory_method = "_save_to_memory" if CREWAI_VERSION >= Version("1.10.0") else "_create_long_term_memory"
+    _memory_method = (
+        "_save_to_memory" if CREWAI_VERSION >= Version("1.10.0") else "_create_long_term_memory"
+    )
     class_method_map = {
         "crewai.Crew": ["kickoff", "kickoff_for_each", "train"],
         "crewai.Agent": ["execute_task"],
