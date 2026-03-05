@@ -144,7 +144,7 @@ def _compute_window_start(
     - MINUTES: aligned to epoch minutes
     - HOURS: aligned to epoch hours (e.g., duration_value=2 → 0:00, 2:00, 4:00, …)
     - DAYS: aligned to epoch days (e.g., duration_value=7 → weekly from epoch)
-    - WEEKS: aligned to Sunday-based weeks using a Sunday-aligned epoch (Dec 28, 1969)
+    - WEEKS: aligned to Sunday-based weeks (e.g., duration_value=1 → every Sunday from epoch)
     - MONTHS: aligned to first of months (e.g., duration_value=3 → Jan 1, Apr 1, Jul 1, …)
     """
     if duration_value <= 0:
