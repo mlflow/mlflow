@@ -282,6 +282,8 @@ describe('WorkspaceUtils', () => {
     beforeEach(() => {
       // Set active workspace for these tests
       setActiveWorkspace('default');
+      // Clear localStorage so only in-memory workspace is set
+      window.localStorage.clear();
     });
 
     afterEach(() => {
@@ -377,6 +379,8 @@ describe('WorkspaceUtils', () => {
     beforeEach(() => {
       // Set active workspace for these tests
       setActiveWorkspace('default');
+      // Clear localStorage so only in-memory workspace is set
+      window.localStorage.clear();
     });
 
     afterEach(() => {

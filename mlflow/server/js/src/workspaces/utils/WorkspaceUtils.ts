@@ -205,7 +205,7 @@ export const prefixRouteWithWorkspace = (to: string): string => {
     return to;
   }
 
-  const workspace = getActiveWorkspace();
+  const workspace = getActiveWorkspace() || getLastUsedWorkspace();
   if (!workspace) {
     return to;
   }
