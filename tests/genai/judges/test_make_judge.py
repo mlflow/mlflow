@@ -1046,11 +1046,13 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     experiment = mlflow.create_experiment("test_judge_registration")
 
     original_instructions = "Evaluate if the {{ outputs }} is professional and formal."
+    inference_params = {"temperature": 0.2, "max_tokens": 64}
     judge = make_judge(
         name="test_judge",
         instructions=original_instructions,
         feedback_value_type=str,
         model="openai:/gpt-4",
+        inference_params=inference_params,
     )
 
     assert judge.instructions == original_instructions
@@ -1063,6 +1065,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert "instructions_judge_pydantic_data" in serialized
     assert serialized["instructions_judge_pydantic_data"]["instructions"] == original_instructions
     assert serialized["instructions_judge_pydantic_data"]["model"] == "openai:/gpt-4"
+    assert serialized["instructions_judge_pydantic_data"]["inference_params"] == inference_params
 
     store = _get_scorer_store()
     version = store.register_scorer(experiment, judge)
@@ -1074,6 +1077,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert retrieved_scorer.name == "test_judge"
     assert retrieved_scorer.instructions == original_instructions
     assert retrieved_scorer.model == "openai:/gpt-4"
+    assert retrieved_scorer.inference_params == inference_params
     assert retrieved_scorer.template_variables == {"outputs"}
 
     deserialized = Scorer.model_validate(serialized)
@@ -1081,6 +1085,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert deserialized.name == judge.name
     assert deserialized.instructions == original_instructions
     assert deserialized.model == judge.model
+    assert deserialized.inference_params == inference_params
     assert deserialized.template_variables == {"outputs"}
 
     test_output = {"response": "This output demonstrates professional communication."}
@@ -3664,3 +3669,20 @@ def test_inference_params_passed_to_invoke_judge_model(mock_invoke_judge_model):
     judge(outputs="test output")
 
     assert mock_invoke_judge_model.captured_args.get("inference_params") == inference_params
+
+
+def test_inference_params_preserved_after_round_trip_serialization():
+    inference_params = {"temperature": 0.5, "max_tokens": 200, "top_p": 0.9}
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is good",
+        model="openai:/gpt-4",
+        inference_params=inference_params,
+    )
+
+    serialized = judge.model_dump()
+    restored = Scorer.model_validate(serialized)
+    restored_from_json = Scorer.model_validate_json(json.dumps(serialized))
+
+    assert restored.inference_params == inference_params
+    assert restored_from_json.inference_params == inference_params
