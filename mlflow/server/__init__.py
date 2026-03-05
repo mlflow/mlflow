@@ -451,7 +451,9 @@ def _run_server(
             )
 
     if app_name == "basic-auth" and job_execution_enabled:
-        env_map["_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN"] = secrets.token_hex(32)
+        from mlflow.server.auth import _INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR
+
+        env_map[_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR] = secrets.token_hex(32)
 
     if job_execution_enabled:
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
