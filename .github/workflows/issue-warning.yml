@@ -28,4 +28,5 @@ jobs:
 
           ${ISSUE_BODY}"
 
+          # Why not a comment, but editing the issue body? Coding agents (e.g. "Fix <issue URL>") may not see the comments.
           gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --body "$body"
