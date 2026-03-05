@@ -4,6 +4,8 @@ from subprocess import Popen
 from typing import Literal
 from urllib.parse import urlparse
 
+from packaging.version import Version
+
 from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
 from mlflow.utils import env_manager as em
 from mlflow.utils.file_utils import _copy_project
@@ -187,6 +189,9 @@ def _pip_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             "RUN pip install /opt/mlflow"
         )
     else:
+        # Dev version is not available on PyPI, install from GitHub instead
+        if Version(VERSION).is_devrelease:
+            return "# Install MLflow\nRUN pip install https://github.com/mlflow/mlflow/archive/refs/heads/master.zip"
         return f"# Install MLflow\nRUN pip install mlflow=={VERSION}"
 
 
