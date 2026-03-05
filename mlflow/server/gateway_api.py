@@ -613,6 +613,7 @@ async def openai_passthrough_chat(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
+            on_complete=make_budget_on_complete(store, workspace),
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
@@ -728,6 +729,7 @@ async def openai_passthrough_responses(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
+            on_complete=make_budget_on_complete(store, workspace),
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
@@ -798,6 +800,7 @@ async def anthropic_passthrough_messages(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
+            on_complete=make_budget_on_complete(store, workspace),
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"

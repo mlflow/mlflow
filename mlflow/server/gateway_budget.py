@@ -7,7 +7,7 @@ firing exceeded-budget webhooks, and creating on_complete callbacks for budget r
 import logging
 
 import mlflow
-from mlflow.entities.gateway_budget_policy import BudgetTargetScope
+from mlflow.entities.gateway_budget_policy import BudgetAction, BudgetTargetScope
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.budget_tracker import BudgetWindow, get_budget_tracker
 from mlflow.gateway.tracing_utils import _get_model_span_info
@@ -107,7 +107,7 @@ def fire_budget_exceeded_webhooks(
 
     for window in newly_exceeded:
         policy = window.policy
-        if policy.budget_action.value != "ALERT":
+        if policy.budget_action != BudgetAction.ALERT:
             continue
 
         payload = BudgetPolicyExceededPayload(
