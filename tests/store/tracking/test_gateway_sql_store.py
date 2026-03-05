@@ -2347,11 +2347,15 @@ def test_sum_gateway_trace_cost_workspace_filter(store: SqlAlchemyStore):
         _insert_trace_with_cost(session, exp_ws_b.experiment_id, "t-b", 1000, [("s1", 0.25)])
 
     # Filtering by workspace-a should only include 0.10
-    total_a = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, workspace="workspace-a")
+    total_a = store.sum_gateway_trace_cost(
+        start_time_ms=0, end_time_ms=5000, workspace="workspace-a"
+    )
     assert abs(total_a - 0.10) < 1e-9
 
     # Filtering by workspace-b should only include 0.25
-    total_b = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, workspace="workspace-b")
+    total_b = store.sum_gateway_trace_cost(
+        start_time_ms=0, end_time_ms=5000, workspace="workspace-b"
+    )
     assert abs(total_b - 0.25) < 1e-9
 
     # No workspace filter should include both
