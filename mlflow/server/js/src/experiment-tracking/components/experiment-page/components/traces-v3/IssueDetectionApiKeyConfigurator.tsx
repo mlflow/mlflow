@@ -198,7 +198,6 @@ export function IssueDetectionApiKeyConfigurator({
         fieldName={requiredFields[0].name}
         secrets={filteredSecrets ?? []}
         disabled={disabled}
-        componentIdPrefix={componentIdPrefix}
       />
     );
   }
@@ -355,17 +354,9 @@ interface SimplifiedApiKeyInputProps {
   fieldName: string;
   secrets: SecretInfo[];
   disabled?: boolean;
-  componentIdPrefix: string;
 }
 
-function SimplifiedApiKeyInput({
-  value,
-  onChange,
-  fieldName,
-  secrets,
-  disabled,
-  componentIdPrefix,
-}: SimplifiedApiKeyInputProps) {
+function SimplifiedApiKeyInput({ value, onChange, fieldName, secrets, disabled }: SimplifiedApiKeyInputProps) {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -460,8 +451,10 @@ function SimplifiedApiKeyInput({
     [inputValue, handleInputValueChange],
   );
 
+  const comboboxComponentId = `mlflow.traces.issue-detection.api-key.api-key-combobox`;
+
   const comboboxState = useComboboxState<ApiKeyOption | null>({
-    componentId: `${componentIdPrefix}.api-key-combobox`,
+    componentId: comboboxComponentId,
     allItems: items,
     items: filteredItems,
     setItems: setFilteredItems,
@@ -483,7 +476,7 @@ function SimplifiedApiKeyInput({
       >
         {formatCredentialFieldName(fieldName)}
       </Typography.Text>
-      <TypeaheadComboboxRoot id={`${componentIdPrefix}.api-key-combobox`} comboboxState={comboboxState}>
+      <TypeaheadComboboxRoot id={comboboxComponentId} comboboxState={comboboxState}>
         <TypeaheadComboboxInput
           placeholder={intl.formatMessage({
             defaultMessage: 'Enter API key or select saved key',
