@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+# Fetch N * sample_size traces so random sampling has enough diversity
+SAMPLE_POOL_MULTIPLIER = 5
+SAMPLE_RANDOM_SEED = 42
 # LLM calls are non-deterministic; retry on transient API/rate-limit errors
 NUM_RETRIES = 5
 # Upper bound on generated tokens per LLM call (covers long cluster summaries)
