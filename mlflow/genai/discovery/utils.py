@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import logging
 import threading
+from typing import TYPE_CHECKING
 
 from mlflow.genai.discovery.constants import LLM_MAX_TOKENS, NUM_RETRIES
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
 from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
+
+if TYPE_CHECKING:
+    import litellm
 
 _logger = logging.getLogger(__name__)
 
@@ -19,7 +23,7 @@ class _TokenCounter:
         self.output_tokens = 0
         self.cost_usd = 0.0
 
-    def track(self, response) -> None:
+    def track(self, response: litellm.ModelResponse) -> None:
         with self._lock:
             if usage := getattr(response, "usage", None):
                 self.input_tokens += getattr(usage, "prompt_tokens", 0) or 0
@@ -46,7 +50,7 @@ def _call_llm(
     *,
     json_mode: bool = False,
     token_counter: _TokenCounter | None = None,
-) -> object:
+) -> litellm.ModelResponse:
     response = _invoke_litellm(
         litellm_model=convert_mlflow_uri_to_litellm(model),
         messages=messages,

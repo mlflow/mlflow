@@ -5,6 +5,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from mlflow.entities.assessment import Feedback
+from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
@@ -18,7 +19,14 @@ from mlflow.genai.discovery.utils import _call_llm, _TokenCounter
 _logger = logging.getLogger(__name__)
 
 # Span types that represent generic LLM plumbing, not meaningful execution steps.
-_GENERIC_SPAN_TYPES = {"LLM", "CHAT_MODEL", "EMBEDDING"}
+_GENERIC_SPAN_TYPES = {SpanType.LLM, SpanType.CHAT_MODEL, SpanType.EMBEDDING}
+
+
+def _get_error_suffix(span) -> str:
+    """Return " [ERROR]" if the span has an error status, else ""."""
+    if span.status and span.status.status_code == SpanStatusCode.ERROR:
+        return " [ERROR]"
+    return ""
 
 
 def extract_execution_path(trace: Trace) -> str:
@@ -26,7 +34,9 @@ def extract_execution_path(trace: Trace) -> str:
     Extract a compact execution path from a trace's span tree.
 
     Filters out generic LLM/embedding spans and returns the meaningful
-    execution steps: sub-agents routed to, tools called, etc.
+    execution steps: sub-agents routed to, tools called, etc. Only
+    depth-1 spans (direct children of root) and their children are
+    included — the root span itself is always excluded.
 
     Args:
         trace: The trace to extract the execution path from.
@@ -39,56 +49,43 @@ def extract_execution_path(trace: Trace) -> str:
     if not spans:
         return "(no spans)"
 
-    # Build a map from parent span ID to child spans for tree traversal
-    children_by_parent: dict[str | None, list[object]] = defaultdict(list)
+    # Build a map from parent span ID to child spans
+    children_by_parent: dict[str | None, list] = defaultdict(list)
     for span in spans:
         children_by_parent[span.parent_id].append(span)
 
-    # Walk the span tree, collecting non-generic spans with their depth and error status
-    execution_steps: list[tuple[str, int, str]] = []
+    # Find root spans (parent_id=None). If none found (malformed trace), use the first span.
+    roots = children_by_parent.get(None, []) or spans[:1]
 
-    def _walk(span, depth: int):
-        span_type = getattr(span, "span_type", "") or ""
-        if span_type not in _GENERIC_SPAN_TYPES:
-            status = ""
-            if span.status and span.status.status_code == SpanStatusCode.ERROR:
-                status = " [ERROR]"
-            execution_steps.append((span.name, depth, status))
-        for child in children_by_parent.get(span.span_id, []):
-            _walk(child, depth + 1)
-
-    roots = children_by_parent.get(None, [])
-    if not roots:
-        roots = spans[:1]
-    for root in roots:
-        _walk(root, 0)
-
-    if not execution_steps:
-        return "(no routing)"
-
-    # Skip root span (top-level entry point) and organize remaining steps hierarchically.
-    # Depth 1 = sub-agents/tools called by orchestrator; depth 2+ = their children.
-    non_root = [(name, depth, status) for name, depth, status in execution_steps if depth > 0]
-    if not non_root:
-        return "(no routing)"
-
+    # Build mapping from depth-1 spans to their non-generic children.
+    # Depth-1 spans are the top-level orchestrator calls (sub-agents, tools).
     top_level_entries: list[str] = []
-    sub_items: dict[str, list[str]] = defaultdict(list)
-    current_parent = None
+    child_entries_by_parent: dict[str, list[str]] = defaultdict(list)
 
-    for name, depth, status in non_root:
-        entry = f"{name}{status}"
-        if depth == 1:
-            current_parent = name
+    for root in roots:
+        for depth1_span in children_by_parent.get(root.span_id, []):
+            if depth1_span.span_type in _GENERIC_SPAN_TYPES:
+                continue
+            entry = f"{depth1_span.name}{_get_error_suffix(depth1_span)}"
             top_level_entries.append(entry)
-        elif current_parent:
-            sub_items[current_parent].append(entry)
+
+            # Collect non-generic grandchildren (depth 2+) recursively
+            stack = list(children_by_parent.get(depth1_span.span_id, []))
+            while stack:
+                child = stack.pop()
+                if child.span_type not in _GENERIC_SPAN_TYPES:
+                    child_entry = f"{child.name}{_get_error_suffix(child)}"
+                    child_entries_by_parent[depth1_span.name].append(child_entry)
+                stack.extend(children_by_parent.get(child.span_id, []))
+
+    if not top_level_entries:
+        return "(no routing)"
 
     # Format as "parent > child1, child2 | parent2 > child3"
     parts = []
     for entry in top_level_entries:
         entry_name = entry.replace(" [ERROR]", "")
-        if child_entries := sub_items.get(entry_name, []):
+        if child_entries := child_entries_by_parent.get(entry_name, []):
             unique_children = list(dict.fromkeys(child_entries))
             parts.append(f"{entry} > {', '.join(unique_children)}")
         else:
@@ -109,24 +106,26 @@ def extract_execution_paths_for_session(traces: list[Trace]) -> str:
 
 
 def extract_span_errors(trace: Trace, max_length: int = 500) -> str:
+    """
+    Collect deduplicated error messages from all spans in a trace.
+
+    Checks both span status descriptions and exception events, deduplicates
+    them, and returns a truncated semicolon-separated string.
+    """
     spans = trace.data.spans
     if not spans:
         return ""
 
-    errors: list[str] = []
-    seen: set[str] = set()
+    # Use dict for ordered deduplication (preserves first-seen order)
+    errors: dict[str, None] = {}
 
-    # Walk all spans, collecting error messages from those with ERROR status
     for span in spans:
         if not (span.status and span.status.status_code == SpanStatusCode.ERROR):
             continue
 
         # Grab the span-level status description (e.g. "tool call failed")
         if span.status.description:
-            msg = f"{span.name}: {span.status.description}"
-            if msg not in seen:
-                seen.add(msg)
-                errors.append(msg)
+            errors.setdefault(f"{span.name}: {span.status.description}", None)
 
         # Also check exception events for detailed stack traces / error types
         for event in span.events or []:
@@ -136,15 +135,27 @@ def extract_span_errors(trace: Trace, max_length: int = 500) -> str:
             exc_type = attrs.get("exception.type", "")
             exc_msg = attrs.get("exception.message", "")
             msg = f"{exc_type}: {exc_msg}" if exc_type else exc_msg
-            if msg and msg not in seen:
-                seen.add(msg)
-                errors.append(msg)
+            if msg:
+                errors.setdefault(msg, None)
 
     if not errors:
         return ""
 
-    # Join deduplicated errors and truncate to max_length
     return "; ".join(errors)[:max_length]
+
+
+def extract_assessment_rationale(trace: Trace, scorer_name: str) -> str:
+    """Find the rationale from the most recent Feedback assessment for a scorer."""
+    return next(
+        (
+            assessment.rationale
+            for assessment in trace.info.assessments
+            if isinstance(assessment, Feedback)
+            and assessment.name == scorer_name
+            and assessment.rationale
+        ),
+        "",
+    )
 
 
 def extract_failure_labels(
@@ -170,7 +181,6 @@ def extract_failure_labels(
         List of failure label strings, one per analysis.
     """
 
-    # Generate labels in parallel — each label is an independent LLM call
     def _generate_label(analysis: _ConversationAnalysis) -> str:
         rationale = analysis.surface[:SURFACE_TRUNCATION_LIMIT]
         response = _call_llm(
@@ -182,9 +192,9 @@ def extract_failure_labels(
             token_counter=token_counter,
         )
         symptom = response.choices[0].message.content.strip()
-        exec_path = analysis.execution_path or "(no routing)"
-        return f"[{exec_path}] {symptom}"
+        return f"[{analysis.execution_path}] {symptom}"
 
+    # Generate labels in parallel — each label is an independent LLM call
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(analyses))
     labels: list[str | None] = [None] * len(analyses)
     with ThreadPoolExecutor(
