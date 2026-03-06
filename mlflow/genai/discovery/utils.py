@@ -5,8 +5,10 @@ import threading
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
+import mlflow
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import LLM_MAX_TOKENS, NUM_RETRIES
+from mlflow.genai.discovery.entities import Issue
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
 from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 from mlflow.tracing.constant import TraceMetadataKey
@@ -95,3 +97,32 @@ def _call_llm(
     if token_counter is not None:
         token_counter.track(response)
     return response
+
+
+def build_summary(issues: list[Issue], total_traces: int) -> str:
+    if not issues:
+        return f"## Issue Discovery Summary\n\nAnalyzed {total_traces} traces. No issues found."
+
+    lines = [
+        "## Issue Discovery Summary\n",
+        f"Analyzed **{total_traces}** traces. Found **{len(issues)}** issues:\n",
+    ]
+    for i, issue in enumerate(issues, 1):
+        lines.append(
+            f"### {i}. {issue.name} ({issue.frequency:.0%} of traces, "
+            f"severity: {issue.severity})\n\n"
+            f"{issue.description}\n\n"
+            f"**Root cause:** {issue.root_cause}\n"
+        )
+    return "\n".join(lines)
+
+
+def log_discovery_artifacts(run_id: str, artifacts: dict[str, str]) -> None:
+    if not run_id:
+        return
+    client = mlflow.MlflowClient()
+    for filename, content in artifacts.items():
+        try:
+            client.log_text(run_id, content, filename)
+        except Exception:
+            _logger.warning("Failed to log %s to run %s", filename, run_id, exc_info=True)
