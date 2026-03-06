@@ -53,10 +53,6 @@ def group_traces_by_session(
     Returns:
         dict: {session_id: [eval_item, ...]} where eval items are grouped by session.
               Only items with traces that have a session_id are included in the output.
-
-    Note: mlflow.genai.discovery.sampling has a similar function that operates on
-    raw Trace objects instead of EvalItem and keeps sessionless traces as standalone
-    groups (required for frequency calculations). The two cannot be unified.
     """
     session_groups = defaultdict(list)
 
