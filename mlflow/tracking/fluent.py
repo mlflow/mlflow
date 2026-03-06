@@ -249,6 +249,8 @@ def set_experiment(
 
     global _active_experiment_id
     _active_experiment_id = experiment.experiment_id
+    # Set 'MLFLOW_EXPERIMENT_ID' environment variable
+    # so that subprocess can inherit it.
     MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
     if resolved_location is not None:
         _set_experiment_derived_destination(resolved_location)
