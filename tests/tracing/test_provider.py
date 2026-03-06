@@ -1,3 +1,4 @@
+import random
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -27,6 +28,7 @@ from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
     _initialize_tracer_provider,
+    _SecureIdGenerator,
     is_tracing_enabled,
     start_span_in_context,
     trace_disabled,
@@ -587,3 +589,37 @@ def test_otel_resource_attributes(monkeypatch):
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
     }
+
+
+def test_secure_id_generator_not_affected_by_random_seed():
+    gen = _SecureIdGenerator()
+
+    random.seed(42)
+    trace_id_1 = gen.generate_trace_id()
+    span_id_1 = gen.generate_span_id()
+
+    # Re-seeding with the same value would make RandomIdGenerator replay the exact same
+    # ID sequence. _SecureIdGenerator must be immune to this.
+    random.seed(42)
+    trace_id_2 = gen.generate_trace_id()
+    span_id_2 = gen.generate_span_id()
+
+    assert trace_id_1 != trace_id_2
+    assert span_id_1 != span_id_2
+
+
+def test_tracer_provider_uses_secure_id_generator_when_env_var_set(monkeypatch):
+    from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+
+    from mlflow.tracing.provider import provider as _provider_wrapper
+
+    # Default: OTel's RandomIdGenerator is used
+    _initialize_tracer_provider()
+    tracer_provider = _provider_wrapper.get()
+    assert isinstance(tracer_provider.id_generator, RandomIdGenerator)
+
+    # Opt-in: _SecureIdGenerator is used when the env var is set
+    monkeypatch.setenv("MLFLOW_TRACE_USE_SECURE_ID_GENERATOR", "true")
+    _initialize_tracer_provider()
+    tracer_provider = _provider_wrapper.get()
+    assert isinstance(tracer_provider.id_generator, _SecureIdGenerator)

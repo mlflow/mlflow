@@ -832,6 +832,25 @@ MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
 )
 
+#: When set to ``True``, MLflow uses a cryptographically secure ID generator (backed by
+#: ``secrets.randbits()`` / ``os.urandom()``) instead of the default OpenTelemetry
+#: ``RandomIdGenerator`` (which uses Python's global ``random`` module).
+#:
+#: **When to enable this:** If your code calls ``random.seed()`` with a fixed value before
+#: running an MLflow-traced workload, the default generator may produce identical trace/span
+#: IDs across re-runs, causing ``"trace already exists"`` errors when the same IDs are
+#: re-submitted to the tracking backend.  Setting this variable to ``True`` makes ID
+#: generation immune to ``random.seed()`` calls.
+#:
+#: .. note::
+#:     This diverges from standard OpenTelemetry behavior.  Enable it only when you encounter
+#:     the duplicate-trace-ID issue described above.
+#:
+#: (default: ``False``)
+MLFLOW_TRACE_USE_SECURE_ID_GENERATOR = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_USE_SECURE_ID_GENERATOR", False
+)
+
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
     "MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE", str, "auto"
