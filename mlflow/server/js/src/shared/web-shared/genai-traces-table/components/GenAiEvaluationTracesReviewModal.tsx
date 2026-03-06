@@ -218,7 +218,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
         {/* Only show skeleton for the first fetch to avoid flickering when polling new spans */}
         {!shouldUseModelTraceExplorerDrawerUI() &&
           !currentTraceQueryResult.data &&
-          currentTraceQueryResult.isFetching && (
+          currentTraceQueryResult.isLoading && (
             <GenericSkeleton
               label="Loading trace..."
               style={{
@@ -240,12 +240,12 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
               {/* prettier-ignore */}
               <ModelTraceExplorerModalBody
                 traceData={currentTraceQueryResult.data}
-                showLoadingState={shouldUseModelTraceExplorerDrawerUI() && (currentTraceQueryResult.isFetching)}
+                showLoadingState={shouldUseModelTraceExplorerDrawerUI() && (currentTraceQueryResult.isLoading)}
               />
             </div>
           ) : (
             evaluation?.currentRunValue &&
-            (shouldUseModelTraceExplorerDrawerUI() && currentTraceQueryResult.isFetching ? (
+            (shouldUseModelTraceExplorerDrawerUI() && currentTraceQueryResult.isLoading ? (
               <div css={{ marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
                 <ModelTraceExplorerSkeleton />
               </div>
@@ -289,7 +289,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           selectNextEval={selectNextEval}
           selectPreviousEval={selectPreviousEval}
           renderModalTitle={renderModalTitle}
-          isLoading={currentTraceQueryResult.isFetching}
+          isLoading={currentTraceQueryResult.isLoading}
           experimentId={experimentId}
           traceInfo={currentTraceInfo}
         >
@@ -307,7 +307,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
         selectNextEval={selectNextEval}
         selectPreviousEval={selectPreviousEval}
         renderModalTitle={renderModalTitle}
-        isLoading={currentTraceQueryResult.isFetching}
+        isLoading={currentTraceQueryResult.isLoading}
       >
         {content}
         {renderExportTracesToDatasetsModal?.({
