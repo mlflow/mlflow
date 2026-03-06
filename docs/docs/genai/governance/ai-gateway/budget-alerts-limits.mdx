@@ -2,8 +2,7 @@
 title: Budget Alerts & Limits
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
+import useBaseUrl from "@docusaurus/useBaseUrl";
 
 # Budget Alerts & Limits
 
@@ -11,75 +10,26 @@ Budget policies let you control AI Gateway spending by setting cost thresholds w
 
 ## Key Concepts
 
-| Concept | Description |
-|---------|-------------|
-| **Budget Amount** | The spending threshold in USD for the time window |
-| **Duration** | The fixed time window: minutes, hours, days, or months |
-| **Target Scope** | `GLOBAL` (all requests) or `WORKSPACE` (scoped to a specific workspace) |
-| **Budget Action** | `ALERT` sends a webhook notification; `REJECT` blocks requests with HTTP 429 |
+| Concept            | Description                                                                  |
+| ------------------ | ---------------------------------------------------------------------------- |
+| **Budget Amount**  | The spending threshold in USD for the time window                            |
+| **Reset Duration** | The fixed time window: daily, weekly, or monthly                             |
+| **Target Scope**   | `GLOBAL` (all requests) or `WORKSPACE` (scoped to a specific workspace)      |
+| **Budget Action**  | `ALERT` sends a webhook notification; `REJECT` blocks requests with HTTP 429 |
 
-## Creating a Budget Policy
+## Managing Budget Policies
 
-Budget policies require admin privileges. Use the REST API to create a policy:
+Navigate to **AI Gateway > Budgets** in the MLflow UI to view and manage your budget policies.
 
-```bash
-curl -X POST http://localhost:5000/api/3.0/mlflow/gateway/budgets/create \
-  -H "Content-Type: application/json" \
-  -d '{
-    "budget_unit": "USD",
-    "budget_amount": 500.0,
-    "duration_unit": "MONTHS",
-    "duration_value": 1,
-    "target_scope": "GLOBAL",
-    "budget_action": "ALERT"
-  }'
-```
+<img src={useBaseUrl("/images/budget-policies-list.png")} alt="Budget policies list" style={{ maxWidth: "100%" }} />
 
-### Create Request Fields
+### Creating a Budget Policy
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `budget_unit` | string | Yes | Budget measurement unit. Currently only `USD` |
-| `budget_amount` | double | Yes | Spending limit in the specified currency |
-| `duration_unit` | string | Yes | Window unit: `MINUTES`, `HOURS`, `DAYS`, or `MONTHS` |
-| `duration_value` | int | Yes | Window length in units of `duration_unit` |
-| `target_scope` | string | Yes | `GLOBAL` or `WORKSPACE` |
-| `budget_action` | string | Yes | `ALERT` (webhook only) or `REJECT` (block requests) |
+Click **Create budget policy** to open the creation dialog. Specify the budget amount (USD), duration window, and the action to take when the threshold is crossed.
 
-## Managing Policies
+<img src={useBaseUrl("/images/budget-policies-create.png")} alt="Create budget policy dialog" style={{ maxWidth: "100%" }} />
 
-### List all policies
-
-```bash
-curl http://localhost:5000/api/3.0/mlflow/gateway/budgets/list
-```
-
-### Get a specific policy
-
-```bash
-curl http://localhost:5000/api/3.0/mlflow/gateway/budgets/get?budget_policy_id=bp-abc123
-```
-
-### Update a policy
-
-Only the fields you include will be updated:
-
-```bash
-curl -X POST http://localhost:5000/api/3.0/mlflow/gateway/budgets/update \
-  -H "Content-Type: application/json" \
-  -d '{
-    "budget_policy_id": "bp-abc123",
-    "budget_amount": 1000.0
-  }'
-```
-
-### Delete a policy
-
-```bash
-curl -X DELETE http://localhost:5000/api/3.0/mlflow/gateway/budgets/delete \
-  -H "Content-Type: application/json" \
-  -d '{"budget_policy_id": "bp-abc123"}'
-```
+Budget policies can also be managed via the REST API. See the [API reference](/api_reference/gateway/budget-policies) for details.
 
 ## Alert Behavior
 
@@ -103,6 +53,8 @@ The webhook payload includes:
 
 The alert fires once per window — subsequent requests within the same window do not trigger additional webhooks.
 
+To configure the webhook endpoint that receives these alerts, see the [Webhook Configuration](/genai/governance/ai-gateway/webhooks) guide.
+
 ## Reject Behavior
 
 When a `REJECT` policy's threshold is crossed, the gateway blocks all subsequent requests to AI Gateway endpoints with an HTTP 429 response:
@@ -119,12 +71,11 @@ Requests resume automatically when the current time window expires and a new win
 
 ## Time Windows
 
-Budget windows are fixed intervals aligned to the epoch (January 1, 1970 UTC):
+Budget windows are fixed intervals:
 
-- **Minutes** — e.g., `duration_value=15` creates 15-minute windows aligned to :00, :15, :30, :45
-- **Hours** — e.g., `duration_value=2` creates 2-hour windows aligned to 0:00, 2:00, 4:00, etc.
-- **Days** — e.g., `duration_value=7` creates weekly windows aligned to the epoch
-- **Months** — e.g., `duration_value=1` creates windows starting on the 1st of each month
+- **Daily** — resets every day at midnight UTC
+- **Weekly** — resets every 7 days, aligned to the epoch (January 1, 1970 UTC)
+- **Monthly** — resets on the 1st of each month
 
 Accumulated spend resets to zero at the start of each new window. Budget tracking is in-memory and resets on server restart.
 
@@ -134,10 +85,3 @@ Accumulated spend resets to zero at the start of each new window. Budget trackin
 - **Write access** (create, update, delete): Admin users only
 
 Non-admin users who attempt to create, update, or delete a budget policy receive an HTTP 403 response.
-
-## Best Practices
-
-- **Start with `ALERT`** to observe spending patterns before enforcing hard limits with `REJECT`
-- **Combine policies** — use an `ALERT` policy at 80% of your budget alongside a `REJECT` policy at 100% for early warning before cutoff
-- **Use workspace-scoped policies** to set different limits for different teams or projects
-- **Set short windows for testing** (e.g., `MINUTES` / 5) to verify alert and rejection behavior before deploying longer windows
