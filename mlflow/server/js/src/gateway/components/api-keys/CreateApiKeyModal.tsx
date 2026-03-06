@@ -57,6 +57,16 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     [resetMutation],
   );
 
+  const selectedAuthMode = useMemo(() => {
+    if (!providerConfig?.auth_modes?.length) return undefined;
+    if (formData.authMode) {
+      return providerConfig.auth_modes.find((m) => m.mode === formData.authMode);
+    }
+    return (
+      providerConfig.auth_modes.find((m) => m.mode === providerConfig.default_mode) ?? providerConfig.auth_modes[0]
+    );
+  }, [providerConfig, formData.authMode]);
+
   const validateForm = useCallback((): boolean => {
     const newErrors: typeof errors = {};
 
@@ -74,14 +84,17 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
       });
     }
 
-    const hasSecretValues = Object.values(formData.secretFields).some((v) => Boolean(v));
-    if (!hasSecretValues) {
-      newErrors.secretFields = {};
+    const requiredSecretFields = selectedAuthMode?.secret_fields?.filter((f) => f.required) ?? [];
+    if (requiredSecretFields.length > 0) {
+      const hasSecretValues = Object.values(formData.secretFields).some((v) => Boolean(v));
+      if (!hasSecretValues) {
+        newErrors.secretFields = {};
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [provider, formData.name, formData.secretFields, intl]);
+  }, [provider, formData.name, formData.secretFields, selectedAuthMode, intl]);
 
   const handleClose = useCallback(() => {
     setProvider('');
@@ -103,7 +116,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
       secret_name: formData.name,
       secret_value: formData.secretFields,
       provider,
-      auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
+      auth_config: authConfig,
     }).then(() => {
       handleClose();
       onSuccess?.();
@@ -130,16 +143,6 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
 
     return message;
   }, [mutationError, intl]);
-
-  const selectedAuthMode = useMemo(() => {
-    if (!providerConfig?.auth_modes?.length) return undefined;
-    if (formData.authMode) {
-      return providerConfig.auth_modes.find((m) => m.mode === formData.authMode);
-    }
-    return (
-      providerConfig.auth_modes.find((m) => m.mode === providerConfig.default_mode) ?? providerConfig.auth_modes[0]
-    );
-  }, [providerConfig, formData.authMode]);
 
   const isFormValid = useMemo(() => {
     if (!provider) return false;

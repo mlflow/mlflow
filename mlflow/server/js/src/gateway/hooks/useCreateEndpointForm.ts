@@ -109,7 +109,7 @@ export function useCreateEndpointForm({
           secret_name: values.newSecret.name,
           secret_value: values.newSecret.secretFields,
           provider: values.provider,
-          auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
+          auth_config: authConfig,
         });
 
         secretId = secretResponse.secret.secret_id;
@@ -151,6 +151,7 @@ export function useCreateEndpointForm({
   const secretMode = form.watch('secretMode');
   const existingSecretId = form.watch('existingSecretId');
   const newSecretName = form.watch('newSecret.name');
+  const newSecretAuthMode = form.watch('newSecret.authMode');
   const newSecretFields = form.watch('newSecret.secretFields');
 
   const prevProviderRef = useRef(provider);
@@ -200,8 +201,10 @@ export function useCreateEndpointForm({
     }
   };
 
-  const hasSecretFieldValues = Object.values(newSecretFields || {}).some((v) => !!v);
-  const isSecretConfigured = secretMode === 'existing' ? !!existingSecretId : !!newSecretName && hasSecretFieldValues;
+  const secretFieldEntries = Object.entries(newSecretFields || {});
+  const hasSecretFieldValues = secretFieldEntries.length === 0 || secretFieldEntries.some(([, v]) => !!v);
+  const isSecretConfigured =
+    secretMode === 'existing' ? !!existingSecretId : !!newSecretName && !!newSecretAuthMode && hasSecretFieldValues;
   const isFormComplete = !!provider && !!modelName && isSecretConfigured;
 
   return {

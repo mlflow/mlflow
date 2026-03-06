@@ -4,6 +4,7 @@ from mlflow.utils.providers import (
     _normalize_provider,
     get_all_providers,
     get_models,
+    get_provider_config_response,
 )
 
 
@@ -153,3 +154,20 @@ def test_get_models_dedupes_models_after_normalization():
         model_names = [m["model"] for m in models]
         assert model_names.count("gemini-3-flash-preview") == 1
         assert len(models) == 1
+
+
+def test_get_provider_config_bedrock_has_default_chain():
+    config = get_provider_config_response("bedrock")
+    modes = {m["mode"] for m in config["auth_modes"]}
+    assert "default_chain" in modes
+
+    default_chain = next(m for m in config["auth_modes"] if m["mode"] == "default_chain")
+    assert default_chain["display_name"] == "Default Credential Chain"
+    assert default_chain["secret_fields"] == []
+    assert all(not f["required"] for f in default_chain["config_fields"])
+
+
+def test_get_provider_config_sagemaker_has_default_chain():
+    config = get_provider_config_response("sagemaker")
+    modes = {m["mode"] for m in config["auth_modes"]}
+    assert "default_chain" in modes
