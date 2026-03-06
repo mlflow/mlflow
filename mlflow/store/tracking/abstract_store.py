@@ -39,7 +39,6 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
-    SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
@@ -669,7 +668,7 @@ class AbstractStore(GatewayStoreMixin):
         self,
         experiment_id: str | None = None,
         filter_string: str | None = None,
-        max_results: int = SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
+        max_results: int | None = None,
         page_token: str | None = None,
     ) -> PagedList[Issue]:
         """

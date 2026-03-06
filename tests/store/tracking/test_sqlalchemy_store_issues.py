@@ -4,7 +4,7 @@ from mlflow.exceptions import MlflowException
 
 
 def test_create_issue_required_fields_only(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
     issue = store.create_issue(
         experiment_id=exp_id,
@@ -27,7 +27,7 @@ def test_create_issue_required_fields_only(store):
 
 
 def test_create_issue_with_all_fields(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
     run = store.create_run(
         experiment_id=exp_id,
         user_id="user",
@@ -69,7 +69,7 @@ def test_create_issue_invalid_experiment(store):
 
 
 def test_create_issue_invalid_run(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
     with pytest.raises(MlflowException, match=r"FOREIGN KEY constraint failed"):
         store.create_issue(
@@ -82,7 +82,7 @@ def test_create_issue_invalid_run(store):
 
 
 def test_get_issue(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
     run = store.create_run(
         experiment_id=exp_id,
@@ -105,7 +105,6 @@ def test_get_issue(store):
 
     retrieved_issue = store.get_issue(created_issue.issue_id)
 
-    # Verify all fields
     assert retrieved_issue.issue_id == created_issue.issue_id
     assert retrieved_issue.experiment_id == exp_id
     assert retrieved_issue.name == "Low accuracy"
@@ -125,7 +124,7 @@ def test_get_issue_nonexistent(store):
 
 
 def test_update_issue(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
     created_issue = store.create_issue(
         experiment_id=exp_id,
@@ -136,7 +135,6 @@ def test_update_issue(store):
         confidence="low",
     )
 
-    # Update all supported fields (status, name, description, confidence)
     updated_issue = store.update_issue(
         issue_id=created_issue.issue_id,
         status="accepted",
@@ -145,22 +143,18 @@ def test_update_issue(store):
         confidence="high",
     )
 
-    # Verify updated fields
     assert updated_issue.issue_id == created_issue.issue_id
     assert updated_issue.experiment_id == exp_id
     assert updated_issue.status == "accepted"
     assert updated_issue.name == "Updated name"
     assert updated_issue.description == "Updated description"
     assert updated_issue.confidence == "high"
-
-    # Verify other fields remain unchanged
     assert updated_issue.root_causes == ["Initial root cause"]
     assert updated_issue.source_run_id is None
     assert updated_issue.created_by == created_issue.created_by
     assert updated_issue.created_timestamp == created_issue.created_timestamp
     assert updated_issue.last_updated_timestamp > created_issue.last_updated_timestamp
 
-    # Verify the updates are persisted by retrieving the issue again
     retrieved_issue = store.get_issue(created_issue.issue_id)
     assert retrieved_issue.status == "accepted"
     assert retrieved_issue.name == "Updated name"
@@ -171,7 +165,7 @@ def test_update_issue(store):
 
 
 def test_update_issue_partial(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
     created_issue = store.create_issue(
         experiment_id=exp_id,
@@ -181,16 +175,12 @@ def test_update_issue_partial(store):
         root_causes=["Initial root cause"],
     )
 
-    # Update only status field
     updated_issue = store.update_issue(
         issue_id=created_issue.issue_id,
         status="accepted",
     )
 
-    # Verify updated field changed
     assert updated_issue.status == "accepted"
-
-    # Verify other fields unchanged
     assert updated_issue.name == "Test issue"
     assert updated_issue.description == "Test description"
     assert updated_issue.root_causes == ["Initial root cause"]
@@ -202,9 +192,8 @@ def test_update_issue_nonexistent(store):
 
 
 def test_search_issues_no_filters(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
-    # Create 3 issues
     issue1 = store.create_issue(
         experiment_id=exp_id,
         name="Issue 1",
@@ -226,11 +215,9 @@ def test_search_issues_no_filters(store):
         status="draft",
     )
 
-    # Search without filters should return all issues ordered by created_timestamp DESC
     result = store.search_issues()
 
     assert len(result) == 3
-    # Most recent first
     assert result[0].issue_id == issue3.issue_id
     assert result[1].issue_id == issue2.issue_id
     assert result[2].issue_id == issue1.issue_id
@@ -241,7 +228,6 @@ def test_search_issues_by_experiment_id(store):
     exp_id1 = store.create_experiment("test1")
     exp_id2 = store.create_experiment("test2")
 
-    # Create issues in different experiments
     issue1 = store.create_issue(
         experiment_id=exp_id1,
         name="Exp1 Issue",
@@ -256,7 +242,6 @@ def test_search_issues_by_experiment_id(store):
         status="draft",
     )
 
-    # Search by experiment_id should only return issues from that experiment
     result = store.search_issues(experiment_id=exp_id1)
 
     assert len(result) == 1
@@ -266,9 +251,8 @@ def test_search_issues_by_experiment_id(store):
 
 
 def test_search_issues_pagination(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
-    # Create 5 issues
     created_issues = [
         store.create_issue(
             experiment_id=exp_id,
@@ -279,15 +263,13 @@ def test_search_issues_pagination(store):
         for i in range(5)
     ]
 
-    # First page: get 2 results (most recent first)
     page1 = store.search_issues(max_results=2)
 
     assert len(page1) == 2
-    assert page1[0].issue_id == created_issues[4].issue_id  # Most recent
+    assert page1[0].issue_id == created_issues[4].issue_id
     assert page1[1].issue_id == created_issues[3].issue_id
     assert page1.token is not None
 
-    # Second page: get next 2 results
     page2 = store.search_issues(max_results=2, page_token=page1.token)
 
     assert len(page2) == 2
@@ -295,11 +277,10 @@ def test_search_issues_pagination(store):
     assert page2[1].issue_id == created_issues[1].issue_id
     assert page2.token is not None
 
-    # Third page: get last result
     page3 = store.search_issues(max_results=2, page_token=page2.token)
 
     assert len(page3) == 1
-    assert page3[0].issue_id == created_issues[0].issue_id  # Oldest
+    assert page3[0].issue_id == created_issues[0].issue_id
     assert page3.token is None
 
 
@@ -307,7 +288,6 @@ def test_search_issues_empty_results(store):
     exp_id1 = store.create_experiment("test1")
     exp_id2 = store.create_experiment("test2")
 
-    # Create an issue in exp_id1
     store.create_issue(
         experiment_id=exp_id1,
         name="Test Issue",
@@ -315,7 +295,6 @@ def test_search_issues_empty_results(store):
         status="draft",
     )
 
-    # Search in different experiment should return no results
     result = store.search_issues(experiment_id=exp_id2)
 
     assert len(result) == 0
@@ -323,9 +302,8 @@ def test_search_issues_empty_results(store):
 
 
 def test_search_issues_filter_by_status(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
-    # Create issues with different statuses
     store.create_issue(
         experiment_id=exp_id,
         name="Draft Issue",
@@ -347,7 +325,6 @@ def test_search_issues_filter_by_status(store):
         status="rejected",
     )
 
-    # Filter by status using filter_string
     result = store.search_issues(filter_string="status = 'accepted'")
 
     assert len(result) == 1
@@ -356,7 +333,7 @@ def test_search_issues_filter_by_status(store):
 
 
 def test_search_issues_filter_by_source_run_id(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
     run1 = store.create_run(
         experiment_id=exp_id,
@@ -374,7 +351,6 @@ def test_search_issues_filter_by_source_run_id(store):
         tags=[],
     )
 
-    # Create issues for different runs
     issue1 = store.create_issue(
         experiment_id=exp_id,
         name="Run1 Issue",
@@ -391,7 +367,6 @@ def test_search_issues_filter_by_source_run_id(store):
         source_run_id=run2.info.run_id,
     )
 
-    # Filter by source_run_id using filter_string
     result = store.search_issues(filter_string=f"source_run_id = '{run1.info.run_id}'")
 
     assert len(result) == 1
@@ -403,7 +378,6 @@ def test_search_issues_filter_combined_with_experiment_id(store):
     exp_id1 = store.create_experiment("test1")
     exp_id2 = store.create_experiment("test2")
 
-    # Create issues in different experiments with different statuses
     issue1 = store.create_issue(
         experiment_id=exp_id1,
         name="Exp1 Draft",
@@ -425,7 +399,6 @@ def test_search_issues_filter_combined_with_experiment_id(store):
         status="draft",
     )
 
-    # Filter by experiment_id and status
     result = store.search_issues(experiment_id=exp_id1, filter_string="status = 'draft'")
 
     assert len(result) == 1
@@ -435,7 +408,7 @@ def test_search_issues_filter_combined_with_experiment_id(store):
 
 
 def test_search_issues_filter_invalid_field(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
     store.create_issue(
         experiment_id=exp_id,
@@ -444,15 +417,13 @@ def test_search_issues_filter_invalid_field(store):
         status="draft",
     )
 
-    # Filter by invalid field should raise error
     with pytest.raises(MlflowException, match=r"Invalid filter field 'invalid_field'"):
         store.search_issues(filter_string="invalid_field = 'value'")
 
 
 def test_search_issues_filter_inequality(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
-    # Create issues with different statuses
     store.create_issue(
         experiment_id=exp_id,
         name="Draft Issue",
@@ -467,7 +438,6 @@ def test_search_issues_filter_inequality(store):
         status="accepted",
     )
 
-    # Filter by status != 'draft' should return non-draft issues
     result = store.search_issues(filter_string="status != 'draft'")
 
     assert len(result) == 1
@@ -476,7 +446,7 @@ def test_search_issues_filter_inequality(store):
 
 
 def test_search_issues_filter_and_operator(store):
-    exp_id = store.create_experiment("test")
+    exp_id = "0"
 
     run1 = store.create_run(
         experiment_id=exp_id,
@@ -494,7 +464,6 @@ def test_search_issues_filter_and_operator(store):
         tags=[],
     )
 
-    # Create issues with different combinations
     store.create_issue(
         experiment_id=exp_id,
         name="Draft Run1",
@@ -519,7 +488,6 @@ def test_search_issues_filter_and_operator(store):
         source_run_id=run2.info.run_id,
     )
 
-    # Filter with AND: status = 'accepted' AND source_run_id = run1
     result = store.search_issues(
         filter_string=f"status = 'accepted' AND source_run_id = '{run1.info.run_id}'"
     )
