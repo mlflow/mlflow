@@ -334,7 +334,19 @@ def _build_eval_fn(
                 ) as executor,
                 configure_autologging_for_evaluation(enable_tracing=True),
             ):
-                futures = [executor.submit(_run_single, record) for record in dataset]
+                # Snapshot the OTel context here (on the caller's thread) so that
+                # spans created inside each worker thread are parented to the
+                # active span at the point optimize() was called.
+                from mlflow.tracing.provider import get_current_context, run_with_otel_context
+
+                eval_otel_ctx = get_current_context()
+
+                def _run_single_with_ctx(record):
+                    return run_with_otel_context(eval_otel_ctx, _run_single, record)
+
+                futures = [
+                    executor.submit(_run_single_with_ctx, record) for record in dataset
+                ]
                 results = [future.result() for future in futures]
 
             # Check for unused prompts and warn
