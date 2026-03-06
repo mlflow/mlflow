@@ -5,6 +5,8 @@ import threading
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
+import pydantic
+
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
@@ -83,18 +85,20 @@ def _call_llm(
     messages: list[dict[str, str]],
     *,
     json_mode: bool = False,
+    response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> litellm.ModelResponse:
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
     from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 
+    use_format = response_format or ({"type": "json_object"} if json_mode else None)
     response = _invoke_litellm(
         litellm_model=convert_mlflow_uri_to_litellm(model),
         messages=messages,
         tools=[],
         num_retries=NUM_RETRIES,
-        response_format={"type": "json_object"} if json_mode else None,
-        include_response_format=json_mode,
+        response_format=use_format,
+        include_response_format=use_format is not None,
         inference_params={"max_tokens": LLM_MAX_TOKENS},
     )
     if token_counter is not None:

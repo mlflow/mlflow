@@ -51,7 +51,6 @@ def test_extract_failure_labels_empty_analyses():
 def test_extract_failure_labels_single_analysis():
     analyses = [
         _ConversationAnalysis(
-            rationale_summary="The assistant failed to provide weather data",
             full_rationale="The assistant failed to provide weather data",
             affected_trace_ids=["t1"],
             execution_path="weather_tool > api_call",
@@ -74,7 +73,6 @@ def test_extract_failure_labels_single_analysis():
 def test_extract_failure_labels_multi_label():
     analyses = [
         _ConversationAnalysis(
-            rationale_summary="Two problems: auth failed and response was empty",
             full_rationale="Two problems: auth failed and response was empty",
             affected_trace_ids=["t1"],
             execution_path="api_tool",
