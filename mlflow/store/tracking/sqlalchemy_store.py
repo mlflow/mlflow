@@ -5935,7 +5935,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
 
             # Build query
-            query = session.query(SqlIssue)
+            query = self._get_query(session, SqlIssue)
 
             # Apply experiment_id filter
             if experiment_id:
