@@ -42,6 +42,7 @@ from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
+    _INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR,
     _MLFLOW_SGI_NAME,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -2712,11 +2713,6 @@ def delete_gateway_model_definition_permission():
 # =============================================================================
 
 _auth_initialized = False
-
-# Env var for a random token generated at server startup. Internal gateway requests
-# from job subprocesses (which inherit the server's environment) use this token in
-# a Bearer header to authenticate without needing real user credentials.
-_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR = "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN"
 
 
 def is_auth_enabled() -> bool:

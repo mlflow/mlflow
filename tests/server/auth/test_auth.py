@@ -20,6 +20,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
+    _INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
@@ -31,7 +32,6 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.server import auth as auth_module
-from mlflow.server.auth import _INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     CREATE_REGISTERED_MODEL_PERMISSION,

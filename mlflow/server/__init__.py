@@ -17,6 +17,7 @@ from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
 from mlflow.environment_variables import (
+    _INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR,
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
@@ -453,8 +454,6 @@ def _run_server(
     if app_name == "basic-auth" and job_execution_enabled:
         # Generate the token here (before forking uvicorn workers) so that all
         # worker processes and job subprocesses share the same token.
-        from mlflow.server.auth import _INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR
-
         env_map[_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR] = secrets.token_hex(32)
 
     if job_execution_enabled:
