@@ -2941,31 +2941,23 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     auth = request.headers["Authorization"]
     try:
         scheme, credentials = auth.split()
-    except Exception:
-        return None
-
-    if scheme.lower() != "basic":
-        return None
-
-    try:
-        decoded = base64.b64decode(credentials).decode("ascii")
-    except Exception:
-        return None
-    username, _, password = decoded.partition(":")
-
-    # Check if this is a trusted internal request from a job subprocess.
-    # The server generates a random token at startup and passes it to workers
-    # via _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN. When the password matches that
-    # token, we trust the username without calling store.authenticate_user().
-    internal_token = os.environ.get(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR)
-    if internal_token and secrets.compare_digest(password, internal_token):
-        try:
-            return store.get_user(username)
-        except MlflowException:
+        if scheme.lower() != "basic":
             return None
+        decoded = base64.b64decode(credentials).decode("ascii")
+        username, _, password = decoded.partition(":")
 
-    if store.authenticate_user(username, password):
-        return store.get_user(username)
+        # Check if this is a trusted internal request from a job subprocess.
+        # The server generates a random token at startup and passes it to workers
+        # via _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN. When the password matches that
+        # token, we trust the username without calling store.authenticate_user().
+        internal_token = os.environ.get(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR)
+        if internal_token and secrets.compare_digest(password, internal_token):
+            return store.get_user(username)
+
+        if store.authenticate_user(username, password):
+            return store.get_user(username)
+    except Exception:
+        return None
 
     return None
 
