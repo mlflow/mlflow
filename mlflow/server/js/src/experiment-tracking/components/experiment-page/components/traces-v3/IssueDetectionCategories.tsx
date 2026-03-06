@@ -104,12 +104,12 @@ const IssueCategoryCard: React.FC<IssueCategoryCardProps> = ({ category, isSelec
         alignItems: 'flex-start',
         gap: theme.spacing.md,
         padding: theme.spacing.md,
-        border: `2px solid ${isSelected ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.border}`,
+        border: `1px solid ${theme.colors.border}`,
         borderRadius: theme.borders.borderRadiusMd,
         cursor: 'pointer',
-        transition: 'border-color 0.2s',
+        transition: 'background-color 0.2s',
         '&:hover': {
-          borderColor: theme.colors.actionPrimaryBackgroundDefault,
+          backgroundColor: theme.colors.actionTertiaryBackgroundHover,
         },
       }}
       onClick={() => onToggle(category.id, !isSelected)}

@@ -98,20 +98,31 @@ describe('IssueDetectionModal', () => {
     } as any);
   });
 
-  test('renders modal', () => {
+  // Helper to navigate to step 2 (provider/model configuration)
+  const navigateToStep2 = async () => {
+    const nextButton = screen.getByText('Next').closest('button')!;
+    await userEvent.click(nextButton);
+  };
+
+  test('renders modal with step 1 (category selection)', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
     expect(screen.getByText('Detect Issues')).toBeInTheDocument();
+    expect(screen.getByText('Select Categories')).toBeInTheDocument();
   });
 
   test('renders description text', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
-    expect(screen.getByText('Connect an LLM to run an AI-powered issue analysis on your traces')).toBeInTheDocument();
+    expect(
+      screen.getByText('Use AI to automatically analyze your traces and identify potential issues'),
+    ).toBeInTheDocument();
   });
 
-  test('renders provider selection', () => {
+  test('renders provider selection in step 2', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    await navigateToStep2();
 
     expect(screen.getByTestId('provider-select')).toBeInTheDocument();
   });
@@ -119,6 +130,7 @@ describe('IssueDetectionModal', () => {
   test('shows default models when provider with defaults is selected', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
 
     expect(screen.getByText(/Analysis model: gpt-5 · Judge model: gpt-5-mini/)).toBeInTheDocument();
@@ -126,6 +138,8 @@ describe('IssueDetectionModal', () => {
 
   test('shows message when provider without defaults is selected', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    await navigateToStep2();
 
     // Add a provider option without defaults
     const providerSelect = screen.getByTestId('provider-select');
@@ -139,15 +153,20 @@ describe('IssueDetectionModal', () => {
     expect(screen.getByText(/Please select models in `Advanced settings` below/)).toBeInTheDocument();
   });
 
-  test('renders connections section', () => {
+  test('renders api key configurator in step 2', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
-    expect(screen.getByText('Connections')).toBeInTheDocument();
+    await navigateToStep2();
+
     expect(screen.getByTestId('api-key-configurator')).toBeInTheDocument();
   });
 
-  test('submit button is disabled when form is incomplete', () => {
+  test('submit button is disabled when form is incomplete', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    await navigateToStep2();
+    // Clear the default provider to make form incomplete
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), '');
 
     const submitButton = screen.getByText('Run Analysis').closest('button');
     expect(submitButton).toBeDisabled();
@@ -156,6 +175,7 @@ describe('IssueDetectionModal', () => {
   test('submit button is disabled without traces selected', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-existing-key'));
 
@@ -166,6 +186,7 @@ describe('IssueDetectionModal', () => {
   test('submit button is enabled when form is complete with existing key and traces', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-existing-key'));
 
@@ -176,6 +197,7 @@ describe('IssueDetectionModal', () => {
   test('submit button is enabled when form is complete with new key and traces', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-new-key'));
 
@@ -183,15 +205,16 @@ describe('IssueDetectionModal', () => {
     expect(submitButton).not.toBeDisabled();
   });
 
-  test('does not show save key checkbox without provider selected', () => {
+  test('does not show save key checkbox in step 1', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
     expect(screen.queryByText('Save this key for reuse')).not.toBeInTheDocument();
   });
 
-  test('shows save key checkbox when provider selected and using new key mode', async () => {
+  test('shows save key checkbox when using new key mode in step 2', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-new-key'));
 
@@ -201,6 +224,7 @@ describe('IssueDetectionModal', () => {
   test('hides save key checkbox when switching to existing key', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-new-key'));
     expect(screen.getByText('Save this key for reuse')).toBeInTheDocument();
@@ -214,7 +238,7 @@ describe('IssueDetectionModal', () => {
 
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} onClose={onClose} />);
 
-    const cancelButton = screen.getByRole('button', { name: /close/i });
+    const cancelButton = screen.getByText('Cancel').closest('button')!;
     await userEvent.click(cancelButton);
 
     expect(onClose).toHaveBeenCalled();
@@ -227,6 +251,7 @@ describe('IssueDetectionModal', () => {
       <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
     );
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-existing-key'));
 
@@ -241,6 +266,7 @@ describe('IssueDetectionModal', () => {
   test('resets api key config when provider changes', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-existing-key'));
 
@@ -255,6 +281,7 @@ describe('IssueDetectionModal', () => {
   test('shows API key name input when save key is checked', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-new-key'));
 
@@ -275,6 +302,7 @@ describe('IssueDetectionModal', () => {
 
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
 
+    await navigateToStep2();
     // When selecting a provider with available secrets, it should default to existing mode
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
 
@@ -285,18 +313,22 @@ describe('IssueDetectionModal', () => {
     expect(submitButton).not.toBeDisabled();
   });
 
-  test('renders traces selection section', () => {
+  test('renders traces selection section in step 2', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
+
+    await navigateToStep2();
 
     expect(screen.getByText('Traces')).toBeInTheDocument();
     expect(screen.getByText('Select the traces to analyze for issues')).toBeInTheDocument();
     expect(screen.getByText('Select traces')).toBeInTheDocument();
   });
 
-  test('shows trace count when initial traces are provided', () => {
+  test('shows trace count when initial traces are provided', async () => {
     renderWithDesignSystem(
       <IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1', 'trace-2', 'trace-3']} />,
     );
+
+    await navigateToStep2();
 
     expect(screen.getByText('3 traces selected')).toBeInTheDocument();
   });
@@ -304,6 +336,7 @@ describe('IssueDetectionModal', () => {
   test('opens select traces modal when button is clicked', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
+    await navigateToStep2();
     await userEvent.click(screen.getByText('Select traces'));
 
     expect(screen.getByTestId('select-traces-modal')).toBeInTheDocument();
@@ -312,6 +345,7 @@ describe('IssueDetectionModal', () => {
   test('updates trace count after selecting traces', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
+    await navigateToStep2();
     await userEvent.click(screen.getByText('Select traces'));
     await userEvent.click(screen.getByTestId('select-traces-confirm'));
 
@@ -321,6 +355,7 @@ describe('IssueDetectionModal', () => {
   test('closes select traces modal when cancel is clicked', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
+    await navigateToStep2();
     await userEvent.click(screen.getByText('Select traces'));
     expect(screen.getByTestId('select-traces-modal')).toBeInTheDocument();
 
@@ -329,13 +364,13 @@ describe('IssueDetectionModal', () => {
   });
 
   test('saves secret when save key checkbox is checked and form is submitted with new key', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const onClose = jest.fn();
 
     renderWithDesignSystem(
       <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
     );
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-new-key'));
     await userEvent.click(screen.getByText('Save this key for reuse'));
@@ -357,13 +392,13 @@ describe('IssueDetectionModal', () => {
   });
 
   test('does not save secret when save key checkbox is not checked', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const onClose = jest.fn();
 
     renderWithDesignSystem(
       <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
     );
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-new-key'));
 
@@ -377,13 +412,13 @@ describe('IssueDetectionModal', () => {
   });
 
   test('does not save secret when using existing key', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const onClose = jest.fn();
 
     renderWithDesignSystem(
       <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
     );
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-existing-key'));
 
@@ -397,7 +432,6 @@ describe('IssueDetectionModal', () => {
   });
 
   test('calls onSubmitSuccess callback when form is submitted', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const onClose = jest.fn();
     const onSubmitSuccess = jest.fn();
 
@@ -410,6 +444,7 @@ describe('IssueDetectionModal', () => {
       />,
     );
 
+    await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-existing-key'));
 
