@@ -3,6 +3,7 @@ import uuid
 import pytest
 
 from mlflow.entities import IssueStatus, TraceState
+from mlflow.entities.assessment import IssueReference
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.exceptions import MlflowException
@@ -569,22 +570,42 @@ def test_search_traces_by_issue_id(store):
         ),
     )
 
-    # Create issue with trace1 and trace2
+    # Create issues
     issue1 = store.create_issue(
         experiment_id=exp_id,
         name="High latency",
         description="API calls are slow",
         status=IssueStatus.PENDING,
-        trace_ids=[trace1.request_id, trace2.request_id],
     )
 
-    # Create another issue with only trace3
     issue2 = store.create_issue(
         experiment_id=exp_id,
         name="Authentication failure",
         description="Auth errors",
         status=IssueStatus.PENDING,
-        trace_ids=[trace3.request_id],
+    )
+
+    # Link traces to issues via IssueReference assessments
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue1.issue_id,
+            issue_name=issue1.name,
+            trace_id=trace1.request_id,
+        )
+    )
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue1.issue_id,
+            issue_name=issue1.name,
+            trace_id=trace2.request_id,
+        )
+    )
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue2.issue_id,
+            issue_name=issue2.name,
+            trace_id=trace3.request_id,
+        )
     )
 
     # Search traces by issue1 ID
