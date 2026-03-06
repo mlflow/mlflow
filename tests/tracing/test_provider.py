@@ -665,4 +665,15 @@ def test_experiment_derived_destination_invalidates_when_experiment_changes(monk
     assert isinstance(destination, UCSchemaLocation)
     assert destination.catalog_name == "catalog"
     assert destination.schema_name == "schema"
-    assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived_value is None
+    assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived is None
+
+
+def test_set_experiment_derived_without_experiment_id_is_not_cached():
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
+        UnityCatalog("catalog", "schema", table_prefix="exp"),
+        experiment_id=None,
+    )
+    assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived is None

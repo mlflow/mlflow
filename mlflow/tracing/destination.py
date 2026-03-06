@@ -25,8 +25,7 @@ class UserTraceDestinationRegistry:
     def __init__(self):
         self._global_value = None
         self._context_local_value = ContextVar("mlflow_trace_destination", default=None)
-        self._experiment_derived_value = None
-        self._experiment_derived_experiment_id: str | None = None
+        self._experiment_derived: tuple[str, TraceLocationBase] | None = None
 
     def get(self) -> TraceLocationBase | None:
         # Precedence: context-local -> global -> experiment-derived -> env.
@@ -34,9 +33,10 @@ class UserTraceDestinationRegistry:
             return local_destination
         if self._global_value:
             return self._global_value
-        if self._experiment_derived_value:
-            if self._is_experiment_derived_current():
-                return self._experiment_derived_value
+        if self._experiment_derived:
+            experiment_id, destination = self._experiment_derived
+            if self._is_experiment_derived_current(experiment_id):
+                return destination
             self.clear_experiment_derived()
         return self._get_trace_location_from_env()
 
@@ -47,29 +47,29 @@ class UserTraceDestinationRegistry:
             self._global_value = value
 
     def set_experiment_derived(self, value, experiment_id: str | None = None):
-        self._experiment_derived_value = value
-        self._experiment_derived_experiment_id = experiment_id
+        if experiment_id is None:
+            _logger.debug(
+                "Skipping experiment-derived destination cache because experiment_id is missing."
+            )
+            self.clear_experiment_derived()
+            return
+        self._experiment_derived = (experiment_id, value)
 
     def clear_experiment_derived(self):
-        self._experiment_derived_value = None
-        self._experiment_derived_experiment_id = None
+        self._experiment_derived = None
 
     def reset(self):
         self._global_value = None
         self._context_local_value.set(None)
-        self._experiment_derived_value = None
-        self._experiment_derived_experiment_id = None
+        self._experiment_derived = None
 
-    def _is_experiment_derived_current(self) -> bool:
+    def _is_experiment_derived_current(self, experiment_id: str) -> bool:
         """Check if the cached experiment-derived destination still matches active experiment."""
-        if not self._experiment_derived_experiment_id:
-            return False
-
         try:
             # Lazy import to avoid circular dependency.
             from mlflow.tracking.fluent import _get_experiment_id
 
-            return _get_experiment_id() == self._experiment_derived_experiment_id
+            return _get_experiment_id() == experiment_id
         except Exception:
             _logger.debug(
                 "Failed to validate cached experiment-derived destination; invalidating cache.",
