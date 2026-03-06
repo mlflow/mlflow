@@ -670,6 +670,9 @@ def test_experiment_derived_destination_invalidates_when_experiment_changes(monk
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
     _MLFLOW_TRACE_USER_DESTINATION.reset()
+    # Pre-set tracking URI so the env fallback doesn't trigger set_tracking_uri →
+    # reset() which would clear _experiment_derived as a side effect.
+    mlflow.set_tracking_uri("databricks")
     monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
     monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: "exp-2")
 
