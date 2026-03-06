@@ -7,8 +7,12 @@ import mlflow
 from mlflow.telemetry.events import TracingContextPropagation
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.provider import get_context_api, get_current_context, get_current_otel_span
+from mlflow.tracing.session_context import _get_session_id_for_trace, set_session_id
 
 _logger = logging.getLogger(__name__)
+
+# Header name for propagating session ID in distributed tracing
+MLFLOW_SESSION_ID_HEADER = "mlflow-session-id"
 
 
 @record_usage_event(TracingContextPropagation)
@@ -64,6 +68,11 @@ def get_tracing_context_headers_for_http_request() -> dict[str, str]:
         )
     headers = {}
     TraceContextTextMapPropagator().inject(carrier=headers, context=get_current_context())
+
+    # Include session ID in headers for distributed tracing propagation
+    if session_id := _get_session_id_for_trace():
+        headers[MLFLOW_SESSION_ID_HEADER] = session_id
+
     return headers
 
 
@@ -121,6 +130,7 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
 
     token = None
     otel_trace_id = None
+    session_id = None
     trace_manager = InMemoryTraceManager.get_instance()
     try:
         headers = dict(headers)
@@ -156,9 +166,19 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
 
         trace_manager.register_trace(otel_trace_id, dummy_trace_info, is_remote_trace=True)
 
+        # Extract and set session ID from headers if present
+        session_id = headers.get(MLFLOW_SESSION_ID_HEADER) or headers.get(
+            MLFLOW_SESSION_ID_HEADER.title()  # Handle case-insensitive headers
+        )
+        if session_id:
+            set_session_id(session_id)
+
         yield
     finally:
         if token is not None:
             get_context_api().detach(token)
         if otel_trace_id is not None:
             trace_manager.pop_trace(otel_trace_id)
+        # Clear session ID when exiting the distributed context
+        if session_id:
+            set_session_id(None)
