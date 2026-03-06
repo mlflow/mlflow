@@ -26,6 +26,7 @@ from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.requirements_utils import _parse_requirements
 
 from tests.helper_functions import (
     _assert_pip_requirements,
@@ -563,8 +564,6 @@ def test_model_log_with_signature_inference(lgb_model):
 
 
 def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
-    from mlflow.utils.requirements_utils import _parse_requirements
-
     model = lgb_sklearn_model.model
     mlflow.lightgbm.save_model(
         lgb_model=model,
@@ -596,8 +595,6 @@ def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
 
 
 def test_sklearn_regressor_model_save_load_by_skops(lgb_sklearn_regressor_model, model_path):
-    from mlflow.utils.requirements_utils import _parse_requirements
-
     model = lgb_sklearn_regressor_model.model
     mlflow.lightgbm.save_model(
         lgb_model=model,
