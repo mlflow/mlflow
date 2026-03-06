@@ -5909,7 +5909,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         self,
         experiment_id: str | None = None,
         filter_string: str | None = None,
-        max_results: int = SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
+        max_results: int | None = None,
         page_token: str | None = None,
     ) -> PagedList[Issue]:
         """
@@ -5930,18 +5930,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns:
             A PagedList of Issue entities.
         """
+        if max_results is None:
+            max_results = SEARCH_ISSUES_DEFAULT_MAX_RESULTS
+
         with self.ManagedSessionMaker() as session:
-            # Parse page token to get offset
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
 
-            # Build query
             query = self._get_query(session, SqlIssue)
 
-            # Apply experiment_id filter
             if experiment_id:
                 query = query.filter(SqlIssue.experiment_id == experiment_id)
 
-            # Parse and apply filter_string
             if filter_string:
                 parsed_filters = SearchIssuesUtils.parse_search_filter(filter_string)
                 filter_clauses = _get_search_issues_filter_clauses(
@@ -5949,15 +5948,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 query = query.filter(*filter_clauses)
 
-            # Order by created_timestamp DESC
-            query = query.order_by(SqlIssue.created_timestamp.desc())
+            query = query.order_by(
+                SqlIssue.created_timestamp.desc(),
+                SqlIssue.issue_id.desc(),
+            )
 
-            # Apply pagination - fetch max_results + 1 to determine if there's a next page
             query = query.offset(offset).limit(max_results + 1)
 
             sql_issues = query.all()
 
-            # Determine next page token
             has_next_page = len(sql_issues) > max_results
             next_token = (
                 SearchTraceUtils.create_page_token(offset + max_results) if has_next_page else None
