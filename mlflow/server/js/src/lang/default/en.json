@@ -794,6 +794,10 @@
     "defaultMessage": "Delete",
     "description": "Text for delete button on model version view page header"
   },
+  "40TLJk": {
+    "defaultMessage": "Structured output:",
+    "description": "Label for structured output schema in the prompt details page"
+  },
   "40u/J+": {
     "defaultMessage": "Custom code",
     "description": "Label for custom code scorer type"
@@ -1361,6 +1365,10 @@
   "7pkOrA": {
     "defaultMessage": "Model",
     "description": "Summary model label"
+  },
+  "7ritzC": {
+    "defaultMessage": "Optional. Define a JSON schema for structured LLM responses.",
+    "description": "Hint for the structured output field in the prompt creation modal"
   },
   "7teFL4": {
     "defaultMessage": "Search metric charts",
@@ -4145,6 +4153,10 @@
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
   },
+  "SJUd4K": {
+    "defaultMessage": "Invalid structured output JSON",
+    "description": "Validation error message for the structured output JSON schema field in the prompt creation modal"
+  },
   "SJk8DQ": {
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for pre-built LLM judge type filter option"
@@ -4627,6 +4639,10 @@
   "VTePPP": {
     "defaultMessage": "Create your first experiment",
     "description": "Home page experiments empty state title"
+  },
+  "VVoQ5V": {
+    "defaultMessage": "Structured output (JSON schema)",
+    "description": "Label for the structured output JSON schema field in the prompt creation modal"
   },
   "VXduJD": {
     "defaultMessage": "The provided value is not valid JSON",
