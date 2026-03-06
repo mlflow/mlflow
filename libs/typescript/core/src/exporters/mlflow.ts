@@ -18,10 +18,7 @@ import {
   TRACE_SCHEMA_VERSION,
   TraceMetadataKey,
 } from '../core/constants';
-import {
-  convertHrTimeToMs,
-  aggregateUsageFromSpans,
-} from '../core/utils';
+import { convertHrTimeToMs, aggregateUsageFromSpans } from '../core/utils';
 import { getConfig } from '../core/config';
 import { MlflowClient } from '../clients';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
