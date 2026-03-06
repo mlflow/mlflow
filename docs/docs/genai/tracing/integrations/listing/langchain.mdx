@@ -18,7 +18,7 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 [LangChain](https://www.langchain.com/) is an open-source framework for building LLM-powered applications.
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for LangChain. You can enable tracing
-for LangChain by calling the <APILink fn="mlflow.langchain.autolog" /> function, and nested traces are automatically logged to the active MLflow Experiment upon invocation of chains. In TypeScript, you can pass the MLflow LangChain callback to the `callbacks` option.
+for LangChain by calling the <APILink fn="mlflow.langchain.autolog" /> function, and nested traces are automatically logged to the active MLflow Experiment upon invocation of chains. In TypeScript, you can use the `@mlflow/langchain` package to wrap LangChain chat models with automatic tracing.
 
 <TabsWrapper>
 <Tabs>
@@ -33,7 +33,15 @@ mlflow.langchain.autolog()
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
 
-LangChain.js tracing is supported via the OpenTelemetry ingestion. See the [Getting Started section](#getting-started) below for the full setup.
+```typescript
+import * as mlflow from "@mlflow/core";
+import { tracedModel } from "@mlflow/langchain";
+import { ChatAnthropic } from "@langchain/anthropic";
+
+mlflow.init();
+
+const model = tracedModel(new ChatAnthropic({ model: "claude-sonnet-4-5-20250514" }));
+```
 
   </TabItem>
 </Tabs>
@@ -41,7 +49,13 @@ LangChain.js tracing is supported via the OpenTelemetry ingestion. See the [Gett
 
 ## Getting Started
 
-MLflow support tracing for LangChain in both Python and TypeScript/JavaScript. Please select the appropriate tab below to get started.
+MLflow supports tracing for LangChain in both Python and TypeScript/JavaScript. Please select the appropriate tab below to get started.
+
+:::tip Choosing a TypeScript tracing approach
+The **JS / TS (MLflow)** tab uses the `@mlflow/langchain` package, which exports traces in a format optimized for the MLflow Trace UI — input/output messages, token usage, and span types render cleanly in the Chat and Trace views. This is the recommended approach for most users.
+
+The **OpenTelemetry** tabs use the Arize OpenInference instrumentation and still work well — traces are fully functional for programmatic access and agent-based evaluation — but the raw OpenTelemetry span format is harder to read as a human in the MLflow UI.
+:::
 
 <TabsWrapper>
 <Tabs>
@@ -105,7 +119,52 @@ chain.invoke(
 Visit `http://localhost:5000` (or your custom MLflow tracking server URL) to view the trace in the MLflow UI.
 
   </TabItem>
-  <TabItem value="typescript-v1" label="JS / TS (v1)">
+  <TabItem value="typescript" label="JS / TS (MLflow)">
+
+### 1. Start MLflow
+
+Start the MLflow server following the [Self-Hosting Guide](/self-hosting), if you don't have one already.
+
+### 2. Install dependencies
+
+```bash
+npm install @mlflow/langchain @mlflow/core @langchain/core @langchain/anthropic
+```
+
+### 3. Enable tracing and make API calls
+
+Wrap a LangChain chat model with the `tracedModel` function and make API calls as usual. Both `invoke()` and `stream()` are automatically traced.
+
+```typescript
+import * as mlflow from "@mlflow/core";
+import { tracedModel } from "@mlflow/langchain";
+import { ChatAnthropic } from "@langchain/anthropic";
+
+// Initialize MLflow
+mlflow.init({
+  trackingUri: "http://localhost:5000",
+  experimentId: "<experiment-id>",
+});
+
+// Wrap the LangChain model with tracedModel
+const model = tracedModel(
+  new ChatAnthropic({ model: "claude-sonnet-4-5-20250514" })
+);
+
+// invoke() and stream() calls are automatically traced
+const result = await model.invoke([
+  { role: "user", content: "Hello, Claude!" },
+]);
+```
+
+`tracedModel` works with any `BaseChatModel` subclass, including `ChatOpenAI`, `ChatXAI`, and others.
+
+### 4. View the trace in the MLflow UI
+
+Visit `http://localhost:5000` (or your custom MLflow tracking server URL) to view the trace in the MLflow UI.
+
+  </TabItem>
+  <TabItem value="typescript-v1" label="JS / TS (OpenTelemetry v1)">
 
 ### 1. Start MLflow
 
@@ -181,7 +240,7 @@ await agent.invoke({
 Visit `http://localhost:5000` (or your custom MLflow tracking server URL) to view the trace in the MLflow UI.
 
   </TabItem>
-  <TabItem value="typescript-v0" label="JS / TS (v0)">
+  <TabItem value="typescript-v0" label="JS / TS (OpenTelemetry v0)">
 
 ### 1. Start MLflow
 
