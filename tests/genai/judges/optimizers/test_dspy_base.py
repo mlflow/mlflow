@@ -9,10 +9,8 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
-from mlflow.genai.judges.optimizers.dspy_utils import (
-    AgentEvalLM,
-    convert_mlflow_uri_to_litellm,
-)
+from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM
+from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
 
 from tests.genai.judges.optimizers.conftest import MockDSPyLM, MockJudge
 
@@ -148,8 +146,8 @@ def test_optimizer_and_judge_use_different_models(sample_traces_with_assessments
     mock_judge = MockJudge(name="mock_judge", model=judge_model)
     traces = sample_traces_with_assessments
 
-    optimizer_lm = MockDSPyLM(convert_mlflow_uri_to_litellm(optimizer_model))
-    judge_lm = MockDSPyLM(convert_mlflow_uri_to_litellm(judge_model))
+    optimizer_lm = MockDSPyLM(convert_model_uri_to_litellm(optimizer_model))
+    judge_lm = MockDSPyLM(convert_model_uri_to_litellm(judge_model))
 
     mock_lm_factory = _create_mock_dspy_lm_factory(optimizer_lm, judge_lm)
     mock_make_judge = make_judge_mock_builder(
@@ -256,7 +254,7 @@ def test_mlflow_to_litellm_uri_conversion_in_judge_program():
 
     with patch("mlflow.genai.judges.optimizers.dspy.make_judge", side_effect=mock_make_judge):
         mock_lm = MagicMock()
-        mock_lm.model = convert_mlflow_uri_to_litellm(mock_judge.model)
+        mock_lm.model = convert_model_uri_to_litellm(mock_judge.model)
 
         program.forward(inputs="test", outputs="test", lm=mock_lm)
 

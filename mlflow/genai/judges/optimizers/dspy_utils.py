@@ -123,7 +123,7 @@ def construct_dspy_lm(model: str):
     if model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
         return AgentEvalLM()
     else:
-        model_litellm = convert_mlflow_uri_to_litellm(model)
+        model_litellm = convert_model_uri_to_litellm(model)
         api_base, api_key = _get_api_base_key(model)
         if api_base:
             return dspy.LM(model=model_litellm, api_base=api_base, api_key=api_key)
@@ -286,10 +286,6 @@ def _sanitize_assessment_name(name: str) -> str:
     Sanitize a name by converting it to lowercase and stripping whitespace.
     """
     return name.lower().strip()
-
-
-# Re-export for backward compatibility (canonical source: mlflow.metrics.genai.model_utils)
-convert_mlflow_uri_to_litellm = convert_model_uri_to_litellm
 
 
 def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
