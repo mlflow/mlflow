@@ -1321,3 +1321,11 @@ MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
 MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
 )
+
+#: Internal env var for the shared gateway auth token. The server generates a random
+#: token at startup and sets it in the environment so all uvicorn workers and job
+#: subprocesses can use it to authenticate internal gateway requests.
+#: (default: ``None``)
+_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
+    "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
+)
