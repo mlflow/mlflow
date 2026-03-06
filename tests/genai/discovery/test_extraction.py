@@ -34,12 +34,7 @@ def test_extract_span_errors_truncation(make_trace):
 # ---- extract_failure_labels ----
 
 
-def test_extract_failure_labels_empty_analyses():
-    labels = extract_failure_labels([], "openai:/gpt-5-mini")
-    assert labels == []
-
-
-def _mock_llm_response(content):
+def _make_llm_response(content: str):
     response = mock.MagicMock()
     response.choices = [mock.MagicMock()]
     response.choices[0].message.content = content
@@ -47,22 +42,56 @@ def _mock_llm_response(content):
     return response
 
 
+def test_extract_failure_labels_empty_analyses():
+    labels, label_to_analysis = extract_failure_labels([], "openai:/gpt-5-mini")
+    assert labels == []
+    assert label_to_analysis == []
+
+
 def test_extract_failure_labels_single_analysis():
-    analysis = _ConversationAnalysis(
-        rationale_summary="User asked for weather but got stock prices",
-        full_rationale="User asked for weather but got stock prices",
-        affected_trace_ids=["t1"],
-        execution_path="weather_agent > get_forecast",
-    )
+    analyses = [
+        _ConversationAnalysis(
+            rationale_summary="The assistant failed to provide weather data",
+            full_rationale="The assistant failed to provide weather data",
+            affected_trace_ids=["t1"],
+            execution_path="weather_tool > api_call",
+        ),
+    ]
+
     with mock.patch(
         "mlflow.genai.discovery.extraction._call_llm",
-        return_value=_mock_llm_response("returned stock prices instead of weather"),
-    ) as mock_call:
-        labels = extract_failure_labels([analysis], "openai:/gpt-5-mini")
-        mock_call.assert_called_once()
+        return_value=_make_llm_response("didn't provide weather data despite explicit request"),
+    ) as mock_llm:
+        labels, label_to_analysis = extract_failure_labels(analyses, "openai:/gpt-5-mini")
 
+    mock_llm.assert_called_once()
     assert len(labels) == 1
-    assert labels[0] == "[weather_agent > get_forecast] returned stock prices instead of weather"
+    assert "[weather_tool > api_call]" in labels[0]
+    assert "weather data" in labels[0]
+    assert label_to_analysis == [0]
+
+
+def test_extract_failure_labels_multi_label():
+    analyses = [
+        _ConversationAnalysis(
+            rationale_summary="Two problems: auth failed and response was empty",
+            full_rationale="Two problems: auth failed and response was empty",
+            affected_trace_ids=["t1"],
+            execution_path="api_tool",
+        ),
+    ]
+
+    with mock.patch(
+        "mlflow.genai.discovery.extraction._call_llm",
+        return_value=_make_llm_response("auth token expired\nempty response body"),
+    ) as mock_llm:
+        labels, label_to_analysis = extract_failure_labels(analyses, "openai:/gpt-5-mini")
+
+    mock_llm.assert_called_once()
+    assert len(labels) == 2
+    assert label_to_analysis == [0, 0]
+    assert "[api_tool] auth token expired" in labels
+    assert "[api_tool] empty response body" in labels
 
 
 # ---- extract_failing_traces ----

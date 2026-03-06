@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import mlflow
@@ -8,9 +9,39 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import LLM_MAX_TOKENS, NUM_RETRIES
 from mlflow.genai.scorers.base import Scorer
+from mlflow.tracing.constant import TraceMetadataKey
 
 if TYPE_CHECKING:
     import litellm
+
+
+def get_session_id(trace: Trace) -> str | None:
+    return (trace.info.trace_metadata or {}).get(TraceMetadataKey.TRACE_SESSION)
+
+
+def group_traces_by_session(
+    traces: list[Trace],
+) -> dict[str, list[Trace]]:
+    """
+    Group traces by session ID.
+
+    Traces without a session become standalone single-trace "sessions"
+    keyed by their trace_id. Each group is sorted by timestamp_ms.
+
+    Note: mlflow.genai.evaluation.session_utils has a similar function, but it
+    operates on EvalItem objects and drops traces without sessions. This version
+    works on raw Trace objects and keeps sessionless traces as standalone groups,
+    which is required for the discovery pipeline's frequency calculations.
+    """
+    groups: dict[str, list[Trace]] = defaultdict(list)
+    for trace in traces:
+        session_id = get_session_id(trace) or trace.info.trace_id
+        groups[session_id].append(trace)
+
+    for traces_in_group in groups.values():
+        traces_in_group.sort(key=lambda trace: trace.info.timestamp_ms)
+
+    return dict(groups)
 
 
 class _TokenCounter:
