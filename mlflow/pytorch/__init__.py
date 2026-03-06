@@ -217,7 +217,7 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
-        export_model: If set to True, save the model as "pt2" format. This argument is deprecated,
+        export_model: If set to True, save the model as "pt2" format. This argument is deprecated.
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
            Accepted values are "pickle" and "pt2".
@@ -376,7 +376,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata:{{ metadata }}
-        export_model: If set to True, save the model as "pt2" format. This argument is deprecated,
+        export_model: If set to True, save the model as "pt2" format. This argument is deprecated.
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
            Accepted values are "pickle" and "pt2".
@@ -507,10 +507,10 @@ def save_model(
             isinstance(value, (np.ndarray, torch.Tensor)) for value in input_example
         ):
             raise MlflowException(
-                "If `serialization_format` is set to 'pt2', then `input_example` is required and "
-                "must be a numpy array or torch tensor, or a tuple / list of numpy arrays or "
-                "torch tensors, because 'pt2' is a traced-graph format, "
-                "and PyTorch traces the model graph by virtually executing `model.forward` with "
+                "If serialization_format is set to 'pt2', then input_example is required. "
+                "It must be a numpy array or torch tensor, or a tuple/list of numpy arrays "
+                "or torch tensors. This is because 'pt2' is a traced-graph format: "
+                "PyTorch traces the model graph by virtually executing model.forward with "
                 "the provided example input."
             )
 
@@ -521,8 +521,10 @@ def save_model(
             and signature.inputs.is_tensor_spec()
         ):
             raise MlflowException(
-                "If `serialization_format` is set to 'pt2', then the model input signature must "
-                "by specified using `TensorSpec`."
+                "Unsupported signature type for the selected serialization format. "
+                "If the `serialization_format` argument is set to 'pt2', the input signature "
+                "must by specified using `TensorSpec`. Please update the model signature or "
+                "use `pickle` for serialization format."
             )
 
         tensor_spec_list = signature.inputs.inputs
