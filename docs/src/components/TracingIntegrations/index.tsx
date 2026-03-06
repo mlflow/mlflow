@@ -406,6 +406,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Tools',
   },
   {
+    id: 'goose',
+    name: 'Goose',
+    logoPath: '/images/logos/goose-logo.png',
+    link: '/genai/tracing/integrations/listing/goose',
+    category: 'No-Code',
+  },
+  {
     id: 'langfuse',
     name: 'Langfuse',
     logoPath: '/images/logos/langfuse-logo.png',
