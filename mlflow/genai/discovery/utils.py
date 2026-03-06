@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-import logging
 import threading
+from typing import TYPE_CHECKING
 
+import mlflow
+from mlflow.entities.assessment import Feedback
+from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import LLM_MAX_TOKENS, NUM_RETRIES
-from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
+from mlflow.genai.scorers.base import Scorer
 
-_logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    import litellm
 
 
 class _TokenCounter:
@@ -19,16 +22,16 @@ class _TokenCounter:
         self.output_tokens = 0
         self.cost_usd = 0.0
 
-    def track(self, response) -> None:
+    def track(self, response: litellm.ModelResponse) -> None:
         with self._lock:
-            if usage := getattr(response, "usage", None):
-                self.input_tokens += getattr(usage, "prompt_tokens", 0) or 0
-                self.output_tokens += getattr(usage, "completion_tokens", 0) or 0
+            if response.usage:
+                self.input_tokens += response.usage.prompt_tokens or 0
+                self.output_tokens += response.usage.completion_tokens or 0
             if hidden := getattr(response, "_hidden_params", None):
                 if cost := hidden.get("response_cost"):
                     self.cost_usd += cost
 
-    def to_dict(self) -> dict[str, object]:
+    def to_dict(self) -> dict[str, int | float]:
         result = {}
         total = self.input_tokens + self.output_tokens
         if total > 0:
@@ -46,7 +49,10 @@ def _call_llm(
     *,
     json_mode: bool = False,
     token_counter: _TokenCounter | None = None,
-) -> object:
+) -> litellm.ModelResponse:
+    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
+    from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
+
     response = _invoke_litellm(
         litellm_model=convert_mlflow_uri_to_litellm(model),
         messages=messages,
@@ -59,3 +65,41 @@ def _call_llm(
     if token_counter is not None:
         token_counter.track(response)
     return response
+
+
+def verify_scorer(
+    scorer: Scorer,
+    trace: Trace,
+    session: list[Trace] | None = None,
+) -> None:
+    """
+    Verify a scorer works on a single trace (or session) before running the full pipeline.
+
+    Calls the scorer and checks that the returned Feedback has a non-null value.
+
+    Args:
+        scorer: The scorer to test.
+        trace: A trace to run the scorer on (used for trace-based scorers).
+        session: If provided, pass as ``session=`` to the scorer instead of ``trace=``.
+            Used for conversation-based scorers that require ``{{ conversation }}``.
+
+    Raises:
+        MlflowException: If the scorer produces no feedback or returns a null value.
+    """
+    try:
+        feedback = scorer(session=session) if session is not None else scorer(trace=trace)
+        if not isinstance(feedback, Feedback):
+            raise mlflow.exceptions.MlflowException(
+                f"Scorer '{scorer.name}' returned {type(feedback).__name__} instead of Feedback"
+            )
+        if feedback.value is None:
+            error = feedback.error_message or "unknown error (check model API logs)"
+            raise mlflow.exceptions.MlflowException(
+                f"Scorer '{scorer.name}' returned null value: {error}"
+            )
+    except mlflow.exceptions.MlflowException:
+        raise
+    except Exception as exc:
+        raise mlflow.exceptions.MlflowException(
+            f"Scorer '{scorer.name}' failed verification on trace {trace.info.trace_id}: {exc}"
+        ) from exc
