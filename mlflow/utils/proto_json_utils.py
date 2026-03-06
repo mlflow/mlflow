@@ -193,9 +193,26 @@ def _stringify_all_experiment_ids(x):
             _stringify_all_experiment_ids(y)
 
 
+def _stringify_all_model_ids(x):
+    """Converts model_id fields which are defined as ints into strings in the given json.
+    This is necessary because some registry backends return model_id as a JSON integer,
+    but the ModelVersion protobuf defines it as TYPE_STRING.
+    """
+    if isinstance(x, dict):
+        for k, v in x.items():
+            if k == "model_id":
+                x[k] = str(v)
+            else:
+                _stringify_all_model_ids(v)
+    elif isinstance(x, list):
+        for y in x:
+            _stringify_all_model_ids(y)
+
+
 def parse_dict(js_dict, message):
     """Parses a JSON dictionary into a message proto, ignoring unknown fields in the JSON."""
     _stringify_all_experiment_ids(js_dict)
+    _stringify_all_model_ids(js_dict)
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
 
 
