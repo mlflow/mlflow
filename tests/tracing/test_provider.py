@@ -1,3 +1,4 @@
+import random
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -25,9 +26,9 @@ from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
-    _SecureIdGenerator,
     _get_tracer,
     _initialize_tracer_provider,
+    _SecureIdGenerator,
     is_tracing_enabled,
     start_span_in_context,
     trace_disabled,
@@ -591,18 +592,6 @@ def test_otel_resource_attributes(monkeypatch):
 
 
 def test_secure_id_generator_not_affected_by_random_seed():
-    """
-    _SecureIdGenerator must use secrets.randbits() so that user calls to random.seed()
-    do not make trace/span IDs deterministic across runs.
-
-    Regression test for https://github.com/mlflow/mlflow/pull/21418:
-    The default OTel RandomIdGenerator uses random.getrandbits(), which is affected by
-    random.seed(). When a user calls random.seed(42) in their script, every re-run of
-    that script produces the same sequence of trace/span IDs, causing
-    "trace already exists" errors on the Databricks backend.
-    """
-    import random
-
     gen = _SecureIdGenerator()
 
     random.seed(42)
@@ -626,10 +615,6 @@ def test_secure_id_generator_not_affected_by_random_seed():
 
 
 def test_tracer_provider_uses_secure_id_generator():
-    """
-    The TracerProvider initialized by MLflow must use _SecureIdGenerator, not the default
-    OTel RandomIdGenerator, so that trace/span IDs are never influenced by random.seed().
-    """
     from mlflow.tracing.provider import provider as _provider_wrapper
 
     _initialize_tracer_provider()

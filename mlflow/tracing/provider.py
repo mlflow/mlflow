@@ -74,7 +74,7 @@ class _SecureIdGenerator(IdGenerator):
     The default OTel ``RandomIdGenerator`` calls ``random.getrandbits()``, which is
     affected by ``random.seed()`` calls in user code.  This leads to deterministic
     trace IDs across script re-runs, causing "trace already exists" errors when the
-    same IDs are re-submitted to a tracking backend (e.g. Databricks).
+    same IDs are re-submitted to a tracking backend.
     """
 
     def generate_span_id(self) -> int:
