@@ -8,12 +8,12 @@ from pathlib import Path
 TEMPLATE_PATH = Path(__file__).resolve().parents[2] / ".github" / "pull_request_template.md"
 
 
-def get_required_sections() -> list[str]:
-    """Parse heading sections (##, ###, etc.) from the PR template."""
+def get_headers() -> list[str]:
+    """Parse heading sections (#, ##, ###, etc.) from the PR template."""
     return [
         line.strip()
         for line in TEMPLATE_PATH.read_text().splitlines()
-        if re.match(r"^#{2,}\s", line.strip())
+        if re.match(r"^#+\s", line.strip())
     ]
 
 
@@ -58,13 +58,13 @@ def main() -> None:
     # enough that they won't appear in other flags like --title or --repo, so the
     # risk of false positives is negligible.
     command_lines = {line.strip() for line in command.splitlines()}
-    required = get_required_sections()
-    missing = [s for s in required if s not in command_lines]
+    headers = get_headers()
+    missing = [s for s in headers if s not in command_lines]
 
     # If all sections are missing, the body is likely opaque (e.g. --body "$VAR")
     # and we can't validate it. Only deny when some sections are present but
     # others are missing, indicating an incomplete but visible body.
-    if missing and len(missing) < len(required):
+    if missing and len(missing) < len(headers):
         missing_list = "\n".join(f"  - {s}" for s in missing)
         deny(
             f"PR body is missing required sections from the PR template:\n"
