@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import asdict
-from typing import Any, Literal, get_origin
+from typing import Any, Literal
 
 import pydantic
 from pydantic import PrivateAttr
@@ -24,6 +24,7 @@ from mlflow.genai.judges.instructions_judge.constants import (
 from mlflow.genai.judges.utils import (
     add_output_format_instructions,
     format_prompt,
+    format_type,
     get_default_model,
     invoke_judge_model,
     validate_judge_model,
@@ -338,7 +339,7 @@ class InstructionsJudge(Judge):
             # structured outputs with tool calls can still understand the type.
             evaluation_rating_fields = "\n".join(
                 [
-                    f"- {field.name} ({self._format_type(field.value_type)}): {field.description}"
+                    f"- {field.name} ({format_type(field.value_type)}): {field.description}"
                     for field in output_fields
                 ]
             )
@@ -371,14 +372,6 @@ class InstructionsJudge(Judge):
             if self._generate_rationale_first
             else [result_field, rationale_field]
         )
-
-    def _format_type(self, value_type: Any) -> str:
-        if value_type in (str, int, float, bool):
-            return value_type.__name__
-        elif get_origin(value_type) is Literal:
-            return str(value_type).replace("typing.", "")
-        # dict and list
-        return str(value_type)
 
     def _build_user_message(
         self,
