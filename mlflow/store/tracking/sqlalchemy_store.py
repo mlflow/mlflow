@@ -5828,7 +5828,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
             session.add(sql_issue)
-            session.commit()
 
             # Return Issue entity
             return sql_issue.to_mlflow_entity()
