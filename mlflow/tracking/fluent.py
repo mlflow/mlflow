@@ -81,6 +81,7 @@ from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX,
     MLFLOW_DATASET_CONTEXT,
+    MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
     MLFLOW_MODEL_IS_EXTERNAL,
@@ -139,7 +140,6 @@ def _reset_last_logged_model_id() -> None:
 
 
 _experiment_lock = threading.Lock()
-_TELEMETRY_PROFILE_ID_TAG = "mlflow.experiment.databricksTelemetryDestinationId"
 
 
 def set_experiment(
@@ -261,7 +261,7 @@ def set_experiment(
 
 def _extract_telemetry_profile_id(experiment: Experiment) -> str | None:
     tags = experiment.tags or {}
-    return tags.get(_TELEMETRY_PROFILE_ID_TAG) or None
+    return tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID) or None
 
 
 def _locations_match(a: UnityCatalog, b: UnityCatalog) -> bool:

@@ -50,6 +50,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
@@ -592,7 +593,7 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
             return None
 
         tags = experiment.tags or {}
-        telemetry_profile_id = tags.get("mlflow.experiment.databricksTelemetryDestinationId")
+        telemetry_profile_id = tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID)
         if not telemetry_profile_id:
             return None
 

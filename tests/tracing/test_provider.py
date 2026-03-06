@@ -36,6 +36,7 @@ from mlflow.tracing.provider import (
     trace_disabled,
 )
 from mlflow.tracing.utils import get_active_spans_table_name
+from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
 
 from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
 
@@ -712,9 +713,6 @@ def test_experiment_derived_destination_preserved_when_validation_errors(monkeyp
     assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived is not None
 
 
-_RESOLVE_UC_DEST_TAG = "mlflow.experiment.databricksTelemetryDestinationId"
-
-
 def _make_experiment(tags=None):
     from mlflow.entities import Experiment
     from mlflow.entities.experiment_tag import ExperimentTag
@@ -745,7 +743,7 @@ def test_resolve_uc_location_from_experiment_tag():
         mock.patch("mlflow.tracing.client.TracingClient") as tc_cls,
     ):
         mock_store_fn.return_value.get_experiment.return_value = _make_experiment(
-            tags={_RESOLVE_UC_DEST_TAG: "some-uuid"}
+            tags={MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID: "some-uuid"}
         )
         tc_cls.return_value._get_trace_location.return_value = resolved
 
@@ -822,7 +820,7 @@ def test_resolve_uc_location_returns_none_when_lookup_fails():
         mock.patch("mlflow.tracing.client.TracingClient") as tc_cls,
     ):
         mock_store_fn.return_value.get_experiment.return_value = _make_experiment(
-            tags={_RESOLVE_UC_DEST_TAG: "some-uuid"}
+            tags={MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID: "some-uuid"}
         )
         tc_cls.return_value._get_trace_location.side_effect = RuntimeError("boom")
 

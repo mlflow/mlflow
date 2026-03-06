@@ -87,6 +87,9 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = "mlflow.experiment.primaryMetric.name"
 MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
     "mlflow.experiment.primaryMetric.greaterIsBetter"
 )
+MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID = (
+    "mlflow.experiment.databricksTelemetryDestinationId"
+)
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"

@@ -7,8 +7,7 @@ from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.fluent import _resolve_experiment_trace_destination
-
-_DEST_TAG = "mlflow.experiment.databricksTelemetryDestinationId"
+from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
 
 
 def _experiment(tags=None):
@@ -94,7 +93,9 @@ def test_creates_and_links_when_no_existing_location():
 def test_noop_when_existing_location_matches():
     requested = UnityCatalog("catalog", "schema", table_prefix="prefix")
     existing = UnityCatalog("catalog", "schema", table_prefix="prefix")
-    experiment = _experiment(tags={_DEST_TAG: "some-uuid"})
+    experiment = _experiment(
+        tags={MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID: "some-uuid"}
+    )
 
     with (
         mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
@@ -119,7 +120,9 @@ def test_noop_when_existing_location_matches():
 def test_errors_when_existing_location_differs():
     requested = UnityCatalog("catalog", "schema", table_prefix="new_prefix")
     existing = UnityCatalog("catalog", "schema", table_prefix="old_prefix")
-    experiment = _experiment(tags={_DEST_TAG: "some-uuid"})
+    experiment = _experiment(
+        tags={MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID: "some-uuid"}
+    )
 
     with (
         mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
