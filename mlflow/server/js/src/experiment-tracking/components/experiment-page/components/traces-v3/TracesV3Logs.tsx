@@ -451,9 +451,8 @@ const TracesV3LogsImpl = React.memo(
             />
             {renderMainContent()}
           </div>
-          {!disableActions && (
+          {!disableActions && isIssueDetectionModalOpen && (
             <IssueDetectionModal
-              visible={isIssueDetectionModalOpen}
               onClose={() => setIsIssueDetectionModalOpen(false)}
               experimentId={singleExperimentId}
               initialSelectedTraceIds={Object.entries(rowSelection)

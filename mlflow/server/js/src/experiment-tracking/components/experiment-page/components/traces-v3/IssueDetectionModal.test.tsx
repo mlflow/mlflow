@@ -69,7 +69,6 @@ jest.mock('../../../SelectTracesModal', () => ({
 
 describe('IssueDetectionModal', () => {
   const defaultProps = {
-    visible: true,
     onClose: jest.fn(),
     experimentId: 'exp-123',
   };
@@ -84,16 +83,10 @@ describe('IssueDetectionModal', () => {
     });
   });
 
-  test('renders modal when visible', () => {
+  test('renders modal', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
     expect(screen.getByText('Detect Issues')).toBeInTheDocument();
-  });
-
-  test('does not render modal when not visible', () => {
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} visible={false} />);
-
-    expect(screen.queryByText('Detect Issues')).not.toBeInTheDocument();
   });
 
   test('renders description text', () => {

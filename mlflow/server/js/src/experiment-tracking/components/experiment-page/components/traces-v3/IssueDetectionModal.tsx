@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Modal,
   Button,
@@ -19,7 +19,6 @@ import { SelectTracesModal } from '../../../SelectTracesModal';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 
 interface IssueDetectionModalProps {
-  visible: boolean;
   onClose: () => void;
   experimentId?: string;
   initialSelectedTraceIds?: string[];
@@ -44,7 +43,6 @@ const DEFAULT_MODELS_BY_PROVIDER: Record<string, { analysisModel: string; judgeM
 };
 
 export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
-  visible,
   onClose,
   experimentId,
   initialSelectedTraceIds = [],
@@ -60,14 +58,6 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
   const [selectedTraceIds, setSelectedTraceIds] = useState<string[]>(initialSelectedTraceIds);
   const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
-  const prevVisibleRef = useRef(visible);
-
-  useEffect(() => {
-    if (visible && !prevVisibleRef.current) {
-      setSelectedTraceIds(initialSelectedTraceIds);
-    }
-    prevVisibleRef.current = visible;
-  }, [visible, initialSelectedTraceIds]);
 
   const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
     provider,
@@ -145,7 +135,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             />
           </div>
         }
-        visible={visible}
+        visible
         onCancel={handleClose}
         footer={
           <Button
