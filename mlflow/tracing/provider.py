@@ -381,7 +381,8 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
         _logger.warning(
             "Passing `UCSchemaLocation` to `mlflow.tracing.set_destination` is deprecated "
             "and will be removed in a future MLflow version. Use `set_experiment` with a "
-            "UnityCatalog location instead."
+            "UnityCatalog location instead. See "
+            "https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog"
         )
         if mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith(
             "databricks"
