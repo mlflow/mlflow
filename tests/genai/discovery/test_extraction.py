@@ -1,7 +1,11 @@
+from unittest import mock
+
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.genai.discovery.entities import _ConversationAnalysis
 from mlflow.genai.discovery.extraction import (
     extract_failing_traces,
+    extract_failure_labels,
     extract_span_errors,
 )
 
@@ -25,6 +29,40 @@ def test_extract_span_errors_truncation(make_trace):
     trace = make_trace(error_span=True)
     result = extract_span_errors(trace, max_length=10)
     assert len(result) <= 10
+
+
+# ---- extract_failure_labels ----
+
+
+def test_extract_failure_labels_empty_analyses():
+    labels = extract_failure_labels([], "openai:/gpt-5-mini")
+    assert labels == []
+
+
+def _mock_llm_response(content):
+    response = mock.MagicMock()
+    response.choices = [mock.MagicMock()]
+    response.choices[0].message.content = content
+    response.usage = None
+    return response
+
+
+def test_extract_failure_labels_single_analysis():
+    analysis = _ConversationAnalysis(
+        rationale_summary="User asked for weather but got stock prices",
+        full_rationale="User asked for weather but got stock prices",
+        affected_trace_ids=["t1"],
+        execution_path="weather_agent > get_forecast",
+    )
+    with mock.patch(
+        "mlflow.genai.discovery.extraction._call_llm",
+        return_value=_mock_llm_response("returned stock prices instead of weather"),
+    ) as mock_call:
+        labels = extract_failure_labels([analysis], "openai:/gpt-5-mini")
+        mock_call.assert_called_once()
+
+    assert len(labels) == 1
+    assert labels[0] == "[weather_agent > get_forecast] returned stock prices instead of weather"
 
 
 # ---- extract_failing_traces ----

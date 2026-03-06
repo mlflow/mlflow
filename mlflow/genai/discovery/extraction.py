@@ -56,16 +56,17 @@ def extract_execution_path(trace: Trace) -> str:
         _logger.debug("Trace has no root span (parent_id=None), falling back to first span")
         roots = spans[:1]
 
-    # Build mapping from depth-1 span names to their non-generic children.
+    # Build mapping from depth-1 spans to their non-generic children.
     # Depth-1 spans are the top-level orchestrator calls (sub-agents, tools).
-    top_level: list[tuple[str, bool]] = []  # (span_name, has_error)
+    # Keyed by span_id (not name) to avoid collisions when duplicate names exist.
+    top_level: list[tuple[str, str, bool]] = []  # (span_id, name, has_error)
     children_of: dict[str, list[str]] = defaultdict(list)
 
     for root in roots:
         for depth1_span in children_by_parent.get(root.span_id, []):
             if depth1_span.span_type in _GENERIC_SPAN_TYPES:
                 continue
-            top_level.append((depth1_span.name, _has_error(depth1_span)))
+            top_level.append((depth1_span.span_id, depth1_span.name, _has_error(depth1_span)))
 
             # Collect non-generic descendants (depth 2+) iteratively
             stack = list(children_by_parent.get(depth1_span.span_id, []))
@@ -73,7 +74,7 @@ def extract_execution_path(trace: Trace) -> str:
                 child = stack.pop()
                 if child.span_type not in _GENERIC_SPAN_TYPES:
                     suffix = " [ERROR]" if _has_error(child) else ""
-                    children_of[depth1_span.name].append(f"{child.name}{suffix}")
+                    children_of[depth1_span.span_id].append(f"{child.name}{suffix}")
                 stack.extend(children_by_parent.get(child.span_id, []))
 
     if not top_level:
@@ -81,9 +82,9 @@ def extract_execution_path(trace: Trace) -> str:
 
     # Format as "parent > child1, child2 | parent2 > child3"
     parts = []
-    for name, has_error in top_level:
+    for span_id, name, has_error in top_level:
         display = f"{name} [ERROR]" if has_error else name
-        if child_entries := children_of.get(name, []):
+        if child_entries := children_of.get(span_id, []):
             unique_children = list(dict.fromkeys(child_entries))
             parts.append(f"{display} > {', '.join(unique_children)}")
         else:
