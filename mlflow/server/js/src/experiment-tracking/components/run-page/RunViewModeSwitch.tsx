@@ -4,7 +4,7 @@ import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { KeyValueEntity } from '../../../common/types';
 
 // Set of tabs that when active, the margin of the tab selector should be removed for better displaying
@@ -20,7 +20,7 @@ const DEFAULT_VISIBLE_TABS = [
 ];
 
 // Tab label configuration
-const TAB_LABELS: Record<RunPageTabName, React.ReactNode> = {
+const TAB_LABELS: Record<RunPageTabName, ReactNode> = {
   [RunPageTabName.OVERVIEW]: (
     <FormattedMessage defaultMessage="Overview" description="Run details page > tab selector > overview tab" />
   ),
