@@ -5,16 +5,12 @@ import re
 import sys
 from pathlib import Path
 
-TEMPLATE_PATH = Path(__file__).resolve().parents[2] / ".github" / "pull_request_template.md"
-
 
 def get_headers() -> list[str]:
     """Parse heading sections (#, ##, ###, etc.) from the PR template."""
-    return [
-        line.strip()
-        for line in TEMPLATE_PATH.read_text().splitlines()
-        if re.match(r"^#+\s", line.strip())
-    ]
+    pr_template = Path(__file__).resolve().parents[2] / ".github" / "pull_request_template.md"
+    lines = (l.strip() for l in pr_template.read_text().splitlines())
+    return [l for l in lines if re.match(r"^#+\s", l)]
 
 
 def deny(reason: str) -> None:
@@ -50,15 +46,12 @@ def main() -> None:
     if not re.search(r"(--body\b|-b\b)", command):
         return
 
-    if not TEMPLATE_PATH.exists():
-        return
-
     # Check section headings against the command lines rather than parsing the
     # body out. The headings (e.g. "### How is this PR tested?") are unique
     # enough that they won't appear in other flags like --title or --repo, so the
     # risk of false positives is negligible.
-    command_lines = {line.strip() for line in command.splitlines()}
     headers = get_headers()
+    command_lines = {line.strip() for line in command.splitlines()}
     missing = [s for s in headers if s not in command_lines]
 
     # If all sections are missing, the body is likely opaque (e.g. --body "$VAR")
