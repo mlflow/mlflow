@@ -228,7 +228,7 @@ def log_model(
            arbitrary code during deserialization.
            Note that "pt2" format requires `input_example` (used to trace the model graph by
            virtually executing model.forward) and only supports Numpy array / Tensor or a list
-           of Numpy arrays / Tensors as inputs. For details, see the
+           of Numpy arrays / Tensors as inputs. For details, see
            https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
         kwargs: kwargs to pass to ``torch.save`` method.
 
@@ -387,7 +387,7 @@ def save_model(
            arbitrary code during deserialization.
            Note that "pt2" format requires `input_example` (used to trace the model graph by
            virtually executing model.forward) and only supports Numpy array / Tensor or a list
-           of Numpy arrays / Tensors as inputs. For details, see the
+           of Numpy arrays / Tensors as inputs. For details, see
            https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
         kwargs: kwargs to pass to ``torch.save`` method.
 
@@ -468,7 +468,7 @@ def save_model(
     try:
         saved_example = _save_example(mlflow_model, input_example, path)
     except MlflowException:
-        # `_save_example` does not support tensor / list of tensor / list of numpy array as input.
+        # `_save_example` does not support tensor / list of tensors / list of numpy array as input.
         saved_example = None
 
     if signature is None and saved_example is not None:
@@ -523,7 +523,7 @@ def save_model(
             raise MlflowException(
                 "Unsupported signature type for the selected serialization format. "
                 "If the `serialization_format` argument is set to 'pt2', the input signature "
-                "must by specified using `TensorSpec`. Please update the model signature or "
+                "must be specified using `TensorSpec`. Please update the model signature or "
                 "use `pickle` for serialization format."
             )
 
