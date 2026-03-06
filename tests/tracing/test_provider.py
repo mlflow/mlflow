@@ -15,7 +15,7 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_SAMPLING_RATIO,
     MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
 )
-from mlflow.exceptions import MlflowTracingException
+from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.destination import Databricks, MlflowExperiment
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
@@ -127,6 +127,21 @@ def test_set_destination_databricks_uc(monkeypatch):
     assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
     assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
     assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
+
+
+def test_set_destination_databricks_unity_catalog_rejected(monkeypatch):
+    with pytest.raises(
+        MlflowException,
+        match=r"UnityCatalog table-prefix destinations are not supported by "
+        r"`mlflow\.tracing\.set_destination`",
+    ):
+        mlflow.tracing.set_destination(
+            destination=UnityCatalog(
+                catalog_name="catalog",
+                schema_name="schema",
+                table_prefix="prefix",
+            )
+        )
 
 
 def test_set_destination_databricks_uc_with_oltp_env_no_dual_export(monkeypatch):
@@ -593,23 +608,24 @@ def test_otel_resource_attributes(monkeypatch):
     }
 
 
-def test_set_destination_from_env_var_databricks_uc_with_table_prefix(monkeypatch):
+def test_set_destination_from_env_var_databricks_uc_with_table_prefix_rejected(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.prefix")
 
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
-    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
-    assert isinstance(destination, UnityCatalog)
-    assert destination.catalog_name == "catalog"
-    assert destination.schema_name == "schema"
-    assert destination.table_prefix == "prefix"
+    with pytest.raises(
+        MlflowException,
+        match=r"Unity Catalog table-prefix destinations "
+        r"\(<catalog_name>\.<schema_name>\.<table_prefix>\) are not supported",
+    ):
+        _MLFLOW_TRACE_USER_DESTINATION.get()
 
 
 def test_destination_resolution_precedence_with_experiment_derived(monkeypatch):
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
     _MLFLOW_TRACE_USER_DESTINATION.reset()
-    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.env")
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
     monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: "exp-1")
 
     experiment_derived = UnityCatalog("catalog", "schema", table_prefix="exp")
@@ -634,7 +650,7 @@ def test_experiment_derived_destination_invalidates_when_experiment_changes(monk
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
     _MLFLOW_TRACE_USER_DESTINATION.reset()
-    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.env")
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
     monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: "exp-2")
 
     experiment_derived = UnityCatalog("catalog", "schema", table_prefix="exp")
@@ -646,6 +662,7 @@ def test_experiment_derived_destination_invalidates_when_experiment_changes(monk
     # Cached experiment-derived value no longer matches active experiment.
     # Registry should invalidate it and fall through to env resolution.
     destination = _MLFLOW_TRACE_USER_DESTINATION.get()
-    assert isinstance(destination, UnityCatalog)
-    assert destination.table_prefix == "env"
+    assert isinstance(destination, UCSchemaLocation)
+    assert destination.catalog_name == "catalog"
+    assert destination.schema_name == "schema"
     assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived_value is None

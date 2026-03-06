@@ -13,7 +13,6 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocationBase,
     UCSchemaLocation,
-    UnityCatalog,
 )
 from mlflow.environment_variables import MLFLOW_TRACING_DESTINATION
 from mlflow.exceptions import MlflowException
@@ -95,25 +94,21 @@ class UserTraceDestinationRegistry:
                             "because the tracing destination is set to Databricks."
                         )
                     return UCSchemaLocation(catalog_name, schema_name)
-                case [catalog_name, schema_name, table_prefix]:
-                    if (
-                        mlflow.get_tracking_uri() is None
-                        or not mlflow.get_tracking_uri().startswith("databricks")
-                    ):
-                        mlflow.set_tracking_uri("databricks")
-                        _logger.info(
-                            "Automatically setting the tracking URI to `databricks` "
-                            "because the tracing destination is set to Databricks."
-                        )
-                    return UnityCatalog(catalog_name, schema_name, table_prefix)
+                case [_, _, _]:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Failed to parse trace location {location} from "
+                        "MLFLOW_TRACING_DESTINATION environment variable. "
+                        "Unity Catalog table-prefix destinations "
+                        "(<catalog_name>.<schema_name>.<table_prefix>) are not supported. "
+                        "Expected format: <catalog_name>.<schema_name> or <experiment_id>."
+                    )
                 case [experiment_id]:
                     return MlflowExperimentLocation(experiment_id)
                 case _:
                     raise MlflowException.invalid_parameter_value(
                         f"Failed to parse trace location {location} from "
                         "MLFLOW_TRACING_DESTINATION environment variable. "
-                        "Expected format: <catalog_name>.<schema_name>"
-                        "[.<table_prefix>] or <experiment_id>"
+                        "Expected format: <catalog_name>.<schema_name> or <experiment_id>"
                     )
         return None
 

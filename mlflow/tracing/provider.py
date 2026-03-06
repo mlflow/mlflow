@@ -319,9 +319,6 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
 
             - :py:class:`~mlflow.entities.trace_location.MlflowExperimentLocation`: Logs traces to
                 an MLflow experiment.
-            - :py:func:`~mlflow.entities.trace_location.UnityCatalog`: Logs traces to a
-                Databricks Unity Catalog schema or table-prefix location. Only available in
-                Databricks.
 
         context_local: If False (default), the destination is set globally. If True, the destination
             is isolated per async task or thread, providing isolation in concurrent applications.
@@ -339,16 +336,6 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
         Note: This has the same effect as setting the active MLflow experiment via the
         ``MLFLOW_EXPERIMENT_ID`` environment variable or the ``mlflow.set_experiment`` API,
         but with narrower scope.
-
-        **Logging traces to Databricks Unity Catalog:**
-
-        .. code-block:: python
-
-            from mlflow.entities.trace_location import UnityCatalog
-
-            mlflow.tracing.set_destination(
-                UnityCatalog(catalog_name="catalog", schema_name="schema")
-            )
 
         **Isolate the destination between async tasks or threads:**
 
@@ -383,7 +370,14 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
             "The destination must be an instance of TraceLocation."
         )
 
-    if isinstance(destination, (UCSchemaLocation, UnityCatalog)) and (
+    if isinstance(destination, UnityCatalog):
+        raise MlflowException.invalid_parameter_value(
+            "UnityCatalog table-prefix destinations are not supported by "
+            "`mlflow.tracing.set_destination`. Use `set_experiment` with a "
+            "UnityCatalog location instead."
+        )
+
+    if isinstance(destination, UCSchemaLocation) and (
         mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
     ):
         mlflow.set_tracking_uri("databricks")
