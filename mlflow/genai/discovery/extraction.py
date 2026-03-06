@@ -10,13 +10,10 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.constants import (
     FAILURE_LABEL_SYSTEM_PROMPT,
-    LLM_MAX_TOKENS,
-    NUM_RETRIES,
     SURFACE_TRUNCATION_LIMIT,
-    _to_litellm_model,
 )
-from mlflow.genai.discovery.entities import _ConversationAnalysis, _TokenCounter
-from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
+from mlflow.genai.discovery.entities import _ConversationAnalysis
+from mlflow.genai.discovery.utils import _call_llm, _TokenCounter
 
 _logger = logging.getLogger(__name__)
 
@@ -172,25 +169,18 @@ def extract_failure_labels(
     Returns:
         List of failure label strings, one per analysis.
     """
-    litellm_model = _to_litellm_model(model)
 
     # Generate labels in parallel — each label is an independent LLM call
     def _generate_label(analysis: _ConversationAnalysis) -> str:
         rationale = analysis.surface[:SURFACE_TRUNCATION_LIMIT]
-        response = _invoke_litellm(
-            litellm_model=litellm_model,
-            messages=[
+        response = _call_llm(
+            model,
+            [
                 {"role": "system", "content": FAILURE_LABEL_SYSTEM_PROMPT},
                 {"role": "user", "content": rationale},
             ],
-            tools=[],
-            num_retries=NUM_RETRIES,
-            response_format=None,
-            include_response_format=False,
-            inference_params={"max_tokens": LLM_MAX_TOKENS},
+            token_counter=token_counter,
         )
-        if token_counter is not None:
-            token_counter.track(response)
         symptom = response.choices[0].message.content.strip()
         exec_path = analysis.execution_path or "(no routing)"
         return f"[{exec_path}] {symptom}"
@@ -244,9 +234,9 @@ def extract_failing_traces(
             # Find the most recent Feedback for this scorer
             assessment = next(
                 (
-                    a
-                    for a in reversed(trace.info.assessments)
-                    if isinstance(a, Feedback) and a.name == scorer_name
+                    assessment
+                    for assessment in reversed(trace.info.assessments)
+                    if isinstance(assessment, Feedback) and assessment.name == scorer_name
                 ),
                 None,
             )
@@ -259,6 +249,8 @@ def extract_failing_traces(
             continue
 
         failing.append(trace)
-        rationales[trace.info.trace_id] = "; ".join(r for _, r in row_failing if r)
+        rationales[trace.info.trace_id] = "; ".join(
+            rationale for _, rationale in row_failing if rationale
+        )
 
     return failing, rationales

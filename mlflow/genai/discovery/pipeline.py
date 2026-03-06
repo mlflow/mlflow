@@ -13,9 +13,7 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.clustering import (
-    build_summary,
     cluster_by_llm,
-    log_discovery_artifacts,
     summarize_cluster,
 )
 from mlflow.genai.discovery.constants import (
@@ -23,15 +21,12 @@ from mlflow.genai.discovery.constants import (
     DEFAULT_MODEL,
     DEFAULT_SCORER_NAME,
     DEFAULT_TRIAGE_SAMPLE_SIZE,
-    LLM_MAX_TOKENS,
     MAX_EXAMPLE_TRACE_IDS,
     MIN_CONFIDENCE,
     NO_ISSUE_KEYWORD,
-    NUM_RETRIES,
     SURFACE_TRUNCATION_LIMIT,
     TRACE_ANNOTATION_SYSTEM_PROMPT,
     TRACE_CONTENT_TRUNCATION,
-    _to_litellm_model,
     build_satisfaction_instructions,
 )
 from mlflow.genai.discovery.entities import (
@@ -39,7 +34,6 @@ from mlflow.genai.discovery.entities import (
     Issue,
     _ConversationAnalysis,
     _IdentifiedIssue,
-    _TokenCounter,
 )
 from mlflow.genai.discovery.extraction import (
     extract_execution_path,
@@ -53,7 +47,12 @@ from mlflow.genai.discovery.sampling import (
     group_traces_by_session,
     sample_traces,
 )
-from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
+from mlflow.genai.discovery.utils import (
+    _call_llm,
+    _TokenCounter,
+    build_summary,
+    log_discovery_artifacts,
+)
 from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
@@ -254,8 +253,6 @@ def _annotate_issue_traces(
         session_first_trace: Optional mapping of session_id to first trace_id.
         token_counter: Optional token counter for tracking LLM usage.
     """
-    litellm_model = _to_litellm_model(model)
-
     source = AssessmentSource(
         source_type=AssessmentSourceType.LLM_JUDGE,
         source_id=model,
@@ -301,20 +298,14 @@ def _annotate_issue_traces(
             f"{triage_rationale or '(not available)'}"
         )
         try:
-            response = _invoke_litellm(
-                litellm_model=litellm_model,
-                messages=[
+            response = _call_llm(
+                model,
+                [
                     {"role": "system", "content": TRACE_ANNOTATION_SYSTEM_PROMPT},
                     {"role": "user", "content": user_content},
                 ],
-                tools=[],
-                num_retries=NUM_RETRIES,
-                response_format=None,
-                include_response_format=False,
-                inference_params={"max_tokens": LLM_MAX_TOKENS},
+                token_counter=token_counter,
             )
-            if token_counter is not None:
-                token_counter.track(response)
             annotation = (response.choices[0].message.content or "").strip()
         except Exception:
             _logger.debug("Failed to generate annotation for trace %s", trace_id, exc_info=True)
