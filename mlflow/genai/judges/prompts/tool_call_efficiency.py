@@ -9,6 +9,7 @@ from mlflow.genai.prompts.utils import format_prompt
 if TYPE_CHECKING:
     from mlflow.genai.utils.type import FunctionCall
     from mlflow.types.chat import ChatTool
+    from mlflow.types.llm import ChatMessage
 
 # NB: User-facing name for the is_tool_call_efficient assessment.
 TOOL_CALL_EFFICIENCY_FEEDBACK_NAME = "tool_call_efficiency"
@@ -56,11 +57,17 @@ TOOL_CALL_EFFICIENCY_PROMPT = (
 )
 
 
+_SYSTEM_PROMPT = (
+    "You are an expert judge that evaluates whether an AI agent's tool usage is efficient"
+    " and free of redundancy."
+)
+
+
 def get_prompt(
     request: str,
     tools_called: list["FunctionCall"],
     available_tools: list["ChatTool"],
-) -> str:
+) -> list["ChatMessage"]:
     """Generate tool call efficiency evaluation prompt.
 
     Args:
@@ -70,14 +77,21 @@ def get_prompt(
         available_tools: The set of available tools
 
     Returns:
-        Formatted prompt string
+        List of ChatMessage objects with system and user messages
     """
+    from mlflow.types.llm import ChatMessage
+
     available_tools_str = format_available_tools(available_tools)
     tools_called_str = format_tools_called(tools_called)
 
-    return format_prompt(
+    user_content = format_prompt(
         TOOL_CALL_EFFICIENCY_PROMPT,
         request=request,
         available_tools=available_tools_str,
         tools_called=tools_called_str,
     )
+
+    return [
+        ChatMessage(role="system", content=_SYSTEM_PROMPT),
+        ChatMessage(role="user", content=user_content),
+    ]
