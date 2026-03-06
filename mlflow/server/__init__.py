@@ -451,6 +451,8 @@ def _run_server(
             )
 
     if app_name == "basic-auth" and job_execution_enabled:
+        # Generate the token here (before forking uvicorn workers) so that all
+        # worker processes and job subprocesses share the same token.
         from mlflow.server.auth import _INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR
 
         env_map[_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR] = secrets.token_hex(32)
