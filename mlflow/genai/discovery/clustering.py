@@ -9,6 +9,7 @@ from mlflow.genai.discovery.constants import (
     DEFAULT_MODEL,
     LLM_MAX_TOKENS,
     NUM_RETRIES,
+    _to_litellm_model,
 )
 from mlflow.genai.discovery.entities import (
     Issue,
@@ -17,7 +18,6 @@ from mlflow.genai.discovery.entities import (
     _TokenCounter,
 )
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
 
 _logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def cluster_by_llm(
         List of index lists, where each inner list is a cluster of label indices.
     """
     model = model or DEFAULT_MODEL
-    litellm_model = convert_model_uri_to_litellm(model)
+    litellm_model = _to_litellm_model(model)
 
     numbered = "\n".join(f"[{i}] {lbl}" for i, lbl in enumerate(labels))
     prompt = (
@@ -154,7 +154,7 @@ def summarize_cluster(
         f"Respond with a JSON object matching this schema:\n{schema_json}"
     )
 
-    litellm_model = convert_model_uri_to_litellm(model)
+    litellm_model = _to_litellm_model(model)
 
     response = _invoke_litellm(
         litellm_model=litellm_model,

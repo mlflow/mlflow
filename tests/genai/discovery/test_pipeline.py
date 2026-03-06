@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import pytest
 
 from mlflow.entities.assessment import Feedback
@@ -36,6 +35,10 @@ def _mock_start_run(**kwargs):
     return cm
 
 
+def _triage_eval(run_id="run-1"):
+    return EvaluationResult(run_id=run_id, metrics={}, result_df=None)
+
+
 def test_discover_issues_no_experiment():
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value=None),
@@ -57,14 +60,6 @@ def test_discover_issues_empty_experiment():
 
 def test_discover_issues_all_traces_pass(make_trace):
     traces = [make_trace() for _ in range(5)]
-    result_df = pd.DataFrame(
-        {
-            "_issue_discovery_judge/value": [True] * 5,
-            "_issue_discovery_judge/rationale": ["good"] * 5,
-            "trace": traces,
-        }
-    )
-    triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=result_df)
 
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
@@ -72,8 +67,12 @@ def test_discover_issues_all_traces_pass(make_trace):
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=triage_eval,
+            return_value=_triage_eval(),
         ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=([], {}),
+        ) as mock_extract,
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.start_run",
@@ -82,21 +81,15 @@ def test_discover_issues_all_traces_pass(make_trace):
     ):
         result = discover_issues()
 
+    mock_extract.assert_called_once()
     assert result.issues == []
     assert "no issues found" in result.summary.lower()
 
 
 def test_discover_issues_full_pipeline(make_trace):
     traces = [make_trace() for _ in range(10)]
-
-    triage_df = pd.DataFrame(
-        {
-            "_issue_discovery_judge/value": [False] * 3 + [True] * 7,
-            "_issue_discovery_judge/rationale": ["bad"] * 3 + ["good"] * 7,
-            "trace": traces,
-        }
-    )
-    triage_eval = EvaluationResult(run_id="run-triage", metrics={}, result_df=triage_df)
+    failing = traces[:3]
+    rationale_map = {t.info.trace_id: "bad" for t in failing}
 
     cluster_summary_issue = _IdentifiedIssue(
         name="slow_response",
@@ -112,7 +105,11 @@ def test_discover_issues_full_pipeline(make_trace):
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=triage_eval,
+            return_value=_triage_eval("run-triage"),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=(failing, rationale_map),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -146,15 +143,8 @@ def test_discover_issues_full_pipeline(make_trace):
 
 def test_discover_issues_low_confidence_issues_filtered(make_trace):
     traces = [make_trace() for _ in range(5)]
-
-    triage_df = pd.DataFrame(
-        {
-            "_issue_discovery_judge/value": [False] * 2 + [True] * 3,
-            "_issue_discovery_judge/rationale": ["bad"] * 2 + ["good"] * 3,
-            "trace": traces,
-        }
-    )
-    triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=triage_df)
+    failing = traces[:2]
+    rationale_map = {t.info.trace_id: "bad" for t in failing}
 
     # summarize_cluster returns issue with low confidence (below MIN_CONFIDENCE="weak_yes")
     low_confidence_issue = _IdentifiedIssue(
@@ -171,7 +161,11 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=triage_eval,
+            return_value=_triage_eval(),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=(failing, rationale_map),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -227,23 +221,18 @@ def test_discover_issues_custom_satisfaction_scorer(make_trace):
     custom_scorer = _TestScorer(name="custom")
     traces = [make_trace()]
 
-    result_df = pd.DataFrame(
-        {
-            "custom/value": [True],
-            "custom/rationale": ["good"],
-            "trace": traces,
-        }
-    )
-    triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=result_df)
-
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=triage_eval,
+            return_value=_triage_eval(),
         ) as mock_eval,
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=([], {}),
+        ),
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.start_run",
@@ -262,25 +251,18 @@ def test_discover_issues_additional_scorers(make_trace):
     extra_scorer = _TestScorer(name="extra")
     traces = [make_trace()]
 
-    result_df = pd.DataFrame(
-        {
-            "custom/value": [True],
-            "custom/rationale": ["good"],
-            "extra/value": [True],
-            "extra/rationale": ["fine"],
-            "trace": traces,
-        }
-    )
-    triage_eval = EvaluationResult(run_id="run-1", metrics={}, result_df=result_df)
-
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=triage_eval,
+            return_value=_triage_eval(),
         ) as mock_eval,
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=([], {}),
+        ),
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.start_run",
@@ -330,15 +312,8 @@ def test_is_non_issue(name, description, root_cause, expected):
 
 def test_discover_issues_filters_no_issue_results(make_trace):
     traces = [make_trace() for _ in range(10)]
-
-    triage_df = pd.DataFrame(
-        {
-            "_issue_discovery_judge/value": [False] * 3 + [True] * 7,
-            "_issue_discovery_judge/rationale": ["bad"] * 3 + ["good"] * 7,
-            "trace": traces,
-        }
-    )
-    triage_eval = EvaluationResult(run_id="run-triage", metrics={}, result_df=triage_df)
+    failing = traces[:3]
+    rationale_map = {t.info.trace_id: "bad" for t in failing}
 
     no_issue_result = _IdentifiedIssue(
         name="No issues detected [general]",
@@ -354,7 +329,11 @@ def test_discover_issues_filters_no_issue_results(make_trace):
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=triage_eval,
+            return_value=_triage_eval("run-triage"),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=(failing, rationale_map),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -381,15 +360,8 @@ def test_discover_issues_filters_no_issue_results(make_trace):
 
 def test_discover_issues_filters_canonical_no_issue_keyword(make_trace):
     traces = [make_trace() for _ in range(10)]
-
-    triage_df = pd.DataFrame(
-        {
-            "_issue_discovery_judge/value": [False] * 3 + [True] * 7,
-            "_issue_discovery_judge/rationale": ["bad"] * 3 + ["good"] * 7,
-            "trace": traces,
-        }
-    )
-    triage_eval = EvaluationResult(run_id="run-triage", metrics={}, result_df=triage_df)
+    failing = traces[:3]
+    rationale_map = {t.info.trace_id: "bad" for t in failing}
 
     no_issue_result = _IdentifiedIssue(
         name="NO_ISSUE_DETECTED",
@@ -405,7 +377,11 @@ def test_discover_issues_filters_canonical_no_issue_keyword(make_trace):
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=triage_eval,
+            return_value=_triage_eval("run-triage"),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=(failing, rationale_map),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -438,7 +414,6 @@ def _make_litellm_response(content: str):
 
 
 def _make_issue(**kwargs):
-    """Helper to construct Issue with required fields."""
     defaults = {
         "issue_id": "test-id",
         "run_id": "test-run",
@@ -706,9 +681,7 @@ def test_recluster_merges_similar_singletons():
             return_value=merged_issue,
         ) as mock_summarize,
     ):
-        result = _recluster_singletons(
-            singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
-        )
+        result = _recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
 
     mock_cluster.assert_called_once()
     mock_summarize.assert_called_once()
@@ -751,9 +724,7 @@ def test_recluster_keeps_unmerged_singletons():
         "mlflow.genai.discovery.pipeline.cluster_by_llm",
         return_value=[[0], [1]],
     ) as mock_cluster:
-        result = _recluster_singletons(
-            singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
-        )
+        result = _recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
 
     mock_cluster.assert_called_once()
     assert len(result) == 2
@@ -769,7 +740,7 @@ def test_recluster_single_singleton_returns_as_is():
             confidence="definitely_yes",
         ),
     ]
-    result = _recluster_singletons(singletons, ["label"], [], "m", "m", 25)
+    result = _recluster_singletons(singletons, ["label"], [], "m", 25)
     assert len(result) == 1
     assert result[0].name == "Solo"
 
@@ -823,9 +794,7 @@ def test_recluster_low_confidence_merge_keeps_originals():
             return_value=low_conf_merged,
         ),
     ):
-        result = _recluster_singletons(
-            singletons, labels, analyses, "openai:/gpt-5", "openai:/gpt-5-mini", 25
-        )
+        result = _recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
 
     assert len(result) == 2
     assert result[0].name == "A"

@@ -31,6 +31,7 @@ from mlflow.genai.discovery.constants import (
     SURFACE_TRUNCATION_LIMIT,
     TRACE_ANNOTATION_SYSTEM_PROMPT,
     TRACE_CONTENT_TRUNCATION,
+    _to_litellm_model,
     build_satisfaction_instructions,
 )
 from mlflow.genai.discovery.entities import (
@@ -55,7 +56,6 @@ from mlflow.genai.discovery.sampling import (
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
 from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
-from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
@@ -254,7 +254,7 @@ def _annotate_issue_traces(
         session_first_trace: Optional mapping of session_id to first trace_id.
         token_counter: Optional token counter for tracking LLM usage.
     """
-    litellm_model = convert_model_uri_to_litellm(model)
+    litellm_model = _to_litellm_model(model)
 
     source = AssessmentSource(
         source_type=AssessmentSourceType.LLM_JUDGE,
@@ -341,7 +341,9 @@ def _annotate_issue_traces(
         return annotation
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(work_items))
-    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="annotate") as executor:
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="MlflowIssueDiscoveryAnnotate"
+    ) as executor:
         future_to_item = {
             executor.submit(_annotate_one, issue, trace_id, rationale, session_id): (
                 issue,
@@ -494,13 +496,17 @@ def discover_issues(
         )
     _logger.info("Phase 1: Triage scoring took %.1fs", time.time() - phase_start)
 
-    # Aggregate judge costs from Phase 1 evaluation assessments.
+    # Re-fetch traces with scorer assessments attached.
+    scored_traces = triage_traces
     try:
-        scored_traces = mlflow.search_traces(
+        fetched = mlflow.search_traces(
             return_type="list",
             locations=[exp_id],
         )
-        for trace in scored_traces:
+        scored_lookup = {t.info.trace_id: t for t in fetched}
+        scored_traces = [scored_lookup.get(t.info.trace_id, t) for t in triage_traces]
+        # Aggregate judge costs from Phase 1 evaluation assessments.
+        for trace in fetched:
             for assessment in trace.info.assessments or []:
                 meta = getattr(assessment, "metadata", None) or {}
                 if meta.get(AssessmentMetadataKey.SOURCE_RUN_ID) != triage_eval.run_id:
@@ -512,12 +518,10 @@ def discover_issues(
                 if output_tok := meta.get(AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS):
                     token_counter.output_tokens += int(output_tok)
     except Exception:
-        _logger.debug("Failed to aggregate Phase 1 judge costs", exc_info=True)
+        _logger.debug("Failed to fetch scored traces", exc_info=True)
 
     scorer_names = [s.name for s in scorers]
-    failing_traces, rationale_map = extract_failing_traces(
-        triage_eval, scorer_names, original_traces=triage_traces
-    )
+    failing_traces, rationale_map = extract_failing_traces(scored_traces, scorer_names)
 
     _logger.info(
         "Phase 1 complete: %d/%d traces unsatisfactory",
@@ -609,7 +613,9 @@ def discover_issues(
         return issue
 
     summaries: list[_IdentifiedIssue | None] = [None] * len(cluster_groups)
-    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="summarize") as executor:
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="MlflowIssueDiscoverySummarize"
+    ) as executor:
         future_to_idx = {
             executor.submit(_summarize_one, cluster_idx, group): cluster_idx
             for cluster_idx, group in enumerate(cluster_groups)
@@ -634,7 +640,9 @@ def discover_issues(
 
     if resplit_groups:
         resplit_summaries: list[_IdentifiedIssue | None] = [None] * len(resplit_groups)
-        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="resplit") as executor:
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="MlflowIssueDiscoveryResplit"
+        ) as executor:
             future_to_idx = {
                 executor.submit(_summarize_one, len(cluster_groups) + ri, group): ri
                 for ri, group in enumerate(resplit_groups)

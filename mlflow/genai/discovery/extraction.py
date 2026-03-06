@@ -13,11 +13,10 @@ from mlflow.genai.discovery.constants import (
     LLM_MAX_TOKENS,
     NUM_RETRIES,
     SURFACE_TRUNCATION_LIMIT,
+    _to_litellm_model,
 )
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _TokenCounter
-from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
 
 _logger = logging.getLogger(__name__)
 
@@ -173,7 +172,7 @@ def extract_failure_labels(
     Returns:
         List of failure label strings, one per analysis.
     """
-    litellm_model = convert_model_uri_to_litellm(model)
+    litellm_model = _to_litellm_model(model)
 
     # Generate labels in parallel — each label is an independent LLM call
     def _generate_label(analysis: _ConversationAnalysis) -> str:
@@ -198,7 +197,9 @@ def extract_failure_labels(
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(analyses))
     labels: list[str | None] = [None] * len(analyses)
-    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="label") as executor:
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="MlflowIssueDiscoveryLabel"
+    ) as executor:
         future_to_idx = {
             executor.submit(_generate_label, analysis): i for i, analysis in enumerate(analyses)
         }
@@ -209,27 +210,23 @@ def extract_failure_labels(
 
 
 def extract_failing_traces(
-    eval_result: EvaluationResult,
+    scored_traces: list[Trace],
     scorer_names: str | list[str],
-    original_traces: list[Trace] | None = None,
 ) -> tuple[list[Trace], dict[str, str]]:
     """
-    Extract failing traces and their rationales from an evaluation result.
+    Extract failing traces and their rationales from scored trace objects.
 
-    ``scorer_names`` can be a single scorer name or a list. When multiple
-    names are provided, a trace is considered failing if ANY scorer marks
-    it as ``False``, and rationales from all failing scorers are combined.
+    After ``mlflow.genai.evaluate()`` runs, assessments are written to
+    traces as Feedback objects. This function walks each trace's
+    assessments to find failures.
 
-    When ``original_traces`` is provided, maps results back to the original
-    trace objects by DataFrame position (the evaluate framework may assign
-    new trace IDs during scoring).
+    ``scorer_names`` can be a single scorer name or a list. A trace is
+    considered failing if ANY scorer's most-recent Feedback has a falsy
+    value, and rationales from all failing scorers are combined.
 
     Args:
-        eval_result: The evaluation result containing a DataFrame with
-            scorer value and rationale columns.
+        scored_traces: Traces with scorer assessments attached.
         scorer_names: One or more scorer names to check for failures.
-        original_traces: Optional list of original traces to map results
-            back to by position.
 
     Returns:
         A tuple of (failing_traces, rationale_map) where rationale_map
@@ -240,60 +237,28 @@ def extract_failing_traces(
 
     failing: list[Trace] = []
     rationales: dict[str, str] = {}
-    df = eval_result.result_df
-    if df is None:
-        return failing, rationales
 
-    # Filter to scorer names whose value column actually exists
-    active_scorers = [name for name in scorer_names if f"{name}/value" in df.columns]
-    if not active_scorers:
-        return failing, rationales
+    for trace in scored_traces:
+        row_failing: list[tuple[str, str]] = []
+        for scorer_name in scorer_names:
+            # Find the most recent Feedback for this scorer
+            assessment = next(
+                (
+                    a
+                    for a in reversed(trace.info.assessments)
+                    if isinstance(a, Feedback) and a.name == scorer_name
+                ),
+                None,
+            )
+            if assessment is None:
+                continue
+            if assessment.value is not None and not bool(assessment.value):
+                row_failing.append((scorer_name, assessment.rationale or ""))
 
-    for idx, (_, row) in enumerate(df.iterrows()):
-        row_failing_scorers: list[str] = []
-        for scorer_name in active_scorers:
-            val = row.get(f"{scorer_name}/value")
-            if val is not None and not bool(val):
-                row_failing_scorers.append(scorer_name)
-
-        if not row_failing_scorers:
+        if not row_failing:
             continue
 
-        if original_traces and idx < len(original_traces):
-            trace = original_traces[idx]
-        else:
-            trace = row.get("trace")
-            if trace is None:
-                continue
-            if isinstance(trace, str):
-                trace = Trace.from_json(trace)
-
         failing.append(trace)
-
-        # Combine rationales from all failing scorers
-        row_rationales: list[str] = []
-        for scorer_name in row_failing_scorers:
-            rationale_col = f"{scorer_name}/rationale"
-            rationale = ""
-            if rationale_col in df.columns:
-                rationale = str(row.get(rationale_col, "") or "")
-            if not rationale:
-                eval_trace = row.get("trace")
-                if eval_trace is not None:
-                    if isinstance(eval_trace, str):
-                        eval_trace = Trace.from_json(eval_trace)
-                    rationale = next(
-                        (
-                            assessment.rationale
-                            for assessment in reversed(eval_trace.info.assessments)
-                            if isinstance(assessment, Feedback)
-                            and assessment.name == scorer_name
-                            and assessment.rationale
-                        ),
-                        "",
-                    )
-            if rationale:
-                row_rationales.append(rationale)
-        rationales[trace.info.trace_id] = "; ".join(row_rationales)
+        rationales[trace.info.trace_id] = "; ".join(r for _, r in row_failing if r)
 
     return failing, rationales
