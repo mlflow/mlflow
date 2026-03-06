@@ -294,7 +294,7 @@ export const getResponseFormatFromTags = (tags?: KeyValueEntity[]): Record<strin
   }
   try {
     const parsed = JSON.parse(tag.value);
-    return typeof parsed === 'object' && parsed !== null ? parsed : undefined;
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : undefined;
   } catch {
     return undefined;
   }

@@ -251,6 +251,11 @@ describe('Response format (structured output) utils', () => {
       expect(getResponseFormatFromTags(tags)).toBeUndefined();
     });
 
+    test('returns undefined when value parses to array', () => {
+      const tags = [{ key: '_mlflow_prompt_response_format', value: '[1,2,3]' }];
+      expect(getResponseFormatFromTags(tags)).toBeUndefined();
+    });
+
     test('returns undefined for empty tags array', () => {
       expect(getResponseFormatFromTags([])).toBeUndefined();
     });
