@@ -44,6 +44,7 @@ from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
 from mlflow.utils.annotations import experimental
 from mlflow.utils.arguments_utils import _get_arg_names
+from mlflow.utils.validation import _validate_model_name
 
 _logger = logging.getLogger(__name__)
 
@@ -89,8 +90,7 @@ class ModelRegistryClient:
             created by backend.
 
         """
-        # TODO: Do we want to validate the name is legit here - non-empty without "/" and ":" ?
-        #       Those are constraints applicable to any backend, given the model URI format.
+        _validate_model_name(name)
         tags = tags or {}
         tags = [RegisteredModelTag(key, str(value)) for key, value in tags.items()]
         return self.store.create_registered_model(name, tags, description, deployment_job_id)
@@ -124,8 +124,7 @@ class ModelRegistryClient:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
 
         """
-        if new_name.strip() == "":
-            raise MlflowException("The name must not be an empty string.")
+        _validate_model_name(new_name) 
         return self.store.rename_registered_model(name=name, new_name=new_name)
 
     def delete_registered_model(self, name):
