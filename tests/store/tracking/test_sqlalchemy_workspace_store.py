@@ -2149,3 +2149,31 @@ def test_create_issue_is_workspace_scoped(workspace_tracking_store):
 
         with pytest.raises(MlflowException, match=f"Issue with ID '{issue_a.issue_id}' not found"):
             workspace_tracking_store.get_issue(issue_a.issue_id)
+
+
+def test_update_issue_is_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-a"):
+        exp_id_a = workspace_tracking_store.create_experiment("issue-exp-update-a")
+        issue_a = workspace_tracking_store.create_issue(
+            experiment_id=exp_id_a,
+            name="Original Name",
+            description="Original description",
+            status="open",
+        )
+        updated_issue = workspace_tracking_store.update_issue(
+            issue_id=issue_a.issue_id,
+            name="Updated Name A",
+            status="in_progress",
+        )
+        assert updated_issue.name == "Updated Name A"
+        assert updated_issue.status == "in_progress"
+
+    with WorkspaceContext("team-b"):
+        with pytest.raises(
+            MlflowException, match=f"Issue with ID '{issue_a.issue_id}' not found"
+        ) as excinfo:
+            workspace_tracking_store.update_issue(
+                issue_id=issue_a.issue_id,
+                name="Should not update",
+            )
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"

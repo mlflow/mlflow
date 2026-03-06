@@ -5854,6 +5854,55 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return sql_issue.to_mlflow_entity()
 
+    def update_issue(
+        self,
+        issue_id: str,
+        status: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        confidence: str | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            confidence: Optional new confidence level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Fetch the existing issue
+            sql_issue = (
+                self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
+            )
+            if not sql_issue:
+                raise MlflowException(
+                    f"Issue with ID '{issue_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Update fields if provided
+            if status is not None:
+                sql_issue.status = status
+            if name is not None:
+                sql_issue.name = name
+            if description is not None:
+                sql_issue.description = description
+            if confidence is not None:
+                sql_issue.confidence = confidence
+
+            # Update last_updated_timestamp
+            sql_issue.last_updated_timestamp = get_current_time_millis()
+
+            session.flush()
+
+            return sql_issue.to_mlflow_entity()
+
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints
     # ===================================================================================
