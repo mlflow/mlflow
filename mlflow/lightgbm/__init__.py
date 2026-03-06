@@ -240,6 +240,7 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
+    skops_trusted_types = _append_builtin_skops_trusted_types(skops_trusted_types)
     # Save a LightGBM model
     _save_model(lgb_model, model_data_path, serialization_format, skops_trusted_types)
 
@@ -309,6 +310,13 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
+def _append_builtin_skops_trusted_types(skops_trusted_types):
+    merged = list(_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES)
+    if skops_trusted_types:
+        merged.extend(t for t in skops_trusted_types if t not in merged)
+    return merged
+
+
 def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types):
     """
     LightGBM Boosters are saved using the built-in method `save_model()`,
@@ -330,11 +338,6 @@ def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types
                 "The recommended safe alternative is the 'skops' format. "
                 "For more information, see: https://scikit-learn.org/stable/model_persistence.html",
             )
-        if serialization_format == "skops":
-            merged = list(_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES)
-            if skops_trusted_types:
-                merged.extend(t for t in skops_trusted_types if t not in merged)
-            skops_trusted_types = merged
         _save_sklearn_model(lgb_model, model_path, serialization_format, skops_trusted_types)
 
 

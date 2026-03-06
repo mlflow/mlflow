@@ -571,6 +571,13 @@ def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
         serialization_format="skops",
     )
 
+    flavor_cfg = _get_flavor_configuration(model_path=model_path, flavor_name=mlflow.lightgbm.FLAVOR_NAME)
+    assert set(flavor_cfg['skops_trusted_types']) == {
+        'collections.OrderedDict',
+        'lightgbm.basic.Booster',
+        'lightgbm.sklearn.LGBMClassifier',
+        'lightgbm.sklearn.LGBMRegressor',
+    }
     logged_reqs = [
         req.req_str
         for req in _parse_requirements(
@@ -602,6 +609,13 @@ def test_sklearn_regressor_model_save_load_by_skops(lgb_sklearn_regressor_model,
         serialization_format="skops",
     )
 
+    flavor_cfg = _get_flavor_configuration(model_path=model_path, flavor_name=mlflow.lightgbm.FLAVOR_NAME)
+    assert set(flavor_cfg['skops_trusted_types']) == {
+        'collections.OrderedDict',
+        'lightgbm.basic.Booster',
+        'lightgbm.sklearn.LGBMClassifier',
+        'lightgbm.sklearn.LGBMRegressor',
+    }
     logged_reqs = [
         req.req_str
         for req in _parse_requirements(
