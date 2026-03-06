@@ -113,12 +113,18 @@ def test_set_destination_databricks(monkeypatch):
     assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
 
 
-def test_set_destination_databricks_uc(monkeypatch):
-    mlflow.tracing.set_destination(
-        destination=UCSchemaLocation(
-            catalog_name="catalog",
-            schema_name="schema",
+def test_set_destination_databricks_uc():
+    with mock.patch("mlflow.tracing.provider._logger.warning") as mock_warning:
+        mlflow.tracing.set_destination(
+            destination=UCSchemaLocation(
+                catalog_name="catalog",
+                schema_name="schema",
+            )
         )
+
+    mock_warning.assert_called_once()
+    assert "Passing `UCSchemaLocation` to `mlflow.tracing.set_destination` is deprecated" in str(
+        mock_warning.call_args.args[0]
     )
 
     tracer = _get_tracer("test")
@@ -674,9 +680,30 @@ def test_experiment_derived_destination_invalidates_when_experiment_changes(monk
     )
 
     # Cached experiment-derived value no longer matches active experiment.
-    # Registry should invalidate it and fall through to env resolution.
+    # Registry should fall through to env resolution without clearing the cache
+    # (get() must not mutate state).
     destination = _MLFLOW_TRACE_USER_DESTINATION.get()
     assert isinstance(destination, UCSchemaLocation)
     assert destination.catalog_name == "catalog"
     assert destination.schema_name == "schema"
-    assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived is None
+    assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived is not None
+
+
+def test_experiment_derived_destination_preserved_when_validation_errors(monkeypatch):
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    experiment_derived = UnityCatalog("catalog", "schema", table_prefix="exp")
+    _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
+        experiment_derived,
+        experiment_id="exp-1",
+    )
+    monkeypatch.setattr(
+        "mlflow.tracking.fluent._get_experiment_id",
+        lambda: (_ for _ in ()).throw(RuntimeError("transient failure")),
+    )
+
+    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    assert isinstance(destination, UnityCatalog)
+    assert destination.table_prefix == "exp"
+    assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived is not None

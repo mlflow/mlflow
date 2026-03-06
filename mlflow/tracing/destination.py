@@ -21,11 +21,17 @@ from mlflow.utils.annotations import deprecated
 _logger = logging.getLogger(__name__)
 
 
+@dataclass
+class _ExperimentDerivedDestination:
+    experiment_id: str
+    destination: TraceLocationBase
+
+
 class UserTraceDestinationRegistry:
     def __init__(self):
         self._global_value = None
         self._context_local_value = ContextVar("mlflow_trace_destination", default=None)
-        self._experiment_derived: tuple[str, TraceLocationBase] | None = None
+        self._experiment_derived: _ExperimentDerivedDestination | None = None
 
     def get(self) -> TraceLocationBase | None:
         # Precedence: context-local -> global -> experiment-derived -> env.
@@ -33,11 +39,15 @@ class UserTraceDestinationRegistry:
             return local_destination
         if self._global_value:
             return self._global_value
-        if self._experiment_derived:
-            experiment_id, destination = self._experiment_derived
-            if self._is_experiment_derived_current(experiment_id):
-                return destination
-            self.clear_experiment_derived()
+        if experiment_derived := self._experiment_derived:
+            is_current = self._is_experiment_derived_current(experiment_derived.experiment_id)
+            if is_current is True:
+                return experiment_derived.destination
+            if is_current is None:
+                _logger.debug(
+                    "Failed to validate cached experiment-derived destination; using cached value."
+                )
+                return experiment_derived.destination
         return self._get_trace_location_from_env()
 
     def set(self, value, context_local: bool = False):
@@ -53,7 +63,9 @@ class UserTraceDestinationRegistry:
             )
             self.clear_experiment_derived()
             return
-        self._experiment_derived = (experiment_id, value)
+        self._experiment_derived = _ExperimentDerivedDestination(
+            experiment_id=experiment_id, destination=value
+        )
 
     def clear_experiment_derived(self):
         self._experiment_derived = None
@@ -63,7 +75,7 @@ class UserTraceDestinationRegistry:
         self._context_local_value.set(None)
         self._experiment_derived = None
 
-    def _is_experiment_derived_current(self, experiment_id: str) -> bool:
+    def _is_experiment_derived_current(self, experiment_id: str) -> bool | None:
         """Check if the cached experiment-derived destination still matches active experiment."""
         try:
             # Lazy import to avoid circular dependency.
@@ -72,10 +84,10 @@ class UserTraceDestinationRegistry:
             return _get_experiment_id() == experiment_id
         except Exception:
             _logger.debug(
-                "Failed to validate cached experiment-derived destination; invalidating cache.",
+                "Failed to validate cached experiment-derived destination.",
                 exc_info=True,
             )
-            return False
+            return None
 
     def _get_trace_location_from_env(self) -> TraceLocationBase | None:
         """
