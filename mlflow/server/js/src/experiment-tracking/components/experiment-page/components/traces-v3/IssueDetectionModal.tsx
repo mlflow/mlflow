@@ -9,6 +9,7 @@ import {
   Tooltip,
   Input,
   Accordion,
+  Alert,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ProviderSelect } from '../../../../../gateway/components/create-endpoint/ProviderSelect';
@@ -55,7 +56,6 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   const [judgeModel, setJudgeModel] = useState('');
   const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(DEFAULT_API_KEY_CONFIG);
   const [saveKey, setSaveKey] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
   const [selectedTraceIds, setSelectedTraceIds] = useState<string[]>(initialSelectedTraceIds);
   const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
@@ -77,7 +77,12 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
     }
   }, [provider, existingSecrets.length]);
 
-  const { mutateAsync: createSecret } = useCreateSecret();
+  const {
+    mutate: createSecret,
+    isLoading: isCreatingSecret,
+    error: createSecretError,
+    reset: resetCreateSecret,
+  } = useCreateSecret();
 
   const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);
@@ -100,35 +105,45 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
     setSelectedTraceIds([]);
   }, []);
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      if (saveKey && apiKeyConfig.mode === 'new') {
-        const authConfig = { ...apiKeyConfig.newSecret.configFields } satisfies Record<string, string>;
-        if (apiKeyConfig.newSecret.authMode) {
-          authConfig['auth_mode'] = apiKeyConfig.newSecret.authMode;
-        }
+  const handleSubmit = () => {
+    const completeSubmit = () => {
+      // TODO: Implement backend API call for issue detection
+      resetForm();
+      onClose();
+    };
 
-        await createSecret({
+    if (saveKey && apiKeyConfig.mode === 'new') {
+      const authConfig = { ...apiKeyConfig.newSecret.configFields } satisfies Record<string, string>;
+      if (apiKeyConfig.newSecret.authMode) {
+        authConfig['auth_mode'] = apiKeyConfig.newSecret.authMode;
+      }
+
+      createSecret(
+        {
           secret_name: apiKeyConfig.newSecret.name,
           secret_value: apiKeyConfig.newSecret.secretFields,
           provider: provider,
           auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
-        });
-      }
-
-      // TODO: Implement backend API call for issue detection
-      resetForm();
-      onClose();
-    } finally {
-      setIsSubmitting(false);
+        },
+        {
+          onSuccess: () => {
+            completeSubmit();
+          },
+          onError: () => {
+            // Keep form open when there's an error so user can see error message and retry
+          },
+        },
+      );
+    } else {
+      completeSubmit();
     }
   };
 
   const handleClose = useCallback(() => {
     resetForm();
+    resetCreateSecret();
     onClose();
-  }, [resetForm, onClose]);
+  }, [resetForm, resetCreateSecret, onClose]);
 
   const isApiKeyValid =
     apiKeyConfig.mode === 'existing'
@@ -159,7 +174,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             componentId="mlflow.traces.issue-detection-modal.submit"
             type="primary"
             onClick={handleSubmit}
-            loading={isSubmitting}
+            loading={isCreatingSecret}
             disabled={isSubmitDisabled}
             css={{ width: '100%' }}
           >
@@ -178,6 +193,16 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
               description="Description text for issue detection modal"
             />
           </Typography.Text>
+
+          {createSecretError && (
+            <Alert
+              componentId="mlflow.traces.issue-detection-modal.error"
+              type="error"
+              message={createSecretError.message}
+              closable
+              onClose={() => resetCreateSecret()}
+            />
+          )}
 
           <div>
             <ProviderSelect

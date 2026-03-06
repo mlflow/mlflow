@@ -76,10 +76,14 @@ describe('IssueDetectionModal', () => {
   };
 
   let mockCreateSecret: jest.Mock;
+  let mockResetCreateSecret: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockCreateSecret = jest.fn(() => Promise.resolve());
+    mockCreateSecret = jest.fn((_request, options) => {
+      (options as { onSuccess?: () => void })?.onSuccess?.();
+    });
+    mockResetCreateSecret = jest.fn();
     mockUseApiKeyConfiguration.mockReturnValue({
       existingSecrets: [],
       authModes: [],
@@ -87,7 +91,10 @@ describe('IssueDetectionModal', () => {
       isLoadingProviderConfig: false,
     });
     jest.mocked(useCreateSecret).mockReturnValue({
-      mutateAsync: mockCreateSecret,
+      mutate: mockCreateSecret,
+      isLoading: false,
+      error: null,
+      reset: mockResetCreateSecret,
     } as any);
   });
 
@@ -330,7 +337,6 @@ describe('IssueDetectionModal', () => {
     );
 
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
-    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
     await userEvent.click(screen.getByTestId('set-new-key'));
     await userEvent.click(screen.getByText('Save this key for reuse'));
 
@@ -338,12 +344,15 @@ describe('IssueDetectionModal', () => {
     await userEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(mockCreateSecret).toHaveBeenCalledWith({
-        secret_name: 'my-key',
-        secret_value: { api_key: 'sk-123' },
-        provider: 'openai',
-        auth_config: undefined,
-      });
+      expect(mockCreateSecret).toHaveBeenCalledWith(
+        {
+          secret_name: 'my-key',
+          secret_value: { api_key: 'sk-123' },
+          provider: 'openai',
+          auth_config: undefined,
+        },
+        expect.any(Object),
+      );
     });
   });
 
@@ -356,7 +365,6 @@ describe('IssueDetectionModal', () => {
     );
 
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
-    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
     await userEvent.click(screen.getByTestId('set-new-key'));
 
     const submitButton = screen.getByText('Run Analysis').closest('button')!;
@@ -377,7 +385,6 @@ describe('IssueDetectionModal', () => {
     );
 
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
-    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
     await userEvent.click(screen.getByTestId('set-existing-key'));
 
     const submitButton = screen.getByText('Run Analysis').closest('button')!;
