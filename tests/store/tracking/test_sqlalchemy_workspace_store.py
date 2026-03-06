@@ -859,7 +859,7 @@ def test_workspace_startup_ignores_default_experiment_reserved_location(
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 
 
-def test_single_tenant_startup_rejects_non_default_workspace_experiments(
+def test_single_tenant_startup_prompts_for_non_default_workspace_experiments(
     tmp_path, db_uri, monkeypatch
 ):
     artifact_root = tmp_path / "artifacts"
@@ -875,13 +875,19 @@ def test_single_tenant_startup_rejects_non_default_workspace_experiments(
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
-    with pytest.raises(
-        MlflowException,
-        match="Cannot disable workspaces because experiments exist outside the default workspace",
-    ) as excinfo:
-        SqlAlchemyStore(db_uri, artifact_root.as_uri())
 
-    assert excinfo.value.error_code == "INVALID_STATE"
+    # User declines the confirmation prompt — startup should abort
+    with mock.patch("click.confirm", side_effect=SystemExit(1)):
+        with pytest.raises(SystemExit):  # noqa: PT011
+            SqlAlchemyStore(db_uri, artifact_root.as_uri())
+
+    SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+    # User accepts the confirmation prompt — startup should succeed
+    with mock.patch("click.confirm"):
+        store = SqlAlchemyStore(db_uri, artifact_root.as_uri())
+        store._dispose_engine()
+
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 
 
