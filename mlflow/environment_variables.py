@@ -404,6 +404,21 @@ MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS = _EnvironmentVariable(
     "MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS", int, 300
 )
 
+#: Server-side: when True, reject proxied artifact uploads and require clients to use
+#: multipart upload. Only enforced when the backend artifact store supports multipart.
+#: (default: ``False``)
+MLFLOW_ENFORCE_PROXY_MULTIPART_UPLOAD = _BooleanEnvironmentVariable(
+    "MLFLOW_ENFORCE_PROXY_MULTIPART_UPLOAD", False
+)
+
+#: Server-side: when True, reject proxied artifact downloads and require clients to use
+#: multipart download via presigned URLs. Only enforced when the backend artifact store
+#: supports presigned downloads.
+#: (default: ``False``)
+MLFLOW_ENFORCE_PROXY_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
+    "MLFLOW_ENFORCE_PROXY_MULTIPART_DOWNLOAD", False
+)
+
 #: Private environment variable that's set to ``True`` while running tests.
 _MLFLOW_TESTING = _BooleanEnvironmentVariable("MLFLOW_TESTING", False)
 

@@ -168,6 +168,7 @@ from mlflow.server.handlers import (
     _transition_stage,
     _update_model_version,
     _update_registered_model,
+    _upload_artifact,
     _upsert_dataset_records_handler,
     _validate_source_run,
     catch_mlflow_exception,
@@ -181,6 +182,7 @@ from mlflow.server.handlers import (
     upload_artifact_handler,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -354,6 +356,26 @@ def test_server_info():
         data = response.get_json()
         assert data["store_type"] == "SqlStore"
         assert data["workspaces_enabled"] is False
+
+
+def test_server_info_includes_enforce_multipart_flags(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENFORCE_PROXY_MULTIPART_UPLOAD", "true")
+    monkeypatch.setenv("MLFLOW_ENFORCE_PROXY_MULTIPART_DOWNLOAD", "true")
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["enforce_proxy_multipart_upload"] is True
+        assert data["enforce_proxy_multipart_download"] is True
+
+
+def test_server_info_enforce_multipart_defaults_to_false():
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["enforce_proxy_multipart_upload"] is False
+        assert data["enforce_proxy_multipart_download"] is False
 
 
 def test_get_endpoints():
@@ -4152,3 +4174,144 @@ def test_list_artifacts_for_proxied_run_artifact_root_applies_workspace_scoping(
         mock_artifact_repo.list_artifacts.assert_called_once()
         listed_path = mock_artifact_repo.list_artifacts.call_args[0][0]
         assert listed_path.startswith("workspaces/team-orange/")
+
+
+def test_upload_artifact_rejected_when_enforce_multipart_upload(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENFORCE_PROXY_MULTIPART_UPLOAD", "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_repo = mock.create_autospec(MultipartUploadMixin)
+    mock_repo.log_artifact = mock.MagicMock()
+
+    with (
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=mock_repo,
+        ),
+        app.test_request_context(method="PUT", data=b"test data"),
+    ):
+        response = _upload_artifact("test/artifact.txt")
+        assert response.status_code == 409
+        assert "multipart upload" in response.get_data(as_text=True).lower()
+        mock_repo.log_artifact.assert_not_called()
+
+
+def test_upload_artifact_allowed_when_enforce_but_backend_lacks_mixin(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENFORCE_PROXY_MULTIPART_UPLOAD", "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_repo = mock.MagicMock(spec=["log_artifact"])
+
+    with (
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=mock_repo,
+        ),
+        app.test_request_context(method="PUT", data=b"test data"),
+    ):
+        response = _upload_artifact("test/artifact.txt")
+        assert response.status_code != 409
+        mock_repo.log_artifact.assert_called_once()
+
+
+def test_upload_artifact_allowed_when_enforce_disabled(monkeypatch):
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_repo = mock.create_autospec(MultipartUploadMixin)
+    mock_repo.log_artifact = mock.MagicMock()
+
+    with (
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=mock_repo,
+        ),
+        app.test_request_context(method="PUT", data=b"test data"),
+    ):
+        response = _upload_artifact("test/artifact.txt")
+        assert response.status_code != 409
+        mock_repo.log_artifact.assert_called_once()
+
+
+def test_download_artifact_rejected_when_enforce_multipart_download(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENFORCE_PROXY_MULTIPART_DOWNLOAD", "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    mock_repo = mock.create_autospec(MultipartDownloadMixin)
+    mock_repo.download_artifacts = mock.MagicMock()
+
+    with (
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=mock_repo,
+        ),
+        app.test_request_context(method="GET"),
+    ):
+        response = _download_artifact("test/artifact.txt")
+        assert response.status_code == 409
+        assert "multipart download" in response.get_data(as_text=True).lower()
+        mock_repo.download_artifacts.assert_not_called()
+
+
+def test_download_artifact_allowed_when_enforce_but_backend_lacks_download_mixin(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("MLFLOW_ENFORCE_PROXY_MULTIPART_DOWNLOAD", "true")
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    test_file = tmp_path / "artifact.txt"
+    test_file.write_bytes(b"test data")
+
+    mock_repo = mock.MagicMock(spec=["download_artifacts"])
+    mock_repo.download_artifacts.return_value = str(test_file)
+
+    with (
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=mock_repo,
+        ),
+        mock.patch(
+            "mlflow.server.handlers.tempfile.TemporaryDirectory"
+        ) as mock_tmp_dir,
+        app.test_request_context(method="GET"),
+    ):
+        mock_tmp_dir_instance = mock.MagicMock()
+        mock_tmp_dir_instance.name = str(tmp_path)
+        mock_tmp_dir.return_value = mock_tmp_dir_instance
+
+        response = _download_artifact("test/artifact.txt")
+        assert response.status_code != 409
+        mock_repo.download_artifacts.assert_called_once()
+
+
+def test_download_artifact_allowed_when_enforce_download_disabled(monkeypatch, tmp_path):
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
+
+    test_file = tmp_path / "artifact.txt"
+    test_file.write_bytes(b"test data")
+
+    mock_repo = mock.create_autospec(MultipartDownloadMixin)
+    mock_repo.download_artifacts = mock.MagicMock(return_value=str(test_file))
+
+    with (
+        mock.patch(
+            "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
+            return_value=mock_repo,
+        ),
+        mock.patch(
+            "mlflow.server.handlers.tempfile.TemporaryDirectory"
+        ) as mock_tmp_dir,
+        app.test_request_context(method="GET"),
+    ):
+        mock_tmp_dir_instance = mock.MagicMock()
+        mock_tmp_dir_instance.name = str(tmp_path)
+        mock_tmp_dir.return_value = mock_tmp_dir_instance
+
+        response = _download_artifact("test/artifact.txt")
+        assert response.status_code != 409
+        mock_repo.download_artifacts.assert_called_once()

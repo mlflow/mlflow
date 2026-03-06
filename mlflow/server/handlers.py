@@ -67,6 +67,8 @@ from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_ENFORCE_PROXY_MULTIPART_DOWNLOAD,
+    MLFLOW_ENFORCE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
 )
 from mlflow.exceptions import (
@@ -3241,8 +3243,20 @@ def _download_artifact(artifact_path):
     """
     artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
-    tmp_dir = tempfile.TemporaryDirectory()
+
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
+
+    if MLFLOW_ENFORCE_PROXY_MULTIPART_DOWNLOAD.get() and isinstance(
+        artifact_repo, MultipartDownloadMixin
+    ):
+        return Response(
+            "Server requires multipart download. Set "
+            "MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD=true on the client, "
+            "or upgrade your MLflow client.",
+            409,
+        )
+
+    tmp_dir = tempfile.TemporaryDirectory()
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
 
     # Ref: https://stackoverflow.com/a/24613980/6943581
@@ -3268,14 +3282,25 @@ def _upload_artifact(artifact_path):
     """
     artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+
+    if MLFLOW_ENFORCE_PROXY_MULTIPART_UPLOAD.get() and isinstance(
+        artifact_repo, MultipartUploadMixin
+    ):
+        return Response(
+            "Server requires multipart upload. Set "
+            "MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD=true on the client, "
+            "or upgrade your MLflow client.",
+            409,
+        )
+
     head, tail = posixpath.split(artifact_path)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
         with open(tmp_path, "wb") as f:
             while chunk := request.stream.read(ARTIFACT_STREAM_CHUNK_SIZE):
                 f.write(chunk)
-
-        artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_repo.log_artifact(tmp_path, artifact_path=head or None)
 
     return _wrap_response(UploadArtifact.Response())
@@ -5258,6 +5283,8 @@ def _get_server_info():
         {
             "store_type": store_type,
             "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
+            "enforce_proxy_multipart_upload": MLFLOW_ENFORCE_PROXY_MULTIPART_UPLOAD.get(),
+            "enforce_proxy_multipart_download": MLFLOW_ENFORCE_PROXY_MULTIPART_DOWNLOAD.get(),
         }
     )
 
