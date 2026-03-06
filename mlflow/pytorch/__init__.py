@@ -220,16 +220,16 @@ def log_model(
         export_model: If set to True, save the model as "pt2" format. This argument is deprecated.
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
-           Accepted values are "pickle" and "pt2".
-           When set to "pickle", the model is serialized using either pickle or cloudpickle,
-           depending on the `pickle_module` parameter.
-           When set to "pt2", the model is saved using torch.export.save, which exports the model
-           as a traced graph. This is a safer serialization format that prevents executing
-           arbitrary code during deserialization.
-           Note that "pt2" format requires `input_example` (used to trace the model graph by
-           virtually executing model.forward) and only supports Numpy array / Tensor or a list
-           of Numpy arrays / Tensors as inputs. For details, see
-           https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
+            Accepted values are "pickle" and "pt2".
+            When set to "pickle", the model is serialized using either pickle or cloudpickle,
+            depending on the `pickle_module` parameter.
+            When set to "pt2", the model is saved using torch.export.save, which exports the model
+            as a traced graph. This is a safer serialization format that prevents executing
+            arbitrary code during deserialization.
+            Note that "pt2" format requires `input_example` (used to trace the model graph by
+            virtually executing model.forward) and only supports Numpy array / Tensor or a list
+            of Numpy arrays / Tensors as inputs. For details, see
+            https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
         kwargs: kwargs to pass to ``torch.save`` method.
 
     Returns:
@@ -379,16 +379,16 @@ def save_model(
         export_model: If set to True, save the model as "pt2" format. This argument is deprecated.
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
-           Accepted values are "pickle" and "pt2".
-           When set to "pickle", the model is serialized using either pickle or cloudpickle,
-           depending on the `pickle_module` parameter.
-           When set to "pt2", the model is saved using torch.export.save, which exports the model
-           as a traced graph. This is a safer serialization format that prevents executing
-           arbitrary code during deserialization.
-           Note that "pt2" format requires `input_example` (used to trace the model graph by
-           virtually executing model.forward) and only supports Numpy array / Tensor or a list
-           of Numpy arrays / Tensors as inputs. For details, see
-           https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
+            Accepted values are "pickle" and "pt2".
+            When set to "pickle", the model is serialized using either pickle or cloudpickle,
+            depending on the `pickle_module` parameter.
+            When set to "pt2", the model is saved using torch.export.save, which exports the model
+            as a traced graph. This is a safer serialization format that prevents executing
+            arbitrary code during deserialization.
+            Note that "pt2" format requires `input_example` (used to trace the model graph by
+            virtually executing model.forward) and only supports Numpy array / Tensor or a list
+            of Numpy arrays / Tensors as inputs. For details, see
+            https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
         kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -442,10 +442,10 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     if export_model:
-        if serialization_format != SERIALIZATION_FORMAT_PICKLE:
+        if serialization_format == SERIALIZATION_FORMAT_PICKLE:
             raise MlflowException.invalid_parameter_value(
                 "Cannot set both `export_model=True` and `serialization_format='pickle'`. "
-                "Please use only `serialization_format` argument."
+                "Please use only the `serialization_format` argument."
             )
         warnings.warn(
             "`export_model` argument is deprecated. "
@@ -512,7 +512,7 @@ def save_model(
             isinstance(value, (np.ndarray, torch.Tensor)) for value in input_example
         ):
             raise MlflowException(
-                "If serialization_format is set to 'pt2', then input_example is required. "
+                "If `serialization_format` is set to 'pt2', then input_example is required. "
                 "It must be a numpy array or torch tensor, or a tuple/list of numpy arrays "
                 "or torch tensors. This is because 'pt2' is a traced-graph format: "
                 "PyTorch traces the model graph by virtually executing model.forward with "
@@ -529,7 +529,7 @@ def save_model(
                 "Unsupported signature type for the selected serialization format. "
                 "If the `serialization_format` argument is set to 'pt2', the input signature "
                 "must be specified using `TensorSpec`. Please update the model signature or "
-                "use `pickle` for serialization format."
+                "set `serialization_format` to 'pickle'."
             )
 
         tensor_spec_list = signature.inputs.inputs
@@ -556,7 +556,7 @@ def save_model(
             _logger.warning(
                 "Saving pytorch model by Pickle or CloudPickle format requires exercising "
                 "caution because these formats rely on Python's object serialization mechanism, "
-                "which can execute arbitrary code during deserialization."
+                "which can execute arbitrary code during deserialization. "
                 "The recommended safe alternative is to set `serialization_format` to 'pt2' to "
                 "save the PyTorch model using the safe graph model format."
             )
