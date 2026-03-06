@@ -250,16 +250,12 @@ def test_convert_mlflow_uri_to_litellm(mlflow_uri, expected_litellm_uri):
     [
         "openai-gpt-4",  # Invalid format (missing colon-slash)
         "",  # Empty string
+        None,  # None value
     ],
 )
 def test_convert_mlflow_uri_to_litellm_invalid(invalid_uri):
-    with pytest.raises(MlflowException, match="Malformed model uri"):
+    with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
         convert_mlflow_uri_to_litellm(invalid_uri)
-
-
-def test_convert_mlflow_uri_to_litellm_none():
-    with pytest.raises((MlflowException, AttributeError)):
-        convert_mlflow_uri_to_litellm(None)
 
 
 @pytest.mark.parametrize(
