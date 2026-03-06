@@ -406,6 +406,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Tools',
   },
   {
+    id: 'gemini_cli',
+    name: 'Gemini CLI',
+    logoPath: '/images/logos/google-gemini-logo.svg',
+    link: '/genai/tracing/integrations/listing/gemini_cli',
+    category: 'Tools',
+  },
+  {
     id: 'langfuse',
     name: 'Langfuse',
     logoPath: '/images/logos/langfuse-logo.png',

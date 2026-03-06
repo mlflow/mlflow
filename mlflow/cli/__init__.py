@@ -1317,6 +1317,14 @@ try:
 except ImportError:
     pass
 
+# Add Gemini CLI integration commands (as subcommand of autolog group)
+try:
+    import mlflow.gemini_cli.cli
+
+    mlflow.claude_code.cli.commands.add_command(mlflow.gemini_cli.cli.gemini_cli)
+except (ImportError, NameError):
+    pass
+
 # Add Assistant CLI commands
 try:
     import mlflow.assistant.cli
