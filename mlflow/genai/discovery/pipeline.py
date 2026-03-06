@@ -42,15 +42,13 @@ from mlflow.genai.discovery.extraction import (
     extract_failure_labels,
     extract_span_errors,
 )
-from mlflow.genai.discovery.sampling import (
-    get_session_id,
-    group_traces_by_session,
-    sample_traces,
-)
+from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.genai.discovery.utils import (
     _call_llm,
     _TokenCounter,
     build_summary,
+    get_session_id,
+    group_traces_by_session,
     log_discovery_artifacts,
 )
 from mlflow.genai.judges.make_judge import make_judge
@@ -119,10 +117,7 @@ def verify_scorer(
         MlflowException: If the scorer produces no feedback or returns a null value.
     """
     try:
-        if session is not None:
-            feedback = scorer(session=session)
-        else:
-            feedback = scorer(trace=trace)
+        feedback = scorer(session=session) if session is not None else scorer(trace=trace)
         if not isinstance(feedback, Feedback):
             raise mlflow.exceptions.MlflowException(
                 f"Scorer '{scorer.name}' returned {type(feedback).__name__} instead of Feedback"

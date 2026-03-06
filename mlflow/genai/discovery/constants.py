@@ -28,16 +28,6 @@ DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
 
 
-def _to_litellm_model(model_uri: str) -> str:
-    match model_uri.split(":/", 1):
-        case [scheme, path] if scheme in ("endpoints", "databricks"):
-            return f"databricks/{path.lstrip('/')}"
-        case [scheme, path]:
-            return f"{scheme}/{path.lstrip('/')}"
-        case _:
-            return model_uri
-
-
 # ---- Satisfaction scorer instructions ----
 
 SATISFACTION_INSTRUCTIONS_PREAMBLE = """\

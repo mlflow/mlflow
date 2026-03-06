@@ -1,9 +1,7 @@
 from unittest.mock import patch
 
-from mlflow.genai.discovery.sampling import (
-    group_traces_by_session,
-    sample_traces,
-)
+from mlflow.genai.discovery.sampling import sample_traces
+from mlflow.genai.discovery.utils import group_traces_by_session
 
 # ---- sample_traces ----
 
