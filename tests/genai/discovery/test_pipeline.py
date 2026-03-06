@@ -4,17 +4,16 @@ import pytest
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.genai.discovery.clustering import recluster_singletons
+from mlflow.genai.discovery.constants import severity_gte, severity_max
 from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
     _format_trace_content,
     _is_non_issue,
-    _recluster_singletons,
     discover_issues,
-    severity_gte,
-    severity_max,
-    verify_scorer,
 )
+from mlflow.genai.discovery.utils import verify_scorer
 from mlflow.genai.evaluation.entities import EvaluationResult
 
 from tests.genai.discovery.conftest import _TestScorer
@@ -277,35 +276,30 @@ def test_discover_issues_additional_scorers(make_trace):
 
 
 @pytest.mark.parametrize(
-    ("name", "description", "root_cause", "expected"),
+    ("name", "severity", "expected"),
     [
-        # Canonical keyword — primary mechanism
-        ("NO_ISSUE_DETECTED", "Goals were met", "N/A", True),
-        ("no_issue_detected", "All good", "N/A", True),
-        # Fallback patterns in name/description
-        ("No issues detected [general]", "Everything looks fine", "test", True),
-        ("No problems found", "All traces passed", "test", True),
-        ("Missing data [api]", "No errors found in logs", "test", True),
-        # Fallback pattern in root_cause
-        ("General analysis", "System output summary", "no issues found in analysis", True),
-        # New expanded patterns
-        ("System review", "The system is functioning correctly overall", "N/A", True),
-        ("Goals achieved", "The user's goals were achieved in this session", "N/A", True),
-        ("Evaluation", "System is working as intended for this use case", "N/A", True),
-        ("Summary", "Nothing wrong with the response quality", "N/A", True),
-        ("Assessment", "No significant issue identified here", "N/A", True),
+        # Severity-based detection
+        ("Some issue", "not_an_issue", True),
+        ("Another issue", "not_an_issue", True),
+        # Canonical keyword in name
+        ("NO_ISSUE_DETECTED", "high", True),
+        ("no_issue_detected", "medium", True),
+        ("Issue: NO_ISSUE_DETECTED variant", "low", True),
+        # Both severity and keyword
+        ("NO_ISSUE_DETECTED", "not_an_issue", True),
         # Real issues — not filtered
-        ("Slow response times [api]", "Responses are slow", "Complex queries", False),
-        ("Data errors [db]", "Schema validation passes but data is wrong", "Misconfig", False),
+        ("Slow response times [api]", "high", False),
+        ("Data errors [db]", "medium", False),
+        ("Missing data [api]", "low", False),
     ],
 )
-def test_is_non_issue(name, description, root_cause, expected):
+def test_is_non_issue(name, severity, expected):
     issue = _IdentifiedIssue(
         name=name,
-        description=description,
-        root_cause=root_cause,
+        description="test",
+        root_cause="test",
         example_indices=[0],
-        severity="high",
+        severity=severity,
     )
     assert _is_non_issue(issue) == expected
 
@@ -320,7 +314,7 @@ def test_discover_issues_filters_no_issue_results(make_trace):
         description="This trace analysis found no identifiable issues.",
         root_cause="N/A",
         example_indices=[0, 1, 2],
-        severity="high",
+        severity="not_an_issue",
     )
 
     with (
@@ -673,15 +667,15 @@ def test_recluster_merges_similar_singletons():
 
     with (
         patch(
-            "mlflow.genai.discovery.pipeline.cluster_by_llm",
+            "mlflow.genai.discovery.clustering.cluster_by_llm",
             return_value=[[0, 1]],
         ) as mock_cluster,
         patch(
-            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            "mlflow.genai.discovery.clustering.summarize_cluster",
             return_value=merged_issue,
         ) as mock_summarize,
     ):
-        result = _recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
+        result = recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
 
     mock_cluster.assert_called_once()
     mock_summarize.assert_called_once()
@@ -721,10 +715,10 @@ def test_recluster_keeps_unmerged_singletons():
     labels = ["[path_a] symptom a", "[path_b] symptom b"]
 
     with patch(
-        "mlflow.genai.discovery.pipeline.cluster_by_llm",
+        "mlflow.genai.discovery.clustering.cluster_by_llm",
         return_value=[[0], [1]],
     ) as mock_cluster:
-        result = _recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
+        result = recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
 
     mock_cluster.assert_called_once()
     assert len(result) == 2
@@ -740,7 +734,7 @@ def test_recluster_single_singleton_returns_as_is():
             severity="high",
         ),
     ]
-    result = _recluster_singletons(singletons, ["label"], [], "m", 25)
+    result = recluster_singletons(singletons, ["label"], [], "m", 25)
     assert len(result) == 1
     assert result[0].name == "Solo"
 
@@ -786,15 +780,15 @@ def test_recluster_low_severity_merge_keeps_originals():
 
     with (
         patch(
-            "mlflow.genai.discovery.pipeline.cluster_by_llm",
+            "mlflow.genai.discovery.clustering.cluster_by_llm",
             return_value=[[0, 1]],
         ),
         patch(
-            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            "mlflow.genai.discovery.clustering.summarize_cluster",
             return_value=low_severity_merged,
         ),
     ):
-        result = _recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
+        result = recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
 
     assert len(result) == 2
     assert result[0].name == "A"

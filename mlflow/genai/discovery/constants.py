@@ -24,6 +24,15 @@ SEVERITY_LEVELS = ("not_an_issue", "low", "medium", "high")
 SEVERITY_ORDER = {level: i for i, level in enumerate(SEVERITY_LEVELS)}
 MIN_SEVERITY = "low"
 
+
+def severity_gte(a: str, b: str) -> bool:
+    return SEVERITY_ORDER.get(a, -1) >= SEVERITY_ORDER.get(b, 0)
+
+
+def severity_max(a: str, b: str) -> str:
+    return a if SEVERITY_ORDER.get(a, 0) >= SEVERITY_ORDER.get(b, 0) else b
+
+
 DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
 

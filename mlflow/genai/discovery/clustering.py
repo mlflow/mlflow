@@ -7,6 +7,8 @@ from mlflow.genai.discovery.constants import (
     CLUSTER_LABELS_PROMPT_TEMPLATE,
     CLUSTER_SUMMARY_SYSTEM_PROMPT,
     DEFAULT_MODEL,
+    MIN_SEVERITY,
+    severity_gte,
 )
 from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
@@ -142,4 +144,53 @@ def summarize_cluster(
     content = (response.choices[0].message.content or "").strip()
     result = _IdentifiedIssue(**json.loads(content))
     result.example_indices = cluster_indices
+    return result
+
+
+def recluster_singletons(
+    singletons: list[_IdentifiedIssue],
+    labels: list[str],
+    analyses: list[_ConversationAnalysis],
+    model: str,
+    max_issues: int,
+    token_counter: _TokenCounter | None = None,
+) -> list[_IdentifiedIssue]:
+    """
+    Re-cluster singleton issues via a second LLM pass to find better groupings.
+
+    Args:
+        singletons: Single-analysis issues to attempt merging.
+        labels: Failure labels from the initial clustering phase.
+        analyses: All conversation analyses from the pipeline.
+        model: Model URI for clustering and summarization.
+        max_issues: Maximum number of groups to produce.
+        token_counter: Optional token counter for tracking LLM usage.
+
+    Returns:
+        List of issues after re-clustering (merged or original singletons).
+    """
+    if len(singletons) < 2:
+        return list(singletons)
+
+    singleton_labels = []
+    for singleton in singletons:
+        idx = singleton.example_indices[0]
+        singleton_labels.append(labels[idx] if idx < len(labels) else singleton.name)
+
+    new_groups = cluster_by_llm(singleton_labels, max_issues, model, token_counter=token_counter)
+
+    result: list[_IdentifiedIssue] = []
+    for group in new_groups:
+        if len(group) == 1:
+            result.append(singletons[group[0]])
+            continue
+        merged_indices = [singletons[group_idx].example_indices[0] for group_idx in group]
+        merged_issue = summarize_cluster(
+            merged_indices, analyses, model, token_counter=token_counter
+        )
+        if severity_gte(merged_issue.severity, MIN_SEVERITY):
+            result.append(merged_issue)
+        else:
+            result.extend(singletons[group_idx] for group_idx in group)
+
     return result

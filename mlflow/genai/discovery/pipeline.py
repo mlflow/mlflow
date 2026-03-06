@@ -8,12 +8,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 import mlflow
-from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.clustering import (
     cluster_by_llm,
+    recluster_singletons,
     summarize_cluster,
 )
 from mlflow.genai.discovery.constants import (
@@ -28,6 +28,8 @@ from mlflow.genai.discovery.constants import (
     TRACE_ANNOTATION_SYSTEM_PROMPT,
     TRACE_CONTENT_TRUNCATION,
     build_satisfaction_instructions,
+    severity_gte,
+    severity_max,
 )
 from mlflow.genai.discovery.entities import (
     DiscoverIssuesResult,
@@ -36,6 +38,7 @@ from mlflow.genai.discovery.entities import (
     _IdentifiedIssue,
 )
 from mlflow.genai.discovery.extraction import (
+    extract_assessment_rationale,
     extract_execution_path,
     extract_execution_paths_for_session,
     extract_failing_traces,
@@ -50,6 +53,7 @@ from mlflow.genai.discovery.utils import (
     get_session_id,
     group_traces_by_session,
     log_discovery_artifacts,
+    verify_scorer,
 )
 from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
@@ -59,93 +63,9 @@ from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
-_NO_ISSUE_PATTERNS = frozenset(
-    {
-        "no issues",
-        "no issue",
-        "no problems",
-        "no failures",
-        "no errors",
-        "no real issue",
-        "no failure",
-        "no deficiency",
-        "no significant issue",
-        "nothing wrong",
-        "goals were achieved",
-        "functioning correctly",
-        "operating as expected",
-        "working as intended",
-        "performed well",
-        "no discernible issue",
-    }
-)
-
-
-def severity_gte(a: str, b: str) -> bool:
-    return SEVERITY_ORDER.get(a, -1) >= SEVERITY_ORDER.get(b, 0)
-
-
-def severity_max(a: str, b: str) -> str:
-    return a if SEVERITY_ORDER.get(a, 0) >= SEVERITY_ORDER.get(b, 0) else b
-
 
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:
-    """Check if an identified issue is actually a false positive (no real issue)."""
-    if NO_ISSUE_KEYWORD.lower() in issue.name.lower():
-        return True
-    combined = f"{issue.name} {issue.description} {issue.root_cause}".lower()
-    return any(pattern in combined for pattern in _NO_ISSUE_PATTERNS)
-
-
-def verify_scorer(
-    scorer: Scorer,
-    trace: Trace,
-    session: list[Trace] | None = None,
-) -> None:
-    """
-    Verify a scorer works on a single trace (or session) before running the full pipeline.
-
-    Calls the scorer and checks that the returned Feedback has a non-null value.
-
-    Args:
-        scorer: The scorer to test.
-        trace: A trace to run the scorer on (used for trace-based scorers).
-        session: If provided, pass as ``session=`` to the scorer instead of ``trace=``.
-            Used for conversation-based scorers that require ``{{ conversation }}``.
-
-    Raises:
-        MlflowException: If the scorer produces no feedback or returns a null value.
-    """
-    try:
-        feedback = scorer(session=session) if session is not None else scorer(trace=trace)
-        if not isinstance(feedback, Feedback):
-            raise mlflow.exceptions.MlflowException(
-                f"Scorer '{scorer.name}' returned {type(feedback).__name__} instead of Feedback"
-            )
-        if feedback.value is None:
-            error = feedback.error_message or "unknown error (check model API logs)"
-            raise mlflow.exceptions.MlflowException(
-                f"Scorer '{scorer.name}' returned null value: {error}"
-            )
-    except mlflow.exceptions.MlflowException:
-        raise
-    except Exception as exc:
-        raise mlflow.exceptions.MlflowException(
-            f"Scorer '{scorer.name}' failed verification on trace {trace.info.trace_id}: {exc}"
-        ) from exc
-
-
-def _extract_assessment_rationale(trace: Trace, scorer_name: str) -> str:
-    return next(
-        (
-            assessment.rationale
-            for assessment in trace.info.assessments
-            if isinstance(assessment, Feedback)
-            and assessment.name == scorer_name
-            and assessment.rationale
-        ),
-        "",
-    )
+    return issue.severity == "not_an_issue" or NO_ISSUE_KEYWORD.lower() in issue.name.lower()
 
 
 def _collect_example_trace_ids(
@@ -158,55 +78,6 @@ def _collect_example_trace_ids(
         if 0 <= idx < len(analyses):
             trace_ids.extend(analyses[idx].affected_trace_ids)
     return trace_ids[:MAX_EXAMPLE_TRACE_IDS]
-
-
-def _recluster_singletons(
-    singletons: list[_IdentifiedIssue],
-    labels: list[str],
-    analyses: list[_ConversationAnalysis],
-    model: str,
-    max_issues: int,
-    token_counter: _TokenCounter | None = None,
-) -> list[_IdentifiedIssue]:
-    """
-    Re-cluster singleton issues via a second LLM pass to find better groupings.
-
-    Args:
-        singletons: Single-analysis issues to attempt merging.
-        labels: Failure labels from the initial clustering phase.
-        analyses: All conversation analyses from the pipeline.
-        model: Model URI for clustering and summarization.
-        max_issues: Maximum number of groups to produce.
-        token_counter: Optional token counter for tracking LLM usage.
-
-    Returns:
-        List of issues after re-clustering (merged or original singletons).
-    """
-    if len(singletons) < 2:
-        return list(singletons)
-
-    singleton_labels = []
-    for singleton in singletons:
-        idx = singleton.example_indices[0]
-        singleton_labels.append(labels[idx] if idx < len(labels) else singleton.name)
-
-    new_groups = cluster_by_llm(singleton_labels, max_issues, model, token_counter=token_counter)
-
-    result: list[_IdentifiedIssue] = []
-    for group in new_groups:
-        if len(group) == 1:
-            result.append(singletons[group[0]])
-            continue
-        merged_indices = [singletons[group_idx].example_indices[0] for group_idx in group]
-        merged_issue = summarize_cluster(
-            merged_indices, analyses, model, token_counter=token_counter
-        )
-        if severity_gte(merged_issue.severity, MIN_SEVERITY):
-            result.append(merged_issue)
-        else:
-            result.extend(singletons[group_idx] for group_idx in group)
-
-    return result
 
 
 def _format_trace_content(trace: Trace) -> str:
@@ -543,7 +414,7 @@ def discover_issues(
 
         for trace in session_failing:
             _add_rationale(rationale_map[trace.info.trace_id])
-            _add_rationale(_extract_assessment_rationale(trace, scorer_name), "[human feedback] ")
+            _add_rationale(extract_assessment_rationale(trace, scorer_name), "[human feedback] ")
             _add_rationale(extract_span_errors(trace), "[span errors] ")
         combined_rationale = "; ".join(rationales)
         if not combined_rationale:
@@ -676,7 +547,7 @@ def discover_issues(
     multi_member = [i for i in identified if len(i.example_indices) > 1]
     if len(singletons) >= 2:
         _logger.info("Phase 3d: Re-clustering %d singleton issues...", len(singletons))
-        merged = _recluster_singletons(
+        merged = recluster_singletons(
             singletons,
             labels,
             analyses,

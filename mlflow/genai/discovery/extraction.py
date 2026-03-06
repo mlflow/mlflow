@@ -4,7 +4,6 @@ import logging
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from mlflow.entities.assessment import Feedback
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
@@ -231,15 +230,8 @@ def extract_failing_traces(
     for trace in scored_traces:
         row_failing: list[tuple[str, str]] = []
         for scorer_name in scorer_names:
-            # Find the most recent Feedback for this scorer
-            assessment = next(
-                (
-                    assessment
-                    for assessment in reversed(trace.info.assessments)
-                    if isinstance(assessment, Feedback) and assessment.name == scorer_name
-                ),
-                None,
-            )
+            assessments = trace.search_assessments(scorer_name, type="feedback")
+            assessment = assessments[-1] if assessments else None
             if assessment is None:
                 continue
             if assessment.value is not None and not bool(assessment.value):
@@ -254,3 +246,8 @@ def extract_failing_traces(
         )
 
     return failing, rationales
+
+
+def extract_assessment_rationale(trace: Trace, scorer_name: str) -> str:
+    assessments = trace.search_assessments(scorer_name, type="feedback")
+    return next((a.rationale for a in assessments if a.rationale), "")
