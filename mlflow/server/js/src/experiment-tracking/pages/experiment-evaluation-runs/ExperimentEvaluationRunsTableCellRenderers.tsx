@@ -28,7 +28,11 @@ import { FormattedMessage } from 'react-intl';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
-import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
+import {
+  shouldEnableImprovedEvalRunsComparison,
+  shouldShowEvalRunsIssuesPanel,
+} from '../../../common/utils/FeatureUtils';
+import { MLFLOW_RUN_IS_ISSUE_DETECTION_TAG } from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
@@ -69,13 +73,25 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   }
 
   const runUuid = row.original.info.runUuid;
+  const tags = row.original.data?.tags ?? [];
+  const isIssueDetectionRun = tags.some((tag) => tag.key === MLFLOW_RUN_IS_ISSUE_DETECTION_TAG);
+  const showIssuesPanelFlag = shouldShowEvalRunsIssuesPanel();
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // When flag is ON and clicking on an issue detection run, do nothing for now
+    if (isIssueDetectionRun && showIssuesPanelFlag) {
+      return;
+    }
+    // Otherwise follow old behavior - open the right-side panel
+    (meta as any).setSelectedRunUuid?.(runUuid);
+  };
 
   return (
     <div
       css={{ overflow: 'hidden', display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
-      onClick={() => {
-        (meta as any).setSelectedRunUuid?.(runUuid);
-      }}
+      onClick={handleClick}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <RunColorPill
         color={getRunColor(runUuid)}

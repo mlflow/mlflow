@@ -709,7 +709,9 @@ def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[
 
     for retrieval_span in top_level_retrieval_spans:
         try:
-            contexts = [_parse_chunk(chunk) for chunk in retrieval_span.outputs or []]
+            outputs = retrieval_span.outputs
+            outputs = json.loads(outputs) if isinstance(outputs, str) else outputs
+            contexts = [_parse_chunk(chunk) for chunk in outputs or []]
             retrieved[retrieval_span.span_id] = [c for c in contexts if c is not None]
         except Exception as e:
             _logger.debug(

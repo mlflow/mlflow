@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.10.1.dev0"
+version = "3.10.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -249,8 +249,6 @@ constraint-dependencies = [
   "xgboost<3.1.0",
   # pyspark 4.1.0 causes issues with documentation build
   "pyspark<4.1.0",
-  # TODO: Remove this once transformers 5.x is supported
-  "transformers<5",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
   "setuptools<82",
 ]
@@ -443,7 +441,7 @@ typing-extensions-allowlist = [
 ]
 # Rules that are only enabled for code examples.
 example-rules = [
-  "lazy-builtin-import",
+  "lazy-import",
   "log-model-artifact-path",
   "unknown-mlflow-function",
   "unknown-mlflow-arguments",

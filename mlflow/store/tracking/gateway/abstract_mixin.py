@@ -18,6 +18,8 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 
 class GatewayStoreMixin:
@@ -225,7 +227,7 @@ class GatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
-        usage_tracking: bool = False,
+        usage_tracking: bool = True,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -516,11 +518,35 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_budget_policies(self) -> list[GatewayBudgetPolicy]:
+    def list_budget_policies(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayBudgetPolicy]:
         """
-        List all budget policies.
+        List budget policies.
 
         Returns:
-            List of GatewayBudgetPolicy entities.
+            PagedList of GatewayBudgetPolicy entities.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def sum_gateway_trace_cost(
+        self,
+        start_time_ms: int,
+        end_time_ms: int,
+        workspace: str | None = None,
+    ) -> float:
+        """
+        Sum total_cost from span metrics for gateway traces within a time range.
+
+        Args:
+            start_time_ms: Window start in epoch milliseconds (inclusive).
+            end_time_ms: Window end in epoch milliseconds (exclusive).
+            workspace: If provided, filter to traces in experiments belonging
+                to this workspace.
+
+        Returns:
+            Total cost in USD.
         """
         raise NotImplementedError(self.__class__.__name__)

@@ -44,6 +44,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlOnlineScoringConfig,
     SqlScorer,
     SqlScorerVersion,
+    SqlSpan,
+    SqlSpanMetrics,
+    SqlTraceInfo,
+    SqlTraceMetadata,
 )
 from mlflow.store.tracking.gateway.config_resolver import (
     get_endpoint_config,
@@ -51,6 +55,7 @@ from mlflow.store.tracking.gateway.config_resolver import (
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -79,6 +84,10 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlOnlineScoringConfig,
             SqlScorerVersion,
             SqlScorer,
+            SqlSpanMetrics,
+            SqlSpan,
+            SqlTraceMetadata,
+            SqlTraceInfo,
             SqlExperimentTag,
             SqlExperiment,
         ):
@@ -576,6 +585,31 @@ def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore)
     assert experiment.tags.get("mlflow.experiment.sourceType") == "GATEWAY"
     assert experiment.tags.get("mlflow.experiment.sourceId") == endpoint.endpoint_id
     assert experiment.tags.get("mlflow.experiment.isGateway") == "true"
+
+
+def test_create_gateway_endpoint_usage_tracking_defaults_to_true(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="default-ut-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="default-ut-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    # Create endpoint without specifying usage_tracking
+    endpoint = store.create_gateway_endpoint(
+        name="default-ut-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    assert endpoint.usage_tracking is True
+    # An experiment should be auto-created since usage_tracking defaults to True
+    assert endpoint.experiment_id is not None
 
 
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):
@@ -2134,11 +2168,41 @@ def test_list_budget_policies(store: SqlAlchemyStore):
 
     all_policies = store.list_budget_policies()
     assert len(all_policies) == 2
+    assert all_policies.token is None
 
 
 def test_list_budget_policies_empty(store: SqlAlchemyStore):
     policies = store.list_budget_policies()
     assert policies == []
+    assert policies.token is None
+
+
+def test_list_budget_policies_pagination(store: SqlAlchemyStore):
+    for i in range(3):
+        store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=100.0 + i,
+            duration_unit=BudgetDurationUnit.MONTHS,
+            duration_value=1,
+            target_scope=BudgetTargetScope.GLOBAL,
+            budget_action=BudgetAction.ALERT,
+        )
+
+    page1 = store.list_budget_policies(max_results=2)
+    assert len(page1) == 2
+    assert page1.token is not None
+
+    page2 = store.list_budget_policies(max_results=2, page_token=page1.token)
+    assert len(page2) == 1
+    assert page2.token is None
+
+    all_ids = [p.budget_policy_id for p in page1] + [p.budget_policy_id for p in page2]
+    assert len(set(all_ids)) == 3
+
+
+def test_list_budget_policies_invalid_max_results(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="max_results"):
+        store.list_budget_policies(max_results=0)
 
 
 def test_create_budget_policy_all_duration_units(store: SqlAlchemyStore):
@@ -2165,3 +2229,140 @@ def test_create_budget_policy_all_budget_actions(store: SqlAlchemyStore):
             budget_action=action,
         )
         assert policy.budget_action == action
+
+
+# =============================================================================
+# sum_gateway_trace_cost Tests
+# =============================================================================
+
+
+def _insert_trace_with_cost(
+    session,
+    experiment_id,
+    trace_id,
+    timestamp_ms,
+    span_costs,
+    is_gateway=True,
+    endpoint_id="ep-test",
+):
+    trace = SqlTraceInfo(
+        request_id=trace_id,
+        experiment_id=experiment_id,
+        timestamp_ms=timestamp_ms,
+        execution_time_ms=100,
+        status="OK",
+    )
+    session.add(trace)
+    session.flush()
+
+    if is_gateway:
+        metadata = SqlTraceMetadata(
+            request_id=trace_id,
+            key=TraceMetadataKey.GATEWAY_ENDPOINT_ID,
+            value=endpoint_id,
+        )
+        session.add(metadata)
+
+    for span_id, cost in span_costs:
+        span = SqlSpan(
+            trace_id=trace_id,
+            experiment_id=experiment_id,
+            span_id=span_id,
+            status="OK",
+            start_time_unix_nano=timestamp_ms * 1_000_000,
+            end_time_unix_nano=(timestamp_ms + 100) * 1_000_000,
+            content="{}",
+        )
+        session.add(span)
+        session.flush()
+
+        metric = SqlSpanMetrics(
+            trace_id=trace_id,
+            span_id=span_id,
+            key=SpanMetricKey.TOTAL_COST,
+            value=cost,
+        )
+        session.add(metric)
+
+    session.flush()
+
+
+def test_sum_gateway_trace_cost_basic(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-basic")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "t1", 1000, [("s1", 0.05), ("s2", 0.03)])
+        _insert_trace_with_cost(session, exp_id, "t2", 2000, [("s1", 0.10)])
+
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total - 0.18) < 1e-9
+
+
+def test_sum_gateway_trace_cost_excludes_non_gateway(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-non-gw")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "gw1", 1000, [("s1", 0.10)], is_gateway=True)
+        _insert_trace_with_cost(session, exp_id, "nongw1", 1000, [("s1", 0.50)], is_gateway=False)
+
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total - 0.10) < 1e-9
+
+
+def test_sum_gateway_trace_cost_time_window(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-window")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "early", 500, [("s1", 0.01)])
+        _insert_trace_with_cost(session, exp_id, "in-window", 1500, [("s1", 0.05)])
+        _insert_trace_with_cost(session, exp_id, "late", 3000, [("s1", 0.99)])
+
+    # Only in-window trace should be included
+    total = store.sum_gateway_trace_cost(start_time_ms=1000, end_time_ms=2000)
+    assert abs(total - 0.05) < 1e-9
+
+
+def test_sum_gateway_trace_cost_workspace_filter(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker() as session:
+        # Create two experiments in different workspaces
+        exp_ws_a = SqlExperiment(
+            name=f"cost-ws-a-{uuid.uuid4().hex}",
+            artifact_location="/tmp/a",
+            lifecycle_stage="active",
+            workspace="workspace-a",
+        )
+        exp_ws_b = SqlExperiment(
+            name=f"cost-ws-b-{uuid.uuid4().hex}",
+            artifact_location="/tmp/b",
+            lifecycle_stage="active",
+            workspace="workspace-b",
+        )
+        session.add_all([exp_ws_a, exp_ws_b])
+        session.flush()
+
+        _insert_trace_with_cost(session, exp_ws_a.experiment_id, "t-a", 1000, [("s1", 0.10)])
+        _insert_trace_with_cost(session, exp_ws_b.experiment_id, "t-b", 1000, [("s1", 0.25)])
+
+    # Filtering by workspace-a should only include 0.10
+    total_a = store.sum_gateway_trace_cost(
+        start_time_ms=0, end_time_ms=5000, workspace="workspace-a"
+    )
+    assert abs(total_a - 0.10) < 1e-9
+
+    # Filtering by workspace-b should only include 0.25
+    total_b = store.sum_gateway_trace_cost(
+        start_time_ms=0, end_time_ms=5000, workspace="workspace-b"
+    )
+    assert abs(total_b - 0.25) < 1e-9
+
+    # No workspace filter should include both
+    total_all = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total_all - 0.35) < 1e-9
+
+
+def test_sum_gateway_trace_cost_empty(store: SqlAlchemyStore):
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert total == 0.0

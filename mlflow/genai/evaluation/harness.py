@@ -11,6 +11,8 @@ from typing import Any, Callable
 
 import pandas as pd
 
+from mlflow.exceptions import MlflowException
+
 try:
     from tqdm.auto import tqdm
 except ImportError:
@@ -390,9 +392,36 @@ def _compute_eval_scores(
 
 
 def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
+    """Get new expectations for an eval item that haven't been logged to the trace yet.
+
+    This function requires trace support from the backend. If traces are not available,
+    it raises an exception to inform users that their backend needs to be updated.
+
+    Args:
+        eval_item: The evaluation item containing inputs, outputs, expectations,
+            and optionally a trace object.
+
+    Returns:
+        A list of Expectation objects that are new (not already logged to the trace).
+
+    Raises:
+        MlflowException: If the trace is None or trace.info is None, indicating that
+            the backend does not support tracing.
+    """
+
+    # If trace is missing, raise an informative error
+    if eval_item.trace is None or eval_item.trace.info is None:
+        raise MlflowException(
+            "GenAI evaluation requires trace support, but the current backend does not "
+            "support tracing. Please use a backend that supports MLflow tracing (e.g., "
+            "SQLAlchemy-based backends) or update your backend to the latest version. "
+            "For more information, see the MLflow documentation on tracing."
+        )
+
     existing_expectations = {
         a.name for a in eval_item.trace.info.assessments if a.expectation is not None
     }
+
     return [
         exp
         for exp in eval_item.get_expectation_assessments()

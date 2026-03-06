@@ -23,6 +23,7 @@ from mlflow.entities.span import SpanType
 from mlflow.environment_variables import (
     MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
     MLFLOW_LOG_MODEL_COMPRESSION,
+    MLFLOW_UV_AUTO_DETECT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -95,6 +96,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import _get_flavor_configuration, _validate_infer_and_copy_code_paths
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uv_utils import copy_uv_project_files
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -1033,6 +1035,7 @@ def _save_model_with_class_artifacts_params(
     streamable=None,
     model_code_path=None,
     infer_code_paths=False,
+    uv_project_path=None,
 ):
     """
     Args:
@@ -1072,6 +1075,10 @@ def _save_model_with_class_artifacts_params(
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
     """
+    # Capture original working directory for uv project detection
+    # This must be done before any operations that might change cwd
+    original_cwd = Path.cwd()
+
     if mlflow_model is None:
         mlflow_model = Model()
 
@@ -1203,6 +1210,13 @@ def _save_model_with_class_artifacts_params(
     # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
+    if uv_project_path is not None:
+        uv_source_dir = uv_project_path
+    elif MLFLOW_UV_AUTO_DETECT.get():
+        uv_source_dir = original_cwd
+    else:
+        uv_source_dir = None
+
     if conda_env is None:
         if pip_requirements is None:
             default_reqs = get_default_pip_requirements()
@@ -1218,6 +1232,7 @@ def _save_model_with_class_artifacts_params(
                 mlflow.pyfunc.FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
+                uv_project_dir=uv_source_dir,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -1239,6 +1254,10 @@ def _save_model_with_class_artifacts_params(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    # Copy uv project files (uv.lock and pyproject.toml) if detected
+    if uv_source_dir is not None:
+        copy_uv_project_files(dest_dir=path, source_dir=uv_source_dir)
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
@@ -1262,13 +1281,14 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
             and not is_in_databricks_runtime()
             and not is_in_databricks_model_serving_environment()
         ):
-            mlflow.pyfunc._logger.warning(
-                "Saving the Pyfunc models in the CloudPickle format requires exercising "
-                "caution as Python's object serialization mechanism may execute arbitrary code "
-                "during deserialization. "
-                "The recommended safe alternative is saving it as the model-from-code "
-                "artifacts, see https://mlflow.org/docs/latest/ml/model/models-from-code/ "
-                "for details",
+            raise MlflowException(
+                "Deserializing model using pickle is disallowed, but this model is saved "
+                "in cloudpickle format. The recommended way is to save the model as "
+                "models-from-code artifacts, see "
+                "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details. "
+                "Another workaround is to set environment "
+                "variable 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow "
+                "deserializing model using pickle."
             )
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:
