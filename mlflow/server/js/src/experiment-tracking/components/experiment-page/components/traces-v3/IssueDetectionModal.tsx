@@ -129,9 +129,6 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           onSuccess: () => {
             completeSubmit();
           },
-          onError: () => {
-            // Keep form open when there's an error so user can see error message and retry
-          },
         },
       );
     } else {
