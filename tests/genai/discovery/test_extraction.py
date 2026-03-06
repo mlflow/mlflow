@@ -1,10 +1,9 @@
-import pandas as pd
-
+import mlflow
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.discovery.extraction import (
     extract_failing_traces,
     extract_span_errors,
 )
-from mlflow.genai.evaluation.entities import EvaluationResult
 
 # ---- extract_span_errors ----
 
@@ -30,19 +29,30 @@ def test_extract_span_errors_truncation(make_trace):
 
 # ---- extract_failing_traces ----
 
+_SOURCE = AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test")
+
+
+def _add_feedback(trace, name, value, rationale=""):
+    mlflow.log_feedback(
+        trace_id=trace.info.trace_id,
+        name=name,
+        value=value,
+        rationale=rationale,
+        source=_SOURCE,
+    )
+
+
+def _refetch(traces):
+    return [mlflow.get_trace(t.info.trace_id) for t in traces]
+
 
 def test_extract_failing_traces(make_trace):
     traces = [make_trace() for _ in range(3)]
-    df = pd.DataFrame(
-        {
-            "satisfaction/value": [True, False, False],
-            "satisfaction/rationale": ["good", "bad response", "incomplete"],
-            "trace": traces,
-        }
-    )
-    eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=df)
+    _add_feedback(traces[0], "satisfaction", True, "good")
+    _add_feedback(traces[1], "satisfaction", False, "bad response")
+    _add_feedback(traces[2], "satisfaction", False, "incomplete")
 
-    failing, rationales = extract_failing_traces(eval_result, "satisfaction")
+    failing, rationales = extract_failing_traces(_refetch(traces), "satisfaction")
 
     assert len(failing) == 2
     assert failing[0].info.trace_id == traces[1].info.trace_id
@@ -53,18 +63,14 @@ def test_extract_failing_traces(make_trace):
 
 def test_extract_failing_traces_with_list_of_scorer_names(make_trace):
     traces = [make_trace() for _ in range(3)]
-    df = pd.DataFrame(
-        {
-            "satisfaction/value": [True, False, True],
-            "satisfaction/rationale": ["good", "bad response", "good"],
-            "quality/value": [True, True, False],
-            "quality/rationale": ["ok", "ok", "poor quality"],
-            "trace": traces,
-        }
-    )
-    eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=df)
+    _add_feedback(traces[0], "satisfaction", True, "good")
+    _add_feedback(traces[0], "quality", True, "ok")
+    _add_feedback(traces[1], "satisfaction", False, "bad response")
+    _add_feedback(traces[1], "quality", True, "ok")
+    _add_feedback(traces[2], "satisfaction", True, "good")
+    _add_feedback(traces[2], "quality", False, "poor quality")
 
-    failing, rationales = extract_failing_traces(eval_result, ["satisfaction", "quality"])
+    failing, rationales = extract_failing_traces(_refetch(traces), ["satisfaction", "quality"])
 
     assert len(failing) == 2
     assert failing[0].info.trace_id == traces[1].info.trace_id
@@ -75,18 +81,12 @@ def test_extract_failing_traces_with_list_of_scorer_names(make_trace):
 
 def test_extract_failing_traces_multiple_scorers_fail_same_row(make_trace):
     traces = [make_trace() for _ in range(2)]
-    df = pd.DataFrame(
-        {
-            "scorer_a/value": [False, True],
-            "scorer_a/rationale": ["reason a", "ok"],
-            "scorer_b/value": [False, True],
-            "scorer_b/rationale": ["reason b", "ok"],
-            "trace": traces,
-        }
-    )
-    eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=df)
+    _add_feedback(traces[0], "scorer_a", False, "reason a")
+    _add_feedback(traces[0], "scorer_b", False, "reason b")
+    _add_feedback(traces[1], "scorer_a", True, "ok")
+    _add_feedback(traces[1], "scorer_b", True, "ok")
 
-    failing, rationales = extract_failing_traces(eval_result, ["scorer_a", "scorer_b"])
+    failing, rationales = extract_failing_traces(_refetch(traces), ["scorer_a", "scorer_b"])
 
     assert len(failing) == 1
     assert failing[0].info.trace_id == traces[0].info.trace_id
@@ -94,30 +94,24 @@ def test_extract_failing_traces_multiple_scorers_fail_same_row(make_trace):
     assert "reason b" in rationales[traces[0].info.trace_id]
 
 
-def test_extract_failing_traces_none_result_df():
-    eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=None)
-    failing, rationales = extract_failing_traces(eval_result, "satisfaction")
+def test_extract_failing_traces_empty_list():
+    failing, rationales = extract_failing_traces([], "satisfaction")
     assert failing == []
     assert rationales == {}
 
 
-def test_extract_failing_traces_missing_column():
-    df = pd.DataFrame({"other/value": [True]})
-    eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=df)
-    failing, rationales = extract_failing_traces(eval_result, "satisfaction")
+def test_extract_failing_traces_no_matching_scorer(make_trace):
+    traces = [make_trace()]
+    _add_feedback(traces[0], "other_scorer", False, "bad")
+
+    failing, rationales = extract_failing_traces(_refetch(traces), "satisfaction")
     assert failing == []
 
 
 def test_extract_failing_traces_no_failures(make_trace):
     traces = [make_trace()]
-    df = pd.DataFrame(
-        {
-            "satisfaction/value": [True],
-            "satisfaction/rationale": ["good"],
-            "trace": traces,
-        }
-    )
-    eval_result = EvaluationResult(run_id="run-1", metrics={}, result_df=df)
-    failing, rationales = extract_failing_traces(eval_result, "satisfaction")
+    _add_feedback(traces[0], "satisfaction", True, "good")
+
+    failing, rationales = extract_failing_traces(_refetch(traces), "satisfaction")
     assert failing == []
     assert rationales == {}
