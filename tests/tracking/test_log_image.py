@@ -2,6 +2,7 @@ import json
 import os
 import posixpath
 
+import numpy as np
 import pytest
 
 import mlflow
@@ -180,7 +181,7 @@ def test_log_image_with_steps():
         # .png file for the image and .webp file for compressed image
         assert len(files) == 2
         for file in files:
-            assert file.startswith("dog%step%0")
+            assert file.startswith("dog+step+0")
             logged_path = os.path.join(run_artifact_dir, file)
             if file.endswith(".png"):
                 loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
@@ -188,10 +189,31 @@ def test_log_image_with_steps():
             elif file.endswith(".json"):
                 with open(logged_path) as f:
                     metadata = json.load(f)
-                    assert metadata["filepath"].startswith("images/dog%step%0")
+                    assert metadata["filepath"].startswith("images/dog+step+0")
                     assert metadata["key"] == "dog"
                     assert metadata["step"] == 0
                     assert metadata["timestamp"] <= get_current_time_millis()
+
+
+@pytest.mark.parametrize("step", [20, 26, 27])
+def test_log_image_with_url_encoding_prone_steps(step):
+    """Regression test: steps like 20, 26, 27 previously created %20, %26, %27 patterns
+    in filenames that got URL-decoded, corrupting the artifact path.
+    See https://github.com/mlflow/mlflow/issues/21085
+    """
+    image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+    with mlflow.start_run():
+        mlflow.log_image(image, key="dog", step=step, synchronous=True)
+
+        artifact_uri = mlflow.get_artifact_uri("images/")
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        files = os.listdir(run_artifact_dir)
+
+        assert len(files) == 2
+        for file in files:
+            assert file.startswith(f"dog+step+{step}+timestamp+")
+            assert "%" not in file
 
 
 def test_log_image_with_timestamp():
@@ -211,7 +233,7 @@ def test_log_image_with_timestamp():
         # .png file for the image, and .webp file for compressed image
         assert len(files) == 2
         for file in files:
-            assert file.startswith("dog%step%0")
+            assert file.startswith("dog+step+0")
             logged_path = os.path.join(run_artifact_dir, file)
             if file.endswith(".png"):
                 loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
@@ -219,7 +241,7 @@ def test_log_image_with_timestamp():
             elif file.endswith(".json"):
                 with open(logged_path) as f:
                     metadata = json.load(f)
-                    assert metadata["filepath"].startswith("images/dog%step%0")
+                    assert metadata["filepath"].startswith("images/dog+step+0")
                     assert metadata["key"] == "dog"
                     assert metadata["step"] == 0
                     assert metadata["timestamp"] == 100
