@@ -602,10 +602,8 @@ def test_error_logging_spans(mlflow_server: str):
         span_processor.force_flush()
 
         assert any(
-            "Failed to log OpenTelemetry spans" in error[0][2]
-            for error in mock_error.call_args_list
+            "Failed to export span batch" in error[0][0] for error in mock_error.call_args_list
         )
-        assert any("test_error" in error[0][2] for error in mock_error.call_args_list)
 
     traces = mlflow.search_traces(
         locations=[experiment_id], include_spans=False, return_type="list"

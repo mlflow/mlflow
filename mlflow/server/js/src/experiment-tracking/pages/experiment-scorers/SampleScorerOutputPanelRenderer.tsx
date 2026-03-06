@@ -20,7 +20,7 @@ import { useFormContext } from 'react-hook-form';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { ExperimentSingleChatConversation } from '../experiment-chat-sessions/single-chat-view/ExperimentSingleChatConversation';
-import { SimplifiedAssessmentView } from '../../../shared/web-shared/model-trace-explorer/right-pane/SimplifiedAssessmentView';
+import { SimplifiedAssessmentView } from '@databricks/web-shared/model-trace-explorer';
 import { compact } from 'lodash';
 import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { isSessionJudgeEvaluationResult } from './useEvaluateTraces.common';

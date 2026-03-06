@@ -8,6 +8,8 @@ export enum GatewayPageId {
   endpointDetailsPage = 'mlflow.gateway.endpoint-details',
 }
 
+// following same pattern as other routes files
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class GatewayRoutePaths {
   static get gatewayPage() {
     return createMLflowRoutePath('/gateway');
@@ -30,6 +32,8 @@ export class GatewayRoutePaths {
   }
 }
 
+// following same pattern as other routes files
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class GatewayRoutes {
   static get gatewayPageRoute() {
     return GatewayRoutePaths.gatewayPage;

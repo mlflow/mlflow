@@ -12,6 +12,7 @@ from datetime import datetime
 from unittest import mock
 
 import pytest
+from opentelemetry.sdk.trace.export import SpanExporter
 
 import mlflow
 from mlflow.entities import (
@@ -2811,3 +2812,33 @@ assert len(trace_ids) == 5
             "MLFLOW_TRACE_SAMPLING_RATIO": "0.0",
         },
     )
+
+
+def test_flush_trace_async_logging_calls_flush_when_async_queue_exists():
+    mock_exporter = mock.MagicMock()
+    with mock.patch("mlflow.tracking.fluent._get_trace_exporter", return_value=mock_exporter):
+        mlflow.flush_trace_async_logging(terminate=False)
+    mock_exporter._async_queue.flush.assert_called_once_with(terminate=False)
+
+
+def test_flush_trace_async_logging_skips_when_async_queue_missing():
+    # A bare SpanExporter (as used by StrandsSpanProcessor, mlflow/strands/autolog.py:40)
+    # has no _async_queue attribute. flush_trace_async_logging() should return without
+    # reaching the error handler.
+    exporter = SpanExporter()
+    assert not hasattr(exporter, "_async_queue")
+    with (
+        mock.patch("mlflow.tracking.fluent._get_trace_exporter", return_value=exporter),
+        mock.patch(
+            "mlflow.tracking.fluent._logger.error",
+            side_effect=AssertionError("flush should not reach error handler"),
+        ),
+    ):
+        mlflow.flush_trace_async_logging(terminate=False)
+
+
+def test_flush_trace_async_logging_no_spurious_error_when_tracing_disabled():
+    mlflow.tracing.disable()
+    with mock.patch("mlflow.tracking.fluent._logger") as mock_logger:
+        mlflow.flush_trace_async_logging()
+    mock_logger.error.assert_not_called()

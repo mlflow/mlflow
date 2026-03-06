@@ -40,7 +40,7 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
@@ -59,7 +59,7 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
@@ -94,7 +94,7 @@ jobs:
         run: |
           if [ -n "$(git status --porcelain api_reference/api_inventory.txt)" ]; then
             echo "The API inventory file 'docs/api_reference/api_inventory.txt' is outdated (see the diff below)."
-            echo "Please update it by running 'make rsthtml' in the 'docs/api_reference' directory."
+            echo "Please update it by running 'make rsthtml' in the 'docs/api_reference' directory, or post a comment '/autoformat' on this PR if you're a maintainer/collaborator."
             echo "If the new APIs should be marked as experimental, please decorate them with '@experimental'."
             echo "Diff:"
             git diff api_reference/api_inventory.txt
@@ -129,7 +129,7 @@ jobs:
       run:
         working-directory: docs/api_reference
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         working-directory: .
@@ -149,7 +149,7 @@ jobs:
     timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Build docs
         working-directory: docs/api_reference
         run: |

@@ -19,6 +19,7 @@ from mlflow.entities.trace_location import (
     TraceLocation,
     TraceLocationType,
     UCSchemaLocation,
+    UnityCatalog,
 )
 from mlflow.protos import assessments_pb2
 from mlflow.protos import databricks_tracing_pb2 as pb
@@ -433,3 +434,85 @@ def test_get_trace_id_from_assessment_proto():
         trace_id="tr-123",
     )
     assert get_trace_id_from_assessment_proto(proto) == "tr-123"
+
+
+def test_trace_location_uc_table_prefix_proto_round_trip():
+    location = UnityCatalog(
+        catalog_name="catalog",
+        schema_name="schema",
+        table_prefix="prefix",
+    )
+    location._otel_spans_table_name = "catalog.schema.prefix_otel_spans"
+    location._otel_logs_table_name = "catalog.schema.prefix_otel_logs"
+    location._annotations_table_name = "catalog.schema.prefix_otel_annotations"
+
+    trace_location = TraceLocation(type=TraceLocationType.UC_TABLE_PREFIX, uc_table_prefix=location)
+    proto = trace_location_to_proto(trace_location)
+    assert proto.type == pb.TraceLocation.TraceLocationType.UC_TABLE_PREFIX
+    assert proto.uc_table_prefix.catalog_name == "catalog"
+    assert proto.uc_table_prefix.schema_name == "schema"
+    assert proto.uc_table_prefix.table_prefix == "prefix"
+    assert proto.uc_table_prefix.spans_table_name == "catalog.schema.prefix_otel_spans"
+    assert proto.uc_table_prefix.logs_table_name == "catalog.schema.prefix_otel_logs"
+    assert proto.uc_table_prefix.annotations_table_name == "catalog.schema.prefix_otel_annotations"
+
+    reconstructed = trace_location_from_proto(proto)
+    assert reconstructed.type == TraceLocationType.UC_TABLE_PREFIX
+    uc = reconstructed.uc_table_prefix
+    assert uc.catalog_name == "catalog"
+    assert uc.schema_name == "schema"
+    assert uc.table_prefix == "prefix"
+    assert uc.full_otel_spans_table_name == "catalog.schema.prefix_otel_spans"
+    assert uc.full_otel_logs_table_name == "catalog.schema.prefix_otel_logs"
+    assert uc.full_annotations_table_name == "catalog.schema.prefix_otel_annotations"
+
+
+def test_trace_info_from_proto_handles_uc_table_prefix_location():
+    request_time = Timestamp()
+    request_time.FromMilliseconds(1234567890)
+    proto = pb.TraceInfo(
+        trace_id="test_trace_id",
+        trace_location=trace_location_to_proto(
+            TraceLocation.from_databricks_uc_table_prefix(
+                catalog_name="catalog", schema_name="schema", table_prefix="prefix"
+            )
+        ),
+        request_preview="test request",
+        response_preview="test response",
+        request_time=request_time,
+        state=TraceState.OK.to_proto(),
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+    )
+    trace_info = TraceInfo.from_proto(proto)
+    assert trace_info.trace_id == "trace:/catalog.schema.prefix/test_trace_id"
+    assert trace_info.trace_location.type == TraceLocationType.UC_TABLE_PREFIX
+    assert trace_info.trace_location.uc_table_prefix.catalog_name == "catalog"
+    assert trace_info.trace_location.uc_table_prefix.schema_name == "schema"
+    assert trace_info.trace_location.uc_table_prefix.table_prefix == "prefix"
+
+
+def test_assessment_to_proto_uc_table_prefix():
+    feedback = Feedback(
+        name="correctness",
+        value=0.95,
+        source=AssessmentSource(source_type="LLM_JUDGE", source_id="gpt-4"),
+        trace_id="trace:/catalog.schema.prefix/trace123",
+    )
+    proto = assessment_to_proto(feedback)
+    assert proto.trace_id == "trace123"
+    assert proto.trace_location.type == pb.TraceLocation.TraceLocationType.UC_TABLE_PREFIX
+    assert proto.trace_location.uc_table_prefix.catalog_name == "catalog"
+    assert proto.trace_location.uc_table_prefix.schema_name == "schema"
+    assert proto.trace_location.uc_table_prefix.table_prefix == "prefix"
+
+
+def test_get_trace_id_from_assessment_proto_uc_table_prefix():
+    proto = pb.Assessment(
+        trace_id="1234",
+        trace_location=trace_location_to_proto(
+            TraceLocation.from_databricks_uc_table_prefix(
+                catalog_name="catalog", schema_name="schema", table_prefix="prefix"
+            )
+        ),
+    )
+    assert get_trace_id_from_assessment_proto(proto) == "trace:/catalog.schema.prefix/1234"

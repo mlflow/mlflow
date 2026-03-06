@@ -136,16 +136,10 @@ class TraceInfo(_MlflowObject):
 
         trace_location = TraceLocation.from_proto(proto.trace_location)
         if trace_location.uc_schema:
-            location = (
-                f"{trace_location.uc_schema.catalog_name}.{trace_location.uc_schema.schema_name}"
-            )
+            location = trace_location.uc_schema.schema_location
             trace_id = construct_trace_id_v4(location=location, trace_id=proto.trace_id)
         elif trace_location.uc_table_prefix:
-            location = (
-                f"{trace_location.uc_table_prefix.catalog_name}."
-                f"{trace_location.uc_table_prefix.schema_name}."
-                f"{trace_location.uc_table_prefix.table_prefix}"
-            )
+            location = trace_location.uc_table_prefix.full_table_prefix
             trace_id = construct_trace_id_v4(location=location, trace_id=proto.trace_id)
         else:
             trace_id = proto.trace_id

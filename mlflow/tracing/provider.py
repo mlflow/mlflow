@@ -471,8 +471,8 @@ def _initialize_tracer_provider(disabled=False):
 
     # NB: If otel resource env vars are set explicitly, don't create an empty resource
     # so that they are propagated to otel spans.
-    otel_service_name = os.getenv("OTEL_SERVICE_NAME")
-    otel_resource_attributes = os.getenv("OTEL_RESOURCE_ATTRIBUTES")
+    otel_service_name = os.environ.get("OTEL_SERVICE_NAME")
+    otel_resource_attributes = os.environ.get("OTEL_RESOURCE_ATTRIBUTES")
     resource = None
     sdk_attributes = {
         "telemetry.sdk.language": "python",
@@ -565,6 +565,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             exporter = DatabricksUCTableSpanExporter(tracking_uri=mlflow.get_tracking_uri())
             processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
             processors.append(processor)
+            _logger.debug("Added DatabricksUCTableSpanProcessor based on trace destination")
 
         elif isinstance(trace_destination, MlflowExperimentLocation):
             if is_in_databricks_model_serving_environment():
@@ -576,10 +577,12 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
                 )
             processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
             processors.append(processor)
+            _logger.debug("Added MlflowSpanProcessor based on trace destination")
 
         # Trace destination has highest precedence; definitely ignore defaults
         # Ignore OTLP (unless dual export is set and we should use OTLP)
         if not (should_use_otlp_exporter() and MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()):
+            _logger.debug("Rely on trace destination for tracing")
             return processors
 
     # If no explicit trace destination OR we passed the dual exporter check, honor OTLP
@@ -597,6 +600,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
         )
         processors.append(otel_processor)
+        _logger.debug("Added OtelSpanProcessor")
 
         # We have now added the OTLP processor.
         # If dual export is not set, return.
@@ -611,6 +615,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     if is_in_databricks_model_serving_environment():
         if not is_mlflow_tracing_enabled_in_model_serving():
             # May still return an OTLP processor from above, or nothing at all.
+            _logger.debug("Mlflow tracing is not enabled in model serving")
             return processors
 
         from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
@@ -619,9 +624,11 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         exporter = InferenceTableSpanExporter()
         processor = InferenceTableSpanProcessor(exporter)
         processors.append(processor)
+        _logger.debug("Added InferenceTableSpanProcessor")
     else:
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
         processors.append(processor)
+        _logger.debug("Added MLflow span processors")
 
     return processors
 

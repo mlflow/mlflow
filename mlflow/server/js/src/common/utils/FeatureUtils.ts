@@ -155,9 +155,6 @@ export const shouldEnableExperimentPageSideTabs = () => {
   return true;
 };
 
-/**
- * Determines if the Overview tab is enabled on the experiment page
- */
 export const shouldEnableExperimentOverviewTab = () => {
   return true;
 };
@@ -175,5 +172,16 @@ export const shouldEnableWorkflowBasedNavigation = () => {
  * dataset grouping, and streamlined run comparison workflow.
  */
 export const shouldEnableImprovedEvalRunsComparison = () => {
+  return false;
+};
+
+export const isScorerModelSelectionEnabled = () => {
+  return true;
+};
+
+/**
+ * Determines if issue detection feature is enabled in the traces table toolbar.
+ */
+export const shouldEnableIssueDetection = () => {
   return false;
 };

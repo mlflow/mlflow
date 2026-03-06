@@ -21,7 +21,47 @@ defaults:
   run:
     shell: bash
 
+env:
+  COMMENT_MARKER: "<!-- ui-preview -->"
+
 jobs:
+  notify:
+    if: >-
+      github.event.action != 'closed'
+      && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+      && github.event.pull_request.draft == false
+      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+    runs-on: ubuntu-slim
+    permissions:
+      pull-requests: write
+    timeout-minutes: 5
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          BODY="${COMMENT_MARKER}
+
+          **UI Preview** is being deployed for this PR :hourglass_flowing_sand:
+
+          | | |
+          |---|---|
+          | **Commit** | ${HEAD_SHA} |
+
+          > Building and deploying... This comment will be updated with the preview URL."
+
+          # Only post if no existing comment (to avoid overwriting a previous preview URL)
+          COMMENT_ID=$(gh api --paginate \
+            "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
+            | head -1)
+
+          if [ -z "$COMMENT_ID" ]; then
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$BODY"
+          fi
+
   build:
     if: >-
       github.event.action != 'closed'
@@ -33,7 +73,7 @@ jobs:
       contents: read
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           # Check out the PR head, not the base branch.
           # Safe because the build job only runs for maintainers/collaborators (author_association check).
@@ -90,7 +130,7 @@ jobs:
           cp /tmp/build.tar.gz /tmp/app-deploy/
           cp .github/ui-preview/app.py /tmp/app-deploy/
           cp .github/ui-preview/app.yaml /tmp/app-deploy/
-          echo "$WHEEL_NAME" > /tmp/app-deploy/requirements.txt
+          echo "./$WHEEL_NAME[genai]" > /tmp/app-deploy/requirements.txt
 
       - name: Upload app files
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -173,8 +213,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_URL: ${{ steps.app.outputs.url }}
         run: |
-          MARKER="<!-- ui-preview -->"
-          BODY="${MARKER}
+          BODY="${COMMENT_MARKER}
 
           **UI Preview** is ready for this PR :rocket:
 
@@ -188,9 +227,9 @@ jobs:
           > The preview updates automatically when new commits are pushed."
 
           # Find existing comment
-          COMMENT_ID=$(gh api \
+          COMMENT_ID=$(gh api --paginate \
             "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-            --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
             | head -1)
 
           if [ -n "$COMMENT_ID" ]; then
@@ -240,14 +279,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          MARKER="<!-- ui-preview -->"
-          BODY="${MARKER}
+          BODY="${COMMENT_MARKER}
 
           **UI Preview** for this PR has been removed."
 
-          COMMENT_ID=$(gh api \
+          COMMENT_ID=$(gh api --paginate \
             "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-            --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
             | head -1)
 
           if [ -n "$COMMENT_ID" ]; then

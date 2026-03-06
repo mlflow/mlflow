@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext } from 'react';
 
-import { createTraceV4LongIdentifier, type ModelTraceInfoV3 } from '../../model-trace-explorer';
+import { createTraceV4LongIdentifier } from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 import { useSearchParams } from '../utils/RoutingUtils';
 import { doesTraceSupportV4API } from '../utils/TraceLocationUtils';
 

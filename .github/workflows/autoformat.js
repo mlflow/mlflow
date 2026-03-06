@@ -109,6 +109,61 @@ const approveWorkflowRuns = async (context, github, head_sha) => {
   }
 };
 
+const VALID_AUTHOR_ASSOCIATIONS = ["owner", "member", "collaborator"];
+
+const isAllowedUser = ({ author_association, user }) => {
+  return (
+    VALID_AUTHOR_ASSOCIATIONS.includes(author_association.toLowerCase()) ||
+    // Allow Copilot and mlflow-app bot to run this workflow
+    (user &&
+      user.type.toLowerCase() === "bot" &&
+      ["copilot", "mlflow-app[bot]"].includes(user.login.toLowerCase()))
+  );
+};
+
+const validatePermissions = async (context, github) => {
+  const { comment } = context.payload;
+  const { owner, repo } = context.repo;
+  const pull_number = context.issue.number;
+
+  // Check if commenter is owner/member/collaborator or an allowed bot
+  if (!isAllowedUser({ author_association: comment.author_association, user: comment.user })) {
+    const message = `This workflow can only be triggered by a repository owner, member, or collaborator. @${comment.user.login} (${comment.author_association}) does not have sufficient permissions.`;
+    await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: pull_number,
+      body: `❌ **Autoformat failed**: ${message}`,
+    });
+    throw new Error(message);
+  }
+
+  const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+  const prAuthorAssociation = pr.author_association.toLowerCase();
+
+  // If PR author is not a member/collaborator, this is a community PR
+  if (!VALID_AUTHOR_ASSOCIATIONS.includes(prAuthorAssociation)) {
+    // Community PR — require at least one approved review
+    const reviews = await github.paginate(github.rest.pulls.listReviews, {
+      owner,
+      repo,
+      pull_number,
+    });
+
+    const hasApproval = reviews.some((review) => review.state === "APPROVED");
+
+    if (!hasApproval) {
+      await github.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: pull_number,
+        body: `❌ **Autoformat failed**: This workflow requires an approved review before running on community PRs. Please approve the PR and comment \`/autoformat\` again.`,
+      });
+      throw new Error("This workflow requires an approved review before running on community PRs.");
+    }
+  }
+};
+
 const checkMaintainerAccess = async (context, github) => {
   const { owner, repo } = context.repo;
   const pull_number = context.issue.number;
@@ -158,4 +213,5 @@ module.exports = {
   updateStatus,
   approveWorkflowRuns,
   checkMaintainerAccess,
+  validatePermissions,
 };

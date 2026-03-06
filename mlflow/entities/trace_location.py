@@ -10,7 +10,6 @@ from mlflow.utils.annotations import deprecated
 
 _UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME = "mlflow_experiment_trace_otel_spans"
 _UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME = "mlflow_experiment_trace_otel_logs"
-_UC_TABLE_PREFIX_DEFAULT = "mlflow_traces"
 
 
 @dataclass
@@ -138,6 +137,8 @@ class UnityCatalog(TraceLocationBase):
     """
     Represents a Databricks Unity Catalog location with a table prefix.
 
+    Note: Arclight catalogs are not supported.
+
     Args:
         catalog_name: The name of the Unity Catalog catalog.
         schema_name: The name of the Unity Catalog schema.
@@ -146,11 +147,12 @@ class UnityCatalog(TraceLocationBase):
 
     catalog_name: str
     schema_name: str
-    table_prefix: str = _UC_TABLE_PREFIX_DEFAULT
+    table_prefix: str
 
-    # These table names are set by the backend.
-    _otel_spans_table_name: str | None = _UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME
-    _otel_logs_table_name: str | None = _UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME
+    # These are fully qualified table names (catalog.schema.table) set by the backend.
+    _otel_spans_table_name: str | None = None
+    _otel_logs_table_name: str | None = None
+    _annotations_table_name: str | None = None
 
     @property
     def schema_location(self) -> str:
@@ -162,13 +164,15 @@ class UnityCatalog(TraceLocationBase):
 
     @property
     def full_otel_spans_table_name(self) -> str | None:
-        if self._otel_spans_table_name:
-            return f"{self.catalog_name}.{self.schema_name}.{self._otel_spans_table_name}"
+        return self._otel_spans_table_name
 
     @property
     def full_otel_logs_table_name(self) -> str | None:
-        if self._otel_logs_table_name:
-            return f"{self.catalog_name}.{self.schema_name}.{self._otel_logs_table_name}"
+        return self._otel_logs_table_name
+
+    @property
+    def full_annotations_table_name(self) -> str | None:
+        return self._annotations_table_name
 
     def to_dict(self) -> dict[str, Any]:
         d = {
@@ -180,6 +184,8 @@ class UnityCatalog(TraceLocationBase):
             d["otel_spans_table_name"] = self._otel_spans_table_name
         if self._otel_logs_table_name:
             d["otel_logs_table_name"] = self._otel_logs_table_name
+        if self._annotations_table_name:
+            d["annotations_table_name"] = self._annotations_table_name
         return d
 
     @classmethod
@@ -187,12 +193,14 @@ class UnityCatalog(TraceLocationBase):
         location = cls(
             catalog_name=d["catalog_name"],
             schema_name=d["schema_name"],
-            table_prefix=d.get("table_prefix", _UC_TABLE_PREFIX_DEFAULT),
+            table_prefix=d["table_prefix"],
         )
         if otel_spans_table_name := d.get("otel_spans_table_name"):
             location._otel_spans_table_name = otel_spans_table_name
         if otel_logs_table_name := d.get("otel_logs_table_name"):
             location._otel_logs_table_name = otel_logs_table_name
+        if annotations_table_name := d.get("annotations_table_name"):
+            location._annotations_table_name = annotations_table_name
         return location
 
 
