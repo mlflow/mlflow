@@ -319,9 +319,6 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
 
             - :py:class:`~mlflow.entities.trace_location.MlflowExperimentLocation`: Logs traces to
                 an MLflow experiment.
-            - :py:func:`~mlflow.entities.trace_location.UnityCatalog`: Logs traces to a
-                Databricks Unity Catalog schema or table-prefix location. Only available in
-                Databricks.
 
         context_local: If False (default), the destination is set globally. If True, the destination
             is isolated per async task or thread, providing isolation in concurrent applications.
@@ -339,16 +336,6 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
         Note: This has the same effect as setting the active MLflow experiment via the
         ``MLFLOW_EXPERIMENT_ID`` environment variable or the ``mlflow.set_experiment`` API,
         but with narrower scope.
-
-        **Logging traces to Databricks Unity Catalog:**
-
-        .. code-block:: python
-
-            from mlflow.entities.trace_location import UnityCatalog
-
-            mlflow.tracing.set_destination(
-                UnityCatalog(catalog_name="catalog", schema_name="schema")
-            )
 
         **Isolate the destination between async tasks or threads:**
 
@@ -383,14 +370,28 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
             "The destination must be an instance of TraceLocation."
         )
 
-    if isinstance(destination, (UCSchemaLocation, UnityCatalog)) and (
-        mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
-    ):
-        mlflow.set_tracking_uri("databricks")
-        _logger.info(
-            "Automatically setting the tracking URI to `databricks` "
-            "because the tracing destination is set to Databricks."
+    if isinstance(destination, UnityCatalog):
+        raise MlflowException.invalid_parameter_value(
+            "UnityCatalog table-prefix destinations are not supported by "
+            "`mlflow.tracing.set_destination`. Use `set_experiment` with a "
+            "UnityCatalog location instead."
         )
+
+    if isinstance(destination, UCSchemaLocation):
+        _logger.warning(
+            "Passing `UCSchemaLocation` to `mlflow.tracing.set_destination` is deprecated "
+            "and will be removed in a future MLflow version. Use `set_experiment` with a "
+            "UnityCatalog location instead. See "
+            "https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog"
+        )
+        if mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith(
+            "databricks"
+        ):
+            mlflow.set_tracking_uri("databricks")
+            _logger.info(
+                "Automatically setting the tracking URI to `databricks` "
+                "because the tracing destination is set to Databricks."
+            )
 
     _MLFLOW_TRACE_USER_DESTINATION.set(destination, context_local=context_local)
     _initialize_tracer_provider()
@@ -498,8 +499,8 @@ def _initialize_tracer_provider(disabled=False):
 
     # NB: If otel resource env vars are set explicitly, don't create an empty resource
     # so that they are propagated to otel spans.
-    otel_service_name = os.getenv("OTEL_SERVICE_NAME")
-    otel_resource_attributes = os.getenv("OTEL_RESOURCE_ATTRIBUTES")
+    otel_service_name = os.environ.get("OTEL_SERVICE_NAME")
+    otel_resource_attributes = os.environ.get("OTEL_RESOURCE_ATTRIBUTES")
     resource = None
     sdk_attributes = {
         "telemetry.sdk.language": "python",

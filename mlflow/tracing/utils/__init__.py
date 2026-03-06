@@ -128,6 +128,14 @@ def dump_span_attribute_value(value: Any) -> str:
     return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
 
 
+def try_json_loads(value: Any) -> Any:
+    """Try to parse a value as JSON, returning the original value on failure."""
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
+
+
 @lru_cache(maxsize=1)
 def encode_span_id(span_id: int) -> str:
     """

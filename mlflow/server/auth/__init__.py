@@ -15,6 +15,7 @@ import importlib
 import json
 import logging
 import re
+import secrets
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
 
@@ -40,6 +41,7 @@ from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -150,6 +152,15 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import (
     ListGatewaySecretInfos as ListGatewaySecretInfos,
 )
+from mlflow.protos.webhooks_pb2 import (
+    CreateWebhook,
+    DeleteWebhook,
+    GetWebhook,
+    ListWebhooks,
+    TestWebhook,
+    UpdateWebhook,
+    WebhookService,
+)
 from mlflow.server import app
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import User
@@ -221,6 +232,7 @@ from mlflow.server.handlers import (
     _get_tracking_store,
     catch_mlflow_exception,
     get_endpoints,
+    get_service_endpoints,
 )
 from mlflow.server.jobs import get_job
 from mlflow.server.workspace_helpers import _get_workspace_store
@@ -560,7 +572,9 @@ _EXPERIMENT_ID_PATTERN = re.compile(r"^(\d+)/")
 
 
 def _get_experiment_id_from_view_args():
-    if artifact_path := request.view_args.get("artifact_path"):
+    # For download/upload/delete artifact endpoints, artifact_path is a URL path parameter.
+    # For the list-artifacts endpoint, the path is a query parameter named "path".
+    if artifact_path := (request.view_args.get("artifact_path") or request.args.get("path")):
         if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
             return m.group(1)
     return None
@@ -1643,6 +1657,29 @@ LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS = {
     for method in methods
 }
 
+WEBHOOK_BEFORE_REQUEST_HANDLERS = {
+    CreateWebhook: sender_is_admin,
+    GetWebhook: sender_is_admin,
+    ListWebhooks: sender_is_admin,
+    UpdateWebhook: sender_is_admin,
+    DeleteWebhook: sender_is_admin,
+    TestWebhook: sender_is_admin,
+}
+
+
+def get_webhook_before_request_handler(request_class):
+    return WEBHOOK_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+WEBHOOK_BEFORE_REQUEST_VALIDATORS = {
+    # Paths for webhooks contain path parameters (e.g. /mlflow/webhooks/<webhook_id>)
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_service_endpoints(
+        WebhookService, get_webhook_before_request_handler
+    )
+    for method in methods
+}
+
 _AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
 
 
@@ -1719,6 +1756,18 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             (
                 v
                 for (pat, method), v in LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+
+    if "/mlflow/webhooks" in req.path:
+        # Webhook routes contain path parameters (e.g., /mlflow/webhooks/<webhook_id>)
+        # so we need regex matching
+        return next(
+            (
+                v
+                for (pat, method), v in WEBHOOK_BEFORE_REQUEST_VALIDATORS.items()
                 if pat.fullmatch(req.path) and method == req.method
             ),
             None,
@@ -2868,9 +2917,12 @@ _ROUTES_NEEDING_BODY = frozenset(
 
 def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     """
-    Authenticate request using Basic Auth and return user object.
+    Authenticate request using Basic Auth.
 
-    This mirrors the Flask authenticate_request() logic for FastAPI routes.
+    External clients send real username/password credentials. Server-spawned job
+    subprocesses (e.g., online scoring) send the internal gateway token as the
+    password; when it matches, the user is trusted without calling
+    ``store.authenticate_user()``.
 
     Args:
         request: The Starlette/FastAPI Request object.
@@ -2887,12 +2939,21 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         if scheme.lower() != "basic":
             return None
         decoded = base64.b64decode(credentials).decode("ascii")
+        username, _, password = decoded.partition(":")
+
+        # Check if this is a trusted internal request from a job subprocess.
+        # The server generates a random token at startup and passes it to workers
+        # via _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN. When the password matches that
+        # token, we trust the username without calling store.authenticate_user().
+        internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
+        if internal_token and secrets.compare_digest(password, internal_token):
+            return store.get_user(username)
+
+        if store.authenticate_user(username, password):
+            return store.get_user(username)
     except Exception:
         return None
 
-    username, _, password = decoded.partition(":")
-    if store.authenticate_user(username, password):
-        return store.get_user(username)
     return None
 
 

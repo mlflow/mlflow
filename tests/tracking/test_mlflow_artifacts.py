@@ -389,7 +389,7 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run() as run:
-        mlflow.log_image(image, key="dog", step=100, timestamp=100, synchronous=True)
+        mlflow.log_image(image, key="dog", step=20, timestamp=100, synchronous=True)
 
     artifact_list_response = requests.get(
         url=f"{url}/ajax-api/2.0/mlflow/artifacts/list",
@@ -404,7 +404,7 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
         )
         get_artifact_response.raise_for_status()
         assert (
-            "attachment; filename=dog%step%100%timestamp%100"
+            "attachment; filename=dog+step+20+timestamp+100"
             in get_artifact_response.headers["Content-Disposition"]
         )
         if path.endswith("png"):

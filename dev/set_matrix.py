@@ -774,7 +774,7 @@ class CustomEncoder(json.JSONEncoder):
 
 
 def set_action_output(name, value):
-    with open(os.getenv("GITHUB_OUTPUT"), "a") as f:
+    with open(os.environ.get("GITHUB_OUTPUT"), "a") as f:
         f.write(f"{name}={value}\n")
 
 

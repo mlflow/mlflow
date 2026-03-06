@@ -36,6 +36,7 @@ from mlflow.entities import (
     Expectation,
     Experiment,
     Feedback,
+    Issue,
     Run,
     RunInputs,
     RunOutputs,
@@ -49,7 +50,10 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
-from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.assessment import (
+    ExpectationValue,
+    FeedbackValue,
+)
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.gateway_endpoint import GatewayResourceType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -123,6 +127,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpointBinding,
     SqlInput,
     SqlInputTag,
+    SqlIssue,
     SqlLatestMetric,
     SqlLoggedModel,
     SqlLoggedModelMetric,
@@ -3142,9 +3147,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 for k, v in trace_info.trace_metadata.items()
             ]
             sql_trace_info.request_metadata = request_metadata
-            sql_trace_info.assessments = [
-                SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
-            ]
+            # The caller may not always specify a trace_id on each assessment when
+            # exporting traces with assessments, so backfill it on the SQL entity.
+            sql_assessments = []
+            for a in trace_info.assessments:
+                sql_assessment = SqlAssessments.from_mlflow_entity(a)
+                if a.trace_id is None:
+                    sql_assessment.trace_id = trace_id
+                sql_assessments.append(sql_assessment)
+            sql_trace_info.assessments = sql_assessments
 
             # Parse and store token usage as trace metrics if present in metadata
             if token_usage_metadata := trace_info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE):
@@ -5758,6 +5769,141 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return dataset.to_mlflow_entity()
 
     # ===================================================================================
+    # Issue Methods
+    # ===================================================================================
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: str,
+        confidence: str | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue in the database.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status.
+            confidence: Optional confidence level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional run ID that discovered this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Verify experiment exists
+            self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
+
+            # Generate issue ID
+            issue_id = f"iss-{uuid.uuid4().hex}"
+
+            # Get current timestamp
+            current_time = get_current_time_millis()
+
+            # Serialize root_causes to JSON
+            root_causes_json = json.dumps(root_causes) if root_causes else None
+
+            # Create SqlIssue record
+            sql_issue = SqlIssue(
+                issue_id=issue_id,
+                experiment_id=experiment_id,
+                name=name,
+                description=description,
+                status=status,
+                confidence=confidence,
+                root_causes=root_causes_json,
+                source_run_id=source_run_id,
+                created_timestamp=current_time,
+                last_updated_timestamp=current_time,
+                created_by=created_by,
+            )
+
+            session.add(sql_issue)
+
+            # Return Issue entity
+            return sql_issue.to_mlflow_entity()
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The issue ID to fetch.
+
+        Returns:
+            The Issue entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_issue = (
+                self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
+            )
+            if not sql_issue:
+                raise MlflowException(
+                    f"Issue with ID '{issue_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            return sql_issue.to_mlflow_entity()
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        confidence: str | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            confidence: Optional new confidence level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Fetch the existing issue
+            sql_issue = (
+                self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
+            )
+            if not sql_issue:
+                raise MlflowException(
+                    f"Issue with ID '{issue_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Update fields if provided
+            if status is not None:
+                sql_issue.status = status
+            if name is not None:
+                sql_issue.name = name
+            if description is not None:
+                sql_issue.description = description
+            if confidence is not None:
+                sql_issue.confidence = confidence
+
+            # Update last_updated_timestamp
+            sql_issue.last_updated_timestamp = get_current_time_millis()
+
+            session.flush()
+
+            return sql_issue.to_mlflow_entity()
+
+    # ===================================================================================
     # Helper Methods for Secrets & Endpoints
     # ===================================================================================
 
@@ -6274,6 +6420,16 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                         .subquery()
                     )
                     span_filters.append(association_subquery)
+                    continue
+                if comparator in ("IS NULL", "IS NOT NULL"):
+                    tag_exists_subquery = session.query(SqlTraceTag.request_id).filter(
+                        SqlTraceTag.request_id == SqlTraceInfo.request_id,
+                        SqlTraceTag.key == key_name,
+                    )
+                    if comparator == "IS NULL":
+                        attribute_filters.append(~tag_exists_subquery.exists())
+                    else:
+                        attribute_filters.append(tag_exists_subquery.exists())
                     continue
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
