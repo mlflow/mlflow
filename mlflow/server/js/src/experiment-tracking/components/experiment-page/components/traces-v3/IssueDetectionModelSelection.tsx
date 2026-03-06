@@ -58,7 +58,7 @@ interface IssueDetectionModelSelectionProps {
 export const IssueDetectionModelSelection = forwardRef<
   IssueDetectionModelSelectionRef,
   IssueDetectionModelSelectionProps
->(({ selectedTraceIds, onSelectTracesClick, onValidityChange }, ref) => {
+>(function IssueDetectionModelSelection({ selectedTraceIds, onSelectTracesClick, onValidityChange }, ref) {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
