@@ -13,7 +13,6 @@ from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
 from mlflow.tracing.utils import (
     _bypass_attribute_guard,
     generate_trace_id_v4,
-    get_active_spans_table_name,
     get_mlflow_span_for_otel_span,
 )
 
@@ -55,16 +54,9 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
             )
             trace_location.uc_schema._otel_spans_table_name = destination._otel_spans_table_name
             trace_id = generate_trace_id_v4(root_span, destination.schema_location)
-        elif uc_spans_table_name := get_active_spans_table_name():
-            # Fallback for env-var-derived destinations where the registry may
-            # return a type we don't recognise yet.
-            catalog_name, schema_name, spans_table_name = uc_spans_table_name.split(".")
-            trace_location = TraceLocation.from_databricks_uc_schema(catalog_name, schema_name)
-            trace_location.uc_schema._otel_spans_table_name = spans_table_name
-            trace_id = generate_trace_id_v4(root_span, trace_location.uc_schema.schema_location)
         else:
             raise MlflowException(
-                "Unity Catalog destination is not set for trace. It cannot be exported to "
+                "Unity Catalog spans table name is not set for trace. It can not be exported to "
                 "Databricks Unity Catalog table."
             )
 
