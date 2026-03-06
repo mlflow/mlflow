@@ -388,12 +388,6 @@ The `error` parameter accepts:
 
 ## Define scorers with the Scorer class
 
-:::note[Evaluation only]
-
-Class-based `Scorer` subclasses can only be used with <APILink fn="mlflow.genai.evaluate">`mlflow.genai.evaluate()`</APILink> for offline evaluation. They cannot be registered for [automatic evaluation](/genai/eval-monitor/automatic-evaluations) (production monitoring). If you need production monitoring, use [LLM judges](/genai/eval-monitor/scorers/#llms-as-judges) instead.
-
-:::
-
 The [`@scorer` decorator](#define-scorers-with-the-scorer-decorator) described above is simple and generally recommended, but when it is insufficient, you can instead use the <APILink fn="mlflow.genai.Scorer">`Scorer`</APILink> base class. Class-based definitions allow for more complex scorers, especially scorers that require state. The <APILink fn="mlflow.genai.Scorer">`Scorer`</APILink> class is a [Pydantic object](https://docs.pydantic.dev/latest/concepts/models/), so you can define additional fields and use them in the `__call__` method.
 
 You must define the `name` field to set the metric name. If you return a list of `Feedback` objects, then you must set the `name` field in each `Feedback` to avoid naming conflicts.
