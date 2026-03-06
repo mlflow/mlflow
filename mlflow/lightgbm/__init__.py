@@ -89,12 +89,12 @@ FLAVOR_NAME = "lightgbm"
 
 # Builtin trusted types for LightGBM sklearn-compatible models serialized with skops.
 # These cover the common LightGBM model classes and their internal dependencies.
-_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES = [
+_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES = {
     "collections.OrderedDict",
     "lightgbm.basic.Booster",
     "lightgbm.sklearn.LGBMClassifier",
     "lightgbm.sklearn.LGBMRegressor",
-]
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -240,7 +240,9 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    skops_trusted_types = _append_builtin_skops_trusted_types(skops_trusted_types)
+    skops_trusted_types = list(
+        set(skops_trusted_types).union(_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES)
+    )
     # Save a LightGBM model
     _save_model(lgb_model, model_data_path, serialization_format, skops_trusted_types)
 
@@ -308,13 +310,6 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
-
-
-def _append_builtin_skops_trusted_types(skops_trusted_types):
-    merged = list(_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES)
-    if skops_trusted_types:
-        merged.extend(t for t in skops_trusted_types if t not in merged)
-    return merged
 
 
 def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types):
