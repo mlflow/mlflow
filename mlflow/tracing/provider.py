@@ -377,14 +377,20 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
             "UnityCatalog location instead."
         )
 
-    if isinstance(destination, UCSchemaLocation) and (
-        mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
-    ):
-        mlflow.set_tracking_uri("databricks")
-        _logger.info(
-            "Automatically setting the tracking URI to `databricks` "
-            "because the tracing destination is set to Databricks."
+    if isinstance(destination, UCSchemaLocation):
+        _logger.warning(
+            "Passing `UCSchemaLocation` to `mlflow.tracing.set_destination` is deprecated "
+            "and will be removed in a future MLflow version. Use `set_experiment` with a "
+            "UnityCatalog location instead."
         )
+        if mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith(
+            "databricks"
+        ):
+            mlflow.set_tracking_uri("databricks")
+            _logger.info(
+                "Automatically setting the tracking URI to `databricks` "
+                "because the tracing destination is set to Databricks."
+            )
 
     _MLFLOW_TRACE_USER_DESTINATION.set(destination, context_local=context_local)
     _initialize_tracer_provider()
