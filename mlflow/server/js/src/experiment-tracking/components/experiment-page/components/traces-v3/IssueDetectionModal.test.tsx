@@ -2,7 +2,9 @@ import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen, waitFor } from '../../../../../common/utils/TestUtils.react18';
 import { IssueDetectionModal } from './IssueDetectionModal';
+import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 
+jest.mock('../../../../../gateway/hooks/useCreateSecret');
 jest.mock('../../../../../gateway/components/create-endpoint/ProviderSelect', () => ({
   ProviderSelect: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <select data-testid="provider-select" value={value} onChange={(e) => onChange(e.target.value)}>
@@ -73,14 +75,27 @@ describe('IssueDetectionModal', () => {
     experimentId: 'exp-123',
   };
 
+  let mockCreateSecret: jest.Mock;
+  let mockResetCreateSecret: jest.Mock;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCreateSecret = jest.fn((_request, options) => {
+      (options as { onSuccess?: () => void })?.onSuccess?.();
+    });
+    mockResetCreateSecret = jest.fn();
     mockUseApiKeyConfiguration.mockReturnValue({
       existingSecrets: [],
       authModes: [],
       defaultAuthMode: undefined,
       isLoadingProviderConfig: false,
     });
+    jest.mocked(useCreateSecret).mockReturnValue({
+      mutate: mockCreateSecret,
+      isLoading: false,
+      error: null,
+      reset: mockResetCreateSecret,
+    } as any);
   });
 
   test('renders modal', () => {
@@ -311,5 +326,73 @@ describe('IssueDetectionModal', () => {
 
     await userEvent.click(screen.getByTestId('select-traces-cancel'));
     expect(screen.queryByTestId('select-traces-modal')).not.toBeInTheDocument();
+  });
+
+  test('saves secret when save key checkbox is checked and form is submitted with new key', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const onClose = jest.fn();
+
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
+    );
+
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
+    await userEvent.click(screen.getByTestId('set-new-key'));
+    await userEvent.click(screen.getByText('Save this key for reuse'));
+
+    const submitButton = screen.getByText('Run Analysis').closest('button')!;
+    await userEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockCreateSecret).toHaveBeenCalledWith(
+        {
+          secret_name: 'my-key',
+          secret_value: { api_key: 'sk-123' },
+          provider: 'openai',
+          auth_config: undefined,
+        },
+        expect.any(Object),
+      );
+    });
+  });
+
+  test('does not save secret when save key checkbox is not checked', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const onClose = jest.fn();
+
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
+    );
+
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
+    await userEvent.click(screen.getByTestId('set-new-key'));
+
+    const submitButton = screen.getByText('Run Analysis').closest('button')!;
+    await userEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+    expect(mockCreateSecret).not.toHaveBeenCalled();
+  });
+
+  test('does not save secret when using existing key', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const onClose = jest.fn();
+
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
+    );
+
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
+    await userEvent.click(screen.getByTestId('set-existing-key'));
+
+    const submitButton = screen.getByText('Run Analysis').closest('button')!;
+    await userEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+    expect(mockCreateSecret).not.toHaveBeenCalled();
   });
 });

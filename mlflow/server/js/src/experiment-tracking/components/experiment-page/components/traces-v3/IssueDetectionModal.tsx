@@ -9,6 +9,7 @@ import {
   Tooltip,
   Input,
   Accordion,
+  Alert,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ProviderSelect } from '../../../../../gateway/components/create-endpoint/ProviderSelect';
@@ -16,6 +17,7 @@ import { IssueDetectionApiKeyConfigurator } from './IssueDetectionApiKeyConfigur
 import { IssueDetectionAdvancedSettings } from './IssueDetectionAdvancedSettings';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import { SelectTracesModal } from '../../../SelectTracesModal';
+import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 
 interface IssueDetectionModalProps {
@@ -54,7 +56,6 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   const [judgeModel, setJudgeModel] = useState('');
   const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(DEFAULT_API_KEY_CONFIG);
   const [saveKey, setSaveKey] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
   const [selectedTraceIds, setSelectedTraceIds] = useState<string[]>(initialSelectedTraceIds);
   const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
@@ -75,6 +76,13 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
       });
     }
   }, [provider, existingSecrets.length]);
+
+  const {
+    mutate: createSecret,
+    isLoading: isCreatingSecret,
+    error: createSecretError,
+    reset: resetCreateSecret,
+  } = useCreateSecret();
 
   const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);
@@ -97,21 +105,42 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
     setSelectedTraceIds([]);
   }, []);
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    try {
+  const handleSubmit = () => {
+    const completeSubmit = () => {
       // TODO: Implement backend API call for issue detection
       resetForm();
       onClose();
-    } finally {
-      setIsSubmitting(false);
+    };
+
+    if (saveKey && apiKeyConfig.mode === 'new') {
+      const authConfig = { ...apiKeyConfig.newSecret.configFields } satisfies Record<string, string>;
+      if (apiKeyConfig.newSecret.authMode) {
+        authConfig['auth_mode'] = apiKeyConfig.newSecret.authMode;
+      }
+
+      createSecret(
+        {
+          secret_name: apiKeyConfig.newSecret.name,
+          secret_value: apiKeyConfig.newSecret.secretFields,
+          provider: provider,
+          auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
+        },
+        {
+          onSuccess: () => {
+            completeSubmit();
+          },
+        },
+      );
+    } else {
+      completeSubmit();
     }
   };
 
   const handleClose = useCallback(() => {
     resetForm();
+    resetCreateSecret();
     onClose();
-  }, [resetForm, onClose]);
+  }, [resetForm, resetCreateSecret, onClose]);
 
   const isApiKeyValid =
     apiKeyConfig.mode === 'existing'
@@ -142,7 +171,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             componentId="mlflow.traces.issue-detection-modal.submit"
             type="primary"
             onClick={handleSubmit}
-            loading={isSubmitting}
+            loading={isCreatingSecret}
             disabled={isSubmitDisabled}
             css={{ width: '100%' }}
           >
@@ -161,6 +190,16 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
               description="Description text for issue detection modal"
             />
           </Typography.Text>
+
+          {createSecretError && (
+            <Alert
+              componentId="mlflow.traces.issue-detection-modal.error"
+              type="error"
+              message={createSecretError.message}
+              closable
+              onClose={() => resetCreateSecret()}
+            />
+          )}
 
           <div>
             <ProviderSelect
