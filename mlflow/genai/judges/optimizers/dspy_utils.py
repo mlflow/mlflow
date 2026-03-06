@@ -24,7 +24,7 @@ from mlflow.genai.utils.trace_utils import (
 )
 from mlflow.metrics.genai.model_utils import (
     _parse_model_uri,
-    convert_model_uri_to_litellm,
+    convert_mlflow_uri_to_litellm,
 )
 from mlflow.utils import AttrDict
 
@@ -123,7 +123,7 @@ def construct_dspy_lm(model: str):
     if model == _DATABRICKS_DEFAULT_JUDGE_MODEL:
         return AgentEvalLM()
     else:
-        model_litellm = convert_model_uri_to_litellm(model)
+        model_litellm = convert_mlflow_uri_to_litellm(model)
         api_base, api_key = _get_api_base_key(model)
         if api_base:
             return dspy.LM(model=model_litellm, api_base=api_base, api_key=api_key)

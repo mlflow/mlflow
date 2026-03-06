@@ -91,7 +91,7 @@ def _parse_model_uri(model_uri: str) -> tuple[str, str]:
             )
 
 
-def convert_model_uri_to_litellm(model_uri: str) -> str:
+def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
     """Convert an MLflow model URI to a LiteLLM-compatible model string.
 
     MLflow uses URIs like ``openai:/gpt-4`` while LiteLLM expects ``openai/gpt-4``.
