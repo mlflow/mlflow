@@ -1,6 +1,6 @@
 import type { Dictionary } from 'lodash';
 import { compact, entries, isObject, isNil, isUndefined, reject, values } from 'lodash';
-import type { RunGroupByGroupingValue } from './experimentPage.row-types';
+import type { AggregateStatistics, RunGroupByGroupingValue } from './experimentPage.row-types';
 import {
   type RowGroupRenderMetadata,
   type RowRenderMetadata,
@@ -105,6 +105,7 @@ const createGroupRenderMetadata = (
     runUuids: runsInGroup.map((run) => run.runInfo.runUuid),
     aggregatedMetricEntities: aggregateValues(metricsByRun, aggregateFunction),
     aggregatedParamEntities: aggregateValues(paramsByRun, aggregateFunction),
+    aggregatedMetricStatistics: computeAggregateStatistics(metricsByRun),
     groupingValues: groupingKeys,
     isRemainingRunsGroup: isRemainingRowsGroup,
   };
@@ -211,6 +212,7 @@ const createGroupRenderMetadataV2 = ({
       .filter((uuid, idx) => isRunVisible(uuid, runsInGroup[idx].runInfo.status)),
     aggregatedMetricEntities: aggregateValues(metricsByRun, aggregateFunction),
     aggregatedParamEntities: aggregateValues(paramsByRun, aggregateFunction),
+    aggregatedMetricStatistics: computeAggregateStatistics(metricsByRun),
     groupingValues: groupingKeys,
     visibilityControl: groupVisibilityControl,
     isRemainingRunsGroup: isRemainingRowsGroup,
@@ -342,6 +344,42 @@ const aggregateValues = <T extends AggregableParamEntity | AggregableMetricEntit
   }
 
   throw new Error(`Unsupported aggregate function: ${aggregateFunction}`);
+};
+
+/**
+ * Computes min, max, and population standard deviation for each metric key across runs.
+ */
+const computeAggregateStatistics = <T extends AggregableParamEntity | AggregableMetricEntity>(
+  valuesByRun: T[][],
+): Record<string, AggregateStatistics> => {
+  const valuesMap: Record<string, number[]> = {};
+
+  for (const entryList of valuesByRun) {
+    for (const entry of entryList) {
+      const numValue = Number(entry.value);
+      if (isNaN(numValue)) {
+        continue;
+      }
+      if (!valuesMap[entry.key]) {
+        valuesMap[entry.key] = [];
+      }
+      valuesMap[entry.key].push(numValue);
+    }
+  }
+
+  const result: Record<string, AggregateStatistics> = {};
+  for (const [key, nums] of entries(valuesMap)) {
+    if (nums.length === 0) {
+      continue;
+    }
+    const min = Math.min(...nums);
+    const max = Math.max(...nums);
+    const mean = nums.reduce((sum, v) => sum + v, 0) / nums.length;
+    const variance = nums.reduce((sum, v) => sum + (v - mean) ** 2, 0) / nums.length;
+    result[key] = { min, max, stddev: Math.sqrt(variance) };
+  }
+
+  return result;
 };
 
 /**

@@ -133,6 +133,12 @@ export type RunGroupByGroupingValue = {
   value: RunGroupByValueType | null;
 };
 
+export interface AggregateStatistics {
+  min: number;
+  max: number;
+  stddev: number;
+}
+
 export interface RunGroupParentInfo {
   isRemainingRunsGroup: boolean;
   groupingValues: RunGroupByGroupingValue[];
@@ -146,6 +152,7 @@ export interface RunGroupParentInfo {
   aggregatedMetricData: Record<string, { key: string; value: number; maxStep: number }>;
   aggregatedParamData: Record<string, { key: string; value: number }>;
   aggregateFunction?: RunGroupingAggregateFunction;
+  aggregatedMetricStatistics?: Record<string, AggregateStatistics>;
 }
 
 /**
@@ -191,6 +198,7 @@ export interface RowGroupRenderMetadata {
     key: string;
     value: number;
   }[];
+  aggregatedMetricStatistics?: Record<string, AggregateStatistics>;
   aggregateFunction: RunGroupingAggregateFunction;
   groupingValues: RunGroupByGroupingValue[];
   isRemainingRunsGroup: boolean;
