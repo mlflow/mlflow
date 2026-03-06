@@ -1,0 +1,784 @@
+---
+title: Agent Alignment and Optimization Pipeline
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Target, Brain, Zap, BarChart3, Layers } from "lucide-react";
+
+# Agent Alignment and Optimization Pipeline
+
+Build a tool-calling agent, evaluate it with domain-specific judges, align those judges to expert feedback, optimize the system prompt, generate reusable agent skills, and measure the improvement on a held-out dataset.
+
+:::tip[Prerequisites]
+```bash
+pip install mlflow>=3.0 openai langgraph langchain-openai gepa>=0.1.0
+```
+:::
+
+## What You'll Build
+
+<FeatureHighlights
+  features={[
+    { icon: Target, title: "Custom domain judge", description: "A 1-5 scale LLM judge tailored to your domain, not generic quality metrics." },
+    { icon: Brain, title: "Expert-aligned evaluation", description: "Calibrate the judge to match human expert preferences using MemAlign." },
+    { icon: Zap, title: "Optimized system prompt", description: "Automatically improve the system prompt using evaluation-driven optimization." },
+    { icon: Layers, title: "Generated agent skills", description: "Modular skill files produced by GEPA that teach the agent domain workflows." },
+    { icon: BarChart3, title: "Measured improvement", description: "Compare baseline vs optimized agent on held-out data with the aligned judge." },
+  ]}
+/>
+
+This cookbook demonstrates the pipeline using a baseball hitting analysis agent as the running example. The patterns apply to any domain where you have expert feedback and want to systematically improve an agent.
+
+<StepHeader number={1} title="Set Up MLflow and Build a Baseline Agent" />
+
+Start with a LangGraph agent that calls tools. The specifics of your tools don't matter for this pipeline -- what matters is that the agent produces traces you can evaluate.
+
+```python
+import mlflow
+from langgraph.prebuilt import create_react_agent
+from langchain_openai import ChatOpenAI
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("agent-alignment-pipeline")
+mlflow.langchain.autolog()
+
+# Define your tools (domain-specific)
+# This example uses baseball analysis tools, but any tools work
+from langchain_core.tools import tool
+
+
+@tool
+def get_pitcher_tendency(
+    pitcher_id: int, batter_hand: str, count: str
+) -> str:
+    """Look up a pitcher's pitch usage by count and batter handedness."""
+    # In practice, this queries your database
+    return (
+        f"Pitcher {pitcher_id} vs {batter_hand}HB in {count}: "
+        f"Fastball 45%, Slider 30%, Changeup 25% (N=847)"
+    )
+
+
+@tool
+def get_matchup_history(
+    batter_id: int, pitcher_id: int
+) -> str:
+    """Get head-to-head history between a batter and pitcher."""
+    return (
+        f"Batter {batter_id} vs Pitcher {pitcher_id}: "
+        f"12-for-38 (.316), 2 HR, 5 K, 3 BB"
+    )
+
+
+SYSTEM_PROMPT_V1 = (
+    "You are a baseball hitting analysis assistant. "
+    "Use the available tools to answer questions about "
+    "pitcher tendencies, matchup history, and hitting "
+    "strategy. Provide actionable recommendations."
+)
+
+llm = ChatOpenAI(model="gpt-4o-mini")
+tools = [get_pitcher_tendency, get_matchup_history]
+agent = create_react_agent(model=llm, tools=tools, prompt=SYSTEM_PROMPT_V1)
+```
+
+<StepHeader number={2} title="Register the System Prompt" />
+
+Store the prompt in MLflow's Prompt Registry so optimization can version it.
+
+```python
+prompt = mlflow.genai.register_prompt(
+    name="my-agent-prompt",
+    template=SYSTEM_PROMPT_V1,
+    commit_message="Baseline prompt v1",
+)
+
+# Set the production alias to the initial version
+mlflow.genai.set_prompt_alias(
+    name="my-agent-prompt",
+    alias="production",
+    version=prompt.version,
+)
+
+print(f"Registered prompt v{prompt.version}")
+```
+
+Loading the prompt later is one line:
+
+```python
+prompt = mlflow.genai.load_prompt("prompts:/my-agent-prompt@production")
+system_prompt_text = prompt.format()
+```
+
+<StepHeader number={3} title="Create a Custom Domain Judge" />
+
+Built-in scorers like `Correctness` and `RelevanceToQuery` measure generic quality. For domain-specific evaluation, create a custom judge with a grading rubric that captures what "good" means in your domain.
+
+```python
+from mlflow.genai.judges import make_judge
+
+baseball_judge = make_judge(
+    name="baseball_analysis",
+    instructions=(
+        "Evaluate whether the response appropriately "
+        "analyzes the data and provides an actionable "
+        "recommendation for the batter or coaching staff.\n\n"
+        "Score on a 1-5 scale:\n"
+        "1 - Incorrect data or no recommendation\n"
+        "2 - Irrelevant feedback, minimal advantage\n"
+        "3 - Relevant feedback, some advantage\n"
+        "4 - Relevant feedback, strong advantage\n"
+        "5 - Excellent analysis with clear, actionable plan"
+    ),
+    model="openai:/gpt-4o",
+    feedback_value_type=float,
+)
+
+# Register the judge so it persists across sessions
+baseball_judge.register(
+    experiment_id=mlflow.get_experiment_by_name(
+        "agent-alignment-pipeline"
+    ).experiment_id
+)
+```
+
+You can also add a `Guidelines` scorer for style checks:
+
+```python
+from mlflow.genai.scorers import Guidelines
+
+baseball_language = Guidelines(
+    name="baseball_language",
+    guidelines=[
+        "Response must use language appropriate for "
+        "professional baseball players and coaches. "
+        "Reference baseball-specific terminology accurately."
+    ],
+)
+```
+
+<StepHeader number={4} title="Run Baseline Evaluation" />
+
+Create an evaluation dataset and score the agent. Each row has an input question and optional expectations for the judge.
+
+```python
+eval_data = [
+    {
+        "inputs": {
+            "question": (
+                "How does Clayton Kershaw attack right-handed "
+                "batters in two-strike counts?"
+            )
+        },
+        "expectations": {
+            "expected_facts": [
+                "slider usage increases in two-strike counts",
+                "include sample size",
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "What's the head-to-head history between "
+                "Mookie Betts and Max Scherzer?"
+            )
+        },
+        "expectations": {
+            "expected_facts": [
+                "batting average",
+                "home runs",
+                "strikeouts",
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "Which pitchers on the Dodgers staff are most "
+                "similar to Gerrit Cole based on pitch movement?"
+            )
+        },
+        "expectations": {
+            "expected_facts": [
+                "similarity based on pitch characteristics",
+                "specific pitcher names",
+            ]
+        },
+    },
+    # Add 15-30 more questions covering your domain
+]
+
+
+def predict_fn(question: str) -> str:
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": question}]}
+    )
+    return result["messages"][-1].content
+
+
+baseline_results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=predict_fn,
+    scorers=[baseball_judge, baseball_language],
+)
+
+print(baseline_results.metrics)
+# Example output:
+# {
+#   'baseball_analysis/mean': 2.8,
+#   'baseball_language/mean': 0.7,
+# }
+```
+
+Tag the successful traces so you can find them later for labeling and alignment:
+
+```python
+df = baseline_results.result_df
+ok_traces = df.loc[df["state"] == "OK", "trace_id"]
+for trace_id in ok_traces:
+    mlflow.set_trace_tag(
+        trace_id=trace_id, key="eval", value="complete"
+    )
+
+print(f"Tagged {len(ok_traces)} traces for labeling")
+```
+
+The baseline judge score gives you a starting point to measure improvement against.
+
+<StepHeader number={5} title="Label Traces with Expert Feedback" />
+
+Automated judges have blind spots. To calibrate them, have domain experts score a sample of agent outputs. MLflow's Review App provides a labeling interface.
+
+```python
+from mlflow.genai import label_schemas
+
+experiment_id = mlflow.get_experiment_by_name(
+    "agent-alignment-pipeline"
+).experiment_id
+
+# Define the labeling schema (1-5 numeric score)
+label_schemas.create_label_schema(
+    name="baseball_analysis",
+    type="feedback",
+    title="Baseball Analysis Quality",
+    input=label_schemas.InputNumeric(
+        min_value=1.0, max_value=5.0
+    ),
+    instruction=(
+        "Score 1-5: Does this response correctly analyze "
+        "the data and give an actionable recommendation?"
+    ),
+    enable_comment=True,
+    overwrite=True,
+)
+
+# Create a labeling session and assign reviewers
+session = mlflow.genai.create_labeling_session(
+    name="expert_review",
+    assigned_users=["analyst@example.com"],
+    label_schemas=["baseball_analysis"],
+)
+
+# Create a dataset from the evaluation traces
+dataset = mlflow.genai.datasets.create_dataset(
+    name="baseline_eval_traces",
+)
+
+# Find traces from the baseline evaluation
+traces = mlflow.search_traces(
+    locations=[experiment_id],
+    return_type="pandas",
+)
+
+# Add traces to the dataset for labeling
+dataset.merge_records(traces)
+session.add_dataset(dataset_name="baseline_eval_traces")
+
+print(f"Labeling session created: {session.name}")
+print(f"Assign {len(traces)} traces to domain experts for review")
+```
+
+Have your experts label 20-30 traces in the Review App. Each trace gets a 1-5 score and optional comment explaining their reasoning. This expert feedback is the ground truth that MemAlign uses to calibrate the judge.
+
+<StepHeader number={6} title="Align the Judge with MemAlign" />
+
+MemAlign distills expert feedback into two types of memory that make the judge match human preferences:
+
+- **Semantic memory**: Guidelines extracted from expert scoring patterns (e.g., "Always penalize responses that omit sample sizes")
+- **Episodic memory**: Representative scored examples the judge can reference
+
+```python
+from mlflow.genai.judges.optimizers import MemAlignOptimizer
+from mlflow.genai.scorers import get_scorer
+
+# Load the base judge
+base_judge = get_scorer(name="baseball_analysis")
+
+# Create the optimizer
+optimizer = MemAlignOptimizer(
+    reflection_lm="openai:/gpt-4o",
+    retrieval_k=3,
+    embedding_model="openai:/text-embedding-3-small",
+)
+
+# Load traces that experts have labeled
+labeled_traces = mlflow.search_traces(
+    locations=[experiment_id],
+    filter_string="tag.eval = 'complete'",
+    return_type="list",
+)
+
+# Align the judge to expert feedback
+aligned_judge = base_judge.align(
+    traces=labeled_traces,
+    optimizer=optimizer,
+)
+```
+
+Inspect what MemAlign learned:
+
+```python
+# Semantic memory: guidelines distilled from expert feedback
+for mem in aligned_judge._semantic_memory:
+    print(f"Guideline: {mem.guideline_text}")
+    print(f"  Source traces: {mem.source_trace_ids}")
+    print()
+
+# Example output:
+# Guideline: Always include sample sizes (N=count)
+#   alongside percentage breakdowns
+#   Source traces: ['tr-abc123', 'tr-def456']
+#
+# Guideline: Penalize responses that present scaled
+#   values (0-1) instead of raw units (MPH, RPM)
+#   Source traces: ['tr-ghi789']
+```
+
+Save the aligned judge back to the experiment:
+
+```python
+from mlflow.genai.scorers import ScorerSamplingConfig
+
+aligned_judge.update(
+    experiment_id=experiment_id,
+    sampling_config=ScorerSamplingConfig(sample_rate=0.0),
+)
+```
+
+<StepHeader number={7} title="Optimize the System Prompt" />
+
+Use `optimize_prompts` to automatically improve the system prompt. The aligned judge scores each candidate, and the optimizer iterates toward higher scores.
+
+```python
+from mlflow.genai.optimize import GepaPromptOptimizer
+
+# Load the seed prompt from the registry
+seed_prompt = mlflow.genai.load_prompt(
+    "prompts:/my-agent-prompt/1"
+)
+
+
+# Wrap the agent so the optimizer can call it
+def predict_with_prompt(question: str) -> str:
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": question}]}
+    )
+    return result["messages"][-1].content
+
+
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_with_prompt,
+    train_data=eval_data,
+    prompt_uris=[seed_prompt.uri],
+    optimizer=GepaPromptOptimizer(
+        reflection_model="openai:/gpt-4o",
+        max_metric_calls=100,
+        display_progress_bar=True,
+    ),
+    scorers=[aligned_judge],
+)
+
+print(f"Initial score: {result.initial_eval_score:.2f}")
+print(f"Final score:   {result.final_eval_score:.2f}")
+print(f"Lift: {result.final_eval_score / result.initial_eval_score:.1f}x")
+```
+
+Register the best prompt and promote it to production:
+
+```python
+optimized_prompt = mlflow.genai.register_prompt(
+    name="my-agent-prompt",
+    template=result.optimized_prompts[0].template,
+    commit_message=(
+        f"GEPA optimized: {result.initial_eval_score:.2f} "
+        f"-> {result.final_eval_score:.2f}"
+    ),
+)
+
+mlflow.genai.set_prompt_alias(
+    name="my-agent-prompt",
+    alias="production",
+    version=optimized_prompt.version,
+)
+
+print(f"Promoted v{optimized_prompt.version} to @production")
+```
+
+For more robust results with larger datasets (50-100+ questions), run multiple optimization passes on disjoint subsets and pick the best:
+
+```python
+import random
+
+# With a larger eval set (e.g., 100 questions),
+# shuffle and split into disjoint subsets
+random.shuffle(large_eval_data)
+subset_size = len(large_eval_data) // 5
+subsets = [
+    large_eval_data[i * subset_size:(i + 1) * subset_size]
+    for i in range(5)
+]
+
+best_score = 0
+best_template = None
+
+for i, subset in enumerate(subsets):
+    result = mlflow.genai.optimize_prompts(
+        predict_fn=predict_with_prompt,
+        train_data=subset,
+        prompt_uris=[seed_prompt.uri],
+        optimizer=GepaPromptOptimizer(
+            reflection_model="openai:/gpt-4o",
+            max_metric_calls=100,
+        ),
+        scorers=[aligned_judge],
+    )
+    if result.final_eval_score > best_score:
+        best_score = result.final_eval_score
+        best_template = result.optimized_prompts[0].template
+    print(f"Run {i+1}: {result.final_eval_score:.2f}")
+
+print(f"\nBest score across 5 runs: {best_score:.2f}")
+```
+
+<StepHeader number={8} title="Generate Agent Skills with GEPA" />
+
+Beyond prompt optimization, GEPA can generate structured skill files that teach the agent domain-specific workflows. Each skill has three files:
+
+- **`SKILL.md`** -- Tools, workflow steps, quality expectations, response format
+- **`GOTCHA.md`** -- Failure modes with strong guardrails (NEVER, MUST, CRITICAL)
+- **`EXAMPLES.md`** -- Worked examples with user query, tool sequence, expected output
+
+Use `optimize_anything` from the GEPA library to generate skills from your agent's evaluation traces, tool definitions, and aligned judge feedback. This requires gathering four evidence sources into a background document that GEPA uses for reflection.
+
+First, gather the evidence:
+
+```python
+import json
+import random
+
+# 1. Build tool definitions summary
+tool_definitions = []
+for t in tools:
+    tool_definitions.append(
+        f"- **{t.name}**: {t.description}\n"
+        f"  Parameters: {json.dumps(t.args, indent=2)}"
+    )
+tool_definitions_text = "\n".join(tool_definitions)
+
+# 2. Load the optimized system prompt
+prompt_obj = mlflow.genai.load_prompt(
+    "prompts:/my-agent-prompt@production"
+)
+optimized_prompt_text = prompt_obj.format()
+
+# 3. Extract aligned judge guidelines
+judge_guidelines = []
+for mem in aligned_judge._semantic_memory:
+    judge_guidelines.append(f"- {mem.guideline_text}")
+judge_guidelines_text = "\n".join(judge_guidelines)
+
+# 4. Parse evaluation traces into summaries
+eval_traces = mlflow.search_traces(
+    locations=[experiment_id],
+    filter_string="tag.eval = 'complete'",
+    return_type="list",
+)
+
+trace_summaries = []
+for trace in eval_traces:
+    user_query = trace.data.request
+    response = trace.data.response
+    trace_summaries.append({
+        "user_query": str(user_query),
+        "response": str(response)[:500],
+    })
+```
+
+Build the background and run `optimize_anything`:
+
+```python
+from gepa.optimize_anything import optimize_anything
+from gepa.config import (
+    GEPAConfig,
+    EngineConfig,
+    ReflectionConfig,
+    RefinerConfig,
+)
+
+background = f"""
+You are generating modular agent skill files.
+
+## Available Tools
+{tool_definitions_text}
+
+## Current System Prompt
+{optimized_prompt_text}
+
+## Judge Guidelines (from expert alignment)
+{judge_guidelines_text}
+
+## Skill File Format
+Each skill must have exactly 3 files:
+
+skill-name/SKILL.md:
+  - YAML frontmatter with name and description
+  - Tools section listing which tools this skill uses
+  - Workflow section with numbered steps
+  - Quality expectations with strong language
+
+skill-name/GOTCHA.md:
+  - At least 3 failure modes
+  - Use NEVER, MUST, CRITICAL language
+
+skill-name/EXAMPLES.md:
+  - At least 2 worked examples
+  - Include: user query, tool call sequence, expected response
+"""
+
+# Split traces into train/validation
+random.shuffle(trace_summaries)
+split_idx = int(len(trace_summaries) * 0.7)
+train_traces = trace_summaries[:split_idx]
+val_traces = trace_summaries[split_idx:]
+
+config = GEPAConfig(
+    engine=EngineConfig(
+        max_metric_calls=150,
+        cache_evaluation=True,
+        display_progress_bar=True,
+    ),
+    reflection=ReflectionConfig(
+        reflection_lm="openai:/gpt-4o",
+        reflection_minibatch_size=3,
+    ),
+    refiner=RefinerConfig(),
+)
+
+
+def evaluate_skills(candidate_json, trace):
+    """Score a candidate skill set against a trace.
+
+    Returns a 0-10 score based on how well the
+    generated skills cover the tools and workflow
+    patterns observed in the trace.
+    """
+    try:
+        skills = json.loads(candidate_json)
+    except json.JSONDecodeError:
+        return 0.0
+
+    if not skills:
+        return 0.0
+
+    # Score based on skill count and content quality
+    count_score = min(len(skills) / 5.0, 1.0) * 5
+    has_all_files = all(
+        "SKILL.md" in str(s) and "GOTCHA.md" in str(s)
+        for s in skills
+    )
+    quality_score = 5.0 if has_all_files else 2.0
+
+    return count_score + quality_score
+
+
+result = optimize_anything(
+    objective="Maximize tool coverage and workflow depth",
+    background=background,
+    seed="[]",
+    dataset=train_traces,
+    valset=val_traces,
+    config=config,
+    evaluator=evaluate_skills,
+)
+
+generated_skills = json.loads(result.best_candidate)
+print(f"Generated {len(generated_skills)} skills")
+```
+
+<StepHeader number={9} title="Wire Skills into the Agent" />
+
+Skills are loaded at agent startup. Skill metadata (name + description) goes into the system prompt. When the agent needs a skill's full details, it calls a `load_skill` tool.
+
+```python
+# Build a lookup dict for skill content
+skill_store = {s["name"]: s for s in generated_skills}
+
+
+def append_skills_to_prompt(prompt_text, skills):
+    """Add skill list to system prompt."""
+    skill_list = "\n".join(
+        f"- {name}: {s.get('description', '')}"
+        for name, s in skills.items()
+    )
+    return (
+        f"{prompt_text}\n\n"
+        f"## Available Agent Skills\n"
+        f"Call load_skill(skill_name) to get full "
+        f"details before executing a skill workflow.\n"
+        f"{skill_list}"
+    )
+
+
+@tool
+def load_skill(skill_name: str) -> str:
+    """Load the full content of an agent skill
+    by name."""
+    skill = skill_store.get(skill_name)
+    if skill is None:
+        return f"Skill '{skill_name}' not found."
+    return json.dumps(skill, indent=2)
+
+
+# Build the enhanced agent
+optimized_prompt = mlflow.genai.load_prompt(
+    "prompts:/my-agent-prompt@production"
+)
+enhanced_prompt = append_skills_to_prompt(
+    optimized_prompt.format(), skill_store
+)
+
+enhanced_tools = tools + [load_skill]
+enhanced_agent = create_react_agent(
+    model=llm,
+    tools=enhanced_tools,
+    prompt=enhanced_prompt,
+)
+```
+
+<StepHeader number={10} title="Compare Baseline vs Optimized on Held-Out Data" />
+
+The final step: run both agents against a held-out evaluation set using the aligned judge. This isolates the improvement from prompt optimization and skill generation.
+
+```python
+# Create a held-out dataset (questions NOT used in optimization)
+held_out_data = [
+    {
+        "inputs": {
+            "question": (
+                "How should a left-handed batter approach "
+                "a sinker-slider pitcher in late innings?"
+            )
+        },
+    },
+    {
+        "inputs": {
+            "question": (
+                "Compare the pitch tunneling effectiveness "
+                "of the top 3 closers in the AL East."
+            )
+        },
+    },
+    # 15-25 more held-out questions
+]
+
+# Evaluate baseline agent
+def baseline_predict(question: str) -> str:
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": question}]}
+    )
+    return result["messages"][-1].content
+
+
+baseline_results = mlflow.genai.evaluate(
+    data=held_out_data,
+    predict_fn=baseline_predict,
+    scorers=[aligned_judge],
+)
+
+# Evaluate enhanced agent (optimized prompt + skills)
+def enhanced_predict(question: str) -> str:
+    result = enhanced_agent.invoke(
+        {"messages": [{"role": "user", "content": question}]}
+    )
+    return result["messages"][-1].content
+
+
+enhanced_results = mlflow.genai.evaluate(
+    data=held_out_data,
+    predict_fn=enhanced_predict,
+    scorers=[aligned_judge],
+)
+
+# Compare
+import pandas as pd
+
+comparison = pd.DataFrame({
+    "agent": ["baseline", "optimized + skills"],
+    "mean_score": [
+        baseline_results.metrics["baseball_analysis/mean"],
+        enhanced_results.metrics["baseball_analysis/mean"],
+    ],
+})
+print(comparison.to_string(index=False))
+#          agent  mean_score
+#       baseline         2.8
+# optimized + skills     4.2
+```
+
+<StepHeader number={11} title="Inspect Results in the MLflow UI" />
+
+Open `http://127.0.0.1:5000` and navigate to the `agent-alignment-pipeline` experiment. You'll see evaluation runs for both agents.
+
+1. Select both evaluation runs and click **Compare** to see metrics side by side.
+2. Click into individual runs to inspect per-row traces, judge scores, and rationales.
+3. The aligned judge's rationales reference the expert-derived guidelines, showing exactly why each response scored higher or lower.
+
+The traces show the full pipeline: which tools the agent called, what the skill loader returned, and how the synthesized response compared to baseline.
+
+<StepHeader number={12} title="Run the Full Pipeline on Your Domain" />
+
+The alignment-optimization loop works the same regardless of domain:
+
+1. **Build agent** with domain tools and a baseline prompt.
+2. **Create a domain judge** with a rubric that captures what "good" means.
+3. **Evaluate** the baseline to establish a starting score.
+4. **Collect expert feedback** on 20-30 traces via the Review App.
+5. **Align the judge** with MemAlign to match expert preferences.
+6. **Optimize the prompt** with GEPA using the aligned judge as scorer.
+7. **Generate skills** with `optimize_anything` to codify domain workflows.
+8. **Wire skills** into the agent and re-evaluate on held-out data.
+9. **Compare** and promote the best configuration to production.
+
+Repeat this loop as your domain evolves or expert preferences shift.
+
+## Summary
+
+| Stage | MLflow API | What It Does |
+|-------|-----------|--------------|
+| Prompt versioning | `register_prompt`, `set_prompt_alias` | Version and alias system prompts |
+| Custom judge | `make_judge` | Domain-specific 1-5 scale evaluation |
+| Evaluation | `mlflow.genai.evaluate` | Score agent with multiple scorers |
+| Expert labeling | `create_labeling_session` | Collect human feedback via Review App |
+| Judge alignment | `MemAlignOptimizer`, `base_judge.align()` | Calibrate judge to expert preferences |
+| Prompt optimization | `optimize_prompts`, `GepaPromptOptimizer` | Iteratively improve system prompt |
+| Skill generation | `optimize_anything` (GEPA) | Generate structured skill files |
+
+## Next Steps
+
+- [Evaluation-Driven Development](/genai/cookbooks/eval-driven-development) -- The simpler version of this loop without MemAlign or skills
+- [Building Custom LLM Judges](/genai/cookbooks/custom-llm-judges) -- Deep dive into judge design patterns
+- [Prompt Engineering Lifecycle](/genai/cookbooks/prompt-engineering) -- More on prompt versioning and aliases
+- [MemAlign Optimizer Reference](/genai/eval-monitor/scorers/llm-judge/memalign) -- Full MemAlign documentation
+- [Optimize Prompts Reference](/genai/prompt-registry/optimize-prompts) -- Full GEPA documentation

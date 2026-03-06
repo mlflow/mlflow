@@ -95,6 +95,11 @@ const sidebarsGenAI: SidebarsConfig = {
           id: 'cookbooks/production-observability',
           label: 'Production Observability',
         },
+        {
+          type: 'doc',
+          id: 'cookbooks/agent-alignment-optimization',
+          label: 'Agent Alignment & Optimization Pipeline',
+        },
       ],
     },
     {
