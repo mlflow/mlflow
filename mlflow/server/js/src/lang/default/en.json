@@ -271,6 +271,10 @@
     "defaultMessage": "Traces",
     "description": "Label for the scorer evaluation scope selection"
   },
+  "/qVACl": {
+    "defaultMessage": "Negative User Experiences",
+    "description": "Issue category title for detecting negative user experiences"
+  },
   "/sk75d": {
     "defaultMessage": "Experiment not found",
     "description": "A title shown on the experiment page if the experiment is not found"
@@ -965,10 +969,6 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
-  },
-  "5GOMqh": {
-    "defaultMessage": "Connect an LLM to run an AI-powered issue analysis on your traces",
-    "description": "Description text for issue detection modal"
   },
   "5Mzn2b": {
     "defaultMessage": "Creator",
@@ -1674,6 +1674,10 @@
     "defaultMessage": "Show change from baseline",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show change from baseline toggle"
   },
+  "9icYIV": {
+    "defaultMessage": "Select Categories",
+    "description": "Header for the category selection step in issue detection modal"
+  },
   "9kTEoo": {
     "defaultMessage": "Is the app's response grounded in retrieved information?",
     "description": "Hint for RetrievalGroundedness template"
@@ -2010,6 +2014,10 @@
     "defaultMessage": "Attributes",
     "description": "Section header for the attributes in a 'group by' selector"
   },
+  "BfaeNE": {
+    "defaultMessage": "Low Quality Responses",
+    "description": "Issue category title for detecting low quality responses"
+  },
   "BkDhmT": {
     "defaultMessage": "Chat",
     "description": "Label for the chat tab of the model trace explorer."
@@ -2326,6 +2334,10 @@
     "defaultMessage": "More options",
     "description": "Experiment page > control bar > more options button accessible label"
   },
+  "E6PAQr": {
+    "defaultMessage": "Safety & Compliance Violations",
+    "description": "Issue category title for detecting safety violations"
+  },
   "E7mv3b": {
     "defaultMessage": "Save",
     "description": "Text for saving changes on rows in editable form table in MLflow"
@@ -2425,6 +2437,10 @@
   "Epo8/i": {
     "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
     "description": "Experiments page list, delete bulk experiments modal title"
+  },
+  "EsCAXB": {
+    "defaultMessage": "Detect unsafe responses or actions and compliance violations",
+    "description": "Issue category description for safety violations"
   },
   "Eu0gxa": {
     "defaultMessage": "Capture and debug LLM interactions and agent workflows.",
@@ -2717,6 +2733,10 @@
   "HNQ9dM": {
     "defaultMessage": "Status",
     "description": "Label for the status section"
+  },
+  "HRYr1s": {
+    "defaultMessage": "Configure the LLM provider and models to power issue detection",
+    "description": "Description for the model selection step"
   },
   "HSMagB": {
     "defaultMessage": "Error evaluating \"{label}\"",
@@ -3778,6 +3798,10 @@
     "defaultMessage": "Add expectation",
     "description": "Label for the button to add a new expectation"
   },
+  "OoLizY": {
+    "defaultMessage": "Select Models",
+    "description": "Header for the model selection step in issue detection modal"
+  },
   "OxQK9l": {
     "defaultMessage": "Key name is required",
     "description": "Error message when key name is empty"
@@ -4280,6 +4304,10 @@
   "SbMdmm": {
     "defaultMessage": "{spanName} was called",
     "description": "Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
+  },
+  "ScrXYc": {
+    "defaultMessage": "Previous",
+    "description": "Previous button to go back to category selection"
   },
   "Sd7sQi": {
     "defaultMessage": "Traces are only available for experiment-scoped prompts.",
@@ -5267,6 +5295,10 @@
     "defaultMessage": "Edit the request body below and click Send request to call the provider API.",
     "description": "Try it description for passthrough"
   },
+  "ZLMmGe": {
+    "defaultMessage": "Identify slow requests or operations",
+    "description": "Issue category description for performance issues"
+  },
   "ZNYFUr": {
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > guideline adherence assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
@@ -5386,6 +5418,10 @@
   "ZwAzmu": {
     "defaultMessage": "Create Model",
     "description": "Create button to register a new model"
+  },
+  "a+uNeX": {
+    "defaultMessage": "Next",
+    "description": "Next button to proceed to provider configuration"
   },
   "a02Pn6": {
     "defaultMessage": "Step",
@@ -5910,10 +5946,6 @@
   "d8cdYc": {
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
-  },
-  "dFvZdM": {
-    "defaultMessage": "Connections",
-    "description": "Section header for API key configuration"
   },
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
@@ -6923,6 +6955,10 @@
     "defaultMessage": "Last used",
     "description": "Badge for last used workspace"
   },
+  "k3SQ4s": {
+    "defaultMessage": "Detect unsatisfactory user experiences and unmet user needs",
+    "description": "Issue category description for negative user experiences"
+  },
   "k8oXRo": {
     "defaultMessage": "Enter description",
     "description": "Placeholder for description input in edit modal"
@@ -6942,10 +6978,6 @@
   "kBXHTA": {
     "defaultMessage": "Edit chart",
     "description": "Title of the modal when editing a runs comparison chart"
-  },
-  "kBl4Ov": {
-    "defaultMessage": "Detect issues in traces",
-    "description": "Tooltip for the detect issues button in the traces table toolbar"
   },
   "kCsAho": {
     "defaultMessage": "Correctness",
@@ -7190,6 +7222,10 @@
   "lpEsIz": {
     "defaultMessage": "We couldn't load your workspaces.",
     "description": "Home page workspaces error message"
+  },
+  "lrhKxR": {
+    "defaultMessage": "Choose which types of issues to detect in your traces",
+    "description": "Description for the category selection step"
   },
   "ls3868": {
     "defaultMessage": "Guidelines",
@@ -7698,6 +7734,10 @@
   "pCaE4I": {
     "defaultMessage": "Sessions",
     "description": "Label for the scorer evaluation scope selection"
+  },
+  "pClBtS": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button in issue detection modal"
   },
   "pDCDkJ": {
     "defaultMessage": "Showing {visibleCount} out of {totalCount} {groupName}. Select columns to view more.",
@@ -8371,6 +8411,10 @@
     "defaultMessage": "No dataset",
     "description": "Label for the metrics column group header that are not grouped by dataset"
   },
+  "tpUcwl": {
+    "defaultMessage": "Performance Issues",
+    "description": "Issue category title for detecting performance issues"
+  },
   "tqw27y": {
     "defaultMessage": "Evaluation criteria",
     "description": "Accordion section header for evaluation criteria (judge type, guidelines/instructions, and output type)"
@@ -8963,6 +9007,10 @@
     "defaultMessage": "Model name",
     "description": "Header title for the model name column in the logged model list table"
   },
+  "y52/L4": {
+    "defaultMessage": "Use AI to automatically analyze your traces and identify potential issues",
+    "description": "Description text for issue detection modal"
+  },
   "y56Vz9": {
     "defaultMessage": "In progress",
     "description": "Experiment page > traces table > status label > in progress"
@@ -9194,6 +9242,10 @@
   "zhzZUu": {
     "defaultMessage": "An error occured while attempting to delete traces. Please refresh the page and try again.",
     "description": "Experiment page > traces view controls > Delete traces modal > Error message"
+  },
+  "zi1ZWc": {
+    "defaultMessage": "Detect incorrect, incomplete, or hallucinated responses",
+    "description": "Issue category description for low quality responses"
   },
   "ziIhFQ": {
     "defaultMessage": "Loaded {allRuns} {allRuns, plural, =1 {run} other {runs}}, including {childRuns} child {childRuns, plural, =1 {run} other {runs}}",

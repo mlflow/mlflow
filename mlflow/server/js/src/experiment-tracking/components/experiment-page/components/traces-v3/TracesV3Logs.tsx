@@ -461,6 +461,7 @@ const TracesV3LogsImpl = React.memo(
               initialSelectedTraceIds={Object.entries(rowSelection)
                 .filter(([, isSelected]) => isSelected)
                 .map(([traceId]) => traceId)}
+              availableTraceIds={traceInfos?.map((trace) => trace.trace_id) ?? []}
               onSubmitSuccess={showIssueDetectionNotification}
             />
           )}
