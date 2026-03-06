@@ -335,8 +335,7 @@ export const GenAiTracesTableBody = React.memo(
             }
 
             table.setRowSelection(updatedSelection);
-            lastSelectedSessionIdRef.current =
-              Object.keys(updatedSelection).length === 0 ? null : sessionId;
+            lastSelectedSessionIdRef.current = Object.keys(updatedSelection).length === 0 ? null : sessionId;
             return;
           }
         }

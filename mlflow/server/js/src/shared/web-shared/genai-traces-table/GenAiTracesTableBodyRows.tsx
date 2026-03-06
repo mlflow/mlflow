@@ -109,7 +109,9 @@ export const GenAiTracesTableBodyRow = React.memo(
     return (
       <>
         <TableRow>
-          <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0, gap: !displayCheckbox ? theme.spacing.xs : 0 }}>
+          <div
+            css={{ display: 'flex', overflow: 'hidden', flexShrink: 0, gap: !displayCheckbox ? theme.spacing.xs : 0 }}
+          >
             {enableRowSelection &&
               (!displayCheckbox ? (
                 <>
