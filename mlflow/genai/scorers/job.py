@@ -11,7 +11,7 @@ from typing import Any
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import (
-    _INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR,
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
@@ -166,7 +166,7 @@ def invoke_scorer_job(
     # header so the auth middleware can authenticate as the correct user.
     if username is not None:
         os.environ["MLFLOW_TRACKING_USERNAME"] = username
-        if internal_token := os.environ.get(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR):
+        if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():
             os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
 
     # Deserialize scorer

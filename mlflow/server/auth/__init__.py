@@ -14,7 +14,6 @@ import functools
 import importlib
 import json
 import logging
-import os
 import re
 import secrets
 from http import HTTPStatus
@@ -42,7 +41,7 @@ from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
-    _INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR,
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -2946,7 +2945,7 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         # The server generates a random token at startup and passes it to workers
         # via _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN. When the password matches that
         # token, we trust the username without calling store.authenticate_user().
-        internal_token = os.environ.get(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR)
+        internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
         if internal_token and secrets.compare_digest(password, internal_token):
             return store.get_user(username)
 

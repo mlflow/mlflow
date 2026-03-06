@@ -20,7 +20,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
-    _INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR,
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
@@ -2922,7 +2922,7 @@ def _make_request(path, authorization=None):
 def test_basic_auth_with_internal_token_returns_user(
     mock_auth_store, mock_auth_config, monkeypatch
 ):
-    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "internal-secret")
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
     credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
     request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
 
@@ -2938,7 +2938,7 @@ def test_basic_auth_with_internal_token_returns_user(
 def test_basic_auth_with_internal_token_deleted_user_returns_none(
     mock_auth_store, mock_auth_config, monkeypatch
 ):
-    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "internal-secret")
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
     mock_auth_store.get_user.side_effect = MlflowException("User not found")
     credentials = base64.b64encode(b"deleted_user:internal-secret").decode("ascii")
     request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
@@ -2953,7 +2953,7 @@ def test_basic_auth_with_internal_token_deleted_user_returns_none(
 def test_basic_auth_with_wrong_password_falls_through_to_authenticate(
     mock_auth_store, mock_auth_config, monkeypatch
 ):
-    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "internal-secret")
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
     credentials = base64.b64encode(b"alice:wrong-password").decode("ascii")
     request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
 
@@ -2968,7 +2968,7 @@ def test_basic_auth_with_wrong_password_falls_through_to_authenticate(
 def test_basic_auth_no_internal_token_uses_normal_auth(
     mock_auth_store, mock_auth_config, monkeypatch
 ):
-    monkeypatch.delenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, raising=False)
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     credentials = base64.b64encode(b"alice:password123").decode("ascii")
     request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
 
@@ -2984,7 +2984,7 @@ def test_basic_auth_no_internal_token_uses_normal_auth(
 
 
 def test_fastapi_valid_basic_auth(mock_auth_store, mock_auth_config, monkeypatch):
-    monkeypatch.delenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, raising=False)
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     credentials = base64.b64encode(b"alice:password123").decode("ascii")
     request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
 
@@ -2997,7 +2997,7 @@ def test_fastapi_valid_basic_auth(mock_auth_store, mock_auth_config, monkeypatch
 
 
 def test_fastapi_invalid_basic_auth(mock_auth_store, mock_auth_config, monkeypatch):
-    monkeypatch.delenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, raising=False)
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     mock_auth_store.authenticate_user.return_value = False
     credentials = base64.b64encode(b"alice:wrong").decode("ascii")
     request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
@@ -3013,7 +3013,7 @@ def test_fastapi_invalid_basic_auth(mock_auth_store, mock_auth_config, monkeypat
 
 
 def test_bearer_returns_none(mock_auth_store, mock_auth_config, monkeypatch):
-    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "abc123")
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "abc123")
     request = _make_request("/gateway/mlflow/v1/chat", "Bearer abc123")
 
     from mlflow.server.auth import _authenticate_fastapi_request
