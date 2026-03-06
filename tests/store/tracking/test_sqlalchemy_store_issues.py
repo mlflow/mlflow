@@ -79,3 +79,46 @@ def test_create_issue_invalid_run(store):
             description="This should fail",
             status="draft",
         )
+
+
+def test_get_issue(store):
+    exp_id = store.create_experiment("test")
+
+    run = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        run_name="test_run",
+        tags=[],
+    )
+
+    created_issue = store.create_issue(
+        experiment_id=exp_id,
+        name="Low accuracy",
+        description="Model accuracy below threshold",
+        status="draft",
+        confidence="medium",
+        root_causes=["Insufficient training data", "Model drift"],
+        source_run_id=run.info.run_id,
+        created_by="alice@example.com",
+    )
+
+    retrieved_issue = store.get_issue(created_issue.issue_id)
+
+    # Verify all fields
+    assert retrieved_issue.issue_id == created_issue.issue_id
+    assert retrieved_issue.experiment_id == exp_id
+    assert retrieved_issue.name == "Low accuracy"
+    assert retrieved_issue.description == "Model accuracy below threshold"
+    assert retrieved_issue.status == "draft"
+    assert retrieved_issue.confidence == "medium"
+    assert retrieved_issue.root_causes == ["Insufficient training data", "Model drift"]
+    assert retrieved_issue.source_run_id == run.info.run_id
+    assert retrieved_issue.created_by == "alice@example.com"
+    assert retrieved_issue.created_timestamp is not None
+    assert retrieved_issue.created_timestamp > 0
+
+
+def test_get_issue_nonexistent(store):
+    with pytest.raises(MlflowException, match=r"Issue with ID 'nonexistent-id' not found"):
+        store.get_issue("nonexistent-id")

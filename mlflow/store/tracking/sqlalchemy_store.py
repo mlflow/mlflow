@@ -5832,6 +5832,28 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Return Issue entity
             return sql_issue.to_mlflow_entity()
 
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The issue ID to fetch.
+
+        Returns:
+            The Issue entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_issue = (
+                self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
+            )
+            if not sql_issue:
+                raise MlflowException(
+                    f"Issue with ID '{issue_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            return sql_issue.to_mlflow_entity()
+
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints
     # ===================================================================================
