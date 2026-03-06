@@ -411,7 +411,6 @@ describe('IssueDetectionModal', () => {
     );
 
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
-    await userEvent.selectOptions(screen.getByTestId('model-select'), 'gpt-4');
     await userEvent.click(screen.getByTestId('set-existing-key'));
 
     const submitButton = screen.getByText('Run Analysis').closest('button')!;

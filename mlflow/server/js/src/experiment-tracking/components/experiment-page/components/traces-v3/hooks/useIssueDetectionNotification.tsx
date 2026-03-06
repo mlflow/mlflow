@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useState } from 'react';
 import { keyframes } from '@emotion/react';
 import { Notification, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -20,28 +20,13 @@ const shrinkProgressAnimation = keyframes`
 export const useIssueDetectionNotification = (experimentId?: string) => {
   const { theme } = useDesignSystemTheme();
   const [isOpen, setIsOpen] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const evaluationRunsLink = experimentId
     ? Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.EvaluationRuns)
     : undefined;
 
   const showIssueDetectionNotification = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
     setIsOpen(true);
-    timerRef.current = setTimeout(() => {
-      setIsOpen(false);
-    }, NOTIFICATION_DURATION_MS);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
   }, []);
 
   const notificationContextHolder = (
@@ -50,8 +35,9 @@ export const useIssueDetectionNotification = (experimentId?: string) => {
         componentId="mlflow.traces.issue-detection-notification"
         open={isOpen}
         onOpenChange={setIsOpen}
+        duration={NOTIFICATION_DURATION_MS}
       >
-        <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
+        <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm, paddingLeft: theme.spacing.sm }}>
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, flex: 1 }}>
             <Notification.Title>
               <FormattedMessage
