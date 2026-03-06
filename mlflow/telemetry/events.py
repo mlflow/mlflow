@@ -1,6 +1,7 @@
 import inspect
 import os
 import sys
+from dataclasses import asdict
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -617,6 +618,17 @@ class OptimizePromptsJobEvent(Event):
             result["scorer_count"] = len(scorer_names)
 
         return result or None
+
+
+class MigrateFilestoreEvent(Event):
+    name: str = "migrate_filestore"
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        if result is None:
+            return None
+
+        return {k: v for k, v in asdict(result).items() if v > 0}
 
 
 class ScorerCallEvent(Event):

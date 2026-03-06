@@ -1,9 +1,17 @@
 # ruff: noqa: T201
+from __future__ import annotations
+
 import warnings
 from functools import partial
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from mlflow.exceptions import MlflowException
+from mlflow.telemetry.events import MigrateFilestoreEvent
+from mlflow.telemetry.track import record_usage_event
+
+if TYPE_CHECKING:
+    from mlflow.store.fs2db._utils import MigrationStats
 
 
 def _log(progress: bool, msg: str) -> None:
@@ -82,7 +90,8 @@ def _query_row_counts(engine) -> dict[str, int]:
     return counts
 
 
-def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
+@record_usage_event(MigrateFilestoreEvent)
+def migrate(source: Path, target_uri: str, *, progress: bool = True) -> MigrationStats:
     from sqlalchemy import create_engine, event
     from sqlalchemy.orm import Session
 
@@ -163,3 +172,5 @@ def migrate(source: Path, target_uri: str, *, progress: bool = True) -> None:
     db_counts = _query_row_counts(engine)
     print()
     print(stats.summary(str(mlruns), target_uri, db_counts))
+
+    return stats

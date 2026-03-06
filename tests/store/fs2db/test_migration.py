@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, text
 
 from mlflow.entities import Experiment, Run, ViewType
 from mlflow.store.fs2db import migrate
+from mlflow.telemetry.schemas import Status
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import local_file_uri_to_path
 
@@ -270,6 +271,35 @@ def test_prompts(clients: Clients) -> None:
         assert src_pv is not None
         assert dst_pv is not None
         assert dst_pv.template == src_pv.template
+
+
+def test_migrate_filestore(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    client = MlflowClient(tracking_uri=source.as_uri())
+    exp_id = client.create_experiment("test")
+    run = client.create_run(exp_id)
+    client.log_param(run.info.run_id, "key", "value")
+
+    target_uri = f"sqlite:///{tmp_path / 'telemetry.db'}"
+    mock_client = mock.MagicMock()
+    mock_client.config.disable_events = []
+
+    with (
+        mock.patch("mlflow.telemetry.track.is_telemetry_disabled", return_value=False),
+        mock.patch("mlflow.telemetry.track.get_telemetry_client", return_value=mock_client),
+    ):
+        migrate(source, target_uri, progress=False)
+
+    mock_client.add_record.assert_called_once()
+    record = mock_client.add_record.call_args[0][0]
+    assert record.event_name == "migrate_filestore"
+    assert record.status == Status.SUCCESS
+    assert record.duration_ms > 0
+    assert record.params["experiments"] > 0
+    assert record.params["runs"] > 0
+    assert all(v > 0 for v in record.params.values())
+    assert "traces" not in record.params
+    assert "registered_models" not in record.params
 
 
 def test_rollback_on_failure(clients: Clients, tmp_path: Path) -> None:
