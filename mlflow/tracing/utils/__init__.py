@@ -811,6 +811,26 @@ def set_span_model_attribute(span: LiveSpan, inputs: dict[str, Any]) -> None:
         _logger.debug(f"Failed to set model for {span}. Error: {e}")
 
 
+def extract_provider_from_model_string(model: str, separator: str = "/") -> str | None:
+    """Extract the LLM provider name from a model string.
+
+    Many frameworks encode the provider in the model name using a separator:
+      - litellm format: "openai/gpt-4" (separator="/")
+      - Bedrock format: "anthropic.claude-3-haiku" (separator=".")
+      - LangChain _type: "openai-chat" (separator="-chat" suffix)
+
+    Args:
+        model: The model string that may contain a provider prefix.
+        separator: The separator between provider and model name.
+
+    Returns:
+        The provider name, or None if no separator is found.
+    """
+    if separator in model:
+        return model.split(separator)[0]
+    return None
+
+
 def should_compute_cost_client_side() -> bool:
     """Whether LLM cost should be computed on the client side.
 

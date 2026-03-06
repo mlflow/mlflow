@@ -15,7 +15,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.utils import capture_function_input_args
+from mlflow.tracing.utils import capture_function_input_args, extract_provider_from_model_string
 from mlflow.utils.autologging_utils import autologging_is_disabled
 from mlflow.utils.autologging_utils.safety import safe_patch
 
@@ -279,6 +279,9 @@ class MlflowAg2Logger(BaseLogger):
         )
         if model := request.get("model"):
             span.set_attribute(SpanAttributeKey.MODEL, model)
+            if isinstance(model, str):
+                if provider := extract_provider_from_model_string(model):
+                    span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
         if usage := self._parse_usage(response):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
 
