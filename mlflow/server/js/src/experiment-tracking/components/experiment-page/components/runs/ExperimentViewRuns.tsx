@@ -38,6 +38,7 @@ import { useLoggedModelsForExperimentRunsTable } from '../../hooks/useLoggedMode
 import { ExperimentViewRunsRequestError } from '../ExperimentViewRunsRequestError';
 import { useLoggedModelsForExperimentRunsTableV2 } from '../../hooks/useLoggedModelsForExperimentRunsTableV2';
 import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks/useResizableMaxWidth';
+import { createOpenColumnSelectorViewStatePatch } from '../../utils/experimentPage.view-state-utils';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
@@ -144,7 +145,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
   );
 
   const addColumnClicked = useCallback(() => {
-    updateViewState({ columnSelectorVisible: true });
+    updateViewState(createOpenColumnSelectorViewStatePatch());
   }, [updateViewState]);
 
   const shouldNestChildrenAndFetchParents = useMemo(
