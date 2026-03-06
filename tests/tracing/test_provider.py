@@ -604,24 +604,22 @@ def test_secure_id_generator_not_affected_by_random_seed():
     trace_id_2 = gen.generate_trace_id()
     span_id_2 = gen.generate_span_id()
 
-    assert trace_id_1 != trace_id_2, (
-        "Trace IDs must differ even after random.seed() is called with the same value. "
-        "This prevents 'trace already exists' errors when re-running scripts that call "
-        "random.seed()."
-    )
-    assert span_id_1 != span_id_2, (
-        "Span IDs must differ even after random.seed() is called with the same value."
-    )
+    assert trace_id_1 != trace_id_2
+    assert span_id_1 != span_id_2
 
 
-def test_tracer_provider_uses_secure_id_generator():
+def test_tracer_provider_uses_secure_id_generator_when_env_var_set(monkeypatch):
+    from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+
     from mlflow.tracing.provider import provider as _provider_wrapper
 
+    # Default: OTel's RandomIdGenerator is used
     _initialize_tracer_provider()
-    # provider.get() returns the real TracerProvider, not the ProxyTracerProvider wrapper
     tracer_provider = _provider_wrapper.get()
-    assert isinstance(tracer_provider.id_generator, _SecureIdGenerator), (
-        f"Expected _SecureIdGenerator but got {type(tracer_provider.id_generator).__name__}. "
-        "MLflow's TracerProvider must use _SecureIdGenerator to avoid deterministic "
-        "trace IDs when user code calls random.seed()."
-    )
+    assert isinstance(tracer_provider.id_generator, RandomIdGenerator)
+
+    # Opt-in: _SecureIdGenerator is used when the env var is set
+    monkeypatch.setenv("MLFLOW_TRACE_USE_SECURE_ID_GENERATOR", "true")
+    _initialize_tracer_provider()
+    tracer_provider = _provider_wrapper.get()
+    assert isinstance(tracer_provider.id_generator, _SecureIdGenerator)

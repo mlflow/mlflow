@@ -32,6 +32,7 @@ from mlflow.entities.trace_location import (
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
+    MLFLOW_TRACE_USE_SECURE_ID_GENERATOR,
     MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
@@ -75,6 +76,10 @@ class _SecureIdGenerator(IdGenerator):
     affected by ``random.seed()`` calls in user code.  This leads to deterministic
     trace IDs across script re-runs, causing "trace already exists" errors when the
     same IDs are re-submitted to a tracking backend.
+
+    This generator is *not* used by default.  Enable it by setting the environment
+    variable ``MLFLOW_TRACE_USE_SECURE_ID_GENERATOR=true`` when you encounter duplicate
+    trace-ID errors caused by ``random.seed()`` calls in your code.
     """
 
     def generate_span_id(self) -> int:
@@ -515,10 +520,11 @@ def _initialize_tracer_provider(disabled=False):
             [f"{k}={v}" for k, v in attributes.items()]
         )
 
+    id_generator = _SecureIdGenerator() if MLFLOW_TRACE_USE_SECURE_ID_GENERATOR.get() else None
     tracer_provider = TracerProvider(
         resource=resource,
         sampler=_get_trace_sampler(),
-        id_generator=_SecureIdGenerator(),
+        id_generator=id_generator,
     )
     for processor in processors:
         tracer_provider.add_span_processor(processor)
