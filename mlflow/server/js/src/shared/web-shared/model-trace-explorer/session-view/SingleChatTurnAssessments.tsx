@@ -1,9 +1,7 @@
 import { first, groupBy, isEmpty, mapValues, orderBy } from 'lodash';
 import { useMemo } from 'react';
 
-import { Button, importantify, Overflow, PlusIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
-
+import { Overflow, useDesignSystemTheme } from '@databricks/design-system';
 import type { Assessment, ExpectationAssessment, ModelTrace } from '../ModelTrace.types';
 import { isSessionLevelAssessment, isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
 import { AssessmentDisplayValue } from '../assessments-pane/AssessmentDisplayValue';
@@ -17,11 +15,9 @@ const isExpectationAssessment = (assessment: Assessment): assessment is Expectat
 export const SingleChatTurnAssessments = ({
   trace,
   getAssessmentTitle,
-  onAddAssessmentsClick,
 }: {
   trace: ModelTrace;
   getAssessmentTitle: (assessmentName: string) => string;
-  onAddAssessmentsClick?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const info = isV3ModelTraceInfo(trace.info) ? trace.info : null;
@@ -39,25 +35,7 @@ export const SingleChatTurnAssessments = ({
   }, [info?.assessments]);
 
   if (isEmpty(assessmentsToDisplay)) {
-    if (!onAddAssessmentsClick) {
-      return null;
-    }
-    return (
-      <div css={{ display: 'flex', justifyContent: 'flex-start' }}>
-        <Button
-          componentId="shared.model-trace-explorer.session-view.single-chart-turn-assessments.add-assessment"
-          icon={<PlusIcon />}
-          size="small"
-          onClick={onAddAssessmentsClick}
-          css={[{ marginTop: theme.spacing.sm }, importantify({ backgroundColor: theme.colors.backgroundPrimary })]}
-        >
-          <FormattedMessage
-            defaultMessage="Evaluate trace"
-            description="A call to action button to add assessments to a model trace in the single chat turn view"
-          />
-        </Button>
-      </div>
-    );
+    return null;
   }
 
   const assessmentGroups = Object.values(assessmentsToDisplay);
@@ -71,6 +49,7 @@ export const SingleChatTurnAssessments = ({
         width: '100%',
         minWidth: 0,
         overflow: 'hidden',
+        marginTop: theme.spacing.sm,
       }}
     >
       <Overflow
