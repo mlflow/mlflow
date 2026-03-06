@@ -15,7 +15,7 @@ import { useNavigate } from '../../../common/utils/RoutingUtils';
 import { RunIcon } from './assets/RunIcon';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { useExperimentKind, isGenAIExperimentKind } from '../../utils/ExperimentKindUtils';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 const RunViewHeaderIcon = () => {
   const { theme } = useDesignSystemTheme();
@@ -50,7 +50,7 @@ export interface RunViewHeaderProps {
   registeredModelVersionSummaries: RunPageModelVersionSummary[];
   isLoading?: boolean;
   /** Custom breadcrumbs to display. If provided, overrides default breadcrumb generation. */
-  customBreadcrumbs?: React.ReactNode[];
+  customBreadcrumbs?: ReactNode[];
   /** Props to pass to RunViewModeSwitch for custom tab configuration */
   tabSwitchProps?: Omit<RunViewModeSwitchProps, 'runTags'>;
 }
