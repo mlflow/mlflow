@@ -48,6 +48,7 @@ from mlflow.entities import (
     GatewayResourceType,
     GatewaySecretInfo,
     InputTag,
+    Issue,
     IssueReference,
     Metric,
     Param,
@@ -1172,9 +1173,7 @@ class SqlIssue(Base):
     Creator identifier: `String` (limit 255 characters). Optional.
     """
 
-    run = relationship(
-        "SqlRun", foreign_keys=[source_run_id], backref=backref("issues", cascade="all")
-    )
+    run = relationship("SqlRun", foreign_keys=[source_run_id], backref=backref("issues"))
     """
     SQLAlchemy relationship (many:one) with
     :py:class:`mlflow.store.tracking.dbmodels.models.SqlRun`.
@@ -1189,6 +1188,27 @@ class SqlIssue(Base):
 
     def __repr__(self):
         return f"<SqlIssue({self.issue_id}, {self.name}, {self.status})>"
+
+    def to_mlflow_entity(self) -> Issue:
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.Issue` object.
+        """
+        return Issue(
+            issue_id=self.issue_id,
+            experiment_id=str(self.experiment_id),
+            name=self.name,
+            description=self.description,
+            status=self.status,
+            confidence=self.confidence,
+            root_causes=json.loads(self.root_causes) if self.root_causes else None,
+            source_run_id=self.source_run_id,
+            created_timestamp=self.created_timestamp,
+            last_updated_timestamp=self.last_updated_timestamp,
+            created_by=self.created_by,
+        )
 
 
 class SqlLoggedModel(Base):
