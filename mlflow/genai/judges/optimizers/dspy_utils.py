@@ -22,7 +22,10 @@ from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
 )
-from mlflow.metrics.genai.model_utils import _parse_model_uri
+from mlflow.metrics.genai.model_utils import (
+    _parse_model_uri,
+    convert_model_uri_to_litellm,
+)
 from mlflow.utils import AttrDict
 
 # Import dspy - raise exception if not installed
@@ -285,23 +288,8 @@ def _sanitize_assessment_name(name: str) -> str:
     return name.lower().strip()
 
 
-def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
-    """
-    Convert MLflow model URI format to LiteLLM format.
-
-    MLflow uses URIs like 'openai:/gpt-4' while LiteLLM expects 'openai/gpt-4'.
-    For Databricks endpoints, MLflow uses 'endpoints:/endpoint-name' which needs
-    to be converted to 'databricks/endpoints/endpoint-name' for LiteLLM.
-
-    Args:
-        model_uri: MLflow model URI (e.g., 'openai:/gpt-4', 'endpoints:/my-endpoint')
-
-    Returns:
-        LiteLLM-compatible model string (e.g., 'openai/gpt-4', 'databricks/endpoints/my-endpoint')
-    """
-    from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
-
-    return convert_model_uri_to_litellm(model_uri)
+# Re-export for backward compatibility (canonical source: mlflow.metrics.genai.model_utils)
+convert_mlflow_uri_to_litellm = convert_model_uri_to_litellm
 
 
 def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:

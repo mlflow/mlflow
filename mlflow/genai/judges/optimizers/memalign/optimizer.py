@@ -12,7 +12,6 @@ from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
     _check_dspy_installed,
     construct_dspy_lm,
-    convert_mlflow_uri_to_litellm,
     create_dspy_signature,
     trace_to_dspy_example,
 )
@@ -37,6 +36,7 @@ from mlflow.genai.utils.trace_utils import (
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
 )
+from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
@@ -175,7 +175,7 @@ class MemoryAugmentedJudge(Judge):
         effective_base_judge = base_judge or self._base_judge
 
         self._base_signature = create_dspy_signature(effective_base_judge)
-        litellm_embedding_model = convert_mlflow_uri_to_litellm(self._embedding_model)
+        litellm_embedding_model = convert_model_uri_to_litellm(self._embedding_model)
         self._embedder = dspy.Embedder(
             litellm_embedding_model,
             dimensions=self._embedding_dim,
@@ -402,7 +402,7 @@ class MemoryAugmentedJudge(Judge):
 
         self._base_signature = create_dspy_signature(self._base_judge)
 
-        litellm_embedding_model = convert_mlflow_uri_to_litellm(self._embedding_model)
+        litellm_embedding_model = convert_model_uri_to_litellm(self._embedding_model)
         self._embedder = dspy.Embedder(
             litellm_embedding_model,
             dimensions=self._embedding_dim,
