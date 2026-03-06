@@ -30,28 +30,13 @@ def _make_request(path, authorization=None):
     return request
 
 
-# -- Bearer token on gateway routes --
+# -- Basic auth with internal token (trusted internal requests) --
 
 
-def test_bearer_valid_token_without_username_returns_none(
-    mock_store, mock_auth_config, monkeypatch
-):
-    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "abc123")
-    request = _make_request("/gateway/mlflow/v1/chat", "Bearer abc123")
-
-    from mlflow.server.auth import _authenticate_fastapi_request
-
-    user = _authenticate_fastapi_request(request)
-
-    assert user is None
-    mock_store.get_user.assert_not_called()
-
-
-def test_bearer_valid_token_with_username_returns_that_user(
-    mock_store, mock_auth_config, monkeypatch
-):
-    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "abc123")
-    request = _make_request("/gateway/mlflow/v1/chat", "Bearer abc123:alice")
+def test_basic_auth_with_internal_token_returns_user(mock_store, mock_auth_config, monkeypatch):
+    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "internal-secret")
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
 
     from mlflow.server.auth import _authenticate_fastapi_request
 
@@ -59,40 +44,18 @@ def test_bearer_valid_token_with_username_returns_that_user(
 
     assert user.username == "alice"
     mock_store.get_user.assert_called_once_with("alice")
+    mock_store.authenticate_user.assert_not_called()
 
 
-def test_bearer_invalid_token_returns_none(mock_store, mock_auth_config, monkeypatch):
-    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "abc123")
-    request = _make_request("/gateway/mlflow/v1/chat", "Bearer wrong-token")
-
-    from mlflow.server.auth import _authenticate_fastapi_request
-
-    user = _authenticate_fastapi_request(request)
-
-    assert user is None
-    mock_store.get_user.assert_not_called()
-
-
-def test_bearer_no_internal_token_configured_returns_none(
+def test_basic_auth_with_internal_token_deleted_user_returns_none(
     mock_store, mock_auth_config, monkeypatch
 ):
-    monkeypatch.delenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, raising=False)
-    request = _make_request("/gateway/mlflow/v1/chat", "Bearer abc123")
-
-    from mlflow.server.auth import _authenticate_fastapi_request
-
-    user = _authenticate_fastapi_request(request)
-
-    assert user is None
-    mock_store.get_user.assert_not_called()
-
-
-def test_bearer_deleted_user_returns_none(mock_store, mock_auth_config, monkeypatch):
     from mlflow.exceptions import MlflowException
 
-    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "abc123")
+    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "internal-secret")
     mock_store.get_user.side_effect = MlflowException("User not found")
-    request = _make_request("/gateway/mlflow/v1/chat", "Bearer abc123:deleted_user")
+    credentials = base64.b64encode(b"deleted_user:internal-secret").decode("ascii")
+    request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
 
     from mlflow.server.auth import _authenticate_fastapi_request
 
@@ -101,37 +64,39 @@ def test_bearer_deleted_user_returns_none(mock_store, mock_auth_config, monkeypa
     assert user is None
 
 
-# -- Bearer token on non-gateway routes --
-
-
-def test_bearer_rejected_on_non_gateway_path(mock_store, mock_auth_config, monkeypatch):
-    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "abc123")
-    request = _make_request("/api/3.0/mlflow/experiments/list", "Bearer abc123")
-
-    from mlflow.server.auth import _authenticate_fastapi_request
-
-    user = _authenticate_fastapi_request(request)
-
-    assert user is None
-    mock_store.get_user.assert_not_called()
-
-
-def test_bearer_rejected_on_ajax_path(mock_store, mock_auth_config, monkeypatch):
-    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "abc123")
-    request = _make_request("/ajax-api/3.0/jobs", "Bearer abc123")
+def test_basic_auth_with_wrong_password_falls_through_to_authenticate(
+    mock_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "internal-secret")
+    credentials = base64.b64encode(b"alice:wrong-password").decode("ascii")
+    request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
 
     from mlflow.server.auth import _authenticate_fastapi_request
 
     user = _authenticate_fastapi_request(request)
 
-    assert user is None
-    mock_store.get_user.assert_not_called()
+    assert user.username == "alice"
+    mock_store.authenticate_user.assert_called_once_with("alice", "wrong-password")
 
 
-# -- Basic auth --
+def test_basic_auth_no_internal_token_uses_normal_auth(mock_store, mock_auth_config, monkeypatch):
+    monkeypatch.delenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, raising=False)
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
+
+    from mlflow.server.auth import _authenticate_fastapi_request
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+# -- Standard Basic auth --
 
 
 def test_valid_basic_auth(mock_store, mock_auth_config, monkeypatch):
+    monkeypatch.delenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, raising=False)
     credentials = base64.b64encode(b"alice:password123").decode("ascii")
     request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
 
@@ -144,6 +109,7 @@ def test_valid_basic_auth(mock_store, mock_auth_config, monkeypatch):
 
 
 def test_invalid_basic_auth(mock_store, mock_auth_config, monkeypatch):
+    monkeypatch.delenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, raising=False)
     mock_store.authenticate_user.return_value = False
     credentials = base64.b64encode(b"alice:wrong").decode("ascii")
     request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
@@ -153,6 +119,21 @@ def test_invalid_basic_auth(mock_store, mock_auth_config, monkeypatch):
     user = _authenticate_fastapi_request(request)
 
     assert user is None
+
+
+# -- Non-Basic auth schemes --
+
+
+def test_bearer_returns_none(mock_store, mock_auth_config, monkeypatch):
+    monkeypatch.setenv(_INTERNAL_GATEWAY_AUTH_TOKEN_ENV_VAR, "abc123")
+    request = _make_request("/gateway/mlflow/v1/chat", "Bearer abc123")
+
+    from mlflow.server.auth import _authenticate_fastapi_request
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user is None
+    mock_store.get_user.assert_not_called()
 
 
 # -- No auth header --

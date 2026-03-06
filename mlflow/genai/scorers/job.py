@@ -160,11 +160,13 @@ def invoke_scorer_job(
     Returns:
         Dict mapping trace_id to TraceResult (assessments and failures).
     """
-    # Propagate the original user identity to gateway requests. This env var
-    # is read by _get_gateway_api_key() and encoded into the Bearer token so
-    # the auth middleware can authenticate as the correct user.
+    # Propagate the original user identity to gateway requests. These env vars
+    # are read by get_gateway_litellm_config() and encoded into a Basic auth
+    # header so the auth middleware can authenticate as the correct user.
     if username is not None:
-        os.environ["_MLFLOW_GATEWAY_AUTH_USERNAME"] = username
+        os.environ["MLFLOW_TRACKING_USERNAME"] = username
+        if internal_token := os.environ.get("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN"):
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
 
     # Deserialize scorer
     scorer = Scorer.model_validate_json(serialized_scorer)
