@@ -18,7 +18,6 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS
 from mlflow.genai.judges.optimizers.dspy_utils import (
     construct_dspy_lm,
-    convert_mlflow_uri_to_litellm,
 )
 from mlflow.genai.judges.optimizers.memalign.prompts import (
     DISTILLATION_PROMPT_TEMPLATE,
@@ -29,6 +28,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
 )
+from mlflow.metrics.genai.model_utils import convert_model_uri_to_litellm
 
 # Try to import litellm at module level
 try:
@@ -85,7 +85,7 @@ def _get_model_max_input_tokens(model: str, model_type: str) -> int:
     """
 
     if _LITELLM_AVAILABLE:
-        litellm_model = convert_mlflow_uri_to_litellm(model)
+        litellm_model = convert_model_uri_to_litellm(model)
         try:
             max_tokens = get_model_info(litellm_model)["max_input_tokens"]
             if max_tokens is not None:
@@ -128,7 +128,7 @@ def truncate_to_token_limit(text: str, model: str, model_type: str) -> str:
     if len(text) <= max_tokens * 4 - _FLEX_TOKENS:
         return text
 
-    litellm_model = convert_mlflow_uri_to_litellm(model)
+    litellm_model = convert_model_uri_to_litellm(model)
     token_count = token_counter(model=litellm_model, text=text)
     if token_count <= max_tokens:
         return text
@@ -199,7 +199,7 @@ def _create_batches(
     max_input_tokens = _get_model_max_input_tokens(reflection_lm, model_type="chat")
     prompt_tokens_limit = max_input_tokens - _FLEX_TOKENS
 
-    litellm_model = convert_mlflow_uri_to_litellm(reflection_lm) if _LITELLM_AVAILABLE else None
+    litellm_model = convert_model_uri_to_litellm(reflection_lm) if _LITELLM_AVAILABLE else None
 
     # Compute base overhead (template + instructions + guidelines, without examples)
     template = Template(DISTILLATION_PROMPT_TEMPLATE)
