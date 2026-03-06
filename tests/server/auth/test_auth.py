@@ -12,6 +12,7 @@ from pathlib import Path
 import jwt
 import pytest
 import requests
+from cryptography.fernet import Fernet
 
 import mlflow
 from mlflow import MlflowClient
@@ -150,6 +151,38 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
             + f"/ajax-api/2.0/mlflow-artifacts/artifacts/{experiment_id}/test.txt"
         ),
         data=b"forbidden",
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_proxy_artifact_list_query_param_uses_experiment_permission(client, monkeypatch):
+    # Regression test for https://github.com/mlflow/mlflow/issues/21201:
+    # When default_permission is NO_PERMISSIONS, a user with explicit experiment permission
+    # should be able to list artifacts via query parameter path (GET ?path=<experiment_id>/...).
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("proxy-artifact-list-query-param-test")
+
+    # user1 has MANAGE on experiment — list via query param path should be allowed (HTTP 200)
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow-artifacts/artifacts",
+        params={"path": f"{experiment_id}/models/m-abc123/artifacts"},
+        auth=(username1, password1),
+    )
+    assert response.status_code != 403
+
+    # user2 has no permission on the experiment — expect 403
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow-artifacts/artifacts",
+        params={"path": f"{experiment_id}/models/m-abc123/artifacts"},
         auth=(username2, password2),
     )
     assert response.status_code == 403
@@ -2737,3 +2770,117 @@ def test_list_users(client):
     data = response.json()
     assert "users" in data
     assert len(data["users"]) >= 3
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY": Fernet.generate_key().decode("utf-8")}],
+    indirect=True,
+)
+def test_webhook_admin_only_permissions(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+
+    # Non-admin: create webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+            json={
+                "name": "test-webhook",
+                "url": "https://example.com/webhook",
+                "events": [{"entity": "MODEL_VERSION", "action": "CREATED"}],
+            },
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Non-admin: list webhooks should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: create webhook should succeed
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+        json={
+            "name": "admin-webhook",
+            "url": "https://example.com/webhook",
+            "events": [{"entity": "MODEL_VERSION", "action": "CREATED"}],
+        },
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+    webhook_id = response.json()["webhook"]["webhook_id"]
+
+    # Admin: list webhooks should succeed
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+    # Non-admin: get webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: get webhook should succeed
+    response = requests.get(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+    # Non-admin: update webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.patch(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+            json={"name": "updated-name"},
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: update webhook should succeed
+    response = requests.patch(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+        json={"name": "updated-name"},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+    # Non-admin: test webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}/test",
+            json={},
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: test webhook should succeed
+    response = requests.post(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}/test",
+        json={},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+    # Non-admin: delete webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: delete webhook should succeed
+    response = requests.delete(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()

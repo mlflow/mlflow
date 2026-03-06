@@ -12,6 +12,8 @@ export enum TraceMetricKey {
   INPUT_TOKENS = 'input_tokens',
   OUTPUT_TOKENS = 'output_tokens',
   TOTAL_TOKENS = 'total_tokens',
+  CACHE_READ_INPUT_TOKENS = 'cache_read_input_tokens',
+  CACHE_CREATION_INPUT_TOKENS = 'cache_creation_input_tokens',
 }
 
 /**
