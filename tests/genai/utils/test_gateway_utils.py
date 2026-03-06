@@ -5,6 +5,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig, get_gateway_litellm_config
+from mlflow.utils.credentials import MlflowCreds
 
 
 @pytest.mark.parametrize(
@@ -106,8 +107,6 @@ def test_get_gateway_litellm_config_with_credentials_file(monkeypatch):
     monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
     monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
     monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
-
-    from mlflow.utils.credentials import MlflowCreds
 
     with (
         mock.patch(
