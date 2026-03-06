@@ -55,15 +55,14 @@ class _TokenCounter:
 
     def track(self, response) -> None:
         with self._lock:
-            usage = getattr(response, "usage", None)
-            if usage:
+            if usage := getattr(response, "usage", None):
                 self.input_tokens += getattr(usage, "prompt_tokens", 0) or 0
                 self.output_tokens += getattr(usage, "completion_tokens", 0) or 0
             if hidden := getattr(response, "_hidden_params", None):
                 if cost := hidden.get("response_cost"):
                     self.cost_usd += cost
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         result = {}
         total = self.input_tokens + self.output_tokens
         if total > 0:
@@ -77,7 +76,7 @@ class _TokenCounter:
 
 def _call_llm(
     model: str,
-    messages: list[dict],
+    messages: list[dict[str, str]],
     *,
     json_mode: bool = False,
     token_counter: _TokenCounter | None = None,
