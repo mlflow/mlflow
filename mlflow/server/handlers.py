@@ -4034,7 +4034,6 @@ def _create_issue():
         "source_run_id": request_message.source_run_id or None,
         "root_causes": list(request_message.root_causes) or None,
         "confidence": request_message.confidence or None,
-        "trace_ids": list(request_message.trace_ids) or None,
         "created_by": request_message.created_by or None,
     }
 

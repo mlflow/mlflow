@@ -5148,14 +5148,6 @@ def test_create_issue_with_all_fields(mlflow_client, store_type):
     experiment_id = mlflow_client.create_experiment("Issue Test")
     run = mlflow_client.create_run(experiment_id)
 
-    # Create actual traces for testing
-    trace1 = mlflow_client.start_trace(name="trace1", experiment_id=experiment_id)
-    mlflow_client.end_trace(trace_id=trace1.request_id, status=TraceStatus.OK)
-    trace2 = mlflow_client.start_trace(name="trace2", experiment_id=experiment_id)
-    mlflow_client.end_trace(trace_id=trace2.request_id, status=TraceStatus.OK)
-    trace3 = mlflow_client.start_trace(name="trace3", experiment_id=experiment_id)
-    mlflow_client.end_trace(trace_id=trace3.request_id, status=TraceStatus.OK)
-
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
         json={
@@ -5166,7 +5158,6 @@ def test_create_issue_with_all_fields(mlflow_client, store_type):
             "source_run_id": run.info.run_id,
             "root_causes": ["Database query inefficiency", "Network latency"],
             "confidence": "high",
-            "trace_ids": [trace1.request_id, trace2.request_id, trace3.request_id],
             "created_by": "test-user",
         },
     )
@@ -5462,8 +5453,6 @@ def test_search_issues_sorted_by_timestamp(mlflow_client, store_type):
     experiment_id = mlflow_client.create_experiment("Issue Test Sort")
 
     # Create issues with slight delays to ensure different timestamps
-    import time
-
     issue_ids = []
     for i in range(3):
         response = requests.post(

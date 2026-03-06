@@ -4174,7 +4174,6 @@ def test_create_issue_with_all_fields():
     request_message.source_run_id = "run-123"
     request_message.root_causes.extend(["Database query inefficiency", "Network latency"])
     request_message.confidence = "high"
-    request_message.trace_ids.extend(["trace-1", "trace-2", "trace-3"])
     request_message.created_by = "user@example.com"
 
     issue = Issue(
@@ -4208,7 +4207,6 @@ def test_create_issue_with_all_fields():
         assert call_kwargs["source_run_id"] == "run-123"
         assert call_kwargs["root_causes"] == ["Database query inefficiency", "Network latency"]
         assert call_kwargs["confidence"] == "high"
-        assert call_kwargs["trace_ids"] == ["trace-1", "trace-2", "trace-3"]
         assert call_kwargs["created_by"] == "user@example.com"
 
         json_response = json.loads(response.get_data())
@@ -4532,4 +4530,3 @@ def test_create_issue_with_empty_lists():
         call_kwargs = mock_store.return_value.create_issue.call_args[1]
         # Empty lists should be passed as None
         assert call_kwargs["root_causes"] is None
-        assert call_kwargs["trace_ids"] is None
