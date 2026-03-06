@@ -234,6 +234,33 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT = (
 
 # ---- Trace annotation prompt ----
 
+# ---- Label clustering prompt ----
+
+CLUSTER_LABELS_PROMPT_TEMPLATE = (
+    "Below are {num_labels} failure labels from an AI agent.\n"
+    "Each label has the format: [execution_path] symptom\n"
+    "The execution path shows which sub-agents and tools were called.\n\n"
+    "Group these labels into coherent issue categories. Two labels belong "
+    "in the same group when:\n"
+    "  1. They share the same failure pattern (similar symptom)\n"
+    "  2. They involve the same tool, sub-agent, or execution path\n\n"
+    "Same tool/path strongly suggests the same root cause — group together "
+    "unless symptoms are clearly unrelated. Different paths MAY still be the "
+    "same issue if symptoms are very similar.\n\n"
+    "Rules:\n"
+    "- Each group should have a name prefixed with 'Issue: ' followed by a short "
+    "readable description (3-8 words), e.g. 'Issue: Incomplete response details'\n"
+    "- A label can only appear in one group\n"
+    "- Singleton groups are fine for truly unique issues\n"
+    "- Create at most {max_issues} groups\n\n"
+    "Labels:\n{numbered_labels}\n\n"
+    'Return a JSON object with a "groups" key containing an array of objects, '
+    'each with "name" (short readable string) and "indices" (list of ints).\n'
+    "Return ONLY the JSON, no explanation."
+)
+
+# ---- Trace annotation prompt ----
+
 TRACE_ANNOTATION_SYSTEM_PROMPT = (
     "You are annotating a trace that was identified as exhibiting a known issue.\n\n"
     "You will be given:\n"

@@ -3,21 +3,16 @@ from __future__ import annotations
 import json
 import logging
 
-import mlflow
 from mlflow.genai.discovery.constants import (
+    CLUSTER_LABELS_PROMPT_TEMPLATE,
     CLUSTER_SUMMARY_SYSTEM_PROMPT,
     DEFAULT_MODEL,
-    LLM_MAX_TOKENS,
-    NUM_RETRIES,
-    _to_litellm_model,
 )
 from mlflow.genai.discovery.entities import (
-    Issue,
     _ConversationAnalysis,
     _IdentifiedIssue,
-    _TokenCounter,
 )
-from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
+from mlflow.genai.discovery.utils import _call_llm, _TokenCounter
 
 _logger = logging.getLogger(__name__)
 
@@ -46,43 +41,20 @@ def cluster_by_llm(
         List of index lists, where each inner list is a cluster of label indices.
     """
     model = model or DEFAULT_MODEL
-    litellm_model = _to_litellm_model(model)
 
     numbered = "\n".join(f"[{i}] {lbl}" for i, lbl in enumerate(labels))
-    prompt = (
-        f"Below are {len(labels)} failure labels from an AI agent.\n"
-        "Each label has the format: [execution_path] symptom\n"
-        "The execution path shows which sub-agents and tools were called.\n\n"
-        "Group these labels into coherent issue categories. Two labels belong "
-        "in the same group when:\n"
-        "  1. They share the same failure pattern (similar symptom)\n"
-        "  2. They involve the same tool, sub-agent, or execution path\n\n"
-        "Same tool/path strongly suggests the same root cause — group together "
-        "unless symptoms are clearly unrelated. Different paths MAY still be the "
-        "same issue if symptoms are very similar.\n\n"
-        "Rules:\n"
-        "- Each group should have a name prefixed with 'Issue: ' followed by a short "
-        "readable description (3-8 words), e.g. 'Issue: Incomplete response details'\n"
-        "- A label can only appear in one group\n"
-        "- Singleton groups are fine for truly unique issues\n"
-        f"- Create at most {max_issues} groups\n\n"
-        f"Labels:\n{numbered}\n\n"
-        'Return a JSON object with a "groups" key containing an array of objects, '
-        'each with "name" (short readable string) and "indices" (list of ints).\n'
-        "Return ONLY the JSON, no explanation."
+    prompt = CLUSTER_LABELS_PROMPT_TEMPLATE.format(
+        num_labels=len(labels),
+        max_issues=max_issues,
+        numbered_labels=numbered,
     )
 
-    response = _invoke_litellm(
-        litellm_model=litellm_model,
-        messages=[{"role": "user", "content": prompt}],
-        tools=[],
-        num_retries=NUM_RETRIES,
-        response_format={"type": "json_object"},
-        include_response_format=True,
-        inference_params={"max_tokens": LLM_MAX_TOKENS},
+    response = _call_llm(
+        model,
+        [{"role": "user", "content": prompt}],
+        json_mode=True,
+        token_counter=token_counter,
     )
-    if token_counter is not None:
-        token_counter.track(response)
     content = (response.choices[0].message.content or "").strip()
     if not content:
         _logger.warning(
@@ -154,56 +126,20 @@ def summarize_cluster(
         f"Respond with a JSON object matching this schema:\n{schema_json}"
     )
 
-    litellm_model = _to_litellm_model(model)
-
-    response = _invoke_litellm(
-        litellm_model=litellm_model,
-        messages=[
+    response = _call_llm(
+        model,
+        [
             {"role": "system", "content": system_prompt},
             {
                 "role": "user",
                 "content": f"Cluster of {len(cluster_indices)} analyses:\n\n{analyses_text}",
             },
         ],
-        tools=[],
-        num_retries=NUM_RETRIES,
-        response_format={"type": "json_object"},
-        include_response_format=True,
-        inference_params={"max_tokens": LLM_MAX_TOKENS},
+        json_mode=True,
+        token_counter=token_counter,
     )
-    if token_counter is not None:
-        token_counter.track(response)
 
     content = (response.choices[0].message.content or "").strip()
     result = _IdentifiedIssue(**json.loads(content))
     result.example_indices = cluster_indices
     return result
-
-
-def build_summary(issues: list[Issue], total_traces: int) -> str:
-    if not issues:
-        return f"## Issue Discovery Summary\n\nAnalyzed {total_traces} traces. No issues found."
-
-    lines = [
-        "## Issue Discovery Summary\n",
-        f"Analyzed **{total_traces}** traces. Found **{len(issues)}** issues:\n",
-    ]
-    for i, issue in enumerate(issues, 1):
-        lines.append(
-            f"### {i}. {issue.name} ({issue.frequency:.0%} of traces, "
-            f"confidence: {issue.confidence})\n\n"
-            f"{issue.description}\n\n"
-            f"**Root cause:** {issue.root_cause}\n"
-        )
-    return "\n".join(lines)
-
-
-def log_discovery_artifacts(run_id: str, artifacts: dict[str, str]) -> None:
-    if not run_id:
-        return
-    client = mlflow.MlflowClient()
-    for filename, content in artifacts.items():
-        try:
-            client.log_text(run_id, content, filename)
-        except Exception:
-            _logger.warning("Failed to log %s to run %s", filename, run_id, exc_info=True)
