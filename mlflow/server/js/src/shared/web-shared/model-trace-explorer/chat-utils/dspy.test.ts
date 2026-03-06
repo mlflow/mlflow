@@ -63,6 +63,17 @@ describe('normalizeConversation', () => {
     expect(conv?.[0].content).not.toContain('[[ ## completed ## ]]');
     expect(conv?.[0].content).toContain('  \n');
   });
+
+  it('should render JSON output as a formatted code block', () => {
+    const jsonOutput = ['{ "summary": "MLflow is great." }'];
+    const conv = normalizeConversation(jsonOutput, 'dspy');
+    expect(conv).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: '```json\n{\n  "summary": "MLflow is great."\n}\n```',
+      }),
+    ]);
+  });
 });
 
 describe('formatDspySections', () => {

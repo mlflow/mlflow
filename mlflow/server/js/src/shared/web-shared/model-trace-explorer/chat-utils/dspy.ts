@@ -48,8 +48,21 @@ export const normalizeDspyChatInput = (obj: unknown): ModelTraceChatMessage[] | 
 export const normalizeDspyChatOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
   // Handle DSPy format with array output
   if (isArray(obj) && obj.length > 0 && obj.every(isString)) {
-    // Join all output strings into one assistant message
-    const content = toMarkdownWithHardBreaks(formatDspySections(obj.join('\n')));
+    const joined = obj.join('\n');
+
+    // If the output is valid JSON, render it as a formatted code block
+    let content: string;
+    try {
+      const parsed = JSON.parse(joined);
+      if (typeof parsed === 'object' && parsed !== null) {
+        content = '```json\n' + JSON.stringify(parsed, null, 2) + '\n```';
+      } else {
+        content = toMarkdownWithHardBreaks(formatDspySections(joined));
+      }
+    } catch {
+      content = toMarkdownWithHardBreaks(formatDspySections(joined));
+    }
+
     const message = prettyPrintChatMessage({ type: 'message', content, role: 'assistant' });
     return message && [message];
   }
