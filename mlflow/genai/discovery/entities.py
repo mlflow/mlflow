@@ -22,6 +22,14 @@ class Issue:
 
 
 @dataclass
+class DiscoverIssuesResult:
+    issues: list[Issue]
+    triage_run_id: str
+    summary: str
+    total_traces_analyzed: int
+
+
+@dataclass
 class _ConversationAnalysis:
     """Per-session analysis built from triage rationales and span errors.
 
