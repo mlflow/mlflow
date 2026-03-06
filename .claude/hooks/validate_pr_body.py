@@ -33,7 +33,12 @@ def main() -> None:
         return
 
     match input_data:
-        case {"tool_name": "Bash", "tool_input": {"command": str(command)}}:
+        case {
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": str(command),
+            },
+        }:
             pass
         case _:
             return
