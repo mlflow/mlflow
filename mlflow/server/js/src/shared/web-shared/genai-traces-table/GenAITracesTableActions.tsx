@@ -85,7 +85,7 @@ interface TraceActionsDropdownProps {
   traceActions?: TraceActions;
   setRowSelection: React.Dispatch<React.SetStateAction<RowSelectionState>> | undefined;
   sqlWarehouseId?: string;
-  isGroupedBySession?: boolean;
+  isGroupedBySession: boolean;
 }
 
 const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {

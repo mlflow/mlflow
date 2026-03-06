@@ -185,7 +185,7 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
 
         const exportableTrace = row.original.currentRunValue && !isComparing;
         // For traces within a session, show a spacer instead of a checkbox to maintain alignment
-        const isSessionChild = !!groupedRow.sessionId;
+        const isSessionTrace = !!groupedRow.sessionId;
 
         return (
           <div
@@ -203,11 +203,11 @@ export const GenAiTracesTableSessionGroupedRows = React.memo(function GenAiTrace
               row={row}
               exportableTrace={exportableTrace}
               enableRowSelection={enableRowSelection}
-              isSelected={isSessionChild ? undefined : row.getIsSelected()}
-              noCheckbox={isSessionChild}
+              isSelected={isSessionTrace ? undefined : row.getIsSelected()}
+              displayCheckbox={!isSessionTrace}
               isComparing={isComparing}
               selectedColumns={selectedColumns}
-              rowSelectionChangeHandler={isSessionChild ? undefined : rowSelectionChangeHandler}
+              rowSelectionChangeHandler={isSessionTrace ? undefined : rowSelectionChangeHandler}
             />
           </div>
         );

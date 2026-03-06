@@ -88,7 +88,7 @@ export const GenAiTracesTableBodyRow = React.memo(
     // eslint-disable-next-line react/no-unused-prop-types
     selectedColumns, // Prop needed to force row re-rending when selectedColumns change
     rowSelectionChangeHandler,
-    noCheckbox,
+    displayCheckbox = true,
   }: {
     row: Row<EvalTraceComparisonEntry>;
     exportableTrace?: boolean;
@@ -97,8 +97,8 @@ export const GenAiTracesTableBodyRow = React.memo(
     isSelected?: boolean;
     selectedColumns: TracesTableColumn[];
     rowSelectionChangeHandler?: (row: Row<EvalTraceComparisonEntry>, event: unknown) => void;
-    /** When true, renders a spacer instead of a checkbox in the select cell area */
-    noCheckbox?: boolean;
+    /** When false, renders a spacer instead of a checkbox in the select cell area */
+    displayCheckbox?: boolean;
   }) => {
     const cells = row.getVisibleCells();
     const intl = useIntl();
@@ -109,9 +109,9 @@ export const GenAiTracesTableBodyRow = React.memo(
     return (
       <>
         <TableRow>
-          <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0, gap: noCheckbox ? theme.spacing.xs : 0 }}>
+          <div css={{ display: 'flex', overflow: 'hidden', flexShrink: 0, gap: !displayCheckbox ? theme.spacing.xs : 0 }}>
             {enableRowSelection &&
-              (noCheckbox ? (
+              (!displayCheckbox ? (
                 <>
                   <TableRowSelectCell
                     componentId="mlflow.experiment-evaluation-monitoring.evals-logs-table-cell.spacer"

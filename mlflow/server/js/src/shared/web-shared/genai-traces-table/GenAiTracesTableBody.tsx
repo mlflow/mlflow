@@ -304,9 +304,9 @@ export const GenAiTracesTableBody = React.memo(
       (sessionId: string, traces: ModelTraceInfoV3[], event: unknown) => {
         const traceIds = traces.map((t) => t.trace_id);
         const currentSelection = table.getState().rowSelection ?? {};
-        const allSelected = traceIds.every((id) => currentSelection[id]);
-        const isDeselecting = allSelected;
+        const isDeselecting = traceIds.every((id) => currentSelection[id]);
 
+        // Support shift+click to select a range of sessions
         const eventWithShiftKey = event as KeyboardEvent & MouseEvent;
         const isShiftPressed = Boolean(eventWithShiftKey?.shiftKey);
 
