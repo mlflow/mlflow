@@ -17,13 +17,13 @@ from mlflow.genai.discovery.clustering import (
     summarize_cluster,
 )
 from mlflow.genai.discovery.constants import (
-    CONFIDENCE_ORDER,
     DEFAULT_MODEL,
     DEFAULT_SCORER_NAME,
     DEFAULT_TRIAGE_SAMPLE_SIZE,
     MAX_EXAMPLE_TRACE_IDS,
-    MIN_CONFIDENCE,
+    MIN_SEVERITY,
     NO_ISSUE_KEYWORD,
+    SEVERITY_ORDER,
     SURFACE_TRUNCATION_LIMIT,
     TRACE_ANNOTATION_SYSTEM_PROMPT,
     TRACE_CONTENT_TRUNCATION,
@@ -81,12 +81,12 @@ _NO_ISSUE_PATTERNS = frozenset(
 )
 
 
-def confidence_gte(a: str, b: str) -> bool:
-    return CONFIDENCE_ORDER.get(a, -1) >= CONFIDENCE_ORDER.get(b, 0)
+def severity_gte(a: str, b: str) -> bool:
+    return SEVERITY_ORDER.get(a, -1) >= SEVERITY_ORDER.get(b, 0)
 
 
-def confidence_max(a: str, b: str) -> str:
-    return a if CONFIDENCE_ORDER.get(a, 0) >= CONFIDENCE_ORDER.get(b, 0) else b
+def severity_max(a: str, b: str) -> str:
+    return a if SEVERITY_ORDER.get(a, 0) >= SEVERITY_ORDER.get(b, 0) else b
 
 
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:
@@ -201,7 +201,7 @@ def _recluster_singletons(
         merged_issue = summarize_cluster(
             merged_indices, analyses, model, token_counter=token_counter
         )
-        if confidence_gte(merged_issue.confidence, MIN_CONFIDENCE):
+        if severity_gte(merged_issue.severity, MIN_SEVERITY):
             result.append(merged_issue)
         else:
             result.extend(singletons[group_idx] for group_idx in group)
@@ -610,16 +610,16 @@ def discover_issues(
             summaries[future_to_idx[future]] = future.result()
 
     # Re-split incoherent clusters: if the summarizer flags a multi-member
-    # cluster as low-confidence, break it into singletons and resummarize
+    # cluster as low-severity, break it into singletons and resummarize
     # each one so the individual items get a fair standalone assessment.
     resplit_groups: list[list[int]] = []
     for group, issue in zip(cluster_groups, summaries):
-        if not confidence_gte(issue.confidence, MIN_CONFIDENCE) and len(group) > 1:
+        if not severity_gte(issue.severity, MIN_SEVERITY) and len(group) > 1:
             _logger.info(
                 "Phase 3: Re-splitting incoherent cluster '%s' "
-                "(confidence=%s, %d members) into singletons",
+                "(severity=%s, %d members) into singletons",
                 issue.name,
-                issue.confidence,
+                issue.severity,
                 len(group),
             )
             resplit_groups.extend([idx] for idx in group)
@@ -638,7 +638,7 @@ def discover_issues(
         final_groups: list[list[int]] = []
         final_summaries: list[_IdentifiedIssue] = []
         for group, issue in zip(cluster_groups, summaries):
-            if not confidence_gte(issue.confidence, MIN_CONFIDENCE) and len(group) > 1:
+            if not severity_gte(issue.severity, MIN_SEVERITY) and len(group) > 1:
                 continue
             final_groups.append(group)
             final_summaries.append(issue)
@@ -651,11 +651,11 @@ def discover_issues(
     identified: list[_IdentifiedIssue] = [
         issue
         for issue in summaries
-        if confidence_gte(issue.confidence, MIN_CONFIDENCE) and not _is_non_issue(issue)
+        if severity_gte(issue.severity, MIN_SEVERITY) and not _is_non_issue(issue)
     ]
 
     # Merge issues with identical names (case-insensitive), combining their
-    # example indices and keeping the higher confidence level.
+    # example indices and keeping the higher severity level.
     seen_names: dict[str, int] = {}
     deduped: list[_IdentifiedIssue] = []
     for issue in identified:
@@ -664,7 +664,7 @@ def discover_issues(
             existing = deduped[seen_names[key]]
             merged_indices = list(set(existing.example_indices + issue.example_indices))
             existing.example_indices = merged_indices
-            existing.confidence = confidence_max(existing.confidence, issue.confidence)
+            existing.severity = severity_max(existing.severity, issue.severity)
         else:
             seen_names[key] = len(deduped)
             deduped.append(issue)
@@ -700,9 +700,9 @@ def discover_issues(
     for issue in identified:
         example_ids = _collect_example_trace_ids(issue, analyses)
         _logger.info(
-            "  %s (confidence %s): %s | root_cause: %s | examples: %s",
+            "  %s (severity %s): %s | root_cause: %s | examples: %s",
             issue.name,
-            issue.confidence,
+            issue.severity,
             issue.description,
             issue.root_cause,
             example_ids,
@@ -740,14 +740,14 @@ def discover_issues(
                 root_cause=ident.root_cause,
                 example_trace_ids=example_ids,
                 frequency=freq,
-                confidence=ident.confidence,
+                severity=ident.severity,
                 status="open",
                 created_at=now_iso,
             )
         )
 
     issues.sort(
-        key=lambda i: (i.frequency, CONFIDENCE_ORDER.get(i.confidence, 0)),
+        key=lambda i: (i.frequency, SEVERITY_ORDER.get(i.severity, 0)),
         reverse=True,
     )
 
@@ -793,7 +793,7 @@ def discover_issues(
             "description": issue.description,
             "root_cause": issue.root_cause,
             "frequency": issue.frequency,
-            "confidence": issue.confidence,
+            "severity": issue.severity,
             "example_trace_ids": issue.example_trace_ids,
             "status": issue.status,
             "created_at": issue.created_at,

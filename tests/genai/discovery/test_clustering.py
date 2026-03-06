@@ -99,7 +99,7 @@ def test_summarize_cluster():
                         "description": "LLM generates incorrect facts",
                         "root_cause": "Model confabulation",
                         "example_indices": [],
-                        "confidence": "definitely_yes",
+                        "severity": "high",
                     }
                 )
             )
@@ -133,7 +133,7 @@ def test_build_summary_with_issues():
             root_cause="API timeout",
             example_trace_ids=["t-0"],
             frequency=0.3,
-            confidence="definitely_yes",
+            severity="high",
         ),
     ]
     summary = build_summary(issues, 100)

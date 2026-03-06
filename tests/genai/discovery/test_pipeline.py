@@ -10,9 +10,9 @@ from mlflow.genai.discovery.pipeline import (
     _format_trace_content,
     _is_non_issue,
     _recluster_singletons,
-    confidence_gte,
-    confidence_max,
     discover_issues,
+    severity_gte,
+    severity_max,
     verify_scorer,
 )
 from mlflow.genai.evaluation.entities import EvaluationResult
@@ -96,7 +96,7 @@ def test_discover_issues_full_pipeline(make_trace):
         description="Responses take too long",
         root_cause="Complex queries",
         example_indices=[0, 1],
-        confidence="definitely_yes",
+        severity="high",
     )
 
     with (
@@ -141,18 +141,18 @@ def test_discover_issues_full_pipeline(make_trace):
     assert result.triage_run_id == "run-triage"
 
 
-def test_discover_issues_low_confidence_issues_filtered(make_trace):
+def test_discover_issues_low_severity_issues_filtered(make_trace):
     traces = [make_trace() for _ in range(5)]
     failing = traces[:2]
     rationale_map = {t.info.trace_id: "bad" for t in failing}
 
-    # summarize_cluster returns issue with low confidence (below MIN_CONFIDENCE="weak_yes")
-    low_confidence_issue = _IdentifiedIssue(
+    # summarize_cluster returns issue with low severity (below MIN_SEVERITY="low")
+    low_severity_issue = _IdentifiedIssue(
         name="rare_issue",
         description="Happens very rarely",
         root_cause="Unknown",
         example_indices=[0],
-        confidence="maybe",
+        severity="not_an_issue",
     )
 
     with (
@@ -177,7 +177,7 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
         ) as mock_cluster,
         patch(
             "mlflow.genai.discovery.pipeline.summarize_cluster",
-            return_value=low_confidence_issue,
+            return_value=low_severity_issue,
         ) as mock_summarize,
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
@@ -189,7 +189,7 @@ def test_discover_issues_low_confidence_issues_filtered(make_trace):
 
     mock_cluster.assert_called_once()
     # Called once for the original cluster, then twice more for singleton re-splits
-    # (confidence=50 < 75 triggers re-splitting of the 2-member cluster)
+    # (severity=not_an_issue < low triggers re-splitting of the 2-member cluster)
     assert mock_summarize.call_count == 3
     assert len(result.issues) == 0
 
@@ -305,7 +305,7 @@ def test_is_non_issue(name, description, root_cause, expected):
         description=description,
         root_cause=root_cause,
         example_indices=[0],
-        confidence="definitely_yes",
+        severity="high",
     )
     assert _is_non_issue(issue) == expected
 
@@ -320,7 +320,7 @@ def test_discover_issues_filters_no_issue_results(make_trace):
         description="This trace analysis found no identifiable issues.",
         root_cause="N/A",
         example_indices=[0, 1, 2],
-        confidence="definitely_yes",
+        severity="high",
     )
 
     with (
@@ -368,7 +368,7 @@ def test_discover_issues_filters_canonical_no_issue_keyword(make_trace):
         description="The analyses do not represent a real failure.",
         root_cause="N/A",
         example_indices=[0, 1, 2],
-        confidence="definitely_no",
+        severity="not_an_issue",
     )
 
     with (
@@ -422,7 +422,7 @@ def _make_issue(**kwargs):
         "root_cause": "Test cause",
         "example_trace_ids": [],
         "frequency": 0.0,
-        "confidence": "definitely_yes",
+        "severity": "high",
     }
     defaults.update(kwargs)
     return Issue(**defaults)
@@ -483,7 +483,7 @@ def test_annotate_traces_llm_failure_falls_back_to_triage_rationale():
             root_cause="Upstream latency",
             example_trace_ids=["t1"],
             frequency=0.1,
-            confidence="weak_yes",
+            severity="low",
         ),
     ]
     rationale_map = {"t1": "Original triage rationale"}
@@ -511,7 +511,7 @@ def test_annotate_traces_log_feedback_failure_handled_gracefully():
             root_cause="Connection pool",
             example_trace_ids=["t1"],
             frequency=0.1,
-            confidence="weak_yes",
+            severity="low",
         ),
     ]
 
@@ -651,14 +651,14 @@ def test_recluster_merges_similar_singletons():
             description="Error A",
             root_cause="API failure",
             example_indices=[0],
-            confidence="definitely_yes",
+            severity="high",
         ),
         _IdentifiedIssue(
             name="Issue B",
             description="Error B",
             root_cause="API failure",
             example_indices=[1],
-            confidence="definitely_yes",
+            severity="high",
         ),
     ]
     labels = ["[tool_call] API timeout", "[tool_call] API timeout"]
@@ -668,7 +668,7 @@ def test_recluster_merges_similar_singletons():
         description="Merged",
         root_cause="API failure",
         example_indices=[0, 1],
-        confidence="definitely_yes",
+        severity="high",
     )
 
     with (
@@ -708,14 +708,14 @@ def test_recluster_keeps_unmerged_singletons():
             description="A",
             root_cause="A",
             example_indices=[0],
-            confidence="definitely_yes",
+            severity="high",
         ),
         _IdentifiedIssue(
             name="Issue B",
             description="B",
             root_cause="B",
             example_indices=[1],
-            confidence="definitely_yes",
+            severity="high",
         ),
     ]
     labels = ["[path_a] symptom a", "[path_b] symptom b"]
@@ -737,7 +737,7 @@ def test_recluster_single_singleton_returns_as_is():
             description="Only one",
             root_cause="N/A",
             example_indices=[0],
-            confidence="definitely_yes",
+            severity="high",
         ),
     ]
     result = _recluster_singletons(singletons, ["label"], [], "m", 25)
@@ -745,7 +745,7 @@ def test_recluster_single_singleton_returns_as_is():
     assert result[0].name == "Solo"
 
 
-def test_recluster_low_confidence_merge_keeps_originals():
+def test_recluster_low_severity_merge_keeps_originals():
     analyses = [
         _ConversationAnalysis(
             surface="A",
@@ -764,24 +764,24 @@ def test_recluster_low_confidence_merge_keeps_originals():
             description="A",
             root_cause="A",
             example_indices=[0],
-            confidence="weak_yes",
+            severity="low",
         ),
         _IdentifiedIssue(
             name="B",
             description="B",
             root_cause="B",
             example_indices=[1],
-            confidence="weak_yes",
+            severity="low",
         ),
     ]
     labels = ["label a", "label b"]
 
-    low_conf_merged = _IdentifiedIssue(
+    low_severity_merged = _IdentifiedIssue(
         name="Merged",
         description="M",
         root_cause="M",
         example_indices=[0, 1],
-        confidence="maybe",
+        severity="not_an_issue",
     )
 
     with (
@@ -791,7 +791,7 @@ def test_recluster_low_confidence_merge_keeps_originals():
         ),
         patch(
             "mlflow.genai.discovery.pipeline.summarize_cluster",
-            return_value=low_conf_merged,
+            return_value=low_severity_merged,
         ),
     ):
         result = _recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
@@ -801,15 +801,15 @@ def test_recluster_low_confidence_merge_keeps_originals():
     assert result[1].name == "B"
 
 
-def test_confidence_helpers():
-    assert confidence_gte("definitely_yes", "weak_yes")
-    assert confidence_gte("weak_yes", "weak_yes")
-    assert not confidence_gte("maybe", "weak_yes")
-    assert not confidence_gte("definitely_no", "weak_yes")
+def test_severity_helpers():
+    assert severity_gte("high", "low")
+    assert severity_gte("low", "low")
+    assert severity_gte("medium", "low")
+    assert not severity_gte("not_an_issue", "low")
 
-    assert confidence_max("definitely_yes", "weak_yes") == "definitely_yes"
-    assert confidence_max("maybe", "weak_yes") == "weak_yes"
-    assert confidence_max("definitely_no", "maybe") == "maybe"
+    assert severity_max("high", "low") == "high"
+    assert severity_max("not_an_issue", "low") == "low"
+    assert severity_max("not_an_issue", "medium") == "medium"
 
 
 # ---- verify_scorer ----

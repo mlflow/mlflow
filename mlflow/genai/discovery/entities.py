@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pydantic
 
-from mlflow.genai.discovery.constants import ConfidenceLevel
+from mlflow.genai.discovery.constants import SeverityLevel
 
 
 @dataclass
@@ -16,7 +16,7 @@ class Issue:
     root_cause: str
     example_trace_ids: list[str]
     frequency: float
-    confidence: ConfidenceLevel
+    severity: SeverityLevel
     status: str = "open"
     created_at: str = ""
 
@@ -49,10 +49,10 @@ class _IdentifiedIssue(pydantic.BaseModel):
     example_indices: list[int] = pydantic.Field(
         description="Indices into the input trace summary list that exemplify this issue"
     )
-    confidence: ConfidenceLevel = pydantic.Field(
+    severity: SeverityLevel = pydantic.Field(
         description=(
-            "Confidence that this is a real, distinct issue. "
-            "definitely_no=not a real issue, weak_no=probably not real, "
-            "maybe=uncertain, weak_yes=probably real, definitely_yes=certainly real"
+            "Severity of this issue. "
+            "not_an_issue=not a real issue, low=minor issue, "
+            "medium=moderate issue, high=critical issue"
         ),
     )

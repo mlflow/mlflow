@@ -98,7 +98,7 @@ def summarize_cluster(
     """
     Summarize a cluster of analyses into a single identified issue.
 
-    Uses an LLM to synthesize a name, description, root cause, and confidence
+    Uses an LLM to synthesize a name, description, root cause, and severity
     for the cluster. Always returns all cluster indices as example_indices
     (overriding the LLM's selection).
 

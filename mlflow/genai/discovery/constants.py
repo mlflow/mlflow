@@ -18,11 +18,11 @@ LLM_MAX_TOKENS = 8192
 SURFACE_TRUNCATION_LIMIT = 800
 TRACE_CONTENT_TRUNCATION = 1000
 
-# Likert confidence scale — ordinal comparison for filtering/sorting
-ConfidenceLevel = Literal["definitely_no", "weak_no", "maybe", "weak_yes", "definitely_yes"]
-CONFIDENCE_LEVELS = ("definitely_no", "weak_no", "maybe", "weak_yes", "definitely_yes")
-CONFIDENCE_ORDER = {level: i for i, level in enumerate(CONFIDENCE_LEVELS)}
-MIN_CONFIDENCE = "weak_yes"
+# Severity scale — ordinal comparison for filtering/sorting
+SeverityLevel = Literal["not_an_issue", "low", "medium", "high"]
+SEVERITY_LEVELS = ("not_an_issue", "low", "medium", "high")
+SEVERITY_ORDER = {level: i for i, level in enumerate(SEVERITY_LEVELS)}
+MIN_SEVERITY = "low"
 
 DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
@@ -202,7 +202,7 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "2. **Validate** whether the grouped analyses actually represent the same underlying issue\n\n"
     "IMPORTANT: If the analyses do NOT represent a real failure — e.g. the user's goals were "
     "achieved, the system functioned correctly, or there is no concrete deficiency — you MUST "
-    f'set the name to exactly "{NO_ISSUE_KEYWORD}" and set confidence to "definitely_no". '
+    f'set the name to exactly "{NO_ISSUE_KEYWORD}" and set severity to "not_an_issue". '
     "Do NOT invent an issue where none exists.\n\n"
     "Provide:\n"
     "- A name prefixed with 'Issue: ' followed by a short readable description "
@@ -217,9 +217,9 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "tool may be returning stale cached results', 'the system prompt does not instruct "
     "the agent to respect user constraints'). Be specific but note these are hypotheses "
     "based on observed symptoms.\n"
-    f"- A confidence level from: {', '.join(CONFIDENCE_LEVELS)}. "
-    "Use weak_yes or definitely_yes only if the analyses clearly share the same failure "
-    "pattern. Use definitely_no if they do NOT belong together or represent no real issue."
+    f"- A severity level from: {', '.join(SEVERITY_LEVELS)}. "
+    "Use medium or high only if the analyses clearly share the same failure "
+    "pattern. Use not_an_issue if they do NOT belong together or represent no real issue."
 )
 
 # ---- Trace annotation prompt ----

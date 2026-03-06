@@ -106,7 +106,7 @@ def build_summary(issues: list[Issue], total_traces: int) -> str:
     for i, issue in enumerate(issues, 1):
         lines.append(
             f"### {i}. {issue.name} ({issue.frequency:.0%} of traces, "
-            f"confidence: {issue.confidence})\n\n"
+            f"severity: {issue.severity})\n\n"
             f"{issue.description}\n\n"
             f"**Root cause:** {issue.root_cause}\n"
         )
