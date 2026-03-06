@@ -216,33 +216,29 @@ def test_score_model_anthropic(monkeypatch):
     )
 
 
-def test_score_model_bedrock(monkeypatch):
-    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test-access-key")
-    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret-key")
-    monkeypatch.setenv("AWS_SESSION_TOKEN", "test-session-token")
-
-    resp = {
-        "content": [
-            {
-                "text": "This is a test!",
-                "type": "text",
-            }
-        ],
-        "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
+def _make_bedrock_response(text="test"):
+    return {
+        "content": [{"text": text, "type": "text"}],
+        "id": "msg_test",
         "model": "claude-3-5-sonnet-20241022",
         "role": "assistant",
         "stop_reason": "end_turn",
         "stop_sequence": None,
         "type": "message",
-        "usage": {"input_tokens": 2095, "output_tokens": 503},
+        "usage": {"input_tokens": 10, "output_tokens": 5},
     }
 
-    mock_bedrock = mock.MagicMock()
-    with mock.patch("boto3.Session.client", return_value=mock_bedrock) as mock_session:
-        mock_bedrock.invoke_model.return_value = {
-            "body": mock.MagicMock(read=mock.MagicMock(return_value=json.dumps(resp).encode()))
-        }
 
+def _make_bedrock_invoke_return(resp):
+    return {"body": mock.MagicMock(read=mock.MagicMock(return_value=json.dumps(resp).encode()))}
+
+
+def test_score_model_bedrock():
+    resp = _make_bedrock_response("This is a test!")
+    mock_bedrock = mock.MagicMock()
+    mock_bedrock.invoke_model.return_value = _make_bedrock_invoke_return(resp)
+
+    with mock.patch("boto3.Session.client", return_value=mock_bedrock) as mock_session:
         response = score_model_on_payload(
             model_uri="bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0",
             payload="input prompt",
@@ -254,12 +250,7 @@ def test_score_model_bedrock(monkeypatch):
         )
 
     assert response == "This is a test!"
-    mock_session.assert_called_once_with(
-        service_name="bedrock-runtime",
-        aws_access_key_id="test-access-key",
-        aws_secret_access_key="test-secret-key",
-        aws_session_token="test-session-token",
-    )
+    mock_session.assert_called_once_with(service_name="bedrock-runtime")
     mock_bedrock.invoke_model.assert_called_once_with(
         # Anthropic models in Bedrock does not accept "model" and "stream" key,
         # and requires "anthropic_version" put within the body not headers.
@@ -275,6 +266,73 @@ def test_score_model_bedrock(monkeypatch):
         accept="application/json",
         contentType="application/json",
     )
+
+
+def test_score_model_bedrock_ignores_aws_role_arn(monkeypatch):
+    """Regression test for https://github.com/mlflow/mlflow/issues/20189.
+
+    When AWS_ROLE_ARN is set (e.g. by IRSA on EKS), MLflow should not call
+    sts:AssumeRole. Instead, boto3's default credential chain handles auth.
+    """
+    monkeypatch.setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/my-role")
+
+    resp = _make_bedrock_response()
+    mock_bedrock = mock.MagicMock()
+    mock_bedrock.invoke_model.return_value = _make_bedrock_invoke_return(resp)
+
+    with mock.patch("boto3.Session.client", return_value=mock_bedrock) as mock_session:
+        response = score_model_on_payload(
+            model_uri="bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0",
+            payload="input prompt",
+            eval_parameters={
+                "temperature": 0,
+                "max_tokens": 100,
+                "anthropic_version": "2023-06-01",
+            },
+        )
+
+    assert response == "test"
+    mock_session.assert_called_once_with(service_name="bedrock-runtime")
+
+
+def test_score_model_bedrock_assumes_role_with_mlflow_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_BEDROCK_ROLE_ARN", "arn:aws:iam::123456789012:role/cross-account")
+
+    resp = _make_bedrock_response()
+    mock_sts = mock.MagicMock()
+    mock_sts.assume_role.return_value = {
+        "Credentials": {
+            "AccessKeyId": "assumed-key",
+            "SecretAccessKey": "assumed-secret",
+            "SessionToken": "assumed-token",
+        }
+    }
+    mock_bedrock = mock.MagicMock()
+    mock_bedrock.invoke_model.return_value = _make_bedrock_invoke_return(resp)
+
+    def route_client(service_name, **kwargs):
+        if service_name == "sts":
+            return mock_sts
+        return mock_bedrock
+
+    with mock.patch("boto3.Session.client", side_effect=route_client):
+        response = score_model_on_payload(
+            model_uri="bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0",
+            payload="input prompt",
+            eval_parameters={
+                "temperature": 0,
+                "max_tokens": 100,
+                "anthropic_version": "2023-06-01",
+            },
+        )
+
+    assert response == "test"
+    mock_sts.assume_role.assert_called_once_with(
+        RoleArn="arn:aws:iam::123456789012:role/cross-account",
+        RoleSessionName="ai-gateway-bedrock",
+        DurationSeconds=900,
+    )
+    mock_bedrock.invoke_model.assert_called_once()
 
 
 def test_score_model_mistral(monkeypatch):
