@@ -2102,6 +2102,10 @@
     "defaultMessage": "No usage data available",
     "description": "Empty state title"
   },
+  "COIi12": {
+    "defaultMessage": "Run judges",
+    "description": "Button text for running multiple judges"
+  },
   "CPO2ro": {
     "defaultMessage": "GenAI apps & agents",
     "description": "A short label for custom experiments automatically identified as being focused on generative AI app and agent development"
