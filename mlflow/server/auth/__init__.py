@@ -109,7 +109,6 @@ from mlflow.protos.service_pb2 import (
     FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
-    GetGatewayBudgetPolicy,
     GetGatewayEndpoint,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
@@ -120,7 +119,6 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetWorkspace,
     ListArtifacts,
-    ListGatewayBudgetPolicies,
     ListGatewayEndpointBindings,
     ListScorers,
     ListScorerVersions,
@@ -147,6 +145,12 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewaySecret,
     UpdateRun,
     UpdateWorkspace,
+)
+from mlflow.protos.service_pb2 import (
+    GetGatewayBudgetPolicy as GetGatewayBudgetPolicy,
+)
+from mlflow.protos.service_pb2 import (
+    ListGatewayBudgetPolicies as ListGatewayBudgetPolicies,
 )
 from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints as ListGatewayEndpoints,
