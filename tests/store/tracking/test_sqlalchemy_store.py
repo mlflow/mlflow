@@ -272,6 +272,7 @@ def db_types_and_drivers():
         ],
         "postgresql": [
             "psycopg2",
+            "psycopg",  # psycopg3 - default driver for SQLAlchemy 2.0+
             "pg8000",
             "psycopg2cffi",
             "pypostgresql",
