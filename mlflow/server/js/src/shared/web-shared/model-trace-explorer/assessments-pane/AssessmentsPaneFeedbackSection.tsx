@@ -321,7 +321,7 @@ export const AssessmentsPaneFeedbackSection = ({
         <AssessmentCreateForm
           spanId={activeSpanId}
           traceId={traceId}
-          initialAssessmentType="feedback"
+          assessmentType="feedback"
           setExpanded={() => setCreateFormVisible(false)}
         />
       )}
